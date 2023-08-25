@@ -62,18 +62,18 @@ model Roles_permissions {
   role_id                                   String      @db.Uuid
   permission_id                             String      @db.Uuid
   created_by                                String?     @db.Uuid
-  updated_by                                String?     @db.Uuid 
+  updated_by                                String?     @db.Uuid
   users_roles_permissions_created_byTousers Users?      @relation("roles_permissions_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, map: "FK_a3f5b9874c55ee69fdd01531e14")
   permissions                               Permissions @relation(fields: [permission_id], references: [id], onDelete: NoAction, map: "FK_337aa8dba227a1fe6b73998307b")
   roles                                     Roles       @relation(fields: [role_id], references: [id], onDelete: NoAction, map: "FK_7d2dad9f14eddeb09c256fea719")
   users_roles_permissions_updated_byTousers Users?      @relation("roles_permissions_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, map: "FK_d1ba552f47d08621fdd2bbb0124")
 
   @@id([role_id, permission_id], map: "PK_0cd11f0b35c4d348c6ebb9b36b7")
-	@@map("roles_permissions")
+  @@map("roles_permissions")
 }
 
 model Users {
-  id                                                    String                           @id @default(uuid()) @map("PK_a3ffb1c0c8416b9fc6f907b7433") @db.Uuid
+  id                                                    String                           @id @default(uuid()) @db.Uuid
   phone                                                 String?                          @unique(map: "UQ_a000cca60bcf04454e727699490") @db.VarChar(20)
   email                                                 String?                          @unique(map: "UQ_0e2c0e1b4b5b0b0b0b0b0b0b0b0") @db.VarChar(100)
   login                                                 String                           @unique(map: "UQ_0e2c0e1b3b0b0b0b0b0b0b0b0b0") @db.VarChar(100)
@@ -105,7 +105,7 @@ model Users {
   permissions_permissions_updated_byTousers             Permissions[]                    @relation("permissions_updated_byTousers")
   roles_roles_created_byTousers                         Roles[]                          @relation("roles_created_byTousers")
   roles_roles_updated_byTousers                         Roles[]                          @relation("roles_updated_byTousers")
-  roles_permissions_roles_permissions_created_byTousers Roles_permissions[]               @relation("roles_permissions_created_byTousers")
+  roles_permissions_roles_permissions_created_byTousers Roles_permissions[]              @relation("roles_permissions_created_byTousers")
   roles_permissions_roles_permissions_updated_byTousers Roles_permissions[]              @relation("roles_permissions_updated_byTousers")
   users_permissions_usersTousers_permissions_created_by Users_permissions[]              @relation("usersTousers_permissions_created_by")
   users_permissions_usersTousers_permissions_updated_by Users_permissions[]              @relation("usersTousers_permissions_updated_by")
@@ -127,6 +127,8 @@ model Users {
   timesheet_users                                       Timesheet[]
   scheduled_reports_subscription_users                  Scheduled_reports_subscription[]
   sessions                                              Sessions[]                       @relation("sessions_users")
+  credentials_created_byTousers                         Credentials[]                    @relation("credentials_created_byTousers")
+  credentials_updated_byTousers                         Credentials[]                    @relation("credentials_updated_byTousers")
 
   @@index([login], map: "fki_users_login")
   @@map("users")
@@ -210,7 +212,6 @@ model Terminals {
   address         String?
   latitude        Float        @default(0)
   longitude       Float        @default(0)
-  external_id     String       @unique
   organization_id String       @db.Uuid
   manager_name    String?
   organization    Organization @relation("terminals_organization_idTorganization", fields: [organization_id], references: [id], onDelete: NoAction, map: "FK_terminals_organization_id")
@@ -224,31 +225,16 @@ model Terminals {
 }
 
 model Organization {
-  id                       String                     @id(map: "PK_organization_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String
-  external_id              String?
-  active                   Boolean                    @default(true)
-  system_type              organization_system_type   @default(iiko)
-  phone                    String
-  iiko_login               String?
-  webhook                  String?
-  group_id                 String?
-  apelsin_login            String?
-  apelsin_password         String?
-  sender_name              String?
-  sender_number            String?
-  description              String?
-  max_distance             Int                        @default(0)
-  max_active_order_count   Int                        @default(0)
-  max_order_close_distance Int                        @default(0)
-  payment_type             organization_payment_types @default(client)
-  support_chat_url         String?
-  icon_url                 String?
-  allow_yandex_delivery    Boolean                    @default(false)
-  created_at               DateTime                   @default(now()) @db.Timestamptz(5)
-  updated_at               DateTime                   @default(now()) @db.Timestamptz(5)
-  created_by               String?                    @db.Uuid
-  updated_by               String?                    @db.Uuid
+  id          String   @id(map: "PK_organization_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  active      Boolean  @default(true)
+  phone       String?
+  description String?
+  icon_url    String?
+  created_at  DateTime @default(now()) @db.Timestamptz(5)
+  updated_at  DateTime @default(now()) @db.Timestamptz(5)
+  created_by  String?  @db.Uuid
+  updated_by  String?  @db.Uuid
 
   work_schedules_organization_idTorganization Work_schedules[] @relation("work_schedules_organization_idTorganization")
   organization_created_byTousers              Users?           @relation("organization_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, map: "FK_organization_created_by")
@@ -367,6 +353,23 @@ model Scheduled_reports_subscription {
   scheduled_reports_subscription_users   Users             @relation(fields: [user_id], references: [id], onDelete: NoAction, map: "FK_scheduled_reports_subscription_user_id")
 
   @@map("scheduled_reports_subscription")
+}
+
+model Credentials {
+  id         String   @id(map: "PK_credentials_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String   @unique
+  model      String
+  type       String
+  model_id   String
+  created_at DateTime @default(now()) @db.Timestamptz(5)
+  updated_at DateTime @default(now()) @db.Timestamptz(5)
+  created_by String?  @db.Uuid
+  updated_by String?  @db.Uuid
+
+  credentials_created_byTousers Users? @relation("credentials_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, map: "FK_credentials_created_by")
+  credentials_updated_byTousers Users? @relation("credentials_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, map: "FK_credentials_updated_by")
+
+  @@map("credentials")
 }
 
 enum organization_system_type {

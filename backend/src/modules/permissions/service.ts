@@ -70,4 +70,21 @@ export class PermissionsService {
   ): Promise<Permissions[]> {
     return await this.cacheControl.getCachedPermissions(input);
   }
+
+  async paginatedCachedPermissions(
+    input: z.infer<typeof PermissionsFindManyArgsSchema>
+  ): Promise<Permissions[]> {
+    let take = input.take ?? 20;
+    let skip = !input.skip ? 1 : Math.round(input.skip / take);
+    if (input.skip && input.skip > 0) {
+      skip++;
+    }
+    delete input.take;
+    delete input.skip;
+    let res = await this.cacheControl.getPaginatedCachedPermissions({
+      page: skip,
+      pageSize: take,
+    });
+    return res;
+  }
 }

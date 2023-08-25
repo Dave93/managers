@@ -2,7 +2,7 @@
 
 import { TRPCError, initTRPC } from "@trpc/server";
 import type { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
-import { createClient } from "redis";
+import Redis from "ioredis";
 
 import { PermissionsService } from "./modules/permissions/service";
 import { RolesService } from "./modules/roles/service";
@@ -23,11 +23,11 @@ import { TimesheetService } from "./modules/timesheet/service";
 import { ScheduledReportsService } from "./modules/scheduled_reports/service";
 import { db } from "./db";
 import { verifyJwt } from "./lib/bcrypt";
+import { CredentialsService } from "./modules/credentials/service";
 
-const client = createClient();
+const client = new Redis({ host: "localhost", port: 6379 });
 export type RedisClientType = typeof client;
 
-await client.connect();
 const cacheControlService = new CacheControlService(db, client);
 const permissionsService = new PermissionsService(db, cacheControlService);
 const rolesService = new RolesService(db, cacheControlService);
@@ -51,14 +51,13 @@ const scheduledReportsService = new ScheduledReportsService(
   db,
   cacheControlService
 );
+const credentialsService = new CredentialsService(db, cacheControlService);
 
 interface Meta {
   permission?: string;
 }
 
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
-  console.log(opts.req.headers);
-
   return {
     // prisma: db,
     permissionsService,
@@ -78,6 +77,7 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
     apiTokensService,
     timesheetService,
     scheduledReportsService,
+    credentialsService,
     token: opts.req.headers.get("authorization")?.split(" ")[1] ?? null,
   };
 };
@@ -126,6 +126,7 @@ export const checkPermission = t.middleware(async ({ meta, next, ctx }) => {
         users_roles_usersTousers_roles_user_id: true,
       },
     });
+    console.log("user", user);
 
     if (!user) {
       throw new TRPCError({

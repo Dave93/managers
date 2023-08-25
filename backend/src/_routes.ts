@@ -15,6 +15,7 @@ import { workScheduleEntriesRouter } from "./modules/work_schedule_entries/route
 import { apiTokensRouter } from "./modules/api_tokens/route";
 import { timesheetRouter } from "./modules/timesheet/route";
 import { scheduledReportsRouter } from "./modules/scheduled_reports/route";
+import { credentialsRouter } from "./modules/credentials/route";
 
 export const router = publicRouter({
   permissions: permissionsRouter,
@@ -33,6 +34,7 @@ export const router = publicRouter({
   apiTokensRouter: apiTokensRouter,
   timesheetRouter: timesheetRouter,
   scheduledReportsRouter: scheduledReportsRouter,
+  credentials: credentialsRouter,
 });
 
 export type Router = typeof router;

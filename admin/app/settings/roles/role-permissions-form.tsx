@@ -71,7 +71,9 @@ export default function RolePermissionsForm({
       }
     ),
     t.permissions.list(
-      {},
+      {
+        take: 500,
+      },
       {
         enabled: open,
       }

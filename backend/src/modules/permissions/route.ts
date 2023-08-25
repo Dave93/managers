@@ -46,4 +46,9 @@ export const permissionsRouter = publicRouter({
     .query(async ({ input, ctx }) => {
       return await ctx.permissionsService.cachedPermissions(input);
     }),
+  paginatedCachedPermissions: publicProcedure
+    .input(PermissionsFindManyArgsSchema)
+    .query(async ({ input, ctx }) => {
+      return await ctx.permissionsService.paginatedCachedPermissions(input);
+    }),
 });
