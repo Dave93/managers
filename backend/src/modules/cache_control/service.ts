@@ -7,14 +7,28 @@ import {
   Work_schedules,
   Api_tokens,
   Scheduled_reports,
+  Credentials,
 } from "@backend/lib/zod";
 import { RedisClientType } from "@backend/trpc";
+import { ISortedItemRepository, SortedItemRepository } from "item-store-redis";
+import {
+  OrganizationWithCredentials,
+  TerminalsWithCredentials,
+} from "./dto/cache.dto";
+import { z } from "zod";
 
 export class CacheControlService {
+  private sortedItemRepository: ISortedItemRepository<Permissions>;
+
   constructor(
     private readonly prisma: DB,
     private readonly redis: RedisClientType
   ) {
+    this.sortedItemRepository = new SortedItemRepository<Permissions>(
+      `${process.env.PROJECT_PREFIX}permissions_paginated`,
+      redis
+    );
+
     this.cachePermissions();
     this.cacheOrganization();
     this.cacheRoles();
@@ -28,6 +42,14 @@ export class CacheControlService {
       `${process.env.PROJECT_PREFIX}permissions`,
       JSON.stringify(permissions)
     );
+
+    for (const permission of permissions) {
+      await this.sortedItemRepository.set({
+        id: permission.id,
+        data: permission,
+      });
+    }
+    // await this.sortedItemRepository.set(permissions);
   }
 
   async getCachedPermissions({
@@ -47,11 +69,51 @@ export class CacheControlService {
     return res;
   }
 
+  async getPaginatedCachedPermissions({
+    page,
+    pageSize,
+  }: {
+    page: number;
+    pageSize: number;
+  }): Promise<Permissions[]> {
+    const res = await this.sortedItemRepository.getPaginated(page, pageSize);
+    return res.items.map((item) => item.data);
+  }
+
   async cacheOrganization() {
     const organization = await this.prisma.organization.findMany();
+
+    const credentials = await this.prisma.credentials.findMany({
+      where: {
+        model: "organization",
+      },
+    });
+
+    const credentialsByOrgId = credentials.reduce((acc, credential) => {
+      if (!acc[credential.model_id]) {
+        acc[credential.model_id] = [];
+      }
+      acc[credential.model_id].push(credential);
+      return acc;
+    }, {} as Record<string, Credentials[]>);
+
+    const newOrganizations: z.infer<typeof OrganizationWithCredentials>[] = [];
+
+    for (const org of organization) {
+      const credentials = credentialsByOrgId[org.id];
+      const newOrg: z.infer<typeof OrganizationWithCredentials> = {
+        ...org,
+        credentials: [],
+      };
+      if (credentials) {
+        newOrg.credentials = credentials;
+      }
+      newOrganizations.push(newOrg);
+    }
+
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}organization`,
-      JSON.stringify(organization)
+      JSON.stringify(newOrganizations)
     );
   }
 
@@ -105,9 +167,38 @@ export class CacheControlService {
 
   async cacheTerminals() {
     const terminals = await this.prisma.terminals.findMany();
+
+    const credentials = await this.prisma.credentials.findMany({
+      where: {
+        model: "terminals",
+      },
+    });
+
+    const credentialsByTerminalId = credentials.reduce((acc, credential) => {
+      if (!acc[credential.model_id]) {
+        acc[credential.model_id] = [];
+      }
+      acc[credential.model_id].push(credential);
+      return acc;
+    }, {} as Record<string, Credentials[]>);
+
+    const newTerminals: z.infer<typeof TerminalsWithCredentials>[] = [];
+
+    for (const terminal of terminals) {
+      const credentials = credentialsByTerminalId[terminal.id];
+      const newTerminal: z.infer<typeof TerminalsWithCredentials> = {
+        ...terminal,
+        credentials: [],
+      };
+      if (credentials) {
+        newTerminal.credentials = credentials;
+      }
+      newTerminals.push(newTerminal);
+    }
+
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}terminals`,
-      JSON.stringify(terminals)
+      JSON.stringify(newTerminals)
     );
   }
 
@@ -125,6 +216,10 @@ export class CacheControlService {
   }
 
   async getPermissionsByRoleId(roleId: string) {
+    if (!roleId) {
+      return [];
+    }
+
     const roles = await this.getCachedRoles({});
     // console.log("roles", roles);
     const role = roles.find((role) => role.id === roleId);
