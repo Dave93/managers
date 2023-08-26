@@ -141,9 +141,11 @@ export class CacheControlService {
           include: {
             permissions: true,
           },
+          take: 1000,
         },
       },
     });
+
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}roles`,
       JSON.stringify(roles)
@@ -300,5 +302,15 @@ export class CacheControlService {
     }
 
     return res;
+  }
+
+  async cacheSettings() {
+    const settings = await this.prisma.settings.findMany({
+      take: 1000,
+    });
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}settings`,
+      JSON.stringify(settings)
+    );
   }
 }

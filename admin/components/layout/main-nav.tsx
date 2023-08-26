@@ -13,6 +13,7 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@components/ui/navigation-menu";
+import CanAccess from "../can-access";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -55,22 +56,15 @@ const components: { title: string; href: string; description: string }[] = [
 const settingsMenu: { title: string; href: string }[] = [
   {
     title: "Разрешения",
-    href: "/settings/permissions",
+    href: "/system/permissions",
   },
   {
     title: "Роли",
-    href: "/settings/roles",
+    href: "/system/roles",
   },
   {
     title: "Пользователи",
-    href: "/settings/users",
-  },
-];
-
-const organizationsMenu: { title: string; href: string }[] = [
-  {
-    title: "Организации",
-    href: "/organization/organizations",
+    href: "/system/users",
   },
 ];
 
@@ -92,20 +86,33 @@ export function NavigationMenuDemo() {
             </ul>
           </NavigationMenuContent>
         </NavigationMenuItem>
-        <NavigationMenuItem>
-          <NavigationMenuTrigger>Организации</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-              {organizationsMenu.map((component) => (
-                <ListItem
-                  key={component.title}
-                  title={component.title}
-                  href={component.href}
-                />
-              ))}
-            </ul>
-          </NavigationMenuContent>
-        </NavigationMenuItem>
+        <CanAccess permission="organizations.list">
+          <NavigationMenuItem>
+            <Link href="/organization/organizations" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Организации
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
+        <CanAccess permission="terminals.list">
+          <NavigationMenuItem>
+            <Link href="/organization/terminals" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Филиалы
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
+        <CanAccess permission="settings.list">
+          <NavigationMenuItem>
+            <Link href="/settings" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Конфиги
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
       </NavigationMenuList>
     </NavigationMenu>
   );

@@ -48,6 +48,8 @@ export const Scheduled_reports_subscriptionScalarFieldEnumSchema = z.enum(['id',
 
 export const CredentialsScalarFieldEnumSchema = z.enum(['id','key','model','type','model_id','created_at','updated_at','created_by','updated_by']);
 
+export const SettingsScalarFieldEnumSchema = z.enum(['id','key','value','is_secure','created_at','updated_at']);
+
 export const SortOrderSchema = z.enum(['asc','desc']);
 
 export const QueryModeSchema = z.enum(['default','insensitive']);
@@ -743,6 +745,21 @@ export const CredentialsWithRelationsSchema: z.ZodType<CredentialsWithRelations>
 }))
 
 /////////////////////////////////////////
+// SETTINGS SCHEMA
+/////////////////////////////////////////
+
+export const SettingsSchema = z.object({
+  id: z.string(),
+  key: z.string(),
+  value: z.string(),
+  is_secure: z.boolean(),
+  created_at: z.coerce.date(),
+  updated_at: z.coerce.date(),
+})
+
+export type Settings = z.infer<typeof SettingsSchema>
+
+/////////////////////////////////////////
 // SELECT & INCLUDE
 /////////////////////////////////////////
 
@@ -1406,6 +1423,18 @@ export const CredentialsSelectSchema: z.ZodType<Prisma.CredentialsSelect> = z.ob
   updated_by: z.boolean().optional(),
   credentials_created_byTousers: z.union([z.boolean(),z.lazy(() => UsersArgsSchema)]).optional(),
   credentials_updated_byTousers: z.union([z.boolean(),z.lazy(() => UsersArgsSchema)]).optional(),
+}).strict()
+
+// SETTINGS
+//------------------------------------------------------
+
+export const SettingsSelectSchema: z.ZodType<Prisma.SettingsSelect> = z.object({
+  id: z.boolean().optional(),
+  key: z.boolean().optional(),
+  value: z.boolean().optional(),
+  is_secure: z.boolean().optional(),
+  created_at: z.boolean().optional(),
+  updated_at: z.boolean().optional(),
 }).strict()
 
 
@@ -3073,6 +3102,75 @@ export const CredentialsScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.C
   updated_by: z.union([ z.lazy(() => UuidNullableWithAggregatesFilterSchema),z.string() ]).optional().nullable(),
 }).strict();
 
+export const SettingsWhereInputSchema: z.ZodType<Prisma.SettingsWhereInput> = z.object({
+  AND: z.union([ z.lazy(() => SettingsWhereInputSchema),z.lazy(() => SettingsWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SettingsWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SettingsWhereInputSchema),z.lazy(() => SettingsWhereInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => UuidFilterSchema),z.string() ]).optional(),
+  key: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
+  value: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
+  is_secure: z.union([ z.lazy(() => BoolFilterSchema),z.boolean() ]).optional(),
+  created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
+  updated_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
+}).strict();
+
+export const SettingsOrderByWithRelationInputSchema: z.ZodType<Prisma.SettingsOrderByWithRelationInput> = z.object({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  key: z.lazy(() => SortOrderSchema).optional(),
+  value: z.lazy(() => SortOrderSchema).optional(),
+  is_secure: z.lazy(() => SortOrderSchema).optional(),
+  created_at: z.lazy(() => SortOrderSchema).optional(),
+  updated_at: z.lazy(() => SortOrderSchema).optional()
+}).strict();
+
+export const SettingsWhereUniqueInputSchema: z.ZodType<Prisma.SettingsWhereUniqueInput> = z.union([
+  z.object({
+    id: z.string(),
+    key: z.string()
+  }),
+  z.object({
+    id: z.string(),
+  }),
+  z.object({
+    key: z.string(),
+  }),
+])
+.and(z.object({
+  id: z.string().optional(),
+  key: z.string().optional(),
+  AND: z.union([ z.lazy(() => SettingsWhereInputSchema),z.lazy(() => SettingsWhereInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SettingsWhereInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SettingsWhereInputSchema),z.lazy(() => SettingsWhereInputSchema).array() ]).optional(),
+  value: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
+  is_secure: z.union([ z.lazy(() => BoolFilterSchema),z.boolean() ]).optional(),
+  created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
+  updated_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
+}).strict());
+
+export const SettingsOrderByWithAggregationInputSchema: z.ZodType<Prisma.SettingsOrderByWithAggregationInput> = z.object({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  key: z.lazy(() => SortOrderSchema).optional(),
+  value: z.lazy(() => SortOrderSchema).optional(),
+  is_secure: z.lazy(() => SortOrderSchema).optional(),
+  created_at: z.lazy(() => SortOrderSchema).optional(),
+  updated_at: z.lazy(() => SortOrderSchema).optional(),
+  _count: z.lazy(() => SettingsCountOrderByAggregateInputSchema).optional(),
+  _max: z.lazy(() => SettingsMaxOrderByAggregateInputSchema).optional(),
+  _min: z.lazy(() => SettingsMinOrderByAggregateInputSchema).optional()
+}).strict();
+
+export const SettingsScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.SettingsScalarWhereWithAggregatesInput> = z.object({
+  AND: z.union([ z.lazy(() => SettingsScalarWhereWithAggregatesInputSchema),z.lazy(() => SettingsScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  OR: z.lazy(() => SettingsScalarWhereWithAggregatesInputSchema).array().optional(),
+  NOT: z.union([ z.lazy(() => SettingsScalarWhereWithAggregatesInputSchema),z.lazy(() => SettingsScalarWhereWithAggregatesInputSchema).array() ]).optional(),
+  id: z.union([ z.lazy(() => UuidWithAggregatesFilterSchema),z.string() ]).optional(),
+  key: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
+  value: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
+  is_secure: z.union([ z.lazy(() => BoolWithAggregatesFilterSchema),z.boolean() ]).optional(),
+  created_at: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema),z.coerce.date() ]).optional(),
+  updated_at: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema),z.coerce.date() ]).optional(),
+}).strict();
+
 export const PermissionsCreateInputSchema: z.ZodType<Prisma.PermissionsCreateInput> = z.object({
   id: z.string().optional(),
   slug: z.string(),
@@ -4632,6 +4730,69 @@ export const CredentialsUncheckedUpdateManyInputSchema: z.ZodType<Prisma.Credent
   updated_by: z.union([ z.string(),z.lazy(() => NullableStringFieldUpdateOperationsInputSchema) ]).optional().nullable(),
 }).strict();
 
+export const SettingsCreateInputSchema: z.ZodType<Prisma.SettingsCreateInput> = z.object({
+  id: z.string().optional(),
+  key: z.string(),
+  value: z.string(),
+  is_secure: z.boolean().optional(),
+  created_at: z.coerce.date().optional(),
+  updated_at: z.coerce.date().optional()
+}).strict();
+
+export const SettingsUncheckedCreateInputSchema: z.ZodType<Prisma.SettingsUncheckedCreateInput> = z.object({
+  id: z.string().optional(),
+  key: z.string(),
+  value: z.string(),
+  is_secure: z.boolean().optional(),
+  created_at: z.coerce.date().optional(),
+  updated_at: z.coerce.date().optional()
+}).strict();
+
+export const SettingsUpdateInputSchema: z.ZodType<Prisma.SettingsUpdateInput> = z.object({
+  id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  key: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  value: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  is_secure: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+}).strict();
+
+export const SettingsUncheckedUpdateInputSchema: z.ZodType<Prisma.SettingsUncheckedUpdateInput> = z.object({
+  id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  key: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  value: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  is_secure: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+}).strict();
+
+export const SettingsCreateManyInputSchema: z.ZodType<Prisma.SettingsCreateManyInput> = z.object({
+  id: z.string().optional(),
+  key: z.string(),
+  value: z.string(),
+  is_secure: z.boolean().optional(),
+  created_at: z.coerce.date().optional(),
+  updated_at: z.coerce.date().optional()
+}).strict();
+
+export const SettingsUpdateManyMutationInputSchema: z.ZodType<Prisma.SettingsUpdateManyMutationInput> = z.object({
+  id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  key: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  value: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  is_secure: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+}).strict();
+
+export const SettingsUncheckedUpdateManyInputSchema: z.ZodType<Prisma.SettingsUncheckedUpdateManyInput> = z.object({
+  id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  key: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  value: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  is_secure: z.union([ z.boolean(),z.lazy(() => BoolFieldUpdateOperationsInputSchema) ]).optional(),
+  created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+  updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
+}).strict();
+
 export const UuidFilterSchema: z.ZodType<Prisma.UuidFilter> = z.object({
   equals: z.string().optional(),
   in: z.string().array().optional(),
@@ -5855,6 +6016,33 @@ export const CredentialsMinOrderByAggregateInputSchema: z.ZodType<Prisma.Credent
   updated_at: z.lazy(() => SortOrderSchema).optional(),
   created_by: z.lazy(() => SortOrderSchema).optional(),
   updated_by: z.lazy(() => SortOrderSchema).optional()
+}).strict();
+
+export const SettingsCountOrderByAggregateInputSchema: z.ZodType<Prisma.SettingsCountOrderByAggregateInput> = z.object({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  key: z.lazy(() => SortOrderSchema).optional(),
+  value: z.lazy(() => SortOrderSchema).optional(),
+  is_secure: z.lazy(() => SortOrderSchema).optional(),
+  created_at: z.lazy(() => SortOrderSchema).optional(),
+  updated_at: z.lazy(() => SortOrderSchema).optional()
+}).strict();
+
+export const SettingsMaxOrderByAggregateInputSchema: z.ZodType<Prisma.SettingsMaxOrderByAggregateInput> = z.object({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  key: z.lazy(() => SortOrderSchema).optional(),
+  value: z.lazy(() => SortOrderSchema).optional(),
+  is_secure: z.lazy(() => SortOrderSchema).optional(),
+  created_at: z.lazy(() => SortOrderSchema).optional(),
+  updated_at: z.lazy(() => SortOrderSchema).optional()
+}).strict();
+
+export const SettingsMinOrderByAggregateInputSchema: z.ZodType<Prisma.SettingsMinOrderByAggregateInput> = z.object({
+  id: z.lazy(() => SortOrderSchema).optional(),
+  key: z.lazy(() => SortOrderSchema).optional(),
+  value: z.lazy(() => SortOrderSchema).optional(),
+  is_secure: z.lazy(() => SortOrderSchema).optional(),
+  created_at: z.lazy(() => SortOrderSchema).optional(),
+  updated_at: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const UsersCreateNestedOneWithoutPermissions_permissions_created_byTousersInputSchema: z.ZodType<Prisma.UsersCreateNestedOneWithoutPermissions_permissions_created_byTousersInput> = z.object({
@@ -20860,6 +21048,63 @@ export const CredentialsFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.Credential
   where: CredentialsWhereUniqueInputSchema,
 }).strict()
 
+export const SettingsFindFirstArgsSchema: z.ZodType<Prisma.SettingsFindFirstArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereInputSchema.optional(),
+  orderBy: z.union([ SettingsOrderByWithRelationInputSchema.array(),SettingsOrderByWithRelationInputSchema ]).optional(),
+  cursor: SettingsWhereUniqueInputSchema.optional(),
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SettingsScalarFieldEnumSchema,SettingsScalarFieldEnumSchema.array() ]).optional(),
+}).strict()
+
+export const SettingsFindFirstOrThrowArgsSchema: z.ZodType<Prisma.SettingsFindFirstOrThrowArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereInputSchema.optional(),
+  orderBy: z.union([ SettingsOrderByWithRelationInputSchema.array(),SettingsOrderByWithRelationInputSchema ]).optional(),
+  cursor: SettingsWhereUniqueInputSchema.optional(),
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SettingsScalarFieldEnumSchema,SettingsScalarFieldEnumSchema.array() ]).optional(),
+}).strict()
+
+export const SettingsFindManyArgsSchema: z.ZodType<Prisma.SettingsFindManyArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereInputSchema.optional(),
+  orderBy: z.union([ SettingsOrderByWithRelationInputSchema.array(),SettingsOrderByWithRelationInputSchema ]).optional(),
+  cursor: SettingsWhereUniqueInputSchema.optional(),
+  take: z.number().optional(),
+  skip: z.number().optional(),
+  distinct: z.union([ SettingsScalarFieldEnumSchema,SettingsScalarFieldEnumSchema.array() ]).optional(),
+}).strict()
+
+export const SettingsAggregateArgsSchema: z.ZodType<Prisma.SettingsAggregateArgs> = z.object({
+  where: SettingsWhereInputSchema.optional(),
+  orderBy: z.union([ SettingsOrderByWithRelationInputSchema.array(),SettingsOrderByWithRelationInputSchema ]).optional(),
+  cursor: SettingsWhereUniqueInputSchema.optional(),
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict()
+
+export const SettingsGroupByArgsSchema: z.ZodType<Prisma.SettingsGroupByArgs> = z.object({
+  where: SettingsWhereInputSchema.optional(),
+  orderBy: z.union([ SettingsOrderByWithAggregationInputSchema.array(),SettingsOrderByWithAggregationInputSchema ]).optional(),
+  by: SettingsScalarFieldEnumSchema.array(),
+  having: SettingsScalarWhereWithAggregatesInputSchema.optional(),
+  take: z.number().optional(),
+  skip: z.number().optional(),
+}).strict()
+
+export const SettingsFindUniqueArgsSchema: z.ZodType<Prisma.SettingsFindUniqueArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereUniqueInputSchema,
+}).strict()
+
+export const SettingsFindUniqueOrThrowArgsSchema: z.ZodType<Prisma.SettingsFindUniqueOrThrowArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereUniqueInputSchema,
+}).strict()
+
 export const PermissionsCreateArgsSchema: z.ZodType<Prisma.PermissionsCreateArgs> = z.object({
   select: PermissionsSelectSchema.optional(),
   include: PermissionsIncludeSchema.optional(),
@@ -21596,4 +21841,41 @@ export const CredentialsUpdateManyArgsSchema: z.ZodType<Prisma.CredentialsUpdate
 
 export const CredentialsDeleteManyArgsSchema: z.ZodType<Prisma.CredentialsDeleteManyArgs> = z.object({
   where: CredentialsWhereInputSchema.optional(),
+}).strict()
+
+export const SettingsCreateArgsSchema: z.ZodType<Prisma.SettingsCreateArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  data: z.union([ SettingsCreateInputSchema,SettingsUncheckedCreateInputSchema ]),
+}).strict()
+
+export const SettingsUpsertArgsSchema: z.ZodType<Prisma.SettingsUpsertArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereUniqueInputSchema,
+  create: z.union([ SettingsCreateInputSchema,SettingsUncheckedCreateInputSchema ]),
+  update: z.union([ SettingsUpdateInputSchema,SettingsUncheckedUpdateInputSchema ]),
+}).strict()
+
+export const SettingsCreateManyArgsSchema: z.ZodType<Prisma.SettingsCreateManyArgs> = z.object({
+  data: z.union([ SettingsCreateManyInputSchema,SettingsCreateManyInputSchema.array() ]),
+  skipDuplicates: z.boolean().optional(),
+}).strict()
+
+export const SettingsDeleteArgsSchema: z.ZodType<Prisma.SettingsDeleteArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  where: SettingsWhereUniqueInputSchema,
+}).strict()
+
+export const SettingsUpdateArgsSchema: z.ZodType<Prisma.SettingsUpdateArgs> = z.object({
+  select: SettingsSelectSchema.optional(),
+  data: z.union([ SettingsUpdateInputSchema,SettingsUncheckedUpdateInputSchema ]),
+  where: SettingsWhereUniqueInputSchema,
+}).strict()
+
+export const SettingsUpdateManyArgsSchema: z.ZodType<Prisma.SettingsUpdateManyArgs> = z.object({
+  data: z.union([ SettingsUpdateManyMutationInputSchema,SettingsUncheckedUpdateManyInputSchema ]),
+  where: SettingsWhereInputSchema.optional(),
+}).strict()
+
+export const SettingsDeleteManyArgsSchema: z.ZodType<Prisma.SettingsDeleteManyArgs> = z.object({
+  where: SettingsWhereInputSchema.optional(),
 }).strict()
