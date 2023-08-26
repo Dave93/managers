@@ -24,6 +24,7 @@ import { ScheduledReportsService } from "./modules/scheduled_reports/service";
 import { db } from "./db";
 import { verifyJwt } from "./lib/bcrypt";
 import { CredentialsService } from "./modules/credentials/service";
+import { SettingsService } from "./modules/settings/service";
 
 const client = new Redis({ host: "localhost", port: 6379 });
 export type RedisClientType = typeof client;
@@ -52,6 +53,7 @@ const scheduledReportsService = new ScheduledReportsService(
   cacheControlService
 );
 const credentialsService = new CredentialsService(db, cacheControlService);
+const settingsService = new SettingsService(db, cacheControlService);
 
 interface Meta {
   permission?: string;
@@ -78,6 +80,7 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
     timesheetService,
     scheduledReportsService,
     credentialsService,
+    settingsService,
     token: opts.req.headers.get("authorization")?.split(" ")[1] ?? null,
   };
 };

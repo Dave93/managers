@@ -372,6 +372,17 @@ model Credentials {
   @@map("credentials")
 }
 
+model Settings {
+  id         String   @id(map: "PK_settings_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key        String   @unique
+  value      String
+  is_secure  Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz(5)
+  updated_at DateTime @default(now()) @db.Timestamptz(5)
+
+  @@map("settings")
+}
+
 enum organization_system_type {
   iiko
   r_keeper

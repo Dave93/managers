@@ -11,7 +11,11 @@ export default withAuth(
     }
     const path = req.nextUrl.pathname.split("/");
     // get last values from path
-    const entity = path[path.length - 1];
+    let entity = path[path.length - 1];
+    console.log(path);
+    if (path[1] == "settings") {
+      entity = "settings";
+    }
 
     if (entity.length > 0 && token.rights) {
       const rights = token.rights as string[];
