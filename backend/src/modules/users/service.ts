@@ -126,7 +126,11 @@ export class UsersService {
         login: input.login,
       },
       include: {
-        users_roles_usersTousers_roles_user_id: true,
+        users_roles_usersTousers_roles_user_id: {
+          include: {
+            roles: true,
+          },
+        },
       },
     });
     if (!user) {

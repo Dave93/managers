@@ -1,4 +1,4 @@
-import { Users } from "@backend/lib/zod";
+import { Users, Users_rolesWithRelations } from "@backend/lib/zod";
 import NextAuth, { DefaultSession } from "next-auth";
 
 declare module "next-auth" {
@@ -10,5 +10,6 @@ declare module "next-auth" {
     rights: string[];
     accessToken: string;
     refreshToken: string;
+    users_roles_usersTousers_roles_user_id: Users_rolesWithRelations[];
   }
 }
