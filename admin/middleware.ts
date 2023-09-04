@@ -2,6 +2,8 @@ import { Users } from "@backend/lib/zod";
 import { withAuth } from "next-auth/middleware";
 import { NextRequest, NextResponse } from "next/server";
 
+const routesWithoutPermission = ["profile"];
+
 export default withAuth(
   // `withAuth` augments your `Request` with the user's token.
   function middleware(req) {
@@ -12,9 +14,16 @@ export default withAuth(
     const path = req.nextUrl.pathname.split("/");
     // get last values from path
     let entity = path[path.length - 1];
-    console.log(path);
     if (path[1] == "settings") {
       entity = "settings";
+    }
+
+    if (path[1] == "reports") {
+      entity = "reports";
+    }
+
+    if (routesWithoutPermission.includes(entity)) {
+      return NextResponse.next();
     }
 
     if (entity.length > 0 && token.rights) {
