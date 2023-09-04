@@ -6,6 +6,7 @@ import {
   Users_roles,
   Users as usersSchema,
   UsersWithRelations,
+  Users_terminals,
 } from "@backend/lib/zod";
 import { Prisma } from "@prisma/client";
 import {
@@ -82,8 +83,9 @@ export class UsersService {
       if (typeof password != "string") {
         password = password.set!;
       }
+
       const { hash, salt } = await hashPassword(password);
-      input.data.password = md5hash(password);
+      input.data.password = hash;
       input.data.salt = salt;
     }
 
@@ -116,6 +118,18 @@ export class UsersService {
     });
     console.log("user role input", input);
     return await this.prisma.users_roles.create({ data: input });
+  }
+
+  async assignTerminal(
+    input: Prisma.Users_terminalsUncheckedCreateInput
+  ): Promise<Users_terminals> {
+    await this.prisma.users_terminals.deleteMany({
+      where: {
+        user_id: input.user_id,
+      },
+    });
+    console.log("user terminal input", input);
+    return await this.prisma.users_terminals.create({ data: input });
   }
 
   async login(

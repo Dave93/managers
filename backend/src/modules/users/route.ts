@@ -7,6 +7,7 @@ import {
   UsersSchema,
   UsersUpdateArgsSchema,
   Users_rolesUncheckedCreateInputSchema,
+  Users_terminalsUncheckedCreateInputSchema,
 } from "@backend/lib/zod";
 import { loginInput } from "./dto/users.dto";
 
@@ -48,4 +49,10 @@ export const usersRouter = publicRouter({
     console.log("try login");
     return ctx.usersService.login(input);
   }),
+
+  assignTerminal: publicProcedure
+    .input(Users_terminalsUncheckedCreateInputSchema)
+    .mutation(({ input, ctx }) => {
+      return ctx.usersService.assignTerminal(input);
+    }),
 });

@@ -9,7 +9,7 @@ import {
   user_statusSchema,
 } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import * as z from "zod";
 import { createFormFactory } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
@@ -22,6 +22,21 @@ import {
   SelectContent,
   SelectItem,
 } from "@components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from "@components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@components/ui/popover";
+
+import { cn } from "@admin/lib/utils";
+import MultiSelect from "../elements/multiSelect";
 
 const formFactory = createFormFactory<z.infer<typeof UsersCreateInputSchema>>({
   defaultValues: {
@@ -40,6 +55,7 @@ export default function UsersForm({
 }) {
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
+  const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
 
   const closeForm = () => {
     form.reset();
@@ -88,6 +104,12 @@ export default function UsersForm({
     onError,
   });
 
+  const { mutateAsync: asyncAssignTerminal } =
+    trpc.users.assignTerminal.useMutation({
+      onSuccess: () => closeForm(),
+      onError,
+    });
+
   const form = formFactory.useForm({
     onSubmit: async (values, formApi) => {
       if (recordId) {
@@ -101,6 +123,7 @@ export default function UsersForm({
   const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
+    { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
   ] = trpc.useQueries((t) => [
     t.users.one(
@@ -112,6 +135,7 @@ export default function UsersForm({
       }
     ),
     t.roles.list({}),
+    t.terminals.list({}),
     t.usersRoles.list(
       {
         where: {
@@ -150,6 +174,15 @@ export default function UsersForm({
   const isLoading = useMemo(() => {
     return isAddLoading || isUpdateLoading || isRolesLoading;
   }, [isAddLoading, isUpdateLoading, isRolesLoading]);
+
+  const terminalsForSelect = useMemo(() => {
+    return terminalsData
+      ? terminalsData.items.map((item) => ({
+          value: item.id,
+          label: item.name,
+        }))
+      : [];
+  }, [terminalsData]);
 
   useEffect(() => {
     if (record) {
@@ -247,6 +280,18 @@ export default function UsersForm({
             </SelectContent>
           </Select>
         </div>
+        <div className="space-y-2">
+          <div>
+            <Label>Филиалы</Label>
+          </div>
+          <MultiSelect
+            value={changedTerminalId}
+            onValueChange={(value: string[]) => setChangedTerminalId(value)}
+            data={terminalsForSelect}
+            defaultValue={terminalsForSelect.map((item) => item.value)}
+          />
+        </div>
+
         <div className="space-y-2">
           <div>
             <Label>Имя</Label>
