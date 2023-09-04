@@ -8,6 +8,9 @@ import { Toaster } from "@components/ui/toaster";
 import { Providers } from "@admin/store/provider";
 import SessionLocalProvider from "@admin/store/session-provider";
 import { useGetRole } from "@admin/utils/get_role";
+import AdminLayout from "./admin-layout";
+import NoRoleLayout from "./noRole-layout";
+import ManagerLayout from "./manager-layout";
 export default function MainLayout({
   children,
 }: {
@@ -17,20 +20,9 @@ export default function MainLayout({
   return (
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <div className="flex-col">
-          <div className="border-b sticky top-0">
-            <div className="flex h-16 items-center px-4 bg-background">
-              <NavigationMenuDemo />
-              <div className="ml-auto flex items-center space-x-4">
-                <Search />
-                <UserNav />
-                <ModeToggle />
-              </div>
-            </div>
-          </div>
-          <div className="mx-4 mt-10 mb-4">{children}</div>
-        </div>
-
+        {roleCode === "admin" && <AdminLayout children={children} />}
+        {roleCode === "manager" && <ManagerLayout children={children} />}
+        {roleCode === null && <NoRoleLayout children={children} />}
         <Toaster />
       </ThemeProvider>
     </Providers>

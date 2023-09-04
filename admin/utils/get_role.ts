@@ -1,7 +1,7 @@
 "use client";
 import { useSession } from "next-auth/react";
 
-export const useGetRole = (): string | null => {
+export const useGetRole = (): string | null | undefined => {
   const { data: session } = useSession();
 
   if (session) {
@@ -10,6 +10,8 @@ export const useGetRole = (): string | null => {
     if (roles) {
       return roles.roles.code!;
     }
+  } else {
+    return undefined;
   }
 
   return null;
