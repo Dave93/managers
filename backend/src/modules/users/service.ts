@@ -121,15 +121,23 @@ export class UsersService {
   }
 
   async assignTerminal(
-    input: Prisma.Users_terminalsUncheckedCreateInput
-  ): Promise<Users_terminals> {
-    await this.prisma.users_terminals.deleteMany({
-      where: {
-        user_id: input.user_id,
-      },
-    });
-    console.log("user terminal input", input);
-    return await this.prisma.users_terminals.create({ data: input });
+    input: Prisma.Users_terminalsCreateManyArgs
+  ): Promise<Prisma.BatchPayload> {
+    if (Array.isArray(input.data) && input.data.length > 0) {
+      await this.prisma.users_terminals.deleteMany({
+        where: {
+          user_id: input.data[0].user_id,
+        },
+      });
+    } else {
+      const data = input.data as Prisma.Users_terminalsCreateManyInput;
+      await this.prisma.users_terminals.deleteMany({
+        where: {
+          user_id: data.user_id,
+        },
+      });
+    }
+    return await this.prisma.users_terminals.createMany(input);
   }
 
   async login(

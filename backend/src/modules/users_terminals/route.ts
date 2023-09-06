@@ -5,7 +5,7 @@ import {
   Users_terminalsFindUniqueArgsSchema,
   Users_terminalsUpdateArgsSchema,
 } from "@backend/lib/zod";
-import { publicProcedure, publicRouter } from "@backend/trpc";
+import { getUser, publicProcedure, publicRouter } from "@backend/trpc";
 
 export const usersTerminalsRouter = publicRouter({
   add: publicProcedure
@@ -37,4 +37,8 @@ export const usersTerminalsRouter = publicRouter({
     .mutation(({ input, ctx }) => {
       return ctx.usersTerminalsService.delete(input);
     }),
+
+  getMyTerminals: publicProcedure.use(getUser).query(({ input, ctx }) => {
+    return ctx.usersTerminalsService.getMyTerminals(ctx.currentUser?.id ?? "");
+  }),
 });

@@ -17,6 +17,8 @@ import { timesheetRouter } from "./modules/timesheet/route";
 import { scheduledReportsRouter } from "./modules/scheduled_reports/route";
 import { credentialsRouter } from "./modules/credentials/route";
 import { settingsRouter } from "./modules/settings/route";
+import { reportsRouter } from "./modules/reports/route";
+import { ReportsStatusRouter } from "./modules/reports_status/route";
 
 export const router = publicRouter({
   permissions: permissionsRouter,
@@ -37,6 +39,8 @@ export const router = publicRouter({
   scheduledReportsRouter: scheduledReportsRouter,
   credentials: credentialsRouter,
   settings: settingsRouter,
+  reports: reportsRouter,
+  reportsStatus: ReportsStatusRouter,
 });
 
 export type Router = typeof router;
