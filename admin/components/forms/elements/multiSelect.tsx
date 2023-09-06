@@ -25,12 +25,10 @@ interface IMiltuSelectData {
 
 export default function MultiSelect({
   data,
-  defaultValue,
   onValueChange,
   value,
 }: {
   data: IMiltuSelectData[];
-  defaultValue?: string[];
   onValueChange: (value: string[]) => void;
   value: string[];
 }) {
@@ -50,7 +48,10 @@ export default function MultiSelect({
               ? data
                   .filter((framework) => value.includes(framework.value))
                   .map((framework) => (
-                    <div className="bg-secondary max-w-max min-w-[8rem] px-2 rounded-lg mx-1 my-1">
+                    <div
+                      className="bg-secondary max-w-max min-w-[8rem] px-2 rounded-lg mx-1 my-1"
+                      key={framework.value}
+                    >
                       {framework.label}
                     </div>
                   ))
