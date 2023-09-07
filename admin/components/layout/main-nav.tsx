@@ -66,6 +66,10 @@ const settingsMenu: { title: string; href: string }[] = [
     title: "Пользователи",
     href: "/system/users",
   },
+  {
+    title: "Статус",
+    href: "/system/reports_status",
+  },
 ];
 
 export function NavigationMenuDemo() {

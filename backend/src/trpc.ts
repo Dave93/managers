@@ -25,6 +25,9 @@ import { db } from "./db";
 import { verifyJwt } from "./lib/bcrypt";
 import { CredentialsService } from "./modules/credentials/service";
 import { SettingsService } from "./modules/settings/service";
+import { UsersWithRelations } from "./lib/zod";
+import { ReportsService } from "./modules/reports/service";
+import { ReportsStatusService } from "./modules/reports_status/service";
 
 const client = new Redis({ host: "localhost", port: 6379 });
 export type RedisClientType = typeof client;
@@ -54,6 +57,8 @@ const scheduledReportsService = new ScheduledReportsService(
 );
 const credentialsService = new CredentialsService(db, cacheControlService);
 const settingsService = new SettingsService(db, cacheControlService);
+const reportsService = new ReportsService(db);
+const reportsStatusService = new ReportsStatusService(db);
 
 interface Meta {
   permission?: string;
@@ -82,6 +87,9 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
     credentialsService,
     settingsService,
     token: opts.req.headers.get("authorization")?.split(" ")[1] ?? null,
+    currentUser: null as Omit<UsersWithRelations, "password"> | null,
+    reportsService,
+    reportsStatusService,
   };
 };
 
@@ -164,6 +172,57 @@ export const checkPermission = t.middleware(async ({ meta, next, ctx }) => {
   } else {
     return next();
   }
+});
+
+// @ts-ignore
+export const getUser = t.middleware(async ({ meta, next, ctx }) => {
+  if (!ctx.token) {
+    return new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+    });
+  }
+
+  let jwtResult = await verifyJwt(ctx.token);
+  if (!jwtResult) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+    });
+  }
+
+  if (!jwtResult.payload) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+    });
+  }
+
+  let user = await ctx.usersService.findOne({
+    where: {
+      id: jwtResult.payload.id as string,
+    },
+    include: {
+      users_roles_usersTousers_roles_user_id: true,
+    },
+  });
+  console.log("user", user);
+
+  if (!user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Unauthorized",
+    });
+  }
+  ctx.currentUser = user;
+
+  return next();
+  // if (ctx.permissionsService.hasPermission(meta.permission)) {
+  //   return next();
+  // } else {
+  //   throw new Error("No permission");
+  // }
+  return next();
 });
 
 export const publicProcedure = t.procedure;

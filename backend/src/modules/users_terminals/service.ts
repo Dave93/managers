@@ -1,7 +1,6 @@
-import { Prisma } from "@prisma/client";
+import { Prisma, Users_terminals } from "@prisma/client";
 import { z } from "zod";
 import {
-  Users_terminals,
   Users_terminalsFindManyArgsSchema,
   Users_terminalsFindUniqueArgsSchema,
 } from "@backend/lib/zod";
@@ -54,5 +53,17 @@ export class UsersTerminalsService {
 
   async delete(input: Prisma.Users_terminalsDeleteArgs) {
     return this.prisma.users_terminals.delete(input);
+  }
+
+  async getMyTerminals(userId: string) {
+    return this.prisma.users_terminals.findMany({
+      where: {
+        user_id: userId,
+      },
+      include: {
+        terminals: true,
+        users: true,
+      },
+    });
   }
 }
