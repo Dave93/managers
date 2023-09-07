@@ -56,7 +56,6 @@ export default function UsersForm({
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
   const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
-
   const closeForm = () => {
     form.reset();
     setOpen(false);
@@ -100,7 +99,6 @@ export default function UsersForm({
   });
 
   const { mutateAsync: asyncAssignRole } = trpc.users.assignRole.useMutation({
-    onSuccess: () => closeForm(),
     onError,
   });
 
@@ -125,6 +123,7 @@ export default function UsersForm({
     { data: rolesData, isLoading: isRolesLoading },
     { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
+    { data: userTerminalsData, isLoading: isUserTerminalsLoading },
   ] = trpc.useQueries((t) => [
     t.users.one(
       {
@@ -135,8 +134,22 @@ export default function UsersForm({
       }
     ),
     t.roles.list({}),
-    t.terminals.list({}),
+    t.terminals.list({
+      take: 100,
+    }),
     t.usersRoles.list(
+      {
+        where: {
+          user_id: {
+            equals: recordId,
+          },
+        },
+      },
+      {
+        enabled: !!recordId,
+      }
+    ),
+    t.usersTerminals.list(
       {
         where: {
           user_id: {
@@ -151,24 +164,30 @@ export default function UsersForm({
   ]);
 
   const userRoleId = useMemo(() => {
-    return userRolesData?.[0].role_id;
-  }, [userRolesData]);
+    if (changedRoleId && userRolesData?.[0]?.role_id != changedRoleId) {
+      return changedRoleId;
+    }
+    return userRolesData?.[0]?.role_id;
+  }, [userRolesData, changedRoleId]);
 
   const assignRole = useCallback(
     async (recordData: Users) => {
-      if (!userRoleId || userRoleId != changedRoleId) {
-        let userId = recordData?.id;
-        if (recordId) {
-          userId = recordId;
-        }
-        await asyncAssignRole({
-          user_id: userId,
-          role_id: changedRoleId!,
-        });
+      let userId = recordData?.id;
+      if (recordId) {
+        userId = recordId;
       }
-      return closeForm();
+      await asyncAssignRole({
+        user_id: userId,
+        role_id: changedRoleId ? changedRoleId! : userRoleId!,
+      });
+      return asyncAssignTerminal({
+        data: changedTerminalId.map((terminalId) => ({
+          user_id: recordData?.id,
+          terminal_id: terminalId,
+        })),
+      });
     },
-    [changedRoleId, userRoleId, recordId]
+    [changedRoleId, userRoleId, recordId, changedTerminalId]
   );
 
   const isLoading = useMemo(() => {
@@ -194,7 +213,13 @@ export default function UsersForm({
         );
       });
     }
-  }, [record]);
+
+    if (userTerminalsData && userTerminalsData.items.length > 0) {
+      setChangedTerminalId(
+        userTerminalsData.items.map((item) => item.terminal_id)
+      );
+    }
+  }, [record, userTerminalsData]);
 
   return (
     <form.Provider>
@@ -209,9 +234,10 @@ export default function UsersForm({
                 <>
                   <Select
                     onValueChange={(value) =>
+                      value &&
                       field.setValue(value as z.infer<typeof user_statusSchema>)
                     }
-                    defaultValue={field.getValue() ?? ""}
+                    value={field.getValue()}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -267,7 +293,7 @@ export default function UsersForm({
           <div>
             <Label>Роль</Label>
           </div>
-          <Select onValueChange={setChangedRoleId} defaultValue={userRoleId}>
+          <Select onValueChange={setChangedRoleId} value={userRoleId}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -288,7 +314,6 @@ export default function UsersForm({
             value={changedTerminalId}
             onValueChange={(value: string[]) => setChangedTerminalId(value)}
             data={terminalsForSelect}
-            defaultValue={terminalsForSelect.map((item) => item.value)}
           />
         </div>
 
