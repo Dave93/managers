@@ -401,7 +401,7 @@ model Reports_items{
 
 model Reports_status{
   id        String   @id(map: "PK_report_status_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  status    String   @db.VarChar(255)
+  label    String   @db.VarChar(255)
   code      String   @db.VarChar(255)
   color     String   @db.VarChar(255)
   created_at DateTime @default(now()) @db.Timestamptz(5)

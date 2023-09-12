@@ -55,4 +55,10 @@ export class ReportsStatusService {
   async delete(input: Prisma.Reports_statusDeleteArgs) {
     return this.prisma.reports_status.delete(input);
   }
+
+  async cachedReportsStatus(
+    input: z.infer<typeof Reports_statusFindManyArgsSchema>
+  ): Promise<Reports_status[]> {
+    return this.prisma.reports_status.findMany(input);
+  }
 }

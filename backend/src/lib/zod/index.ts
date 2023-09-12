@@ -54,7 +54,7 @@ export const ReportsScalarFieldEnumSchema = z.enum(['id','date','status_id','use
 
 export const Reports_itemsScalarFieldEnumSchema = z.enum(['id','report_id','label','type','amount','source','created_at','updated_at']);
 
-export const Reports_statusScalarFieldEnumSchema = z.enum(['id','status','code','color','created_at','updated_at']);
+export const Reports_statusScalarFieldEnumSchema = z.enum(['id','label','code','color','created_at','updated_at']);
 
 export const SortOrderSchema = z.enum(['asc','desc']);
 
@@ -850,7 +850,7 @@ export const Reports_itemsWithRelationsSchema: z.ZodType<Reports_itemsWithRelati
 
 export const Reports_statusSchema = z.object({
   id: z.string(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date(),
@@ -1644,7 +1644,7 @@ export const Reports_statusCountOutputTypeSelectSchema: z.ZodType<Prisma.Reports
 
 export const Reports_statusSelectSchema: z.ZodType<Prisma.Reports_statusSelect> = z.object({
   id: z.boolean().optional(),
-  status: z.boolean().optional(),
+  label: z.boolean().optional(),
   code: z.boolean().optional(),
   color: z.boolean().optional(),
   created_at: z.boolean().optional(),
@@ -3562,7 +3562,7 @@ export const Reports_statusWhereInputSchema: z.ZodType<Prisma.Reports_statusWher
   OR: z.lazy(() => Reports_statusWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => Reports_statusWhereInputSchema),z.lazy(() => Reports_statusWhereInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => UuidFilterSchema),z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
+  label: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   code: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   color: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
@@ -3572,7 +3572,7 @@ export const Reports_statusWhereInputSchema: z.ZodType<Prisma.Reports_statusWher
 
 export const Reports_statusOrderByWithRelationInputSchema: z.ZodType<Prisma.Reports_statusOrderByWithRelationInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
-  status: z.lazy(() => SortOrderSchema).optional(),
+  label: z.lazy(() => SortOrderSchema).optional(),
   code: z.lazy(() => SortOrderSchema).optional(),
   color: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
@@ -3588,7 +3588,7 @@ export const Reports_statusWhereUniqueInputSchema: z.ZodType<Prisma.Reports_stat
   AND: z.union([ z.lazy(() => Reports_statusWhereInputSchema),z.lazy(() => Reports_statusWhereInputSchema).array() ]).optional(),
   OR: z.lazy(() => Reports_statusWhereInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => Reports_statusWhereInputSchema),z.lazy(() => Reports_statusWhereInputSchema).array() ]).optional(),
-  status: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
+  label: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   code: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   color: z.union([ z.lazy(() => StringFilterSchema),z.string() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
@@ -3598,7 +3598,7 @@ export const Reports_statusWhereUniqueInputSchema: z.ZodType<Prisma.Reports_stat
 
 export const Reports_statusOrderByWithAggregationInputSchema: z.ZodType<Prisma.Reports_statusOrderByWithAggregationInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
-  status: z.lazy(() => SortOrderSchema).optional(),
+  label: z.lazy(() => SortOrderSchema).optional(),
   code: z.lazy(() => SortOrderSchema).optional(),
   color: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
@@ -3613,7 +3613,7 @@ export const Reports_statusScalarWhereWithAggregatesInputSchema: z.ZodType<Prism
   OR: z.lazy(() => Reports_statusScalarWhereWithAggregatesInputSchema).array().optional(),
   NOT: z.union([ z.lazy(() => Reports_statusScalarWhereWithAggregatesInputSchema),z.lazy(() => Reports_statusScalarWhereWithAggregatesInputSchema).array() ]).optional(),
   id: z.union([ z.lazy(() => UuidWithAggregatesFilterSchema),z.string() ]).optional(),
-  status: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
+  label: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
   code: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
   color: z.union([ z.lazy(() => StringWithAggregatesFilterSchema),z.string() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema),z.coerce.date() ]).optional(),
@@ -5413,7 +5413,7 @@ export const Reports_itemsUncheckedUpdateManyInputSchema: z.ZodType<Prisma.Repor
 
 export const Reports_statusCreateInputSchema: z.ZodType<Prisma.Reports_statusCreateInput> = z.object({
   id: z.string().optional(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date().optional(),
@@ -5423,7 +5423,7 @@ export const Reports_statusCreateInputSchema: z.ZodType<Prisma.Reports_statusCre
 
 export const Reports_statusUncheckedCreateInputSchema: z.ZodType<Prisma.Reports_statusUncheckedCreateInput> = z.object({
   id: z.string().optional(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date().optional(),
@@ -5433,7 +5433,7 @@ export const Reports_statusUncheckedCreateInputSchema: z.ZodType<Prisma.Reports_
 
 export const Reports_statusUpdateInputSchema: z.ZodType<Prisma.Reports_statusUpdateInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
@@ -5443,7 +5443,7 @@ export const Reports_statusUpdateInputSchema: z.ZodType<Prisma.Reports_statusUpd
 
 export const Reports_statusUncheckedUpdateInputSchema: z.ZodType<Prisma.Reports_statusUncheckedUpdateInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
@@ -5453,7 +5453,7 @@ export const Reports_statusUncheckedUpdateInputSchema: z.ZodType<Prisma.Reports_
 
 export const Reports_statusCreateManyInputSchema: z.ZodType<Prisma.Reports_statusCreateManyInput> = z.object({
   id: z.string().optional(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date().optional(),
@@ -5462,7 +5462,7 @@ export const Reports_statusCreateManyInputSchema: z.ZodType<Prisma.Reports_statu
 
 export const Reports_statusUpdateManyMutationInputSchema: z.ZodType<Prisma.Reports_statusUpdateManyMutationInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
@@ -5471,7 +5471,7 @@ export const Reports_statusUpdateManyMutationInputSchema: z.ZodType<Prisma.Repor
 
 export const Reports_statusUncheckedUpdateManyInputSchema: z.ZodType<Prisma.Reports_statusUncheckedUpdateManyInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
@@ -6862,7 +6862,7 @@ export const Enumreport_item_typeWithAggregatesFilterSchema: z.ZodType<Prisma.En
 
 export const Reports_statusCountOrderByAggregateInputSchema: z.ZodType<Prisma.Reports_statusCountOrderByAggregateInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
-  status: z.lazy(() => SortOrderSchema).optional(),
+  label: z.lazy(() => SortOrderSchema).optional(),
   code: z.lazy(() => SortOrderSchema).optional(),
   color: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
@@ -6871,7 +6871,7 @@ export const Reports_statusCountOrderByAggregateInputSchema: z.ZodType<Prisma.Re
 
 export const Reports_statusMaxOrderByAggregateInputSchema: z.ZodType<Prisma.Reports_statusMaxOrderByAggregateInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
-  status: z.lazy(() => SortOrderSchema).optional(),
+  label: z.lazy(() => SortOrderSchema).optional(),
   code: z.lazy(() => SortOrderSchema).optional(),
   color: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
@@ -6880,7 +6880,7 @@ export const Reports_statusMaxOrderByAggregateInputSchema: z.ZodType<Prisma.Repo
 
 export const Reports_statusMinOrderByAggregateInputSchema: z.ZodType<Prisma.Reports_statusMinOrderByAggregateInput> = z.object({
   id: z.lazy(() => SortOrderSchema).optional(),
-  status: z.lazy(() => SortOrderSchema).optional(),
+  label: z.lazy(() => SortOrderSchema).optional(),
   code: z.lazy(() => SortOrderSchema).optional(),
   color: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
@@ -19917,7 +19917,7 @@ export const Reports_itemsCreateManyReports_items_idInputEnvelopeSchema: z.ZodTy
 
 export const Reports_statusCreateWithoutReports_status_idInputSchema: z.ZodType<Prisma.Reports_statusCreateWithoutReports_status_idInput> = z.object({
   id: z.string().optional(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date().optional(),
@@ -19926,7 +19926,7 @@ export const Reports_statusCreateWithoutReports_status_idInputSchema: z.ZodType<
 
 export const Reports_statusUncheckedCreateWithoutReports_status_idInputSchema: z.ZodType<Prisma.Reports_statusUncheckedCreateWithoutReports_status_idInput> = z.object({
   id: z.string().optional(),
-  status: z.string(),
+  label: z.string(),
   code: z.string(),
   color: z.string(),
   created_at: z.coerce.date().optional(),
@@ -20151,7 +20151,7 @@ export const Reports_statusUpdateToOneWithWhereWithoutReports_status_idInputSche
 
 export const Reports_statusUpdateWithoutReports_status_idInputSchema: z.ZodType<Prisma.Reports_statusUpdateWithoutReports_status_idInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
@@ -20160,7 +20160,7 @@ export const Reports_statusUpdateWithoutReports_status_idInputSchema: z.ZodType<
 
 export const Reports_statusUncheckedUpdateWithoutReports_status_idInputSchema: z.ZodType<Prisma.Reports_statusUncheckedUpdateWithoutReports_status_idInput> = z.object({
   id: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
-  status: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
+  label: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   code: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   color: z.union([ z.string(),z.lazy(() => StringFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),

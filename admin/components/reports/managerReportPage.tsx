@@ -27,7 +27,7 @@ export default function ManagerReportPage() {
         </TabsList>
         {terminalsList?.map((terminal) => (
           <TabsContent value={terminal.terminal_id} key={terminal.terminal_id}>
-            <CalendarReport />
+            <CalendarReport terminalId={terminal.terminal_id} />
           </TabsContent>
         ))}
       </Tabs>
