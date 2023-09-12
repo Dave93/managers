@@ -1,8 +1,8 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import {
-  usePermissionsCreate,
-  usePermissionsUpdate,
-} from "@admin/store/apis/permission";
+  useReportsStatusCreate,
+  useReportsStatusUpdate,
+} from "@admin/store/apis/reports_status";
 import { Button } from "@components/ui/button";
 import {
   Form,
@@ -14,7 +14,7 @@ import {
 } from "@components/ui/form";
 import { Switch } from "@components/ui/switch";
 import { trpc } from "@admin/utils/trpc";
-import { PermissionsCreateInputSchema } from "@backend/lib/zod";
+import { Reports_statusCreateInputSchema } from "@backend/lib/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useMemo, useEffect } from "react";
 import { useForm } from "react-hook-form";
@@ -30,12 +30,12 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 
 const formFactory = createFormFactory<
-  z.infer<typeof PermissionsCreateInputSchema>
+  z.infer<typeof Reports_statusCreateInputSchema>
 >({
   defaultValues: {
-    active: true,
-    slug: "",
-    description: "",
+    label: "",
+    code: "",
+    color: "",
   },
 });
 
@@ -60,7 +60,7 @@ export default function ReportsStatusForm({
   const onAddSuccess = (actionText: string) => {
     toast({
       title: "Success",
-      description: `Permission ${actionText}`,
+      description: `Reports status ${actionText}`,
       duration: 5000,
     });
     // form.reset();
@@ -77,20 +77,20 @@ export default function ReportsStatusForm({
   };
 
   const {
-    mutateAsync: createPermission,
+    mutateAsync: createReportsStatus,
     isLoading: isAddLoading,
     data,
     error,
-  } = usePermissionsCreate({
+  } = useReportsStatusCreate({
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
   const {
-    mutateAsync: updatePermission,
+    mutateAsync: updateReportsStatus,
     isLoading: isUpdateLoading,
     error: updateError,
-  } = usePermissionsUpdate({
+  } = useReportsStatusUpdate({
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
@@ -98,15 +98,15 @@ export default function ReportsStatusForm({
   const form = formFactory.useForm({
     onSubmit: async (values, formApi) => {
       if (recordId) {
-        updatePermission({ data: values, where: { id: recordId } });
+        updateReportsStatus({ data: values, where: { id: recordId } });
       } else {
-        createPermission({ data: values });
+        createReportsStatus({ data: values });
       }
     },
   });
 
   const { data: record, isLoading: isRecordLoading } =
-    trpc.permissions.one.useQuery(
+    trpc.reportsStatus.one.useQuery(
       {
         where: { id: recordId },
       },
@@ -121,37 +121,20 @@ export default function ReportsStatusForm({
 
   useEffect(() => {
     if (record) {
-      form.setFieldValue("active", record.active);
-      form.setFieldValue("slug", record.slug);
-      form.setFieldValue("description", record.description);
+      form.setFieldValue("label", record.label);
+      form.setFieldValue("code", record.code);
+      form.setFieldValue("color", record.color);
     }
   }, [record]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form {...form.getFormProps()} className="space-y-8 mt-8">
         <div className="space-y-2">
           <div>
-            <Label>Активность</Label>
+            <Label>Названия Статуса</Label>
           </div>
-          <form.Field name="active">
-            {(field) => {
-              return (
-                <>
-                  <Switch
-                    checked={field.getValue()}
-                    onCheckedChange={field.setValue}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
-        </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Код</Label>
-          </div>
-          <form.Field name="slug">
+          <form.Field name="label">
             {(field) => {
               return (
                 <>
@@ -166,9 +149,26 @@ export default function ReportsStatusForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Описание</Label>
+            <Label>Код</Label>
           </div>
-          <form.Field name="description">
+          <form.Field name="code">
+            {(field) => {
+              return (
+                <>
+                  <Input
+                    {...field.getInputProps()}
+                    value={field.getValue() ?? ""}
+                  />
+                </>
+              );
+            }}
+          </form.Field>
+        </div>
+        <div className="space-y-2">
+          <div>
+            <Label>Цвет</Label>
+          </div>
+          <form.Field name="color">
             {(field) => {
               return (
                 <>

@@ -116,7 +116,6 @@ export class UsersService {
         user_id: input.user_id,
       },
     });
-    console.log("user role input", input);
     return await this.prisma.users_roles.create({ data: input });
   }
 
@@ -195,8 +194,6 @@ export class UsersService {
       },
       process.env.JWT_REFRESH_EXPIRES_IN
     );
-
-    console.log("accessToken", accessToken);
 
     // getting rights
     let permissions: string[] = [];

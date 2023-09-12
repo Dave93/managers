@@ -94,7 +94,6 @@ export class TerminalsService {
             )?.model_id;
 
             if (!terminalId) {
-              console.log("creating terminal");
               const terminal = await this.prisma.terminals.create({
                 data: {
                   name: iikoTerminal.name,
