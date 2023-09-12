@@ -38,7 +38,7 @@ export const terminalsRouter = publicRouter({
       return ctx.terminalsService.findOne(input);
     }),
 
-  update: publicProcedure
+  renew: publicProcedure
     .meta({
       permission: "terminals.edit",
     })
