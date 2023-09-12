@@ -5,7 +5,6 @@ import {
   ReportsUpdateArgsSchema,
 } from "@backend/lib/zod";
 import { getUser, publicProcedure, publicRouter } from "@backend/trpc";
-import { ReportsFindManyForTerminal } from "./dto/list.dto";
 import { ReportsFindUniqueForTerminal } from "./dto/one.dto";
 
 export const reportsRouter = publicRouter({
@@ -17,9 +16,16 @@ export const reportsRouter = publicRouter({
 
   list: publicProcedure
     .use(getUser)
-    .input(ReportsFindManyForTerminal)
+    .input(ReportsFindManyArgsSchema)
     .query(({ input, ctx }) => {
       return ctx.reportsService.findMany(input, ctx.currentUser!);
+    }),
+
+  listByDate: publicProcedure
+    .use(getUser)
+    .input(ReportsFindManyArgsSchema)
+    .query(({ input, ctx }) => {
+      return ctx.reportsService.getReportsByMonth(input, ctx.currentUser!);
     }),
 
   one: publicProcedure

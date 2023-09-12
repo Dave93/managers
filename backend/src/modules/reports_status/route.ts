@@ -37,4 +37,10 @@ export const ReportsStatusRouter = publicRouter({
     .mutation(({ input, ctx }) => {
       return ctx.reportsStatusService.delete(input);
     }),
+
+  cachedReportsStatus: publicProcedure
+    .input(Reports_statusFindManyArgsSchema)
+    .query(async ({ input, ctx }) => {
+      return await ctx.reportsStatusService.cachedReportsStatus(input);
+    }),
 });

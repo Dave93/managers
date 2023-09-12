@@ -47,7 +47,6 @@ export const usersRouter = publicRouter({
     }),
 
   login: publicProcedure.input(loginInput).mutation(({ input, ctx }) => {
-    console.log("try login");
     return ctx.usersService.login(input);
   }),
 

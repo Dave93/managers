@@ -20,7 +20,7 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { usePermissionsQuery } from "@admin/store/apis/permission";
+import { useReportsStatusQuery } from "@admin/store/apis/reports_status";
 import { useMemo, useState } from "react";
 import {
   Select,
@@ -39,7 +39,7 @@ import { RouterOutputs } from "@admin/utils/trpc";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<
-    RouterOutputs["permissions"]["list"]["items"][0],
+    RouterOutputs["reportsStatus"]["list"]["items"][0],
     TValue
   >[];
 }
@@ -52,7 +52,7 @@ export function DataTable<TData, TValue>({
     pageSize: 10,
   });
 
-  const { data, isLoading } = usePermissionsQuery({
+  const { data, isLoading } = useReportsStatusQuery({
     take: pageSize,
     skip: pageIndex * pageSize,
   });

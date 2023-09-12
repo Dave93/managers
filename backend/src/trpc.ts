@@ -137,7 +137,6 @@ export const checkPermission = t.middleware(async ({ meta, next, ctx }) => {
         users_roles_usersTousers_roles_user_id: true,
       },
     });
-    console.log("user", user);
 
     if (!user) {
       throw new TRPCError({
@@ -206,7 +205,6 @@ export const getUser = t.middleware(async ({ meta, next, ctx }) => {
       users_roles_usersTousers_roles_user_id: true,
     },
   });
-  console.log("user", user);
 
   if (!user) {
     throw new TRPCError({
