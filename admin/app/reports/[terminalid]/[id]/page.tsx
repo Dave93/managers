@@ -135,6 +135,9 @@ export default function ReportsPage(params: paramsProps) {
     setExpenses(newExpenses);
   };
 
+  const terminalId = params.params.terminalId;
+  const id = params.params.id;
+
   return (
     <div className="mb-20">
       <Link href="/">
