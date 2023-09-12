@@ -15,6 +15,7 @@ import Link from "next/link";
 
 import CanAccess from "@admin/components/can-access";
 import { ChevronLeft, MinusCircle } from "lucide-react";
+import { useRouter } from "next/router";
 
 const profit = [
   {
@@ -79,7 +80,14 @@ const arryt = [
   },
 ];
 
-export default function ReportsPage() {
+interface paramsProps {
+  params: {
+    terminalId: string;
+    id: string;
+  };
+}
+
+export default function ReportsPage(params: paramsProps) {
   const [expenses, setExpenses] = useState([
     [
       {
@@ -126,6 +134,9 @@ export default function ReportsPage() {
     newExpenses.splice(index, 1);
     setExpenses(newExpenses);
   };
+
+  const terminalId = params.params.terminalId;
+  const id = params.params.id;
 
   return (
     <div className="mb-20">

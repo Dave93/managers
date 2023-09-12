@@ -10,26 +10,30 @@ import ReportsStatusFormSheet from "@admin/components/forms/reports_status/sheet
 export const reportsStatusColumns: ColumnDef<
   RouterOutputs["reportsStatus"]["list"]["items"][0]
 >[] = [
-  {
-    accessorKey: "active",
-    header: "Активен",
-    cell: ({ row }) => {
-      const record = row.original;
+  // {
+  //   accessorKey: "active",
+  //   header: "Активен",
+  //   cell: ({ row }) => {
+  //     const record = row.original;
 
-      return (
-        <div className="flex items-center space-x-2">
-          <Switch disabled />
-        </div>
-      );
-    },
-  },
+  //     return (
+  //       <div className="flex items-center space-x-2">
+  //         <Switch />
+  //       </div>
+  //     );
+  //   },
+  // },
   {
-    accessorKey: "slug",
+    accessorKey: "code",
     header: "Код",
   },
   {
-    accessorKey: "description",
-    header: "Описание",
+    accessorKey: "label",
+    header: "Названия статуса",
+  },
+  {
+    accessorKey: "color",
+    header: "Цвет",
   },
   {
     id: "actions",

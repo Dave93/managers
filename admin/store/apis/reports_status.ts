@@ -6,6 +6,12 @@ export function useReportsStatusQuery(
   return trpc.reportsStatus.list.useQuery(filter);
 }
 
+export function useReportsStatusCachedQuery(
+  filter: RouterInputs["reportsStatus"]["cachedReportsStatus"]
+) {
+  return trpc.reportsStatus.cachedReportsStatus.useQuery(filter);
+}
+
 export function useReportsStatusCreate(
   options: ReactQueryOptions["reportsStatus"]["add"]
 ) {
