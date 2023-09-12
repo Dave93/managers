@@ -133,10 +133,10 @@ export class ReportsService {
     return reports;
   }
 
-  async getReportsByDay(
+  async getUniqueReportsByDay(
     input: z.infer<typeof ReportsFindManyArgsSchema>,
     currentUser: Omit<UsersWithRelations, "password">
-  ): Promise<ReportsWithRelations[] || null> {
+  ): Promise<ReportsWithRelations[] | null> {
     const terminals = await this.prisma.users_terminals.findMany({
       where: {
         user_id: currentUser.id,
@@ -159,24 +159,13 @@ export class ReportsService {
       });
     }
 
-    const reports = (await this.prisma.reports.findFirst({
+    const reports = await this.prisma.reports.findFirst({
       where: {
         terminal_id: input.where?.terminal_id,
         date: input.where?.date,
       },
-
-
-    }))
-     if (!reports) {
-      await this.prisma.reports.findMany(input);
-
-    
-    
-    
-      // const reports = (await this.prisma.reports.findMany(
-    //   input
-    // )) as ReportsWithRelations[];
-
-    return reports;
+    });
+    if (!reports) {
+    }
   }
 }
