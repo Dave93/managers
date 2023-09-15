@@ -120,16 +120,13 @@ model Users {
   users_roles_usersTousers_roles_updated_by             Users_roles[]                    @relation("usersTousers_roles_updated_by")
   users_roles_usersTousers_roles_user_id                Users_roles[]                    @relation("usersTousers_roles_user_id")
   users_terminals                                       Users_terminals[]
-  reports_user_id                                               Reports[]                        @relation("reports_user_id")
+  reports_user_id                                       Reports[]                        @relation("reports_user_id")
   users_work_schedules                                  Users_work_schedules[]
   work_schedule_entries_created_byTousers               Work_schedule_entries[]          @relation("work_schedule_entries_created_byTousers")
   work_schedule_entries_updated_byTousers               Work_schedule_entries[]          @relation("work_schedule_entries_updated_byTousers")
   work_schedule_entries_users                           Work_schedule_entries[]          @relation("work_schedule_entries_users")
   work_schedules_created_byTousers                      Work_schedules[]                 @relation("work_schedules_created_byTousers")
   work_schedules_updated_byTousers                      Work_schedules[]                 @relation("work_schedules_updated_byTousers")
-
-
-
 
   @@index([login], map: "fki_users_login")
   @@map("users")
@@ -199,20 +196,20 @@ model Work_schedules {
 }
 
 model Terminals {
-  id              String            @id(map: "PK_terminals_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name            String
-  active          Boolean           @default(true)
-  phone           String?
-  address         String?
-  latitude        Float             @default(0)
-  longitude       Float             @default(0)
-  organization_id String            @db.Uuid
-  manager_name    String?
-  created_at      DateTime          @default(now()) @db.Timestamptz(5)
-  updated_at      DateTime          @default(now()) @db.Timestamptz(5)
-  organization    Organization      @relation("terminals_organization_idTorganization", fields: [organization_id], references: [id], onDelete: NoAction, map: "FK_terminals_organization_id")
-  users_terminals Users_terminals[]
-  reports_terminal_id Reports[] @relation("reports_terminal_id")
+  id                  String            @id(map: "PK_terminals_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  active              Boolean           @default(true)
+  phone               String?
+  address             String?
+  latitude            Float             @default(0)
+  longitude           Float             @default(0)
+  organization_id     String            @db.Uuid
+  manager_name        String?
+  created_at          DateTime          @default(now()) @db.Timestamptz(5)
+  updated_at          DateTime          @default(now()) @db.Timestamptz(5)
+  organization        Organization      @relation("terminals_organization_idTorganization", fields: [organization_id], references: [id], onDelete: NoAction, map: "FK_terminals_organization_id")
+  users_terminals     Users_terminals[]
+  reports_terminal_id Reports[]         @relation("reports_terminal_id")
 
   @@map("terminals")
 }
@@ -365,49 +362,49 @@ model Settings {
   @@map("settings")
 }
 
-model Reports{
-  id        String   @id(map: "PK_report_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  date      DateTime @db.Timestamptz(5)
-  status_id  String   @db.Uuid   
-  user_id   String   @db.Uuid
-  terminal_id String @db.Uuid
-  cash_ids  String[]
-  total_amount Int  @default(0)
-  created_at DateTime @default(now()) @db.Timestamptz(5)
-  updated_at DateTime @default(now()) @db.Timestamptz(5)
-  reports_user_id Users @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
+model Reports {
+  id                  String    @id(map: "PK_report_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  date                DateTime  @db.Timestamptz(5)
+  status_id           String    @db.Uuid
+  user_id             String    @db.Uuid
+  terminal_id         String    @db.Uuid
+  cash_ids            String[]
+  total_amount        Int       @default(0)
+  created_at          DateTime  @default(now()) @db.Timestamptz(5)
+  updated_at          DateTime  @default(now()) @db.Timestamptz(5)
+  reports_user_id     Users     @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
   reports_terminal_id Terminals @relation("reports_terminal_id", fields: [terminal_id], references: [id], onDelete: NoAction, map: "FK_reports_terminal_id")
 
-  reports_items_id Reports_items[] @relation("reports_items_id")
-  reports_status_id Reports_status @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
+  reports_items_id  Reports_items[] @relation("reports_items_id")
+  reports_status_id Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
 
   @@map("reports")
 }
 
-model Reports_items{
-   id        String   @id(map: "PK_report_item_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-   report_id String   @db.Uuid
-   label     String   @db.VarChar(255)
-   type      report_item_type
-   amount   Int      @default(0)
-   source   String   @db.VarChar(255)
-   created_at DateTime @default(now()) @db.Timestamptz(5)
-   updated_at DateTime @default(now()) @db.Timestamptz(5)
-   reports_items_id Reports @relation("reports_items_id", fields: [report_id], references: [id], onDelete: NoAction, map: "FK_reports_items_id")
+model Reports_items {
+  id               String           @id(map: "PK_report_item_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  report_id        String           @db.Uuid
+  label            String           @db.VarChar(255)
+  type             report_item_type
+  amount           Int              @default(0)
+  source           String           @db.VarChar(255)
+  created_at       DateTime         @default(now()) @db.Timestamptz(5)
+  updated_at       DateTime         @default(now()) @db.Timestamptz(5)
+  reports_items_id Reports          @relation("reports_items_id", fields: [report_id], references: [id], onDelete: NoAction, map: "FK_reports_items_id")
 
-   
-   @@map("reports_items")  
+  @@map("reports_items")
 }
 
-model Reports_status{
-  id        String   @id(map: "PK_report_status_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  label    String   @db.VarChar(255)
-  code      String   @db.VarChar(255)
-  color     String   @db.VarChar(255)
+model Reports_status {
+  id         String   @id(map: "PK_report_status_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  label      String   @db.VarChar(255)
+  code       String   @db.VarChar(255)
+  color      String   @db.VarChar(255)
   created_at DateTime @default(now()) @db.Timestamptz(5)
   updated_at DateTime @default(now()) @db.Timestamptz(5)
 
   reports_status_id Reports[] @relation("reports_status_id")
+
   @@map("reports_status")
 }
 
@@ -439,10 +436,9 @@ enum report_status {
   checking
   comfirmed
   cancelled
-  }
+}
 
 enum report_item_type {
   income
   outcome
-
-  }
+}
