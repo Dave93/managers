@@ -16,6 +16,7 @@ import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
 import { ChevronLeft, MinusCircle } from "lucide-react";
 import { useRouter } from "next/router";
+import { trpc } from "@admin/utils/trpc";
 
 const profit = [
   {
@@ -82,7 +83,7 @@ const arryt = [
 
 interface paramsProps {
   params: {
-    terminalId: string;
+    terminalid: string;
     id: string;
   };
 }
@@ -135,8 +136,12 @@ export default function ReportsPage(params: paramsProps) {
     setExpenses(newExpenses);
   };
 
-  const terminalId = params.params.terminalId;
-  const id = params.params.id;
+  const { terminalid: terminalId, id } = params.params;
+  console.log(params.params);
+  const { data, isLoading } = trpc.reports.getUniqueReportsByDay.useQuery({
+    terminal_id: terminalId,
+    date: id,
+  });
 
   return (
     <div className="mb-20">

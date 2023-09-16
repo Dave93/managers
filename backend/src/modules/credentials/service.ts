@@ -18,7 +18,7 @@ export class CredentialsService {
 
   async create(input: Prisma.CredentialsCreateArgs): Promise<Credentials> {
     const res = await this.prisma.credentials.create(input);
-    // await this.cacheControl.cachePermissions();
+    await this.cacheControl.cacheCredentials();
     return res;
   }
 
@@ -55,13 +55,13 @@ export class CredentialsService {
 
   async update(input: Prisma.CredentialsUpdateArgs): Promise<Credentials> {
     const res = await this.prisma.credentials.update(input);
-    // await this.cacheControl.cachePermissions();
+    await this.cacheControl.cacheCredentials();
     return res;
   }
 
   async delete(input: Prisma.CredentialsDeleteArgs) {
     const res = await this.prisma.credentials.delete(input);
-    await this.cacheControl.cachePermissions();
+    await this.cacheControl.cacheCredentials();
     return res;
   }
 

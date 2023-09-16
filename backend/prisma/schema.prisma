@@ -218,6 +218,7 @@ model Organization {
   id                                          String           @id(map: "PK_organization_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                                        String
   active                                      Boolean          @default(true)
+  code                                        String?
   phone                                       String?
   description                                 String?
   icon_url                                    String?
@@ -337,7 +338,7 @@ model Scheduled_reports_subscription {
 
 model Credentials {
   id                            String   @id(map: "PK_credentials_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  key                           String   @unique
+  key                           String
   model                         String
   type                          String
   model_id                      String

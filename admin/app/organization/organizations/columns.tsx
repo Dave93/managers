@@ -30,6 +30,10 @@ export const organizationsColumns: ColumnDef<
     header: "Название",
   },
   {
+    accessorKey: "code",
+    header: "Код",
+  },
+  {
     accessorKey: "phone",
     header: "Телефон",
   },
