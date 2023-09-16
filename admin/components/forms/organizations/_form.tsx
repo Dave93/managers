@@ -23,6 +23,7 @@ const formFactory = createFormFactory<
     name: "",
     description: "",
     phone: "",
+    code: "",
   },
 });
 
@@ -112,6 +113,7 @@ export default function OrganizationsForm({
       form.setFieldValue("name", record.name);
       form.setFieldValue("description", record.description);
       form.setFieldValue("phone", record.phone);
+      form.setFieldValue("code", record.code);
     }
   }, [record, form]);
 
@@ -140,6 +142,23 @@ export default function OrganizationsForm({
             <Label>Название</Label>
           </div>
           <form.Field name="name">
+            {(field) => {
+              return (
+                <>
+                  <Input
+                    {...field.getInputProps()}
+                    value={field.getValue() ?? ""}
+                  />
+                </>
+              );
+            }}
+          </form.Field>
+        </div>
+        <div className="space-y-2">
+          <div>
+            <Label>Код</Label>
+          </div>
+          <form.Field name="code">
             {(field) => {
               return (
                 <>

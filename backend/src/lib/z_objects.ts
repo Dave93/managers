@@ -11,3 +11,8 @@ export const paginatedZodObj = z.object({
   take: z.number().optional(),
   cursor: z.string().optional(),
 });
+
+export const UniqueReportsByDayInputSchema = z.object({
+  date: z.string(),
+  terminal_id: z.string(),
+});

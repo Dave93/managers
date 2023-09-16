@@ -54,13 +54,13 @@ export class WorkSchedulesService {
     input: Prisma.Work_schedulesUpdateArgs
   ): Promise<Work_schedules> {
     const res = await this.prisma.work_schedules.update(input);
-    await this.cacheControl.chacheWorkSchedules();
+    await this.cacheControl.cacheWorkSchedules();
     return res;
   }
 
   async delete(input: Prisma.Work_schedulesDeleteArgs) {
     const res = await this.prisma.work_schedules.delete(input);
-    await this.cacheControl.chacheWorkSchedules();
+    await this.cacheControl.cacheWorkSchedules();
     return res;
   }
 

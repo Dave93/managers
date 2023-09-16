@@ -6,6 +6,7 @@ import {
 } from "@backend/lib/zod";
 import { getUser, publicProcedure, publicRouter } from "@backend/trpc";
 import { ReportsFindUniqueForTerminal } from "./dto/one.dto";
+import { UniqueReportsByDayInputSchema } from "@backend/lib/z_objects";
 
 export const reportsRouter = publicRouter({
   add: publicProcedure
@@ -45,5 +46,12 @@ export const reportsRouter = publicRouter({
     .input(ReportsDeleteArgsSchema)
     .mutation(({ input, ctx }) => {
       return ctx.reportsService.delete(input);
+    }),
+
+  getUniqueReportsByDay: publicProcedure
+    .use(getUser)
+    .input(UniqueReportsByDayInputSchema)
+    .query(({ input, ctx }) => {
+      return ctx.reportsService.getUniqueReportsByDay(input, ctx.currentUser!);
     }),
 });

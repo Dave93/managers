@@ -33,7 +33,11 @@ export class CacheControlService {
     this.cacheOrganization();
     this.cacheRoles();
     this.cacheTerminals();
-    this.chacheWorkSchedules();
+    this.cacheWorkSchedules();
+    this.cacheApiTokens();
+    this.cacheScheduledReports();
+    this.cacheSettings();
+    this.cacheCredentials();
   }
 
   async cachePermissions() {
@@ -233,7 +237,7 @@ export class CacheControlService {
     });
   }
 
-  async chacheWorkSchedules() {
+  async cacheWorkSchedules() {
     const workSchedules = await this.prisma.work_schedules.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}work_schedules`,
@@ -312,5 +316,30 @@ export class CacheControlService {
       `${process.env.PROJECT_PREFIX}settings`,
       JSON.stringify(settings)
     );
+  }
+
+  async cacheCredentials() {
+    const credentials = await this.prisma.credentials.findMany();
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}credentials`,
+      JSON.stringify(credentials)
+    );
+  }
+
+  async getCachedCredentials({
+    take,
+  }: {
+    take?: number;
+  }): Promise<Credentials[]> {
+    const credentials = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}credentials`
+    );
+    let res = JSON.parse(credentials ?? "[]");
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
+
+    return res;
   }
 }
