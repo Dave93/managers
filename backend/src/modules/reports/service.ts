@@ -16,9 +16,32 @@ import { CacheControlService } from "../cache_control/service";
 import {
   UniqueReportsByDayInputSchema,
   UniqueReportsByDayOutputSchema,
+  UniqueSetReportDataInputSchema,
 } from "@backend/lib/z_objects";
 
 export class ReportsService {
+  setReportData(
+    input: {
+      date: string;
+      terminal_id: string;
+      incomes: {
+        amount?: number | null | undefined;
+        error: string | null;
+        type: string;
+        label: string;
+        readonly: boolean;
+      }[];
+      expenses: {
+        amount?: number | null | undefined;
+        error: string | null;
+        type: string;
+        label: string;
+      }[];
+    },
+    arg1: Omit<UsersWithRelations, "password">
+  ): any {
+    throw new Error("Method not implemented.");
+  }
   constructor(
     private readonly prisma: DB,
     private readonly cacheControl: CacheControlService
@@ -228,7 +251,6 @@ export class ReportsService {
       }
 
       date = dayjs.unix(+input.date).toISOString();
-      console.log("report date send", date);
       const [
         clickReportResult,
         paymeReportResult,
@@ -240,11 +262,13 @@ export class ReportsService {
         merchantTrpcClient.getClickReport.query({
           serviceIds: clickServiceIds?.split(",") ?? [],
           date,
+          time: input.time,
         }),
         merchantTrpcClient.getPaymeReport.query({
           businessId: paymeBusinessId ?? "",
           serviceIds: paymeMerchantIds?.split(",") ?? [],
           date,
+          time: input.time,
         }),
         merchantTrpcClient.getIikoCachierReport.query({
           groupId: iikoId ?? "",
@@ -254,17 +278,44 @@ export class ReportsService {
           organization_code: organization?.code ?? "",
           serviceIds: yandexRestaurantIds?.split(",") ?? [],
           date,
+          time: input.time,
         }),
         merchantTrpcClient.getExpressReport.query({
           organization_code: organization?.code ?? "",
           date,
           terminal_id: input.terminal_id,
+          time: input.time,
         }),
         merchantTrpcClient.getArrytReport.query({
           date,
           terminal_id: input.terminal_id,
+          time: input.time,
         }),
       ]);
+
+      result.incomes.push({
+        amount: 0,
+        error: null,
+        type: "cash",
+        readonly: false,
+        label: "Наличными",
+      });
+
+      result.incomes.push({
+        amount: 0,
+        error: null,
+        type: "uzcard",
+        readonly: false,
+        label: "Терминал",
+      });
+
+      result.incomes.push({
+        amount: 0,
+        error: null,
+        type: "humo",
+        readonly: false,
+        label: "Humo",
+      });
 
       if (clickReportResult.status == "rejected") {
         result.incomes.push({
@@ -338,6 +389,14 @@ export class ReportsService {
         });
       }
 
+      result.incomes.push({
+        amount: 0,
+        error: null,
+        type: "uzum",
+        readonly: false,
+        label: "Uzum Tezkor",
+      });
+
       if (arrytReportResult.status == "rejected") {
       } else {
         console.log(arrytReportResult.value);
@@ -355,5 +414,120 @@ export class ReportsService {
       }
     }
     return result;
+  }
+
+  async setReport(
+    input: z.infer<typeof UniqueSetReportDataInputSchema>,
+    currentUser: Omit<UsersWithRelations, "password">
+  ) {
+    const terminals = await this.prisma.users_terminals.findMany({
+      where: {
+        user_id: currentUser.id,
+      },
+      select: {
+        terminal_id: true,
+        terminals: {
+          select: {
+            organization_id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const terminalId = input.terminal_id;
+
+    const chosenTerminal = terminals.find(
+      (terminal) => terminal.terminal_id === terminalId
+    );
+
+    if (!chosenTerminal) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Forbidden",
+      });
+    }
+    const reports = await this.prisma.reports.findFirst({
+      where: {
+        terminal_id: input.terminal_id,
+        date: dayjs.unix(+input.date).hour(0).minute(0).second(0).toDate(),
+      },
+    });
+
+    const allCredentials = await this.cacheControl.getCachedCredentials({});
+    const credentials = allCredentials.filter(
+      (credential) =>
+        credential.model_id === input.terminal_id &&
+        credential.model === "terminals"
+    );
+
+    const clickServiceIds = credentials.find(
+      (c) => c.type === "click_service_ids"
+    )?.key;
+
+    const paymeBusinessId = credentials.find(
+      (c) => c.type === "payme_business_id"
+    )?.key;
+
+    const paymeMerchantIds = credentials.find(
+      (c) => c.type === "payme_merchant_ids"
+    )?.key;
+
+    const iikoId = credentials.find((c) => c.type === "iiko_id")?.key;
+
+    const yandexRestaurantIds = credentials.find(
+      (c) => c.type === "yandex_restaurant_id"
+    )?.key;
+
+    const organizations = await this.cacheControl.getCachedOrganization({});
+    const organization = organizations.find(
+      (org) => org.id === chosenTerminal?.terminals?.organization_id
+    );
+
+    const reportGroups = await this.cacheControl.getCachedReportGroups({});
+
+    let date = input.date;
+
+    if (!date) {
+      date = dayjs().toISOString();
+    }
+
+    date = dayjs.unix(+input.date).toISOString();
+    const [
+      clickReportResult,
+      paymeReportResult,
+      iikoCachierReport,
+      yandexReportResult,
+      expressReportResult,
+      arrytReportResult,
+    ] = await Promise.allSettled([
+      merchantTrpcClient.getClickReport.query({
+        serviceIds: clickServiceIds?.split(",") ?? [],
+        date,
+      }),
+      merchantTrpcClient.getPaymeReport.query({
+        businessId: paymeBusinessId ?? "",
+        serviceIds: paymeMerchantIds?.split(",") ?? [],
+        date,
+      }),
+      merchantTrpcClient.getIikoCachierReport.query({
+        groupId: iikoId ?? "",
+        date,
+      }),
+      merchantTrpcClient.getYandexReport.query({
+        organization_code: organization?.code ?? "",
+        serviceIds: yandexRestaurantIds?.split(",") ?? [],
+        date,
+      }),
+      merchantTrpcClient.getExpressReport.query({
+        organization_code: organization?.code ?? "",
+        date,
+        terminal_id: input.terminal_id,
+      }),
+      merchantTrpcClient.getArrytReport.query({
+        date,
+        terminal_id: input.terminal_id,
+      }),
+    ]);
   }
 }

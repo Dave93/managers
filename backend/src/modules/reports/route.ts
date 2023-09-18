@@ -6,7 +6,10 @@ import {
 } from "@backend/lib/zod";
 import { getUser, publicProcedure, publicRouter } from "@backend/trpc";
 import { ReportsFindUniqueForTerminal } from "./dto/one.dto";
-import { UniqueReportsByDayInputSchema } from "@backend/lib/z_objects";
+import {
+  UniqueReportsByDayInputSchema,
+  UniqueSetReportDataInputSchema,
+} from "@backend/lib/z_objects";
 
 export const reportsRouter = publicRouter({
   add: publicProcedure
@@ -53,5 +56,12 @@ export const reportsRouter = publicRouter({
     .input(UniqueReportsByDayInputSchema)
     .query(({ input, ctx }) => {
       return ctx.reportsService.getUniqueReportsByDay(input, ctx.currentUser!);
+    }),
+
+  setReportData: publicProcedure
+    .use(getUser)
+    .input(UniqueSetReportDataInputSchema)
+    .mutation(({ input, ctx }) => {
+      return ctx.reportsService.setReportData(input, ctx.currentUser!);
     }),
 });
