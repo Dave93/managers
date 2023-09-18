@@ -363,6 +363,23 @@ model Settings {
   @@map("settings")
 }
 
+model ReportGroups {
+  id         String   @id(map: "PK_report_groups_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name       String
+  code       String
+  parent_id  String?  @db.Uuid
+  created_at DateTime @default(now()) @db.Timestamptz(5)
+  updated_at DateTime @default(now()) @db.Timestamptz(5)
+
+  parent_id_report_groups ReportGroups? @relation("report_groups_id", fields: [parent_id], references: [id], onDelete: NoAction, map: "FK_parent_id_report_groups")
+
+  report_groups_id ReportGroups[] @relation("report_groups_id")
+
+  reports_items_id Reports_items[] @relation("report_groups_id")
+
+  @@map("report_groups")
+}
+
 model Reports {
   id                  String    @id(map: "PK_report_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   date                DateTime  @db.Timestamptz(5)
@@ -371,6 +388,7 @@ model Reports {
   terminal_id         String    @db.Uuid
   cash_ids            String[]
   total_amount        Int       @default(0)
+  total_manager_price Int       @default(0)
   created_at          DateTime  @default(now()) @db.Timestamptz(5)
   updated_at          DateTime  @default(now()) @db.Timestamptz(5)
   reports_user_id     Users     @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
@@ -389,9 +407,12 @@ model Reports_items {
   type             report_item_type
   amount           Int              @default(0)
   source           String           @db.VarChar(255)
+  group_id         String?          @db.Uuid
   created_at       DateTime         @default(now()) @db.Timestamptz(5)
   updated_at       DateTime         @default(now()) @db.Timestamptz(5)
   reports_items_id Reports          @relation("reports_items_id", fields: [report_id], references: [id], onDelete: NoAction, map: "FK_reports_items_id")
+
+  report_groups_id ReportGroups? @relation("report_groups_id", fields: [group_id], references: [id], onDelete: NoAction, map: "FK_report_groups_id")
 
   @@map("reports_items")
 }

@@ -16,6 +16,7 @@ import {
   TerminalsWithCredentials,
 } from "./dto/cache.dto";
 import { z } from "zod";
+import { ReportGroups } from "@prisma/client";
 
 export class CacheControlService {
   private sortedItemRepository: ISortedItemRepository<Permissions>;
@@ -38,6 +39,7 @@ export class CacheControlService {
     this.cacheScheduledReports();
     this.cacheSettings();
     this.cacheCredentials();
+    this.cacheReportGroups();
   }
 
   async cachePermissions() {
@@ -335,6 +337,31 @@ export class CacheControlService {
       `${process.env.PROJECT_PREFIX}credentials`
     );
     let res = JSON.parse(credentials ?? "[]");
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
+
+    return res;
+  }
+
+  async cacheReportGroups() {
+    const reportGroups = await this.prisma.reportGroups.findMany();
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}report_groups`,
+      JSON.stringify(reportGroups)
+    );
+  }
+
+  async getCachedReportGroups({
+    take,
+  }: {
+    take?: number;
+  }): Promise<ReportGroups[]> {
+    const reportGroups = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}report_groups`
+    );
+    let res = JSON.parse(reportGroups ?? "[]");
 
     if (take && res.length > take) {
       res = res.slice(0, take);

@@ -15,12 +15,35 @@ export const paginatedZodObj = z.object({
 export const UniqueReportsByDayInputSchema = z.object({
   date: z.string(),
   terminal_id: z.string(),
+  time: z.string().nullish(),
 });
 
 export const UniqueReportsByDayOutputSchema = z.object({
   terminal_name: z.string(),
   terminal_id: z.string(),
   totalCashier: z.number(),
+  incomes: z.array(
+    z.object({
+      type: z.string(),
+      amount: z.number().nullish(),
+      error: z.string().nullable(),
+      readonly: z.boolean(),
+      label: z.string(),
+    })
+  ),
+  expenses: z.array(
+    z.object({
+      type: z.string(),
+      amount: z.number().nullish(),
+      error: z.string().nullable(),
+      label: z.string(),
+    })
+  ),
+});
+
+export const UniqueSetReportDataInputSchema = z.object({
+  date: z.string(),
+  terminal_id: z.string(),
   incomes: z.array(
     z.object({
       type: z.string(),
