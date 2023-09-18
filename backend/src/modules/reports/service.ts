@@ -13,7 +13,10 @@ import { ReportsFindUniqueForTerminal } from "./dto/one.dto";
 import dayjs from "dayjs";
 import { merchantTrpcClient } from "@backend/lib/merchant-trpc-server";
 import { CacheControlService } from "../cache_control/service";
-import { UniqueReportsByDayInputSchema } from "@backend/lib/z_objects";
+import {
+  UniqueReportsByDayInputSchema,
+  UniqueReportsByDayOutputSchema,
+} from "@backend/lib/z_objects";
 
 export class ReportsService {
   constructor(
@@ -142,15 +145,14 @@ export class ReportsService {
   async getUniqueReportsByDay(
     input: z.infer<typeof UniqueReportsByDayInputSchema>,
     currentUser: Omit<UsersWithRelations, "password">
-  ): Promise<
-    | {
-        type: string;
-        error: any;
-        data: any;
-      }[]
-    | null
-  > {
-    const result = [];
+  ): Promise<z.infer<typeof UniqueReportsByDayOutputSchema>> {
+    const result: z.infer<typeof UniqueReportsByDayOutputSchema> = {
+      terminal_name: "",
+      terminal_id: "",
+      incomes: [],
+      expenses: [],
+      totalCashier: 0,
+    };
     const terminals = await this.prisma.users_terminals.findMany({
       where: {
         user_id: currentUser.id,
@@ -160,6 +162,7 @@ export class ReportsService {
         terminals: {
           select: {
             organization_id: true,
+            name: true,
           },
         },
       },
@@ -177,6 +180,9 @@ export class ReportsService {
         message: "Forbidden",
       });
     }
+
+    result.terminal_id = chosenTerminal.terminal_id;
+    result.terminal_name = chosenTerminal.terminals?.name ?? "";
 
     const reports = await this.prisma.reports.findFirst({
       where: {
@@ -204,6 +210,12 @@ export class ReportsService {
         (c) => c.type === "payme_merchant_ids"
       )?.key;
 
+      const iikoId = credentials.find((c) => c.type === "iiko_id")?.key;
+
+      const yandexRestaurantIds = credentials.find(
+        (c) => c.type === "yandex_restaurant_id"
+      )?.key;
+
       const organizations = await this.cacheControl.getCachedOrganization({});
       const organization = organizations.find(
         (org) => org.id === chosenTerminal?.terminals?.organization_id
@@ -217,7 +229,14 @@ export class ReportsService {
 
       date = dayjs.unix(+input.date).toISOString();
       console.log("report date send", date);
-      const [clickReportResult, paymeReportResult] = await Promise.allSettled([
+      const [
+        clickReportResult,
+        paymeReportResult,
+        iikoCachierReport,
+        yandexReportResult,
+        expressReportResult,
+        arrytReportResult,
+      ] = await Promise.allSettled([
         merchantTrpcClient.getClickReport.query({
           serviceIds: clickServiceIds?.split(",") ?? [],
           date,
@@ -227,34 +246,112 @@ export class ReportsService {
           serviceIds: paymeMerchantIds?.split(",") ?? [],
           date,
         }),
+        merchantTrpcClient.getIikoCachierReport.query({
+          groupId: iikoId ?? "",
+          date,
+        }),
+        merchantTrpcClient.getYandexReport.query({
+          organization_code: organization?.code ?? "",
+          serviceIds: yandexRestaurantIds?.split(",") ?? [],
+          date,
+        }),
+        merchantTrpcClient.getExpressReport.query({
+          organization_code: organization?.code ?? "",
+          date,
+          terminal_id: input.terminal_id,
+        }),
+        merchantTrpcClient.getArrytReport.query({
+          date,
+          terminal_id: input.terminal_id,
+        }),
       ]);
 
       if (clickReportResult.status == "rejected") {
-        result.push({
-          data: null,
+        result.incomes.push({
+          amount: null,
           error: clickReportResult.reason,
           type: "click",
+          readonly: true,
+          label: "Click",
         });
       } else {
-        result.push({
+        result.incomes.push({
           error: null,
-          data: clickReportResult.value,
+          amount: clickReportResult.value,
           type: "click",
+          readonly: true,
+          label: "Click",
         });
       }
 
       if (paymeReportResult.status == "rejected") {
-        result.push({
+        result.incomes.push({
           error: paymeReportResult.reason,
-          data: null,
+          amount: null,
           type: "payme",
+          readonly: true,
+          label: "Payme",
         });
       } else {
-        result.push({
+        result.incomes.push({
           error: null,
-          data: paymeReportResult.value,
+          amount: paymeReportResult.value,
           type: "payme",
+          readonly: true,
+          label: "Payme",
         });
+      }
+
+      if (yandexReportResult.status == "rejected") {
+        result.incomes.push({
+          error: yandexReportResult.reason,
+          amount: null,
+          type: "yandex",
+          readonly: true,
+          label: "Yandex",
+        });
+      } else {
+        result.incomes.push({
+          error: null,
+          amount: yandexReportResult.value,
+          type: "yandex",
+          readonly: true,
+          label: "Yandex",
+        });
+      }
+
+      if (expressReportResult.status == "rejected") {
+        result.incomes.push({
+          error: expressReportResult.reason,
+          amount: null,
+          type: "express",
+          readonly: true,
+          label: "Express24",
+        });
+      } else {
+        result.incomes.push({
+          error: null,
+          amount: expressReportResult.value,
+          type: "express",
+          readonly: true,
+          label: "Express24",
+        });
+      }
+
+      if (arrytReportResult.status == "rejected") {
+      } else {
+        console.log(arrytReportResult.value);
+        arrytReportResult.value.forEach((item) => {
+          result.expenses.push({
+            error: null,
+            amount: item.amount,
+            type: "arryt",
+            label: item.name,
+          });
+        });
+      }
+      if (iikoCachierReport.status == "fulfilled") {
+        result.totalCashier = iikoCachierReport.value;
       }
     }
     return result;
