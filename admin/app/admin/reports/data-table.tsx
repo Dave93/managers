@@ -57,6 +57,9 @@ export function DataTable<TData, TValue>({
       reports_terminal_id: true,
       reports_user_id: true,
     },
+    orderBy: {
+      date: "desc",
+    },
   });
 
   const defaultData = useMemo(() => [], []);
