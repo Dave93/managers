@@ -22,6 +22,7 @@ export const UniqueReportsByDayOutputSchema = z.object({
   terminal_name: z.string(),
   terminal_id: z.string(),
   totalCashier: z.number(),
+  editable: z.boolean(),
   incomes: z.array(
     z.object({
       type: z.string(),
@@ -48,7 +49,7 @@ export const UniqueSetReportDataInputSchema = z.object({
     z.object({
       type: z.string(),
       amount: z.number().nullish(),
-      error: z.string().nullable(),
+      error: z.string().nullish(),
       readonly: z.boolean(),
       label: z.string(),
     })
@@ -57,7 +58,7 @@ export const UniqueSetReportDataInputSchema = z.object({
     z.object({
       type: z.string(),
       amount: z.number().nullish(),
-      error: z.string().nullable(),
+      error: z.string().nullish(),
       label: z.string(),
     })
   ),

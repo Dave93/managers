@@ -58,7 +58,7 @@ const scheduledReportsService = new ScheduledReportsService(
 const credentialsService = new CredentialsService(db, cacheControlService);
 const settingsService = new SettingsService(db, cacheControlService);
 const reportsService = new ReportsService(db, cacheControlService);
-const reportsStatusService = new ReportsStatusService(db);
+const reportsStatusService = new ReportsStatusService(db, cacheControlService);
 
 interface Meta {
   permission?: string;

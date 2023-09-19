@@ -108,6 +108,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="reports.list">
+          <NavigationMenuItem>
+            <Link href="/admin/reports" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Кассы
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="settings.list">
           <NavigationMenuItem>
             <Link href="/settings" legacyBehavior passHref>
