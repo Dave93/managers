@@ -6,17 +6,20 @@ import { Calendar } from "@admin/components/ui/calendar";
 import { useRouter } from "next/navigation";
 import { trpc } from "@admin/utils/trpc";
 import dayjs from "dayjs";
+import { Reports_status } from "@backend/lib/zod";
 
-export function CalendarReport({ terminalId }: { terminalId: string }) {
+export function CalendarReport({
+  terminalId,
+  reportsStatus,
+}: {
+  terminalId: string;
+  reportsStatus: Reports_status[];
+}) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
 
-  const [
-    { data: reportsStatus, isLoading: isReportsStatusLoading },
-    { data: reportsByDate, isLoading: isReportsByDateLoading },
-  ] = trpc.useQueries((t) => [
-    t.reportsStatus.cachedReportsStatus({}),
-    t.reports.listByDate({
+  const { data: reportsByDate, isLoading: isReportsByDateLoading } =
+    trpc.reports.listByDate.useQuery({
       where: {
         terminal_id: terminalId,
         date: {
@@ -27,8 +30,7 @@ export function CalendarReport({ terminalId }: { terminalId: string }) {
       include: {
         reports_status_id: true,
       },
-    }),
-  ]);
+    });
 
   const modifiers = useMemo(() => {
     let res = {
