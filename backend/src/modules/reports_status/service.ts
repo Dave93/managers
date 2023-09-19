@@ -7,14 +7,21 @@ import {
 } from "@backend/lib/zod";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
+import { CacheControlService } from "../cache_control/service";
 
 export class ReportsStatusService {
-  constructor(private readonly prisma: DB) {}
+  constructor(
+    private readonly prisma: DB,
+    private readonly cacheControl: CacheControlService
+  ) {}
 
   async create(
     input: Prisma.Reports_statusCreateArgs
   ): Promise<Reports_status> {
-    return this.prisma.reports_status.create(input);
+    const res = await this.prisma.reports_status.create(input);
+    await this.cacheControl.cacheReportStatuses();
+
+    return res;
   }
 
   async findMany(
@@ -49,11 +56,17 @@ export class ReportsStatusService {
   async update(
     input: Prisma.Reports_statusUpdateArgs
   ): Promise<Reports_status> {
-    return this.prisma.reports_status.update(input);
+    const res = await this.prisma.reports_status.update(input);
+    await this.cacheControl.cacheReportStatuses();
+
+    return res;
   }
 
   async delete(input: Prisma.Reports_statusDeleteArgs) {
-    return this.prisma.reports_status.delete(input);
+    const res = await this.prisma.reports_status.delete(input);
+    await this.cacheControl.cacheReportStatuses();
+
+    return res;
   }
 
   async cachedReportsStatus(
