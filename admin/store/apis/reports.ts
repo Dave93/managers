@@ -1,9 +1,4 @@
-import {
-  trpc,
-  ReactQueryOptions,
-  RouterOutputs,
-  RouterInputs,
-} from "@admin/utils/trpc";
+import { trpc, ReactQueryOptions, RouterInputs } from "@admin/utils/trpc";
 
 export function useReportsQuery(filter: any) {
   return trpc.reports.list.useQuery(filter);
