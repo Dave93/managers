@@ -38,10 +38,7 @@ export const reportsRouter = publicRouter({
     }),
 
   listByDate: publicProcedure
-    .meta({
-      permission: "reports.list",
-    })
-    .use(checkPermission)
+    .use(getUser)
     .input(ReportsFindManyArgsSchema)
     .query(({ input, ctx }) => {
       return ctx.reportsService.getReportsByMonth(input, ctx.currentUser!);

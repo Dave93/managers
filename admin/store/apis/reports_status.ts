@@ -76,3 +76,9 @@ export function useReportsStatusDestroy(
     },
   });
 }
+
+export function useCachedReportsStatusQuery(
+  filter: RouterInputs["reportsStatus"]["cachedReportsStatus"]
+) {
+  return trpc.reportsStatus.cachedReportsStatus.useQuery(filter);
+}
