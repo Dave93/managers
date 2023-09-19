@@ -52,6 +52,11 @@ export function DataTable<TData, TValue>({
   const { data, isLoading } = useReportsQuery({
     take: pageSize,
     skip: pageIndex * pageSize,
+    include: {
+      reports_status_id: true,
+      reports_terminal_id: true,
+      reports_user_id: true,
+    },
   });
 
   const defaultData = useMemo(() => [], []);
