@@ -3,9 +3,8 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon, KeyRound } from "lucide-react";
 import { Button } from "@components/ui/button";
 import { RouterOutputs } from "@admin/utils/trpc";
-import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";
-import CanAccess from "@admin/components/can-access";
-import CredentialsFormSheet from "@admin/components/forms/credentials/list_sheet";
+import dayjs from "dayjs";
+import { Badge } from "@admin/components/ui/badge";
 
 export const reportsColumns: ColumnDef<
   RouterOutputs["reports"]["list"]["items"][0]
@@ -13,10 +12,19 @@ export const reportsColumns: ColumnDef<
   {
     accessorKey: "date",
     header: "Дата",
+    cell: ({ row }) => {
+      const record = row.original;
+      return <span>{dayjs(record.date).format("DD.MM.YYYY")}</span>;
+    },
   },
   {
     accessorKey: "status_id",
     header: "Статус",
+    cell: ({ row }) => {
+      const record = row.original;
+
+      return <Badge variant="default">{record.reports_status_id.label}</Badge>;
+    },
   },
   {
     id: "actions",

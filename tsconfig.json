@@ -19,7 +19,7 @@
       "@admin/*": ["./admin/*"],
       "@lib/*": ["./lib/*"],
       "@components/*": ["./admin/components/*"],
-      "@merchants/*": ["./merchants/*"]
+      "@merchants/*": ["./merchants_api/*"]
     }
   }
 }

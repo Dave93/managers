@@ -32,29 +32,7 @@ export class ReportsService {
   async findMany(
     input: z.infer<typeof ReportsFindManyArgsSchema>,
     currentUser: Omit<UsersWithRelations, "password">
-  ): Promise<PaginationType<Reports>> {
-    const terminals = await this.prisma.users_terminals.findMany({
-      where: {
-        user_id: currentUser.id,
-      },
-      select: {
-        terminal_id: true,
-      },
-    });
-
-    const terminalId = input.where?.terminal_id;
-
-    const chosenTerminal = terminals.find(
-      (terminal) => terminal.terminal_id === terminalId
-    );
-
-    if (!chosenTerminal) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Forbidden",
-      });
-    }
-
+  ): Promise<PaginationType<ReportsWithRelations>> {
     let take = input.take ?? 20;
     let skip = !input.skip ? 1 : Math.round(input.skip / take);
     if (input.skip && input.skip > 0) {
@@ -71,7 +49,7 @@ export class ReportsService {
         includePageCount: true,
       });
     return {
-      items: reports,
+      items: reports as ReportsWithRelations[],
       meta,
     };
   }
