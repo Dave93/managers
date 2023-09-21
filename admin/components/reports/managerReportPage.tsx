@@ -49,7 +49,7 @@ export default function ManagerReportPage() {
         </div>
       ) : (
         <div>
-          <Tabs defaultValue="account" className="w-fullpt-3">
+          <Tabs defaultValue="account" className="w-full pt-3">
             <TabsList className="w-full">
               {terminalsList?.map((terminal) => (
                 <TabsTrigger
