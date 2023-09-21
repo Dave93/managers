@@ -19,6 +19,7 @@ import { credentialsRouter } from "./modules/credentials/route";
 import { settingsRouter } from "./modules/settings/route";
 import { reportsRouter } from "./modules/reports/route";
 import { ReportsStatusRouter } from "./modules/reports_status/route";
+import { ReportsItemsRouter } from "./modules/reports_items/route";
 
 export const router = publicRouter({
   permissions: permissionsRouter,
@@ -41,6 +42,7 @@ export const router = publicRouter({
   settings: settingsRouter,
   reports: reportsRouter,
   reportsStatus: ReportsStatusRouter,
+  reportsItems: ReportsItemsRouter,
 });
 
 export type Router = typeof router;

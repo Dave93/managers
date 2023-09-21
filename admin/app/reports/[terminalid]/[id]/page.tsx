@@ -8,6 +8,17 @@ import {
   CardHeader,
   CardTitle,
 } from "@admin/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
@@ -34,11 +45,12 @@ export default function ReportsPage(params: paramsProps) {
 
   const { terminalid: terminalId, id } = params.params;
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [minusDialogOpen, setMinusDialogOpen] = useState(false);
   const [incomes, setIncomes] = useState<
     {
       type: string;
-      amount?: number;
-      error?: string;
+      amount?: number | null | undefined;
+      error?: string | null | undefined;
       readonly: boolean;
       label: string;
     }[]
@@ -136,6 +148,11 @@ export default function ReportsPage(params: paramsProps) {
   };
 
   const onSubmit = () => {
+    if (minusDiff > 0) {
+      setMinusDialogOpen(true);
+      return;
+    }
+
     const incomeTotal = incomes.reduce((acc, curr) => {
       return acc + Number(curr.amount);
     }, 0);
@@ -205,6 +222,14 @@ export default function ReportsPage(params: paramsProps) {
 
     return localExpensesSum + dataExpensesSum;
   }, [expenses, data?.expenses]);
+
+  const minusDiff = useMemo(() => {
+    if (data?.totalCashier) {
+      return data?.totalCashier - incomesTotalSum - expensesTotalSum;
+    } else {
+      return 0;
+    }
+  }, [data?.totalCashier, incomesTotalSum, expensesTotalSum]);
 
   const isFormLoading = useMemo(() => {
     return !!selectedTime || isLoading || isSubmitLoading;
@@ -379,6 +404,16 @@ export default function ReportsPage(params: paramsProps) {
               Добавить
             </Button>
           )}
+          {minusDiff > 0 && (
+            <div className="flex flex-col items-center text-red-500 font-bold">
+              <CardTitle className="text-center text-4xl mt-6">
+                Недостающая сумма
+              </CardTitle>
+              <div className="!text-4xl">
+                {Intl.NumberFormat("ru-RU").format(minusDiff)}
+              </div>
+            </div>
+          )}
         </CardContent>
         {data && data.editable && (
           <CardFooter className="flex justify-between">
@@ -414,6 +449,45 @@ export default function ReportsPage(params: paramsProps) {
           </CardFooter>
         )}
       </Card>
+      <AlertDialog open={minusDialogOpen} onOpenChange={setMinusDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-500 uppercase font-bold">
+              Вы уверены, что хотите отправить отчёт?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xl">
+              У Вас на кассе не хватает{" "}
+              {Intl.NumberFormat("ru-RU").format(minusDiff)}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Нет</AlertDialogCancel>
+            <AlertDialogAction
+              asChild
+              className="bg-destructive text-white uppercase"
+            >
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  setMinusDialogOpen(false);
+                  sendReport({
+                    terminal_id: terminalId,
+                    date: id,
+                    incomes: incomes.filter((income) => !income.readonly),
+                    expenses: expenses.map((expense) => ({
+                      type: "other_expenses",
+                      amount: expense[1].value ? +expense[1].value : 0,
+                      label: expense[0].value,
+                    })),
+                  });
+                }}
+              >
+                Да, уверен
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

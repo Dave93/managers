@@ -389,6 +389,8 @@ model Reports {
   cash_ids            String[]
   total_amount        Int       @default(0)
   total_manager_price Int       @default(0)
+  difference          Int       @default(0)
+  arryt_income        Int       @default(0)
   created_at          DateTime  @default(now()) @db.Timestamptz(5)
   updated_at          DateTime  @default(now()) @db.Timestamptz(5)
   reports_user_id     Users     @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")

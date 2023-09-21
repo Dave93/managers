@@ -10,7 +10,7 @@ import {
   Users_terminalsUncheckedCreateInputSchema,
   Users_terminalsCreateManyArgsSchema,
 } from "@backend/lib/zod";
-import { loginInput } from "./dto/users.dto";
+import { loginInput, refreshTokenInput } from "./dto/users.dto";
 
 export const usersRouter = publicRouter({
   add: publicProcedure
@@ -49,6 +49,11 @@ export const usersRouter = publicRouter({
   login: publicProcedure.input(loginInput).mutation(({ input, ctx }) => {
     return ctx.usersService.login(input);
   }),
+  refreshToken: publicProcedure
+    .input(refreshTokenInput)
+    .mutation(({ input, ctx }) => {
+      return ctx.usersService.refreshToken(input);
+    }),
 
   assignTerminal: publicProcedure
     .input(Users_terminalsCreateManyArgsSchema)
