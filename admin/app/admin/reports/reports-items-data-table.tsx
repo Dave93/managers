@@ -13,53 +13,57 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
 } from "@components/ui/table";
 
-import { Button } from "@components/ui/button";
-
-import { useReportsQuery } from "@admin/store/apis/reports";
+import { useReportsItemsQuery } from "@admin/store/apis/reports_items";
 import { useMemo, useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@components/ui/select";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DoubleArrowLeftIcon,
-  DoubleArrowRightIcon,
-} from "@radix-ui/react-icons";
 import { RouterOutputs } from "@admin/utils/trpc";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<RouterOutputs["reports"]["list"]["items"][0], TValue>[];
+  columns: ColumnDef<
+    RouterOutputs["reportsItems"]["list"]["items"][0],
+    TValue
+  >[];
+  recordId: string;
 }
 
 export function DataTable<TData, TValue>({
   columns,
+  recordId,
 }: DataTableProps<TData, TValue>) {
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 10,
+    pageSize: 50,
   });
 
-  const { data, isLoading } = useReportsQuery({
+  const { data, isLoading } = useReportsItemsQuery({
     take: pageSize,
     skip: pageIndex * pageSize,
+    where: {
+      report_id: recordId,
+    },
     include: {
-      reports_status_id: true,
-      reports_terminal_id: true,
-      reports_user_id: true,
+      report_groups_id: {
+        include: {
+          parent_id_report_groups: true,
+        },
+      },
+      reports_items_id: {
+        include: {
+          reports_status_id: {
+            select: {
+              code: true,
+            },
+          },
+        },
+      },
     },
     orderBy: {
-      date: "desc",
+      type: "asc",
+      // group_id: "asc",
     },
   });
 
@@ -73,6 +77,34 @@ export function DataTable<TData, TValue>({
     [pageIndex, pageSize]
   );
 
+  const incomeTotal = useMemo(() => {
+    let total = 0;
+    data?.items.forEach((item) => {
+      if (item.type === "income") {
+        total += item.amount;
+      }
+    });
+    return total;
+  }, [data]);
+
+  const outcomeTotal = useMemo(() => {
+    let total = 0;
+    data?.items.forEach((item) => {
+      if (item.type === "outcome") {
+        total += item.amount;
+      }
+    });
+    return total;
+  }, [data]);
+
+  const total = useMemo(() => {
+    let total = 0;
+    data?.items.forEach((item) => {
+      total += item.amount;
+    });
+    return total;
+  }, [data]);
+
   const table = useReactTable({
     data: data?.items ?? defaultData,
     columns,
@@ -85,30 +117,6 @@ export function DataTable<TData, TValue>({
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
-
-  const totalAmount = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.total_amount);
-    }, 0);
-  }, [data?.items]);
-
-  const totalManager = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.total_manager_price);
-    }, 0);
-  }, [data?.items]);
-
-  const totalDifference = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.difference);
-    }, 0);
-  }, [data?.items]);
-
-  const totalArrytIncome = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.arryt_income);
-    }, 0);
-  }, [data?.items]);
 
   return (
     <div className="space-y-4">
@@ -190,98 +198,20 @@ export function DataTable<TData, TValue>({
               </TableRow>
             )}
           </TableBody>
-          <TableFooter className="font-bold uppercase">
-            <TableRow>
-              <TableCell>
-                <div>Итого</div>
-              </TableCell>
-              <TableCell colSpan={3}></TableCell>
-              <TableCell>
-                {Intl.NumberFormat("ru-RU").format(totalAmount ?? 0)}
-              </TableCell>
-              <TableCell>
-                {Intl.NumberFormat("ru-RU").format(totalManager ?? 0)}
-              </TableCell>
-              <TableCell>
-                {Intl.NumberFormat("ru-RU").format(totalDifference ?? 0)}
-              </TableCell>
-              <TableCell>
-                {Intl.NumberFormat("ru-RU").format(totalArrytIncome ?? 0)}
-              </TableCell>
-              <TableCell></TableCell>
-            </TableRow>
-          </TableFooter>
         </Table>
       </div>
-      <div className="h-2" />
-      <div className="flex items-center justify-between px-2">
-        <div className="flex-1 text-sm text-muted-foreground"></div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(value) => {
-                table.setPageSize(Number(value));
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
-                />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 30, 40, 50].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">Go to first page</span>
-            <DoubleArrowLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">Go to previous page</span>
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to next page</span>
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to last page</span>
-            <DoubleArrowRightIcon className="h-4 w-4" />
-          </Button>
-        </div>
+
+      <div className="flex justify-between border-b-2 pb-1 font-bold">
+        <div>Приход</div>
+        <div>{Intl.NumberFormat("ru-RU").format(incomeTotal)}</div>
+      </div>
+      <div className="flex justify-between border-b-2 pb-1 font-bold">
+        <div>Расход</div>
+        <div>{Intl.NumberFormat("ru-RU").format(outcomeTotal)}</div>
+      </div>
+      <div className="flex justify-between border-b-2 pb-1 font-bold">
+        <div>Итого</div>
+        <div>{Intl.NumberFormat("ru-RU").format(total)}</div>
       </div>
     </div>
   );
