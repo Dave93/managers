@@ -52,7 +52,7 @@ export const SettingsScalarFieldEnumSchema = z.enum(['id','key','value','is_secu
 
 export const ReportGroupsScalarFieldEnumSchema = z.enum(['id','name','code','parent_id','created_at','updated_at']);
 
-export const ReportsScalarFieldEnumSchema = z.enum(['id','date','status_id','user_id','terminal_id','cash_ids','total_amount','total_manager_price','created_at','updated_at']);
+export const ReportsScalarFieldEnumSchema = z.enum(['id','date','status_id','user_id','terminal_id','cash_ids','total_amount','total_manager_price','difference','arryt_income','created_at','updated_at']);
 
 export const Reports_itemsScalarFieldEnumSchema = z.enum(['id','report_id','label','type','amount','source','group_id','created_at','updated_at']);
 
@@ -825,6 +825,8 @@ export const ReportsSchema = z.object({
   cash_ids: z.string().array(),
   total_amount: z.number().int(),
   total_manager_price: z.number().int(),
+  difference: z.number().int(),
+  arryt_income: z.number().int(),
   created_at: z.coerce.date(),
   updated_at: z.coerce.date(),
 })
@@ -1666,6 +1668,8 @@ export const ReportsSelectSchema: z.ZodType<Prisma.ReportsSelect> = z.object({
   cash_ids: z.boolean().optional(),
   total_amount: z.boolean().optional(),
   total_manager_price: z.boolean().optional(),
+  difference: z.boolean().optional(),
+  arryt_income: z.boolean().optional(),
   created_at: z.boolean().optional(),
   updated_at: z.boolean().optional(),
   reports_user_id: z.union([z.boolean(),z.lazy(() => UsersArgsSchema)]).optional(),
@@ -3551,6 +3555,8 @@ export const ReportsWhereInputSchema: z.ZodType<Prisma.ReportsWhereInput> = z.ob
   cash_ids: z.lazy(() => StringNullableListFilterSchema).optional(),
   total_amount: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   total_manager_price: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  difference: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  arryt_income: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
   updated_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
   reports_user_id: z.union([ z.lazy(() => UsersRelationFilterSchema),z.lazy(() => UsersWhereInputSchema) ]).optional(),
@@ -3568,6 +3574,8 @@ export const ReportsOrderByWithRelationInputSchema: z.ZodType<Prisma.ReportsOrde
   cash_ids: z.lazy(() => SortOrderSchema).optional(),
   total_amount: z.lazy(() => SortOrderSchema).optional(),
   total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
   updated_at: z.lazy(() => SortOrderSchema).optional(),
   reports_user_id: z.lazy(() => UsersOrderByWithRelationInputSchema).optional(),
@@ -3591,6 +3599,8 @@ export const ReportsWhereUniqueInputSchema: z.ZodType<Prisma.ReportsWhereUniqueI
   cash_ids: z.lazy(() => StringNullableListFilterSchema).optional(),
   total_amount: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   total_manager_price: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  difference: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  arryt_income: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
   updated_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
   reports_user_id: z.union([ z.lazy(() => UsersRelationFilterSchema),z.lazy(() => UsersWhereInputSchema) ]).optional(),
@@ -3608,6 +3618,8 @@ export const ReportsOrderByWithAggregationInputSchema: z.ZodType<Prisma.ReportsO
   cash_ids: z.lazy(() => SortOrderSchema).optional(),
   total_amount: z.lazy(() => SortOrderSchema).optional(),
   total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
   updated_at: z.lazy(() => SortOrderSchema).optional(),
   _count: z.lazy(() => ReportsCountOrderByAggregateInputSchema).optional(),
@@ -3629,6 +3641,8 @@ export const ReportsScalarWhereWithAggregatesInputSchema: z.ZodType<Prisma.Repor
   cash_ids: z.lazy(() => StringNullableListFilterSchema).optional(),
   total_amount: z.union([ z.lazy(() => IntWithAggregatesFilterSchema),z.number() ]).optional(),
   total_manager_price: z.union([ z.lazy(() => IntWithAggregatesFilterSchema),z.number() ]).optional(),
+  difference: z.union([ z.lazy(() => IntWithAggregatesFilterSchema),z.number() ]).optional(),
+  arryt_income: z.union([ z.lazy(() => IntWithAggregatesFilterSchema),z.number() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema),z.coerce.date() ]).optional(),
   updated_at: z.union([ z.lazy(() => DateTimeWithAggregatesFilterSchema),z.coerce.date() ]).optional(),
 }).strict();
@@ -5492,6 +5506,8 @@ export const ReportsCreateInputSchema: z.ZodType<Prisma.ReportsCreateInput> = z.
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_user_id: z.lazy(() => UsersCreateNestedOneWithoutReports_user_idInputSchema),
@@ -5509,6 +5525,8 @@ export const ReportsUncheckedCreateInputSchema: z.ZodType<Prisma.ReportsUnchecke
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedCreateNestedManyWithoutReports_items_idInputSchema).optional()
@@ -5520,6 +5538,8 @@ export const ReportsUpdateInputSchema: z.ZodType<Prisma.ReportsUpdateInput> = z.
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_user_id: z.lazy(() => UsersUpdateOneRequiredWithoutReports_user_idNestedInputSchema).optional(),
@@ -5537,6 +5557,8 @@ export const ReportsUncheckedUpdateInputSchema: z.ZodType<Prisma.ReportsUnchecke
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedUpdateManyWithoutReports_items_idNestedInputSchema).optional()
@@ -5551,6 +5573,8 @@ export const ReportsCreateManyInputSchema: z.ZodType<Prisma.ReportsCreateManyInp
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 }).strict();
@@ -5561,6 +5585,8 @@ export const ReportsUpdateManyMutationInputSchema: z.ZodType<Prisma.ReportsUpdat
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -5574,6 +5600,8 @@ export const ReportsUncheckedUpdateManyInputSchema: z.ZodType<Prisma.ReportsUnch
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -7058,13 +7086,17 @@ export const ReportsCountOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsCo
   cash_ids: z.lazy(() => SortOrderSchema).optional(),
   total_amount: z.lazy(() => SortOrderSchema).optional(),
   total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
   updated_at: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const ReportsAvgOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsAvgOrderByAggregateInput> = z.object({
   total_amount: z.lazy(() => SortOrderSchema).optional(),
-  total_manager_price: z.lazy(() => SortOrderSchema).optional()
+  total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const ReportsMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsMaxOrderByAggregateInput> = z.object({
@@ -7075,6 +7107,8 @@ export const ReportsMaxOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsMaxO
   terminal_id: z.lazy(() => SortOrderSchema).optional(),
   total_amount: z.lazy(() => SortOrderSchema).optional(),
   total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
   updated_at: z.lazy(() => SortOrderSchema).optional()
 }).strict();
@@ -7087,13 +7121,17 @@ export const ReportsMinOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsMinO
   terminal_id: z.lazy(() => SortOrderSchema).optional(),
   total_amount: z.lazy(() => SortOrderSchema).optional(),
   total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional(),
   created_at: z.lazy(() => SortOrderSchema).optional(),
   updated_at: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const ReportsSumOrderByAggregateInputSchema: z.ZodType<Prisma.ReportsSumOrderByAggregateInput> = z.object({
   total_amount: z.lazy(() => SortOrderSchema).optional(),
-  total_manager_price: z.lazy(() => SortOrderSchema).optional()
+  total_manager_price: z.lazy(() => SortOrderSchema).optional(),
+  difference: z.lazy(() => SortOrderSchema).optional(),
+  arryt_income: z.lazy(() => SortOrderSchema).optional()
 }).strict();
 
 export const Enumreport_item_typeFilterSchema: z.ZodType<Prisma.Enumreport_item_typeFilter> = z.object({
@@ -12620,6 +12658,8 @@ export const ReportsCreateWithoutReports_user_idInputSchema: z.ZodType<Prisma.Re
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_terminal_id: z.lazy(() => TerminalsCreateNestedOneWithoutReports_terminal_idInputSchema),
@@ -12635,6 +12675,8 @@ export const ReportsUncheckedCreateWithoutReports_user_idInputSchema: z.ZodType<
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedCreateNestedManyWithoutReports_items_idInputSchema).optional()
@@ -13403,6 +13445,8 @@ export const ReportsScalarWhereInputSchema: z.ZodType<Prisma.ReportsScalarWhereI
   cash_ids: z.lazy(() => StringNullableListFilterSchema).optional(),
   total_amount: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   total_manager_price: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  difference: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
+  arryt_income: z.union([ z.lazy(() => IntFilterSchema),z.number() ]).optional(),
   created_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
   updated_at: z.union([ z.lazy(() => DateTimeFilterSchema),z.coerce.date() ]).optional(),
 }).strict();
@@ -16191,6 +16235,8 @@ export const ReportsCreateWithoutReports_terminal_idInputSchema: z.ZodType<Prism
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_user_id: z.lazy(() => UsersCreateNestedOneWithoutReports_user_idInputSchema),
@@ -16206,6 +16252,8 @@ export const ReportsUncheckedCreateWithoutReports_terminal_idInputSchema: z.ZodT
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedCreateNestedManyWithoutReports_items_idInputSchema).optional()
@@ -20778,6 +20826,8 @@ export const ReportsCreateWithoutReports_items_idInputSchema: z.ZodType<Prisma.R
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_user_id: z.lazy(() => UsersCreateNestedOneWithoutReports_user_idInputSchema),
@@ -20794,6 +20844,8 @@ export const ReportsUncheckedCreateWithoutReports_items_idInputSchema: z.ZodType
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 }).strict();
@@ -20845,6 +20897,8 @@ export const ReportsUpdateWithoutReports_items_idInputSchema: z.ZodType<Prisma.R
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_user_id: z.lazy(() => UsersUpdateOneRequiredWithoutReports_user_idNestedInputSchema).optional(),
@@ -20861,6 +20915,8 @@ export const ReportsUncheckedUpdateWithoutReports_items_idInputSchema: z.ZodType
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -20902,6 +20958,8 @@ export const ReportsCreateWithoutReports_status_idInputSchema: z.ZodType<Prisma.
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_user_id: z.lazy(() => UsersCreateNestedOneWithoutReports_user_idInputSchema),
@@ -20917,6 +20975,8 @@ export const ReportsUncheckedCreateWithoutReports_status_idInputSchema: z.ZodTyp
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedCreateNestedManyWithoutReports_items_idInputSchema).optional()
@@ -21235,6 +21295,8 @@ export const ReportsCreateManyReports_user_idInputSchema: z.ZodType<Prisma.Repor
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 }).strict();
@@ -21916,6 +21978,8 @@ export const ReportsUpdateWithoutReports_user_idInputSchema: z.ZodType<Prisma.Re
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_terminal_id: z.lazy(() => TerminalsUpdateOneRequiredWithoutReports_terminal_idNestedInputSchema).optional(),
@@ -21931,6 +21995,8 @@ export const ReportsUncheckedUpdateWithoutReports_user_idInputSchema: z.ZodType<
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedUpdateManyWithoutReports_items_idNestedInputSchema).optional()
@@ -21944,6 +22010,8 @@ export const ReportsUncheckedUpdateManyWithoutReports_user_idInputSchema: z.ZodT
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -22346,6 +22414,8 @@ export const ReportsCreateManyReports_terminal_idInputSchema: z.ZodType<Prisma.R
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 }).strict();
@@ -22368,6 +22438,8 @@ export const ReportsUpdateWithoutReports_terminal_idInputSchema: z.ZodType<Prism
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_user_id: z.lazy(() => UsersUpdateOneRequiredWithoutReports_user_idNestedInputSchema).optional(),
@@ -22383,6 +22455,8 @@ export const ReportsUncheckedUpdateWithoutReports_terminal_idInputSchema: z.ZodT
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedUpdateManyWithoutReports_items_idNestedInputSchema).optional()
@@ -22396,6 +22470,8 @@ export const ReportsUncheckedUpdateManyWithoutReports_terminal_idInputSchema: z.
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();
@@ -22720,6 +22796,8 @@ export const ReportsCreateManyReports_status_idInputSchema: z.ZodType<Prisma.Rep
   cash_ids: z.union([ z.lazy(() => ReportsCreatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.number().optional(),
   total_manager_price: z.number().optional(),
+  difference: z.number().optional(),
+  arryt_income: z.number().optional(),
   created_at: z.coerce.date().optional(),
   updated_at: z.coerce.date().optional()
 }).strict();
@@ -22730,6 +22808,8 @@ export const ReportsUpdateWithoutReports_status_idInputSchema: z.ZodType<Prisma.
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_user_id: z.lazy(() => UsersUpdateOneRequiredWithoutReports_user_idNestedInputSchema).optional(),
@@ -22745,6 +22825,8 @@ export const ReportsUncheckedUpdateWithoutReports_status_idInputSchema: z.ZodTyp
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   reports_items_id: z.lazy(() => Reports_itemsUncheckedUpdateManyWithoutReports_items_idNestedInputSchema).optional()
@@ -22758,6 +22840,8 @@ export const ReportsUncheckedUpdateManyWithoutReports_status_idInputSchema: z.Zo
   cash_ids: z.union([ z.lazy(() => ReportsUpdatecash_idsInputSchema),z.string().array() ]).optional(),
   total_amount: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   total_manager_price: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  difference: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
+  arryt_income: z.union([ z.number(),z.lazy(() => IntFieldUpdateOperationsInputSchema) ]).optional(),
   created_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
   updated_at: z.union([ z.coerce.date(),z.lazy(() => DateTimeFieldUpdateOperationsInputSchema) ]).optional(),
 }).strict();

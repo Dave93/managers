@@ -23,85 +23,8 @@ import {
 } from "@admin/components/ui/select";
 import { Reports_status } from "@backend/lib/zod";
 import { useReportsUpdate } from "@admin/store/apis/reports";
-
-const statusColumn: Partial<
-  ColumnDef<RouterOutputs["reports"]["list"]["items"][0]>
-> = {
-  accessorKey: "status_id",
-  header: "Статус",
-  cell: function Cell({
-    getValue,
-    row: { index, original },
-    column: { id },
-    table,
-  }) {
-    const [isEditing, setIsEditing] = useState(false);
-    const initialValue = getValue();
-    // We need to keep and update the state of the cell normally
-    const [value, setValue] = useState<string>(initialValue);
-
-    const { data, isLoading } = useCachedReportsStatusQuery({});
-
-    const { mutateAsync: updateStatus } = useReportsUpdate({
-      onSuccess: () => {
-        setIsEditing(false);
-      },
-    });
-
-    const saveStatus = () => {
-      updateStatus({
-        where: {
-          id: original.id,
-        },
-        data: {
-          status_id: value,
-        },
-      });
-    };
-
-    return isEditing ? (
-      <div className="flex space-x-2 items-center">
-        <Select onValueChange={setValue} value={value}>
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {data?.map((item: Reports_status) => (
-              <SelectItem value={item.id} key={item.id}>
-                {item.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button
-          variant="destructive"
-          size="xs"
-          onClick={() => setIsEditing(false)}
-        >
-          <XIcon className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="xs" onClick={saveStatus}>
-          <CheckIcon className="h-4 w-4" />
-        </Button>
-      </div>
-    ) : (
-      <div className="flex space-x-2">
-        <Badge
-          variant="default"
-          className="uppercase text-white"
-          style={{
-            backgroundColor: original.reports_status_id.color,
-          }}
-        >
-          {original.reports_status_id.label}
-        </Badge>
-        <Button variant="outline" size="xs" onClick={() => setIsEditing(true)}>
-          <Edit2Icon className="h-4 w-4" />
-        </Button>
-      </div>
-    );
-  },
-};
+import ReportItemsSheet from "./report-items";
+import { cn } from "@admin/lib/utils";
 
 export const reportsColumns: ColumnDef<
   RouterOutputs["reports"]["list"]["items"][0]
@@ -114,7 +37,86 @@ export const reportsColumns: ColumnDef<
       return <span>{dayjs(record.date).format("DD.MM.YYYY")}</span>;
     },
   },
-  statusColumn,
+  {
+    accessorKey: "status_id",
+    header: "Статус",
+    cell: function Cell({
+      getValue,
+      row: { index, original },
+      column: { id },
+      table,
+    }) {
+      const [isEditing, setIsEditing] = useState(false);
+      const initialValue = getValue();
+      // We need to keep and update the state of the cell normally
+      const [value, setValue] = useState<string>(initialValue);
+
+      const { data, isLoading } = useCachedReportsStatusQuery({});
+
+      const { mutateAsync: updateStatus } = useReportsUpdate({
+        onSuccess: () => {
+          setIsEditing(false);
+        },
+      });
+
+      const saveStatus = () => {
+        updateStatus({
+          where: {
+            id: original.id,
+          },
+          data: {
+            status_id: value,
+          },
+        });
+      };
+
+      return isEditing ? (
+        <div className="flex space-x-2 items-center">
+          <Select onValueChange={setValue} value={value}>
+            <SelectTrigger className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {data?.map((item: Reports_status) => (
+                <SelectItem value={item.id} key={item.id}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            variant="destructive"
+            size="xs"
+            onClick={() => setIsEditing(false)}
+          >
+            <XIcon className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="xs" onClick={saveStatus}>
+            <CheckIcon className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex space-x-2">
+          <Badge
+            variant="default"
+            className="uppercase text-white"
+            style={{
+              backgroundColor: original.reports_status_id.color,
+            }}
+          >
+            {original.reports_status_id.label}
+          </Badge>
+          <Button
+            variant="outline"
+            size="xs"
+            onClick={() => setIsEditing(true)}
+          >
+            <Edit2Icon className="h-4 w-4" />
+          </Button>
+        </div>
+      );
+    },
+  },
   {
     accessorKey: "terminal_id",
     header: "Терминал",
@@ -159,10 +161,40 @@ export const reportsColumns: ColumnDef<
       return (
         <div className="flex items-center space-x-3">
           <div>
-            {Intl.NumberFormat("ru-RU").format(record.total_manager_price)} (
-            {difference > 0 ? "+" : ""}
-            {Intl.NumberFormat("ru-RU").format(difference)})
+            {Intl.NumberFormat("ru-RU").format(record.total_manager_price)}
           </div>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "difference",
+    header: "Разница",
+    cell: ({ row }) => {
+      const record = row.original;
+      const difference = record.difference;
+      return (
+        <div
+          className={cn(
+            ["flex items-center space-x-3 font-bold"],
+            { "text-red-500": difference < 0 },
+            { "text-green-500": difference > 0 }
+          )}
+        >
+          <div>{Intl.NumberFormat("ru-RU").format(difference)}</div>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "arryt_income",
+    header: "Излишка Arryt",
+    cell: ({ row }) => {
+      const record = row.original;
+
+      return (
+        <div className="flex items-center space-x-3">
+          <div>{Intl.NumberFormat("ru-RU").format(record.arryt_income)}</div>
         </div>
       );
     },
@@ -172,7 +204,11 @@ export const reportsColumns: ColumnDef<
     cell: ({ row }) => {
       const record = row.original;
 
-      return <div className="flex items-center space-x-2"></div>;
+      return (
+        <div className="flex items-center space-x-2">
+          <ReportItemsSheet recordId={record.id} />
+        </div>
+      );
     },
   },
 ];
