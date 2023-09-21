@@ -363,7 +363,19 @@ export class ReportsService {
 
       if (arrytReportResult.status == "rejected") {
       } else {
-        arrytReportResult.value.forEach((item) => {
+        if (
+          arrytReportResult.value.customerPrice &&
+          arrytReportResult.value.customerPrice > 0
+        ) {
+          result.incomes.push({
+            error: null,
+            amount: arrytReportResult.value.customerPrice,
+            type: "yandex_delivery",
+            readonly: true,
+            label: "Yandex Sarvar",
+          });
+        }
+        arrytReportResult.value.withdraws.forEach((item) => {
           result.expenses.push({
             error: null,
             amount: item.amount,
@@ -550,7 +562,19 @@ export class ReportsService {
 
         if (arrytReportResult.status == "rejected") {
         } else {
-          arrytReportResult.value.forEach((item) => {
+          if (
+            arrytReportResult.value.customerPrice &&
+            arrytReportResult.value.customerPrice > 0
+          ) {
+            result.incomes.push({
+              error: null,
+              amount: arrytReportResult.value.customerPrice,
+              type: "yandex_delivery",
+              readonly: true,
+              label: "Yandex Sarvar",
+            });
+          }
+          arrytReportResult.value.withdraws.forEach((item) => {
             result.expenses.push({
               error: null,
               amount: item.amount,
@@ -845,11 +869,24 @@ export class ReportsService {
         message: arrytReportResult.reason,
       });
     } else {
-      arrytReportResult.value.forEach((item) => {
-        const arrytReportGroup = reportGroups.find(
-          (group) => group.code === "arryt"
-        );
+      const arrytReportGroup = reportGroups.find(
+        (group) => group.code === "arryt"
+      );
+      // if (
+      //   arrytReportResult.value.customerPrice &&
+      //   arrytReportResult.value.customerPrice > 0
+      // ) {
+      //   reportItems.push({
+      //     group_id: arrytReportGroup?.id,
+      //     amount: arrytReportResult.value.customerPrice,
+      //     type: report_item_type.income,
+      //     source: "arryt",
+      //     label: "Yandex Sarvar",
+      //     report_id: "",
+      //   });
+      // }
 
+      arrytReportResult.value.withdraws.forEach((item) => {
         reportItems.push({
           label: item.name,
           amount: item.amount ?? 0,
@@ -889,6 +926,19 @@ export class ReportsService {
         totalManagerPrice += item.amount ?? 0;
       }
 
+      let difference = 0;
+      if (iikoCachierReport.value.totalSum) {
+        difference = totalManagerPrice - iikoCachierReport.value.totalSum;
+      }
+
+      let arrytIncome = 0;
+      if (
+        arrytReportResult.value.customerPrice &&
+        arrytReportResult.value.customerPrice > 0
+      ) {
+        arrytIncome = arrytReportResult.value.customerPrice;
+      }
+
       reports = await this.prisma.reports.create({
         data: {
           date: dayjs.unix(+input.date).hour(0).minute(0).second(0).toDate(),
@@ -898,6 +948,8 @@ export class ReportsService {
           cash_ids: iikoCachierReport.value.cashIds,
           total_amount: iikoCachierReport.value.totalSum,
           total_manager_price: totalManagerPrice,
+          difference,
+          arryt_income: arrytIncome,
         },
       });
       const reportItemsData = reportItems.map((item) => ({
@@ -913,6 +965,18 @@ export class ReportsService {
       for (const item of reportItems) {
         totalManagerPrice += item.amount ?? 0;
       }
+      let difference = 0;
+      if (iikoCachierReport.value.totalSum) {
+        difference = totalManagerPrice - iikoCachierReport.value.totalSum;
+      }
+
+      let arrytIncome = 0;
+      if (
+        arrytReportResult.value.customerPrice &&
+        arrytReportResult.value.customerPrice > 0
+      ) {
+        arrytIncome = arrytReportResult.value.customerPrice;
+      }
       await this.prisma.reports_items.deleteMany({
         where: {
           report_id: reports!.id,
@@ -927,6 +991,8 @@ export class ReportsService {
           cash_ids: iikoCachierReport.value.cashIds,
           total_amount: iikoCachierReport.value.totalSum,
           total_manager_price: totalManagerPrice,
+          difference,
+          arryt_income: arrytIncome,
         },
       });
       const reportItemsData = reportItems.map((item) => ({

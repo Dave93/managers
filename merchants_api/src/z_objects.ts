@@ -37,5 +37,3 @@ export const arrytReportInputSchema = z.object({
   terminal_id: z.string(),
   time: z.string().nullish(),
 });
-
-export const davr = "test";

@@ -28,6 +28,7 @@ import { SettingsService } from "./modules/settings/service";
 import { UsersWithRelations } from "./lib/zod";
 import { ReportsService } from "./modules/reports/service";
 import { ReportsStatusService } from "./modules/reports_status/service";
+import { ReportsItemsService } from "./modules/reports_items/service";
 
 const client = new Redis({ host: "localhost", port: 6379 });
 export type RedisClientType = typeof client;
@@ -59,6 +60,7 @@ const credentialsService = new CredentialsService(db, cacheControlService);
 const settingsService = new SettingsService(db, cacheControlService);
 const reportsService = new ReportsService(db, cacheControlService);
 const reportsStatusService = new ReportsStatusService(db, cacheControlService);
+const reportsItemsService = new ReportsItemsService(db);
 
 interface Meta {
   permission?: string;
@@ -90,6 +92,7 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
     currentUser: null as Omit<UsersWithRelations, "password"> | null,
     reportsService,
     reportsStatusService,
+    reportsItemsService,
   };
 };
 
