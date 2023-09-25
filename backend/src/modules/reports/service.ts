@@ -82,6 +82,13 @@ export class ReportsService {
   }
 
   async update(input: Prisma.ReportsUpdateArgs): Promise<Reports> {
+    //set log for reports_logs update
+    const report = await this.prisma.reports.findUnique({
+      where: {
+        id_date: input.where.id_date,
+      },
+    });
+
     return await this.prisma.reports.update(input);
   }
 
@@ -716,7 +723,7 @@ export class ReportsService {
       );
       if (
         reportStatus &&
-        ["cancelled", "checking", "confirmed"].includes(reportStatus.code)
+        ["checking", "confirmed"].includes(reportStatus.code)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -787,6 +794,7 @@ export class ReportsService {
         group_id: clickReportGroup?.id ?? "",
         source: "click",
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -807,6 +815,7 @@ export class ReportsService {
         group_id: paymeReportGroup?.id ?? "",
         source: "payme",
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -827,6 +836,7 @@ export class ReportsService {
         group_id: yandexReportGroup?.id ?? "",
         source: "yandex_eats",
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -847,6 +857,7 @@ export class ReportsService {
         group_id: expressReportGroup?.id ?? "",
         source: "express24",
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -860,6 +871,7 @@ export class ReportsService {
         group_id: group?.id,
         source: item.type,
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -894,6 +906,7 @@ export class ReportsService {
           group_id: arrytReportGroup?.id,
           source: "arryt",
           report_id: "",
+            report_date: reports?.date ?? date
         });
       });
     }
@@ -916,6 +929,7 @@ export class ReportsService {
         group_id: group?.id ?? "",
         source: "other_expenses",
         report_id: "",
+        report_date: reports?.date ?? date
       });
     }
 
@@ -952,6 +966,14 @@ export class ReportsService {
           arryt_income: arrytIncome,
         },
       });
+
+      const reportsLogs = reportItems.map((item) => ({
+        ...item,
+        report_id: reports!.id,
+        user_id: currentUser.id,
+        retports_item_id: item.id,
+      }));
+
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
@@ -986,7 +1008,10 @@ export class ReportsService {
 
       await this.prisma.reports.update({
         where: {
-          id: reports.id,
+          id_date: {
+            id: reports!.id,
+            date: reports!.date,
+          }
         },
         data: {
           cash_ids: iikoCachierReport.value.cashIds,
@@ -999,7 +1024,7 @@ export class ReportsService {
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
-        report_date: reports!.date
+        report_date: reports!.date,
       }));
       await this.prisma.reports_items.createMany({
         data: reportItemsData,

@@ -62,7 +62,10 @@ export const reportsColumns: ColumnDef<
       const saveStatus = () => {
         updateStatus({
           where: {
-            id: original.id,
+            id_date: {
+              id: original.id,
+              date: original.date,
+            },
           },
           data: {
             status_id: value,
