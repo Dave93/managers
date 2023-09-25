@@ -5,7 +5,7 @@ import {
   TabsTrigger,
 } from "@admin/components/ui/tabs";
 import { CalendarReport } from "@admin/components/reports/calendar";
-import { trpc } from "@admin/utils/trpc";
+import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import { useMemo } from "react";
 import { Reports_status } from "@backend/lib/zod";
 
@@ -68,7 +68,7 @@ export default function ManagerReportPage() {
               >
                 <CalendarReport
                   terminalId={terminal.terminal_id}
-                  reportsStatus={reportsStatus}
+                  reportsStatus={reportsStatus!}
                 />
               </TabsContent>
             ))}
@@ -76,17 +76,25 @@ export default function ManagerReportPage() {
           <div className="mt-6">
             <div className="text-2xl font-bold border-b-2">Статусы</div>
             <div className="space-y-2 mt-4">
-              {reportsStatus.map((status: Reports_status) => (
-                <div key={status.id} className="flex space-x-3 items-center">
-                  <div
-                    className="h-5 w-5 rounded-full"
-                    style={{
-                      backgroundColor: status.color,
-                    }}
-                  ></div>
-                  <div className="uppercase">{status.label}</div>
-                </div>
-              ))}
+              {reportsStatus &&
+                reportsStatus.map(
+                  (
+                    status: RouterOutputs["reportsStatus"]["list"]["items"][0]
+                  ) => (
+                    <div
+                      key={status.id}
+                      className="flex space-x-3 items-center"
+                    >
+                      <div
+                        className="h-5 w-5 rounded-full"
+                        style={{
+                          backgroundColor: status.color,
+                        }}
+                      ></div>
+                      <div className="uppercase">{status.label}</div>
+                    </div>
+                  )
+                )}
             </div>
           </div>
         </div>
