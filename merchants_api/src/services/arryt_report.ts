@@ -81,5 +81,11 @@ export const getArrytReport = async (
 
   const result = await response.json();
 
-  return result;
+  return result as {
+    customerPrice: number;
+    withdraws: {
+      name: string;
+      amount: number;
+    }[];
+  };
 };
