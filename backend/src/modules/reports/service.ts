@@ -970,6 +970,7 @@ export class ReportsService {
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
+        report_date: reports!.date,
       }));
       await this.prisma.reports_items.createMany({
         data: reportItemsData,
@@ -1013,6 +1014,7 @@ export class ReportsService {
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
+        report_date: reports!.date,
       }));
       await this.prisma.reports_items.createMany({
         data: reportItemsData,
