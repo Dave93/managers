@@ -47,9 +47,11 @@ export const reportsColumns: ColumnDef<
       table,
     }) {
       const [isEditing, setIsEditing] = useState(false);
-      const initialValue = getValue();
+      const initialValue = getValue<string>();
       // We need to keep and update the state of the cell normally
-      const [value, setValue] = useState<string>(initialValue);
+      const [value, setValue] = useState<string | undefined>(
+        initialValue ?? ""
+      );
 
       const { data, isLoading } = useCachedReportsStatusQuery({});
 
@@ -80,11 +82,13 @@ export const reportsColumns: ColumnDef<
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {data?.map((item: Reports_status) => (
-                <SelectItem value={item.id} key={item.id}>
-                  {item.label}
-                </SelectItem>
-              ))}
+              {data?.map(
+                (item: RouterOutputs["reportsStatus"]["list"]["items"][0]) => (
+                  <SelectItem value={item.id} key={item.id}>
+                    {item.label}
+                  </SelectItem>
+                )
+              )}
             </SelectContent>
           </Select>
           <Button
