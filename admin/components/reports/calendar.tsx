@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { hr, uzCyrl } from "date-fns/locale";
 import { Calendar } from "@admin/components/ui/calendar";
 import { useRouter } from "next/navigation";
-import { trpc } from "@admin/utils/trpc";
+import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import dayjs from "dayjs";
 import { Reports_status } from "@backend/lib/zod";
 
@@ -13,7 +13,7 @@ export function CalendarReport({
   reportsStatus,
 }: {
   terminalId: string;
-  reportsStatus: Reports_status[];
+  reportsStatus: RouterOutputs["reportsStatus"]["list"]["items"];
 }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
