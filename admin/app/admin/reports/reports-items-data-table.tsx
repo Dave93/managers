@@ -51,7 +51,7 @@ export function DataTable<TData, TValue>({
           parent_id_report_groups: true,
         },
       },
-      reports_items_id: {
+      reports_id: {
         include: {
           reports_status_id: {
             select: {
