@@ -14,20 +14,28 @@ const authOptions: AuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
-        if (typeof credentials !== "undefined") {
-          const { login, password } = credentials;
-          const res = await trpcClient.users.login.mutate({ login, password });
-          if (typeof res !== "undefined") {
-            return {
-              ...res.data,
-              accessToken: res.accessToken,
-              refreshToken: res.refreshToken,
-              rights: res.rights,
-            };
+        try {
+          if (typeof credentials !== "undefined") {
+            const { login, password } = credentials;
+            const res = await trpcClient.users.login.mutate({
+              login,
+              password,
+            });
+            if (typeof res !== "undefined") {
+              return {
+                ...res.data,
+                accessToken: res.accessToken,
+                refreshToken: res.refreshToken,
+                rights: res.rights,
+              };
+            } else {
+              return null;
+            }
           } else {
             return null;
           }
-        } else {
+        } catch (error) {
+          console.log("auth error", error);
           return null;
         }
       },
