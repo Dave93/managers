@@ -337,13 +337,13 @@ export default function ReportsPage(params: paramsProps) {
                 <div className="flex space-x-1.5 items-center" key={item.type}>
                   <Label className="w-2/3 text-xl">{item.label}</Label>
                   {item.readonly ? (
-                    <Label className="w-1/3 text-xl">
+                    <Label className="w-1/3 text-xl pl-3">
                       {Intl.NumberFormat("ru-RU").format(item.amount ?? 0)}
                     </Label>
                   ) : (
                     <Input
                       name={item.type}
-                      className="w-1/3 text-left text-xl pl-0"
+                      className="w-1/3 text-left text-xl pl-3"
                       placeholder="сум"
                       // value={item.amount ?? 0}
                       defaultValue={item.amount ?? 0}
