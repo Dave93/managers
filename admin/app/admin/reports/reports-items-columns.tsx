@@ -96,6 +96,7 @@ export const reportsItemsColumns: ColumnDef<
         <div className="flex items-center space-x-3">
           <Input
             defaultValue={record.amount}
+            /** @ts-ignore */
             onChange={(e) => setValue(e.target.value)}
             className="w-9/12"
             type="number"

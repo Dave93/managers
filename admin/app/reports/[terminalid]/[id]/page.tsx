@@ -164,13 +164,13 @@ export default function ReportsPage(params: paramsProps) {
 
     const totalSum = incomeTotal + expenseTotal;
 
-    if (data.totalCashier > totalSum) {
+    if (data!.totalCashier > totalSum) {
       toast({
         variant: "destructive",
         title: "Ошибка",
         description:
           "Сумма меньше на " +
-          Intl.NumberFormat("ru-RU").format(data.totalCashier - totalSum),
+          Intl.NumberFormat("ru-RU").format(data!.totalCashier - totalSum),
         duration: 5000,
       });
       return;
@@ -216,9 +216,10 @@ export default function ReportsPage(params: paramsProps) {
       const expense = curr[1];
       return acc + Number(+expense.value);
     }, 0);
-    const dataExpensesSum = data?.expenses.reduce((acc, curr) => {
-      return acc + Number(curr.amount);
-    }, 0);
+    const dataExpensesSum =
+      data?.expenses.reduce((acc, curr) => {
+        return acc + Number(curr.amount);
+      }, 0) ?? 0;
 
     return localExpensesSum + dataExpensesSum;
   }, [expenses, data?.expenses]);
@@ -263,7 +264,7 @@ export default function ReportsPage(params: paramsProps) {
             <Skeleton className="w-40 h-10 rounded-full mx-auto" />
           ) : (
             <CardTitle className="text-center text-3xl">
-              {Intl.NumberFormat("ru-RU").format(data?.totalCashier)}
+              {Intl.NumberFormat("ru-RU").format(data?.totalCashier ?? 0)}
             </CardTitle>
           )}
         </CardHeader>
@@ -348,6 +349,7 @@ export default function ReportsPage(params: paramsProps) {
                       // value={item.amount ?? 0}
                       defaultValue={item.amount ?? 0}
                       type="number"
+                      /** @ts-ignore */
                       onChange={(e) => changeIncomeValue(index, e.target.value)}
                     />
                   )}
@@ -363,7 +365,7 @@ export default function ReportsPage(params: paramsProps) {
             <div className="flex space-x-1.5 items-center" key={item.label}>
               <Label className="w-2/3 text-xl">{item.label}</Label>
               <Label className="w-1/3 text-xl">
-                {Intl.NumberFormat("ru-RU").format(item.amount)}
+                {Intl.NumberFormat("ru-RU").format(item.amount ?? 0)}
               </Label>
             </div>
           ))}
@@ -376,6 +378,7 @@ export default function ReportsPage(params: paramsProps) {
                     name={`expenses_${index}_${item[0].name}`}
                     className="w-2/3"
                     placeholder="Основание"
+                    /** @ts-ignore */
                     onChange={(e) => changeExpenseLabel(index, e.target.value)}
                   />
                   <Input
@@ -383,6 +386,7 @@ export default function ReportsPage(params: paramsProps) {
                     className="w-1/3"
                     placeholder="наличные"
                     type="number"
+                    /** @ts-ignore */
                     onChange={(e) => changeExpenseValue(index, e.target.value)}
                   />
                   {index > 0 ? (
