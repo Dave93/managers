@@ -64,7 +64,10 @@ export class ReportsItemsService {
 
     const report = await this.prisma.reports.findUnique({
       where: {
-        id: res.report_id,
+        id_date: {
+          id: res.report_id,
+          date: res.report_date,
+        },
       },
       select: {
         total_amount: true,
@@ -77,7 +80,10 @@ export class ReportsItemsService {
     }
     await this.prisma.reports.update({
       where: {
-        id: res.report_id,
+        id_date: {
+          id: res.report_id,
+          date: res.report_date,
+        },
       },
       data: {
         total_manager_price: totalManagerPrice,
