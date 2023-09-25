@@ -207,6 +207,7 @@ export default function UsersForm({
     if (record) {
       Object.keys(record).forEach((key) => {
         form.setFieldValue(
+          // @ts-ignore
           key as keyof typeof record,
           // @ts-ignore
           record[key as keyof typeof record]
