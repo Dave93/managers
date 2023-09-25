@@ -85,7 +85,7 @@ export class ReportsService {
     //set log for reports_logs update
     const report = await this.prisma.reports.findUnique({
       where: {
-        id: input.where.id,
+        id_date: input.where.id_date,
       },
     });
 

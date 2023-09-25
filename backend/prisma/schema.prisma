@@ -386,6 +386,7 @@ model Reports {
   user_id                 String          @db.Uuid
   terminal_id             String          @db.Uuid
   cash_ids                String[]
+  total_amount            Int             @default(0)
   total_manager_price     Int             @default(0)
   difference              Int             @default(0)
   arryt_income            Int             @default(0)
