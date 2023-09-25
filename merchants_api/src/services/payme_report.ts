@@ -44,6 +44,7 @@ const loadLocalStorage = async (page: Page) => {
     const localStorage = await file.json();
     await page.evaluate((storage) => {
       for (const key in storage) {
+        // @ts-ignore
         window.localStorage.setItem(key, storage[key]);
       }
     }, localStorage);
