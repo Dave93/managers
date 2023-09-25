@@ -4,7 +4,7 @@ import { DataTable } from "./data-table";
 import { terminalsColumns } from "./columns";
 import { Button } from "@components/ui/button";
 import { Plus } from "lucide-react";
-import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";
+import TerminalsFormSheet from "@admin/components/forms/terminals/sheet";
 import CanAccess from "@admin/components/can-access";
 
 export default function TerminalsListPage() {
