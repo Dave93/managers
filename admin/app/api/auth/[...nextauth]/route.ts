@@ -14,6 +14,7 @@ const authOptions: AuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials, req) {
+        console.log("credentials", credentials);
         try {
           if (typeof credentials !== "undefined") {
             const { login, password } = credentials;
