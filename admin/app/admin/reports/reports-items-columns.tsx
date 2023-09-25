@@ -69,10 +69,10 @@ export const reportsItemsColumns: ColumnDef<
         return (
           editableSources.includes(record.source) &&
           editableStatusCode.includes(
-            record.reports_items_id?.reports_status_id?.code
+            record.reports_id?.reports_status_id?.code
           )
         );
-      }, [record.source, record.reports_items_id?.reports_status_id?.code]);
+      }, [record.source, record.reports_id?.reports_status_id?.code]);
 
       const isChanged = useMemo(() => {
         return value !== record.amount;
@@ -81,7 +81,10 @@ export const reportsItemsColumns: ColumnDef<
       const saveUpdate = async () => {
         await updateReportItem({
           where: {
-            id: record.id,
+            id_report_date: {
+              id: record.id,
+              report_date: record.report_date,
+            },
           },
           data: {
             amount: +value,
