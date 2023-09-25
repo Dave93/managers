@@ -80,14 +80,14 @@ export default function ConfigsPage() {
 
   useEffect(() => {
     if (settings) {
-      form.setFieldValue(
-        "workStartTime",
-        settings.items.find((s) => s.key === "main.workStartTime")?.value
-      );
-      form.setFieldValue(
-        "workEndTime",
-        settings.items.find((s) => s.key === "main.workEndTime")?.value
-      );
+      let workStartTime = settings!.items.find(
+        (s) => s.key === "main.workStartTime"
+      )?.value;
+      let workEndTime = settings!.items.find(
+        (s) => s.key === "main.workEndTime"
+      )?.value;
+      form.setFieldValue("workStartTime", workStartTime ?? "");
+      form.setFieldValue("workEndTime", workEndTime ?? "");
     }
   }, [settings]);
 
