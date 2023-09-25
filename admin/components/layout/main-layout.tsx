@@ -20,9 +20,9 @@ export default function MainLayout({
   return (
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        {roleCode === "admin" && <AdminLayout children={children} />}
-        {roleCode === "manager" && <ManagerLayout children={children} />}
-        {roleCode === null && <NoRoleLayout children={children} />}
+        {roleCode === "admin" && <AdminLayout>{children}</AdminLayout>}
+        {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
+        {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
         <Toaster />
       </ThemeProvider>
     </Providers>
