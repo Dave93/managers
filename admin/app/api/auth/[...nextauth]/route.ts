@@ -22,6 +22,7 @@ const authOptions: AuthOptions = {
               login,
               password,
             });
+            console.log("login result", res);
             if (typeof res !== "undefined") {
               return {
                 ...res.data,
