@@ -19,7 +19,8 @@ export const getClickReport = async (
 
   const result = await new Promise((resolve, reject) => {
     let totalSum = 0;
-    const ws = new WebSocket(Bun.env.CLICK_WS_URL);
+    // @ts-ignore
+    const ws = new WebSocket(Bun.env.CLICK_WS_URL!);
     let sesskey = "";
     const serviceIds = input.serviceIds;
     ws.on("open", () => {
