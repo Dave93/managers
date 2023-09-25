@@ -82,6 +82,13 @@ export class ReportsService {
   }
 
   async update(input: Prisma.ReportsUpdateArgs): Promise<Reports> {
+    //set log for reports_logs update
+    const report = await this.prisma.reports.findUnique({
+      where: {
+        id_date: input.where.id_date,
+      },
+    });
+
     return await this.prisma.reports.update(input);
   }
 
@@ -716,7 +723,7 @@ export class ReportsService {
       );
       if (
         reportStatus &&
-        ["cancelled", "checking", "confirmed"].includes(reportStatus.code)
+        ["checking", "confirmed"].includes(reportStatus.code)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -952,6 +959,14 @@ export class ReportsService {
           arryt_income: arrytIncome,
         },
       });
+
+      const reportsLogs = reportItems.map((item) => ({
+        ...item,
+        report_id: reports!.id,
+        user_id: currentUser.id,
+        retports_item_id: item.id,
+      }));
+
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
@@ -999,7 +1014,7 @@ export class ReportsService {
       const reportItemsData = reportItems.map((item) => ({
         ...item,
         report_id: reports!.id,
-        report_date: reports!.date
+        report_date: reports!.date,
       }));
       await this.prisma.reports_items.createMany({
         data: reportItemsData,

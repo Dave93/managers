@@ -5,15 +5,15 @@ generator client {
 generator zod {
   provider                        = "npx zod-prisma-types"
   output                          = "../src/lib/zod"
-  addInputTypeValidation          = "false"
   createRelationValuesTypes       = "true"
-  addIncludeType                  = "true"
   useMultipleFiles                = "false"
+  writeNullishInModelTypes        = "true"
+  addInputTypeValidation          = "false"
+  addIncludeType                  = "true"
+  createOptionalDefaultValuesType = "true"
+  writeBarrelFiles                = "true"
   createInputTypes                = "true"
   createModelTypes                = "true"
-  writeBarrelFiles                = "true"
-  writeNullishInModelTypes        = "true"
-  createOptionalDefaultValuesType = "true"
 }
 
 datasource db {
@@ -106,6 +106,7 @@ model Users {
   organization_updated_byTousers                        Organization[]                   @relation("organization_updated_byTousers")
   permissions_permissions_updated_byTousers             Permissions[]                    @relation("permissions_updated_byTousers")
   permissions_permissions_created_byTousers             Permissions[]                    @relation("permissions_created_byTousers")
+  reports_user_id                                       Reports[]                        @relation("reports_user_id")
   roles_roles_created_byTousers                         Roles[]                          @relation("roles_created_byTousers")
   roles_roles_updated_byTousers                         Roles[]                          @relation("roles_updated_byTousers")
   roles_permissions_roles_permissions_created_byTousers Roles_permissions[]              @relation("roles_permissions_created_byTousers")
@@ -120,13 +121,13 @@ model Users {
   users_roles_usersTousers_roles_updated_by             Users_roles[]                    @relation("usersTousers_roles_updated_by")
   users_roles_usersTousers_roles_user_id                Users_roles[]                    @relation("usersTousers_roles_user_id")
   users_terminals                                       Users_terminals[]
-  reports_user_id                                       Reports[]                        @relation("reports_user_id")
   users_work_schedules                                  Users_work_schedules[]
   work_schedule_entries_created_byTousers               Work_schedule_entries[]          @relation("work_schedule_entries_created_byTousers")
   work_schedule_entries_updated_byTousers               Work_schedule_entries[]          @relation("work_schedule_entries_updated_byTousers")
   work_schedule_entries_users                           Work_schedule_entries[]          @relation("work_schedule_entries_users")
   work_schedules_created_byTousers                      Work_schedules[]                 @relation("work_schedules_created_byTousers")
   work_schedules_updated_byTousers                      Work_schedules[]                 @relation("work_schedules_updated_byTousers")
+  reports_logs_user_id                                  Reports_logs[]                   @relation("reports_logs_user_id")
 
   @@index([login], map: "fki_users_login")
   @@map("users")
@@ -207,9 +208,9 @@ model Terminals {
   manager_name        String?
   created_at          DateTime          @default(now()) @db.Timestamptz(5)
   updated_at          DateTime          @default(now()) @db.Timestamptz(5)
+  reports_terminal_id Reports[]         @relation("reports_terminal_id")
   organization        Organization      @relation("terminals_organization_idTorganization", fields: [organization_id], references: [id], onDelete: NoAction, map: "FK_terminals_organization_id")
   users_terminals     Users_terminals[]
-  reports_terminal_id Reports[]         @relation("reports_terminal_id")
 
   @@map("terminals")
 }
@@ -218,7 +219,6 @@ model Organization {
   id                                          String           @id(map: "PK_organization_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                                        String
   active                                      Boolean          @default(true)
-  code                                        String?
   phone                                       String?
   description                                 String?
   icon_url                                    String?
@@ -226,6 +226,7 @@ model Organization {
   updated_at                                  DateTime         @default(now()) @db.Timestamptz(5)
   created_by                                  String?          @db.Uuid
   updated_by                                  String?          @db.Uuid
+  code                                        String?
   api_tokens_organization                     Api_tokens[]
   organization_created_byTousers              Users?           @relation("organization_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, map: "FK_organization_created_by")
   organization_updated_byTousers              Users?           @relation("organization_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, map: "FK_organization_updated_by")
@@ -341,11 +342,11 @@ model Credentials {
   key                           String
   model                         String
   type                          String
-  model_id                      String
   created_at                    DateTime @default(now()) @db.Timestamptz(5)
   updated_at                    DateTime @default(now()) @db.Timestamptz(5)
   created_by                    String?  @db.Uuid
   updated_by                    String?  @db.Uuid
+  model_id                      String
   credentials_created_byTousers Users?   @relation("credentials_created_byTousers", fields: [created_by], references: [id], onDelete: NoAction, map: "FK_credentials_created_by")
   credentials_updated_byTousers Users?   @relation("credentials_updated_byTousers", fields: [updated_by], references: [id], onDelete: NoAction, map: "FK_credentials_updated_by")
 
@@ -364,41 +365,36 @@ model Settings {
 }
 
 model ReportGroups {
-  id         String   @id(map: "PK_report_groups_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name       String
-  code       String
-  parent_id  String?  @db.Uuid
-  created_at DateTime @default(now()) @db.Timestamptz(5)
-  updated_at DateTime @default(now()) @db.Timestamptz(5)
-
-  parent_id_report_groups ReportGroups? @relation("report_groups_id", fields: [parent_id], references: [id], onDelete: NoAction, map: "FK_parent_id_report_groups")
-
-  report_groups_id ReportGroups[] @relation("report_groups_id")
-
-  reports_items_id Reports_items[] @relation("report_groups_id")
+  id                      String          @id(map: "PK_report_groups_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                    String
+  code                    String
+  created_at              DateTime        @default(now()) @db.Timestamptz(5)
+  updated_at              DateTime        @default(now()) @db.Timestamptz(5)
+  parent_id               String?         @db.Uuid
+  parent_id_report_groups ReportGroups?   @relation("report_groups_id", fields: [parent_id], references: [id], onDelete: NoAction, map: "FK_parent_id_report_groups")
+  report_groups_id        ReportGroups[]  @relation("report_groups_id")
+  reports_items_id        Reports_items[] @relation("report_groups_id")
 
   @@map("report_groups")
 }
 
 // Reports Model
 model Reports {
-  id                  String    @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
-  date                DateTime  @db.Timestamptz(5)
-  status_id           String    @db.Uuid
-  user_id             String    @db.Uuid
-  terminal_id         String    @db.Uuid
-  cash_ids            String[]
-  total_amount        Int       @default(0)
-  total_manager_price Int       @default(0)
-  difference          Int       @default(0)
-  arryt_income        Int       @default(0)
-  created_at          DateTime  @default(now()) @db.Timestamptz(5)
-  updated_at          DateTime  @default(now()) @db.Timestamptz(5)
-  reports_user_id     Users     @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
-  reports_terminal_id Terminals @relation("reports_terminal_id", fields: [terminal_id], references: [id], onDelete: NoAction, map: "FK_reports_terminal_id")
-
-  reports_items_id  Reports_items[] @relation("reports_items_id")
-  reports_status_id Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
+  id                      String          @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  date                    DateTime        @db.Timestamptz(5)
+  status_id               String          @db.Uuid
+  user_id                 String          @db.Uuid
+  terminal_id             String          @db.Uuid
+  cash_ids                String[]
+  total_amount            Int             @default(0)
+  total_manager_price     Int             @default(0)
+  difference              Int             @default(0)
+  arryt_income            Int             @default(0)
+  reports_status_id       Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
+  reports_terminal_id     Terminals       @relation("reports_terminal_id", fields: [terminal_id], references: [id], onDelete: NoAction, map: "FK_reports_terminal_id")
+  reports_user_id         Users           @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
+  reports_items_id        Reports_items[] @relation("reports_items_id")
+  reports_logs_reports_id Reports_logs[]  @relation("reports_logs_reports_id")
 
   @@id([id, date]) // Composite Primary Key
   @@map("reports")
@@ -421,18 +417,38 @@ model Reports_items {
 
   report_groups_id ReportGroups? @relation("report_groups_id", fields: [group_id], references: [id], onDelete: NoAction, map: "FK_report_groups_id")
 
+  reports_logs_reports_item_id Reports_logs[] @relation("reports_logs_reports_item_id")
+
   @@id([id, report_date]) // Composite Primary Key
   @@map("reports_items")
 }
 
-model Reports_status {
-  id         String   @id(map: "PK_report_status_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  label      String   @db.VarChar(255)
-  code       String   @db.VarChar(255)
-  color      String   @db.VarChar(255)
-  created_at DateTime @default(now()) @db.Timestamptz(5)
-  updated_at DateTime @default(now()) @db.Timestamptz(5)
+model Reports_logs {
+  id                           String        @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  reports_id                   String        @db.Uuid
+  reports_item_id              String        @db.Uuid
+  before_json                  String?
+  after_json                   String?
+  created_at                   DateTime      @default(now()) @db.Timestamptz(5)
+  user_id                      String        @db.Uuid
+  before_text                  String?
+  after_text                   String?
+  report_date                  DateTime      @db.Timestamptz(5)
+  reports_logs_reports_id      Reports       @relation("reports_logs_reports_id", fields: [reports_id, report_date], references: [id, date], onDelete: NoAction, map: "FK_reports_logs_reports_id")
+  reports_logs_reports_item_id Reports_items @relation("reports_logs_reports_item_id", fields: [reports_item_id, report_date], references: [id, report_date], onDelete: NoAction, map: "FK_reports_logs_reports_item_id")
+  reports_logs_user_id         Users         @relation("reports_logs_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_logs_user_id")
 
+  @@id([id, report_date]) // Composite Primary Key
+  @@map("reports_logs")
+}
+
+model Reports_status {
+  id                String    @id(map: "PK_report_status_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code              String    @db.VarChar(255)
+  color             String    @db.VarChar(255)
+  created_at        DateTime  @default(now()) @db.Timestamptz(5)
+  updated_at        DateTime  @default(now()) @db.Timestamptz(5)
+  label             String    @db.VarChar(255)
   reports_status_id Reports[] @relation("reports_status_id")
 
   @@map("reports_status")

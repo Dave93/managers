@@ -16,10 +16,6 @@ export const terminalsColumns: ColumnDef<
     accessorKey: "name",
     header: "Название",
   },
-  {
-    accessorKey: "phone",
-    header: "Телефон",
-  },
   // {
   //   accessorKey: "description",
   //   header: "Описание",
