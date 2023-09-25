@@ -380,8 +380,9 @@ model ReportGroups {
   @@map("report_groups")
 }
 
+// Reports Model
 model Reports {
-  id                  String    @id(map: "PK_report_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                  String    @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
   date                DateTime  @db.Timestamptz(5)
   status_id           String    @db.Uuid
   user_id             String    @db.Uuid
@@ -399,23 +400,28 @@ model Reports {
   reports_items_id  Reports_items[] @relation("reports_items_id")
   reports_status_id Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
 
+  @@id([id, date]) // Composite Primary Key
   @@map("reports")
 }
 
+// Reports_items Model
 model Reports_items {
-  id               String           @id(map: "PK_report_item_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  report_id        String           @db.Uuid
-  label            String           @db.VarChar(255)
-  type             report_item_type
-  amount           Int              @default(0)
-  source           String           @db.VarChar(255)
-  group_id         String?          @db.Uuid
-  created_at       DateTime         @default(now()) @db.Timestamptz(5)
-  updated_at       DateTime         @default(now()) @db.Timestamptz(5)
-  reports_items_id Reports          @relation("reports_items_id", fields: [report_id], references: [id], onDelete: NoAction, map: "FK_reports_items_id")
+  id          String           @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  report_id   String           @db.Uuid
+  label       String           @db.VarChar(255)
+  type        report_item_type
+  amount      Int              @default(0)
+  source      String           @db.VarChar(255)
+  group_id    String?          @db.Uuid
+  report_date DateTime         @db.Timestamptz(5)
+  created_at  DateTime         @default(now()) @db.Timestamptz(5)
+  updated_at  DateTime         @default(now()) @db.Timestamptz(5)
+
+  reports_id Reports @relation("reports_items_id", fields: [report_id, report_date], references: [id, date], onDelete: NoAction, map: "FK_reports_id")
 
   report_groups_id ReportGroups? @relation("report_groups_id", fields: [group_id], references: [id], onDelete: NoAction, map: "FK_report_groups_id")
 
+  @@id([id, report_date]) // Composite Primary Key
   @@map("reports_items")
 }
 
