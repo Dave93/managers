@@ -220,6 +220,8 @@ export class ReportsService {
       date = dayjs().toISOString();
     }
 
+    console.log('input data', input);
+
     date = dayjs.unix(+input.date).toISOString();
     if (!reports) {
       const [
@@ -382,6 +384,7 @@ export class ReportsService {
             label: "Yandex Sarvar",
           });
         }
+        console.log('arryt_data', arrytReportResult.value);
         arrytReportResult.value.withdraws.forEach((item) => {
           result.expenses.push({
             error: null,

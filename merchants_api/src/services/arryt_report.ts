@@ -24,10 +24,11 @@ export const getArrytReport = async (
   const allCredentials = JSON.parse(
     (await redis.get(`${Bun.env.PROJECT_PREFIX}credentials`)) ?? "[]"
   ) as any[];
+  console.log('arryt_input data', input)
   const credentials = allCredentials.filter(
     (credential) =>
-      credential.model_id === input.terminal_id &&
-      credential.model === "terminals"
+      credential.model_id == input.terminal_id &&
+      credential.model == "terminals"
   );
 
   const terminals = JSON.parse(
@@ -51,7 +52,8 @@ export const getArrytReport = async (
   const iikoId = credentials.find(
     (credential) => credential.type === "iiko_id"
   )?.key;
-  const response = await fetch(`${Bun.env["ARRYT_WITHDRAW_API"]}`, {
+  console.log('credentials', credentials);
+  const response = await fetch(Bun.env.ARRYT_WITHDRAW_API, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

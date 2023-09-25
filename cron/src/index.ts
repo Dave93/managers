@@ -13,7 +13,7 @@ const app = new Elysia()
   .use(
     cron({
       name: "heartbeat",
-      pattern: "0 0 */1 * * *",
+      pattern: "0 */2 * * * *",
       async run() {
         await terminalService.getTerminalsFromIiko();
       },
