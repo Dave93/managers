@@ -6,20 +6,20 @@ settings:
 
 dependencies:
   '@elysiajs/trpc':
-    specifier: ^0.6.1
-    version: 0.6.1(elysia@0.6.24)
+    specifier: ^0.7.0
+    version: 0.7.0(elysia@0.7.12)
   '@elysiajs/websocket':
     specifier: ^0.2.8
-    version: 0.2.8(elysia@0.6.24)
+    version: 0.2.8(elysia@0.7.12)
   '@trpc/server':
-    specifier: ^10.38.2
-    version: 10.38.3
+    specifier: ^10.38.4
+    version: 10.38.4
   dayjs:
     specifier: ^1.11.9
     version: 1.11.9
   elysia:
-    specifier: latest
-    version: 0.6.24
+    specifier: ^0.7.4
+    version: 0.7.12
   ioredis:
     specifier: ^5.3.2
     version: 5.3.2
@@ -36,7 +36,7 @@ dependencies:
 devDependencies:
   bun-types:
     specifier: latest
-    version: 1.0.2
+    version: 1.0.3
 
 packages:
 
@@ -62,20 +62,20 @@ packages:
       js-tokens: 4.0.0
     dev: false
 
-  /@elysiajs/trpc@0.6.1(elysia@0.6.24):
-    resolution: {integrity: sha512-G63pE7YGYC6DZKq43rJB/2vpfkF5ebSDRDGghODcD6zZIizGQPtzynxRwkOUWcbw0JqjiGq9AH9w9wJ/aOqcrw==}
+  /@elysiajs/trpc@0.7.0(elysia@0.7.12):
+    resolution: {integrity: sha512-XwKWMB0gJ3wr4Cek/i550y+96Yhi29m0Lfoi6km35prO2wfJiHD0U7PYgsajbxi16AhYtsnmNHyHT+vCwD4VQA==}
     peerDependencies:
-      elysia: '>= 0.6.0'
+      elysia: '>= 0.7.0'
     dependencies:
-      elysia: 0.6.24
+      elysia: 0.7.12
     dev: false
 
-  /@elysiajs/websocket@0.2.8(elysia@0.6.24):
+  /@elysiajs/websocket@0.2.8(elysia@0.7.12):
     resolution: {integrity: sha512-K9KLmYL1SYuAV353GvmK0V9DG5w7XTOGsa1H1dGB5BUTzvBaMvnwNeqnJQ3cjf9V1c0EjQds0Ty4LfUFvV45jw==}
     peerDependencies:
       elysia: '>= 0.2.2'
     dependencies:
-      elysia: 0.6.24
+      elysia: 0.7.12
       nanoid: 4.0.2
       raikiri: 0.0.0-beta.8
     dev: false
@@ -104,8 +104,8 @@ packages:
     resolution: {integrity: sha512-C5Mc6rdnsaJDjO3UpGW/CQTHtCKaYlScZTly4JIu97Jxo/odCiH0ITnDXSJPTOrEKk/ycSZ0AOgTmkDtkOsvIA==}
     dev: false
 
-  /@trpc/server@10.38.3:
-    resolution: {integrity: sha512-9s8/kwo2IDB5hwB2SKZZrfevRhdb1f9fdXtIYd3lbQuf2jQaC/LyQuHaIQjDQoUx9updBfsHXcFFPiCP1DL6pg==}
+  /@trpc/server@10.38.4:
+    resolution: {integrity: sha512-xSMTwnKA/Unxu5fbAkQ7cApHeWj1rTEA3XgrGDcPHn03fmeIidIKxronM46N46ZF4CCexey4JWzu89XxA16uIA==}
     dev: false
 
   /@types/node@20.6.2:
@@ -185,8 +185,8 @@ packages:
       ieee754: 1.2.1
     dev: false
 
-  /bun-types@1.0.2:
-    resolution: {integrity: sha512-yqBp2SX9cqr5/GReb56uCfM+YP+Hntx3XPjbqX1VJXqOBu+Yqw8iWRFLKFIsz9uEfykLgflhramQ8a5Jgo+Tlg==}
+  /bun-types@1.0.3:
+    resolution: {integrity: sha512-XlyKVdYCHa7K5PHYGcwOVOrGE/bMnLS51y7zFA3ZAAXyiQ6dTaNXNCWTTufgII/6ruN770uhAXphQmzvU/r2fQ==}
     dev: true
 
   /callsites@3.1.0:
@@ -245,6 +245,16 @@ packages:
 
   /color-name@1.1.4:
     resolution: {integrity: sha512-dOy+3AuW3a2wNbZHIuMZpTcgjGuLU/uBL/ubcZF9OXbDo8ff4O8yVp5Bf0efS8uEoYo5q4Fx7dY9OgQGXgAsQA==}
+    dev: false
+
+  /cookie-signature@1.2.1:
+    resolution: {integrity: sha512-78KWk9T26NhzXtuL26cIJ8/qNHANyJ/ZYrmEXFzUmhZdjpBv+DlWlOANRTGBt48YcyslsLrj0bMLFTmXvLRCOw==}
+    engines: {node: '>=6.6.0'}
+    dev: false
+
+  /cookie@0.5.0:
+    resolution: {integrity: sha512-YZ3GUyn/o8gfKJlnlX7g7xq4gyO6OSuhGPKaaGssGB2qgDUS0gPgtTvoyZLTt9Ab6dC4hfc9dV5arkvc/OCmrw==}
+    engines: {node: '>= 0.6'}
     dev: false
 
   /cosmiconfig@8.3.5:
@@ -309,16 +319,13 @@ packages:
     resolution: {integrity: sha512-2cZlHxC5IlgkIWe2pSDmCrDiTzbSJWywjbDDnupOImEBcG31CQgBLV8wWE+5t+C4rimcjHsbzy7CBzf9oFjboA==}
     dev: false
 
-  /elysia@0.6.24:
-    resolution: {integrity: sha512-qaN8b816tSecNIsgNwFCMOMlayOaChme9i/VHxCRZyPTgtdAAnrYDZaUQfatyt1jcHUdkf3IT4ny5GuS7NB26w==}
+  /elysia@0.7.12:
+    resolution: {integrity: sha512-2dHTLgrkWdgt81zJvJD6nMWDXp77NcU/L80nIl8VjzQVtkvPQ26/dbEze+XMQ8stKcI4cv5f+S02JV3rV67DmA==}
     peerDependencies:
-      '@elysiajs/fn': '*'
       '@sinclair/typebox': '>= 0.28.10'
       openapi-types: '>= 12.0.0'
       typescript: '>= 5.0.0'
     peerDependenciesMeta:
-      '@elysiajs/fn':
-        optional: true
       '@sinclair/typebox':
         optional: true
       openapi-types:
@@ -326,9 +333,11 @@ packages:
       typescript:
         optional: true
     dependencies:
+      cookie: 0.5.0
+      cookie-signature: 1.2.1
+      eventemitter3: 5.0.1
       fast-querystring: 1.1.2
       memoirist: 0.1.4
-      mergician: 1.1.0
     dev: false
 
   /emoji-regex@8.0.0:
@@ -383,6 +392,10 @@ packages:
   /esutils@2.0.3:
     resolution: {integrity: sha512-kVscqXk4OCp68SZ0dkgEKVi6/8ij300KBWTJq32P/dYeWTSwK41WyTxalN1eRmA5Z9UU/LX9D7FWSmV9SAYx6g==}
     engines: {node: '>=0.10.0'}
+    dev: false
+
+  /eventemitter3@5.0.1:
+    resolution: {integrity: sha512-GWkBvjiSZK87ELrYOSESUYeVIc9mvLLf/nXalMOS5dYrgZq9o5OVkbZAVM06CVxYsCwH9BDZFPlQTlPA1j4ahA==}
     dev: false
 
   /extract-zip@2.0.1:
@@ -567,11 +580,6 @@ packages:
 
   /memoirist@0.1.4:
     resolution: {integrity: sha512-D6GbPSqO2nUVOmm7VZjJc5tC60pkOVUPzLwkKl1vCiYP+2b1cG8N9q1O3P0JmNM68u8vsgefPbxRUCSGxSXD+g==}
-    dev: false
-
-  /mergician@1.1.0:
-    resolution: {integrity: sha512-FXbxzU6BBhGkV8XtUr8Sk015ZRaAALviit8Lle6OEgd1udX8wlu6tBeUMLGQGdz1MfHpAVNNQkXowyDnJuhXpA==}
-    engines: {node: '>=10.0.0'}
     dev: false
 
   /mitt@3.0.1:
