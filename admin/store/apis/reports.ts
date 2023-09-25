@@ -42,7 +42,10 @@ export function useReportsUpdate(
         {
           data: post,
           where: {
-            id: post.id,
+            id_date: {
+              id: post.id,
+              date: post.date,
+            },
           },
         },
         {}
@@ -64,7 +67,10 @@ export function useReportsDestroy(
         post,
         {
           where: {
-            id: post.id,
+            id_date: {
+              id: post.id,
+              date: post.date,
+            },
           },
         },
         {}
