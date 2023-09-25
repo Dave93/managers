@@ -378,60 +378,66 @@ model ReportGroups {
   @@map("report_groups")
 }
 
+// Reports Model
 model Reports {
-  id                  String          @id(map: "PK_report_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  date                DateTime        @db.Timestamptz(5)
-  user_id             String          @db.Uuid
-  terminal_id         String          @db.Uuid
-  total_amount        Int             @default(0)
-  created_at          DateTime        @default(now()) @db.Timestamptz(5)
-  updated_at          DateTime        @default(now()) @db.Timestamptz(5)
-  status_id           String          @db.Uuid
-  cash_ids            String[]
-  total_manager_price Int             @default(0)
-  difference          Int             @default(0)
-  arryt_income        Int             @default(0)
-  reports_status_id   Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
-  reports_terminal_id Terminals       @relation("reports_terminal_id", fields: [terminal_id], references: [id], onDelete: NoAction, map: "FK_reports_terminal_id")
-  reports_user_id     Users           @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
-  reports_items_id    Reports_items[] @relation("reports_items_id")
-  reports_logs_reports_id Reports_logs[] @relation("reports_logs_reports_id")
+  id                      String          @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  date                    DateTime        @db.Timestamptz(5)
+  status_id               String          @db.Uuid
+  user_id                 String          @db.Uuid
+  terminal_id             String          @db.Uuid
+  cash_ids                String[]
+  total_manager_price     Int             @default(0)
+  difference              Int             @default(0)
+  arryt_income            Int             @default(0)
+  reports_status_id       Reports_status  @relation("reports_status_id", fields: [status_id], references: [id], onDelete: NoAction, map: "FK_reports_status_id")
+  reports_terminal_id     Terminals       @relation("reports_terminal_id", fields: [terminal_id], references: [id], onDelete: NoAction, map: "FK_reports_terminal_id")
+  reports_user_id         Users           @relation("reports_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_user_id")
+  reports_items_id        Reports_items[] @relation("reports_items_id")
+  reports_logs_reports_id Reports_logs[]  @relation("reports_logs_reports_id")
 
+  @@id([id, date]) // Composite Primary Key
   @@map("reports")
 }
 
+// Reports_items Model
 model Reports_items {
-  id               String           @id(map: "PK_report_item_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  report_id        String           @db.Uuid
-  label            String           @db.VarChar(255)
-  type             report_item_type
-  amount           Int              @default(0)
-  source           String           @db.VarChar(255)
-  created_at       DateTime         @default(now()) @db.Timestamptz(5)
-  updated_at       DateTime         @default(now()) @db.Timestamptz(5)
-  group_id         String?          @db.Uuid
-  report_groups_id ReportGroups?    @relation("report_groups_id", fields: [group_id], references: [id], onDelete: NoAction, map: "FK_report_groups_id")
-  reports_items_id Reports          @relation("reports_items_id", fields: [report_id], references: [id], onDelete: NoAction, map: "FK_reports_items_id")
+  id          String           @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  report_id   String           @db.Uuid
+  label       String           @db.VarChar(255)
+  type        report_item_type
+  amount      Int              @default(0)
+  source      String           @db.VarChar(255)
+  group_id    String?          @db.Uuid
+  report_date DateTime         @db.Timestamptz(5)
+  created_at  DateTime         @default(now()) @db.Timestamptz(5)
+  updated_at  DateTime         @default(now()) @db.Timestamptz(5)
+
+  reports_id Reports @relation("reports_items_id", fields: [report_id, report_date], references: [id, date], onDelete: NoAction, map: "FK_reports_id")
+
+  report_groups_id ReportGroups? @relation("report_groups_id", fields: [group_id], references: [id], onDelete: NoAction, map: "FK_report_groups_id")
+
   reports_logs_reports_item_id Reports_logs[] @relation("reports_logs_reports_item_id")
 
+  @@id([id, report_date]) // Composite Primary Key
   @@map("reports_items")
 }
 
-model Reports_logs{
-  id String @id(map: "PK_report_logs_id") @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  reports_id String @db.Uuid
-  reports_item_id String @db.Uuid
-  before_json String?
-  after_json String?
-  created_at DateTime @default(now()) @db.Timestamptz(5)
-  user_id String @db.Uuid
-  before_text String?
-  after_text String?
-  reports_logs_reports_id Reports @relation("reports_logs_reports_id", fields: [reports_id], references: [id], onDelete: NoAction, map: "FK_reports_logs_reports_id")
-  reports_logs_reports_item_id Reports_items @relation("reports_logs_reports_item_id", fields: [reports_item_id], references: [id], onDelete: NoAction, map: "FK_reports_logs_reports_item_id")
-  reports_logs_user_id Users @relation("reports_logs_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_logs_user_id")
+model Reports_logs {
+  id                           String        @default(dbgenerated("gen_random_uuid()")) @map("id") @db.Uuid
+  reports_id                   String        @db.Uuid
+  reports_item_id              String        @db.Uuid
+  before_json                  String?
+  after_json                   String?
+  created_at                   DateTime      @default(now()) @db.Timestamptz(5)
+  user_id                      String        @db.Uuid
+  before_text                  String?
+  after_text                   String?
+  report_date                  DateTime      @db.Timestamptz(5)
+  reports_logs_reports_id      Reports       @relation("reports_logs_reports_id", fields: [reports_id, report_date], references: [id, date], onDelete: NoAction, map: "FK_reports_logs_reports_id")
+  reports_logs_reports_item_id Reports_items @relation("reports_logs_reports_item_id", fields: [reports_item_id, report_date], references: [id, report_date], onDelete: NoAction, map: "FK_reports_logs_reports_item_id")
+  reports_logs_user_id         Users         @relation("reports_logs_user_id", fields: [user_id], references: [id], onDelete: NoAction, map: "FK_reports_logs_user_id")
 
-
+  @@id([id, report_date]) // Composite Primary Key
   @@map("reports_logs")
 }
 
