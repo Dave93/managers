@@ -29,6 +29,7 @@ import { ChevronLeft, MinusCircle, XCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trpc } from "@admin/utils/trpc";
 import { Skeleton } from "@admin/components/ui/skeleton";
+// @ts-ignore
 import { TimePicker } from "react-ios-time-picker";
 import { useToast } from "@admin/components/ui/use-toast";
 
