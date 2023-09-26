@@ -64,9 +64,9 @@ export const getYandexReport = async (
     (s: any) => s.key == "main.workEndTime"
   ).value;
   // Launch the browser and open a new blank page
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({ headless: "new",args: ['--no-sandbox', '--disable-setuid-sandbox'], });
   const page = await browser.newPage();
-
+  await page.setDefaultNavigationTimeout(0);
   // Navigate the page to a URL
   await page.goto("https://vendor.eda.yandex/auth");
 

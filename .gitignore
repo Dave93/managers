@@ -4,3 +4,5 @@ node_modules
 dumo.rdb
 
 **/*.ignode.json
+
+merchant_api/.cache

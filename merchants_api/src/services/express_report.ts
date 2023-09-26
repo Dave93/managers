@@ -32,6 +32,28 @@ export const getExpressReport = async (
   const iikoId = credentials.find(
     (credential) => credential.type === "iiko_id"
   )?.key;
+  console.log('express input', input)
+  console.log('express_url', Bun.env["ECOMMERCE_" + input.organization_code.toUpperCase() + "_URL"]);
+  console.log('express_body', JSON.stringify({
+    iiko_id: iikoId,
+    dateFrom: dayjs(input.date)
+        .hour(workStartTime)
+        .minute(0)
+        .second(0)
+        .toISOString(),
+    dateTo: input.time
+        ? dayjs(input.date)
+            .hour(+input.time.split(":")[0])
+            .minute(+input.time.split(":")[1])
+            .second(0)
+            .toISOString()
+        : dayjs(input.date)
+            .add(1, "day")
+            .hour(workEndTime)
+            .minute(0)
+            .second(0)
+            .toISOString(),
+  }))
   const response = await fetch(
     `${Bun.env["ECOMMERCE_" + input.organization_code.toUpperCase() + "_URL"]}`,
     {

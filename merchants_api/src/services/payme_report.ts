@@ -64,8 +64,11 @@ export const getPaymeReport = async (
     (s: any) => s.key == "main.workEndTime"
   ).value;
   // Launch the browser and open a new blank page
-  const browser = await puppeteer.launch({ headless: "new" });
+  const browser = await puppeteer.launch({ headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox'],});
   const page = await browser.newPage();
+
+  await page.setDefaultNavigationTimeout(0);
 
   // Navigate the page to a URL
   await page.goto("https://merchant.payme.uz/auth/login?returnUrl=%2Fbusiness");

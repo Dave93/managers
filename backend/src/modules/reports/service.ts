@@ -223,6 +223,7 @@ export class ReportsService {
     console.log('input data', input);
 
     date = dayjs.unix(+input.date).toISOString();
+    console.log('prev date', date)
     if (!reports) {
       const [
         clickReportResult,

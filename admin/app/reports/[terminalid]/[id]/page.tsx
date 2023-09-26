@@ -32,6 +32,7 @@ import { Skeleton } from "@admin/components/ui/skeleton";
 // @ts-ignore
 import { TimePicker } from "react-ios-time-picker";
 import { useToast } from "@admin/components/ui/use-toast";
+import dayjs from "dayjs";
 
 interface paramsProps {
   params: {
@@ -245,12 +246,16 @@ export default function ReportsPage(params: paramsProps) {
 
   return (
     <div className="mb-20">
+      <div className="flex items-center justify-between relative">
+
       <Link href="/">
-        <Button variant="outline" className="mt-2 mx-2">
+        <Button variant="outline" className="mt-2 mx-2 absolute top-0">
           <ChevronLeft />
           Back
         </Button>
       </Link>
+      <div className="flex-1 mt-2 py-2 text-center font-bold text-2xl">{dayjs.unix(+id).format('DD.MM.YYYY')}</div>
+      </div>
 
       <Card className="m-2">
         <CardHeader>
@@ -345,7 +350,7 @@ export default function ReportsPage(params: paramsProps) {
                   ) : (
                     <Input
                       name={item.type}
-                      className="w-1/3 text-left text-xl pl-3"
+                      className="w-2/4 text-left text-xl pl-3"
                       placeholder="сум"
                       // value={item.amount ?? 0}
                       defaultValue={item.amount ?? 0}

@@ -71,6 +71,7 @@ export type Router = typeof router;
 
 const app = new Elysia()
   .use(
+      // @ts-ignore
     trpc(router, {
       createContext,
     })

@@ -34,6 +34,7 @@ export default function MultiSelect({
 }) {
   const [open, setOpen] = React.useState(false);
 
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -61,8 +62,14 @@ export default function MultiSelect({
         </Button>
       </PopoverTrigger>
       <PopoverContent>
-        <Command>
-          <CommandInput placeholder="Поиск филиал..." />
+        <Command filter={(value, search) => {
+          const item = data.find((item) => item.label.toLowerCase().includes(search) && value == item.value);
+          if (item) return 1
+          return 0
+        }}>
+          <CommandInput
+              placeholder="Найти..."
+          />
           <CommandEmpty>Филиал не найден.</CommandEmpty>
           <CommandList>
             {data.map((framework) => (

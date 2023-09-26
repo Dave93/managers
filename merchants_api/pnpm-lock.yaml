@@ -35,7 +35,7 @@ dependencies:
 
 devDependencies:
   bun-types:
-    specifier: latest
+    specifier: ^1.0.3
     version: 1.0.3
 
 packages:

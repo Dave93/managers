@@ -57,7 +57,7 @@ export default function UsersForm({
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
   const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
   const closeForm = () => {
-    form.reset();
+    // form.reset();
     setOpen(false);
   };
 
@@ -170,8 +170,7 @@ export default function UsersForm({
     return userRolesData?.[0]?.role_id;
   }, [userRolesData, changedRoleId]);
 
-  const assignRole = useCallback(
-    async (recordData: Users) => {
+  const assignRole = async (recordData: Users) => {
       let userId = recordData?.id;
       if (recordId) {
         userId = recordId;
@@ -186,9 +185,7 @@ export default function UsersForm({
           terminal_id: terminalId,
         })),
       });
-    },
-    [changedRoleId, userRoleId, recordId, changedTerminalId]
-  );
+    };
 
   const isLoading = useMemo(() => {
     return isAddLoading || isUpdateLoading || isRolesLoading;

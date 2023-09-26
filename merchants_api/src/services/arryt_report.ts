@@ -52,8 +52,28 @@ export const getArrytReport = async (
   const iikoId = credentials.find(
     (credential) => credential.type === "iiko_id"
   )?.key;
-  console.log('credentials', credentials);
-  const response = await fetch(Bun.env.ARRYT_WITHDRAW_API, {
+  console.log('iikoId', iikoId);
+  console.log('arryt_data',  JSON.stringify({
+    terminal_id: iikoId,
+    date_from: dayjs(input.date)
+        .hour(workStartTime)
+        .minute(0)
+        .second(0)
+        .toISOString(),
+    date_to: input.time
+        ? dayjs(input.date)
+            .hour(+input.time.split(":")[0])
+            .minute(+input.time.split(":")[1])
+            .second(0)
+            .toISOString()
+        : dayjs(input.date)
+            .add(1, "day")
+            .hour(workEndTime)
+            .minute(0)
+            .second(0)
+            .toISOString(),
+  }));
+  const response = await fetch(Bun.env.ARRYT_WITHDRAW_API!, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -82,7 +102,7 @@ export const getArrytReport = async (
   });
 
   const result = await response.json();
-
+  console.log('arryt_data', result);
   return result as {
     customerPrice: number;
     withdraws: {
