@@ -5,4 +5,4 @@ dumo.rdb
 
 **/*.ignode.json
 
-merchant_api/.cache
+merchants_api/.cache
