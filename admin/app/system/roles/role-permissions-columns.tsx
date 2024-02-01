@@ -1,10 +1,10 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { RouterOutputs } from "@admin/utils/trpc";
+import { permissions } from "backend/drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
+import { RolesPermissionsRelation } from "@backend/modules/roles_permissions/dto/roles_permissions.dto";
 
-export const rolesPermissionsColumns: ColumnDef<
-  RouterOutputs["rolesPermissions"]["list"][0]
->[] = [
+export const rolesPermissionsColumns: ColumnDef<RolesPermissionsRelation>[] = [
   {
     accessorKey: "name",
     cell: ({ row }) => {
@@ -16,7 +16,7 @@ export const rolesPermissionsColumns: ColumnDef<
 ];
 
 export const linkedRolesPermissionsColumns: ColumnDef<
-  RouterOutputs["permissions"]["list"]["items"][0]
+  InferSelectModel<typeof permissions>
 >[] = [
   {
     accessorKey: "name",

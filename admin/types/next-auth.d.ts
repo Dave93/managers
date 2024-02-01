@@ -10,7 +10,10 @@ declare module "next-auth" {
     rights: string[];
     accessToken: string;
     refreshToken: string;
-    users_roles_usersTousers_roles_user_id: Users_rolesWithRelations[];
+    role: {
+      id: string;
+      code: string;
+    };
   }
 }
 
@@ -21,7 +24,10 @@ declare module "next-auth/jwt" {
     rights: string[];
     accessToken: string;
     refreshToken: string;
-    users_roles_usersTousers_roles_user_id: Users_rolesWithRelations[];
+    role: {
+      id: string;
+      code: string;
+    };
     exp: number;
     iat: number;
   }

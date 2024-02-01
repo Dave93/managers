@@ -9,20 +9,14 @@ import { CredentialsCreateInputSchema } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-
-const formFactory = createFormFactory<
-  z.infer<typeof CredentialsCreateInputSchema>
->({
-  defaultValues: {
-    model: "",
-    model_id: "",
-    type: "",
-    key: "",
-  },
-});
+import { credentials } from "@backend/../drizzle/schema";
+import { InferInsertModel } from "drizzle-orm";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
+import useToken from "@admin/store/get-token";
 
 export default function CredentialsAddForm({
   setOpen,
@@ -36,15 +30,8 @@ export default function CredentialsAddForm({
   credentialId?: string;
 }) {
   const { toast } = useToast();
-
-  // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
-  //   resolver: zodResolver(PermissionsCreateInputSchema),
-  //   defaultValues: {
-  //     active: true,
-  //     slug: "",
-  //     description: "",
-  //   },
-  // });
+  const token = useToken();
+  const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
     toast({
@@ -52,7 +39,9 @@ export default function CredentialsAddForm({
       description: `Credential ${actionText}`,
       duration: 5000,
     });
-    // form.reset();
+    queryClient.invalidateQueries({
+      queryKey: ["credentials"],
+    });
     setOpen(false);
   };
 
@@ -65,66 +54,97 @@ export default function CredentialsAddForm({
     });
   };
 
-  const {
-    mutateAsync: createCredential,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useCredentialsCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof credentials>) => {
+      return apiClient.api.credentials.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updateCredential,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useCredentialsUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof credentials>;
+      id: string;
+    }) => {
+      return apiClient.api.credentials[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<InferInsertModel<typeof credentials>>({
+    defaultValues: {
+      model: "",
+      model_id: "",
+      type: "",
+      key: "",
+    },
+    onSubmit: async ({ value }) => {
       if (credentialId) {
-        updateCredential({
-          data: { ...values, model: model, model_id: recordId },
-          where: { id: credentialId },
+        updateMutation.mutate({
+          data: { ...value, model: model, model_id: recordId },
+          id: credentialId,
         });
       } else {
-        createCredential({
-          data: { ...values, model: model, model_id: recordId },
+        createMutation.mutate({
+          ...value,
+          model: model,
+          model_id: recordId,
         });
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } =
-    trpc.credentials.one.useQuery(
-      {
-        where: { id: credentialId },
-      },
-      {
-        enabled: !!credentialId,
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_credential", credentialId],
+    queryFn: () => {
+      if (credentialId) {
+        return apiClient.api.credentials[credentialId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
       }
-    );
+    },
+    enabled: !!credentialId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("key", record.key);
-      form.setFieldValue("type", record.type);
-      form.setFieldValue("model", record.model);
-      form.setFieldValue("model_id", record.model_id);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("key", record.data.key);
+      form.setFieldValue("type", record.data.type);
+      form.setFieldValue("model", record.data.model);
+      form.setFieldValue("model_id", record.data.model_id);
     }
   }, [record, form]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Ключ</Label>
@@ -134,8 +154,11 @@ export default function CredentialsAddForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -151,8 +174,11 @@ export default function CredentialsAddForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

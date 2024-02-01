@@ -33,12 +33,14 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
+import { credentials } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<
-    RouterOutputs["credentials"]["list"]["items"][0],
-    TValue
-  >[];
+  columns: ColumnDef<InferSelectModel<typeof credentials>, TValue>[];
   recordId: string;
   model: string;
 }
@@ -48,21 +50,58 @@ export function CredentialsList<TData, TValue>({
   model,
   columns,
 }: DataTableProps<TData, TValue>) {
+  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data, isLoading } = useCredentialsQuery({
-    take: pageSize,
-    skip: pageIndex * pageSize,
-    where: {
-      model: {
-        equals: model,
+  const { data, isLoading } = useQuery({
+    enabled: !!token && !!recordId,
+    queryKey: [
+      "credentials",
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        fields: "id,key,type",
+        filters: JSON.stringify([
+          {
+            field: "model",
+            operator: "eq",
+            value: model,
+          },
+          {
+            field: "model_id",
+            operator: "eq",
+            value: recordId,
+          },
+        ]),
       },
-      model_id: {
-        equals: recordId,
-      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.credentials.get({
+        $query: {
+          limit: pageSize.toString(),
+          offset: (pageIndex * pageSize).toString(),
+          fields: "id,key,type",
+          filters: JSON.stringify([
+            {
+              field: "model",
+              operator: "eq",
+              value: model,
+            },
+            {
+              field: "model_id",
+              operator: "eq",
+              value: recordId,
+            },
+          ]),
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
     },
   });
 
@@ -77,9 +116,9 @@ export function CredentialsList<TData, TValue>({
   );
 
   const table = useReactTable({
-    data: data?.items ?? defaultData,
+    data: data?.data ?? defaultData,
     columns,
-    pageCount: data?.meta?.pageCount ?? -1,
+    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
     },

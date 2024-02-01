@@ -23,7 +23,7 @@ export class ReportsService {
   constructor(
     private readonly prisma: DB,
     private readonly cacheControl: CacheControlService
-  ) {}
+  ) { }
 
   async create(input: Prisma.ReportsCreateArgs): Promise<Reports> {
     return this.prisma.reports.create(input);
@@ -909,7 +909,7 @@ export class ReportsService {
           group_id: arrytReportGroup?.id,
           source: "arryt",
           report_id: "",
-            report_date: reports?.date ?? date
+          report_date: reports?.date ?? date
         });
       });
     }

@@ -8,43 +8,26 @@ import {
   UsersCreateInputSchema,
   user_statusSchema,
 } from "@backend/lib/zod";
-import { useMemo, useEffect } from "react";
+import { useMemo, useEffect, useRef } from "react";
 import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import * as z from "zod";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { useCallback, useState } from "react";
+import { Chip } from "@nextui-org/chip";
+import { users } from "@backend/../drizzle/schema";
+import { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQueries } from "@tanstack/react-query";
 import {
   Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
+  SelectSection,
   SelectItem,
-} from "@components/ui/select";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from "@components/ui/command";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@components/ui/popover";
-
-import { cn } from "@admin/lib/utils";
-import MultiSelect from "../elements/multiSelect";
-
-const formFactory = createFormFactory<z.infer<typeof UsersCreateInputSchema>>({
-  defaultValues: {
-    status: "active",
-    login: "",
-    password: "",
-  },
-});
+  SelectedItems,
+} from "@nextui-org/select";
+import { Selection } from "@react-types/shared";
 
 export default function UsersForm({
   setOpen,
@@ -53,9 +36,13 @@ export default function UsersForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+  const token = useToken();
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
-  const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
+  const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
+    new Set([])
+  );
   const closeForm = () => {
     form.reset();
     setOpen(false);
@@ -64,10 +51,10 @@ export default function UsersForm({
   const onAddSuccess = (actionText: string, successData: any) => {
     toast({
       title: "Success",
-      description: `Role ${actionText}`,
+      description: `User ${actionText}`,
       duration: 5000,
     });
-    assignRole(successData);
+    assignRole(successData?.data);
   };
 
   const onError = (error: any) => {
@@ -79,41 +66,87 @@ export default function UsersForm({
     });
   };
 
-  const {
-    mutateAsync: createUser,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useUsersCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof users>) => {
+      return apiClient.api.users.post({
+        data: newTodo,
+        fields: [
+          "id",
+          "status",
+          "login",
+          "password",
+          "first_name",
+          "last_name",
+        ],
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: (data) => onAddSuccess("added", data),
     onError,
   });
 
-  const {
-    mutateAsync: updateUser,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useUsersUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof users>;
+      id: string;
+    }) => {
+      return apiClient.api.users[newTodo.id].put({
+        data: newTodo.data,
+        fields: [
+          "id",
+          "status",
+          "login",
+          "password",
+          "first_name",
+          "last_name",
+        ],
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: (data) => onAddSuccess("updated", data),
     onError,
   });
 
-  const { mutateAsync: asyncAssignRole } = trpc.users.assignRole.useMutation({
+  const assignRoleMutation = useMutation({
+    mutationFn: (newTodo: { role_id: string; user_id: string }) => {
+      return apiClient.api.users.assign_role.post({
+        ...newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onError,
   });
 
-  const { mutateAsync: asyncAssignTerminal } =
-    trpc.users.assignTerminal.useMutation({
-      onSuccess: () => closeForm(),
-      onError,
-    });
+  const assignTerminalMutation = useMutation({
+    mutationFn: (newTodo: { terminal_id: string[]; user_id: string }) => {
+      return apiClient.api.users.assign_terminal.post({
+        ...newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
+    onSuccess: (data) => closeForm(),
+    onError,
+  });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<InferInsertModel<typeof users>>({
+    defaultValues: {
+      status: "active",
+      login: "",
+      password: "",
+    },
+    onSubmit: async ({ value }) => {
       if (recordId) {
-        updateUser({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createUser({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
@@ -121,110 +154,203 @@ export default function UsersForm({
   const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
-    { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
+    { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userTerminalsData, isLoading: isUserTerminalsLoading },
-  ] = trpc.useQueries((t) => [
-    t.users.one(
+  ] = useQueries({
+    queries: [
       {
-        where: { id: recordId },
+        queryKey: ["one_user", recordId],
+        queryFn: async () => {
+          if (recordId) {
+            const { data } = await apiClient.api.users[recordId].get({
+              $headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            return data;
+          } else {
+            return null;
+          }
+        },
+        enabled: !!recordId && !!token,
       },
       {
-        enabled: !!recordId,
-      }
-    ),
-    t.roles.list({}),
-    t.terminals.list({
-      take: 100,
-    }),
-    t.usersRoles.list(
-      {
-        where: {
-          user_id: {
-            equals: recordId,
-          },
+        enabled: !!token,
+        queryKey: ["roles_cached"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.roles.cached.get({
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          return data;
         },
       },
       {
-        enabled: !!recordId,
-      }
-    ),
-    t.usersTerminals.list(
-      {
-        where: {
-          user_id: {
-            equals: recordId,
-          },
+        enabled: !!recordId && !!token,
+        queryKey: ["users_roles", recordId],
+        queryFn: async () => {
+          if (recordId) {
+            const { data } = await apiClient.api.users_roles.get({
+              $query: {
+                limit: "30",
+                offset: "0",
+                filters: JSON.stringify([
+                  {
+                    field: "user_id",
+                    operator: "=",
+                    value: recordId,
+                  },
+                ]),
+                fields: "role_id,user_id",
+              },
+              $headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            return data;
+          } else {
+            return null;
+          }
         },
       },
       {
-        enabled: !!recordId,
-      }
-    ),
-  ]);
+        enabled: !!token,
+        queryKey: ["terminals_cached"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.terminals.cached.get({
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          return data;
+        },
+      },
+      {
+        enabled: !!recordId && !!token,
+        queryKey: ["users_terminals", recordId],
+        queryFn: async () => {
+          if (recordId) {
+            const { data } = await apiClient.api.users_terminals.get({
+              $query: {
+                limit: "30",
+                offset: "0",
+                filters: JSON.stringify([
+                  {
+                    field: "user_id",
+                    operator: "=",
+                    value: recordId,
+                  },
+                ]),
+                fields: "terminal_id,user_id",
+              },
+              $headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            return data;
+          } else {
+            return null;
+          }
+        },
+      },
+    ],
+  });
 
   const userRoleId = useMemo(() => {
-    if (changedRoleId && userRolesData?.[0]?.role_id != changedRoleId) {
+    if (changedRoleId) {
       return changedRoleId;
+    } else if (
+      userRolesData &&
+      userRolesData.data &&
+      userRolesData.data.length > 0
+    ) {
+      return userRolesData.data[0].role_id;
+    } else {
+      return null;
     }
-    return userRolesData?.[0]?.role_id;
   }, [userRolesData, changedRoleId]);
 
   const assignRole = useCallback(
-    async (recordData: Users) => {
+    async (recordData: InferSelectModel<typeof users>) => {
+      console.log("recordData", recordData);
       let userId = recordData?.id;
       if (recordId) {
         userId = recordId;
       }
-      await asyncAssignRole({
+      await assignRoleMutation.mutate({
         user_id: userId,
         role_id: changedRoleId ? changedRoleId! : userRoleId!,
       });
-      return asyncAssignTerminal({
-        data: changedTerminalId.map((terminalId) => ({
-          user_id: recordData?.id,
-          terminal_id: terminalId,
-        })),
+      return assignTerminalMutation.mutate({
+        user_id: recordData?.id,
+        terminal_id:
+          changedTerminalId !== "all"
+            ? Array.from(changedTerminalId).map((terminalId) =>
+                terminalId.toString()
+              )
+            : [],
       });
     },
     [changedRoleId, userRoleId, recordId, changedTerminalId]
   );
-
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading || isRolesLoading;
-  }, [isAddLoading, isUpdateLoading, isRolesLoading]);
+    return (
+      createMutation.isPending || updateMutation.isPending || isRolesLoading
+    );
+  }, [createMutation.isPending, updateMutation.isPending, isRolesLoading]);
 
   const terminalsForSelect = useMemo(() => {
-    return terminalsData
-      ? terminalsData.items.map((item) => ({
+    return terminalsData && Array.isArray(terminalsData)
+      ? terminalsData.map((item) => ({
           value: item.id,
           label: item.name,
         }))
       : [];
   }, [terminalsData]);
 
+  const terminalLabelById = useMemo(() => {
+    return terminalsData && Array.isArray(terminalsData)
+      ? terminalsData.reduce((acc, item) => {
+          acc[item.id] = item.name;
+          return acc;
+        }, {} as { [key: string]: string })
+      : {};
+  }, [terminalsData]);
+
   useEffect(() => {
-    if (record) {
-      Object.keys(record).forEach((key) => {
+    if (record?.data && "id" in record.data) {
+      Object.keys(record.data).forEach((key) => {
         form.setFieldValue(
-          // @ts-ignore
-          key as keyof typeof record,
-          // @ts-ignore
-          record[key as keyof typeof record]
+          key as keyof typeof record.data,
+          record.data[key as keyof typeof record.data]
         );
       });
     }
 
-    if (userTerminalsData && userTerminalsData.items.length > 0) {
+    if (
+      userTerminalsData &&
+      userTerminalsData.data &&
+      Array.isArray(userTerminalsData.data)
+    ) {
       setChangedTerminalId(
-        userTerminalsData.items.map((item) => item.terminal_id)
+        new Set(userTerminalsData.data.map((item) => item.terminal_id))
       );
     }
   }, [record, userTerminalsData]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        ref={formRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Статус</Label>
@@ -234,22 +360,26 @@ export default function UsersForm({
               return (
                 <>
                   <Select
-                    onValueChange={(value) =>
-                      value &&
-                      field.setValue(value as z.infer<typeof user_statusSchema>)
-                    }
-                    value={field.getValue()}
+                    label="Статус"
+                    placeholder="Выберите статус"
+                    selectedKeys={[field.getValue()]}
+                    className="max-w-xs"
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                      field.setValue(
+                        e.target.value as "active" | "blocked" | "inactive"
+                      );
+                    }}
+                    popoverProps={{
+                      portalContainer: formRef.current!,
+                      offset: 0,
+                      containerPadding: 0,
+                    }}
                   >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {user_statusSchema.options.map((item) => (
-                        <SelectItem key={item} value={item}>
-                          {item}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
+                    {user_statusSchema.options.map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
                   </Select>
                 </>
               );
@@ -265,8 +395,11 @@ export default function UsersForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
+                    id={field.name}
+                    name={field.name}
                     value={field.getValue() ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -282,8 +415,11 @@ export default function UsersForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
+                    id={field.name}
+                    name={field.name}
                     value={field.getValue() ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -294,28 +430,71 @@ export default function UsersForm({
           <div>
             <Label>Роль</Label>
           </div>
-          <Select onValueChange={setChangedRoleId} value={userRoleId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {rolesData?.items.map((item) => (
+          <Select
+            label="Роль"
+            placeholder="Выберите роль"
+            selectedKeys={userRoleId ? [userRoleId] : []}
+            className="max-w-xs"
+            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+              console.log("selecting role", e.target.value);
+              setChangedRoleId(e.target.value);
+            }}
+            popoverProps={{
+              portalContainer: formRef.current!,
+              offset: 0,
+              containerPadding: 0,
+            }}
+          >
+            {Array.isArray(rolesData) ? (
+              rolesData?.map((item) => (
                 <SelectItem key={item.id} value={item.id}>
                   {item.name}
                 </SelectItem>
-              ))}
-            </SelectContent>
+              ))
+            ) : (
+              <SelectItem key="0" value="0">
+                Загрузка...
+              </SelectItem>
+            )}
           </Select>
         </div>
         <div className="space-y-2">
           <div>
             <Label>Филиалы</Label>
           </div>
-          <MultiSelect
-            value={changedTerminalId}
-            onValueChange={(value: string[]) => setChangedTerminalId(value)}
-            data={terminalsForSelect}
-          />
+          <Select
+            label="Филиалы"
+            selectionMode="multiple"
+            isMultiline={true}
+            placeholder="Выберите филиал"
+            selectedKeys={changedTerminalId}
+            classNames={{
+              base: "max-w-xs",
+              trigger: "min-h-unit-12 py-2",
+            }}
+            onSelectionChange={setChangedTerminalId}
+            popoverProps={{
+              portalContainer: formRef.current!,
+              offset: 0,
+              containerPadding: 0,
+            }}
+            renderValue={(items: SelectedItems<string>) => {
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {changedTerminalId != "all" &&
+                    Array.from(changedTerminalId).map((item) => (
+                      <Chip key={item}>{terminalLabelById[item]}</Chip>
+                    ))}
+                </div>
+              );
+            }}
+          >
+            {terminalsForSelect.map((terminal) => (
+              <SelectItem key={terminal.value} value={terminal.value}>
+                {terminal.label}
+              </SelectItem>
+            ))}
+          </Select>
         </div>
 
         <div className="space-y-2">
@@ -327,8 +506,11 @@ export default function UsersForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
+                    id={field.name}
+                    name={field.name}
                     value={field.getValue() ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -344,8 +526,11 @@ export default function UsersForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
+                    id={field.name}
+                    name={field.name}
                     value={field.getValue() ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

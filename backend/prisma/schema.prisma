@@ -16,6 +16,13 @@ generator zod {
   createModelTypes                = "true"
 }
 
+generator drizzle {
+  provider = "prisma-generator-drizzle"
+
+  // Specify the output directory
+  output = "../drizzle"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")

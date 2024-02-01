@@ -6,7 +6,26 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@components/ui/sheet";
+import {
+  Drawer,
+  DrawerClose,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@components/ui/drawer";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@components/ui/dialog";
 import UsersForm from "./_form";
+import { useMediaQuery } from "@admin/lib/hooks";
 
 export default function UsersFormSheet({
   children,
@@ -16,6 +35,7 @@ export default function UsersFormSheet({
   recordId?: string;
 }) {
   const [open, setOpen] = useState<boolean>(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const beforeOpen = async (open: boolean) => {
     if (open) {
@@ -26,6 +46,26 @@ export default function UsersFormSheet({
       setOpen(false);
     }
   };
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>{children}</DialogTrigger>
+        <DialogContent className="sm:max-w-[425px]">
+          {open && <UsersForm setOpen={setOpen} recordId={recordId} />}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Drawer open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>{children}</DrawerTrigger>
+      <DrawerContent className="px-3">
+        {open && <UsersForm setOpen={setOpen} recordId={recordId} />}
+      </DrawerContent>
+    </Drawer>
+  );
 
   return (
     <Sheet onOpenChange={beforeOpen} open={open}>

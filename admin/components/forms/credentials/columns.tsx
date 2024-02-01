@@ -7,9 +7,11 @@ import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
 import CanAccess from "@admin/components/can-access";
 import CredentialsAddFormSheet from "./form_sheet";
+import { credentials } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 
 export const credentialsColumns: ColumnDef<
-  RouterOutputs["credentials"]["list"]["items"][0]
+  InferSelectModel<typeof credentials>
 >[] = [
   {
     accessorKey: "key",

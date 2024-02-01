@@ -10,22 +10,15 @@ import { OrganizationCreateInputSchema } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
-
-const formFactory = createFormFactory<
-  z.infer<typeof OrganizationCreateInputSchema>
->({
-  defaultValues: {
-    active: true,
-    name: "",
-    description: "",
-    phone: "",
-    code: "",
-  },
-});
+import { organization } from "backend/drizzle/schema";
+import { InferInsertModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 
 export default function OrganizationsForm({
   setOpen,
@@ -35,23 +28,18 @@ export default function OrganizationsForm({
   recordId?: string;
 }) {
   const { toast } = useToast();
-
-  // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
-  //   resolver: zodResolver(PermissionsCreateInputSchema),
-  //   defaultValues: {
-  //     active: true,
-  //     slug: "",
-  //     description: "",
-  //   },
-  // });
+  const token = useToken();
+  const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
     toast({
       title: "Success",
-      description: `Permission ${actionText}`,
+      description: `Organization ${actionText}`,
       duration: 5000,
     });
-    // form.reset();
+    queryClient.invalidateQueries({
+      queryKey: ["organization"],
+    });
     setOpen(false);
   };
 
@@ -64,62 +52,92 @@ export default function OrganizationsForm({
     });
   };
 
-  const {
-    mutateAsync: createOrganization,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useOrganizationsCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof organization>) => {
+      return apiClient.api.organization.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updateOrganization,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useOrganizationsUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof organization>;
+      id: string;
+    }) => {
+      return apiClient.api.organization[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<InferInsertModel<typeof organization>>({
+    defaultValues: {
+      active: true,
+      name: "",
+      description: "",
+      phone: "",
+      code: "",
+    },
+    onSubmit: async ({ value }) => {
       if (recordId) {
-        updateOrganization({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createOrganization({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } =
-    trpc.organization.one.useQuery(
-      {
-        where: { id: recordId },
-      },
-      {
-        enabled: !!recordId,
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_organization", recordId],
+    queryFn: () => {
+      if (recordId) {
+        return apiClient.api.organization[recordId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
       }
-    );
+    },
+    enabled: !!recordId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("active", record.active);
-      form.setFieldValue("name", record.name);
-      form.setFieldValue("description", record.description);
-      form.setFieldValue("phone", record.phone);
-      form.setFieldValue("code", record.code);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("active", record.data.active);
+      form.setFieldValue("name", record.data.name);
+      form.setFieldValue("description", record.data.description);
+      form.setFieldValue("phone", record.data.phone);
+      form.setFieldValue("code", record.data.code);
     }
   }, [record, form]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Активность</Label>
@@ -146,8 +164,11 @@ export default function OrganizationsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -163,8 +184,11 @@ export default function OrganizationsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -180,8 +204,11 @@ export default function OrganizationsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -197,8 +224,11 @@ export default function OrganizationsForm({
               return (
                 <>
                   <Textarea
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value ?? ""}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

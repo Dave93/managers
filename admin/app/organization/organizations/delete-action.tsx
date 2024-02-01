@@ -1,8 +1,29 @@
 import { DeleteButton } from "@components/ui/delete-button";
 import { useOrganizationsDestroy } from "@admin/store/apis/organizations";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
-  const { mutateAsync: deletePermission } = useOrganizationsDestroy({});
+  const queryClient = useQueryClient();
+  const token = useToken();
+  const createMutation = useMutation({
+    mutationFn: () => {
+      return apiClient.api.organization[recordId].delete({
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["organization"] });
+    },
+  });
 
-  return <DeleteButton recordId={recordId} deleteRecord={deletePermission} />;
+  return (
+    <DeleteButton
+      recordId={recordId}
+      deleteRecord={() => createMutation.mutate()}
+    />
+  );
 }

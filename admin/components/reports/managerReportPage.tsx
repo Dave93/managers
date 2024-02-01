@@ -7,16 +7,46 @@ import {
 import { CalendarReport } from "@admin/components/reports/calendar";
 import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import { useMemo } from "react";
-import { Reports_status } from "@backend/lib/zod";
+import useToken from "@admin/store/get-token";
+import { useQueries } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
 
 export default function ManagerReportPage() {
+  const token = useToken();
+
   const [
     { data: terminalsList, isLoading: isTerminalsLoading },
     { data: reportsStatus, isLoading: isReportsStatusLoading },
-  ] = trpc.useQueries((t) => [
-    t.usersTerminals.getMyTerminals(),
-    t.reportsStatus.cachedReportsStatus({}),
-  ]);
+  ] = useQueries({
+    queries: [
+      {
+        queryKey: ["users_terminals"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.users_terminals.my_terminals.get(
+            {
+              $headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+          return data;
+        },
+        enabled: !!token,
+      },
+      {
+        enabled: !!token,
+        queryKey: ["reports_status"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.reports_status.cached.get({
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          return data;
+        },
+      },
+    ],
+  });
 
   const isLoadingData = useMemo(() => {
     return isTerminalsLoading || isReportsStatusLoading;
@@ -38,7 +68,7 @@ export default function ManagerReportPage() {
               cy="12"
               r="10"
               stroke="currentColor"
-              stroke-width="4"
+              strokeWidth="4"
             ></circle>
             <path
               className="opacity-75"
@@ -51,50 +81,52 @@ export default function ManagerReportPage() {
         <div>
           <Tabs defaultValue="account" className="w-full pt-3">
             <TabsList className="w-full">
-              {terminalsList?.map((terminal) => (
-                <TabsTrigger
+              {terminalsList &&
+                Array.isArray(terminalsList.data) &&
+                terminalsList.data.map((terminal) => (
+                  <TabsTrigger
+                    value={terminal.terminal_id}
+                    key={terminal.terminal_id}
+                    className="w-full"
+                  >
+                    {terminal.terminals.name}
+                  </TabsTrigger>
+                ))}
+            </TabsList>
+            {terminalsList &&
+              Array.isArray(terminalsList.data) &&
+              terminalsList.data.map((terminal) => (
+                <TabsContent
                   value={terminal.terminal_id}
                   key={terminal.terminal_id}
-                  className="w-full"
                 >
-                  {terminal.terminals.name}
-                </TabsTrigger>
+                  <CalendarReport
+                    terminalId={terminal.terminal_id}
+                    reportsStatus={
+                      reportsStatus && Array.isArray(reportsStatus)
+                        ? reportsStatus
+                        : []
+                    }
+                  />
+                </TabsContent>
               ))}
-            </TabsList>
-            {terminalsList?.map((terminal) => (
-              <TabsContent
-                value={terminal.terminal_id}
-                key={terminal.terminal_id}
-              >
-                <CalendarReport
-                  terminalId={terminal.terminal_id}
-                  reportsStatus={reportsStatus!}
-                />
-              </TabsContent>
-            ))}
           </Tabs>
           <div className="mt-6">
             <div className="text-2xl font-bold border-b-2">Статусы</div>
             <div className="space-y-2 mt-4">
               {reportsStatus &&
-                reportsStatus.map(
-                  (
-                    status: RouterOutputs["reportsStatus"]["list"]["items"][0]
-                  ) => (
+                Array.isArray(reportsStatus) &&
+                reportsStatus.map((status) => (
+                  <div key={status.id} className="flex space-x-3 items-center">
                     <div
-                      key={status.id}
-                      className="flex space-x-3 items-center"
-                    >
-                      <div
-                        className="h-5 w-5 rounded-full"
-                        style={{
-                          backgroundColor: status.color,
-                        }}
-                      ></div>
-                      <div className="uppercase">{status.label}</div>
-                    </div>
-                  )
-                )}
+                      className="h-5 w-5 rounded-full"
+                      style={{
+                        backgroundColor: status.color,
+                      }}
+                    ></div>
+                    <div className="uppercase">{status.label}</div>
+                  </div>
+                ))}
             </div>
           </div>
         </div>

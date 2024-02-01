@@ -1,25 +1,19 @@
 "use client";
 import { CardContent } from "@admin/components/ui/card";
 import { Button } from "@admin/components/ui/button";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { useSettingsQuery, useSettingsSet } from "@admin/store/apis/settings";
 import { useToast } from "@admin/components/ui/use-toast";
 import { Label } from "@admin/components/ui/label";
 import { Input } from "@admin/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
-
-const formFactory = createFormFactory<{
-  workStartTime: string;
-  workEndTime: string;
-}>({
-  defaultValues: {
-    workStartTime: "",
-    workEndTime: "",
-  },
-});
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQuery } from "@tanstack/react-query";
 
 export default function ConfigsPage() {
+  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -39,51 +33,77 @@ export default function ConfigsPage() {
     });
   };
 
-  const { data: settings, isLoading: isSettingsLoading } = useSettingsQuery({
-    where: {
-      key: {
-        startsWith: "main.",
+  const { data: settings, isLoading: isSettingsLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "setting",
+      {
+        fields: "id,active,name",
+        section: "main",
       },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.settings.get({
+        $query: {
+          limit: "100",
+          offset: "0",
+          fields: "id,active,name",
+          filters: JSON.stringify([
+            {
+              field: "key",
+              operator: "ilike",
+              value: "main.%",
+            },
+          ]),
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
     },
   });
 
-  const {
-    mutateAsync: createOrUpdateSettings,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useSettingsSet({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: { key: string; value: string }) => {
+      return apiClient.api.settings[newTodo.key].post({
+        data: {
+          value: newTodo.value,
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
-      Object.keys(values).forEach((key) => {
-        const valueKey = key as keyof typeof values;
-        createOrUpdateSettings({
-          where: {
-            key: `main.${key}`,
-          },
-          update: {
-            value: values[valueKey],
-            key: `main.${key}`,
-          },
-          create: {
-            value: values[valueKey],
-            key: `main.${key}`,
-          },
+  const form = useForm<{
+    workStartTime: string;
+    workEndTime: string;
+  }>({
+    defaultValues: {
+      workStartTime: "",
+      workEndTime: "",
+    },
+    onSubmit: async ({ value }) => {
+      Object.keys(value).forEach((key) => {
+        const valueKey = key as keyof typeof value;
+        createMutation.mutate({
+          key: `main.${key}`,
+          value: value[valueKey],
         });
       });
     },
   });
 
   useEffect(() => {
-    if (settings) {
-      let workStartTime = settings!.items.find(
+    if (settings && settings.data && Array.isArray(settings.data)) {
+      let workStartTime = settings!.data.find(
         (s) => s.key === "main.workStartTime"
       )?.value;
-      let workEndTime = settings!.items.find(
+      let workEndTime = settings!.data.find(
         (s) => s.key === "main.workEndTime"
       )?.value;
       form.setFieldValue("workStartTime", workStartTime ?? "");
@@ -99,18 +119,28 @@ export default function ConfigsPage() {
         </div>
         <div className="py-10">
           <form.Provider>
-            <form {...form.getFormProps()} className="space-y-8">
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                void form.handleSubmit();
+              }}
+              className="space-y-8"
+            >
               <div className="space-y-2">
                 <div>
-                  <Label>Дата начала рабочего дня</Label>
+                  <Label>Время начала рабочего дня</Label>
                 </div>
                 <form.Field name="workStartTime">
                   {(field) => {
                     return (
                       <>
                         <Input
-                          {...field.getInputProps()}
+                          id={field.name}
+                          name={field.name}
                           value={field.getValue() ?? ""}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
                         />
                       </>
                     );
@@ -119,23 +149,26 @@ export default function ConfigsPage() {
               </div>
               <div className="space-y-2">
                 <div>
-                  <Label>Дата окончания рабочего дня</Label>
+                  <Label>Время окончания рабочего дня</Label>
                 </div>
                 <form.Field name="workEndTime">
                   {(field) => {
                     return (
                       <>
                         <Input
-                          {...field.getInputProps()}
+                          id={field.name}
+                          name={field.name}
                           value={field.getValue() ?? ""}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => field.handleChange(e.target.value)}
                         />
                       </>
                     );
                   }}
                 </form.Field>
               </div>
-              <Button type="submit" disabled={isAddLoading}>
-                {isAddLoading && (
+              <Button type="submit" disabled={createMutation.isPending}>
+                {createMutation.isPending && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 )}
                 Save

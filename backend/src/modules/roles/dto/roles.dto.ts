@@ -1,4 +1,6 @@
 import { paginatedZodObj } from "@backend/lib/z_objects";
+import { roles } from "backend/drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 import { z } from "zod";
 
 export type rolesCreateInput = {
@@ -20,3 +22,8 @@ export const rolesFindManyZod = paginatedZodObj.extend({
     })
     .optional(),
 });
+
+
+export type RolesWithRelations = InferSelectModel<typeof roles> & {
+  permissions: string[];
+};

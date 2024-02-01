@@ -5,10 +5,10 @@ export const useGetRole = (): string | null | undefined => {
   const { data: session } = useSession();
 
   if (session) {
-    const roles = session.users_roles_usersTousers_roles_user_id[0];
+    const role = session.role;
 
-    if (roles) {
-      return roles.roles.code!;
+    if (role) {
+      return role.code;
     }
   } else {
     return undefined;

@@ -1,26 +1,27 @@
-import { DB } from "@backend/db";
-import { RedisClientType } from "@backend/trpc";
+import { drizzleDb } from "@backend/lib/db";
 import {
-  OrganizationWithCredentials,
-  TerminalsWithCredentials,
+  organizationWithCredentials,
+  terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import { z } from "zod";
 import { Credentials } from "@backend/lib/zod";
+import Redis from "ioredis/built/Redis";
+import { terminals, credentials } from "@backend/../drizzle/schema";
+import { InferSelectModel, and, eq, inArray } from "drizzle-orm";
 
 export class TerminalsService {
   constructor(
-    private readonly prisma: DB,
-    private readonly redis: RedisClientType
-  ) {}
+    private readonly redis: Redis
+  ) { }
 
   async getTerminalsFromIiko() {
     const organizations = await this.redis.get(
       `${process.env.PROJECT_PREFIX}organization`
     );
 
-    const res: z.infer<typeof OrganizationWithCredentials>[] = JSON.parse(
+    const res = JSON.parse(
       organizations ?? "[]"
-    );
+    ) as organizationWithCredentials[];
 
     if (res.length > 0) {
       for (const organization of res) {
@@ -34,33 +35,36 @@ export class TerminalsService {
         const iikoUrl = "https://api-ru.iiko.services/api/1/";
 
         if (iikoLogin && iikoOrganizationId) {
-          const terminals = await this.prisma.terminals.findMany({
-            where: {
-              organization_id: {
-                equals: organization.id,
-              },
-            },
-          });
 
-          const terminalIds = terminals.map((terminal) => terminal.id);
+          const terminalsList = await drizzleDb.select({
+            id: terminals.id
+          })
+            .from(terminals)
+            .where(eq(terminals.organization_id, organization.id)).execute();
 
-          const credentials = await this.prisma.credentials.findMany({
-            where: {
-              model: {
-                equals: "terminals",
-              },
-              model_id: {
-                in: terminalIds,
-              },
-            },
-          });
+          let iikoTerminalIds: {
+            key: string;
+            model_id: string;
+          }[] = [];
 
-          const iikoTerminalIds = credentials
-            .filter((credential) => credential.type === "iiko_id")
-            .map((credential) => ({
-              key: credential.key,
-              model_id: credential.model_id,
-            }));
+          const terminalIds = terminalsList.map((terminal) => terminal.id);
+
+          if (terminalIds.length > 0) {
+
+            const credentialsList = await drizzleDb
+              .select()
+              .from(credentials)
+              .where(and(eq(credentials.model, "terminals"), inArray(credentials.model_id, terminalIds)))
+              .execute();
+
+            iikoTerminalIds = credentialsList
+              .filter((credential) => credential.type === "iiko_id")
+              .map((credential) => ({
+                key: credential.key,
+                model_id: credential.model_id,
+              }));
+
+          }
 
           const tokenResponse = await fetch(`${iikoUrl}access_token`, {
             method: "POST",
@@ -94,47 +98,47 @@ export class TerminalsService {
             )?.model_id;
 
             if (!terminalId) {
-              const terminal = await this.prisma.terminals.create({
-                data: {
-                  name: iikoTerminal.name,
-                  organization_id: organization.id,
-                },
-              });
+              const terminal = await drizzleDb.insert(terminals).values({
+                name: iikoTerminal.name,
+                organization_id: organization.id,
+                latitude: 0,
+                longitude: 0,
+              }).returning({
+                id: terminals.id
+              }).execute();
 
-              await this.prisma.credentials.create({
-                data: {
-                  model: "terminals",
-                  model_id: terminal.id,
-                  type: "iiko_id",
-                  key: iikoTerminal.id,
-                },
-              });
+              await drizzleDb.insert(credentials).values({
+                model: "terminals",
+                model_id: terminal[0].id,
+                type: "iiko_id",
+                key: iikoTerminal.id,
+              }).execute();
             }
           }
         }
       }
 
-      const existingTerminals = await this.prisma.terminals.findMany();
+      const existingTerminals = await drizzleDb.query.terminals.findMany();
 
-      const credentials = await this.prisma.credentials.findMany({
-        where: {
-          model: "terminals",
-        },
-      });
+      const terminalsCredentialsList = await drizzleDb
+        .select()
+        .from(credentials)
+        .where(eq(credentials.model, "terminals"))
+        .execute();
 
-      const credentialsByTerminalId = credentials.reduce((acc, credential) => {
+      const credentialsByTerminalId = terminalsCredentialsList.reduce((acc, credential) => {
         if (!acc[credential.model_id]) {
           acc[credential.model_id] = [];
         }
         acc[credential.model_id].push(credential);
         return acc;
-      }, {} as Record<string, Credentials[]>);
+      }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
 
-      const newTerminals: z.infer<typeof TerminalsWithCredentials>[] = [];
+      const newTerminals: terminalsWithCredentials[] = [];
 
       for (const terminal of existingTerminals) {
         const credentials = credentialsByTerminalId[terminal.id];
-        const newTerminal: z.infer<typeof TerminalsWithCredentials> = {
+        const newTerminal: terminalsWithCredentials = {
           ...terminal,
           credentials: [],
         };

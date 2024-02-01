@@ -1,23 +1,17 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import { useRolesCreate, useRolesUpdate } from "@admin/store/apis/roles";
 import { Button } from "@components/ui/button";
 import { Switch } from "@components/ui/switch";
-import { trpc } from "@admin/utils/trpc";
-import { RolesCreateInputSchema } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-
-const formFactory = createFormFactory<z.infer<typeof RolesCreateInputSchema>>({
-  defaultValues: {
-    active: true,
-    name: "",
-    code: "",
-  },
-});
+import useToken from "@admin/store/get-token";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
+import { InferInsertModel } from "drizzle-orm";
+import { roles } from "backend/drizzle/schema";
 
 export default function RolesForm({
   setOpen,
@@ -26,6 +20,8 @@ export default function RolesForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const token = useToken();
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -47,59 +43,93 @@ export default function RolesForm({
     });
   };
 
-  const {
-    mutateAsync: createRole,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useRolesCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof roles>) => {
+      return apiClient.api.roles.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updateRole,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useRolesUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof roles>;
+      id: string;
+    }) => {
+      return apiClient.api.roles[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<{
+    active: boolean;
+    name: string;
+    code: string;
+  }>({
+    defaultValues: {
+      active: true,
+      name: "",
+      code: "",
+    },
+    onSubmit: async ({ value, formApi }) => {
+      console.log(value);
       if (recordId) {
-        updateRole({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createRole({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } = trpc.roles.one.useQuery(
-    {
-      where: { id: recordId },
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_role", recordId],
+    queryFn: () => {
+      if (recordId) {
+        return apiClient.api.roles[recordId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
+      }
     },
-    {
-      enabled: !!recordId,
-    }
-  );
+    enabled: !!recordId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("active", record.active);
-      form.setFieldValue("name", record.name);
-      form.setFieldValue("code", record.code);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("active", record.data.active);
+      form.setFieldValue("name", record.data.name);
+      form.setFieldValue("code", record.data?.code ?? "");
     }
   }, [record]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Активность</Label>
@@ -126,8 +156,11 @@ export default function RolesForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -143,8 +176,11 @@ export default function RolesForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

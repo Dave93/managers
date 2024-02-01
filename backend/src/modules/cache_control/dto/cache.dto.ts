@@ -1,14 +1,11 @@
-import {
-  CredentialsSchema,
-  OrganizationSchema,
-  TerminalsSchema,
-} from "@backend/lib/zod";
-import { z } from "zod";
+import { InferSelectModel } from "drizzle-orm";
+import { credentials, organization, terminals } from "backend/drizzle/schema";
 
-export const OrganizationWithCredentials = OrganizationSchema.extend({
-  credentials: z.array(CredentialsSchema),
-});
+export type terminalsWithCredentials = InferSelectModel<typeof terminals> & {
+  credentials: InferSelectModel<typeof credentials>[];
+};
 
-export const TerminalsWithCredentials = TerminalsSchema.extend({
-  credentials: z.array(CredentialsSchema),
-});
+
+export type organizationWithCredentials = InferSelectModel<typeof organization> & {
+  credentials: InferSelectModel<typeof credentials>[];
+};

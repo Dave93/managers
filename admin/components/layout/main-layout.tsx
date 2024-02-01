@@ -11,6 +11,7 @@ import { useGetRole } from "@admin/utils/get_role";
 import AdminLayout from "./admin-layout";
 import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
+import { NextUIProvider } from "@nextui-org/system";
 export default function MainLayout({
   children,
 }: {
@@ -20,10 +21,12 @@ export default function MainLayout({
   return (
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        {roleCode === "admin" && <AdminLayout>{children}</AdminLayout>}
-        {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
-        {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
-        <Toaster />
+        <NextUIProvider>
+          {roleCode === "admin" && <AdminLayout>{children}</AdminLayout>}
+          {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
+          {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
+          <Toaster />
+        </NextUIProvider>
       </ThemeProvider>
     </Providers>
   );

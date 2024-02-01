@@ -21,7 +21,6 @@ import { WorkScheduleEntriesService } from "./modules/work_schedule_entries/serv
 import { ApiTokensService } from "./modules/api_tokens/service";
 import { TimesheetService } from "./modules/timesheet/service";
 import { ScheduledReportsService } from "./modules/scheduled_reports/service";
-import { db } from "./db";
 import { verifyJwt } from "./lib/bcrypt";
 import { CredentialsService } from "./modules/credentials/service";
 import { SettingsService } from "./modules/settings/service";

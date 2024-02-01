@@ -4,111 +4,98 @@ import { useMemo, useState } from "react";
 import { hr, uzCyrl } from "date-fns/locale";
 import { Calendar } from "@admin/components/ui/calendar";
 import { useRouter } from "next/navigation";
-import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import dayjs from "dayjs";
-import { Reports_status } from "@backend/lib/zod";
+import { reports_status } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQuery } from "@tanstack/react-query";
 
 export function CalendarReport({
   terminalId,
   reportsStatus,
 }: {
   terminalId: string;
-  reportsStatus: RouterOutputs["reportsStatus"]["list"]["items"];
+  reportsStatus: InferSelectModel<typeof reports_status>[];
 }) {
+  const token = useToken();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
 
-  const { data: reportsByDate, isLoading: isReportsByDateLoading } =
-    trpc.reports.listByDate.useQuery({
-      where: {
+  const { data: reportsByDate, isLoading: isReportsByDateLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "my_terminal_reports",
+      {
         terminal_id: terminalId,
-        date: {
-          gte: dayjs(date).startOf("month").toDate(),
-          lt: dayjs(date).endOf("month").add(1, "day").toDate(),
+        fields:
+          "id,date,terminal_id,cash_ids,total_amount,total_manager_price,difference,arryt_income,reports_status.code,reports_status.color,reports_status.id,reports_status.label",
+        filters: JSON.stringify([
+          {
+            field: "date",
+            operator: "gte",
+            value: dayjs(date).startOf("month").toISOString(),
+          },
+          {
+            field: "date",
+            operator: "lt",
+            value: dayjs(date).endOf("month").add(1, "day").toISOString(),
+          },
+        ]),
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.reports.my_reports.get({
+        $query: {
+          terminal_id: terminalId,
+          fields:
+            "id,date,terminal_id,cash_ids,total_amount,total_manager_price,difference,arryt_income,reports_status.code,reports_status.color,reports_status.id,reports_status.label",
+          filters: JSON.stringify([
+            {
+              field: "date",
+              operator: "gte",
+              value: dayjs(date).startOf("month").toISOString(),
+            },
+            {
+              field: "date",
+              operator: "lt",
+              value: dayjs(date).endOf("month").add(1, "day").toISOString(),
+            },
+          ]),
         },
-      },
-      include: {
-        reports_status_id: true,
-      },
-    });
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
+    },
+  });
 
   const modifiers = useMemo(() => {
-    let res = {
-      cancelled: [] as Date[],
-      checking: [] as Date[],
-      comfirmed: [] as Date[],
-      sent: [] as Date[],
-    };
-    reportsByDate?.map((report) => {
-      const date = new Date(report.date);
-      const status = report.reports_status_id.code;
-      if (status === "cancelled") {
-        res.cancelled.push(date);
-      } else if (status === "checking") {
-        res.checking.push(date);
-      } else if (status === "confirmed") {
-        res.comfirmed.push(date);
-      } else if (status === "sent") {
-        res.sent.push(date);
-      }
-    });
+    let res = reportsStatus.reduce((acc, status) => {
+      acc[status.code] = [];
+      return acc;
+    }, {} as Record<string, Date[]>);
+    reportsByDate &&
+      Array.isArray(reportsByDate) &&
+      reportsByDate?.map((report) => {
+        const date = new Date(report.date);
+        const status = report.reports_status.code;
+        res[status].push(date);
+      });
     return res;
-  }, [reportsByDate]);
+  }, [reportsByDate, reportsStatus]);
 
-  const [cancelledStyle, checkingStyle, confirmedStyle, sentStyle] =
-    useMemo(() => {
-      let cancelledStyle = {
-        backgroundColor: "red",
+  const modifiersStyles = useMemo(() => {
+    return reportsStatus.reduce((acc, status) => {
+      acc[status.code] = {
+        backgroundColor: status.color,
         color: "white",
         borderRadius: "100%",
       };
-      let checkingStyle = {
-        backgroundColor: "#fbbf24",
-        color: "white",
-        borderRadius: "100%",
-      };
-      let confirmedStyle = {
-        backgroundColor: "green",
-        color: "white",
-        borderRadius: "100%",
-      };
-      let sentStyle = {
-        backgroundColor: "blue",
-        color: "white",
-        borderRadius: "100%",
-      };
-
-      if (reportsStatus && reportsStatus.length > 0) {
-        const cancelled = reportsStatus.find(
-          (status) => status.code === "cancelled"
-        );
-        const checking = reportsStatus.find(
-          (status) => status.code === "checking"
-        );
-        const confirmed = reportsStatus.find(
-          (status) => status.code === "confirmed"
-        );
-        const sent = reportsStatus.find((status) => status.code === "sent");
-
-        if (cancelled) {
-          cancelledStyle.backgroundColor = cancelled.color;
-        }
-
-        if (checking) {
-          checkingStyle.backgroundColor = checking.color;
-        }
-
-        if (confirmed) {
-          confirmedStyle.backgroundColor = confirmed.color;
-        }
-
-        if (sent) {
-          sentStyle.backgroundColor = sent.color;
-        }
-      }
-
-      return [cancelledStyle, checkingStyle, confirmedStyle, sentStyle];
-    }, [reportsStatus]);
+      return acc;
+    }, {} as Record<string, React.CSSProperties>);
+  }, [reportsStatus]);
 
   return (
     <Calendar
@@ -117,15 +104,14 @@ export function CalendarReport({
       onSelect={(day, selectedDay) => {
         router.push(`/reports/${terminalId}/${dayjs(selectedDay).unix()}`);
       }}
+      onMonthChange={(month) => {
+        console.log("month changed", month);
+        setDate(month);
+      }}
       className="rounded-md border"
       locale={uzCyrl}
       modifiers={modifiers}
-      modifiersStyles={{
-        cancelled: cancelledStyle,
-        checking: checkingStyle,
-        confirmed: confirmedStyle,
-        sent: sentStyle,
-      }}
+      modifiersStyles={modifiersStyles}
     />
   );
 }

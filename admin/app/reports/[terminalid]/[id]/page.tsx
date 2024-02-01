@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -27,11 +27,15 @@ import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
 import { ChevronLeft, MinusCircle, XCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { trpc } from "@admin/utils/trpc";
 import { Skeleton } from "@admin/components/ui/skeleton";
 // @ts-ignore
 import { TimePicker } from "react-ios-time-picker";
 import { useToast } from "@admin/components/ui/use-toast";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import dayjs from "dayjs";
+import { v4 as uuidv4 } from "uuid";
 
 interface paramsProps {
   params: {
@@ -41,8 +45,10 @@ interface paramsProps {
 }
 
 export default function ReportsPage(params: paramsProps) {
+  const token = useToken();
   const { toast } = useToast();
   const router = useRouter();
+  const expenseDefaultId = uuidv4();
 
   const { terminalid: terminalId, id } = params.params;
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -50,8 +56,8 @@ export default function ReportsPage(params: paramsProps) {
   const [incomes, setIncomes] = useState<
     {
       type: string;
-      amount?: number | null | undefined;
-      error?: string | null | undefined;
+      amount: number | null;
+      error: string | null;
       readonly: boolean;
       label: string;
     }[]
@@ -59,13 +65,15 @@ export default function ReportsPage(params: paramsProps) {
   const [expenses, setExpenses] = useState([
     [
       {
-        key: "expenseReasone",
+        id: expenseDefaultId,
+        key: "expenseReason",
         placeholder: "Основание",
         name: "reason",
         value: "Основание",
         readOnly: false,
       },
       {
+        id: expenseDefaultId,
         key: "expenseCoast",
         name: "coast",
         placeholder: "1.000.000",
@@ -76,17 +84,20 @@ export default function ReportsPage(params: paramsProps) {
   ]);
 
   const addExpenses = () => {
+    const expenseDefaultId = uuidv4();
     setExpenses([
       ...expenses,
       [
         {
-          key: "expenseReasone",
+          id: expenseDefaultId,
+          key: "expenseReason",
           placeholder: "Основание",
           name: "reason",
           value: "Основание",
           readOnly: false,
         },
         {
+          id: expenseDefaultId,
           key: "expenseCoast",
           name: "coast",
           placeholder: "наличные",
@@ -116,17 +127,34 @@ export default function ReportsPage(params: paramsProps) {
     });
   };
 
-  const { mutateAsync: sendReport, isLoading: isSubmitLoading } =
-    trpc.reports.setReportData.useMutation({
-      onSuccess: () => onSuccessReport(),
-      onError: onErrorReport,
-    });
-
-  const removeExpenses = (index: number) => {
-    const newExpenses = [...expenses];
-    newExpenses.splice(index, 1);
-    setExpenses(newExpenses);
-  };
+  const assignRoleMutation = useMutation({
+    mutationFn: (newTodo: {
+      terminal_id: string;
+      date: string | number;
+      incomes: {
+        type: string;
+        amount: number | null;
+        error: string | null;
+        readonly: boolean;
+        label: string;
+      }[];
+      expenses: {
+        type: string;
+        amount: number;
+        error: string;
+        label: string;
+      }[];
+    }) => {
+      return apiClient.api.reports.post({
+        ...newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
+    onSuccess: () => onSuccessReport(),
+    onError: onErrorReport,
+  });
 
   const onChangeTime = (timeValue: string) => {
     setSelectedTime(timeValue);
@@ -135,6 +163,31 @@ export default function ReportsPage(params: paramsProps) {
   const clearTime = () => {
     setSelectedTime(null);
   };
+
+  const { data, isLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "reports",
+      {
+        terminal_id: terminalId,
+        date: id,
+        time: selectedTime,
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.reports.by_date.post({
+        terminal_id: terminalId,
+        date: id,
+        time: selectedTime,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
+    },
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+  });
 
   const changeExpenseValue = (index: number, value: string) => {
     const newExpenses = [...expenses];
@@ -147,58 +200,11 @@ export default function ReportsPage(params: paramsProps) {
     newExpenses[index][0].value = value;
     setExpenses(newExpenses);
   };
-
-  const onSubmit = () => {
-    if (minusDiff > 0) {
-      setMinusDialogOpen(true);
-      return;
-    }
-
-    const incomeTotal = incomes.reduce((acc, curr) => {
-      return acc + Number(curr.amount);
-    }, 0);
-
-    const expenseTotal = expenses.reduce((acc, curr) => {
-      const expense = curr[1];
-      return acc + Number(+expense.value);
-    }, 0);
-
-    const totalSum = incomeTotal + expenseTotal;
-
-    if (data!.totalCashier > totalSum) {
-      toast({
-        variant: "destructive",
-        title: "Ошибка",
-        description:
-          "Сумма меньше на " +
-          Intl.NumberFormat("ru-RU").format(data!.totalCashier - totalSum),
-        duration: 5000,
-      });
-      return;
-    } else {
-      sendReport({
-        terminal_id: terminalId,
-        date: id,
-        incomes: incomes.filter((income) => !income.readonly),
-        expenses: expenses.map((expense) => ({
-          type: "other_expenses",
-          amount: expense[1].value ? +expense[1].value : 0,
-          label: expense[0].value,
-        })),
-      });
-    }
+  const removeExpenses = (index: number) => {
+    const newExpenses = [...expenses];
+    newExpenses.splice(index, 1);
+    setExpenses(newExpenses);
   };
-
-  const { data, isLoading } = trpc.reports.getUniqueReportsByDay.useQuery(
-    {
-      terminal_id: terminalId,
-      date: id,
-      time: selectedTime,
-    },
-    {
-      refetchOnWindowFocus: false,
-    }
-  );
 
   const changeIncomeValue = (index: number, value: string) => {
     const newIncomes = [...incomes];
@@ -218,39 +224,129 @@ export default function ReportsPage(params: paramsProps) {
       return acc + Number(+expense.value);
     }, 0);
     const dataExpensesSum =
-      data?.expenses.reduce((acc, curr) => {
-        return acc + Number(curr.amount);
-      }, 0) ?? 0;
+      data && "terminal_id" in data
+        ? data?.expenses
+            .filter((item) => item.readonly)
+            .reduce((acc, curr) => {
+              return acc + Number(curr.amount);
+            }, 0)
+        : 0;
 
     return localExpensesSum + dataExpensesSum;
-  }, [expenses, data?.expenses]);
+  }, [expenses, data]);
 
   const minusDiff = useMemo(() => {
-    if (data?.totalCashier) {
+    if (data && "terminal_id" in data && data.totalCashier) {
       return data?.totalCashier - incomesTotalSum - expensesTotalSum;
     } else {
       return 0;
     }
-  }, [data?.totalCashier, incomesTotalSum, expensesTotalSum]);
+  }, [data, incomesTotalSum, expensesTotalSum]);
 
-  const isFormLoading = useMemo(() => {
-    return !!selectedTime || isLoading || isSubmitLoading;
-  }, [selectedTime, isLoading, isSubmitLoading]);
-
-  useEffect(() => {
-    if (data) {
-      setIncomes(data.incomes);
-    }
+  const readonlyExpenses = useMemo(() => {
+    return data && "terminal_id" in data
+      ? data.expenses.filter((item) => item.readonly)
+      : [];
   }, [data]);
 
+  const onSubmit = useCallback(() => {
+    if (minusDiff > 0) {
+      setMinusDialogOpen(true);
+      return;
+    }
+
+    const incomeTotal = incomesTotalSum;
+
+    const expenseTotal = expensesTotalSum;
+
+    console.log("incomeTotal", incomeTotal);
+    console.log("expenseTotal", expenseTotal);
+
+    const totalSum = incomeTotal + expenseTotal;
+
+    if (data && "terminal_id" in data && data!.totalCashier > totalSum) {
+      toast({
+        variant: "destructive",
+        title: "Ошибка",
+        description:
+          "Сумма меньше на " +
+          Intl.NumberFormat("ru-RU").format(data!.totalCashier - totalSum),
+        duration: 5000,
+      });
+      return;
+    } else {
+      assignRoleMutation.mutate({
+        terminal_id: terminalId,
+        date: id,
+        incomes: incomes.filter((income) => !income.readonly),
+        expenses: expenses.map((expense) => ({
+          type: "other_expenses",
+          error: "",
+          amount: expense[1].value ? +expense[1].value : 0,
+          label: expense[0].value,
+        })),
+      });
+    }
+  }, [incomesTotalSum, expensesTotalSum, data, minusDiff]);
+
+  const isFormLoading = useMemo(() => {
+    return !!selectedTime || isLoading; // || isSubmitLoading;
+  }, [
+    selectedTime,
+    isLoading,
+    // isSubmitLoading
+  ]);
+
+  useEffect(() => {
+    if (data && "terminal_id" in data) {
+      setIncomes(data.incomes);
+      if (data.expenses.filter((item) => !item.readonly).length > 0) {
+        console.log(
+          "data.expenses",
+          data.expenses.filter((item) => !item.readonly)
+        );
+        setExpenses(
+          data.expenses
+            .filter((item) => !item.readonly)
+            .map((expense) => {
+              const expenseDefaultId = uuidv4();
+              return [
+                {
+                  id: expenseDefaultId,
+                  key: "expenseReason",
+                  placeholder: "Основание",
+                  name: "reason",
+                  value: expense.label,
+                  readOnly: true,
+                },
+                {
+                  id: expenseDefaultId,
+                  key: "expenseCoast",
+                  name: "coast",
+                  placeholder: "наличные",
+                  readOnly: true,
+                  value: expense.amount,
+                },
+              ];
+            })
+        );
+      }
+    }
+  }, [data]);
+  console.log("expenses", expenses);
   return (
     <div className="mb-20">
-      <Link href="/">
-        <Button variant="outline" className="mt-2 mx-2">
-          <ChevronLeft />
-          Back
-        </Button>
-      </Link>
+      <div className="grid grid-cols-3 items-center">
+        <Link href="/">
+          <Button variant="outline" className="mt-2 mx-2">
+            <ChevronLeft />
+            Back
+          </Button>
+        </Link>
+        <div className="font-bold text-2xl text-center">
+          {dayjs.unix(+id).format("DD.MM.YYYY")}
+        </div>
+      </div>
 
       <Card className="m-2">
         <CardHeader>
@@ -258,18 +354,24 @@ export default function ReportsPage(params: paramsProps) {
             <Skeleton className="w-[100px] h-[20px] rounded-full mx-auto" />
           ) : (
             <CardDescription className="text-center text-lg">
-              {data?.terminal_name}
+              {data && "terminal_id" in data && data.terminal_name
+                ? data.terminal_name
+                : ""}
             </CardDescription>
           )}
           {isLoading ? (
             <Skeleton className="w-40 h-10 rounded-full mx-auto" />
           ) : (
             <CardTitle className="text-center text-3xl">
-              {Intl.NumberFormat("ru-RU").format(data?.totalCashier ?? 0)}
+              {Intl.NumberFormat("ru-RU").format(
+                data && "terminal_id" in data && data?.totalCashier
+                  ? data?.totalCashier
+                  : 0
+              )}
             </CardTitle>
           )}
         </CardHeader>
-        {data && data.editable && (
+        {data && "terminal_id" in data && data.editable && (
           <div className="mb-4">
             <div className="mx-auto w-60 flex flex-col items-center">
               <Label className="w-2/3 text-xl">Указать время</Label>
@@ -362,7 +464,7 @@ export default function ReportsPage(params: paramsProps) {
           <CardDescription className="text-center text-lg ">
             {Intl.NumberFormat("ru-RU").format(expensesTotalSum)}
           </CardDescription>
-          {data?.expenses.map((item) => (
+          {readonlyExpenses.map((item) => (
             <div className="flex space-x-1.5 items-center" key={item.label}>
               <Label className="w-2/3 text-xl">{item.label}</Label>
               <Label className="w-1/3 text-xl">
@@ -371,9 +473,10 @@ export default function ReportsPage(params: paramsProps) {
             </div>
           ))}
           {data &&
+            "terminal_id" in data &&
             data.editable &&
             expenses.map((item, index) => (
-              <div className="grid w-full items-center gap-4" key={index}>
+              <div className="grid w-full items-center gap-4" key={item[0].id}>
                 <div className="flex space-x-1 py-1.5 items-center">
                   <Input
                     name={`expenses_${index}_${item[0].name}`}
@@ -381,6 +484,7 @@ export default function ReportsPage(params: paramsProps) {
                     placeholder="Основание"
                     /** @ts-ignore */
                     onChange={(e) => changeExpenseLabel(index, e.target.value)}
+                    value={item[0].value ?? ""}
                   />
                   <Input
                     name={`expenses_${index}_${item[1].name}`}
@@ -389,6 +493,7 @@ export default function ReportsPage(params: paramsProps) {
                     type="number"
                     /** @ts-ignore */
                     onChange={(e) => changeExpenseValue(index, e.target.value)}
+                    value={item[1].value ?? 0}
                   />
                   {index > 0 ? (
                     <Button
@@ -404,7 +509,7 @@ export default function ReportsPage(params: paramsProps) {
                 </div>
               </div>
             ))}
-          {data && data.editable && (
+          {data && "terminal_id" in data && data.editable && (
             <Button className="mt-2 w-full" onClick={addExpenses}>
               Добавить
             </Button>
@@ -420,14 +525,14 @@ export default function ReportsPage(params: paramsProps) {
             </div>
           )}
         </CardContent>
-        {data && data.editable && (
+        {data && "terminal_id" in data && data.editable && (
           <CardFooter className="flex justify-between">
             <Button
               className="w-full space-x-2"
               disabled={isFormLoading}
               onClick={onSubmit}
             >
-              {isSubmitLoading && (
+              {assignRoleMutation.isPending && (
                 <svg
                   className="animate-spin h-5 w-5 text-sky-500"
                   xmlns="http://www.w3.org/2000/svg"
@@ -475,12 +580,13 @@ export default function ReportsPage(params: paramsProps) {
                 variant="destructive"
                 onClick={() => {
                   setMinusDialogOpen(false);
-                  sendReport({
+                  assignRoleMutation.mutate({
                     terminal_id: terminalId,
                     date: id,
                     incomes: incomes.filter((income) => !income.readonly),
                     expenses: expenses.map((expense) => ({
                       type: "other_expenses",
+                      error: "",
                       amount: expense[1].value ? +expense[1].value : 0,
                       label: expense[0].value,
                     })),

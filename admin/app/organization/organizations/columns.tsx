@@ -2,15 +2,16 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon, KeyRound } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { RouterOutputs } from "@admin/utils/trpc";
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
 import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";
 import CanAccess from "@admin/components/can-access";
 import CredentialsFormSheet from "@admin/components/forms/credentials/list_sheet";
+import { organization } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 
 export const organizationsColumns: ColumnDef<
-  RouterOutputs["organization"]["list"]["items"][0]
+  InferSelectModel<typeof organization>
 >[] = [
   {
     accessorKey: "active",

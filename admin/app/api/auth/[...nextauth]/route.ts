@@ -3,6 +3,7 @@ import NextAuth from "next-auth";
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dayjs from "dayjs";
+import { apiClient } from "@admin/utils/eden";
 
 const authOptions: AuthOptions = {
   debug: true,
@@ -15,29 +16,31 @@ const authOptions: AuthOptions = {
       },
       async authorize(credentials, req) {
         console.log("credentials", credentials);
-        try {
-          if (typeof credentials !== "undefined") {
-            const { login, password } = credentials;
-            const res = await trpcClient.users.login.mutate({
+        if (typeof credentials !== "undefined") {
+          const { login, password } = credentials;
+          try {
+            const { data: res, status } = await apiClient.api.users.login.post({
               login,
               password,
             });
-            console.log("login result", res);
-            if (typeof res !== "undefined") {
+            if (status == 200 && res && "accessToken" in res) {
               return {
-                ...res.data,
+                ...res.user,
                 accessToken: res.accessToken,
                 refreshToken: res.refreshToken,
-                rights: res.rights,
+                rights: res.permissions,
+                role: res.role,
               };
+            } else if (status == 401) {
+              throw new Error(res?.message);
             } else {
               return null;
             }
-          } else {
+
+          } catch (error) {
             return null;
           }
-        } catch (error) {
-          console.log("auth error", error);
+        } else {
           return null;
         }
       },

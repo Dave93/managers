@@ -1,34 +1,21 @@
-import { DB } from "@backend/db";
-import {
-  Terminals,
-  RolesWithRelations,
-  Organization,
-  Permissions,
-  Work_schedules,
-  Api_tokens,
-  Scheduled_reports,
-  Credentials,
-} from "@backend/lib/zod";
 import { RedisClientType } from "@backend/trpc";
-import { ISortedItemRepository, SortedItemRepository } from "item-store-redis";
 import {
-  OrganizationWithCredentials,
-  TerminalsWithCredentials,
+  organizationWithCredentials,
+  terminalsWithCredentials,
 } from "./dto/cache.dto";
-import { z } from "zod";
-import { ReportGroups, Reports_status } from "@prisma/client";
+import { DrizzleDB } from "@backend/lib/db";
+import { InferSelectModel, eq } from "drizzle-orm";
+import { api_tokens, credentials, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, work_schedules } from "@backend/../drizzle/schema";
+import { RolesWithRelations } from "../roles/dto/roles.dto";
+import { verifyJwt } from "@backend/lib/bcrypt";
+import { userById, userFirstRole } from "@backend/lib/prepare_statements";
 
 export class CacheControlService {
-  private sortedItemRepository: ISortedItemRepository<Permissions>;
 
   constructor(
-    private readonly prisma: DB,
+    private readonly drizzle: DrizzleDB,
     private readonly redis: RedisClientType
   ) {
-    this.sortedItemRepository = new SortedItemRepository<Permissions>(
-      `${process.env.PROJECT_PREFIX}permissions_paginated`,
-      redis
-    );
 
     this.cachePermissions();
     this.cacheOrganization();
@@ -44,30 +31,22 @@ export class CacheControlService {
   }
 
   async cachePermissions() {
-    const permissions = await this.prisma.permissions.findMany();
+    const permissions = await this.drizzle.query.permissions.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}permissions`,
       JSON.stringify(permissions)
     );
-
-    for (const permission of permissions) {
-      await this.sortedItemRepository.set({
-        id: permission.id,
-        data: permission,
-      });
-    }
-    // await this.sortedItemRepository.set(permissions);
   }
 
   async getCachedPermissions({
     take,
   }: {
     take?: number;
-  }): Promise<Permissions[]> {
-    const permissions = await this.redis.get(
+  }) {
+    const permissionsList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}permissions`
     );
-    let res = JSON.parse(permissions ?? "[]");
+    let res = JSON.parse(permissionsList ?? "[]") as InferSelectModel<typeof permissions>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -76,39 +55,26 @@ export class CacheControlService {
     return res;
   }
 
-  async getPaginatedCachedPermissions({
-    page,
-    pageSize,
-  }: {
-    page: number;
-    pageSize: number;
-  }): Promise<Permissions[]> {
-    const res = await this.sortedItemRepository.getPaginated(page, pageSize);
-    return res.items.map((item) => item.data);
-  }
-
   async cacheOrganization() {
-    const organization = await this.prisma.organization.findMany();
+    const organizationList = await this.drizzle.query.organization.findMany();
 
-    const credentials = await this.prisma.credentials.findMany({
-      where: {
-        model: "organization",
-      },
+    const credentialsList = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "organization")
     });
 
-    const credentialsByOrgId = credentials.reduce((acc, credential) => {
+    const credentialsByOrgId = credentialsList.reduce((acc, credential) => {
       if (!acc[credential.model_id]) {
         acc[credential.model_id] = [];
       }
       acc[credential.model_id].push(credential);
       return acc;
-    }, {} as Record<string, Credentials[]>);
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
 
-    const newOrganizations: z.infer<typeof OrganizationWithCredentials>[] = [];
+    const newOrganizations: organizationWithCredentials[] = [];
 
-    for (const org of organization) {
+    for (const org of organizationList) {
       const credentials = credentialsByOrgId[org.id];
-      const newOrg: z.infer<typeof OrganizationWithCredentials> = {
+      const newOrg: organizationWithCredentials = {
         ...org,
         credentials: [],
       };
@@ -128,11 +94,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<Organization[]> {
+  }) {
     const organization = await this.redis.get(
       `${process.env.PROJECT_PREFIX}organization`
     );
-    let res = JSON.parse(organization ?? "[]");
+    let res = JSON.parse(organization ?? "[]") as organizationWithCredentials[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -142,20 +108,48 @@ export class CacheControlService {
   }
 
   async cacheRoles() {
-    const roles = await this.prisma.roles.findMany({
-      include: {
-        roles_permissions: {
-          include: {
-            permissions: true,
-          },
-          take: 1000,
-        },
-      },
-    });
+    const rolesList = await this.drizzle
+      .select({
+        id: roles.id,
+        name: roles.name,
+        code: roles.code,
+        active: roles.active,
+      })
+      .from(roles)
+      .execute();
 
+    const rolesPermissionsList = await this.drizzle
+      .select({
+        slug: permissions.slug,
+        role_id: roles_permissions.role_id,
+      })
+      .from(roles_permissions)
+      .leftJoin(
+        permissions,
+        eq(roles_permissions.permission_id, permissions.id)
+      )
+      .execute();
+
+    const rolesPermissions = rolesPermissionsList.reduce(
+      (acc: any, cur: any) => {
+        if (!acc[cur.role_id]) {
+          acc[cur.role_id] = [];
+        }
+        acc[cur.role_id].push(cur.slug);
+        return acc;
+      },
+      {}
+    );
+
+    const res = rolesList.map((role: any) => {
+      return {
+        ...role,
+        permissions: rolesPermissions[role.id] || [],
+      };
+    });
     await this.redis.set(
-      `${process.env.PROJECT_PREFIX}roles`,
-      JSON.stringify(roles)
+      `${process.env.PROJECT_PREFIX}_roles`,
+      JSON.stringify(res)
     );
   }
 
@@ -163,9 +157,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<RolesWithRelations[]> {
-    const roles = await this.redis.get(`${process.env.PROJECT_PREFIX}roles`);
-    let res = JSON.parse(roles ?? "[]");
+  }) {
+    const rolesList = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}_roles`
+    );
+    let res = JSON.parse(rolesList ?? "[]") as RolesWithRelations[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -175,27 +171,25 @@ export class CacheControlService {
   }
 
   async cacheTerminals() {
-    const terminals = await this.prisma.terminals.findMany();
+    const terminalsList = await this.drizzle.query.terminals.findMany();
 
-    const credentials = await this.prisma.credentials.findMany({
-      where: {
-        model: "terminals",
-      },
+    const credentialsList = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "terminals"),
     });
 
-    const credentialsByTerminalId = credentials.reduce((acc, credential) => {
+    const credentialsByTerminalId = credentialsList.reduce((acc, credential) => {
       if (!acc[credential.model_id]) {
         acc[credential.model_id] = [];
       }
       acc[credential.model_id].push(credential);
       return acc;
-    }, {} as Record<string, Credentials[]>);
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
 
-    const newTerminals: z.infer<typeof TerminalsWithCredentials>[] = [];
+    const newTerminals: terminalsWithCredentials[] = [];
 
-    for (const terminal of terminals) {
+    for (const terminal of terminalsList) {
       const credentials = credentialsByTerminalId[terminal.id];
-      const newTerminal: z.infer<typeof TerminalsWithCredentials> = {
+      const newTerminal: terminalsWithCredentials = {
         ...terminal,
         credentials: [],
       };
@@ -211,11 +205,11 @@ export class CacheControlService {
     );
   }
 
-  async getCachedTerminals({ take }: { take?: number }): Promise<Terminals[]> {
+  async getCachedTerminals({ take }: { take?: number }) {
     const terminals = await this.redis.get(
       `${process.env.PROJECT_PREFIX}terminals`
     );
-    let res = JSON.parse(terminals ?? "[]");
+    let res = JSON.parse(terminals ?? "[]") as terminalsWithCredentials[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -235,13 +229,11 @@ export class CacheControlService {
     if (!role) {
       return [];
     }
-    return role.roles_permissions.map((rolePermission) => {
-      return rolePermission.permissions.slug;
-    });
+    return role.permissions;
   }
 
   async cacheWorkSchedules() {
-    const workSchedules = await this.prisma.work_schedules.findMany();
+    const workSchedules = await this.drizzle.query.work_schedules.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}work_schedules`,
       JSON.stringify(workSchedules)
@@ -252,11 +244,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<Work_schedules[]> {
+  }) {
     const workSchedules = await this.redis.get(
       `${process.env.PROJECT_PREFIX}work_schedules`
     );
-    let res = JSON.parse(workSchedules ?? "[]");
+    let res = JSON.parse(workSchedules ?? "[]") as InferSelectModel<typeof work_schedules>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -266,18 +258,18 @@ export class CacheControlService {
   }
 
   async cacheApiTokens() {
-    const apiTokens = await this.prisma.api_tokens.findMany();
+    const apiTokens = await this.drizzle.query.api_tokens.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}api_tokens`,
       JSON.stringify(apiTokens)
     );
   }
 
-  async getCachedApiTokens({ take }: { take?: number }): Promise<Api_tokens[]> {
+  async getCachedApiTokens({ take }: { take?: number }) {
     const apiTokens = await this.redis.get(
       `${process.env.PROJECT_PREFIX}api_tokens`
     );
-    let res = JSON.parse(apiTokens ?? "[]");
+    let res = JSON.parse(apiTokens ?? "[]") as InferSelectModel<typeof api_tokens>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -287,7 +279,7 @@ export class CacheControlService {
   }
 
   async cacheScheduledReports() {
-    const scheduledReports = await this.prisma.scheduled_reports.findMany();
+    const scheduledReports = await this.drizzle.query.scheduled_reports.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}scheduled_reports`,
       JSON.stringify(scheduledReports)
@@ -298,11 +290,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<Scheduled_reports[]> {
+  }) {
     const scheduledReports = await this.redis.get(
       `${process.env.PROJECT_PREFIX}scheduled_reports`
     );
-    let res = JSON.parse(scheduledReports ?? "[]");
+    let res = JSON.parse(scheduledReports ?? "[]") as InferSelectModel<typeof scheduled_reports>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -312,17 +304,32 @@ export class CacheControlService {
   }
 
   async cacheSettings() {
-    const settings = await this.prisma.settings.findMany({
-      take: 1000,
-    });
+    const settingsList = await this.drizzle.query.settings.findMany({});
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}settings`,
-      JSON.stringify(settings)
+      JSON.stringify(settingsList)
     );
   }
 
+  async getCachedSettings({
+    take,
+  }: {
+    take?: number;
+  }) {
+    const settingsList = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}settings`
+    );
+    let res = JSON.parse(settingsList ?? "[]") as InferSelectModel<typeof settings>[];
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
+
+    return res;
+  }
+
   async cacheCredentials() {
-    const credentials = await this.prisma.credentials.findMany();
+    const credentials = await this.drizzle.query.credentials.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}credentials`,
       JSON.stringify(credentials)
@@ -333,11 +340,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<Credentials[]> {
-    const credentials = await this.redis.get(
+  }) {
+    const credentialsList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}credentials`
     );
-    let res = JSON.parse(credentials ?? "[]");
+    let res = JSON.parse(credentialsList ?? "[]") as InferSelectModel<typeof credentials>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -347,7 +354,7 @@ export class CacheControlService {
   }
 
   async cacheReportGroups() {
-    const reportGroups = await this.prisma.reportGroups.findMany();
+    const reportGroups = await this.drizzle.query.report_groups.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}report_groups`,
       JSON.stringify(reportGroups)
@@ -358,11 +365,11 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<ReportGroups[]> {
+  }) {
     const reportGroups = await this.redis.get(
       `${process.env.PROJECT_PREFIX}report_groups`
     );
-    let res = JSON.parse(reportGroups ?? "[]");
+    let res = JSON.parse(reportGroups ?? "[]") as InferSelectModel<typeof report_groups>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -372,7 +379,7 @@ export class CacheControlService {
   }
 
   async cacheReportStatuses() {
-    const reportStatuses = await this.prisma.reports_status.findMany();
+    const reportStatuses = await this.drizzle.query.reports_status.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}report_statuses`,
       JSON.stringify(reportStatuses)
@@ -383,17 +390,98 @@ export class CacheControlService {
     take,
   }: {
     take?: number;
-  }): Promise<Reports_status[]> {
+  }) {
     const reportStatuses = await this.redis.get(
       `${process.env.PROJECT_PREFIX}report_statuses`
     );
 
-    let res = JSON.parse(reportStatuses ?? "[]");
+    let res = JSON.parse(reportStatuses ?? "[]") as InferSelectModel<typeof reports_status>[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
     }
 
     return res;
+  }
+
+  async cacheUserDataByToken(
+    accessToken: string,
+    refreshToken: string,
+    userId: any
+  ) {
+    const foundUser = (await userById.execute({
+      id: userId,
+    })) as InferSelectModel<typeof users>;
+    if (!foundUser) {
+      return null;
+    }
+
+    if (foundUser.status != "active") {
+      return null;
+    }
+
+    const userRole = await userFirstRole.execute({ user_id: foundUser.id });
+
+    // getting rights
+    let permissions: string[] = [];
+    if (userRole) {
+      permissions = await this.getPermissionsByRoleId(userRole.role_id);
+    }
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}user_data:${accessToken}`,
+      JSON.stringify({
+        user: foundUser,
+        accessToken,
+        refreshToken,
+        permissions: permissions,
+        role: {
+          id: userRole?.role_id,
+          code: userRole?.role?.code,
+        },
+      })
+    );
+
+    return {
+      user: foundUser,
+      accessToken,
+      refreshToken,
+      permissions: permissions,
+      role: {
+        id: userRole?.role_id,
+        code: userRole?.role?.code,
+      },
+    };
+  }
+
+  async deleteUserDataByToken(accessToken: string) {
+    try {
+      await this.redis.del(
+        `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
+      );
+    } catch (e) { }
+  }
+
+  async getCachedUserDataByToken(accessToken: string): Promise<{
+    user: InferSelectModel<typeof users>;
+    accessToken: string;
+    refreshToken: string;
+    permissions: string[];
+  } | null> {
+    try {
+      let jwtResult = await verifyJwt(accessToken);
+      if (!jwtResult.payload.id) {
+        return null;
+      }
+      const data = await this.redis.get(
+        `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
+      );
+      if (data) {
+        return JSON.parse(data);
+      } else {
+        return null;
+      }
+    } catch (e) {
+      return null;
+    }
   }
 }

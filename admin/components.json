@@ -11,6 +11,7 @@
   },
   "aliases": {
     "components": "@admin/components",
-    "utils": "@admin/lib/utils"
+    "utils": "@admin/lib/utils",
+    "hooks": "@admin/lib/hooks"
   }
 }
