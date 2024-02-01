@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useOrganizationsQuery } from "@admin/store/apis/organizations";
 import { useMemo, useState } from "react";
 import {
   Select,

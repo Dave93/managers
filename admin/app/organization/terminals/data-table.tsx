@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useTerminalsQuery } from "@admin/store/apis/terminals";
 import { useMemo, useState } from "react";
 import {
   Select,

@@ -11,6 +11,7 @@ export const settingsController = new Elysia({
 })
     .use(ctx)
     .get('/settings', async ({ query: { limit, offset, sort, filters, fields }, user, set, drizzle }) => {
+        console.log('filters', filters)
         if (!user) {
             set.status = 401;
             return {

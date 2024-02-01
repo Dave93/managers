@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useUsersQuery } from "@admin/store/apis/users";
 import { useMemo, useState } from "react";
 import {
   Select,
@@ -35,7 +34,7 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { users } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import useToken from "@admin/store/get-token";

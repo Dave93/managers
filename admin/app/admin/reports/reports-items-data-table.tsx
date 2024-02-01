@@ -18,15 +18,15 @@ import {
   TableRow,
 } from "@components/ui/table";
 
-import { useReportsItemsQuery } from "@admin/store/apis/reports_items";
 import { useMemo, useState } from "react";
-import { RouterOutputs } from "@admin/utils/trpc";
+
+import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<
-    RouterOutputs["reportsItems"]["list"]["items"][0],
-    TValue
-  >[];
+  columns: ColumnDef<ReportsItemsWithRelation, TValue>[];
   recordId: string;
 }
 
@@ -34,36 +34,50 @@ export function DataTable<TData, TValue>({
   columns,
   recordId,
 }: DataTableProps<TData, TValue>) {
+  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
   });
 
-  const { data, isLoading } = useReportsItemsQuery({
-    take: pageSize,
-    skip: pageIndex * pageSize,
-    where: {
-      report_id: recordId,
-    },
-    include: {
-      report_groups_id: {
-        include: {
-          parent_id_report_groups: true,
-        },
-      },
-      reports_id: {
-        include: {
-          reports_status_id: {
-            select: {
-              code: true,
-            },
+  const { data, isLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "reports_items",
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        fields:
+          "id,group_id,report_groups.name,label,type,amount,source,reports_status.code",
+        filters: JSON.stringify([
+          {
+            field: "report_id",
+            operator: "eq",
+            value: recordId,
           },
-        },
+        ]),
       },
-    },
-    orderBy: {
-      type: "asc",
-      // group_id: "asc",
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.reports_items.get({
+        $query: {
+          limit: pageSize.toString(),
+          offset: (pageIndex * pageSize).toString(),
+          fields:
+            "id,group_id,report_groups.name,label,type,amount,source,reports_status.code",
+          filters: JSON.stringify([
+            {
+              field: "report_id",
+              operator: "eq",
+              value: recordId,
+            },
+          ]),
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
     },
   });
 
@@ -79,36 +93,44 @@ export function DataTable<TData, TValue>({
 
   const incomeTotal = useMemo(() => {
     let total = 0;
-    data?.items.forEach((item) => {
-      if (item.type === "income") {
-        total += item.amount;
-      }
-    });
+    if (data && data.data && Array.isArray(data.data)) {
+      data.data.forEach((item) => {
+        if (item.type === "income") {
+          total += item.amount;
+        }
+      });
+    }
     return total;
   }, [data]);
 
   const outcomeTotal = useMemo(() => {
     let total = 0;
-    data?.items.forEach((item) => {
-      if (item.type === "outcome") {
-        total += item.amount;
-      }
-    });
+
+    if (data && data.data && Array.isArray(data.data)) {
+      data.data.forEach((item) => {
+        if (item.type === "outcome") {
+          total += item.amount;
+        }
+      });
+    }
     return total;
   }, [data]);
 
   const total = useMemo(() => {
     let total = 0;
-    data?.items.forEach((item) => {
-      total += item.amount;
-    });
+
+    if (data && data.data && Array.isArray(data.data)) {
+      data.data.forEach((item) => {
+        total += item.amount;
+      });
+    }
     return total;
   }, [data]);
 
   const table = useReactTable({
-    data: data?.items ?? defaultData,
+    data: data?.data ?? defaultData,
     columns,
-    pageCount: data?.meta?.pageCount ?? -1,
+    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
     },

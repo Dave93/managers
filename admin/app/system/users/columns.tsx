@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@components/ui/button";
 import UsersFormSheet from "@components/forms/users/sheet";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { Badge } from "@components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";

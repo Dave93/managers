@@ -7,7 +7,6 @@ import {
   SheetTrigger,
 } from "@components/ui/sheet";
 import { Button } from "@components/ui/button";
-import { trpc } from "@admin/utils/trpc";
 
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@components/ui/use-toast";
@@ -28,7 +27,6 @@ import {
   TableRow,
 } from "@components/ui/table";
 import { useRolePermissionStore } from "@admin/store/states/role_permissions";
-import { useCreateManyRolePermissions } from "@admin/store/apis/role_permissions";
 import { ReloadIcon } from "@radix-ui/react-icons";
 import useToken from "@admin/store/get-token";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";

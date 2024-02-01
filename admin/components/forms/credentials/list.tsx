@@ -8,9 +8,8 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { useMemo, useState } from "react";
-import { useCredentialsQuery } from "@admin/store/apis/credentials";
 import {
   Table,
   TableBody,

@@ -5,6 +5,7 @@ import { reports_status } from "backend/drizzle/schema";
 import { SQLWrapper, sql, and, eq } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
+import { InferSelectModel } from "drizzle-orm";
 
 export const reportsStatusController = new Elysia({
     name: "@api/reports_status"
@@ -32,7 +33,7 @@ export const reportsStatusController = new Elysia({
             whereClause = parseFilterFields(filters, reports_status, {});
         }
         const reports_statusCount = await drizzle
-            .select({ count: sql`count(*)` })
+            .select({ count: sql<number>`count(*)` })
             .from(reports_status)
             .where(and(...whereClause))
             .execute();
@@ -42,7 +43,7 @@ export const reportsStatusController = new Elysia({
             .where(and(...whereClause))
             .limit(+limit)
             .offset(+offset)
-            .execute();
+            .execute() as InferSelectModel<typeof reports_status>[];
         return {
             total: reports_statusCount[0].count,
             data: reports_statusList

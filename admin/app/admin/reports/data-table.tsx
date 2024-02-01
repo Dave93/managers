@@ -21,7 +21,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useReportsQuery } from "@admin/store/apis/reports";
 import { useMemo, useState } from "react";
 import {
   Select,
@@ -36,30 +35,49 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { RouterOutputs } from "@admin/utils/trpc";
+
+import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<RouterOutputs["reports"]["list"]["items"][0], TValue>[];
+  columns: ColumnDef<ReportsWithRelations, TValue>[];
 }
 
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data, isLoading } = useReportsQuery({
-    take: pageSize,
-    skip: pageIndex * pageSize,
-    include: {
-      reports_status_id: true,
-      reports_terminal_id: true,
-      reports_user_id: true,
-    },
-    orderBy: {
-      date: "desc",
+  const { data, isLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "reports",
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        fields:
+          "id,date,reports_status.color,reports_status.label,terminals.name,users.first_name,users.last_name,total_amount,total_manager_price,difference,arryt_income,status_id",
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.reports.get({
+        $query: {
+          limit: pageSize.toString(),
+          offset: (pageIndex * pageSize).toString(),
+          fields:
+            "id,date,reports_status.color,reports_status.label,terminals.name,users.first_name,users.last_name,total_amount,total_manager_price,difference,arryt_income,status_id",
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
     },
   });
 
@@ -74,9 +92,9 @@ export function DataTable<TData, TValue>({
   );
 
   const table = useReactTable({
-    data: data?.items ?? defaultData,
+    data: data?.data ?? defaultData,
     columns,
-    pageCount: data?.meta?.pageCount ?? -1,
+    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
     },
@@ -87,28 +105,44 @@ export function DataTable<TData, TValue>({
   });
 
   const totalAmount = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.total_amount);
-    }, 0);
-  }, [data?.items]);
+    if (data && data.data && Array.isArray(data.data)) {
+      return data.data.reduce((acc, row) => {
+        return acc + Number(row.total_amount);
+      }, 0);
+    } else {
+      return 0;
+    }
+  }, [data]);
 
   const totalManager = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.total_manager_price);
-    }, 0);
-  }, [data?.items]);
+    if (data && data.data && Array.isArray(data.data)) {
+      return data.data.reduce((acc, row) => {
+        return acc + Number(row.total_manager_price);
+      }, 0);
+    } else {
+      return 0;
+    }
+  }, [data]);
 
   const totalDifference = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.difference);
-    }, 0);
-  }, [data?.items]);
+    if (data && data.data && Array.isArray(data.data)) {
+      return data.data.reduce((acc, row) => {
+        return acc + Number(row.difference);
+      }, 0);
+    } else {
+      return 0;
+    }
+  }, [data]);
 
   const totalArrytIncome = useMemo(() => {
-    return data?.items.reduce((acc, row) => {
-      return acc + Number(row.arryt_income);
-    }, 0);
-  }, [data?.items]);
+    if (data && data.data && Array.isArray(data.data)) {
+      return data.data.reduce((acc, row) => {
+        return acc + Number(row.arryt_income);
+      }, 0);
+    } else {
+      return 0;
+    }
+  }, [data]);
 
   return (
     <div className="space-y-4">

@@ -5,7 +5,6 @@ import {
   TabsTrigger,
 } from "@admin/components/ui/tabs";
 import { CalendarReport } from "@admin/components/reports/calendar";
-import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import { useMemo } from "react";
 import useToken from "@admin/store/get-token";
 import { useQueries } from "@tanstack/react-query";

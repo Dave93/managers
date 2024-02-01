@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { usePermissionsQuery } from "@admin/store/apis/permission";
 import { useMemo, useState } from "react";
 import {
   Select,
@@ -35,26 +34,48 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { RouterOutputs } from "@admin/utils/trpc";
+import { permissions } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<
-    RouterOutputs["permissions"]["list"]["items"][0],
-    TValue
-  >[];
+  columns: ColumnDef<InferSelectModel<typeof permissions>, TValue>[];
 }
 
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data, isLoading } = usePermissionsQuery({
-    take: pageSize,
-    skip: pageIndex * pageSize,
+  const { data, isLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "permissions",
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        fields: "id,active,slug,description",
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.permissions.get({
+        $query: {
+          limit: pageSize.toString(),
+          offset: (pageIndex * pageSize).toString(),
+          fields: "id,active,slug,description",
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
+    },
   });
 
   const defaultData = useMemo(() => [], []);
@@ -68,9 +89,9 @@ export function DataTable<TData, TValue>({
   );
 
   const table = useReactTable({
-    data: data?.items ?? defaultData,
+    data: data?.data ?? defaultData,
     columns,
-    pageCount: data?.meta?.pageCount ?? -1,
+    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
     },

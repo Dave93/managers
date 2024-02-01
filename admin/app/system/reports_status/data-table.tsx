@@ -20,7 +20,6 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useReportsStatusQuery } from "@admin/store/apis/reports_status";
 import { useMemo, useState } from "react";
 import {
   Select,
@@ -35,26 +34,49 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { RouterOutputs } from "@admin/utils/trpc";
+
+import { reports_status } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<
-    RouterOutputs["reportsStatus"]["list"]["items"][0],
-    TValue
-  >[];
+  columns: ColumnDef<InferSelectModel<typeof reports_status>, TValue>[];
 }
 
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
-  const { data, isLoading } = useReportsStatusQuery({
-    take: pageSize,
-    skip: pageIndex * pageSize,
+  const { data, isLoading } = useQuery({
+    enabled: !!token,
+    queryKey: [
+      "reports_status",
+      {
+        limit: pageSize,
+        offset: pageIndex * pageSize,
+        fields: "id,code,label,color",
+      },
+    ],
+    queryFn: async () => {
+      const { data } = await apiClient.api.reports_status.get({
+        $query: {
+          limit: pageSize.toString(),
+          offset: (pageIndex * pageSize).toString(),
+          fields: "id,code,label,color",
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      return data;
+    },
   });
 
   const defaultData = useMemo(() => [], []);
@@ -68,9 +90,9 @@ export function DataTable<TData, TValue>({
   );
 
   const table = useReactTable({
-    data: data?.items ?? defaultData,
+    data: data?.data ?? defaultData,
     columns,
-    pageCount: data?.meta?.pageCount ?? -1,
+    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
     },

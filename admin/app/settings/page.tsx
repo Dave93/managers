@@ -2,7 +2,6 @@
 import { CardContent } from "@admin/components/ui/card";
 import { Button } from "@admin/components/ui/button";
 import { useForm } from "@tanstack/react-form";
-import { useSettingsQuery, useSettingsSet } from "@admin/store/apis/settings";
 import { useToast } from "@admin/components/ui/use-toast";
 import { Label } from "@admin/components/ui/label";
 import { Input } from "@admin/components/ui/input";
@@ -38,7 +37,7 @@ export default function ConfigsPage() {
     queryKey: [
       "setting",
       {
-        fields: "id,active,name",
+        fields: "id,key,value",
         section: "main",
       },
     ],
@@ -47,14 +46,16 @@ export default function ConfigsPage() {
         $query: {
           limit: "100",
           offset: "0",
-          fields: "id,active,name",
-          filters: JSON.stringify([
-            {
-              field: "key",
-              operator: "ilike",
-              value: "main.%",
-            },
-          ]),
+          fields: "id,key,value",
+          filters: encodeURIComponent(
+            JSON.stringify([
+              {
+                field: "key",
+                operator: "ilike",
+                value: "main.%",
+              },
+            ])
+          ),
         },
         $headers: {
           Authorization: `Bearer ${token}`,

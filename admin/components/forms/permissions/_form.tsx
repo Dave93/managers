@@ -1,8 +1,4 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import {
-  usePermissionsCreate,
-  usePermissionsUpdate,
-} from "@admin/store/apis/permission";
 import { Button } from "@components/ui/button";
 import {
   Form,
@@ -13,31 +9,20 @@ import {
   FormMessage,
 } from "@components/ui/form";
 import { Switch } from "@components/ui/switch";
-import { trpc } from "@admin/utils/trpc";
+
 import { PermissionsCreateInputSchema } from "@backend/lib/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useMemo, useEffect } from "react";
-import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import {
-  FieldApi,
-  FormApi,
-  createFormFactory,
-  useField,
-} from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-
-const formFactory = createFormFactory<
-  z.infer<typeof PermissionsCreateInputSchema>
->({
-  defaultValues: {
-    active: true,
-    slug: "",
-    description: "",
-  },
-});
+import { permissions } from "@backend/../drizzle/schema";
+import { InferInsertModel } from "drizzle-orm";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
+import useToken from "@admin/store/get-token";
 
 export default function PermissionsForm({
   setOpen,
@@ -46,6 +31,7 @@ export default function PermissionsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const token = useToken();
   const { toast } = useToast();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
@@ -76,60 +62,88 @@ export default function PermissionsForm({
     });
   };
 
-  const {
-    mutateAsync: createPermission,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = usePermissionsCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof permissions>) => {
+      return apiClient.api.permissions.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updatePermission,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = usePermissionsUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof permissions>;
+      id: string;
+    }) => {
+      return apiClient.api.permissions[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<InferInsertModel<typeof permissions>>({
+    defaultValues: {
+      active: true,
+      slug: "",
+      description: "",
+    },
+    onSubmit: async ({ value }) => {
       if (recordId) {
-        updatePermission({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createPermission({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } =
-    trpc.permissions.one.useQuery(
-      {
-        where: { id: recordId },
-      },
-      {
-        enabled: !!recordId,
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_permission", recordId],
+    queryFn: () => {
+      if (recordId) {
+        return apiClient.api.permissions[recordId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
       }
-    );
+    },
+    enabled: !!recordId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("active", record.active);
-      form.setFieldValue("slug", record.slug);
-      form.setFieldValue("description", record.description);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("active", record.data.active);
+      form.setFieldValue("slug", record.data.slug);
+      form.setFieldValue("description", record.data.description);
     }
   }, [record]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Активность</Label>
@@ -156,8 +170,11 @@ export default function PermissionsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -173,8 +190,11 @@ export default function PermissionsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

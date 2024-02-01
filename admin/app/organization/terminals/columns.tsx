@@ -2,7 +2,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon, KeyRound } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
 import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";

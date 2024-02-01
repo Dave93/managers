@@ -1,8 +1,8 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { report_status, reports, reports_items, reports_status, terminals, users_terminals } from "@backend/../drizzle/schema";
-import { sql, and, SQLWrapper, eq, inArray } from "drizzle-orm";
+import { report_status, reports, reports_items, reports_status, terminals, users_terminals, users } from "@backend/../drizzle/schema";
+import { sql, and, SQLWrapper, eq, inArray, desc } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 import { ReportsWithRelations } from "./dto/list.dto";
@@ -28,11 +28,19 @@ export const reportsController = new Elysia({
         }
         let selectFields: SelectedFields = {};
         if (fields) {
-            selectFields = parseSelectFields(fields, reports, {});
+            selectFields = parseSelectFields(fields, reports, {
+                terminals,
+                reports_status,
+                users
+            });
         }
         let whereClause: (SQLWrapper | undefined)[] = [];
         if (filters) {
-            whereClause = parseFilterFields(filters, reports, {});
+            whereClause = parseFilterFields(filters, reports, {
+                terminals,
+                reports_status,
+                users
+            });
         }
         const reportsCount = await drizzle
             .select({ count: sql<number>`count(*)` })
@@ -43,9 +51,13 @@ export const reportsController = new Elysia({
             .select(selectFields)
             .from(reports)
             .where(and(...whereClause))
+            .leftJoin(terminals, eq(reports.terminal_id, terminals.id))
+            .leftJoin(reports_status, eq(reports.status_id, reports_status.id))
+            .leftJoin(users, eq(reports.user_id, users.id))
             .limit(+limit)
             .offset(+offset)
-            .execute();
+            .orderBy(desc(reports.date))
+            .execute() as ReportsWithRelations[];
         return {
             total: reportsCount[0].count,
             data: reportsList
@@ -1211,37 +1223,35 @@ export const reportsController = new Elysia({
             }))
         })
     })
-    // .put('/reports/:id', async ({ params: { id }, body, user, set, drizzle, cacheController }) => {
-    //     if (!user) {
-    //         set.status = 401;
-    //         return {
-    //             message: 'User not found'
-    //         };
-    //     }
-    //     if (!user.permissions.includes('reports.edit')) {
-    //         set.status = 401;
-    //         return {
-    //             message: "You don't have permissions"
-    //         };
-    //     }
-    //     const report = await drizzle
-    //         .update(reports)
-    //         .set(body)
-    //         .where(reports.id.equals(id))
-    //         .execute();
-    //     await cacheController.cacheReports();
-    //     return report;
-    // }, {
-    //     params: t.Object({
-    //         id: t.String()
-    //     }),
-    //     body: t.Object({
-    //         title: t.String(),
-    //         description: t.String(),
-    //         date: t.String(),
-    //         user_id: t.String()
-    //     })
-    // })
+    .put('/reports/:id', async ({ params: { id }, body: { data }, user, set, drizzle, cacheController }) => {
+        if (!user) {
+            set.status = 401;
+            return {
+                message: 'User not found'
+            };
+        }
+        if (!user.permissions.includes('reports.edit')) {
+            set.status = 401;
+            return {
+                message: "You don't have permissions"
+            };
+        }
+        const report = await drizzle
+            .update(reports)
+            .set(data)
+            .where(eq(reports.id, id))
+            .execute();
+        return report;
+    }, {
+        params: t.Object({
+            id: t.String()
+        }),
+        body: t.Object({
+            data: t.Object({
+                status_id: t.String()
+            })
+        })
+    })
     .delete('/reports/:id', async ({ params: { id }, user, set, drizzle, cacheController }) => {
         if (!user) {
             set.status = 401;

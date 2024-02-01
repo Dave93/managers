@@ -1,4 +1,3 @@
-import { RedisClientType } from "@backend/trpc";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
@@ -9,12 +8,13 @@ import { api_tokens, credentials, permissions, report_groups, reports_status, ro
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
 import { userById, userFirstRole } from "@backend/lib/prepare_statements";
+import Redis from "ioredis";
 
 export class CacheControlService {
 
   constructor(
     private readonly drizzle: DrizzleDB,
-    private readonly redis: RedisClientType
+    private readonly redis: Redis
   ) {
 
     this.cachePermissions();

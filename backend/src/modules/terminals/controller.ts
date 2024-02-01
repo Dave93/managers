@@ -80,7 +80,7 @@ export const terminalsController = new Elysia({
         };
     }, {
         body: t.Object({
-            data: t.Array(t.Object({
+            data: t.Object({
                 name: t.String(),
                 active: t.Optional(t.Boolean()),
                 phone: t.Optional(t.String()),
@@ -89,7 +89,7 @@ export const terminalsController = new Elysia({
                 longitude: t.Number(),
                 organization_id: t.String(),
                 manager_name: t.Optional(t.String()),
-            }))
+            })
         })
     })
     .get('/terminals/cached', async ({ user, set, cacheController }) => {
@@ -132,9 +132,7 @@ export const terminalsController = new Elysia({
                 message: 'Terminal not found'
             };
         }
-        return {
-            data: terminal[0]
-        };
+        return terminal[0]
     })
     .put('/terminals/:id', async ({ params: { id }, body: { data }, user, set, drizzle, cacheController }) => {
         if (!user) {
@@ -165,9 +163,13 @@ export const terminalsController = new Elysia({
         body: t.Object({
             data: t.Object({
                 name: t.String(),
-                description: t.String(),
-                is_secure: t.Boolean(),
-                value: t.String(),
+                active: t.Optional(t.Boolean()),
+                phone: t.Optional(t.String()),
+                address: t.Optional(t.String()),
+                latitude: t.Number(),
+                longitude: t.Number(),
+                organization_id: t.String(),
+                manager_name: t.Optional(t.String()),
             })
         })
     })

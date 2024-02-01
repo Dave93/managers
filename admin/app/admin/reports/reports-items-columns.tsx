@@ -1,17 +1,19 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { useMemo, useState } from "react";
 import { Input } from "@admin/components/ui/input";
 import { Button } from "@admin/components/ui/button";
 import { Check } from "lucide-react";
-import { useReportsItemsUpdate } from "@admin/store/apis/reports_items";
+import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { roles } from "backend/drizzle/schema";
 
 const editableSources = ["cash", "uzcard", "humo", "other_expenses"];
 const editableStatusCode = ["checking", "confirmed", "rejected"];
-export const reportsItemsColumns: ColumnDef<
-  RouterOutputs["reportsItems"]["list"]["items"][0]
->[] = [
+export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
   {
     accessorKey: "group_id",
     header: "Группа",
@@ -19,13 +21,8 @@ export const reportsItemsColumns: ColumnDef<
       const record = row.original;
       let value = "";
 
-      if (record.report_groups_id?.parent_id_report_groups) {
-        value =
-          record.report_groups_id?.parent_id_report_groups?.name +
-          " / " +
-          record.report_groups_id?.name;
-      } else if (record.report_groups_id) {
-        value = record.report_groups_id?.name;
+      if (record.report_groups) {
+        value = record.report_groups?.name;
       }
 
       return <span>{value}</span>;
@@ -55,40 +52,49 @@ export const reportsItemsColumns: ColumnDef<
     accessorKey: "amount",
     header: "Сумма",
     cell: function Cell({ row }) {
+      const queryClient = useQueryClient();
+      const token = useToken();
       const record = row.original;
 
       const [value, setValue] = useState(record.amount);
 
-      const { mutateAsync: updateReportItem } = useReportsItemsUpdate({
+      const updateMutation = useMutation({
+        mutationFn: (newTodo: {
+          data: {
+            amount: number;
+          };
+          id: string;
+        }) => {
+          return apiClient.api.reports_items[newTodo.id].put({
+            data: newTodo.data,
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        },
         onSuccess: () => {
           setValue(value);
+          queryClient.invalidateQueries({
+            queryKey: ["reports"],
+          });
         },
       });
 
       const isEditable = useMemo(() => {
         return (
           editableSources.includes(record.source) &&
-          editableStatusCode.includes(
-            record.reports_id?.reports_status_id?.code
-          )
+          editableStatusCode.includes(record.reports_status.code)
         );
-      }, [record.source, record.reports_id?.reports_status_id?.code]);
+      }, [record.source, record.reports_status.code]);
 
       const isChanged = useMemo(() => {
         return value !== record.amount;
       }, [value, record.amount]);
 
       const saveUpdate = async () => {
-        await updateReportItem({
-          where: {
-            id_report_date: {
-              id: record.id,
-              report_date: record.report_date,
-            },
-          },
-          data: {
-            amount: +value,
-          },
+        updateMutation.mutate({
+          data: { amount: +value },
+          id: record.id,
         });
       };
 

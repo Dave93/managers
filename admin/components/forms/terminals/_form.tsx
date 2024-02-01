@@ -1,29 +1,20 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import {
-  useOrganizationsCreate,
-  useOrganizationsUpdate,
-} from "@admin/store/apis/organizations";
 import { Button } from "@components/ui/button";
 import { Switch } from "@components/ui/switch";
-import { trpc } from "@admin/utils/trpc";
+
 import { TerminalsCreateInputSchema } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import { createFormFactory } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
-
-const formFactory = createFormFactory<
-  z.infer<typeof TerminalsCreateInputSchema>
->({
-  //   defaultValues: {
-  //     active: true,
-  //     name: "",
-  //     phone: "",
-  //   },
-});
+import { terminals } from "@backend/../drizzle/schema";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQuery } from "@tanstack/react-query";
+import { InferInsertModel } from "drizzle-orm";
 
 export default function TerminalsForm({
   setOpen,
@@ -32,6 +23,7 @@ export default function TerminalsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -52,61 +44,119 @@ export default function TerminalsForm({
     });
   };
 
-  const {
-    mutateAsync: createOrganization,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useOrganizationsCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: {
+      name: string;
+      active?: boolean;
+      phone?: string;
+      address?: string;
+      latitude: number;
+      longitude: number;
+      organization_id: string;
+      manager_name?: string;
+    }) => {
+      return apiClient.api.terminals.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updateOrganization,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useOrganizationsUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: {
+        name: string;
+        active?: boolean;
+        phone?: string;
+        address?: string;
+        latitude: number;
+        longitude: number;
+        organization_id: string;
+        manager_name?: string;
+      };
+      id: string;
+    }) => {
+      return apiClient.api.terminals[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm<{
+    name: string;
+    active?: boolean;
+    phone?: string;
+    address?: string;
+    latitude: number;
+    longitude: number;
+    organization_id: string;
+    manager_name?: string;
+  }>({
+    defaultValues: {
+      active: true,
+      name: "",
+      phone: "",
+      latitude: 0,
+      longitude: 0,
+      organization_id: "",
+    },
+    onSubmit: async ({ value }) => {
       if (recordId) {
-        updateOrganization({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createOrganization({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } =
-    trpc.organization.one.useQuery(
-      {
-        where: { id: recordId },
-      },
-      {
-        enabled: !!recordId,
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_terminal", recordId],
+    queryFn: () => {
+      if (recordId) {
+        return apiClient.api.terminals[recordId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
       }
-    );
+    },
+    enabled: !!recordId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("active", record.active);
-      form.setFieldValue("name", record.name);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("active", record.data.active);
+      form.setFieldValue("name", record.data.name);
       //   form.setFieldValue("description", record.description);
-      form.setFieldValue("phone", record.phone);
+      form.setFieldValue("phone", record.data.phone ?? "");
     }
   }, [record, form]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Активность</Label>
@@ -133,8 +183,11 @@ export default function TerminalsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -150,8 +203,11 @@ export default function TerminalsForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

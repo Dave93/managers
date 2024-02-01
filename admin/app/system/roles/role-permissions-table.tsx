@@ -18,7 +18,6 @@ import {
 
 import { useMemo } from "react";
 import { useRolesStore } from "@admin/store/states/roles";
-import { RouterOutputs, trpc } from "@admin/utils/trpc";
 import { RolesPermissionsRelation } from "@backend/modules/roles_permissions/dto/roles_permissions.dto";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";

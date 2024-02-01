@@ -1,10 +1,11 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { reports_items } from "backend/drizzle/schema";
-import { sql, and, SQLWrapper, eq } from "drizzle-orm";
+import { report_groups, reports, reports_items, reports_status } from "backend/drizzle/schema";
+import { sql, and, SQLWrapper, eq, desc } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
+import { ReportsItemsWithRelation } from "./dto/list.dto";
 
 
 export const reportsItemsController = new Elysia({
@@ -26,14 +27,22 @@ export const reportsItemsController = new Elysia({
         }
         let selectFields: SelectedFields = {};
         if (fields) {
-            selectFields = parseSelectFields(fields, reports_items, {});
+            selectFields = parseSelectFields(fields, reports_items, {
+                report_groups,
+                reports,
+                reports_status
+            });
         }
         let whereClause: (SQLWrapper | undefined)[] = [];
         if (filters) {
-            whereClause = parseFilterFields(filters, reports_items, {});
+            whereClause = parseFilterFields(filters, reports_items, {
+                report_groups,
+                reports,
+                reports_status
+            });
         }
         const reports_itemsCount = await drizzle
-            .select({ count: sql`count(*)` })
+            .select({ count: sql<number>`count(*)` })
             .from(reports_items)
             .where(and(...whereClause))
             .execute();
@@ -41,9 +50,13 @@ export const reportsItemsController = new Elysia({
             .select(selectFields)
             .from(reports_items)
             .where(and(...whereClause))
+            .leftJoin(report_groups, eq(reports_items.group_id, report_groups.id))
+            .leftJoin(reports, eq(reports_items.report_id, reports.id))
+            .leftJoin(reports_status, eq(reports.status_id, reports_status.id))
             .limit(+limit)
             .offset(+offset)
-            .execute();
+            .orderBy(desc(reports_items.type))
+            .execute() as ReportsItemsWithRelation[];
         return {
             total: reports_itemsCount[0].count,
             data: reports_itemsList
@@ -132,7 +145,42 @@ export const reportsItemsController = new Elysia({
             .update(reports_items)
             .set(data)
             .where(eq(reports_items.id, id))
+            .returning({
+                id: reports_items.id,
+                report_id: reports_items.report_id,
+            })
             .execute();
+        const reportItem = reports_itemsList[0];
+        const reportItems = await drizzle
+            .select({
+                amount: reports_items.amount,
+            })
+            .from(reports_items)
+            .where(eq(reports_items.report_id, reportItem.report_id))
+            .execute();
+        const totalManagerPrice = reportItems.reduce((acc, item) => {
+            return acc + item.amount;
+        }, 0);
+
+        const reportsList = await drizzle
+            .select({
+                total_amount: reports.total_amount,
+            })
+            .from(reports)
+            .where(eq(reports.id, reportItem.report_id))
+            .execute();
+
+        const report = reportsList[0];
+
+        let difference = 0;
+        if (report?.total_amount) {
+            difference = totalManagerPrice - report?.total_amount;
+        }
+
+        await drizzle.update(reports).set({
+            total_manager_price: totalManagerPrice,
+            difference,
+        }).where(eq(reports.id, reportItem.report_id)).execute();
 
         return reports_itemsList;
     }

@@ -9,11 +9,10 @@ import {
   XIcon,
 } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import dayjs from "dayjs";
 import { Badge } from "@admin/components/ui/badge";
 import { useState } from "react";
-import { useCachedReportsStatusQuery } from "@admin/store/apis/reports_status";
 import {
   Select,
   SelectContent,
@@ -21,14 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
-import { Reports_status } from "@backend/lib/zod";
-import { useReportsUpdate } from "@admin/store/apis/reports";
 import ReportItemsSheet from "./report-items";
 import { cn } from "@admin/lib/utils";
+import { reports, roles } from "@backend/../drizzle/schema";
+import { InferInsertModel, InferSelectModel } from "drizzle-orm";
+import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
+import { apiClient } from "@admin/utils/eden";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import useToken from "@admin/store/get-token";
 
-export const reportsColumns: ColumnDef<
-  RouterOutputs["reports"]["list"]["items"][0]
->[] = [
+export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   {
     accessorKey: "date",
     header: "Дата",
@@ -46,6 +47,9 @@ export const reportsColumns: ColumnDef<
       column: { id },
       table,
     }) {
+      const token = useToken();
+
+      const queryClient = useQueryClient();
       const [isEditing, setIsEditing] = useState(false);
       const initialValue = getValue<string>();
       // We need to keep and update the state of the cell normally
@@ -53,26 +57,47 @@ export const reportsColumns: ColumnDef<
         initialValue ?? ""
       );
 
-      const { data, isLoading } = useCachedReportsStatusQuery({});
+      const { data, isLoading } = useQuery({
+        enabled: !!token,
+        queryKey: ["report_status_cached"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.reports_status.cached.get({
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          return data;
+        },
+      });
 
-      const { mutateAsync: updateStatus } = useReportsUpdate({
+      const updateMutation = useMutation({
+        mutationFn: (newTodo: {
+          data: {
+            status_id: string;
+          };
+          id: string;
+        }) => {
+          return apiClient.api.reports[newTodo.id].put({
+            data: newTodo.data,
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+        },
         onSuccess: () => {
           setIsEditing(false);
+          queryClient.invalidateQueries({
+            queryKey: ["reports"],
+          });
         },
       });
 
       const saveStatus = () => {
-        updateStatus({
-          where: {
-            id_date: {
-              id: original.id,
-              date: original.date,
-            },
-          },
-          data: {
-            status_id: value,
-          },
-        });
+        if (value)
+          updateMutation.mutate({
+            data: { status_id: value },
+            id: original.id,
+          });
       };
 
       return isEditing ? (
@@ -82,13 +107,13 @@ export const reportsColumns: ColumnDef<
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {data?.map(
-                (item: RouterOutputs["reportsStatus"]["list"]["items"][0]) => (
+              {data &&
+                Array.isArray(data) &&
+                data.map((item) => (
                   <SelectItem value={item.id} key={item.id}>
                     {item.label}
                   </SelectItem>
-                )
-              )}
+                ))}
             </SelectContent>
           </Select>
           <Button
@@ -108,10 +133,10 @@ export const reportsColumns: ColumnDef<
             variant="default"
             className="uppercase text-white"
             style={{
-              backgroundColor: original.reports_status_id.color,
+              backgroundColor: original.reports_status.color,
             }}
           >
-            {original.reports_status_id.label}
+            {original.reports_status.label}
           </Badge>
           <Button
             variant="outline"
@@ -130,7 +155,7 @@ export const reportsColumns: ColumnDef<
     cell: ({ row }) => {
       const record = row.original;
 
-      return <span>{record.reports_terminal_id.name}</span>;
+      return <span>{record.terminals.name}</span>;
     },
   },
   {
@@ -140,11 +165,7 @@ export const reportsColumns: ColumnDef<
       const record = row.original;
 
       return (
-        <span>
-          {record.reports_user_id.first_name +
-            " " +
-            record.reports_user_id.last_name}
-        </span>
+        <span>{record.users.first_name + " " + record.users.last_name}</span>
       );
     },
   },

@@ -1,4 +1,3 @@
-import { trpcClient } from "@admin/utils/trpc-server";
 import NextAuth from "next-auth";
 import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
@@ -14,6 +13,7 @@ const authOptions: AuthOptions = {
         login: { label: "Login", type: "text" },
         password: { label: "Password", type: "password" },
       },
+      // @ts-ignore
       async authorize(credentials, req) {
         console.log("credentials", credentials);
         if (typeof credentials !== "undefined") {
@@ -32,7 +32,9 @@ const authOptions: AuthOptions = {
                 role: res.role,
               };
             } else if (status == 401) {
-              throw new Error(res?.message);
+              if (res) {
+                throw new Error("Неверный логин или пароль");
+              }
             } else {
               return null;
             }
@@ -55,19 +57,20 @@ const authOptions: AuthOptions = {
           .diff(dayjs(), "minute");
 
         if (differenceInMinutes < 30) {
-          const res = await trpcClient.users.refreshToken.mutate({
-            refreshToken: token.refreshToken as string,
-          });
-          if (typeof res !== "undefined") {
-            /** @ts-ignore */
-            token = {
-              ...token,
-              ...res.data,
-              accessToken: res.accessToken,
-              refreshToken: res.refreshToken,
-              rights: res.rights,
-            };
-          }
+          // @ts-ignore
+          // const res = await trpcClient.users.refreshToken.mutate({
+          //   refreshToken: token.refreshToken as string,
+          // });
+          // if (typeof res !== "undefined") {
+          //   /** @ts-ignore */
+          //   token = {
+          //     ...token,
+          //     ...res.data,
+          //     accessToken: res.accessToken,
+          //     refreshToken: res.refreshToken,
+          //     rights: res.rights,
+          //   };
+          // }
         }
       }
 

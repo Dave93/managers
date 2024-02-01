@@ -1,8 +1,4 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import {
-  useReportsStatusCreate,
-  useReportsStatusUpdate,
-} from "@admin/store/apis/reports_status";
 import { Button } from "@components/ui/button";
 import {
   Form,
@@ -13,31 +9,20 @@ import {
   FormMessage,
 } from "@components/ui/form";
 import { Switch } from "@components/ui/switch";
-import { trpc } from "@admin/utils/trpc";
+
 import { Reports_statusCreateInputSchema } from "@backend/lib/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useMemo, useEffect } from "react";
-import { useForm } from "react-hook-form";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
-import {
-  FieldApi,
-  FormApi,
-  createFormFactory,
-  useField,
-} from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-
-const formFactory = createFormFactory<
-  z.infer<typeof Reports_statusCreateInputSchema>
->({
-  defaultValues: {
-    label: "",
-    code: "",
-    color: "",
-  },
-});
+import { reports_status } from "@backend/../drizzle/schema";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
+import { InferInsertModel } from "drizzle-orm";
+import useToken from "@admin/store/get-token";
 
 export default function ReportsStatusForm({
   setOpen,
@@ -46,6 +31,7 @@ export default function ReportsStatusForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const token = useToken();
   const { toast } = useToast();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
@@ -76,60 +62,88 @@ export default function ReportsStatusForm({
     });
   };
 
-  const {
-    mutateAsync: createReportsStatus,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useReportsStatusCreate({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: InferInsertModel<typeof reports_status>) => {
+      return apiClient.api.reports_status.post({
+        data: newTodo,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const {
-    mutateAsync: updateReportsStatus,
-    isLoading: isUpdateLoading,
-    error: updateError,
-  } = useReportsStatusUpdate({
+  const updateMutation = useMutation({
+    mutationFn: (newTodo: {
+      data: InferInsertModel<typeof reports_status>;
+      id: string;
+    }) => {
+      return apiClient.api.reports_status[newTodo.id].put({
+        data: newTodo.data,
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
+  const form = useForm({
+    defaultValues: {
+      label: "",
+      code: "",
+      color: "",
+    },
+    onSubmit: async ({ value }) => {
       if (recordId) {
-        updateReportsStatus({ data: values, where: { id: recordId } });
+        updateMutation.mutate({ data: value, id: recordId });
       } else {
-        createReportsStatus({ data: values });
+        createMutation.mutate(value);
       }
     },
   });
 
-  const { data: record, isLoading: isRecordLoading } =
-    trpc.reportsStatus.one.useQuery(
-      {
-        where: { id: recordId },
-      },
-      {
-        enabled: !!recordId,
+  const { data: record, isLoading: isRecordLoading } = useQuery({
+    queryKey: ["one_reports_status", recordId],
+    queryFn: () => {
+      if (recordId) {
+        return apiClient.api.reports_status[recordId].get({
+          $headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      } else {
+        return null;
       }
-    );
+    },
+    enabled: !!recordId && !!token,
+  });
 
   const isLoading = useMemo(() => {
-    return isAddLoading || isUpdateLoading;
-  }, [isAddLoading, isUpdateLoading]);
+    return createMutation.isPending || updateMutation.isPending;
+  }, [createMutation.isPending, updateMutation.isPending]);
 
   useEffect(() => {
-    if (record) {
-      form.setFieldValue("label", record.label);
-      form.setFieldValue("code", record.code);
-      form.setFieldValue("color", record.color);
+    if (record?.data && "id" in record.data) {
+      form.setFieldValue("label", record.data.label);
+      form.setFieldValue("code", record.data.code);
+      form.setFieldValue("color", record.data.color);
     }
   }, [record]);
 
   return (
     <form.Provider>
-      <form {...form.getFormProps()} className="space-y-8 mt-8">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          void form.handleSubmit();
+        }}
+        className="space-y-8 mt-8"
+      >
         <div className="space-y-2">
           <div>
             <Label>Названия Статуса</Label>
@@ -139,8 +153,11 @@ export default function ReportsStatusForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -156,8 +173,11 @@ export default function ReportsStatusForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );
@@ -173,8 +193,11 @@ export default function ReportsStatusForm({
               return (
                 <>
                   <Input
-                    {...field.getInputProps()}
-                    value={field.getValue() ?? ""}
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => field.handleChange(e.target.value)}
                   />
                 </>
               );

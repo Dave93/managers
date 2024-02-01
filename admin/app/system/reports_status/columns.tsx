@@ -2,13 +2,15 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
 import ReportsStatusFormSheet from "@admin/components/forms/reports_status/sheet";
+import { reports_status } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 
 export const reportsStatusColumns: ColumnDef<
-  RouterOutputs["reportsStatus"]["list"]["items"][0]
+  InferSelectModel<typeof reports_status>
 >[] = [
   // {
   //   accessorKey: "active",

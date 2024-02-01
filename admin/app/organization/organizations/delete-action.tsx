@@ -1,5 +1,4 @@
 import { DeleteButton } from "@components/ui/delete-button";
-import { useOrganizationsDestroy } from "@admin/store/apis/organizations";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";

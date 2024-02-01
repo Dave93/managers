@@ -3,23 +3,14 @@ import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
 import { useToast } from "@admin/components/ui/use-toast";
-import { useSettingsSet } from "@admin/store/apis/settings";
-import { createFormFactory } from "@tanstack/react-form";
+import useToken from "@admin/store/get-token";
+import { apiClient } from "@admin/utils/eden";
+import { useForm } from "@tanstack/react-form";
 import { Loader2 } from "lucide-react";
-
-const formFactory = createFormFactory<{
-  login: string;
-  password: string;
-  api_url: string;
-}>({
-  defaultValues: {
-    login: "",
-    password: "",
-    api_url: "",
-  },
-});
+import { useMutation } from "@tanstack/react-query";
 
 export default function Page() {
+  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -39,34 +30,37 @@ export default function Page() {
     });
   };
 
-  const {
-    mutateAsync: createOrUpdateSettings,
-    isLoading: isAddLoading,
-    data,
-    error,
-  } = useSettingsSet({
+  const createMutation = useMutation({
+    mutationFn: (newTodo: { key: string; value: string }) => {
+      return apiClient.api.settings[newTodo.key].post({
+        data: {
+          value: newTodo.value,
+        },
+        $headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
     onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
-  const form = formFactory.useForm({
-    onSubmit: async (values, formApi) => {
-      Object.keys(values).forEach((key) => {
-        const valueKey = key as keyof typeof values;
-        createOrUpdateSettings({
-          where: {
-            key: `iiko.${key}`,
-          },
-          update: {
-            value: values[valueKey],
-            key: `iiko.${key}`,
-            is_secure: true,
-          },
-          create: {
-            value: values[valueKey],
-            key: `iiko.${key}`,
-            is_secure: true,
-          },
+  const form = useForm<{
+    login: string;
+    password: string;
+    api_url: string;
+  }>({
+    defaultValues: {
+      login: "",
+      password: "",
+      api_url: "",
+    },
+    onSubmit: async ({ value }) => {
+      Object.keys(value).forEach((key) => {
+        const valueKey = key as keyof typeof value;
+        createMutation.mutate({
+          key: `main.${key}`,
+          value: value[valueKey],
         });
       });
     },
@@ -79,7 +73,14 @@ export default function Page() {
       </div>
       <div className="py-10">
         <form.Provider>
-          <form {...form.getFormProps()} className="space-y-8">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void form.handleSubmit();
+            }}
+            className="space-y-8"
+          >
             <div className="space-y-2">
               <div>
                 <Label>Ссылка</Label>
@@ -89,8 +90,11 @@ export default function Page() {
                   return (
                     <>
                       <Input
-                        {...field.getInputProps()}
+                        id={field.name}
+                        name={field.name}
                         value={field.getValue() ?? ""}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
                       />
                     </>
                   );
@@ -106,8 +110,11 @@ export default function Page() {
                   return (
                     <>
                       <Input
-                        {...field.getInputProps()}
+                        id={field.name}
+                        name={field.name}
                         value={field.getValue() ?? ""}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
                       />
                     </>
                   );
@@ -123,16 +130,19 @@ export default function Page() {
                   return (
                     <>
                       <Input
-                        {...field.getInputProps()}
+                        id={field.name}
+                        name={field.name}
                         value={field.getValue() ?? ""}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
                       />
                     </>
                   );
                 }}
               </form.Field>
             </div>
-            <Button type="submit" disabled={isAddLoading}>
-              {isAddLoading && (
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Save

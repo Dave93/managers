@@ -2,13 +2,15 @@
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@components/ui/button";
-import { RouterOutputs } from "@admin/utils/trpc";
+
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
 import PermissionsFormSheet from "@admin/components/forms/permissions/sheet";
+import { permissions } from "@backend/../drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 
 export const permissionsColumns: ColumnDef<
-  RouterOutputs["permissions"]["list"]["items"][0]
+  InferSelectModel<typeof permissions>
 >[] = [
   {
     accessorKey: "active",
