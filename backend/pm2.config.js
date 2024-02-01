@@ -1,5 +1,5 @@
 module.exports = {
   name: "office_api",
   script: "src/index.ts",
-  interpreter: "~/.bun/bin/bun",
+  interpreter: "bun",
 };
