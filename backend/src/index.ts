@@ -4,7 +4,7 @@ import { apiController } from "./controllers";
 const app = new Elysia()
   .get("/", () => ({ hello: "world" }))
   .use(apiController)
-  .listen(3000);
+  .listen(process.env.PORT || 3000);
 
 export type App = typeof app;
 
