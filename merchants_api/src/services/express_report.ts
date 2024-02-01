@@ -49,16 +49,16 @@ export const getExpressReport = async (
           .toISOString(),
         dateTo: input.time
           ? dayjs(input.date)
-              .hour(+input.time.split(":")[0])
-              .minute(+input.time.split(":")[1])
-              .second(0)
-              .toISOString()
+            .hour(+input.time.split(":")[0])
+            .minute(+input.time.split(":")[1])
+            .second(0)
+            .toISOString()
           : dayjs(input.date)
-              .add(1, "day")
-              .hour(workEndTime)
-              .minute(0)
-              .second(0)
-              .toISOString(),
+            .add(1, "day")
+            .hour(workEndTime)
+            .minute(0)
+            .second(0)
+            .toISOString(),
       }),
     }
   );

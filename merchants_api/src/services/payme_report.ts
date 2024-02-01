@@ -21,7 +21,7 @@ const loadCookie = async (page: Page) => {
   try {
     const cookies = await file.json();
     await page.setCookie(...cookies);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 const saveLocalStorage = async (page: Page) => {
@@ -48,7 +48,7 @@ const loadLocalStorage = async (page: Page) => {
         window.localStorage.setItem(key, storage[key]);
       }
     }, localStorage);
-  } catch (error) {}
+  } catch (error) { }
 };
 
 export const getPaymeReport = async (
@@ -170,10 +170,10 @@ export const getPaymeReport = async (
           date_from: dayjs(input.date).hour(workStartTime).toISOString(),
           date_to: input.time
             ? dayjs(input.date)
-                .hour(+input.time.split(":")[0])
-                .minute(+input.time.split(":")[1])
-                .second(0)
-                .toISOString()
+              .hour(+input.time.split(":")[0])
+              .minute(+input.time.split(":")[1])
+              .second(0)
+              .toISOString()
             : dayjs(input.date).add(1, "day").hour(workEndTime).toISOString(),
           state: [4, 104],
         },

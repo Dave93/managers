@@ -68,21 +68,20 @@ export const getArrytReport = async (
         .toISOString(),
       date_to: input.time
         ? dayjs(input.date)
-            .hour(+input.time.split(":")[0])
-            .minute(+input.time.split(":")[1])
-            .second(0)
-            .toISOString()
+          .hour(+input.time.split(":")[0])
+          .minute(+input.time.split(":")[1])
+          .second(0)
+          .toISOString()
         : dayjs(input.date)
-            .add(1, "day")
-            .hour(workEndTime)
-            .minute(0)
-            .second(0)
-            .toISOString(),
+          .add(1, "day")
+          .hour(workEndTime)
+          .minute(0)
+          .second(0)
+          .toISOString(),
     }),
   });
 
   const result = await response.json();
-
   return result as {
     customerPrice: number;
     withdraws: {

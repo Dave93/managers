@@ -325,7 +325,7 @@ export default function ReportsPage(params: paramsProps) {
                   name: "coast",
                   placeholder: "наличные",
                   readOnly: true,
-                  value: expense.amount,
+                  value: expense.amount!.toString(),
                 },
               ];
             })
