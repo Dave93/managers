@@ -10,7 +10,6 @@ import {
 } from "@components/ui/form";
 import { Switch } from "@components/ui/switch";
 
-import { PermissionsCreateInputSchema } from "@backend/lib/zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";

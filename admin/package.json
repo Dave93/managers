@@ -47,6 +47,7 @@
     "cookies-next": "^3.0.0",
     "date-fns": "^2.30.0",
     "dayjs": "^1.11.9",
+    "dotenv": "^16.4.1",
     "drizzle-orm": "^0.29.3",
     "elysia": "^0.8.15",
     "eslint": "8.47.0",

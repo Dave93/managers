@@ -26,13 +26,20 @@ export const ctx = new Elysia({
     .decorate("drizzle", drizzleDb)
     .decorate("cacheController", cacheControlService)
     .use(
+        // @ts-ignore
         cors({
             methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         })
     )
+    // @ts-ignore
     .use(bearer())
+    // @ts-ignore
     .use(jwt)
-    .derive(async ({ bearer, cacheController }) => {
+    .derive(async ({
+        // @ts-ignore
+        bearer,
+        cacheController
+    }) => {
         const token = bearer;
         if (!token) {
             return {

@@ -75,7 +75,7 @@ export const paymeController = new Elysia({
 
         // Launch the browser and open a new blank page
         const browser = await puppeteer.launch(
-            { headless: 'new', args: ['--disable-web-security'] }
+            { headless: 'new', args: ['--disable-web-security', '--no-sandbox'] }
         );
         const page = await browser.newPage();
 

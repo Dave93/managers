@@ -1,12 +1,13 @@
-import { Users, Users_rolesWithRelations } from "@backend/lib/zod";
 import NextAuth, { DefaultSession } from "next-auth";
+import { InferSelectModel } from "drizzle-orm";
+import { users } from "@backend/../drizzle/schema";
 
 declare module "next-auth" {
   /**
    * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
-  interface Session extends Users {
-    user: Users;
+  interface Session extends InferSelectModel<typeof users> {
+    user: InferSelectModel<typeof users>;
     rights: string[];
     accessToken: string;
     refreshToken: string;
@@ -19,8 +20,8 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
-  interface JWT extends Users {
-    user: Users;
+  interface JWT extends InferSelectModel<typeof users> {
+    user: InferSelectModel<typeof users>;
     rights: string[];
     accessToken: string;
     refreshToken: string;

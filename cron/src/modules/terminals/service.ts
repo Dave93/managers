@@ -4,7 +4,6 @@ import {
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import { z } from "zod";
-import { Credentials } from "@backend/lib/zod";
 import Redis from "ioredis/built/Redis";
 import { terminals, credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel, and, eq, inArray } from "drizzle-orm";

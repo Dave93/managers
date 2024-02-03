@@ -2,11 +2,6 @@ import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
 import { Switch } from "@components/ui/switch";
 
-import {
-  Users,
-  UsersCreateInputSchema,
-  user_statusSchema,
-} from "@backend/lib/zod";
 import { useMemo, useEffect, useRef } from "react";
 import { Loader2, Check, ChevronsUpDown } from "lucide-react";
 import * as z from "zod";
@@ -374,7 +369,7 @@ export default function UsersForm({
                       containerPadding: 0,
                     }}
                   >
-                    {user_statusSchema.options.map((item) => (
+                    {["active", "blocked", "inactive"].map((item) => (
                       <SelectItem key={item} value={item}>
                         {item}
                       </SelectItem>

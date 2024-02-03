@@ -1,7 +1,6 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
 
-import { CredentialsCreateInputSchema } from "@backend/lib/zod";
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import * as z from "zod";
