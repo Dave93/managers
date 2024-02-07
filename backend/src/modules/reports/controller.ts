@@ -439,6 +439,7 @@ export const reportsController = new Elysia({
                 });
             } else {
                 let expressData = expressReportResult.value.data;
+                console.log('expressData', expressData)
                 if (expressData && 'express' in expressData) {
                     result.incomes.push({
                         error: null,
@@ -700,6 +701,7 @@ export const reportsController = new Elysia({
                     });
                 } else {
                     let expressData = expressReportResult.value.data;
+                    console.log('expressData', expressData)
                     if (expressData && 'express' in expressData) {
                         result.incomes.push({
                             error: null,
@@ -1091,6 +1093,7 @@ export const reportsController = new Elysia({
                 (group) => group.code === "myuzcard"
             );
             let expressData = expressReportResult.value.data;
+            console.log('expressData', expressData);
             if (expressData && 'express' in expressData) {
                 reportItems.push({
                     label: "Express24",
