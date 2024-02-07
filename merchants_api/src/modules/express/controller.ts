@@ -42,6 +42,27 @@ export const expressController = new Elysia({
             };
         }
 
+        console.log('express request', JSON.stringify({
+            iiko_id: iikoId,
+            dateFrom: dayjs(date)
+                .hour(parseInt(workStartTime))
+                .minute(0)
+                .second(0)
+                .toISOString(),
+            dateTo: time
+                ? dayjs(date)
+                    .hour(+time.split(":")[0])
+                    .minute(+time.split(":")[1])
+                    .second(0)
+                    .toISOString()
+                : dayjs(date)
+                    .add(1, "day")
+                    .hour(parseInt(workEndTime))
+                    .minute(0)
+                    .second(0)
+                    .toISOString(),
+        }))
+
         const response = await fetch(
             `${Bun.env["ECOMMERCE_" + organization_code.toUpperCase() + "_URL"]}`,
             {
