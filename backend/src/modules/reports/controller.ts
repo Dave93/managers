@@ -430,14 +430,47 @@ export const reportsController = new Elysia({
                     readonly: true,
                     label: "Express24",
                 });
-            } else {
                 result.incomes.push({
-                    error: null,
-                    amount: expressReportResult.value.data && typeof expressReportResult.value.data == 'number' ? expressReportResult.value.data : 0,
-                    type: "express24",
+                    error: expressReportResult.reason,
+                    amount: null,
+                    type: "myuzcard",
                     readonly: true,
-                    label: "Express24",
+                    label: "Myuzcard",
                 });
+            } else {
+                let expressData = expressReportResult.value.data;
+                if (expressData && 'express' in expressData) {
+                    result.incomes.push({
+                        error: null,
+                        amount: expressData.express,
+                        type: "express24",
+                        readonly: true,
+                        label: "Express24",
+                    });
+                    result.incomes.push({
+                        error: null,
+                        amount: expressData.card,
+                        type: "myuzcard",
+                        readonly: true,
+                        label: "Myuzcard",
+                    });
+
+                } else {
+                    result.incomes.push({
+                        error: null,
+                        amount: 0,
+                        type: "myuzcard",
+                        readonly: true,
+                        label: "Myuzcard",
+                    });
+                    result.incomes.push({
+                        error: null,
+                        amount: 0,
+                        type: "express24",
+                        readonly: true,
+                        label: "Express24",
+                    });
+                }
             }
 
             result.incomes.push({
@@ -658,14 +691,47 @@ export const reportsController = new Elysia({
                         readonly: true,
                         label: "Express24",
                     });
-                } else {
                     result.incomes.push({
-                        error: null,
-                        amount: expressReportResult.value.data && typeof expressReportResult.value.data == 'number' ? expressReportResult.value.data : 0,
-                        type: "express24",
+                        error: expressReportResult.reason,
+                        amount: null,
+                        type: "myuzcard",
                         readonly: true,
-                        label: "Express24",
+                        label: "Myuzcard",
                     });
+                } else {
+                    let expressData = expressReportResult.value.data;
+                    if (expressData && 'express' in expressData) {
+                        result.incomes.push({
+                            error: null,
+                            amount: expressData.express,
+                            type: "express24",
+                            readonly: true,
+                            label: "Express24",
+                        });
+                        result.incomes.push({
+                            error: null,
+                            amount: expressData.card,
+                            type: "myuzcard",
+                            readonly: true,
+                            label: "Myuzcard",
+                        });
+
+                    } else {
+                        result.incomes.push({
+                            error: null,
+                            amount: 0,
+                            type: "myuzcard",
+                            readonly: true,
+                            label: "Myuzcard",
+                        });
+                        result.incomes.push({
+                            error: null,
+                            amount: 0,
+                            type: "express24",
+                            readonly: true,
+                            label: "Express24",
+                        });
+                    }
                 }
 
                 if (arrytReportResult.status == "rejected") {
@@ -1021,16 +1087,49 @@ export const reportsController = new Elysia({
             const expressReportGroup = reportGroups.find(
                 (group) => group.code === "express24"
             );
-
-            reportItems.push({
-                label: "Express24",
-                amount: expressReportResult.value.data && typeof expressReportResult.value.data == 'number' ? expressReportResult.value.data : 0,
-                type: 'income',
-                group_id: expressReportGroup?.id ?? "",
-                source: "express24",
-                report_id: "",
-                report_date: reports?.date ?? date
-            });
+            const myuzcardReportGroup = reportGroups.find(
+                (group) => group.code === "myuzcard"
+            );
+            let expressData = expressReportResult.value.data;
+            if (expressData && 'express' in expressData) {
+                reportItems.push({
+                    label: "Express24",
+                    amount: expressData.express,
+                    type: 'income',
+                    group_id: expressReportGroup?.id ?? "",
+                    source: "express24",
+                    report_id: "",
+                    report_date: reports?.date ?? date
+                });
+                reportItems.push({
+                    label: "Myuzcard",
+                    amount: expressData.card,
+                    type: 'income',
+                    group_id: myuzcardReportGroup?.id ?? "",
+                    source: "myuzcard",
+                    report_id: "",
+                    report_date: reports?.date ?? date
+                });
+            } else {
+                reportItems.push({
+                    label: "Express24",
+                    amount: 0,
+                    type: 'income',
+                    group_id: expressReportGroup?.id ?? "",
+                    source: "express24",
+                    report_id: "",
+                    report_date: reports?.date ?? date
+                });
+                reportItems.push({
+                    label: "Myuzcard",
+                    amount: 0,
+                    type: 'income',
+                    group_id: myuzcardReportGroup?.id ?? "",
+                    source: "myuzcard",
+                    report_id: "",
+                    report_date: reports?.date ?? date
+                });
+            }
         }
 
         for (const item of incomes) {

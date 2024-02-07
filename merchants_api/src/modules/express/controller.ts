@@ -76,7 +76,7 @@ export const expressController = new Elysia({
 
         const result = await response.json();
 
-        return result.result.data ?? 0 as number;
+        return result.result.data;
     }, {
         body: t.Object({
             date: t.String(),
