@@ -1,10 +1,11 @@
 import {
+  apiTokensWithRelations,
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
-import { InferSelectModel, eq } from "drizzle-orm";
-import { api_tokens, credentials, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, work_schedules } from "@backend/../drizzle/schema";
+import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
+import { api_tokens, credentials, organization, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, work_schedules } from "@backend/../drizzle/schema";
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
 import { userById, userFirstRole } from "@backend/lib/prepare_statements";
@@ -258,7 +259,17 @@ export class CacheControlService {
   }
 
   async cacheApiTokens() {
-    const apiTokens = await this.drizzle.query.api_tokens.findMany();
+
+    const apiTokens = await this.drizzle.select({
+      ...getTableColumns(api_tokens),
+      organization: {
+        ...getTableColumns(organization),
+      },
+    })
+      .from(api_tokens)
+      .leftJoin(organization, eq(api_tokens.organization_id, organization.id))
+      .execute();
+
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}api_tokens`,
       JSON.stringify(apiTokens)
@@ -269,7 +280,7 @@ export class CacheControlService {
     const apiTokens = await this.redis.get(
       `${process.env.PROJECT_PREFIX}api_tokens`
     );
-    let res = JSON.parse(apiTokens ?? "[]") as InferSelectModel<typeof api_tokens>[];
+    let res = JSON.parse(apiTokens ?? "[]") as apiTokensWithRelations[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);

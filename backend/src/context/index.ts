@@ -38,7 +38,8 @@ export const ctx = new Elysia({
     .derive(async ({
         // @ts-ignore
         bearer,
-        cacheController
+        cacheController,
+
     }) => {
         const token = bearer;
         if (!token) {
