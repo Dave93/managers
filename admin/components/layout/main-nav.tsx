@@ -117,6 +117,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="stoplist.list">
+          <NavigationMenuItem>
+            <Link href="/admin/stoplist" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Стоп-лист
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="settings.list">
           <NavigationMenuItem>
             <Link href="/settings" legacyBehavior passHref>

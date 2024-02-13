@@ -73,6 +73,84 @@ app.get('/', async (c) => {
   return c.text('Hello, world!')
 })
 
+app.post('/stoplist/list', zValidator(
+  'json',
+  z.object({
+    limit: z.number(),
+    offset: z.number(),
+    filter: z.array(z.object({
+      field: z.string(),
+      operator: z.string(),
+      value: z.string()
+    })),
+
+  })
+), async (c) => {
+  const {
+    limit,
+    offset,
+    filter
+  } = await c.req.json();
+  let where = '';
+
+  if (filter.length > 0) {
+    where = `WHERE ${filter.map((item: any) => {
+      switch (item.operator) {
+        case 'contains':
+          return `${item.field} LIKE '%${item.value}%'`
+        case 'eq':
+          return `${item.field} = '${item.value}'`
+        case 'gt':
+          return `${item.field} > '${item.value}'`
+        case 'lt':
+          return `${item.field} < '${item.value}'`
+        case 'gte':
+          return `${item.field} >= '${item.value}'`
+        case 'lte':
+          return `${item.field} <= '${item.value}'`
+        default:
+          return `${item.field} ${item.operator} '${item.value}'`
+      }
+    }).join(' AND ')}`;
+  }
+
+  const sqlQuery = `
+      SELECT * FROM
+      stoplist
+      LEFT JOIN terminal ON terminal.id = stoplist.terminalId
+      LEFT JOIN products ON products.id = stoplist.productId
+      LEFT JOIN categories ON categories.id = products.category
+      ${where}
+      LIMIT = ${limit}
+      OFFSET = ${offset};
+
+      SELECT * FROM
+      stoplist
+      LEFT JOIN terminal ON terminal.id = stoplist.terminalId
+      LEFT JOIN products ON products.id = stoplist.productId
+      LEFT JOIN categories ON categories.id = products.category
+      ${where}
+    `;
+
+
+  const sqlCount = `
+      SELECT * FROM
+      stoplist
+      LEFT JOIN terminal ON terminal.id = stoplist.terminalId
+      LEFT JOIN products ON products.id = stoplist.productId
+      LEFT JOIN categories ON categories.id = products.category
+      ${where}
+    `;
+
+
+  const data = await db.all(sqlQuery);
+  console.log('stoplist data', data)
+  return c.json({
+    data: data.slice(offset, offset + limit),
+    total: data.length
+  });
+});
+
 app.post('/stoplist', zValidator(
   'json',
   z.object({

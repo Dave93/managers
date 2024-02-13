@@ -1,10 +1,57 @@
 import { ctx } from "@backend/context";
+import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 
 export const stopListController = new Elysia({
     name: '@api/stoplist'
 })
     .use(ctx)
+    .get('/stoplist/list', async ({ query: { limit, offset, sort, filters, fields }, user, set, drizzle }) => {
+        if (!user) {
+            set.status = 401;
+            return {
+                message: 'User not found'
+            };
+        }
+
+        if (!user.permissions.includes('stoplist.list')) {
+            set.status = 401;
+            return {
+                message: "You don't have permissions"
+            };
+        }
+
+        let selectFields: SelectedFields = {};
+
+        const duckResponse = await fetch('http://127.0.0.1:9999/stoplist/list', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                limit: +limit,
+                offset: +offset,
+                filter: filters ? JSON.parse(filters) : [],
+            })
+        });
+
+        const data = await duckResponse.json();
+
+        // console.log('data', data)
+
+        return {
+            total: 0,
+            data: []
+        };
+    }, {
+        query: t.Object({
+            limit: t.String(),
+            offset: t.String(),
+            sort: t.Optional(t.String()),
+            filters: t.Optional(t.String()),
+            fields: t.Optional(t.String())
+        })
+    })
     .post('/stoplist/webhook', async ({
 
         // @ts-ignore
