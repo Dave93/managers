@@ -10,5 +10,8 @@ export type Stoplist = {
     reason: string,
     responsible: string,
     comment: string,
-    solve_status: string
+    solve_status: string;
+    productName: string;
+    terminalName: string;
+    categoryName: string;
 }

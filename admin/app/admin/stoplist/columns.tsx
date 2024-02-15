@@ -1,67 +1,71 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  CheckIcon,
-  Edit2Icon,
-  KeyRound,
-  Minus,
-  PlusIcon,
-  XIcon,
-} from "lucide-react";
-import { Button } from "@components/ui/button";
 
 import dayjs from "dayjs";
-import { Badge } from "@admin/components/ui/badge";
-import { useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@admin/components/ui/select";
-import ReportItemsSheet from "./report-items";
-import { cn } from "@admin/lib/utils";
-import { reports, roles } from "@backend/../drizzle/schema";
-import { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
-import { apiClient } from "@admin/utils/eden";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import useToken from "@admin/store/get-token";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
+import { Chip } from "@nextui-org/chip";
 
 export const reportsColumns: ColumnDef<Stoplist>[] = [
   {
-    accessorKey: "productId",
+    accessorKey: "productName",
     header: "Продукт",
   },
   {
-    accessorKey: "category",
+    accessorKey: "categoryName",
     header: "Категория",
   },
   {
-    accessorKey: "terminalId",
+    accessorKey: "terminalName",
     header: "Терминал",
   },
   {
     accessorKey: "status",
     header: "Статус",
+    cell: ({ row }) => {
+      const record = row.original;
+      return record.status == "stop" ? (
+        <Chip color="danger">На стопе</Chip>
+      ) : (
+        <Chip color="success">Доступен</Chip>
+      );
+    },
   },
   {
     accessorKey: "dateAdd",
     header: "Дата добавления",
     cell: ({ row }) => {
       const record = row.original;
-      return <span>{dayjs(record.dateAdd).format("DD.MM.YYYY")}</span>;
+      return <span>{dayjs(record.dateAdd).format("DD.MM.YYYY HH:mm")}</span>;
     },
   },
   {
     accessorKey: "dateRemoved",
     header: "Дата удаления",
+    cell: ({ row }) => {
+      const record = row.original;
+      return (
+        <span>
+          {record.dateRemoved
+            ? dayjs(record.dateRemoved).format("DD.MM.YYYY HH:mm")
+            : "Не удален"}
+        </span>
+      );
+    },
   },
   {
     accessorKey: "difference",
     header: "Разница",
+    cell: ({ row }) => {
+      const record = row.original;
+
+      let difference = record.difference
+        ? record.difference
+        : dayjs().diff(dayjs(record.dateAdd), "minute");
+
+      const totalHours = parseInt((difference / 60).toString());
+      const totalMins = dayjs().minute(difference).format("mm");
+      return `${totalHours}:${totalMins}`;
+    },
   },
   {
     accessorKey: "reason",

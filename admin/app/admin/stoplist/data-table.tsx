@@ -41,6 +41,7 @@ import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
+import { useStoplistFilterStore } from "./filters_store";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
@@ -49,19 +50,56 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const date = useStoplistFilterStore((state) => state.date);
+  const status = useStoplistFilterStore((state) => state.status);
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
+  const filters = useMemo(() => {
+    let res: {
+      field: string;
+      operator: string;
+      value: string;
+    }[] = [];
+
+    if (date?.from) {
+      res.push({
+        field: "dateAdd",
+        operator: "gte",
+        value: date.from.toISOString(),
+      });
+    }
+
+    if (date?.to) {
+      res.push({
+        field: "dateAdd",
+        operator: "lte",
+        value: date.to.toISOString(),
+      });
+    }
+
+    if (status) {
+      res.push({
+        field: "status",
+        operator: "eq",
+        value: status,
+      });
+    }
+
+    return JSON.stringify(res);
+  }, [date, status]);
+
   const { data, isLoading } = useQuery({
-    enabled: !!token,
+    enabled: !!token && !!date,
     queryKey: [
       "stoplist",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
+        filters,
       },
     ],
     queryFn: async () => {
@@ -69,6 +107,7 @@ export function DataTable<TData, TValue>({
         $query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
+          filters,
         },
         $headers: {
           Authorization: `Bearer ${token}`,
@@ -87,6 +126,8 @@ export function DataTable<TData, TValue>({
     }),
     [pageIndex, pageSize]
   );
+
+  console.log("date", date);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
@@ -201,7 +242,7 @@ export function DataTable<TData, TValue>({
                 />
               </SelectTrigger>
               <SelectContent side="top">
-                {[10, 20, 30, 40, 50].map((pageSize) => (
+                {[10, 20, 30, 40, 50, 100, 200].map((pageSize) => (
                   <SelectItem key={pageSize} value={`${pageSize}`}>
                     {pageSize}
                   </SelectItem>
