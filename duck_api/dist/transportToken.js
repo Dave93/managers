@@ -1,4 +1,7 @@
-export const getTransportToken = async () => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.getTransportToken = void 0;
+const getTransportToken = async () => {
     let response = await fetch(`https://api-ru.iiko.services/api/1/access_token`, {
         method: "POST",
         headers: {
@@ -26,3 +29,4 @@ export const getTransportToken = async () => {
         choparToken
     };
 };
+exports.getTransportToken = getTransportToken;

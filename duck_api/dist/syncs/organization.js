@@ -1,4 +1,7 @@
-export const syncOrganizations = async (db, lesToken, choparToken) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.syncOrganizations = void 0;
+const syncOrganizations = async (db, lesToken, choparToken) => {
     await db.exec(`
     CREATE TABLE IF NOT EXISTS "organization" (
         "id" UUID PRIMARY KEY,
@@ -33,3 +36,4 @@ export const syncOrganizations = async (db, lesToken, choparToken) => {
      `;
     await db.all(sqlQuery);
 };
+exports.syncOrganizations = syncOrganizations;

@@ -1,4 +1,7 @@
-export const syncProducts = async (db, token) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.syncProducts = void 0;
+const syncProducts = async (db, token) => {
     await db.exec(`
     CREATE TABLE IF NOT EXISTS "products" (
         "id" UUID PRIMARY KEY,
@@ -26,3 +29,4 @@ export const syncProducts = async (db, token) => {
      `;
     await db.all(sqlQuery);
 };
+exports.syncProducts = syncProducts;
