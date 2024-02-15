@@ -37,11 +37,10 @@ export const stopListController = new Elysia({
 
         const data = await duckResponse.json();
 
-        // console.log('data', data)
 
         return {
-            total: 0,
-            data: []
+            total: data.total,
+            data: data.data
         };
     }, {
         query: t.Object({

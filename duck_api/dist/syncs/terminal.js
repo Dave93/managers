@@ -1,4 +1,7 @@
-export const syncTerminal = async (db, lesToken, choparToken) => {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.syncTerminal = void 0;
+const syncTerminal = async (db, lesToken, choparToken) => {
     await db.exec(`
     CREATE TABLE IF NOT EXISTS "terminal" (
         "id" UUID PRIMARY KEY,
@@ -36,3 +39,4 @@ export const syncTerminal = async (db, lesToken, choparToken) => {
      `;
     await db.all(sqlQuery);
 };
+exports.syncTerminal = syncTerminal;
