@@ -15,6 +15,7 @@ import { InferSelectModel } from "drizzle-orm";
 import { organization, terminals } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import useToken from "@admin/store/get-token";
+import { organizationWithCredentials, terminalsWithCredentials } from "@backend/modules/cache_control/dto/cache.dto";
 
 export const StoplistFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -25,9 +26,9 @@ export const StoplistFilters = () => {
 
   const token = useToken();
 
-  const [terminalsList, setTerminalsList] = useState<InferSelectModel<typeof terminals>[]>([]);
+  const [terminalsList, setTerminalsList] = useState<terminalsWithCredentials[]>([]);
 
-  const [organizatonList, setOrganizationList] = useState<InferSelectModel<typeof organization>[]>([]);
+  const [organizatonList, setOrganizationList] = useState<organizationWithCredentials[]>([]);
 
   const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     setStatus(e.target.value);
