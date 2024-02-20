@@ -103,10 +103,6 @@ export function DataTable<TData, TValue>({
     },
     getRowId: (row) => row.id,
     enableRowSelection: true,
-    // onRowSelectionChange: function (stateUpdater) {
-    //   console.log(arguments);
-    //   // setRowSelection(stateUpdater)
-    // },
 
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),

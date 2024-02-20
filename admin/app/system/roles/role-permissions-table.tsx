@@ -50,7 +50,6 @@ export function RolesPermissionsDataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      console.log("fetching");
       const { data } = await apiClient.api.roles_permissions.get({
         $query: {
           limit: "1000",
@@ -77,10 +76,6 @@ export function RolesPermissionsDataTable<TData, TValue>({
   const table = useReactTable({
     data: data?.data ?? defaultData,
     columns,
-    // onRowSelectionChange: function (stateUpdater) {
-    //   console.log(arguments);
-    //   // setRowSelection(stateUpdater)
-    // },
 
     getCoreRowModel: getCoreRowModel(),
   });

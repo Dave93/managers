@@ -105,7 +105,6 @@ export function CalendarReport({
         router.push(`/reports/${terminalId}/${dayjs(selectedDay).unix()}`);
       }}
       onMonthChange={(month) => {
-        console.log("month changed", month);
         setDate(month);
       }}
       className="rounded-md border"
