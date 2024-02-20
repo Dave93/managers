@@ -50,7 +50,7 @@
     "dayjs": "^1.11.9",
     "dotenv": "^16.4.1",
     "drizzle-orm": "^0.29.3",
-    "elysia": "^0.8.15",
+    "elysia": "^0.8.17",
     "eslint": "8.47.0",
     "eslint-config-next": "13.4.19",
     "framer-motion": "^11.0.3",
