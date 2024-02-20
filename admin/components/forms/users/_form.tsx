@@ -268,7 +268,6 @@ export default function UsersForm({
 
   const assignRole = useCallback(
     async (recordData: InferSelectModel<typeof users>) => {
-      console.log("recordData", recordData);
       let userId = recordData?.id;
       if (recordId) {
         userId = recordId;
@@ -430,7 +429,6 @@ export default function UsersForm({
             selectedKeys={userRoleId ? [userRoleId] : []}
             className="max-w-xs"
             onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              console.log("selecting role", e.target.value);
               setChangedRoleId(e.target.value);
             }}
             popoverProps={{

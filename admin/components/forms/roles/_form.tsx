@@ -83,7 +83,6 @@ export default function RolesForm({
       code: "",
     },
     onSubmit: async ({ value, formApi }) => {
-      console.log(value);
       if (recordId) {
         updateMutation.mutate({ data: value, id: recordId });
       } else {

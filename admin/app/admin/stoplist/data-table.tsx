@@ -53,7 +53,9 @@ export function DataTable<TData, TValue>({
   const date = useStoplistFilterStore((state) => state.date);
   const status = useStoplistFilterStore((state) => state.status);
   const terminalId = useStoplistFilterStore((state) => state.terminalId);
-  const organizationId = useStoplistFilterStore((state) => state.organizationId);
+  const organizationId = useStoplistFilterStore(
+    (state) => state.organizationId
+  );
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -144,8 +146,6 @@ export function DataTable<TData, TValue>({
     [pageIndex, pageSize]
   );
 
-  console.log("date", date);
-
   const table = useReactTable({
     data: data?.data ?? defaultData,
     columns,
@@ -172,9 +172,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
                     </TableHead>
                   );
                 })}

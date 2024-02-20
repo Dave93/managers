@@ -15,7 +15,6 @@ const authOptions: AuthOptions = {
       },
       // @ts-ignore
       async authorize(credentials, req) {
-        console.log("credentials", credentials);
         if (typeof credentials !== "undefined") {
           const { login, password } = credentials;
           try {

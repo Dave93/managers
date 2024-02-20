@@ -22,7 +22,7 @@ export default function MainLayout({
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         <NextUIProvider>
-          {roleCode === "admin" && <AdminLayout>{children}</AdminLayout>}
+          {roleCode !== "manager" && <AdminLayout>{children}</AdminLayout>}
           {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
           {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
           <Toaster />

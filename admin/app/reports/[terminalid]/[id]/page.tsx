@@ -259,9 +259,6 @@ export default function ReportsPage(params: paramsProps) {
 
     const expenseTotal = expensesTotalSum;
 
-    console.log("incomeTotal", incomeTotal);
-    console.log("expenseTotal", expenseTotal);
-
     const totalSum = incomeTotal + expenseTotal;
 
     if (data && "terminal_id" in data && data!.totalCashier > totalSum) {
@@ -301,10 +298,6 @@ export default function ReportsPage(params: paramsProps) {
     if (data && "terminal_id" in data) {
       setIncomes(data.incomes);
       if (data.expenses.filter((item) => !item.readonly).length > 0) {
-        console.log(
-          "data.expenses",
-          data.expenses.filter((item) => !item.readonly)
-        );
         setExpenses(
           data.expenses
             .filter((item) => !item.readonly)
@@ -333,7 +326,6 @@ export default function ReportsPage(params: paramsProps) {
       }
     }
   }, [data]);
-  console.log("expenses", expenses);
   return (
     <div className="mb-20">
       <div className="grid grid-cols-3 items-center">
