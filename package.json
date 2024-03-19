@@ -6,6 +6,7 @@
     "dev": "pnpm run --parallel dev"
   },
   "dependencies": {
+    "dayjs": "^1.11.10",
     "typescript": "4.6.2-insiders.20220225",
     "zod": "3.21.1"
   },

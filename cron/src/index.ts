@@ -1,25 +1,18 @@
-import { Elysia } from "elysia";
-import { cron } from "@elysiajs/cron";
 import Redis from "ioredis";
 import { TerminalsService } from "./modules/terminals/service";
+import { IikoDictionariesService } from "./modules/iiko_dictionaries/service";
+import cron from "node-cron";
 
 const client = new Redis({ host: "localhost", port: 6379 });
 
 const terminalService = new TerminalsService(client);
+const iikoDictionariesService = new IikoDictionariesService(client);
 
-const app = new Elysia()
-  .get("/", () => "Hello Elysia")
-  .use(
-    cron({
-      name: "heartbeat",
-      pattern: "0 */2 * * * *",
-      async run() {
-        await terminalService.getTerminalsFromIiko();
-      },
-    })
-  )
-  .listen(8080);
+cron.schedule("0 */2 * * * *", async () => {
+  await terminalService.getTerminalsFromIiko();
+});
 
-console.log(
-  `🦊 Cron server is running at ${app.server?.hostname}:${app.server?.port}`
-);
+cron.schedule("*/10 * * * *", async () => {
+  console.log("Running a task every minute");
+  await iikoDictionariesService.getIikoDictionariesFromIiko();
+});

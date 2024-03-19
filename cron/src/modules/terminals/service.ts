@@ -9,9 +9,7 @@ import { terminals, credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel, and, eq, inArray } from "drizzle-orm";
 
 export class TerminalsService {
-  constructor(
-    private readonly redis: Redis
-  ) { }
+  constructor(private readonly redis: Redis) {}
 
   async getTerminalsFromIiko() {
     const organizations = await this.redis.get(
@@ -34,12 +32,13 @@ export class TerminalsService {
         const iikoUrl = "https://api-ru.iiko.services/api/1/";
 
         if (iikoLogin && iikoOrganizationId) {
-
-          const terminalsList = await drizzleDb.select({
-            id: terminals.id
-          })
+          const terminalsList = await drizzleDb
+            .select({
+              id: terminals.id,
+            })
             .from(terminals)
-            .where(eq(terminals.organization_id, organization.id)).execute();
+            .where(eq(terminals.organization_id, organization.id))
+            .execute();
 
           let iikoTerminalIds: {
             key: string;
@@ -49,11 +48,15 @@ export class TerminalsService {
           const terminalIds = terminalsList.map((terminal) => terminal.id);
 
           if (terminalIds.length > 0) {
-
             const credentialsList = await drizzleDb
               .select()
               .from(credentials)
-              .where(and(eq(credentials.model, "terminals"), inArray(credentials.model_id, terminalIds)))
+              .where(
+                and(
+                  eq(credentials.model, "terminals"),
+                  inArray(credentials.model_id, terminalIds)
+                )
+              )
               .execute();
 
             iikoTerminalIds = credentialsList
@@ -62,7 +65,6 @@ export class TerminalsService {
                 key: credential.key,
                 model_id: credential.model_id,
               }));
-
           }
 
           const tokenResponse = await fetch(`${iikoUrl}access_token`, {
@@ -97,21 +99,28 @@ export class TerminalsService {
             )?.model_id;
 
             if (!terminalId) {
-              const terminal = await drizzleDb.insert(terminals).values({
-                name: iikoTerminal.name,
-                organization_id: organization.id,
-                latitude: 0,
-                longitude: 0,
-              }).returning({
-                id: terminals.id
-              }).execute();
+              const terminal = await drizzleDb
+                .insert(terminals)
+                .values({
+                  name: iikoTerminal.name,
+                  organization_id: organization.id,
+                  latitude: 0,
+                  longitude: 0,
+                })
+                .returning({
+                  id: terminals.id,
+                })
+                .execute();
 
-              await drizzleDb.insert(credentials).values({
-                model: "terminals",
-                model_id: terminal[0].id,
-                type: "iiko_id",
-                key: iikoTerminal.id,
-              }).execute();
+              await drizzleDb
+                .insert(credentials)
+                .values({
+                  model: "terminals",
+                  model_id: terminal[0].id,
+                  type: "iiko_id",
+                  key: iikoTerminal.id,
+                })
+                .execute();
             }
           }
         }
@@ -125,13 +134,16 @@ export class TerminalsService {
         .where(eq(credentials.model, "terminals"))
         .execute();
 
-      const credentialsByTerminalId = terminalsCredentialsList.reduce((acc, credential) => {
-        if (!acc[credential.model_id]) {
-          acc[credential.model_id] = [];
-        }
-        acc[credential.model_id].push(credential);
-        return acc;
-      }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+      const credentialsByTerminalId = terminalsCredentialsList.reduce(
+        (acc, credential) => {
+          if (!acc[credential.model_id]) {
+            acc[credential.model_id] = [];
+          }
+          acc[credential.model_id].push(credential);
+          return acc;
+        },
+        {} as Record<string, InferSelectModel<typeof credentials>[]>
+      );
 
       const newTerminals: terminalsWithCredentials[] = [];
 
