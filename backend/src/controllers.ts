@@ -21,30 +21,32 @@ import { usersWorkSchedulesController } from "./modules/users_work_schedules/con
 import { workScheduleEntriesController } from "./modules/work_schedule_entries/controller";
 import { workSchedulesController } from "./modules/work_schedules/controller";
 import { stopListController } from "./modules/stoplist/controller";
+import { usersSroresController } from "./modules/users_stores/controller";
 
 export const apiController = new Elysia({
-    name: "@api",
-    prefix: "/api",
+  name: "@api",
+  prefix: "/api",
 })
-    .use(ApiTokensController)
-    .use(usersController)
-    .use(credentialsController)
-    .use(organizationController)
-    .use(permissionsController)
-    .use(reportsController)
-    .use(reportsItemsController)
-    .use(reportsStatusController)
-    .use(rolesController)
-    .use(rolesPermissionsController)
-    .use(scheduledReportsController)
-    .use(sessionController)
-    .use(settingsController)
-    .use(terminalsController)
-    .use(timesheetController)
-    .use(usersPermissionsController)
-    .use(usersRolesController)
-    .use(usersTerminalsController)
-    .use(usersWorkSchedulesController)
-    .use(workScheduleEntriesController)
-    .use(workSchedulesController)
-    .use(stopListController)
+  .use(ApiTokensController)
+  .use(usersController)
+  .use(credentialsController)
+  .use(organizationController)
+  .use(permissionsController)
+  .use(reportsController)
+  .use(reportsItemsController)
+  .use(reportsStatusController)
+  .use(rolesController)
+  .use(rolesPermissionsController)
+  .use(scheduledReportsController)
+  .use(sessionController)
+  .use(settingsController)
+  .use(terminalsController)
+  .use(timesheetController)
+  .use(usersPermissionsController)
+  .use(usersRolesController)
+  .use(usersTerminalsController)
+  .use(usersWorkSchedulesController)
+  .use(workScheduleEntriesController)
+  .use(workSchedulesController)
+  .use(stopListController)
+  .use(usersSroresController);

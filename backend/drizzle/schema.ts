@@ -1368,3 +1368,23 @@ export const balance_store = pgTable(
     };
   }
 );
+
+export const users_stores = pgTable(
+  "users_stores",
+  {
+    id: uuid("id").defaultRandom().notNull(),
+    user_id: uuid("user_id").references(() => users.id, {}),
+    corporation_store_id: uuid("corporation_store_id").references(
+      () => corporation_store.id,
+      {}
+    ),
+  },
+  (table) => {
+    return {
+      users_stores_pkey: primaryKey({
+        columns: [table.id],
+        name: "users_stores_pkey",
+      }),
+    };
+  }
+);

@@ -2,8 +2,8 @@ import Redis from "ioredis";
 import { TerminalsService } from "./modules/terminals/service";
 import { IikoDictionariesService } from "./modules/iiko_dictionaries/service";
 import cron from "node-cron";
+import client from "./redis";
 
-const client = new Redis({ host: "localhost", port: 6379 });
 
 const terminalService = new TerminalsService(client);
 const iikoDictionariesService = new IikoDictionariesService(client);

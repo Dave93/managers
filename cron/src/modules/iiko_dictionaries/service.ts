@@ -32,8 +32,15 @@ import { SQL, eq } from "drizzle-orm";
 import { mapCompactResponse } from "elysia";
 import dayjs from "dayjs";
 import { as } from "elysia/dist/index-59i0HOI0";
+import client from "cron/src/redis";
+import { CacheControlService } from "@backend/modules/cache_control/service";
+
+
+
+const cacheControlService = new CacheControlService(drizzleDb, client);
+
 export class IikoDictionariesService {
-  constructor(private readonly redis: Redis) {}
+  constructor(private readonly redis: Redis) { }
 
   async getIikoDictionariesFromIiko() {
     const response = await fetch(
@@ -54,7 +61,7 @@ export class IikoDictionariesService {
     // await this.getDiscountTypes(token);
     // await this.getConceptions(token);
     // await this.getAccountingCategorys(token);
-    await this.getNomenclatureGroups(token);
+    // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
     // await this.getIncomingInvoice(token);
@@ -184,17 +191,17 @@ export class IikoDictionariesService {
               : "",
           parentId:
             corporation_departmentTable.parentId &&
-            corporation_departmentTable.parentId[0]
+              corporation_departmentTable.parentId[0]
               ? this.checkForNullString(corporation_departmentTable.parentId[0])
               : "",
           name:
             corporation_departmentTable.name &&
-            corporation_departmentTable.name[0]
+              corporation_departmentTable.name[0]
               ? this.checkForNullString(corporation_departmentTable.name[0])
               : "",
           type:
             corporation_departmentTable.type &&
-            corporation_departmentTable.type[0]
+              corporation_departmentTable.type[0]
               ? this.checkForNullString(corporation_departmentTable.type[0])
               : "",
         };
@@ -261,15 +268,15 @@ export class IikoDictionariesService {
               : "",
           departmentId:
             corporation_groupTable.departmentId &&
-            corporation_groupTable.departmentId[0]
+              corporation_groupTable.departmentId[0]
               ? this.checkForNullString(corporation_groupTable.departmentId[0])
               : "",
           groupServiceMode:
             corporation_groupTable.groupServiceMode &&
-            corporation_groupTable.groupServiceMode[0]
+              corporation_groupTable.groupServiceMode[0]
               ? this.checkForNullString(
-                  corporation_groupTable.groupServiceMode[0]
-                )
+                corporation_groupTable.groupServiceMode[0]
+              )
               : "",
         };
         const existingCorporates = existingCorporationGroups.find(
@@ -661,6 +668,8 @@ export class IikoDictionariesService {
               .execute();
           }
         }
+
+        await cacheControlService.cacheStores();
       });
     } catch (error) {
       console.error("Error:", error);

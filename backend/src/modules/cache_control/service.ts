@@ -29,6 +29,7 @@ export class CacheControlService {
     this.cacheCredentials();
     this.cacheReportGroups();
     this.cacheReportStatuses();
+    this.cacheStores();
   }
 
   async cachePermissions() {
@@ -493,6 +494,27 @@ export class CacheControlService {
       }
     } catch (e) {
       return null;
+    }
+  }
+
+  async cacheStores() {
+    const stores = await this.drizzle.query.corporation_store.findMany();
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}stores`,
+      JSON.stringify(stores)
+    );
+  }
+
+  async getCachedUsersStores({ take }: { take?: number }) {
+    const stores = (await this.redis.get(`${process.env.PROJECT_PREFIX}stores`)) as
+      | string
+      | null;
+
+    if (stores) {
+      const storesJson = JSON.parse(stores);
+      return storesJson.slice(0, take);
+    } else {
+      return [];
     }
   }
 }
