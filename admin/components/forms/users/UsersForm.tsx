@@ -1,10 +1,7 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
-import { Switch } from "@components/ui/switch";
-
-import { useMemo, useEffect, useRef, use } from "react";
-import { Loader2, Check, ChevronsUpDown } from "lucide-react";
-import * as z from "zod";
+import { useMemo, useEffect, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
@@ -15,12 +12,7 @@ import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import {
-  Select,
-  SelectSection,
-  SelectItem,
-  SelectedItems,
-} from "@nextui-org/select";
+import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
 import { Selection } from "@react-types/shared";
 
 export default function UsersForm({
@@ -161,47 +153,13 @@ export default function UsersForm({
   });
 
   const [
-    { data: storesData, isLoading: isStoresLoading },
-    { data: userStoresData, isLoading: isUserStoresLoading },
-  ] = useQueries({
-    queries: [
-      {
-        enabled: !!recordId && !!token,
-        queryKey: ["users_stores", recordId],
-        queryFn: async () => {
-          if (recordId) {
-            const { data } = await apiClient.api.users_stores.get({
-              $query: {
-                limit: "30",
-                offset: "0",
-                filters: JSON.stringify([
-                  {
-                    field: "user_id",
-                    operator: "=",
-                    value: recordId,
-                  },
-                ]),
-                fields: "corporation_store_id,user_id",
-              },
-              $headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            return data;
-          } else {
-            return null;
-          }
-        },
-      },
-    ],
-  });
-
-  const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
     { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userTerminalsData, isLoading: isUserTerminalsLoading },
+    { data: storesData, isLoading: isStoresLoading },
+    { data: userStoresData, isLoading: isUserStoresLoading },
   ] = useQueries({
     queries: [
       {
