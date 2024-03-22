@@ -123,13 +123,15 @@ export default function UsersForm({
       corporation_store_id: string[];
       user_id: string;
     }) => {
-      return apiClient.api.users.assign_stores.post({
-        ...newTodo,
+      return apiClient.api.users_stores.assign_stores.post({
+        data: { ...newTodo },
         $headers: {
           Authorization: `Bearer ${token}`,
         },
       });
     },
+    onSuccess: (data) => closeForm(),
+    onError,
   });
 
   const assignTerminalMutation = useMutation({
@@ -141,7 +143,6 @@ export default function UsersForm({
         },
       });
     },
-    onSuccess: (data) => closeForm(),
     onError,
   });
 
@@ -161,47 +162,13 @@ export default function UsersForm({
   });
 
   const [
-    { data: storesData, isLoading: isStoresLoading },
-    { data: userStoresData, isLoading: isUserStoresLoading },
-  ] = useQueries({
-    queries: [
-      {
-        enabled: !!recordId && !!token,
-        queryKey: ["users_stores", recordId],
-        queryFn: async () => {
-          if (recordId) {
-            const { data } = await apiClient.api.users_stores.get({
-              $query: {
-                limit: "30",
-                offset: "0",
-                filters: JSON.stringify([
-                  {
-                    field: "user_id",
-                    operator: "=",
-                    value: recordId,
-                  },
-                ]),
-                fields: "corporation_store_id,user_id",
-              },
-              $headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            return data;
-          } else {
-            return null;
-          }
-        },
-      },
-    ],
-  });
-
-  const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
     { data: userRolesData, isLoading: isUserRolesLoading },
     { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userTerminalsData, isLoading: isUserTerminalsLoading },
+    { data: storesData, isLoading: isStoresLoading },
+    { data: userStoresData, isLoading: isUserStoresLoading },
   ] = useQueries({
     queries: [
       {
@@ -301,6 +268,18 @@ export default function UsersForm({
         },
       },
       {
+        enabled: !!token,
+        queryKey: ["users_stores_cached"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.users_stores.cached.get({
+            $headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          });
+          return data;
+        },
+      },
+      {
         enabled: !!recordId && !!token,
         queryKey: ["users_stores", recordId],
         queryFn: async () => {
@@ -355,7 +334,7 @@ export default function UsersForm({
         user_id: userId,
         role_id: changedRoleId ? changedRoleId! : userRoleId!,
       });
-      return assignTerminalMutation.mutate({
+      assignTerminalMutation.mutate({
         user_id: recordData?.id,
         terminal_id:
           changedTerminalId !== "all"
@@ -418,14 +397,7 @@ export default function UsersForm({
   }, [storesData]);
 
   useEffect(() => {
-    if (record?.data && "id" in record.data) {
-      Object.keys(record.data).forEach((key) => {
-        form.setFieldValue(
-          key as keyof typeof record.data,
-          record.data[key as keyof typeof record.data]
-        );
-      });
-    }
+    console.log("record", record);
 
     if (
       userTerminalsData &&
@@ -445,6 +417,14 @@ export default function UsersForm({
       setChangedStoreId(
         new Set(userStoresData.data.map((item) => item.corporation_store_id))
       );
+    }
+    if (record?.data && "id" in record.data) {
+      Object.keys(record.data).forEach((key) => {
+        form.setFieldValue(
+          key as keyof typeof record.data,
+          record.data[key as keyof typeof record.data]
+        );
+      });
     }
   }, [record, userTerminalsData, userStoresData]);
 
