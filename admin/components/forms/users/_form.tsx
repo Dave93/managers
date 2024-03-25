@@ -1,10 +1,8 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
-import { Switch } from "@components/ui/switch";
 
-import { useMemo, useEffect, useRef, use } from "react";
-import { Loader2, Check, ChevronsUpDown } from "lucide-react";
-import * as z from "zod";
+import { useMemo, useEffect, useRef } from "react";
+import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
@@ -15,12 +13,7 @@ import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import {
-  Select,
-  SelectSection,
-  SelectItem,
-  SelectedItems,
-} from "@nextui-org/select";
+import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
 import { Selection } from "@react-types/shared";
 
 export default function UsersForm({
@@ -145,22 +138,6 @@ export default function UsersForm({
     },
     onError,
   });
-
-  const form = useForm<InferInsertModel<typeof users>>({
-    defaultValues: {
-      status: "active",
-      login: "",
-      password: "",
-    },
-    onSubmit: async ({ value }) => {
-      if (recordId) {
-        updateMutation.mutate({ data: value, id: recordId });
-      } else {
-        createMutation.mutate(value);
-      }
-    },
-  });
-
   const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
@@ -310,6 +287,23 @@ export default function UsersForm({
     ],
   });
 
+  const form = useForm<InferInsertModel<typeof users>>({
+    defaultValues: {
+      status: record?.data?.status || "active",
+      login: record?.data?.login || "",
+      password: "",
+      first_name: record?.data?.first_name || "",
+      last_name: record?.data?.last_name || "",
+    },
+    onSubmit: async ({ value }) => {
+      if (recordId) {
+        updateMutation.mutate({ data: value, id: recordId });
+      } else {
+        createMutation.mutate(value);
+      }
+    },
+  });
+
   const userRoleId = useMemo(() => {
     if (changedRoleId) {
       return changedRoleId;
@@ -397,8 +391,6 @@ export default function UsersForm({
   }, [storesData]);
 
   useEffect(() => {
-    console.log("record", record);
-
     if (
       userTerminalsData &&
       userTerminalsData.data &&
@@ -418,15 +410,7 @@ export default function UsersForm({
         new Set(userStoresData.data.map((item) => item.corporation_store_id))
       );
     }
-    if (record?.data && "id" in record.data) {
-      Object.keys(record.data).forEach((key) => {
-        form.setFieldValue(
-          key as keyof typeof record.data,
-          record.data[key as keyof typeof record.data]
-        );
-      });
-    }
-  }, [record, userTerminalsData, userStoresData]);
+  }, [userTerminalsData, userStoresData]);
 
   return (
     <form.Provider>
