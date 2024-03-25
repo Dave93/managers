@@ -5,7 +5,7 @@ import {
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
 import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
-import { api_tokens, credentials, organization, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, work_schedules } from "@backend/../drizzle/schema";
+import { api_tokens, corporation_store, credentials, organization, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, users_stores, work_schedules } from "@backend/../drizzle/schema";
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
 import { userById, userFirstRole } from "@backend/lib/prepare_statements";
@@ -505,14 +505,14 @@ export class CacheControlService {
     );
   }
 
-  async getCachedUsersStores({ take }: { take?: number }) {
+  async getCachedStores({ take }: { take?: number }) {
     const stores = (await this.redis.get(`${process.env.PROJECT_PREFIX}stores`)) as
       | string
       | null;
 
     if (stores) {
       const storesJson = JSON.parse(stores);
-      return storesJson.slice(0, take);
+      return storesJson.slice(0, take) as InferSelectModel<typeof corporation_store>[];
     } else {
       return [];
     }
