@@ -31,7 +31,6 @@ import { Redis } from "ioredis";
 import { SQL, eq } from "drizzle-orm";
 import { mapCompactResponse } from "elysia";
 import dayjs from "dayjs";
-import { as } from "elysia/dist/index-59i0HOI0";
 import client from "cron/src/redis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
 
