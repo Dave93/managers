@@ -3,6 +3,7 @@
 import {
   ColumnDef,
   PaginationState,
+  createColumnHelper,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
@@ -21,7 +22,7 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -35,6 +36,7 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
+import dayjs from "dayjs";
 
 import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import useToken from "@admin/store/get-token";
@@ -47,15 +49,30 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
 }
 
-export function DataTable<TData, TValue>({
-  columns,
-}: DataTableProps<TData, TValue>) {
+const getCommonPinningStyles = (column: Column<Person>): CSSProperties => {
+  const isPinned = column.getIsPinned();
+  const isLastLeftPinnedColumn =
+    isPinned === "left" && column.getIsLastColumn("left");
+  const isFirstRightPinnedColumn =
+    isPinned === "right" && column.getIsFirstColumn("right");
+
+  return {
+    boxShadow: isLastLeftPinnedColumn
+      ? "-4px 0 4px -4px gray inset"
+      : isFirstRightPinnedColumn
+      ? "4px 0 4px -4px gray inset"
+      : undefined,
+    left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
+    right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
+    position: isPinned ? "sticky" : "relative",
+    width: column.getSize(),
+    zIndex: isPinned ? 1 : 0,
+  };
+};
+
+export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
-  const status = useStoplistFilterStore((state) => state.status);
-  const terminalId = useStoplistFilterStore((state) => state.terminalId);
-  const organizationId = useStoplistFilterStore(
-    (state) => state.organizationId
-  );
+  const storeId = useStoplistFilterStore((state) => state.storeId);
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -71,7 +88,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.from) {
       res.push({
-        field: "dateAdd",
+        field: "invoiceincomingdate",
         operator: "gte",
         value: date.from.toISOString(),
       });
@@ -79,37 +96,22 @@ export function DataTable<TData, TValue>({
 
     if (date?.to) {
       res.push({
-        field: "dateAdd",
+        field: "invoiceincomingdate",
         operator: "lte",
         value: date.to.toISOString(),
       });
     }
 
-    if (status) {
+    if (storeId) {
       res.push({
-        field: "status",
+        field: "storeId",
         operator: "eq",
-        value: status,
-      });
-    }
-
-    if (terminalId) {
-      res.push({
-        field: "terminalId",
-        operator: "eq",
-        value: terminalId,
-      });
-    }
-    if (organizationId) {
-      res.push({
-        field: "stoplist.organizationId",
-        operator: "eq",
-        value: organizationId,
+        value: storeId,
       });
     }
 
     return JSON.stringify(res);
-  }, [date, status, terminalId, organizationId]);
+  }, [date, storeId]);
 
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
@@ -122,7 +124,7 @@ export function DataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.stoplist.list.get({
+      const { data } = await apiClient.api.invoices.incoming.get({
         $query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
@@ -146,29 +148,89 @@ export function DataTable<TData, TValue>({
     [pageIndex, pageSize]
   );
 
+  const columnHelper = createColumnHelper();
+
+  const columns = useMemo(() => {
+    let cols = [
+      {
+        accessorKey: "name",
+        header: "Название",
+        enablePinning: true,
+      },
+      {
+        accessorKey: "supplierProductArticle",
+        header: "Артикул",
+      },
+      {
+        accessorKey: "unit",
+        header: "Единица измерения",
+      },
+    ];
+
+    if (date && date.from && date.to) {
+      for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
+        cols.push(
+          columnHelper.group({
+            id: m.format("YYYY-MM-DD"),
+            header: m.format("DD.MM.YYYY"),
+            columns: [
+              columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
+                cell: (info) => info.getValue(),
+                header: () => "Оприходовано",
+              }),
+              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
+                cell: (info) => info.getValue(),
+                header: () => "Актуально",
+              }),
+            ],
+          })
+        );
+      }
+    }
+    return cols;
+  }, [date]);
+
   const table = useReactTable({
     data: data?.data ?? defaultData,
     columns,
     pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
+      rowPinning: {
+        top: ["name"],
+      },
     },
+    enablePinning: true,
+    enableRowPinning: true,
+    enableColumnPinning: true,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
 
+  useEffect(() => {
+    table.setColumnPinning({
+      left: ["name"],
+    });
+  }, [table]);
+
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
+      <div className="rounded-md border relative">
+        <Table wrapperClassName="h-screen">
+          <TableHeader className="bg-white z-50 sticky top-0">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
+                  const { column } = header;
                   return (
-                    <TableHead key={header.id}>
+                    <TableHead
+                      key={header.id}
+                      colSpan={header.colSpan}
+                      className="text-center border border-r-2 border-black bg-white"
+                      style={{ ...getCommonPinningStyles(column) }}
+                    >
                       {header.isPlaceholder
                         ? null
                         : flexRender(
@@ -186,7 +248,7 @@ export function DataTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center relative"
+                  className="h-24 text-center relative "
                 >
                   <div
                     role="status"
@@ -218,14 +280,21 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const { column } = cell;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className="border border-r-2 border-black text-center bg-white"
+                        style={{ ...getCommonPinningStyles(column) }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))
             ) : (
