@@ -31,7 +31,6 @@ import { Redis } from "ioredis";
 import { SQL, eq } from "drizzle-orm";
 import { mapCompactResponse } from "elysia";
 import dayjs from "dayjs";
-import { as } from "elysia/dist/index-59i0HOI0";
 import client from "cron/src/redis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
 
@@ -64,7 +63,7 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    // await this.getIncomingInvoice(token);
+    await this.getIncomingInvoice(token);
     // await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
@@ -896,6 +895,8 @@ export class IikoDictionariesService {
             })
             .execute();
           for (const item of record.items[0].item) {
+            console.log("item", item);
+            process.exit();
             let recordItem = {
               id:
                 item.id && item.id[0]
@@ -1128,80 +1129,61 @@ export class IikoDictionariesService {
             .execute();
 
           for (const item of record.items[0].item) {
-            // console.log("item", item);
             let recordItem = {
-              id:
-                item.id && item.id[0]
-                  ? this.checkForNullString(item.id[0])
-                  : item.id,
               isAdditionalExpense:
                 item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? this.checkForNullString(item.isAdditionalExpense[0])
-                  : "",
-              actualAmount: this.parseInteger(item.actualAmount),
-              store:
+                  ? this.checkForNullString(item.isAdditionalExpense[0]) as boolean
+                  : false,
+              actualAmount: this.parseInteger(item.actualAmount[0]),
+              storeId:
                 item.store && item.store[0]
-                  ? this.checkForNullString(item.store[0])
+                  ? this.checkForNullString(item.store[0]) as string
                   : "",
-              price: +item.price,
-              priceWithoutVat: +item.priceWithoutVat,
+              price: +item.price[0],
+              priceWithoutVat: +item.priceWithoutVat[0],
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
-                  ? this.checkForNullString(item.priceUnit[0])
+                  ? this.checkForNullString(item.priceUnit[0]) as string
                   : "",
-              sum: +item.sum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
-              discountSum: +item.discountSum,
+              sum: +item.sum[0],
+              vatPercent: +item.vatPercent[0],
+              vatSum: +item.vatSum[0],
+              discountSum: +item.discountSum[0],
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
-                  ? this.checkForNullString(item.amountUnit[0])
+                  ? this.checkForNullString(item.amountUnit[0]) as string
                   : "",
               num:
                 item.num && item.num[0]
-                  ? this.checkForNullString(item.num[0])
+                  ? this.checkForNullString(item.num[0]) as string
                   : "",
-              product:
+              productId:
                 item.product && item.product[0]
-                  ? this.checkForNullString(item.product[0])
+                  ? this.checkForNullString(item.product[0]) as string
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0])
+                  ? this.checkForNullString(item.productArticle[0]) as string
                   : "",
               supplierProduct:
                 item.supplierProduct && item.supplierProduct[0]
-                  ? this.checkForNullString(item.supplierProduct[0])
+                  ? this.checkForNullString(item.supplierProduct[0]) as string
                   : "",
               supplierProductArticle:
                 item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? this.checkForNullString(item.supplierProductArticle[0])
+                  ? this.checkForNullString(item.supplierProductArticle[0]) as string
                   : "",
-              amount: this.parseInteger(item.amount),
+              amount: this.parseInteger(item.amount[0]),
+              invoice_id: incomeDoc.id!.toString() || null,
+              invoiceincomingdate:
+                record.incomingDate && record.incomingDate[0]
+                  ? this.checkForNullString(record.incomingDate[0]) as string
+                  : "",
             };
             // console.log("recordItem.id", recordItem.id);
             await drizzleDb
               .insert(invoice_items)
-              .values({
-                id: recordItem.id,
-                isAdditionalExpense: recordItem.isAdditionalExpense,
-                actualAmount: recordItem.actualAmount,
-                store: recordItem.store,
-                price: recordItem.price,
-                priceWithoutVat: recordItem.priceWithoutVat,
-                priceUnit: recordItem.priceUnit,
-                sum: recordItem.sum,
-                vatPercent: recordItem.vatPercent,
-                vatSum: recordItem.vatSum,
-                discountSum: recordItem.discountSum,
-                amountUnit: recordItem.amountUnit,
-                num: recordItem.num,
-                product: recordItem.product,
-                supplierProduct: recordItem.supplierProduct,
-                productArticle: recordItem.productArticle,
-                amount: recordItem.amount,
-                invoice_id: incomeDoc.id!.toString() || null,
-              })
+              .values(recordItem)
 
               .execute();
           }
@@ -1230,84 +1212,58 @@ export class IikoDictionariesService {
             let recordItem = {
               isAdditionalExpense:
                 item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? this.checkForNullString(item.isAdditionalExpense[0])
-                  : "",
-              actualAmount: this.parseInteger(item.actualAmount),
-              store:
+                  ? this.checkForNullString(item.isAdditionalExpense[0]) as boolean
+                  : false,
+              actualAmount: this.parseInteger(item.actualAmount[0]),
+              storeId:
                 item.store && item.store[0]
-                  ? this.checkForNullString(item.store[0])
+                  ? this.checkForNullString(item.store[0]) as string
                   : "",
-              price: +item.price,
-              priceWithoutVat: +item.priceWithoutVat,
+              price: +item.price[0],
+              priceWithoutVat: +item.priceWithoutVat[0],
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
-                  ? this.checkForNullString(item.priceUnit[0])
+                  ? this.checkForNullString(item.priceUnit[0]) as string
                   : "",
-              sum: +item.sum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
-              discountSum: +item.discountSum,
+              sum: +item.sum[0],
+              vatPercent: +item.vatPercent[0],
+              vatSum: +item.vatSum[0],
+              discountSum: +item.discountSum[0],
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
-                  ? this.checkForNullString(item.amountUnit[0])
+                  ? this.checkForNullString(item.amountUnit[0]) as string
                   : "",
               num:
                 item.num && item.num[0]
-                  ? this.checkForNullString(item.num[0])
+                  ? this.checkForNullString(item.num[0]) as string
                   : "",
-              product:
+              productId:
                 item.product && item.product[0]
-                  ? this.checkForNullString(item.product[0])
+                  ? this.checkForNullString(item.product[0]) as string
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0])
+                  ? this.checkForNullString(item.productArticle[0]) as string
                   : "",
               supplierProduct:
                 item.supplierProduct && item.supplierProduct[0]
-                  ? this.checkForNullString(item.supplierProduct[0])
+                  ? this.checkForNullString(item.supplierProduct[0]) as string
                   : "",
               supplierProductArticle:
                 item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? this.checkForNullString(item.supplierProductArticle[0])
+                  ? this.checkForNullString(item.supplierProductArticle[0]) as string
                   : "",
-              amount: this.parseInteger(item.amount),
+              amount: this.parseInteger(item.amount[0]),
+              invoice_id: incomeDoc.id!.toString() || null,
+              invoiceincomingdate:
+                record.incomingDate && record.incomingDate[0]
+                  ? this.checkForNullString(record.incomingDate[0]) as string
+                  : "",
             };
             // console.log("item", item);
             await drizzleDb
               .insert(invoice_items)
-              .values({
-                isAdditionalExpense: recordItem.isAdditionalExpense as boolean,
-                actualAmount: recordItem.actualAmount,
-                store: recordItem.store ? recordItem.store.toString() : null,
-                price: recordItem.price,
-                priceWithoutVat: recordItem.priceWithoutVat,
-                priceUnit: recordItem.priceUnit
-                  ? recordItem.priceUnit.toString()
-                  : null,
-                sum: recordItem.sum,
-                vatPercent: recordItem.vatPercent,
-                vatSum: recordItem.vatSum,
-                discountSum: recordItem.discountSum,
-                amountUnit: recordItem.amountUnit
-                  ? recordItem.amountUnit.toString()
-                  : null,
-                num: recordItem.num ? recordItem.num.toString() : null,
-                product: recordItem.product
-                  ? recordItem.product.toString()
-                  : null,
-                productArticle: recordItem.productArticle
-                  ? recordItem.productArticle.toString()
-                  : null,
-                supplierProduct: recordItem.supplierProduct
-                  ? recordItem.supplierProduct.toString()
-                  : null,
-                supplierProductArticle: recordItem.supplierProductArticle
-                  ? recordItem.supplierProductArticle.toString()
-                  : null,
-                amount: recordItem.amount,
-                invoice_id: incomeDoc.id!.toString() || null,
-              })
+              .values(recordItem)
               .execute();
           }
           // // .where(eq(record.id, incomeDoc.id));

@@ -27,7 +27,6 @@ export const parseFilterFields = (
             value: t.Any(),
         })
     );
-
     const isUserValid: boolean = Value.Check(filtersType, parsedFilters);
 
     if (!isUserValid) {

@@ -22,6 +22,7 @@ import { workScheduleEntriesController } from "./modules/work_schedule_entries/c
 import { workSchedulesController } from "./modules/work_schedules/controller";
 import { stopListController } from "./modules/stoplist/controller";
 import { usersSroresController } from "./modules/users_stores/controller";
+import { invoicesController } from "./modules/invoices/controller";
 
 export const apiController = new Elysia({
   name: "@api",
@@ -49,4 +50,5 @@ export const apiController = new Elysia({
   .use(workScheduleEntriesController)
   .use(workSchedulesController)
   .use(stopListController)
-  .use(usersSroresController);
+  .use(usersSroresController)
+  .use(invoicesController);

@@ -1104,7 +1104,7 @@ export const invoices = pgTable(
   (table) => {
     return {
       incomingInvoice_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.incomingDate],
         name: "incomingInvoice_pkey",
       }),
     };
@@ -1115,10 +1115,9 @@ export const invoice_items = pgTable(
   "invoice_items",
   {
     id: uuid("id").defaultRandom().notNull(),
-    productId: varchar("productId", { length: 255 }),
+    productId: uuid("productId"),
     isAdditionalExpense: boolean("isAdditionalExpense").default(false),
     actualAmount: integer("actualAmount"),
-    store: varchar("store", { length: 255 }),
     price: integer("price"),
     priceWithoutVat: integer("priceWithoutVat"),
     priceUnit: varchar("priceUnit", { length: 255 }),
@@ -1128,19 +1127,23 @@ export const invoice_items = pgTable(
     discountSum: integer("discountSum"),
     amountUnit: varchar("amountUnit", { length: 255 }),
     num: varchar("num", { length: 255 }),
-    product: varchar("product", { length: 255 }),
     productArticle: varchar("productArticle", { length: 255 }),
     supplierProduct: varchar("supplierProduct", { length: 255 }),
     supplierProductArticle: varchar("supplierProductArticle", { length: 255 }),
     amount: integer("amount"),
     invoice_id: uuid("invoice_id").references(() => invoices.id, {}),
-    storeId: varchar("storeId", { length: 255 }),
+    storeId: uuid("storeId"),
     storeCode: varchar("storeCode", { length: 255 }),
+    invoiceincomingdate: timestamp("invoiceincomingdate", {
+      precision: 5,
+      withTimezone: true,
+      mode: "string",
+    })
   },
   (table) => {
     return {
       incomingInvoiceItems_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.invoiceincomingdate],
         name: "incomingInvoiceItems_pkey",
       }),
     };
