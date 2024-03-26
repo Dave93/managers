@@ -144,6 +144,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="outgoing_invoices.list">
+          <NavigationMenuItem>
+            <Link href="/outgoing_invoices" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Расходная накладная
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
       </NavigationMenuList>
     </NavigationMenu>
   );
