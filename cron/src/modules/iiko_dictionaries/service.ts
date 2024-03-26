@@ -34,12 +34,10 @@ import dayjs from "dayjs";
 import client from "cron/src/redis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
 
-
-
 const cacheControlService = new CacheControlService(drizzleDb, client);
 
 export class IikoDictionariesService {
-  constructor(private readonly redis: Redis) { }
+  constructor(private readonly redis: Redis) {}
 
   async getIikoDictionariesFromIiko() {
     const response = await fetch(
@@ -63,8 +61,8 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
-    // await this.getOutgoingInvoice(token);
+    // await this.getIncomingInvoice(token);
+    await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
@@ -190,17 +188,17 @@ export class IikoDictionariesService {
               : "",
           parentId:
             corporation_departmentTable.parentId &&
-              corporation_departmentTable.parentId[0]
+            corporation_departmentTable.parentId[0]
               ? this.checkForNullString(corporation_departmentTable.parentId[0])
               : "",
           name:
             corporation_departmentTable.name &&
-              corporation_departmentTable.name[0]
+            corporation_departmentTable.name[0]
               ? this.checkForNullString(corporation_departmentTable.name[0])
               : "",
           type:
             corporation_departmentTable.type &&
-              corporation_departmentTable.type[0]
+            corporation_departmentTable.type[0]
               ? this.checkForNullString(corporation_departmentTable.type[0])
               : "",
         };
@@ -267,15 +265,15 @@ export class IikoDictionariesService {
               : "",
           departmentId:
             corporation_groupTable.departmentId &&
-              corporation_groupTable.departmentId[0]
+            corporation_groupTable.departmentId[0]
               ? this.checkForNullString(corporation_groupTable.departmentId[0])
               : "",
           groupServiceMode:
             corporation_groupTable.groupServiceMode &&
-              corporation_groupTable.groupServiceMode[0]
+            corporation_groupTable.groupServiceMode[0]
               ? this.checkForNullString(
-                corporation_groupTable.groupServiceMode[0]
-              )
+                  corporation_groupTable.groupServiceMode[0]
+                )
               : "",
         };
         const existingCorporates = existingCorporationGroups.find(
@@ -820,10 +818,11 @@ export class IikoDictionariesService {
       const docs = result[`${type}InvoiceDtoes`].document;
 
       for (const record of docs) {
+        // console.log("record", record);
         const incomeDoc = {
           id:
             record.id && record.id[0]
-              ? this.checkForNullString(record.id[0])
+              ? (this.checkForNullString(record.id[0]) as string)
               : "",
           documentNumber:
             record.documentNumber && record.documentNumber[0]
@@ -895,27 +894,25 @@ export class IikoDictionariesService {
             })
             .execute();
           for (const item of record.items[0].item) {
-            console.log("item", item);
-            process.exit();
+            // console.log("item", item);
+            // process.exit();
             let recordItem = {
-              id:
-                item.id && item.id[0]
-                  ? this.checkForNullString(item.id[0])
-                  : item.id,
               productId:
                 item.productId && item.productId[0]
-                  ? this.checkForNullString(item.productId[0])
+                  ? (this.checkForNullString(item.productId[0]) as string)
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0])
+                  ? (this.checkForNullString(item.productArticle[0]) as string)
                   : "",
               storeId:
                 item.storeId && item.storeId[0]
-                  ? this.checkForNullString(item.storeId[0])
+                  ? (this.checkForNullString(item.storeId[0]) as string)
                   : "",
               storeCode:
-                item.storeCode && item.storeCode[0] ? item.storeCode[0] : "",
+                item.storeCode && item.storeCode[0]
+                  ? (item.storeCode[0] as string)
+                  : "",
               price: +item.price,
               priceWithoutVat: +item.priceWithoutVat,
               amount: this.parseInteger(item.amount),
@@ -923,11 +920,15 @@ export class IikoDictionariesService {
               discountSum: +item.discountSum,
               vatPercent: +item.vatPercent,
               vatSum: +item.vatSum,
+              invoice_id: incomeDoc.id!.toString() || null,
+              invoiceincomingdate:
+                record.dateIncoming && record.dateIncoming[0]
+                  ? (this.checkForNullString(record.dateIncoming[0]) as string)
+                  : "",
             };
             await drizzleDb
               .insert(invoice_items)
               .values({
-                id: recordItem.id,
                 productId: recordItem.productId,
                 productArticle: recordItem.productArticle,
                 storeId: recordItem.storeId,
@@ -939,26 +940,31 @@ export class IikoDictionariesService {
                 discountSum: recordItem.discountSum,
                 vatPercent: recordItem.vatPercent,
                 vatSum: recordItem.vatSum,
-                invoice_id: incomeDoc.id!.toString() || null,
+                invoice_id: recordItem.invoice_id,
+                invoiceincomingdate: recordItem.invoiceincomingdate,
               })
               .execute();
             // console.log("recordItem", recordItem);
           }
         } else {
-          await drizzleDb.update(invoices).set({
-            documentNumber: incomeDoc.documentNumber?.toString(),
-            incomingDate: incomeDoc.incomingDate?.toString(),
-            useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime as boolean,
-            status: incomeDoc.status?.toString(),
-            accountToCode: incomeDoc.accountToCode?.toString(),
-            revenueAccountCode: incomeDoc.revenueAccountCode?.toString(),
-            defaultStoreId: incomeDoc.defaultStoreId?.toString(),
-            defaultStoreCode: incomeDoc.defaultStoreCode?.toString(),
-            counteragentId: incomeDoc.counteragentId?.toString(),
-            counteragentCode: incomeDoc.counteragentCode?.toString(),
-            linkedIncomingInvoiceId:
-              incomeDoc.linkedIncomingInvoiceId?.toString(),
-          });
+          await drizzleDb
+            .update(invoices)
+            .set({
+              documentNumber: incomeDoc.documentNumber?.toString(),
+              incomingDate: incomeDoc.incomingDate?.toString(),
+              useDefaultDocumentTime:
+                incomeDoc.useDefaultDocumentTime as boolean,
+              status: incomeDoc.status?.toString(),
+              accountToCode: incomeDoc.accountToCode?.toString(),
+              revenueAccountCode: incomeDoc.revenueAccountCode?.toString(),
+              defaultStoreId: incomeDoc.defaultStoreId?.toString(),
+              defaultStoreCode: incomeDoc.defaultStoreCode?.toString(),
+              counteragentId: incomeDoc.counteragentId?.toString(),
+              counteragentCode: incomeDoc.counteragentCode?.toString(),
+              linkedIncomingInvoiceId:
+                incomeDoc.linkedIncomingInvoiceId?.toString(),
+            })
+            .where(eq(invoices.id, incomeDoc.id!));
 
           await drizzleDb
             .delete(invoice_items)
@@ -969,18 +975,20 @@ export class IikoDictionariesService {
             let recordItem = {
               productId:
                 item.productId && item.productId[0]
-                  ? this.checkForNullString(item.productId[0])
+                  ? (this.checkForNullString(item.productId[0]) as string)
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0])
+                  ? (this.checkForNullString(item.productArticle[0]) as string)
                   : "",
               storeId:
                 item.storeId && item.storeId[0]
-                  ? this.checkForNullString(item.storeId[0])
+                  ? (this.checkForNullString(item.storeId[0]) as string)
                   : "",
               storeCode:
-                item.storeCode && item.storeCode[0] ? item.storeCode[0] : "",
+                item.storeCode && item.storeCode[0]
+                  ? (item.storeCode[0] as string)
+                  : "",
               price: +item.price,
               priceWithoutVat: +item.priceWithoutVat,
               amount: this.parseInteger(item.amount),
@@ -988,6 +996,11 @@ export class IikoDictionariesService {
               discountSum: +item.discountSum,
               vatPercent: +item.vatPercent,
               vatSum: +item.vatSum,
+              invoice_id: incomeDoc.id!.toString() || null,
+              invoiceincomingdate:
+                record.dateIncoming && record.dateIncoming[0]
+                  ? (this.checkForNullString(record.dateIncoming[0]) as string)
+                  : "",
             };
             await drizzleDb
               .insert(invoice_items)
@@ -1011,7 +1024,8 @@ export class IikoDictionariesService {
                 discountSum: recordItem.discountSum,
                 vatPercent: recordItem.vatPercent,
                 vatSum: recordItem.vatSum,
-                invoice_id: incomeDoc.id!.toString() || null,
+                invoice_id: recordItem.invoice_id,
+                invoiceincomingdate: recordItem.invoiceincomingdate,
               })
               .execute();
           }
@@ -1057,7 +1071,7 @@ export class IikoDictionariesService {
         const incomeDoc = {
           id:
             record.id && record.id[0]
-              ? this.checkForNullString(record.id[0])
+              ? (this.checkForNullString(record.id[0]) as string)
               : "",
           incomingDocumentNumber:
             record.incomingDocumentNumber && record.incomingDocumentNumber[0]
@@ -1132,18 +1146,20 @@ export class IikoDictionariesService {
             let recordItem = {
               isAdditionalExpense:
                 item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? this.checkForNullString(item.isAdditionalExpense[0]) as boolean
+                  ? (this.checkForNullString(
+                      item.isAdditionalExpense[0]
+                    ) as boolean)
                   : false,
               actualAmount: this.parseInteger(item.actualAmount[0]),
               storeId:
                 item.store && item.store[0]
-                  ? this.checkForNullString(item.store[0]) as string
+                  ? (this.checkForNullString(item.store[0]) as string)
                   : "",
               price: +item.price[0],
               priceWithoutVat: +item.priceWithoutVat[0],
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
-                  ? this.checkForNullString(item.priceUnit[0]) as string
+                  ? (this.checkForNullString(item.priceUnit[0]) as string)
                   : "",
               sum: +item.sum[0],
               vatPercent: +item.vatPercent[0],
@@ -1151,33 +1167,35 @@ export class IikoDictionariesService {
               discountSum: +item.discountSum[0],
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
-                  ? this.checkForNullString(item.amountUnit[0]) as string
+                  ? (this.checkForNullString(item.amountUnit[0]) as string)
                   : "",
               num:
                 item.num && item.num[0]
-                  ? this.checkForNullString(item.num[0]) as string
+                  ? (this.checkForNullString(item.num[0]) as string)
                   : "",
               productId:
                 item.product && item.product[0]
-                  ? this.checkForNullString(item.product[0]) as string
+                  ? (this.checkForNullString(item.product[0]) as string)
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0]) as string
+                  ? (this.checkForNullString(item.productArticle[0]) as string)
                   : "",
               supplierProduct:
                 item.supplierProduct && item.supplierProduct[0]
-                  ? this.checkForNullString(item.supplierProduct[0]) as string
+                  ? (this.checkForNullString(item.supplierProduct[0]) as string)
                   : "",
               supplierProductArticle:
                 item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? this.checkForNullString(item.supplierProductArticle[0]) as string
+                  ? (this.checkForNullString(
+                      item.supplierProductArticle[0]
+                    ) as string)
                   : "",
               amount: this.parseInteger(item.amount[0]),
               invoice_id: incomeDoc.id!.toString() || null,
               invoiceincomingdate:
                 record.incomingDate && record.incomingDate[0]
-                  ? this.checkForNullString(record.incomingDate[0]) as string
+                  ? (this.checkForNullString(record.incomingDate[0]) as string)
                   : "",
             };
             // console.log("recordItem.id", recordItem.id);
@@ -1188,19 +1206,23 @@ export class IikoDictionariesService {
               .execute();
           }
         } else {
-          await drizzleDb.update(invoices).set({
-            incomingDocumentNumber:
-              incomeDoc.incomingDocumentNumber?.toString(),
-            incomingDate: incomeDoc.incomingDate?.toString(),
-            useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime as boolean,
-            dueDate: incomeDoc.dueDate?.toString(),
-            supplier: incomeDoc.supplier?.toString(),
-            defaultStore: incomeDoc.defaultStore?.toString(),
-            invoice: incomeDoc.invoice?.toString(),
-            documentNumber: incomeDoc.documentNumber?.toString(),
-            comment: incomeDoc.comment?.toString(),
-            status: incomeDoc.status?.toString(),
-          });
+          await drizzleDb
+            .update(invoices)
+            .set({
+              incomingDocumentNumber:
+                incomeDoc.incomingDocumentNumber?.toString(),
+              incomingDate: incomeDoc.incomingDate?.toString(),
+              useDefaultDocumentTime:
+                incomeDoc.useDefaultDocumentTime as boolean,
+              dueDate: incomeDoc.dueDate?.toString(),
+              supplier: incomeDoc.supplier?.toString(),
+              defaultStore: incomeDoc.defaultStore?.toString(),
+              invoice: incomeDoc.invoice?.toString(),
+              documentNumber: incomeDoc.documentNumber?.toString(),
+              comment: incomeDoc.comment?.toString(),
+              status: incomeDoc.status?.toString(),
+            })
+            .where(eq(invoices.id, incomeDoc.id!));
 
           await drizzleDb
             .delete(invoice_items)
@@ -1212,18 +1234,20 @@ export class IikoDictionariesService {
             let recordItem = {
               isAdditionalExpense:
                 item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? this.checkForNullString(item.isAdditionalExpense[0]) as boolean
+                  ? (this.checkForNullString(
+                      item.isAdditionalExpense[0]
+                    ) as boolean)
                   : false,
               actualAmount: this.parseInteger(item.actualAmount[0]),
               storeId:
                 item.store && item.store[0]
-                  ? this.checkForNullString(item.store[0]) as string
+                  ? (this.checkForNullString(item.store[0]) as string)
                   : "",
               price: +item.price[0],
               priceWithoutVat: +item.priceWithoutVat[0],
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
-                  ? this.checkForNullString(item.priceUnit[0]) as string
+                  ? (this.checkForNullString(item.priceUnit[0]) as string)
                   : "",
               sum: +item.sum[0],
               vatPercent: +item.vatPercent[0],
@@ -1231,40 +1255,39 @@ export class IikoDictionariesService {
               discountSum: +item.discountSum[0],
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
-                  ? this.checkForNullString(item.amountUnit[0]) as string
+                  ? (this.checkForNullString(item.amountUnit[0]) as string)
                   : "",
               num:
                 item.num && item.num[0]
-                  ? this.checkForNullString(item.num[0]) as string
+                  ? (this.checkForNullString(item.num[0]) as string)
                   : "",
               productId:
                 item.product && item.product[0]
-                  ? this.checkForNullString(item.product[0]) as string
+                  ? (this.checkForNullString(item.product[0]) as string)
                   : "",
               productArticle:
                 item.productArticle && item.productArticle[0]
-                  ? this.checkForNullString(item.productArticle[0]) as string
+                  ? (this.checkForNullString(item.productArticle[0]) as string)
                   : "",
               supplierProduct:
                 item.supplierProduct && item.supplierProduct[0]
-                  ? this.checkForNullString(item.supplierProduct[0]) as string
+                  ? (this.checkForNullString(item.supplierProduct[0]) as string)
                   : "",
               supplierProductArticle:
                 item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? this.checkForNullString(item.supplierProductArticle[0]) as string
+                  ? (this.checkForNullString(
+                      item.supplierProductArticle[0]
+                    ) as string)
                   : "",
               amount: this.parseInteger(item.amount[0]),
               invoice_id: incomeDoc.id!.toString() || null,
               invoiceincomingdate:
                 record.incomingDate && record.incomingDate[0]
-                  ? this.checkForNullString(record.incomingDate[0]) as string
+                  ? (this.checkForNullString(record.incomingDate[0]) as string)
                   : "",
             };
             // console.log("item", item);
-            await drizzleDb
-              .insert(invoice_items)
-              .values(recordItem)
-              .execute();
+            await drizzleDb.insert(invoice_items).values(recordItem).execute();
           }
           // // .where(eq(record.id, incomeDoc.id));
           // // .execute();

@@ -4,7 +4,6 @@ import { IikoDictionariesService } from "./modules/iiko_dictionaries/service";
 import cron from "node-cron";
 import client from "./redis";
 
-
 const terminalService = new TerminalsService(client);
 const iikoDictionariesService = new IikoDictionariesService(client);
 
