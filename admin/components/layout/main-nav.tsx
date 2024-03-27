@@ -148,7 +148,7 @@ export function NavigationMenuDemo() {
           <NavigationMenuItem>
             <Link href="/outgoing_invoices" legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Расходная накладная
+                Со склада
               </NavigationMenuLink>
             </Link>
           </NavigationMenuItem>

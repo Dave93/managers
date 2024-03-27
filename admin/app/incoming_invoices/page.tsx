@@ -14,7 +14,7 @@ export default function ReportsListPage() {
       </div>
       <InvoiceFilters />
       <div className="py-10">
-        <DataTable columns={reportsColumns} />
+        <DataTable />
       </div>
     </div>
   );
