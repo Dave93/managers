@@ -262,8 +262,8 @@ export function DataTable<TData, TValue>({
                     <TableRow>
                       <TableCell colSpan={row.getVisibleCells().length}>
                         <InvoiceItemsTable
-                          invoiceId={row.original.id}
-                          invoiceDate={row.original.incomingDate!}
+                          invoiceId={row.original.id as string}
+                          invoiceDate={row.original.incomingDate! as string}
                         />
                       </TableCell>
                     </TableRow>
