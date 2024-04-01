@@ -171,14 +171,17 @@ export function DataTable<TData, TValue>() {
     if (date && date.from && date.to) {
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
         cols.push(
+          // @ts-ignore
           columnHelper.group({
             id: m.format("YYYY-MM-DD"),
             header: m.format("DD.MM.YYYY"),
             columns: [
+              // @ts-ignore
               columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
                 cell: (info) => info.getValue(),
                 header: () => "Оприходовано",
               }),
+              // @ts-ignore
               columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
                 cell: (info) => info.getValue(),
                 header: () => "Актуально",
