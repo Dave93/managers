@@ -42,7 +42,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsTable } from "./internal_items";
+// import { InvoiceItemsTable } from "./internal_items";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InferSelectModel<typeof internal_transfer>, TValue>[];
@@ -261,10 +261,10 @@ export function DataTable<TData, TValue>({
                   {row.getIsExpanded() && (
                     <TableRow>
                       <TableCell colSpan={row.getVisibleCells().length}>
-                        <InvoiceItemsTable
+                        {/* <InvoiceItemsTable
                           invoiceId={row.original.id}
                           invoiceDate={row.original.dateIncoming!}
-                        />
+                        /> */}
                       </TableCell>
                     </TableRow>
                   )}
