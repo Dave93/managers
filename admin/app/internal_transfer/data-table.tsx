@@ -42,10 +42,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
+import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
 // import { InvoiceItemsTable } from "./internal_items";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof internal_transfer>, TValue>[];
+  columns: ColumnDef<InternalTransferListDto, TValue>[];
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {

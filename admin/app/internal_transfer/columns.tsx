@@ -9,10 +9,9 @@ import {
 } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { Minus, Plus } from "lucide-react";
+import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
 
-export const reportsColumns: ColumnDef<
-  InferSelectModel<typeof internal_transfer>
->[] = [
+export const reportsColumns: ColumnDef<InternalTransferListDto>[] = [
   {
     accessorKey: "id",
     header: () => null,

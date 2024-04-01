@@ -17,6 +17,7 @@ import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
 import { SelectedFields, alias } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 import { drizzle } from "drizzle-orm/postgres-js";
+import { InternalTransferListDto } from "./dto/list.dto";
 
 export const internalTransferOffController = new Elysia({
   name: "@api/internal_transfer",
@@ -80,7 +81,7 @@ export const internalTransferOffController = new Elysia({
       const fromStore = alias(corporation_store, "from_store");
       const toStore = alias(corporation_store, "to_store");
 
-      const internalTransferList = await drizzle
+      const internalTransferList = (await drizzle
         .select({
           id: internal_transfer.id,
           // storeFromId: corporation_store.name,
@@ -107,7 +108,7 @@ export const internalTransferOffController = new Elysia({
         .orderBy(desc(internal_transfer.dateIncoming))
         .limit(+limit)
         .offset(+offset)
-        .execute();
+        .execute()) as InternalTransferListDto[];
       return {
         total: internalTransferCount[0].count,
         data: internalTransferList,
