@@ -33,7 +33,7 @@ export const InternalTransferFilters = () => {
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
 
   const [usersStoresData, setUsersStoresData] = useState<
-    InferSelectModel<typeof internal_transfer>[]
+    InferSelectModel<typeof corporation_store>[]
   >([]);
 
   const token = useToken();
