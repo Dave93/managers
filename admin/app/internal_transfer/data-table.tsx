@@ -154,6 +154,7 @@ export function DataTable<TData, TValue>({
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
+    // @ts-ignore
     columns,
     pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
