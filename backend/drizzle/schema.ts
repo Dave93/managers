@@ -14,9 +14,9 @@ import {
   time,
   primaryKey,
   numeric,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
-import { decimal } from "drizzle-orm/mysql-core";
 
 export const user_status = pgEnum("user_status", [
   "inactive",
@@ -1125,7 +1125,7 @@ export const invoice_items = pgTable(
     vatPercent: integer("vatPercent"),
     vatSum: integer("vatSum"),
     discountSum: integer("discountSum"),
-    amountUnit: varchar("amountUnit", { length: 255 }),
+    amountUnit: uuid("amountUnit").references(() => measure_unit.id, {}),
     num: varchar("num", { length: 255 }),
     productArticle: varchar("productArticle", { length: 255 }),
     supplierProduct: varchar("supplierProduct", { length: 255 }),
@@ -1138,7 +1138,7 @@ export const invoice_items = pgTable(
       precision: 5,
       withTimezone: true,
       mode: "string",
-    })
+    }),
   },
   (table) => {
     return {
@@ -1154,7 +1154,7 @@ export const internal_transfer = pgTable(
   "internal_transfer",
   {
     id: uuid("id").defaultRandom().notNull(),
-    dateIncoming: timestamp("date", {
+    dateIncoming: timestamp("dateIncoming", {
       precision: 5,
       withTimezone: true,
       mode: "string",
@@ -1162,13 +1162,13 @@ export const internal_transfer = pgTable(
     documnentNumber: varchar("documnentNumber", { length: 255 }),
     status: varchar("status", { length: 255 }),
     conceptionId: uuid("conceptionId").references(() => conception.id, {}),
-    storeFromId: varchar("storeFromId", { length: 255 }),
-    storeToId: varchar("storeToId", { length: 255 }),
+    storeFromId: uuid("storeFromId").references(() => corporation_store.id, {}),
+    storeToId: uuid("storeToId").references(() => corporation_store.id, {}),
   },
   (table) => {
     return {
       internal_transfer_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.dateIncoming],
         name: "internal_transfer_pkey",
       }),
     };
@@ -1189,11 +1189,16 @@ export const internal_transfer_items = pgTable(
       {}
     ),
     num: varchar("num", { length: 255 }),
+    internaltransferdate: timestamp("internaltransferdate", {
+      precision: 5,
+      withTimezone: true,
+      mode: "string",
+    }),
   },
   (table) => {
     return {
       internalTransferItems_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.internaltransferdate],
         name: "internalTransferItems_pkey",
       }),
     };
@@ -1203,8 +1208,8 @@ export const internal_transfer_items = pgTable(
 export const writeoff = pgTable(
   "writeoff",
   {
-    id: uuid("id").defaultRandom().notNull(),
-    dateIncoming: timestamp("date", {
+    id: uuid("id").notNull(),
+    dateIncoming: timestamp("dateincoming", {
       precision: 5,
       withTimezone: true,
       mode: "string",
@@ -1218,7 +1223,7 @@ export const writeoff = pgTable(
   (table) => {
     return {
       writeoff_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.dateIncoming],
         name: "writeoff_pkey",
       }),
     };
@@ -1232,16 +1237,21 @@ export const writeoff_items = pgTable(
     productId: uuid("productId").references(() => nomenclature_element.id, {}),
     productSizeId: varchar("productSizeId", { length: 255 }),
     amountFactor: integer("amountFactor"),
-    amount: integer("amount"),
+    amount: decimal("amount", { precision: 10, scale: 4 }),
     measureUnitId: uuid("measureUnitId").references(() => measure_unit.id, {}),
     containerId: varchar("containerId", { length: 255 }),
     cost: integer("cost"),
     writeoff_id: uuid("writeoff_id").references(() => writeoff.id, {}),
+    writeoffincomingdate: timestamp("writeoffincomingdate", {
+      precision: 5,
+      withTimezone: true,
+      mode: "string",
+    }),
   },
   (table) => {
     return {
       writeoffItems_pkey: primaryKey({
-        columns: [table.id],
+        columns: [table.id, table.writeoffincomingdate],
         name: "writeoffItems_pkey",
       }),
     };

@@ -62,9 +62,9 @@ export class IikoDictionariesService {
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
     // await this.getIncomingInvoice(token);
-    await this.getOutgoingInvoice(token);
+    // await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
-    // await this.getWriteOff(token);
+    await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
     // await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
@@ -89,7 +89,7 @@ export class IikoDictionariesService {
   };
 
   parseInteger = (value) => {
-    const intValue = parseInt(value, 10);
+    const intValue = parseFloat(value);
     return isNaN(intValue) ? null : intValue;
   };
 
@@ -485,6 +485,7 @@ export class IikoDictionariesService {
   async getWriteOff(token: string) {
     const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
+    // console.log("token", token);
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/documents/writeoff?key=${token}&dateFrom=${fromDate}&dateTo=${toDate}`,
       {
@@ -492,13 +493,15 @@ export class IikoDictionariesService {
       }
     );
 
+    console.log("davr");
+
     const writeoffs = await response.json();
-    // console.log("writeoffs", writeoffs);
+    console.log("writeoffs", writeoffs);
 
     const existingWriteOffs = await drizzleDb.select().from(writeoff).execute();
 
-    // console.log("started writeoff db inserting");
-    // console.time("writeoff_db_inserting");
+    console.log("started writeoff db inserting");
+    console.time("writeoff_db_inserting");
 
     // console.log("existingWriteOffs", existingWriteOffs);
 
@@ -511,37 +514,49 @@ export class IikoDictionariesService {
       // console.log("write_off", write_off);
 
       if (!existingWriteOff) {
-        await drizzleDb
-          .insert(writeoff)
-          .values({
-            id: write_off.id,
-            dateIncoming: write_off.dateIncoming,
-            documentNumber: write_off.documentNumber,
-            status: write_off.status,
-            conceptionId: write_off.conceptionId,
-            comment: write_off.comment,
-            storeId: write_off.storeId,
-          })
-          .execute();
-        for (const item of write_off.items) {
+        try {
+          console.log("write_off", write_off);
           await drizzleDb
-            .insert(writeoff_items)
+            .insert(writeoff)
             .values({
-              id: item.id,
-              productId: item.productId,
-              productSizeId: item.productSizeId,
-              amountFactor: this.parseInteger(item.amountFactor),
-              amount: this.parseInteger(item.amount),
-              measureUnitId: item.measureUnitId,
-              containerId: item.containerId,
-              cost: this.parseInteger(item.cost),
-              writeoff_id: write_off.id!.toString() || null,
+              id: write_off.id,
+              dateIncoming: write_off.dateIncoming,
+              documentNumber: write_off.documentNumber,
+              status: write_off.status,
+              conceptionId: write_off.conceptionId,
+              comment: write_off.comment,
+              storeId: write_off.storeId,
             })
             .execute();
+        } catch (e) {
+          console.log(e);
+        }
+        for (const item of write_off.items) {
+          try {
+            await drizzleDb
+              .insert(writeoff_items)
+              .values({
+                id: item.id,
+                productId: item.productId,
+                productSizeId: item.productSizeId,
+                amountFactor: this.parseInteger(item.amountFactor),
+                amount: item.amount,
+                measureUnitId: item.measureUnitId,
+                containerId: item.containerId,
+                cost: this.parseInteger(item.cost),
+                writeoff_id: write_off.id!.toString() || null,
+                writeoffincomingdate: write_off.dateIncoming,
+              })
+              .execute();
+          } catch (e) {
+            console.log(e);
+          }
         }
       } else {
         try {
+          console.log("write_off", write_off);
           await drizzleDb
+
             .update(writeoff)
             .set({
               dateIncoming: write_off.dateIncoming,
@@ -560,17 +575,20 @@ export class IikoDictionariesService {
             .execute();
 
           for (const item of write_off.items) {
+            console.log("item", item);
             await drizzleDb
               .insert(writeoff_items)
               .values({
+                id: item.id,
                 productId: item.productId,
                 productSizeId: item.productSizeId,
                 amountFactor: this.parseInteger(item.amountFactor),
-                amount: this.parseInteger(item.amount),
+                amount: item.amount,
                 measureUnitId: item.measureUnitId,
                 containerId: item.containerId,
                 cost: this.parseInteger(item.cost),
                 writeoff_id: write_off.id!.toString() || null,
+                writeoffincomingdate: write_off.dateIncoming,
               })
               // .where(eq(writeoff_items.writeoff_id, write_off.id!.toString()))
               .execute();
@@ -580,8 +598,8 @@ export class IikoDictionariesService {
         }
       }
 
-      // console.timeEnd("writeoff_db_inserting");
-      // console.log("finished writeoff db inserting");
+      console.timeEnd("writeoff_db_inserting");
+      console.log("finished writeoff db inserting");
     }
   }
 
@@ -913,37 +931,21 @@ export class IikoDictionariesService {
                 item.storeCode && item.storeCode[0]
                   ? (item.storeCode[0] as string)
                   : "",
-              price: +item.price,
-              priceWithoutVat: +item.priceWithoutVat,
-              amount: this.parseInteger(item.amount),
-              sum: +item.sum,
-              discountSum: +item.discountSum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
+              price: +item.price[0],
+              priceWithoutVat: +item.priceWithoutVat[0],
+              amount: this.parseInteger(item.amount[0]),
+              sum: +item.sum[0],
+              discountSum: +item.discountSum[0],
+              vatPercent: +item.vatPercent[0],
+              vatSum: +item.vatSum[0],
               invoice_id: incomeDoc.id!.toString() || null,
               invoiceincomingdate:
                 record.dateIncoming && record.dateIncoming[0]
                   ? (this.checkForNullString(record.dateIncoming[0]) as string)
                   : "",
+              // amountUnit: item.amountUnit[0],
             };
-            await drizzleDb
-              .insert(invoice_items)
-              .values({
-                productId: recordItem.productId,
-                productArticle: recordItem.productArticle,
-                storeId: recordItem.storeId,
-                storeCode: recordItem.storeCode,
-                price: recordItem.price,
-                priceWithoutVat: recordItem.priceWithoutVat,
-                amount: recordItem.amount,
-                sum: recordItem.sum,
-                discountSum: recordItem.discountSum,
-                vatPercent: recordItem.vatPercent,
-                vatSum: recordItem.vatSum,
-                invoice_id: recordItem.invoice_id,
-                invoiceincomingdate: recordItem.invoiceincomingdate,
-              })
-              .execute();
+            await drizzleDb.insert(invoice_items).values(recordItem).execute();
             // console.log("recordItem", recordItem);
           }
         } else {
@@ -989,45 +991,21 @@ export class IikoDictionariesService {
                 item.storeCode && item.storeCode[0]
                   ? (item.storeCode[0] as string)
                   : "",
-              price: +item.price,
+              price: +item.price[0],
               priceWithoutVat: +item.priceWithoutVat,
               amount: this.parseInteger(item.amount),
               sum: +item.sum,
-              discountSum: +item.discountSum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
+              discountSum: +item.discountSum[0],
+              vatPercent: +item.vatPercent[0],
+              vatSum: +item.vatSum[0],
               invoice_id: incomeDoc.id!.toString() || null,
               invoiceincomingdate:
                 record.dateIncoming && record.dateIncoming[0]
                   ? (this.checkForNullString(record.dateIncoming[0]) as string)
                   : "",
+              // amountUnit: item.amountUnit[0],
             };
-            await drizzleDb
-              .insert(invoice_items)
-              .values({
-                productId: recordItem.productId
-                  ? recordItem.productId.toString()
-                  : null,
-                productArticle: recordItem.productArticle
-                  ? recordItem.productArticle.toString()
-                  : null,
-                storeId: recordItem.storeId
-                  ? recordItem.storeId.toString()
-                  : null,
-                storeCode: recordItem.storeCode
-                  ? recordItem.storeCode.toString()
-                  : null,
-                price: recordItem.price,
-                priceWithoutVat: recordItem.priceWithoutVat,
-                amount: recordItem.amount,
-                sum: recordItem.sum,
-                discountSum: recordItem.discountSum,
-                vatPercent: recordItem.vatPercent,
-                vatSum: recordItem.vatSum,
-                invoice_id: recordItem.invoice_id,
-                invoiceincomingdate: recordItem.invoiceincomingdate,
-              })
-              .execute();
+            await drizzleDb.insert(invoice_items).values(recordItem).execute();
           }
         }
       }

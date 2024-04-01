@@ -23,6 +23,10 @@ import { workSchedulesController } from "./modules/work_schedules/controller";
 import { stopListController } from "./modules/stoplist/controller";
 import { usersSroresController } from "./modules/users_stores/controller";
 import { invoicesController } from "./modules/invoices/controller";
+import { invoiceItemsController } from "./modules/invoice_items/controller";
+import { writeItemsOffController } from "./modules/writeoff_items/controller";
+import { internalTransferOffController } from "./modules/internal_transfer/controller";
+import { internalTransferItemsController } from "./modules/internal_transfer_items/controller";
 
 export const apiController = new Elysia({
   name: "@api",
@@ -51,4 +55,8 @@ export const apiController = new Elysia({
   .use(workSchedulesController)
   .use(stopListController)
   .use(usersSroresController)
-  .use(invoicesController);
+  .use(invoicesController)
+  .use(invoiceItemsController)
+  .use(writeItemsOffController)
+  .use(internalTransferOffController)
+  .use(internalTransferItemsController);
