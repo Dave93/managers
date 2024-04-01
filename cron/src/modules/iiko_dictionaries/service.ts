@@ -912,8 +912,6 @@ export class IikoDictionariesService {
             })
             .execute();
           for (const item of record.items[0].item) {
-            // console.log("item", item);
-            // process.exit();
             let recordItem = {
               productId:
                 item.productId && item.productId[0]
@@ -1121,7 +1119,12 @@ export class IikoDictionariesService {
             .execute();
 
           for (const item of record.items[0].item) {
+            // console.log("item", item);
             let recordItem = {
+              id:
+                item.id && item.id[0]
+                  ? this.checkForNullString(item.id[0])
+                  : item.id,
               isAdditionalExpense:
                 item.isAdditionalExpense && item.isAdditionalExpense[0]
                   ? (this.checkForNullString(
@@ -1133,16 +1136,17 @@ export class IikoDictionariesService {
                 item.store && item.store[0]
                   ? (this.checkForNullString(item.store[0]) as string)
                   : "",
-              price: +item.price[0],
-              priceWithoutVat: +item.priceWithoutVat[0],
+              actualAmount: this.parseInteger(item.actualAmount),
+              price: +item.price,
+              priceWithoutVat: +item.priceWithoutVat,
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
                   ? (this.checkForNullString(item.priceUnit[0]) as string)
                   : "",
-              sum: +item.sum[0],
-              vatPercent: +item.vatPercent[0],
-              vatSum: +item.vatSum[0],
-              discountSum: +item.discountSum[0],
+              sum: +item.sum,
+              vatPercent: +item.vatPercent,
+              vatSum: +item.vatSum,
+              discountSum: +item.discountSum,
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
                   ? (this.checkForNullString(item.amountUnit[0]) as string)
@@ -1151,7 +1155,7 @@ export class IikoDictionariesService {
                 item.num && item.num[0]
                   ? (this.checkForNullString(item.num[0]) as string)
                   : "",
-              productId:
+              product:
                 item.product && item.product[0]
                   ? (this.checkForNullString(item.product[0]) as string)
                   : "",
@@ -1175,11 +1179,31 @@ export class IikoDictionariesService {
                 record.incomingDate && record.incomingDate[0]
                   ? (this.checkForNullString(record.incomingDate[0]) as string)
                   : "",
+              amount: this.parseInteger(item.amount),
             };
             // console.log("recordItem.id", recordItem.id);
             await drizzleDb
               .insert(invoice_items)
-              .values(recordItem)
+              .values({
+                id: recordItem.id,
+                isAdditionalExpense: recordItem.isAdditionalExpense,
+                actualAmount: recordItem.actualAmount,
+                store: recordItem.store,
+                price: recordItem.price,
+                priceWithoutVat: recordItem.priceWithoutVat,
+                priceUnit: recordItem.priceUnit,
+                sum: recordItem.sum,
+                vatPercent: recordItem.vatPercent,
+                vatSum: recordItem.vatSum,
+                discountSum: recordItem.discountSum,
+                amountUnit: recordItem.amountUnit,
+                num: recordItem.num,
+                product: recordItem.product,
+                supplierProduct: recordItem.supplierProduct,
+                productArticle: recordItem.productArticle,
+                amount: recordItem.amount,
+                invoice_id: incomeDoc.id!.toString() || null,
+              })
 
               .execute();
           }
@@ -1221,16 +1245,21 @@ export class IikoDictionariesService {
                 item.store && item.store[0]
                   ? (this.checkForNullString(item.store[0]) as string)
                   : "",
-              price: +item.price[0],
-              priceWithoutVat: +item.priceWithoutVat[0],
+              actualAmount: this.parseInteger(item.actualAmount),
+              store:
+                item.store && item.store[0]
+                  ? this.checkForNullString(item.store[0])
+                  : "",
+              price: +item.price,
+              priceWithoutVat: +item.priceWithoutVat,
               priceUnit:
                 item.priceUnit && item.priceUnit[0]
                   ? (this.checkForNullString(item.priceUnit[0]) as string)
                   : "",
-              sum: +item.sum[0],
-              vatPercent: +item.vatPercent[0],
-              vatSum: +item.vatSum[0],
-              discountSum: +item.discountSum[0],
+              sum: +item.sum,
+              vatPercent: +item.vatPercent,
+              vatSum: +item.vatSum,
+              discountSum: +item.discountSum,
               amountUnit:
                 item.amountUnit && item.amountUnit[0]
                   ? (this.checkForNullString(item.amountUnit[0]) as string)
@@ -1239,7 +1268,7 @@ export class IikoDictionariesService {
                 item.num && item.num[0]
                   ? (this.checkForNullString(item.num[0]) as string)
                   : "",
-              productId:
+              product:
                 item.product && item.product[0]
                   ? (this.checkForNullString(item.product[0]) as string)
                   : "",
@@ -1263,6 +1292,7 @@ export class IikoDictionariesService {
                 record.incomingDate && record.incomingDate[0]
                   ? (this.checkForNullString(record.incomingDate[0]) as string)
                   : "",
+              amount: this.parseInteger(item.amount),
             };
             // console.log("item", item);
             await drizzleDb.insert(invoice_items).values(recordItem).execute();

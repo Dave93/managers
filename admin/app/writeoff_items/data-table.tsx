@@ -89,7 +89,7 @@ export function DataTable<TData, TValue>() {
 
     if (date?.from) {
       res.push({
-        field: "invoiceincomingdate",
+        field: "writeoffincomingdate",
         operator: "gte",
         value: date.from.toISOString(),
       });
@@ -97,7 +97,7 @@ export function DataTable<TData, TValue>() {
 
     if (date?.to) {
       res.push({
-        field: "invoiceincomingdate",
+        field: "writeoffincomingdate",
         operator: "lte",
         value: date.to.toISOString(),
       });
@@ -105,7 +105,7 @@ export function DataTable<TData, TValue>() {
 
     if (storeId) {
       res.push({
-        field: "storeId",
+        field: "writeoff.storeId",
         operator: "eq",
         value: storeId,
       });
@@ -113,11 +113,11 @@ export function DataTable<TData, TValue>() {
 
     return JSON.stringify(res);
   }, [date, storeId]);
-
+  // console.log("date", date);
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "stoplist",
+      "writeoff",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -125,7 +125,7 @@ export function DataTable<TData, TValue>() {
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.invoices.incoming.get({
+      const { data } = await apiClient.api.writeoff_items.get({
         $query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
@@ -135,6 +135,7 @@ export function DataTable<TData, TValue>() {
           Authorization: `Bearer ${token}`,
         },
       });
+      console.log("data", data);
       return data;
     },
   });
@@ -152,7 +153,7 @@ export function DataTable<TData, TValue>() {
   const columnHelper = createColumnHelper();
 
   const columns = useMemo(() => {
-    let cols = [
+    let cols: ColumnDef<Stoplist, TValue>[] = [
       {
         accessorKey: "name",
         header: "Название",
@@ -170,22 +171,15 @@ export function DataTable<TData, TValue>() {
 
     if (date && date.from && date.to) {
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
-        cols.push(
-          columnHelper.group({
-            id: m.format("YYYY-MM-DD"),
-            header: m.format("DD.MM.YYYY"),
-            columns: [
-              columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
-                cell: (info) => info.getValue(),
-                header: () => "Оприходовано",
-              }),
-              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
-                cell: (info) => info.getValue(),
-                header: () => "Актуально",
-              }),
-            ],
-          })
-        );
+        cols.push({
+          accessorKey: m.format("YYYY_MM_DD"),
+          header: m.format("YYYY-MM-DD"),
+          enablePinning: true,
+          cell: (info) =>
+            info.getValue()
+              ? (Math.round(+info.getValue() * 1000) / 1000).toFixed(3)
+              : "",
+        });
       }
     }
     return cols;

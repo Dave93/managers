@@ -144,6 +144,33 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="outgoing_invoices.list">
+          <NavigationMenuItem>
+            <Link href="/outgoing_invoices" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Со склада
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
+        <CanAccess permission="writeoff_items.list">
+          <NavigationMenuItem>
+            <Link href="/writeoff_items" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Акт Списания
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
+        <CanAccess permission="internal_transfer.list">
+          <NavigationMenuItem>
+            <Link href="/internal_transfer" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Внутренние переводы
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
       </NavigationMenuList>
     </NavigationMenu>
   );

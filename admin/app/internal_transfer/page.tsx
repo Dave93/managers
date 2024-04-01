@@ -1,20 +1,20 @@
 "use client";
-import { Tabs, Tab } from "@nextui-org/tabs";
+
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
-import { InvoiceFilters } from "./invoice_filters";
+import { InternalTransferFilters } from "./internal_filter";
 
-export default function ReportsListPage() {
+export default function OutgoingListPage() {
   return (
     <div>
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
-          Приходная накладная
+          Внутренние переводы
         </h2>
       </div>
-      <InvoiceFilters />
+      <InternalTransferFilters />
       <div className="py-10">
-        <DataTable />
+        <DataTable columns={reportsColumns} />
       </div>
     </div>
   );
