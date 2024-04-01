@@ -25,13 +25,14 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { invoice_items } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
+import { InvoiceItemsListDto } from "@backend/modules/invoice_items/dto/list.dto";
 
 interface DataTableProps<TData, TValue> {
   invoiceId: string;
   invoiceDate: string;
 }
 
-const columns: ColumnDef<InferSelectModel<typeof invoice_items>, any>[] = [
+const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
   {
     accessorKey: "productName",
     header: "Название",
