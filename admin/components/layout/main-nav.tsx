@@ -162,6 +162,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="internal_transfer.list">
+          <NavigationMenuItem>
+            <Link href="/internal_transfer" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Внутренние переводы
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
       </NavigationMenuList>
     </NavigationMenu>
   );
