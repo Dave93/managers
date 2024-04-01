@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Column,
   ColumnDef,
   PaginationState,
   flexRender,
@@ -20,7 +21,7 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { CSSProperties, Fragment, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -47,7 +48,7 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
 }
 
-const getCommonPinningStyles = (column: Column<Person>): CSSProperties => {
+const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   const isPinned = column.getIsPinned();
   const isLastLeftPinnedColumn =
     isPinned === "left" && column.getIsLastColumn("left");
