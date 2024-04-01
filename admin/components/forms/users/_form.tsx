@@ -384,7 +384,7 @@ export default function UsersForm({
   const storeLabelById = useMemo(() => {
     return storesData && Array.isArray(storesData)
       ? storesData.reduce((acc, item) => {
-          acc[item.id] = item.name;
+          acc[item.id] = item.name!;
           return acc;
         }, {} as { [key: string]: string })
       : {};
@@ -407,7 +407,7 @@ export default function UsersForm({
       Array.isArray(userStoresData.data)
     ) {
       setChangedStoreId(
-        new Set(userStoresData.data.map((item) => item.corporation_store_id))
+        new Set(userStoresData.data.map((item) => item.corporation_store_id!))
       );
     }
   }, [userTerminalsData, userStoresData]);
