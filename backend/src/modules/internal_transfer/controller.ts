@@ -54,12 +54,13 @@ export const internalTransferOffController = new Elysia({
           nomenclature_element,
         });
       }
-      let whereClause: (SQLWrapper | undefined)[] = [];
 
+      const fromStore = alias(corporation_store, "from_store");
+      const toStore = alias(corporation_store, "to_store");
+
+      let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         let filtersArray = JSON.parse(filters);
-
-        console.log("filtersArray", filtersArray);
 
         const storeIdFilter = filtersArray.find(
           (filter: any) => filter.field === "storeId"
@@ -69,6 +70,12 @@ export const internalTransferOffController = new Elysia({
             data: [],
           };
         }
+        if (storeIdFilter) {
+          // Пример добавления фильтра по полю storeId
+          whereClause.push(
+            eq(internal_transfer.storeFromId, storeIdFilter.value)
+          );
+        }
       }
 
       const internalTransferCount = await drizzle
@@ -77,9 +84,6 @@ export const internalTransferOffController = new Elysia({
 
         .where(and(...whereClause))
         .execute();
-
-      const fromStore = alias(corporation_store, "from_store");
-      const toStore = alias(corporation_store, "to_store");
 
       const internalTransferList = (await drizzle
         .select({

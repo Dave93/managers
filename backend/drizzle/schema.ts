@@ -1180,7 +1180,7 @@ export const internal_transfer_items = pgTable(
   {
     id: uuid("id").defaultRandom().notNull(),
     productId: uuid("productId").references(() => nomenclature_element.id, {}),
-    amount: integer("amount"),
+    amount: decimal("amount", { precision: 10, scale: 4 }),
     measureUnitId: uuid("measureUnitId").references(() => measure_unit.id, {}),
     containerId: varchar("containerId", { length: 255 }),
     cost: integer("cost"),
