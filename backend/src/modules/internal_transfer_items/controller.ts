@@ -14,6 +14,7 @@ import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
+import { InternalTransferItemsListDto } from "./dto/list.dto";
 
 export const internalTransferItemsController = new Elysia({
   name: "@api/internal_transfer_items",
@@ -61,7 +62,7 @@ export const internalTransferItemsController = new Elysia({
         });
       }
 
-      const internalTransferItems = await drizzle
+      const internalTransferItems = (await drizzle
         .select({
           id: internal_transfer_items.id,
           productId: internal_transfer_items.productId,
@@ -83,7 +84,7 @@ export const internalTransferItemsController = new Elysia({
         )
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
-        .execute();
+        .execute()) as InternalTransferItemsListDto[];
       console.log("internalTransferItems", internalTransferItems);
       return {
         data: internalTransferItems,
