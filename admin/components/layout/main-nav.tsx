@@ -94,7 +94,7 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/incoming_invoices",
   },
   {
-    title: "Со склада",
+    title: "Расходная накладная",
     href: "/outgoing_invoices",
   },
   {
@@ -102,12 +102,12 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/writeoff_items",
   },
   {
-    title: "Приход",
+    title: "Внутреннее перемещение (Приход)",
     href: "/internal_transfer",
   },
   {
-    title: "Расход",
-    href: "/admin/organization/terminals",
+    title: "Внутреннее перемещение (Расход)",
+    href: "/expenses_transfer",
   },
 ];
 

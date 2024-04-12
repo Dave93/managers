@@ -8,7 +8,15 @@ import { Button } from "@admin/components/ui/button";
 import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
-import { format } from "date-fns";
+import {
+  addDays,
+  startOfWeek,
+  startOfMonth,
+  endOfWeek,
+  endOfMonth,
+  format,
+  subDays,
+} from "date-fns";
 import { Select, SelectItem } from "@nextui-org/select";
 import { useEffect, useState } from "react";
 import { InferSelectModel } from "drizzle-orm";
@@ -19,6 +27,14 @@ import {
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
+import {
+  Select as ShadncUISelect,
+  SelectItem as ShadncUISelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+} from "@admin/components/ui/select";
 
 export const StoplistFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -104,6 +120,54 @@ export const StoplistFilters = () => {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
+          <ShadncUISelect
+            onValueChange={(value) => {
+              const today = new Date();
+              switch (value) {
+                case "-1": // Yesterday
+                  setDate({ from: subDays(today, 1), to: subDays(today, 1) });
+                  break;
+                case "0": // Today
+                  setDate({ from: today, to: today });
+                  break;
+                case "lastWeek": // Last week
+                  const startOfLastWeek = startOfWeek(subDays(today, 7), {
+                    weekStartsOn: 1,
+                  });
+                  setDate({
+                    from: startOfLastWeek,
+                    to: endOfWeek(startOfLastWeek, { weekStartsOn: 1 }),
+                  });
+                  break;
+                case "lastMonth": // Last month
+                  const startOfLastMonth = startOfMonth(
+                    subDays(today, today.getDate())
+                  );
+                  setDate({
+                    from: startOfLastMonth,
+                    to: endOfMonth(startOfLastMonth),
+                  });
+                  break;
+                default:
+                  console.log("Unknown selection");
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <ShadncUISelectItem value="-1">Вчера</ShadncUISelectItem>
+              <ShadncUISelectItem value="0">Сегодня</ShadncUISelectItem>
+              <ShadncUISelectItem value="lastWeek">
+                За прошлую неделю
+              </ShadncUISelectItem>
+              <ShadncUISelectItem value="lastMonth">
+                За прошлый месяц
+              </ShadncUISelectItem>
+            </SelectContent>
+          </ShadncUISelect>
+
           <Calendar
             initialFocus
             mode="range"
@@ -114,6 +178,7 @@ export const StoplistFilters = () => {
           />
         </PopoverContent>
       </Popover>
+
       <Select
         labelPlacement="inside"
         label="Статус"

@@ -86,7 +86,8 @@ export function InternalItemsTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters: encodeURIComponent(JSON.stringify(filters)),
-          fields: "id,amount,productId,internaltransferdate,productName",
+          fields:
+            "id,amount,productId,internaltransferdate,productName,measureUnitId",
         },
         $headers: {
           Authorization: `Bearer ${token}`,
