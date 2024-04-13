@@ -23,22 +23,22 @@ import { useEffect, useMemo, useState } from "react";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
-import { invoice_items } from "backend/drizzle/schema";
+import { internal_transfer_items } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsListDto } from "@backend/modules/invoice_items/dto/list.dto";
+import { InternalTransferItemsListDto } from "@backend/modules/internal_transfer_items/dto/list.dto";
 
 interface DataTableProps<TData, TValue> {
   invoiceId: string;
   invoiceDate: string;
 }
 
-const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
+const columns: ColumnDef<InternalTransferItemsListDto, any>[] = [
   {
     accessorKey: "productName",
     header: "Название",
   },
   {
-    accessorKey: "unit",
+    accessorKey: "measureUnitId",
     header: "Единица измерения",
   },
   {
@@ -47,7 +47,7 @@ const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
   },
 ];
 
-export function InvoiceItemsTable<TData, TValue>({
+export function InternalItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
@@ -59,12 +59,12 @@ export function InvoiceItemsTable<TData, TValue>({
 
   const filters = [
     {
-      field: "invoice_id",
+      field: "internal_transfer_id",
       operator: "eq",
       value: invoiceId,
     },
     {
-      field: "invoiceincomingdate",
+      field: "internaltransferdate",
       operator: "eq",
       value: invoiceDate,
     },
@@ -73,7 +73,7 @@ export function InvoiceItemsTable<TData, TValue>({
   const { data, isLoading } = useQuery({
     enabled: !!token,
     queryKey: [
-      "invoice_items",
+      "internal_items",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -81,13 +81,13 @@ export function InvoiceItemsTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.invoice_items.get({
+      const { data } = await apiClient.api.internal_transfer_items.get({
         $query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters: encodeURIComponent(JSON.stringify(filters)),
           fields:
-            "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
+            "id,amount,productId,internaltransferdate,productName,measureUnitId",
         },
         $headers: {
           Authorization: `Bearer ${token}`,

@@ -1,8 +1,11 @@
+// "use client";
 import "./globals.css";
+import React from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import MainLayout from "@admin/components/layout/main-layout";
 import SessionLocalProvider from "@admin/store/session-provider";
+import { NextUIProviders } from "@admin/components/layout/providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -19,9 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <SessionLocalProvider>
-          <MainLayout>{children}</MainLayout>
-        </SessionLocalProvider>
+        <NextUIProviders>
+          <SessionLocalProvider>
+            <MainLayout>{children}</MainLayout>
+          </SessionLocalProvider>
+        </NextUIProviders>
       </body>
     </html>
   );

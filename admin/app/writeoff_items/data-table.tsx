@@ -74,6 +74,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
+  const productType = useStoplistFilterStore((state) => state.productType);
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -84,7 +85,7 @@ export function DataTable<TData, TValue>() {
     let res: {
       field: string;
       operator: string;
-      value: string;
+      value: string | string[];
     }[] = [];
 
     if (date?.from) {
@@ -111,8 +112,16 @@ export function DataTable<TData, TValue>() {
       });
     }
 
+    if (productType) {
+      res.push({
+        field: "nomenclature_element.type",
+        operator: "in",
+        value: productType.split("/"),
+      });
+    }
+
     return JSON.stringify(res);
-  }, [date, storeId]);
+  }, [date, storeId, productType]);
   // console.log("date", date);
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
@@ -135,7 +144,7 @@ export function DataTable<TData, TValue>() {
           Authorization: `Bearer ${token}`,
         },
       });
-      console.log("data", data);
+      // console.log("data", data);
       return data;
     },
   });

@@ -8,8 +8,23 @@ import { Button } from "@admin/components/ui/button";
 import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
-import { format } from "date-fns";
-import { Select, SelectItem } from "@nextui-org/select";
+import {
+  addDays,
+  startOfWeek,
+  startOfMonth,
+  endOfWeek,
+  endOfMonth,
+  format,
+  subDays,
+} from "date-fns";
+import {
+  Select,
+  SelectItem,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+  SelectGroup,
+} from "@admin/components/ui/select";
 import { useEffect, useState } from "react";
 import { InferSelectModel } from "drizzle-orm";
 import {
@@ -81,6 +96,50 @@ export const InternalTransferFilters = () => {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
+          <Select
+            onValueChange={(value) => {
+              const today = new Date();
+              switch (value) {
+                case "-1": // Yesterday
+                  setDate({ from: subDays(today, 1), to: subDays(today, 1) });
+                  break;
+                case "0": // Today
+                  setDate({ from: today, to: today });
+                  break;
+                case "lastWeek": // Last week
+                  const startOfLastWeek = startOfWeek(subDays(today, 7), {
+                    weekStartsOn: 1,
+                  });
+                  setDate({
+                    from: startOfLastWeek,
+                    to: endOfWeek(startOfLastWeek, { weekStartsOn: 1 }),
+                  });
+                  break;
+                case "lastMonth": // Last month
+                  const startOfLastMonth = startOfMonth(
+                    subDays(today, today.getDate())
+                  );
+                  setDate({
+                    from: startOfLastMonth,
+                    to: endOfMonth(startOfLastMonth),
+                  });
+                  break;
+                default:
+                  console.log("Unknown selection");
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value="-1">Вчера</SelectItem>
+              <SelectItem value="0">Сегодня</SelectItem>
+              <SelectItem value="lastWeek">За прошлую неделю</SelectItem>
+              <SelectItem value="lastMonth">За прошлый месяц</SelectItem>
+            </SelectContent>
+          </Select>
+
           <Calendar
             initialFocus
             mode="range"
@@ -93,18 +152,22 @@ export const InternalTransferFilters = () => {
       </Popover>
 
       <Select
-        labelPlacement="inside"
-        label="Склады"
-        className="max-w-xs"
-        onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-          setStoreId(e.target.value);
+        onValueChange={(value) => {
+          setStoreId(value);
         }}
       >
-        {usersStoresData.map((item) => (
-          <SelectItem key={item.id} value={item.id}>
-            {item.name}
-          </SelectItem>
-        ))}
+        <SelectTrigger className="max-w-xs">
+          <SelectValue placeholder="Склады" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {usersStoresData.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
       </Select>
     </div>
   );

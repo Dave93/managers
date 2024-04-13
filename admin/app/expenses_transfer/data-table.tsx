@@ -40,12 +40,13 @@ import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
-import { invoices } from "@backend/../drizzle/schema";
+import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsTable } from "./invoice_items";
+import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
+import { InternalItemsTable } from "./internal_items";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
+  columns: ColumnDef<InternalTransferListDto, TValue>[];
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
@@ -74,6 +75,9 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
+  const documentNumber = useStoplistFilterStore(
+    (state) => state.documentNumber
+  );
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -89,7 +93,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.from) {
       res.push({
-        field: "incomingDate",
+        field: "dateIncoming",
         operator: "gte",
         value: date.from.toISOString(),
       });
@@ -97,7 +101,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.to) {
       res.push({
-        field: "incomingDate",
+        field: "dateIncoming",
         operator: "lte",
         value: date.to.toISOString(),
       });
@@ -105,21 +109,29 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "defaultStoreId",
+        field: "storeFromId",
         operator: "eq",
         value: storeId,
       });
     }
 
-    return JSON.stringify(res);
-  }, [date, storeId]);
+    if (documentNumber) {
+      res.push({
+        field: "documentnumber",
+        operator: "eq",
+        value: documentNumber,
+      });
+    }
 
-  console.log("filters", filters);
+    return JSON.stringify(res);
+  }, [date, storeId, documentNumber]);
+
+  // console.log("filters", filters);
 
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "outgoing_invoices",
+      "internal_transfer",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -127,12 +139,12 @@ export function DataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.invoices.outgoing.get({
+      const { data } = await apiClient.api.internal_transfer.get({
         $query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-          fields: "id,documentNumber,incomingDate",
+          fields: "id,fromStoreName,toStoreName, documentNumber",
         },
         $headers: {
           Authorization: `Bearer ${token}`,
@@ -261,9 +273,9 @@ export function DataTable<TData, TValue>({
                   {row.getIsExpanded() && (
                     <TableRow>
                       <TableCell colSpan={row.getVisibleCells().length}>
-                        <InvoiceItemsTable
-                          invoiceId={row.original.id as string}
-                          invoiceDate={row.original.incomingDate! as string}
+                        <InternalItemsTable
+                          invoiceId={row.original.id}
+                          invoiceDate={row.original.dateIncoming!}
                         />
                       </TableCell>
                     </TableRow>

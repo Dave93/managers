@@ -43,7 +43,7 @@ import { useStoplistFilterStore } from "./filters_store";
 import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
-// import { InvoiceItemsTable } from "./internal_items";
+import { InternalItemsTable } from "./internal_items";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InternalTransferListDto, TValue>[];
@@ -75,6 +75,9 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
+  const documentNumber = useStoplistFilterStore(
+    (state) => state.documentNumber
+  );
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -106,9 +109,16 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "storeId",
+        field: "storeToId",
         operator: "eq",
         value: storeId,
+      });
+    }
+    if (documentNumber) {
+      res.push({
+        field: "documentNumber",
+        operator: "eq",
+        value: documentNumber,
       });
     }
 
@@ -133,7 +143,7 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-          fields: "id,fromStoreName,toStoreName",
+          fields: "id,fromStoreName,toStoreName,invoiceincomingdate",
         },
         $headers: {
           Authorization: `Bearer ${token}`,
@@ -173,6 +183,7 @@ export function DataTable<TData, TValue>({
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
+  // console.log("table", table);
 
   useEffect(() => {
     table.setColumnPinning({
@@ -262,10 +273,10 @@ export function DataTable<TData, TValue>({
                   {row.getIsExpanded() && (
                     <TableRow>
                       <TableCell colSpan={row.getVisibleCells().length}>
-                        {/* <InvoiceItemsTable
+                        <InternalItemsTable
                           invoiceId={row.original.id}
                           invoiceDate={row.original.dateIncoming!}
-                        /> */}
+                        />
                       </TableCell>
                     </TableRow>
                   )}

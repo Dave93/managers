@@ -13,7 +13,23 @@ import {
   NavigationMenuTrigger,
   navigationMenuTriggerStyle,
 } from "@components/ui/navigation-menu";
+
+import {
+  Navbar,
+  NavbarBrand,
+  NavbarContent,
+  NavbarItem,
+  NavbarMenuToggle,
+  NavbarMenu,
+  NavbarMenuItem,
+  Dropdown,
+  DropdownMenu,
+  DropdownTrigger,
+  DropdownItem,
+  Select,
+} from "@nextui-org/react";
 import CanAccess from "../can-access";
+import { ArrowDown, ChevronDown } from "lucide-react";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -72,23 +88,61 @@ const settingsMenu: { title: string; href: string }[] = [
   },
 ];
 
+const storeMenu: { title: string; href: string }[] = [
+  {
+    title: "Приходная накладная",
+    href: "/incoming_invoices",
+  },
+  {
+    title: "Расходная накладная",
+    href: "/outgoing_invoices",
+  },
+  {
+    title: "Акт Списания",
+    href: "/writeoff_items",
+  },
+  {
+    title: "Внутреннее перемещение (Приход)",
+    href: "/internal_transfer",
+  },
+  {
+    title: "Внутреннее перемещение (Расход)",
+    href: "/expenses_transfer",
+  },
+];
+
 export function NavigationMenuDemo() {
   return (
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <NavigationMenuTrigger>Настройки</NavigationMenuTrigger>
-          <NavigationMenuContent>
-            <ul className="grid w-[400px] gap-3 p-4 md:w-[500px] md:grid-cols-2 lg:w-[600px] ">
-              {settingsMenu.map((component) => (
-                <ListItem
-                  key={component.title}
-                  title={component.title}
-                  href={component.href}
-                />
-              ))}
-            </ul>
-          </NavigationMenuContent>
+          <Navbar>
+            <Dropdown>
+              <NavbarItem className="cursor-pointer">
+                <DropdownTrigger>
+                  <div className="flex items-center">
+                    Настройки
+                    <ChevronDown className="ml-2" size={18} />
+                  </div>
+                </DropdownTrigger>
+              </NavbarItem>
+              <DropdownMenu
+                aria-label="ACME features"
+                className="w-[340px]"
+                itemClasses={{
+                  base: "gap-4",
+                }}
+              >
+                {settingsMenu.map((component) => (
+                  <DropdownItem
+                    key={component.title}
+                    title={component.title}
+                    href={component.href}
+                  />
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </Navbar>
         </NavigationMenuItem>
         <CanAccess permission="organizations.list">
           <NavigationMenuItem>
@@ -135,42 +189,35 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
-        <CanAccess permission="incoming_invoices.list">
-          <NavigationMenuItem>
-            <Link href="/incoming_invoices" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Приходная накладная
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-        </CanAccess>
-        <CanAccess permission="outgoing_invoices.list">
-          <NavigationMenuItem>
-            <Link href="/outgoing_invoices" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Со склада
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-        </CanAccess>
-        <CanAccess permission="writeoff_items.list">
-          <NavigationMenuItem>
-            <Link href="/writeoff_items" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Акт Списания
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-        </CanAccess>
-        <CanAccess permission="internal_transfer.list">
-          <NavigationMenuItem>
-            <Link href="/internal_transfer" legacyBehavior passHref>
-              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
-                Внутренние переводы
-              </NavigationMenuLink>
-            </Link>
-          </NavigationMenuItem>
-        </CanAccess>
+        <NavigationMenuItem>
+          <Navbar>
+            <Dropdown>
+              <NavbarItem className="cursor-pointer">
+                <DropdownTrigger>
+                  <div className="flex items-center">
+                    Отчеты
+                    <ChevronDown className="ml-2" size={18} />
+                  </div>
+                </DropdownTrigger>
+              </NavbarItem>
+              <DropdownMenu
+                aria-label="ACME features"
+                className="w-[340px]"
+                itemClasses={{
+                  base: "gap-4",
+                }}
+              >
+                {storeMenu.map((component) => (
+                  <DropdownItem
+                    key={component.title}
+                    title={component.title}
+                    href={component.href}
+                  />
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </Navbar>
+        </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
   );

@@ -10,22 +10,13 @@ import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
   addDays,
+  subDays,
   startOfWeek,
   startOfMonth,
   endOfWeek,
   endOfMonth,
   format,
-  subDays,
 } from "date-fns";
-// import { Select, SelectItem } from "@nextui-org/select";
-import { useEffect, useState } from "react";
-import { InferSelectModel } from "drizzle-orm";
-import {
-  corporation_store,
-  organization,
-  terminals,
-  users_stores,
-} from "@backend/../drizzle/schema";
 import {
   Select,
   SelectItem,
@@ -34,21 +25,27 @@ import {
   SelectValue,
   SelectGroup,
 } from "@admin/components/ui/select";
+import { useEffect, useState } from "react";
+import { InferSelectModel } from "drizzle-orm";
+import {
+  corporation_store,
+  organization,
+  terminals,
+  users_stores,
+  internal_transfer,
+  internal_transfer_items,
+} from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import useToken from "@admin/store/get-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
-import React from "react";
 
-export const WriteoffFilters = () => {
+export const InternalTransferFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
-  const setProductType = useStoplistFilterStore(
-    (state) => state.setProductType
-  );
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
@@ -169,21 +166,6 @@ export const WriteoffFilters = () => {
                 {item.name}
               </SelectItem>
             ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <Select onValueChange={(value) => setProductType(value)}>
-        <SelectTrigger className="max-w-xs">
-          <SelectValue placeholder="Тип товара" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectGroup>
-            <SelectItem key="GOODS" value="GOODS/PREPARED">
-              Товары
-            </SelectItem>
-            <SelectItem key="DISH" value="DISH">
-              Блюда
-            </SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

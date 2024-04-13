@@ -2,17 +2,15 @@
 
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
-import { OutgoingFilters } from "./outgoing_filter";
+import { InternalTransferFilters } from "./internal_filter";
 
 export default function OutgoingListPage() {
   return (
     <div>
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Расходная накладная
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Расходная товаров</h2>
       </div>
-      <OutgoingFilters />
+      <InternalTransferFilters />
       <div className="py-10">
         <DataTable columns={reportsColumns} />
       </div>
