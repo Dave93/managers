@@ -75,12 +75,14 @@ export const writeItemsOffController = new Elysia({
           (filter: any) =>
             filter.field === "writeoffincomingdate" && filter.operator === "lte"
         );
+
         if (toDateFilter) {
           toDate = dayjs(toDateFilter.value);
         }
 
         whereClause = parseFilterFields(filters, writeoff_items, {
           writeoff,
+          nomenclature_element,
         });
       }
       const writeoffItems = await drizzle

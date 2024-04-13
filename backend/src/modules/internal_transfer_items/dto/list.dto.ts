@@ -5,6 +5,6 @@ export type InternalTransferItemsListDto = InferSelectModel<
   typeof internal_transfer_items
 > & {
   productName: string;
-  unit: string;
+  measureUnitId: string;
   productArticle: string;
 };
