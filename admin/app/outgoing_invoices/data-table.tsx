@@ -241,7 +241,10 @@ export function DataTable<TData, TValue>({
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <Fragment key={row.id}>
-                  <TableRow data-state={row.getIsSelected() && "selected"}>
+                  <TableRow
+                    data-state={row.getIsSelected() && "selected"}
+                    className="text-black"
+                  >
                     {row.getVisibleCells().map((cell) => {
                       const { column } = cell;
                       return (
@@ -259,7 +262,7 @@ export function DataTable<TData, TValue>({
                     })}
                   </TableRow>
                   {row.getIsExpanded() && (
-                    <TableRow>
+                    <TableRow className="text-black">
                       <TableCell colSpan={row.getVisibleCells().length}>
                         <InvoiceItemsTable
                           invoiceId={row.original.id as string}

@@ -119,7 +119,7 @@ export function DataTable<TData, TValue>() {
         value: productType.split("/"),
       });
     }
-
+    // console.log(date);
     return JSON.stringify(res);
   }, [date, storeId, productType]);
   // console.log("date", date);
@@ -284,6 +284,7 @@ export function DataTable<TData, TValue>() {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="text-black"
                 >
                   {row.getVisibleCells().map((cell) => {
                     const { column } = cell;

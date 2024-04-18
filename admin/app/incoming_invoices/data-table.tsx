@@ -113,11 +113,11 @@ export function DataTable<TData, TValue>() {
 
     return JSON.stringify(res);
   }, [date, storeId]);
-
+  // console.log("filters", date);
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "stoplist",
+      "incoming_invoices",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -232,7 +232,7 @@ export function DataTable<TData, TValue>() {
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-black bg-white"
+                      className="text-center border border-r-2 border-black bg-white text"
                       style={{ ...getCommonPinningStyles(column) }}
                     >
                       {header.isPlaceholder
@@ -283,6 +283,7 @@ export function DataTable<TData, TValue>() {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="text-black"
                 >
                   {row.getVisibleCells().map((cell) => {
                     const { column } = cell;
