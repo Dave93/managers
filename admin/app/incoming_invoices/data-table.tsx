@@ -91,7 +91,7 @@ export function DataTable<TData, TValue>() {
       res.push({
         field: "invoiceincomingdate",
         operator: "gte",
-        value: date.from.toISOString(),
+        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -99,7 +99,7 @@ export function DataTable<TData, TValue>() {
       res.push({
         field: "invoiceincomingdate",
         operator: "lte",
-        value: date.to.toISOString(),
+        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -167,7 +167,6 @@ export function DataTable<TData, TValue>() {
         header: "Единица измерения",
       },
     ];
-
     if (date && date.from && date.to) {
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
         cols.push(
@@ -192,6 +191,7 @@ export function DataTable<TData, TValue>() {
       }
     }
     return cols;
+    console.log("cols", cols);
   }, [date]);
 
   const table = useReactTable({

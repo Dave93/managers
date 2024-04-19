@@ -16,6 +16,9 @@ import {
   endOfMonth,
   format,
   subDays,
+  startOfDay,
+  endOfDay,
+  subHours,
 } from "date-fns";
 import {
   Select,
@@ -101,13 +104,19 @@ export const InternalTransferFilters = () => {
               const today = new Date();
               switch (value) {
                 case "-1": // Yesterday
-                  setDate({ from: subDays(today, 1), to: subDays(today, 1) });
+                  setDate({
+                    from: subHours(startOfDay(today), 24),
+                    to: subHours(endOfDay(today), 24),
+                  });
                   break;
                 case "0": // Today
-                  setDate({ from: today, to: today });
+                  setDate({
+                    from: startOfDay(today),
+                    to: endOfDay(today),
+                  });
                   break;
                 case "lastWeek": // Last week
-                  const startOfLastWeek = startOfWeek(subDays(today, 7), {
+                  const startOfLastWeek = startOfWeek(subHours(today, 7 * 24), {
                     weekStartsOn: 1,
                   });
                   setDate({

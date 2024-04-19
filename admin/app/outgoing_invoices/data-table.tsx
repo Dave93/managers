@@ -43,6 +43,7 @@ import { useStoplistFilterStore } from "./filters_store";
 import { invoices } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { InvoiceItemsTable } from "./invoice_items";
+import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
@@ -91,7 +92,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "incomingDate",
         operator: "gte",
-        value: date.from.toISOString(),
+        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -99,7 +100,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "incomingDate",
         operator: "lte",
-        value: date.to.toISOString(),
+        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
 

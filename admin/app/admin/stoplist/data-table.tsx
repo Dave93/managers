@@ -42,6 +42,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
+import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
@@ -73,7 +74,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "dateAdd",
         operator: "gte",
-        value: date.from.toISOString(),
+        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -81,7 +82,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "dateAdd",
         operator: "lte",
-        value: date.to.toISOString(),
+        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
 
