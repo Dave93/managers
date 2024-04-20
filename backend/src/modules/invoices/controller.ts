@@ -2,7 +2,6 @@ import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
-  corporation_store,
   invoice_items,
   invoices,
   measure_unit,
@@ -203,20 +202,14 @@ export const invoicesController = new Elysia({
       }
       let selectFields: SelectedFields = {};
       if (fields) {
-        selectFields = parseSelectFields(fields, invoices, {
-          invoices,
-          invoice_items,
-          measure_unit,
-          nomenclature_element,
-          corporation_store,
-        });
+        selectFields = parseSelectFields(fields, invoices, {});
       }
       let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "defaultStoreId"
+          (filter: any) => filter.field === "storeId"
         );
         if (!storeIdFilter) {
           return {
@@ -224,18 +217,10 @@ export const invoicesController = new Elysia({
           };
         }
 
-        whereClause = parseFilterFields(filters, invoices, {
-          invoices,
-          invoice_items,
-          measure_unit,
-          nomenclature_element,
-          corporation_store,
-        });
+        whereClause = parseFilterFields(filters, invoices, {});
 
         whereClause.push(eq(invoices.type, "outgoing"));
       }
-
-      console.log("invoices.type", invoices.type);
 
       const invoicesCount = await drizzle
         .select({ count: sql<number>`count(*)` })
@@ -246,10 +231,6 @@ export const invoicesController = new Elysia({
       const invoicesList = await drizzle
         .select(selectFields)
         .from(invoices)
-        .leftJoin(
-          corporation_store,
-          eq(invoices.defaultStore, corporation_store.id)
-        )
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)

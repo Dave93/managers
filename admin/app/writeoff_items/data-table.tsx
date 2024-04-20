@@ -92,7 +92,7 @@ export function DataTable<TData, TValue>() {
       res.push({
         field: "writeoffincomingdate",
         operator: "gte",
-        value: date.from.toISOString(),
+        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -100,7 +100,7 @@ export function DataTable<TData, TValue>() {
       res.push({
         field: "writeoffincomingdate",
         operator: "lte",
-        value: date.to.toISOString(),
+        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -119,7 +119,7 @@ export function DataTable<TData, TValue>() {
         value: productType.split("/"),
       });
     }
-
+    // console.log(date);
     return JSON.stringify(res);
   }, [date, storeId, productType]);
   // console.log("date", date);
@@ -284,6 +284,7 @@ export function DataTable<TData, TValue>() {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className="text-black"
                 >
                   {row.getVisibleCells().map((cell) => {
                     const { column } = cell;

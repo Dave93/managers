@@ -44,6 +44,7 @@ import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
 import { InternalItemsTable } from "./internal_items";
+import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InternalTransferListDto, TValue>[];
@@ -95,7 +96,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "dateIncoming",
         operator: "gte",
-        value: date.from.toISOString(),
+        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -103,7 +104,7 @@ export function DataTable<TData, TValue>({
       res.push({
         field: "dateIncoming",
         operator: "lte",
-        value: date.to.toISOString(),
+        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
 
@@ -253,7 +254,10 @@ export function DataTable<TData, TValue>({
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <Fragment key={row.id}>
-                  <TableRow data-state={row.getIsSelected() && "selected"}>
+                  <TableRow
+                    data-state={row.getIsSelected() && "selected"}
+                    className="text-black"
+                  >
                     {row.getVisibleCells().map((cell) => {
                       const { column } = cell;
                       return (
@@ -271,7 +275,7 @@ export function DataTable<TData, TValue>({
                     })}
                   </TableRow>
                   {row.getIsExpanded() && (
-                    <TableRow>
+                    <TableRow className="text-black">
                       <TableCell colSpan={row.getVisibleCells().length}>
                         <InternalItemsTable
                           invoiceId={row.original.id}
