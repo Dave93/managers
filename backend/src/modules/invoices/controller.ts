@@ -12,7 +12,7 @@ import {
 import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
-import Elysia, { t } from "elysia";
+import { Elysia, t } from "elysia";
 
 export const invoicesController = new Elysia({
   name: "@api/invoices",
