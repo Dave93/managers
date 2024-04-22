@@ -62,7 +62,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
         queryKey: ["report_status_cached"],
         queryFn: async () => {
           const { data } = await apiClient.api.reports_status.cached.get({
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -79,7 +79,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
         }) => {
           return apiClient.api.reports[newTodo.id].put({
             data: newTodo.data,
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });

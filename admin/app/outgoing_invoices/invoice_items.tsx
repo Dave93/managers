@@ -82,14 +82,14 @@ export function InvoiceItemsTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.invoice_items.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters: encodeURIComponent(JSON.stringify(filters)),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

@@ -39,6 +39,7 @@ import {
   SelectValue,
   SelectGroup,
 } from "@admin/components/ui/select";
+import { treaty } from "@elysiajs/eden";
 
 export const StoplistFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -73,7 +74,7 @@ export const StoplistFilters = () => {
 
   const loadData = async () => {
     const { data } = await apiClient.api.terminals.cached.get({
-      $headers: {
+      headers: {
         Authorization: "Bearer " + token,
       },
     });
@@ -83,7 +84,7 @@ export const StoplistFilters = () => {
     }
 
     const { data: dataOrg } = await apiClient.api.organization.cached.get({
-      $headers: {
+      headers: {
         Authorization: "Bearer " + token,
       },
     });

@@ -3,6 +3,7 @@ import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import dayjs from "dayjs";
 import { apiClient } from "@admin/utils/eden";
+import { treaty } from "@elysiajs/eden";
 
 const authOptions: AuthOptions = {
   debug: true,
@@ -37,7 +38,6 @@ const authOptions: AuthOptions = {
             } else {
               return null;
             }
-
           } catch (error) {
             return null;
           }

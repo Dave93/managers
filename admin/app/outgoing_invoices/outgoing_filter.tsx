@@ -52,7 +52,7 @@ export const OutgoingFilters = () => {
   const token = useToken();
   const loadData = async () => {
     const { data } = await apiClient.api.users_stores.cached.get({
-      $headers: {
+      headers: {
         Authorization: `Bearer ${token}`,
       },
     });
