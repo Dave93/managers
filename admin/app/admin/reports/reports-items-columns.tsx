@@ -65,9 +65,10 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
           };
           id: string;
         }) => {
+          // @ts-ignore
           return apiClient.api.reports_items[newTodo.id].put({
             data: newTodo.data,
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });

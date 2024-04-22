@@ -140,13 +140,13 @@ export function DataTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.internal_transfer.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
           fields: "id,fromStoreName,toStoreName,invoiceincomingdate",
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

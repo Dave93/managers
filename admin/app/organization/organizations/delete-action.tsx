@@ -8,8 +8,9 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
   const token = useToken();
   const createMutation = useMutation({
     mutationFn: () => {
+      // @ts-ignore
       return apiClient.api.organization[recordId].delete({
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

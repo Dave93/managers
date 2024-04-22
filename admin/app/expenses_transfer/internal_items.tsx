@@ -82,14 +82,14 @@ export function InternalItemsTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.internal_transfer_items.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters: encodeURIComponent(JSON.stringify(filters)),
           fields:
             "id,amount,productId,internaltransferdate,productName,measureUnitId",
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

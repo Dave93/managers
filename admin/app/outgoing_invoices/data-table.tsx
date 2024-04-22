@@ -129,13 +129,13 @@ export function DataTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.invoices.outgoing.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
           fields: "id,documentNumber,incomingDate",
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

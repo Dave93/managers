@@ -51,7 +51,7 @@ export function RolesPermissionsDataTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.roles_permissions.get({
-        $query: {
+        query: {
           limit: "1000",
           offset: "0",
           fields:
@@ -64,7 +64,7 @@ export function RolesPermissionsDataTable<TData, TValue>({
             },
           ]),
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

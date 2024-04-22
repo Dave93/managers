@@ -147,7 +147,8 @@ export default function ReportsPage(params: paramsProps) {
     }) => {
       return apiClient.api.reports.post({
         ...newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -179,7 +180,8 @@ export default function ReportsPage(params: paramsProps) {
         terminal_id: terminalId,
         date: id,
         time: selectedTime,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

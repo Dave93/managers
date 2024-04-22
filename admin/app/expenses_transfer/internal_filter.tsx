@@ -55,12 +55,12 @@ export const InternalTransferFilters = () => {
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
-  >([] as InferSelectModel<typeof corporation_store>[]);
+  >([]);
 
   const token = useToken();
   const loadData = async () => {
     const { data } = await apiClient.api.users_stores.cached.get({
-      $headers: {
+      headers: {
         Authorization: `Bearer ${token}`,
       },
     });
