@@ -72,7 +72,7 @@ export default function RolePermissionsForm({
         ],
         queryFn: async () => {
           const { data } = await apiClient.api.roles_permissions.get({
-            $query: {
+            query: {
               limit: "1000",
               offset: "0",
               fields:
@@ -85,7 +85,7 @@ export default function RolePermissionsForm({
                 },
               ]),
             },
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -104,12 +104,12 @@ export default function RolePermissionsForm({
         ],
         queryFn: async () => {
           const { data } = await apiClient.api.permissions.get({
-            $query: {
+            query: {
               limit: "1000",
               offset: "0",
               fields: "id,slug,description,active",
             },
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -130,7 +130,7 @@ export default function RolePermissionsForm({
       return apiClient.api.roles_permissions.assign_permissions.post({
         role_id,
         permissions_ids,
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

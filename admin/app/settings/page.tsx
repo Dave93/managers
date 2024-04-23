@@ -43,7 +43,7 @@ export default function ConfigsPage() {
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.settings.get({
-        $query: {
+        query: {
           limit: "100",
           offset: "0",
           fields: "id,key,value",
@@ -57,7 +57,7 @@ export default function ConfigsPage() {
             ])
           ),
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -67,11 +67,12 @@ export default function ConfigsPage() {
 
   const createMutation = useMutation({
     mutationFn: (newTodo: { key: string; value: string }) => {
+      // @ts-ignore
       return apiClient.api.settings[newTodo.key].post({
         data: {
           value: newTodo.value,
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

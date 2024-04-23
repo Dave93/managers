@@ -32,11 +32,12 @@ export default function Page() {
 
   const createMutation = useMutation({
     mutationFn: (newTodo: { key: string; value: string }) => {
+      // @ts-ignore
       return apiClient.api.settings[newTodo.key].post({
         data: {
           value: newTodo.value,
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

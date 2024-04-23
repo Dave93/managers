@@ -66,12 +66,12 @@ export function DataTable<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.users.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,login,status,first_name,last_name",
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

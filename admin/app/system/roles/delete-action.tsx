@@ -9,7 +9,7 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
   const createMutation = useMutation({
     mutationFn: () => {
       return apiClient.api.roles[recordId].delete({
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
