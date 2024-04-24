@@ -56,7 +56,8 @@ export default function TerminalsForm({
     }) => {
       return apiClient.api.terminals.post({
         data: newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -79,9 +80,10 @@ export default function TerminalsForm({
       };
       id: string;
     }) => {
+      // @ts-ignore
       return apiClient.api.terminals[newTodo.id].put({
         data: newTodo.data,
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -121,8 +123,9 @@ export default function TerminalsForm({
     queryKey: ["one_terminal", recordId],
     queryFn: () => {
       if (recordId) {
+        // @ts-ignore
         return apiClient.api.terminals[recordId].get({
-          $headers: {
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });

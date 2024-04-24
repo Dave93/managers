@@ -23,7 +23,7 @@ export default function ManagerReportPage() {
         queryFn: async () => {
           const { data } = await apiClient.api.users_terminals.my_terminals.get(
             {
-              $headers: {
+              headers: {
                 Authorization: `Bearer ${token}`,
               },
             }
@@ -37,7 +37,7 @@ export default function ManagerReportPage() {
         queryKey: ["reports_status"],
         queryFn: async () => {
           const { data } = await apiClient.api.reports_status.cached.get({
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });

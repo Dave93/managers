@@ -363,33 +363,39 @@ export const reportsController = new Elysia({
           expressReportResult,
           arrytReportResult,
         ] = await Promise.allSettled([
+          // @ts-ignore
           merchantApiClient.api.click.post({
             date,
             serviceIds: clickServiceIds.split(","),
             time,
           }),
+          // @ts-ignore
           merchantApiClient.api.payme.post({
             date,
             businessId: paymeBusinessId,
             serviceIds: paymeMerchantIds.split(","),
             time,
           }),
+          // @ts-ignore
           merchantApiClient.api.iiko.post({
             date,
             terminal_id: iikoId,
           }),
+          // @ts-ignore
           merchantApiClient.api.yandex.post({
             date,
             organization_code: organization!.code!,
             serviceIds: yandexRestaurantIds.split(","),
             time,
           }),
+          // @ts-ignore
           merchantApiClient.api.express.post({
             date,
             terminal_id,
             time,
             organization_code: organization!.code!,
           }),
+          // @ts-ignore
           merchantApiClient.api.arryt.post({
             date,
             terminal_id,
@@ -612,33 +618,39 @@ export const reportsController = new Elysia({
             expressReportResult,
             arrytReportResult,
           ] = await Promise.allSettled([
+            // @ts-ignore
             merchantApiClient.api.click.post({
               date,
               serviceIds: clickServiceIds.split(","),
               time,
             }),
+            // @ts-ignore
             merchantApiClient.api.payme.post({
               date,
               businessId: paymeBusinessId,
               serviceIds: paymeMerchantIds.split(","),
               time,
             }),
+            // @ts-ignore
             merchantApiClient.api.iiko.post({
               date,
               terminal_id: iikoId,
             }),
+            // @ts-ignore
             merchantApiClient.api.yandex.post({
               date,
               organization_code: organization!.code!,
               serviceIds: yandexRestaurantIds.split(","),
               time,
             }),
+            // @ts-ignore
             merchantApiClient.api.express.post({
               date,
               terminal_id,
               time,
               organization_code: organization!.code!,
             }),
+            // @ts-ignore
             merchantApiClient.api.arryt.post({
               date,
               terminal_id,
@@ -1101,29 +1113,35 @@ export const reportsController = new Elysia({
         expressReportResult,
         arrytReportResult,
       ] = await Promise.allSettled([
+        // @ts-ignore
         merchantApiClient.api.click.post({
           date,
           serviceIds: clickServiceIds.split(","),
         }),
+        // @ts-ignore
         merchantApiClient.api.payme.post({
           date,
           businessId: paymeBusinessId,
           serviceIds: paymeMerchantIds.split(","),
         }),
+        // @ts-ignore
         merchantApiClient.api.iiko.post({
           date,
           terminal_id: iikoId,
         }),
+        // @ts-ignore
         merchantApiClient.api.yandex.post({
           date,
           organization_code: organization!.code!,
           serviceIds: yandexRestaurantIds.split(","),
         }),
+        // @ts-ignore
         merchantApiClient.api.express.post({
           date,
           terminal_id,
           organization_code: organization!.code!,
         }),
+        // @ts-ignore
         merchantApiClient.api.arryt.post({
           date,
           terminal_id,

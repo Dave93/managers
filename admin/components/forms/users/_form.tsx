@@ -66,7 +66,8 @@ export default function UsersForm({
           "first_name",
           "last_name",
         ],
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -80,6 +81,7 @@ export default function UsersForm({
       data: InferInsertModel<typeof users>;
       id: string;
     }) => {
+      // @ts-ignore
       return apiClient.api.users[newTodo.id].put({
         data: newTodo.data,
         fields: [
@@ -90,7 +92,8 @@ export default function UsersForm({
           "first_name",
           "last_name",
         ],
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -103,7 +106,8 @@ export default function UsersForm({
     mutationFn: (newTodo: { role_id: string; user_id: string }) => {
       return apiClient.api.users.assign_role.post({
         ...newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -118,7 +122,8 @@ export default function UsersForm({
     }) => {
       return apiClient.api.users_stores.assign_stores.post({
         data: { ...newTodo },
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -131,7 +136,8 @@ export default function UsersForm({
     mutationFn: (newTodo: { terminal_id: string[]; user_id: string }) => {
       return apiClient.api.users.assign_terminal.post({
         ...newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -152,8 +158,10 @@ export default function UsersForm({
         queryKey: ["one_user", recordId],
         queryFn: async () => {
           if (recordId) {
+            // @ts-ignore
             const { data } = await apiClient.api.users[recordId].get({
-              $headers: {
+              // @ts-ignore
+              headers: {
                 Authorization: `Bearer ${token}`,
               },
             });
@@ -169,7 +177,7 @@ export default function UsersForm({
         queryKey: ["roles_cached"],
         queryFn: async () => {
           const { data } = await apiClient.api.roles.cached.get({
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -182,7 +190,7 @@ export default function UsersForm({
         queryFn: async () => {
           if (recordId) {
             const { data } = await apiClient.api.users_roles.get({
-              $query: {
+              query: {
                 limit: "30",
                 offset: "0",
                 filters: JSON.stringify([
@@ -194,7 +202,7 @@ export default function UsersForm({
                 ]),
                 fields: "role_id,user_id",
               },
-              $headers: {
+              headers: {
                 Authorization: `Bearer ${token}`,
               },
             });
@@ -209,7 +217,7 @@ export default function UsersForm({
         queryKey: ["terminals_cached"],
         queryFn: async () => {
           const { data } = await apiClient.api.terminals.cached.get({
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -222,7 +230,7 @@ export default function UsersForm({
         queryFn: async () => {
           if (recordId) {
             const { data } = await apiClient.api.users_terminals.get({
-              $query: {
+              query: {
                 limit: "30",
                 offset: "0",
                 filters: JSON.stringify([
@@ -234,7 +242,7 @@ export default function UsersForm({
                 ]),
                 fields: "terminal_id,user_id",
               },
-              $headers: {
+              headers: {
                 Authorization: `Bearer ${token}`,
               },
             });
@@ -249,7 +257,7 @@ export default function UsersForm({
         queryKey: ["users_stores_cached"],
         queryFn: async () => {
           const { data } = await apiClient.api.users_stores.cached.get({
-            $headers: {
+            headers: {
               Authorization: `Bearer ${token}`,
             },
           });
@@ -262,7 +270,7 @@ export default function UsersForm({
         queryFn: async () => {
           if (recordId) {
             const { data } = await apiClient.api.users_stores.get({
-              $query: {
+              query: {
                 limit: "30",
                 offset: "0",
                 filters: JSON.stringify([
@@ -274,7 +282,7 @@ export default function UsersForm({
                 ]),
                 fields: "corporation_store_id,user_id",
               },
-              $headers: {
+              headers: {
                 Authorization: `Bearer ${token}`,
               },
             });

@@ -47,7 +47,8 @@ export default function RolesForm({
     mutationFn: (newTodo: InferInsertModel<typeof roles>) => {
       return apiClient.api.roles.post({
         data: newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -61,9 +62,10 @@ export default function RolesForm({
       data: InferInsertModel<typeof roles>;
       id: string;
     }) => {
+      // @ts-ignore
       return apiClient.api.roles[newTodo.id].put({
         data: newTodo.data,
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -95,8 +97,9 @@ export default function RolesForm({
     queryKey: ["one_role", recordId],
     queryFn: () => {
       if (recordId) {
+        // @ts-ignore
         return apiClient.api.roles[recordId].get({
-          $headers: {
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });

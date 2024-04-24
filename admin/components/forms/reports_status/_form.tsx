@@ -65,7 +65,8 @@ export default function ReportsStatusForm({
     mutationFn: (newTodo: InferInsertModel<typeof reports_status>) => {
       return apiClient.api.reports_status.post({
         data: newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -79,9 +80,10 @@ export default function ReportsStatusForm({
       data: InferInsertModel<typeof reports_status>;
       id: string;
     }) => {
+      // @ts-ignore
       return apiClient.api.reports_status[newTodo.id].put({
         data: newTodo.data,
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -109,8 +111,9 @@ export default function ReportsStatusForm({
     queryKey: ["one_reports_status", recordId],
     queryFn: () => {
       if (recordId) {
+        // @ts-ignore
         return apiClient.api.reports_status[recordId].get({
-          $headers: {
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });

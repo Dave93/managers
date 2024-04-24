@@ -53,7 +53,8 @@ export default function CredentialsAddForm({
     mutationFn: (newTodo: InferInsertModel<typeof credentials>) => {
       return apiClient.api.credentials.post({
         data: newTodo,
-        $headers: {
+        // @ts-ignore
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -67,9 +68,10 @@ export default function CredentialsAddForm({
       data: InferInsertModel<typeof credentials>;
       id: string;
     }) => {
+      //@ts-ignore
       return apiClient.api.credentials[newTodo.id].put({
         data: newTodo.data,
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
@@ -105,8 +107,8 @@ export default function CredentialsAddForm({
     queryKey: ["one_credential", credentialId],
     queryFn: () => {
       if (credentialId) {
-        return apiClient.api.credentials[credentialId].get({
-          $headers: {
+        return apiClient.api.credentials({ id: credentialId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });
