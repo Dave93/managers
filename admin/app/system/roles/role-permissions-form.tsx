@@ -130,7 +130,6 @@ export default function RolePermissionsForm({
       return apiClient.api.roles_permissions.assign_permissions.post({
         role_id,
         permissions_ids,
-        // @ts-ignore
         headers: {
           Authorization: `Bearer ${token}`,
         },

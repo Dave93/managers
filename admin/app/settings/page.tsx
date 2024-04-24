@@ -43,7 +43,6 @@ export default function ConfigsPage() {
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.settings.get({
-        // @ts-ignore
         query: {
           limit: "100",
           offset: "0",

@@ -55,7 +55,7 @@ export const InternalTransferFilters = () => {
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
-  >([]);
+  >([] as InferSelectModel<typeof corporation_store>[]);
 
   const token = useToken();
   const loadData = async () => {
