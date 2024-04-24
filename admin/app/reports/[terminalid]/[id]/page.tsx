@@ -145,12 +145,16 @@ export default function ReportsPage(params: paramsProps) {
         label: string;
       }[];
     }) => {
-      return apiClient.api.reports.post({
-        ...newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.reports.post(
+        {
+          ...newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onSuccessReport(),
     onError: onErrorReport,
@@ -175,14 +179,18 @@ export default function ReportsPage(params: paramsProps) {
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.reports.by_date.post({
-        terminal_id: terminalId,
-        date: id,
-        time: selectedTime,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      const { data } = await apiClient.api.reports.by_date.post(
+        {
+          terminal_id: terminalId,
+          date: id,
+          time: selectedTime,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
       return data;
     },
     refetchOnWindowFocus: false,

@@ -65,12 +65,16 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
           };
           id: string;
         }) => {
-          return apiClient.api.reports_items[newTodo.id].put({
-            data: newTodo.data,
-            $headers: {
-              Authorization: `Bearer ${token}`,
+          return apiClient.api.reports_items({ id: newTodo.id }).put(
+            {
+              data: newTodo.data,
             },
-          });
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
         },
         onSuccess: () => {
           setValue(value);

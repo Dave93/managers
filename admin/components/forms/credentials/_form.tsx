@@ -51,12 +51,16 @@ export default function CredentialsAddForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof credentials>) => {
-      return apiClient.api.credentials.post({
-        data: newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.credentials.post(
+        {
+          data: newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -67,12 +71,16 @@ export default function CredentialsAddForm({
       data: InferInsertModel<typeof credentials>;
       id: string;
     }) => {
-      return apiClient.api.credentials[newTodo.id].put({
-        data: newTodo.data,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.credentials({ id: newTodo.id }).put(
+        {
+          data: newTodo.data,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -105,8 +113,8 @@ export default function CredentialsAddForm({
     queryKey: ["one_credential", credentialId],
     queryFn: () => {
       if (credentialId) {
-        return apiClient.api.credentials[credentialId].get({
-          $headers: {
+        return apiClient.api.credentials({ id: credentialId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });
@@ -131,7 +139,7 @@ export default function CredentialsAddForm({
   }, [record, form]);
 
   return (
-    <form.Provider>
+    <div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -185,6 +193,6 @@ export default function CredentialsAddForm({
           Submit
         </Button>
       </form>
-    </form.Provider>
+    </div>
   );
 }

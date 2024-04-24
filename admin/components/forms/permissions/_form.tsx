@@ -9,7 +9,7 @@ import {
   FormMessage,
 } from "@components/ui/form";
 import { Switch } from "@components/ui/switch";
-
+import ReactDOM from "react-dom/client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTransition, useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
@@ -63,12 +63,16 @@ export default function PermissionsForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof permissions>) => {
-      return apiClient.api.permissions.post({
-        data: newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.permissions.post(
+        {
+          data: newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -79,12 +83,16 @@ export default function PermissionsForm({
       data: InferInsertModel<typeof permissions>;
       id: string;
     }) => {
-      return apiClient.api.permissions[newTodo.id].put({
-        data: newTodo.data,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.permissions({ id: newTodo.id }).put(
+        {
+          data: newTodo.data,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -109,8 +117,8 @@ export default function PermissionsForm({
     queryKey: ["one_permission", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.permissions[recordId].get({
-          $headers: {
+        return apiClient.api.permissions({ id: recordId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });
@@ -134,7 +142,7 @@ export default function PermissionsForm({
   }, [record]);
 
   return (
-    <form.Provider>
+    <div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -205,6 +213,6 @@ export default function PermissionsForm({
           Submit
         </Button>
       </form>
-    </form.Provider>
+    </div>
   );
 }

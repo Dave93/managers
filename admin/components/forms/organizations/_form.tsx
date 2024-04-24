@@ -49,12 +49,16 @@ export default function OrganizationsForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof organization>) => {
-      return apiClient.api.organization.post({
-        data: newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.organization.post(
+        {
+          data: newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -65,12 +69,16 @@ export default function OrganizationsForm({
       data: InferInsertModel<typeof organization>;
       id: string;
     }) => {
-      return apiClient.api.organization[newTodo.id].put({
-        data: newTodo.data,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.organization({ id: newTodo.id }).put(
+        {
+          data: newTodo.data,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -97,8 +105,8 @@ export default function OrganizationsForm({
     queryKey: ["one_organization", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.organization[recordId].get({
-          $headers: {
+        return apiClient.api.organization({ id: recordId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });

@@ -79,7 +79,7 @@ export function CredentialsList<TData, TValue>({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.credentials.get({
-        $query: {
+        query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,key,type",
@@ -96,7 +96,7 @@ export function CredentialsList<TData, TValue>({
             },
           ]),
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });

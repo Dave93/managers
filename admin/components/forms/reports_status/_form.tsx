@@ -63,12 +63,16 @@ export default function ReportsStatusForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof reports_status>) => {
-      return apiClient.api.reports_status.post({
-        data: newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.reports_status.post(
+        {
+          data: newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -79,12 +83,16 @@ export default function ReportsStatusForm({
       data: InferInsertModel<typeof reports_status>;
       id: string;
     }) => {
-      return apiClient.api.reports_status[newTodo.id].put({
-        data: newTodo.data,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.reports_status({ id: newTodo.id }).put(
+        {
+          data: newTodo.data,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -109,8 +117,8 @@ export default function ReportsStatusForm({
     queryKey: ["one_reports_status", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.reports_status[recordId].get({
-          $headers: {
+        return apiClient.api.reports_status({ id: recordId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });
@@ -134,7 +142,7 @@ export default function ReportsStatusForm({
   }, [record]);
 
   return (
-    <form.Provider>
+    <div>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -208,6 +216,6 @@ export default function ReportsStatusForm({
           Submit
         </Button>
       </form>
-    </form.Provider>
+    </div>
   );
 }

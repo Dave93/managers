@@ -77,12 +77,16 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
           };
           id: string;
         }) => {
-          return apiClient.api.reports[newTodo.id].put({
-            data: newTodo.data,
-            headers: {
-              Authorization: `Bearer ${token}`,
+          return apiClient.api.reports({ id: newTodo.id }).put(
+            {
+              data: newTodo.data,
             },
-          });
+            {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
         },
         onSuccess: () => {
           setIsEditing(false);

@@ -45,12 +45,16 @@ export default function RolesForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof roles>) => {
-      return apiClient.api.roles.post({
-        data: newTodo,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.roles.post(
+        {
+          data: newTodo,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -61,12 +65,16 @@ export default function RolesForm({
       data: InferInsertModel<typeof roles>;
       id: string;
     }) => {
-      return apiClient.api.roles[newTodo.id].put({
-        data: newTodo.data,
-        $headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.roles({ id: newTodo.id }).put(
+        {
+          data: newTodo.data,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -95,8 +103,8 @@ export default function RolesForm({
     queryKey: ["one_role", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.roles[recordId].get({
-          $headers: {
+        return apiClient.api.roles({ id: recordId }).get({
+          headers: {
             Authorization: `Bearer ${token}`,
           },
         });

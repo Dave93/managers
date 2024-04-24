@@ -127,13 +127,17 @@ export default function RolePermissionsForm({
       role_id: string;
       permissions_ids: string[];
     }) => {
-      return apiClient.api.roles_permissions.assign_permissions.post({
-        role_id,
-        permissions_ids,
-        headers: {
-          Authorization: `Bearer ${token}`,
+      return apiClient.api.roles_permissions.assign_permissions.post(
+        {
+          role_id,
+          permissions_ids,
         },
-      });
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

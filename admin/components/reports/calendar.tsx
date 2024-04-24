@@ -46,7 +46,7 @@ export function CalendarReport({
     ],
     queryFn: async () => {
       const { data } = await apiClient.api.reports.my_reports.get({
-        $query: {
+        query: {
           terminal_id: terminalId,
           fields:
             "id,date,terminal_id,cash_ids,total_amount,total_manager_price,difference,arryt_income,reports_status.code,reports_status.color,reports_status.id,reports_status.label",
@@ -63,7 +63,7 @@ export function CalendarReport({
             },
           ]),
         },
-        $headers: {
+        headers: {
           Authorization: `Bearer ${token}`,
         },
       });
