@@ -80,7 +80,7 @@ export const invoiceItemsController = new Elysia({
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
         .execute()) as InvoiceItemsListDto[];
-      console.log("invoiceItems", invoiceItems);
+      // console.log("invoiceItems", invoiceItems);
       return {
         data: invoiceItems,
       };

@@ -63,8 +63,8 @@ export class IikoDictionariesService {
     // await this.getNomenclatureElements(token);
     // await this.getIncomingInvoice(token);
     // await this.getOutgoingInvoice(token);
-    // await this.getInternalTransfer(token);
-    await this.getWriteOff(token);
+    await this.getInternalTransfer(token);
+    // await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
     // await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
@@ -703,6 +703,7 @@ export class IikoDictionariesService {
     // console.log("response", response);
     // console.log("body", await response.json());
     const internalTransfers = await response.json();
+    // console.log("internalTransfers before", internalTransfers.response);
 
     const existingInternalTransfers = await drizzleDb
       .select()
@@ -712,82 +713,33 @@ export class IikoDictionariesService {
     console.log("started invoice db inserting");
     console.time("invoice_db_inserting");
 
-    // console.log("internalTransfers", internalTransfers);
+    console.log("internalTransfers after", internalTransfers);
     for (const internalTransfer of internalTransfers.response) {
+      console.log("internalTransfer", internalTransfer);
       const existingInternalTransfer = existingInternalTransfers.find(
         (existingInternalTransfer) =>
           existingInternalTransfer.id === internalTransfer.id
       );
-      // console.log("existingInternalTransfer", existingInternalTransfer);
-
-      // console.log("internalTransfer", internalTransfer);
 
       if (!existingInternalTransfer) {
-        // console.log("internalTransfer", internalTransfer);
-
-        await drizzleDb
-          .insert(internal_transfer)
-          .values({
-            id: internalTransfer.id,
-            dateIncoming: internalTransfer.dateIncoming,
-            documnentNumber: internalTransfer.documnentNumber,
-            status: internalTransfer.status,
-            conceptionId: internalTransfer.conceptionId,
-            storeFromId: internalTransfer.storeFromId,
-            storeToId: internalTransfer.storeToId,
-          })
-          .execute();
-
-        for (const item of internalTransfer.items) {
-          await drizzleDb
-            .insert(internal_transfer_items)
-            .values({
-              id: item.id,
-              productId: item.productId,
-              amount: this.parseInteger(item.amount),
-              measureUnitId: item.measureUnitId,
-              containerId: item.containerId,
-              cost: this.parseInteger(item.cost),
-              internal_transfer_id: internalTransfer.id!.toString() || null,
-              num: item.num,
-            })
-            .execute();
-        }
-      } else {
-        await drizzleDb
-          .update(internal_transfer)
-          .set({
-            dateIncoming: internalTransfer.dateIncoming,
-            documnentNumber: internalTransfer.documnentNumber,
-            status: internalTransfer.status,
-            conceptionId: internalTransfer.conceptionId,
-            storeFromId: internalTransfer.storeFromId,
-            storeToId: internalTransfer.storeToId,
-          })
-          .where(eq(internal_transfer.id, internalTransfer.id))
-          .execute();
-        // console.log("internalTransfer", internalTransfer.items[0]);
         try {
           await drizzleDb
-            .delete(internal_transfer_items)
-            .where(
-              eq(
-                internal_transfer_items.internal_transfer_id,
-                internalTransfer.id
-              )
-            )
+            .insert(internal_transfer)
+            .values({
+              id: internalTransfer.id,
+              dateIncoming: internalTransfer.dateIncoming,
+              documentNumber: internalTransfer.documentNumber,
+              status: internalTransfer.status,
+              conceptionId: internalTransfer.conceptionId,
+              storeFromId: internalTransfer.storeFromId,
+              storeToId: internalTransfer.storeToId,
+            })
             .execute();
-          for (const item of internalTransfer.items) {
-            console.log("item", {
-              id: item.id,
-              productId: item.productId,
-              amount: this.parseInteger(item.amount),
-              measureUnitId: item.measureUnitId,
-              containerId: item.containerId,
-              cost: this.parseInteger(item.cost),
-              internal_transfer_id: internalTransfer.id!.toString() || null,
-              num: item.num,
-            });
+        } catch (e) {
+          console.log(e);
+        }
+        for (const item of internalTransfer.items) {
+          try {
             await drizzleDb
               .insert(internal_transfer_items)
               .values({
@@ -799,14 +751,69 @@ export class IikoDictionariesService {
                 cost: this.parseInteger(item.cost),
                 internal_transfer_id: internalTransfer.id!.toString() || null,
                 num: item.num,
+                internaltransferdate: internalTransfer.dateIncoming,
               })
               .execute();
+          } catch (e) {
+            console.log(e);
           }
+        }
+      } else {
+        try {
+          await drizzleDb
+
+            .update(internal_transfer)
+            .set({
+              dateIncoming: internalTransfer.dateIncoming,
+              documentNumber: internalTransfer.documentNumber,
+              status: internalTransfer.status,
+              conceptionId: internalTransfer.conceptionId,
+              storeFromId: internalTransfer.storeFromId,
+              storeToId: internalTransfer.storeToId,
+            })
+            .where(eq(internal_transfer.id, internalTransfer.id))
+            .execute();
         } catch (e) {
           console.log(e);
         }
+
+        // console.log("internalTransfer", internalTransfer.items[0]);
+        try {
+          await drizzleDb
+            .delete(internal_transfer_items)
+            .where(
+              eq(
+                internal_transfer_items.internal_transfer_id,
+                internalTransfer.id
+              )
+            )
+            .execute();
+        } catch (e) {
+          console.log(e);
+        }
+        for (const item of internalTransfer.items) {
+          try {
+            await drizzleDb
+              .insert(internal_transfer_items)
+              .values({
+                id: item.id,
+                productId: item.productId,
+                amount: this.parseInteger(item.amount),
+                measureUnitId: item.measureUnitId,
+                containerId: item.containerId,
+                cost: this.parseInteger(item.cost),
+                internal_transfer_id: internalTransfer.id!.toString() || null,
+                num: item.num,
+                internaltransferdate: internalTransfer.dateIncoming,
+              })
+              .execute();
+          } catch (e) {
+            console.log(e);
+          }
+        }
       }
     }
+
     console.timeEnd("invoice_db_inserting");
     console.log("finished invoice db inserting");
   }

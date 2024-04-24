@@ -7,10 +7,10 @@
     "start": "bun run ./src/index.ts"
   },
   "dependencies": {
-    "@elysiajs/bearer": "1.0.2",
-    "@elysiajs/cors": "1.0.2",
-    "@elysiajs/eden": "1.0.2",
-    "@elysiajs/jwt": "1.0.2",
+    "@elysiajs/bearer": "^1.0.2",
+    "@elysiajs/cors": "^1.0.2",
+    "@elysiajs/eden": "^1.0.2",
+    "@elysiajs/jwt": "^1.0.2",
     "@elysiajs/trpc": "^0.7.0",
     "@elysiajs/websocket": "^0.2.8",
     "@hono/zod-validator": "^0.1.11",
@@ -22,7 +22,7 @@
     "drizzle-kit": "^0.20.16",
     "drizzle-orm": "^0.30.9",
     "drizzle-typebox": "^0.1.1",
-    "elysia": "1.0.2",
+    "elysia": "^1.0.13",
     "ioredis": "^5.3.2",
     "item-store-redis": "^0.3.0",
     "jose": "^4.14.4",

@@ -65,18 +65,14 @@ export const internalTransferItemsController = new Elysia({
       const internalTransferItems = (await drizzle
         .select({
           id: internal_transfer_items.id,
-          productId: internal_transfer_items.productId,
+          productName: nomenclature_element.name,
           amount: internal_transfer_items.amount,
-          measureUnitId: internal_transfer_items.measureUnitId,
-          containerId: internal_transfer_items.containerId,
-          cost: internal_transfer_items.cost,
-          internal_transfer_id: internal_transfer_items.internal_transfer_id,
-          num: internal_transfer_items.num,
+          measureUnitId: measure_unit.name,
         })
         .from(internal_transfer_items)
         .leftJoin(
-          internal_transfer,
-          eq(internal_transfer_items.internal_transfer_id, internal_transfer.id)
+          measure_unit,
+          eq(measure_unit.id, internal_transfer_items.measureUnitId)
         )
         .leftJoin(
           nomenclature_element,
@@ -85,7 +81,7 @@ export const internalTransferItemsController = new Elysia({
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
         .execute()) as InternalTransferItemsListDto[];
-      console.log("internalTransferItems", internalTransferItems);
+      // console.log("internalTransferItems", internalTransferItems);
       return {
         data: internalTransferItems,
       };

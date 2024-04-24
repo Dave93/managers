@@ -63,25 +63,27 @@ export const internalTransferOffController = new Elysia({
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "storeId"
+          (filter: any) =>
+            filter.field === "storeFromId" || filter.field === "storeToId"
         );
         if (!storeIdFilter) {
           return {
             data: [],
           };
         }
-        if (storeIdFilter) {
-          // Пример добавления фильтра по полю storeId
-          whereClause.push(
-            eq(internal_transfer.storeFromId, storeIdFilter.value)
-          );
-        }
+        whereClause = parseFilterFields(filters, internal_transfer, {
+          internal_transfer,
+          internal_transfer_items,
+          measure_unit,
+          nomenclature_element,
+        });
+
+        whereClause.push(eq(internal_transfer.status, "PROCESSED"));
       }
 
       const internalTransferCount = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(internal_transfer)
-
         .where(and(...whereClause))
         .execute();
 
@@ -90,9 +92,8 @@ export const internalTransferOffController = new Elysia({
           id: internal_transfer.id,
           // storeFromId: corporation_store.name,
           // storeToId: corporation_store.name,
+          documentNumber: internal_transfer.documentNumber,
           dateIncoming: internal_transfer.dateIncoming,
-          productName: nomenclature_element.name,
-          amount: internal_transfer_items.amount,
           fromStoreName: fromStore.name,
           toStoreName: toStore.name,
         })
@@ -100,14 +101,6 @@ export const internalTransferOffController = new Elysia({
         .leftJoin(conception, eq(conception.id, internal_transfer.conceptionId))
         .leftJoin(fromStore, eq(fromStore.id, internal_transfer.storeFromId))
         .leftJoin(toStore, eq(toStore.id, internal_transfer.storeToId))
-        .leftJoin(
-          internal_transfer_items,
-          eq(internal_transfer_items.internal_transfer_id, internal_transfer.id)
-        )
-        .leftJoin(
-          nomenclature_element,
-          eq(nomenclature_element.id, internal_transfer_items.productId)
-        )
         .where(and(...whereClause))
         .orderBy(desc(internal_transfer.dateIncoming))
         .limit(+limit)
