@@ -214,14 +214,22 @@ export const invoicesController = new Elysia({
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
+<<<<<<< HEAD
           (filter: any) => filter.field === "suppliers.representedStoreId"
+=======
+          (filter: any) => filter.field === "corporation_store.id"
+>>>>>>> 2f354ebbdc79aa35215b15695fc49348aeeb1b06
         );
         if (!storeIdFilter) {
           return {
             data: [],
           };
         }
+<<<<<<< HEAD
         console.log("storeIdFilter", storeIdFilter);
+=======
+
+>>>>>>> 2f354ebbdc79aa35215b15695fc49348aeeb1b06
         whereClause = parseFilterFields(filters, invoices, {
           suppliers,
           corporation_store,
@@ -241,6 +249,13 @@ export const invoicesController = new Elysia({
         .select(selectFields)
         .from(invoices)
         .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
+<<<<<<< HEAD
+=======
+        .leftJoin(
+          corporation_store,
+          eq(suppliers.representedStoreId, corporation_store.id)
+        )
+>>>>>>> 2f354ebbdc79aa35215b15695fc49348aeeb1b06
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)
@@ -261,7 +276,10 @@ export const invoicesController = new Elysia({
       }),
     }
   )
+<<<<<<< HEAD
 
+=======
+>>>>>>> 2f354ebbdc79aa35215b15695fc49348aeeb1b06
   .get(
     "/invoices/incoming_with_items",
     async ({
@@ -321,6 +339,7 @@ export const invoicesController = new Elysia({
 
       const invoicesList = await drizzle
         .select({
+<<<<<<< HEAD
           id: invoices.id,
           documentNumber: invoices.documentNumber,
           incomingDate: invoices.incomingDate,
@@ -328,6 +347,20 @@ export const invoicesController = new Elysia({
         })
         .from(invoices)
 
+=======
+          id: invoice_items.id,
+          documentNumber: invoices.documentNumber,
+          incomingDate: invoices.incomingDate,
+          invoice_id: invoices.id,
+        })
+        .from(invoices)
+        .leftJoin(invoice_items, and(eq(invoices.id, invoice_items.invoice_id)))
+        .leftJoin(measure_unit, eq(invoice_items.amountUnit, measure_unit.id))
+        .leftJoin(
+          nomenclature_element,
+          eq(invoice_items.productId, nomenclature_element.id)
+        )
+>>>>>>> 2f354ebbdc79aa35215b15695fc49348aeeb1b06
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)

@@ -95,7 +95,7 @@ const storeMenu: { title: string; href: string }[] = [
   },
   {
     title: "Приходная накладная (Детально)",
-    href: "/incoming_items",
+    href: "/incoming_with_items",
   },
   {
     title: "Расходная накладная",
