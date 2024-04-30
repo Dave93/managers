@@ -1401,3 +1401,33 @@ export const users_stores = pgTable(
     };
   }
 );
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: uuid("id").notNull(),
+    code: varchar("code", { length: 255 }),
+    name: varchar("name", { length: 255 }),
+    cardNumber: varchar("cardNumber", { length: 255 }),
+    taxpayerIdNumber: varchar("taxpayerIdNumber", { length: 255 }),
+    snils: varchar("snils", { length: 255 }),
+    departmentCodes: varchar("departmentCodes", { length: 255 }),
+    responsibilityDepartmentCodes: varchar("responsibilityDepartmentCodes", {
+      length: 255,
+    }),
+    deleted: boolean("deleted"),
+    supplier: boolean("supplier"),
+    employee: boolean("employee"),
+    client: boolean("client"),
+    representsStore: boolean("representsStore"),
+    representedStoreId: uuid("representedStoreId"),
+  },
+  (table) => {
+    return {
+      suppliers_pkey: primaryKey({
+        columns: [table.id],
+        name: "suppliers_pkey",
+      }),
+    };
+  }
+);

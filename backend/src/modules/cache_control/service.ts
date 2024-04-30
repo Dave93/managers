@@ -5,19 +5,32 @@ import {
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
 import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
-import { api_tokens, corporation_store, credentials, organization, permissions, report_groups, reports_status, roles, roles_permissions, scheduled_reports, settings, users, users_stores, work_schedules } from "@backend/../drizzle/schema";
+import {
+  api_tokens,
+  corporation_store,
+  credentials,
+  organization,
+  permissions,
+  report_groups,
+  reports_status,
+  roles,
+  roles_permissions,
+  scheduled_reports,
+  settings,
+  users,
+  users_stores,
+  work_schedules,
+} from "@backend/../drizzle/schema";
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
 import { userById, userFirstRole } from "@backend/lib/prepare_statements";
 import Redis from "ioredis";
 
 export class CacheControlService {
-
   constructor(
     private readonly drizzle: DrizzleDB,
     private readonly redis: Redis
   ) {
-
     this.cachePermissions();
     this.cacheOrganization();
     this.cacheRoles();
@@ -40,15 +53,13 @@ export class CacheControlService {
     );
   }
 
-  async getCachedPermissions({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedPermissions({ take }: { take?: number }) {
     const permissionsList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}permissions`
     );
-    let res = JSON.parse(permissionsList ?? "[]") as InferSelectModel<typeof permissions>[];
+    let res = JSON.parse(permissionsList ?? "[]") as InferSelectModel<
+      typeof permissions
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -61,7 +72,7 @@ export class CacheControlService {
     const organizationList = await this.drizzle.query.organization.findMany();
 
     const credentialsList = await this.drizzle.query.credentials.findMany({
-      where: eq(credentials.model, "organization")
+      where: eq(credentials.model, "organization"),
     });
 
     const credentialsByOrgId = credentialsList.reduce((acc, credential) => {
@@ -92,11 +103,7 @@ export class CacheControlService {
     );
   }
 
-  async getCachedOrganization({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedOrganization({ take }: { take?: number }) {
     const organization = await this.redis.get(
       `${process.env.PROJECT_PREFIX}organization`
     );
@@ -155,11 +162,7 @@ export class CacheControlService {
     );
   }
 
-  async getCachedRoles({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedRoles({ take }: { take?: number }) {
     const rolesList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}_roles`
     );
@@ -179,13 +182,16 @@ export class CacheControlService {
       where: eq(credentials.model, "terminals"),
     });
 
-    const credentialsByTerminalId = credentialsList.reduce((acc, credential) => {
-      if (!acc[credential.model_id]) {
-        acc[credential.model_id] = [];
-      }
-      acc[credential.model_id].push(credential);
-      return acc;
-    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+    const credentialsByTerminalId = credentialsList.reduce(
+      (acc, credential) => {
+        if (!acc[credential.model_id]) {
+          acc[credential.model_id] = [];
+        }
+        acc[credential.model_id].push(credential);
+        return acc;
+      },
+      {} as Record<string, InferSelectModel<typeof credentials>[]>
+    );
 
     const newTerminals: terminalsWithCredentials[] = [];
 
@@ -242,15 +248,13 @@ export class CacheControlService {
     );
   }
 
-  async getCachedWorkSchedules({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedWorkSchedules({ take }: { take?: number }) {
     const workSchedules = await this.redis.get(
       `${process.env.PROJECT_PREFIX}work_schedules`
     );
-    let res = JSON.parse(workSchedules ?? "[]") as InferSelectModel<typeof work_schedules>[];
+    let res = JSON.parse(workSchedules ?? "[]") as InferSelectModel<
+      typeof work_schedules
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -260,13 +264,13 @@ export class CacheControlService {
   }
 
   async cacheApiTokens() {
-
-    const apiTokens = await this.drizzle.select({
-      ...getTableColumns(api_tokens),
-      organization: {
-        ...getTableColumns(organization),
-      },
-    })
+    const apiTokens = await this.drizzle
+      .select({
+        ...getTableColumns(api_tokens),
+        organization: {
+          ...getTableColumns(organization),
+        },
+      })
       .from(api_tokens)
       .leftJoin(organization, eq(api_tokens.organization_id, organization.id))
       .execute();
@@ -291,22 +295,21 @@ export class CacheControlService {
   }
 
   async cacheScheduledReports() {
-    const scheduledReports = await this.drizzle.query.scheduled_reports.findMany();
+    const scheduledReports =
+      await this.drizzle.query.scheduled_reports.findMany();
     await this.redis.set(
       `${process.env.PROJECT_PREFIX}scheduled_reports`,
       JSON.stringify(scheduledReports)
     );
   }
 
-  async getCachedScheduledReports({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedScheduledReports({ take }: { take?: number }) {
     const scheduledReports = await this.redis.get(
       `${process.env.PROJECT_PREFIX}scheduled_reports`
     );
-    let res = JSON.parse(scheduledReports ?? "[]") as InferSelectModel<typeof scheduled_reports>[];
+    let res = JSON.parse(scheduledReports ?? "[]") as InferSelectModel<
+      typeof scheduled_reports
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -323,15 +326,13 @@ export class CacheControlService {
     );
   }
 
-  async getCachedSettings({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedSettings({ take }: { take?: number }) {
     const settingsList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}settings`
     );
-    let res = JSON.parse(settingsList ?? "[]") as InferSelectModel<typeof settings>[];
+    let res = JSON.parse(settingsList ?? "[]") as InferSelectModel<
+      typeof settings
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -348,15 +349,13 @@ export class CacheControlService {
     );
   }
 
-  async getCachedCredentials({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedCredentials({ take }: { take?: number }) {
     const credentialsList = await this.redis.get(
       `${process.env.PROJECT_PREFIX}credentials`
     );
-    let res = JSON.parse(credentialsList ?? "[]") as InferSelectModel<typeof credentials>[];
+    let res = JSON.parse(credentialsList ?? "[]") as InferSelectModel<
+      typeof credentials
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -373,15 +372,13 @@ export class CacheControlService {
     );
   }
 
-  async getCachedReportGroups({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedReportGroups({ take }: { take?: number }) {
     const reportGroups = await this.redis.get(
       `${process.env.PROJECT_PREFIX}report_groups`
     );
-    let res = JSON.parse(reportGroups ?? "[]") as InferSelectModel<typeof report_groups>[];
+    let res = JSON.parse(reportGroups ?? "[]") as InferSelectModel<
+      typeof report_groups
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -398,16 +395,14 @@ export class CacheControlService {
     );
   }
 
-  async getCachedReportStatuses({
-    take,
-  }: {
-    take?: number;
-  }) {
+  async getCachedReportStatuses({ take }: { take?: number }) {
     const reportStatuses = await this.redis.get(
       `${process.env.PROJECT_PREFIX}report_statuses`
     );
 
-    let res = JSON.parse(reportStatuses ?? "[]") as InferSelectModel<typeof reports_status>[];
+    let res = JSON.parse(reportStatuses ?? "[]") as InferSelectModel<
+      typeof reports_status
+    >[];
 
     if (take && res.length > take) {
       res = res.slice(0, take);
@@ -470,7 +465,7 @@ export class CacheControlService {
       await this.redis.del(
         `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
       );
-    } catch (e) { }
+    } catch (e) {}
   }
 
   async getCachedUserDataByToken(accessToken: string): Promise<{
@@ -506,13 +501,15 @@ export class CacheControlService {
   }
 
   async getCachedStores({ take }: { take?: number }) {
-    const stores = (await this.redis.get(`${process.env.PROJECT_PREFIX}stores`)) as
-      | string
-      | null;
+    const stores = (await this.redis.get(
+      `${process.env.PROJECT_PREFIX}stores`
+    )) as string | null;
 
     if (stores) {
       const storesJson = JSON.parse(stores);
-      return storesJson.slice(0, take) as InferSelectModel<typeof corporation_store>[];
+      return storesJson.slice(0, take) as InferSelectModel<
+        typeof corporation_store
+      >[];
     } else {
       return [];
     }

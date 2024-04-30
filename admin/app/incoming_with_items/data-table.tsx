@@ -40,14 +40,13 @@ import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
-import { invoices, internal_transfer } from "backend/drizzle/schema";
+import { invoices } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
-import { InternalItemsTable } from "./internal_items";
+import { InvoiceItemsTable } from "./invoice_items";
 import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InternalTransferListDto, TValue>[];
+  columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
@@ -76,9 +75,6 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
-  const documentNumber = useStoplistFilterStore(
-    (state) => state.documentNumber
-  );
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -94,7 +90,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.from) {
       res.push({
-        field: "dateIncoming",
+        field: "incomingDate",
         operator: "gte",
         value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
@@ -102,7 +98,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.to) {
       res.push({
-        field: "dateIncoming",
+        field: "incomingDate",
         operator: "lte",
         value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
@@ -110,28 +106,21 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "storeToId",
+        field: "defaultStore",
         operator: "eq",
         value: storeId,
-      });
-    }
-    if (documentNumber) {
-      res.push({
-        field: "documentNumber",
-        operator: "eq",
-        value: documentNumber,
       });
     }
 
     return JSON.stringify(res);
   }, [date, storeId]);
 
-  // console.log("filters", filters);
+  console.log("filters", filters);
 
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "internal_transfer",
+      "incoming_with_items",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -139,12 +128,12 @@ export function DataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.internal_transfer.get({
+      const { data } = await apiClient.api.invoices.incoming_with_items.get({
         query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-          fields: "id,fromStoreName,toStoreName,invoiceincomingdate",
+          fields: "id,documentNumber,incomingDate",
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -166,6 +155,7 @@ export function DataTable<TData, TValue>({
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
+    // @ts-ignore
     columns,
     pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
@@ -183,7 +173,6 @@ export function DataTable<TData, TValue>({
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
-  // console.log("table", table);
 
   useEffect(() => {
     table.setColumnPinning({
@@ -195,7 +184,7 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <div className="rounded-md border relative">
         <Table>
-          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
+          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0 ">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -276,9 +265,9 @@ export function DataTable<TData, TValue>({
                   {row.getIsExpanded() && (
                     <TableRow className="text-black">
                       <TableCell colSpan={row.getVisibleCells().length}>
-                        <InternalItemsTable
-                          invoiceId={row.original.id}
-                          invoiceDate={row.original.dateIncoming!}
+                        <InvoiceItemsTable
+                          invoiceId={row.original.id as string}
+                          invoiceDate={row.original.incomingDate! as string}
                         />
                       </TableCell>
                     </TableRow>

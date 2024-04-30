@@ -2,11 +2,13 @@ import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
+  corporation_store,
   invoice_items,
   invoices,
   measure_unit,
   nomenclature_element,
   organization,
+  suppliers,
   users_stores,
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
@@ -209,7 +211,7 @@ export const invoicesController = new Elysia({
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "storeId"
+          (filter: any) => filter.field === "corporation_store.id"
         );
         if (!storeIdFilter) {
           return {
@@ -217,7 +219,10 @@ export const invoicesController = new Elysia({
           };
         }
 
-        whereClause = parseFilterFields(filters, invoices, {});
+        whereClause = parseFilterFields(filters, invoices, {
+          suppliers,
+          corporation_store,
+        });
 
         whereClause.push(eq(invoices.type, "outgoing"));
       }
@@ -231,6 +236,102 @@ export const invoicesController = new Elysia({
       const invoicesList = await drizzle
         .select(selectFields)
         .from(invoices)
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
+        .leftJoin(
+          corporation_store,
+          eq(suppliers.representedStoreId, corporation_store.id)
+        )
+        .where(and(...whereClause))
+        .orderBy(desc(invoices.incomingDate))
+        .limit(+limit)
+        .offset(+offset)
+        .execute();
+      return {
+        total: invoicesCount[0].count,
+        data: invoicesList,
+      };
+    },
+    {
+      query: t.Object({
+        limit: t.String(),
+        offset: t.String(),
+        sort: t.Optional(t.String()),
+        filters: t.Optional(t.String()),
+        fields: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get(
+    "/invoices/incoming_with_items",
+    async ({
+      query: { limit, offset, sort, filters, fields },
+      user,
+      set,
+      drizzle,
+    }) => {
+      if (!user) {
+        set.status = 401;
+        return {
+          message: "User not found",
+        };
+      }
+      if (!user.permissions.includes("incoming_with_items.list")) {
+        set.status = 401;
+        return {
+          message: "You don't have permissions",
+        };
+      }
+      let selectFields: SelectedFields = {};
+      if (fields) {
+        selectFields = await parseSelectFields(fields, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+      }
+      console.log("selectFields", selectFields);
+      let whereClause: (SQLWrapper | undefined)[] = [];
+      if (filters) {
+        let filtersArray = await JSON.parse(filters);
+
+        const storeIdFilter = filtersArray.find(
+          (filter: any) => filter.field === "defaultStore"
+        );
+        if (!storeIdFilter) {
+          return {
+            data: [],
+          };
+        }
+
+        whereClause = await parseFilterFields(filters, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+
+        whereClause.push(eq(invoices.type, "incoming"));
+      }
+      console.log("whereClause", whereClause);
+      const invoicesCount = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(and(...whereClause))
+        .execute();
+
+      const invoicesList = await drizzle
+        .select({
+          id: invoice_items.id,
+          documentNumber: invoices.documentNumber,
+          incomingDate: invoices.incomingDate,
+          invoice_id: invoices.id,
+        })
+        .from(invoices)
+        .leftJoin(invoice_items, and(eq(invoices.id, invoice_items.invoice_id)))
+        .leftJoin(measure_unit, eq(invoice_items.amountUnit, measure_unit.id))
+        .leftJoin(
+          nomenclature_element,
+          eq(invoice_items.productId, nomenclature_element.id)
+        )
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)
