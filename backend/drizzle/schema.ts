@@ -16,7 +16,7 @@ import {
   numeric,
   decimal,
 } from "drizzle-orm/pg-core";
-import { relations, sql } from "drizzle-orm";
+import { name, relations, sql } from "drizzle-orm";
 
 export const user_status = pgEnum("user_status", [
   "inactive",
@@ -751,7 +751,7 @@ export const reports_items = pgTable(
     report_id: uuid("report_id").notNull(),
     label: varchar("label", { length: 255 }).notNull(),
     type: report_item_type("type").notNull(),
-    amount: integer("amount").default(0).notNull(),
+    amount: decimal("amount", { precision: 10, scale: 4 }),
     source: varchar("source", { length: 255 }).notNull(),
     group_id: uuid("group_id").references(() => report_groups.id, {
       onUpdate: "cascade",
@@ -1033,8 +1033,8 @@ export const nomenclature_element = pgTable(
     ),
     mainUnit: uuid("mainUnit").defaultRandom(),
     type: varchar("type", { length: 255 }),
-    unitWeight: integer("unitWeight").default(0),
-    unitCapacity: integer("unitCapacity").default(0),
+    unitWeight: decimal("unitWeight", { precision: 10, scale: 4 }),
+    unitCapacity: decimal("unitCapacity", { precision: 10, scale: 4 }),
   },
   (table) => {
     return {
@@ -1084,7 +1084,7 @@ export const invoices = pgTable(
       withTimezone: true,
       mode: "string",
     }),
-    supplier: varchar("supplier", { length: 255 }),
+    supplier: uuid("supplier"),
     defaultStore: uuid("defaultStore"),
     invoice: varchar("invoice", { length: 255 }),
     documentNumber: varchar("documentNumber", { length: 255 }),
@@ -1117,11 +1117,11 @@ export const invoice_items = pgTable(
     id: uuid("id").defaultRandom().notNull(),
     productId: uuid("productId"),
     isAdditionalExpense: boolean("isAdditionalExpense").default(false),
-    actualAmount: integer("actualAmount"),
-    price: integer("price"),
+    actualAmount: decimal("actualAmount", { precision: 10, scale: 4 }),
+    price: decimal("price", { precision: 10, scale: 4 }),
     priceWithoutVat: integer("priceWithoutVat"),
     priceUnit: varchar("priceUnit", { length: 255 }),
-    sum: integer("sum"),
+    sum: decimal("sum", { precision: 10, scale: 4 }),
     vatPercent: integer("vatPercent"),
     vatSum: integer("vatSum"),
     discountSum: integer("discountSum"),
@@ -1130,7 +1130,7 @@ export const invoice_items = pgTable(
     productArticle: varchar("productArticle", { length: 255 }),
     supplierProduct: varchar("supplierProduct", { length: 255 }),
     supplierProductArticle: varchar("supplierProductArticle", { length: 255 }),
-    amount: integer("amount"),
+    amount: decimal("amount", { precision: 10, scale: 4 }),
     invoice_id: uuid("invoice_id").references(() => invoices.id, {}),
     storeId: uuid("storeId"),
     storeCode: varchar("storeCode", { length: 255 }),
@@ -1397,6 +1397,36 @@ export const users_stores = pgTable(
       users_stores_pkey: primaryKey({
         columns: [table.id],
         name: "users_stores_pkey",
+      }),
+    };
+  }
+);
+
+export const suppliers = pgTable(
+  "suppliers",
+  {
+    id: uuid("id").notNull(),
+    code: varchar("code", { length: 255 }),
+    name: varchar("name", { length: 255 }),
+    cardNumber: varchar("cardNumber", { length: 255 }),
+    taxpayerIdNumber: varchar("taxpayerIdNumber", { length: 255 }),
+    snils: varchar("snils", { length: 255 }),
+    departmentCodes: varchar("departmentCodes", { length: 255 }),
+    responsibilityDepartmentCodes: varchar("responsibilityDepartmentCodes", {
+      length: 255,
+    }),
+    deleted: boolean("deleted"),
+    supplier: boolean("supplier"),
+    employee: boolean("employee"),
+    client: boolean("client"),
+    representsStore: boolean("representsStore"),
+    representedStoreId: uuid("representedStoreId"),
+  },
+  (table) => {
+    return {
+      suppliers_pkey: primaryKey({
+        columns: [table.id],
+        name: "suppliers_pkey",
       }),
     };
   }

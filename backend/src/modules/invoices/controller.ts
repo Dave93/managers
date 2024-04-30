@@ -2,16 +2,18 @@ import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
+  corporation_store,
   invoice_items,
   invoices,
   measure_unit,
   nomenclature_element,
   organization,
+  suppliers,
   users_stores,
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
-import { SelectedFields } from "drizzle-orm/pg-core";
+import { SelectedFields, doublePrecision } from "drizzle-orm/pg-core";
 import { Elysia, t } from "elysia";
 
 export const invoicesController = new Elysia({
@@ -202,22 +204,28 @@ export const invoicesController = new Elysia({
       }
       let selectFields: SelectedFields = {};
       if (fields) {
-        selectFields = parseSelectFields(fields, invoices, {});
+        selectFields = parseSelectFields(fields, invoices, {
+          suppliers,
+          corporation_store,
+        });
       }
       let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "storeId"
+          (filter: any) => filter.field === "suppliers.representedStoreId"
         );
         if (!storeIdFilter) {
           return {
             data: [],
           };
         }
-
-        whereClause = parseFilterFields(filters, invoices, {});
+        console.log("storeIdFilter", storeIdFilter);
+        whereClause = parseFilterFields(filters, invoices, {
+          suppliers,
+          corporation_store,
+        });
 
         whereClause.push(eq(invoices.type, "outgoing"));
       }
@@ -225,12 +233,101 @@ export const invoicesController = new Elysia({
       const invoicesCount = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
         .where(and(...whereClause))
         .execute();
 
       const invoicesList = await drizzle
         .select(selectFields)
         .from(invoices)
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
+        .where(and(...whereClause))
+        .orderBy(desc(invoices.incomingDate))
+        .limit(+limit)
+        .offset(+offset)
+        .execute();
+      return {
+        total: invoicesCount[0].count,
+        data: invoicesList,
+      };
+    },
+    {
+      query: t.Object({
+        limit: t.String(),
+        offset: t.String(),
+        sort: t.Optional(t.String()),
+        filters: t.Optional(t.String()),
+        fields: t.Optional(t.String()),
+      }),
+    }
+  )
+
+  .get(
+    "/invoices/incoming_with_items",
+    async ({
+      query: { limit, offset, sort, filters, fields },
+      user,
+      set,
+      drizzle,
+    }) => {
+      if (!user) {
+        set.status = 401;
+        return {
+          message: "User not found",
+        };
+      }
+      if (!user.permissions.includes("incoming_with_items.list")) {
+        set.status = 401;
+        return {
+          message: "You don't have permissions",
+        };
+      }
+      let selectFields: SelectedFields = {};
+      if (fields) {
+        selectFields = await parseSelectFields(fields, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+      }
+      console.log("selectFields", selectFields);
+      let whereClause: (SQLWrapper | undefined)[] = [];
+      if (filters) {
+        let filtersArray = await JSON.parse(filters);
+
+        const storeIdFilter = filtersArray.find(
+          (filter: any) => filter.field === "defaultStore"
+        );
+        if (!storeIdFilter) {
+          return {
+            data: [],
+          };
+        }
+
+        whereClause = await parseFilterFields(filters, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+
+        whereClause.push(eq(invoices.type, "incoming"));
+      }
+      console.log("whereClause", whereClause);
+      const invoicesCount = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(and(...whereClause))
+        .execute();
+
+      const invoicesList = await drizzle
+        .select({
+          id: invoices.id,
+          documentNumber: invoices.documentNumber,
+          incomingDate: invoices.incomingDate,
+          // id: invoice_items.invoice_id,
+        })
+        .from(invoices)
+
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)

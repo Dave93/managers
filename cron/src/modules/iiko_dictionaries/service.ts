@@ -22,6 +22,7 @@ import {
   corporation_department,
   corporation_groups,
   balance_store,
+  suppliers,
 } from "backend/drizzle/schema";
 import path from "path";
 const fs = require("fs");
@@ -29,7 +30,7 @@ const xml2js = require("xml2js");
 
 import { Redis } from "ioredis";
 import { SQL, eq } from "drizzle-orm";
-import { mapCompactResponse } from "elysia";
+import { mapCompactResponse, t } from "elysia";
 import dayjs from "dayjs";
 import client from "cron/src/redis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
@@ -63,14 +64,15 @@ export class IikoDictionariesService {
     // await this.getNomenclatureElements(token);
     // await this.getIncomingInvoice(token);
     // await this.getOutgoingInvoice(token);
-    await this.getInternalTransfer(token);
+    // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
-    // await this.getCorporatinStore(token);
+    await this.getCorporatinStore(token);
     // await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
     // await this.getCorporationTerminals(token);
     // await this.getCorporationGroups(token);
     // await this.getBalanceStores(token);
+    // await this.getSupplers(token);
   }
 
   checkForNullString = (value: string) => {
@@ -94,7 +96,10 @@ export class IikoDictionariesService {
   };
 
   async getBalanceStores(token: string) {
-    const date = dayjs().startOf("month").format("YYYY-MM-DDTHH:mm:ss");
+    const date = dayjs()
+      .startOf("month")
+      .add(5, "hour")
+      .format("YYYY-MM-DDTHH:mm:ss");
 
     const storeId = await drizzleDb
       .select({ id: corporation_store.id })
@@ -119,6 +124,8 @@ export class IikoDictionariesService {
         const existingBalanceStore = existingBalanceStores.find(
           (existingBalanceStore) => existingBalanceStore.id === balanceStore.id
         );
+        console.log("started invoice db inserting");
+        console.time("invoice_db_inserting");
         if (!existingBalanceStore) {
           try {
             await drizzleDb
@@ -152,6 +159,8 @@ export class IikoDictionariesService {
             console.log(e);
           }
         }
+        console.timeEnd("invoice_db_inserting");
+        console.log("finished invoice db inserting");
       }
     }
   }
@@ -253,7 +262,7 @@ export class IikoDictionariesService {
 
       // console.log("result", result);
       for (const corporation_groupTable of result.groupDtoes.groupDto) {
-        console.log("corporation_groupTable", corporation_groupTable);
+        // console.log("corporation_groupTable", corporation_groupTable);
         let groupItem = {
           id:
             corporation_groupTable.id && corporation_groupTable.id[0]
@@ -312,7 +321,7 @@ export class IikoDictionariesService {
           method: "GET",
         }
       );
-      console.log("response", response);
+      // console.log("response", response);
       let corporation = await response.text();
       // console.log("corporation", corporation);
 
@@ -387,6 +396,13 @@ export class IikoDictionariesService {
   }
 
   async getReportOlap(token: string) {
+    const fromDate = dayjs()
+      .startOf("month")
+      .add(5, "hour")
+      .format("YYYY-MM-DD");
+    const toDate = dayjs().endOf("month").add(5, "hour").format("YYYY-MM-DD");
+    console.log("fromDate", fromDate);
+    console.log("toDate", toDate);
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/olap?key=${token}`,
       {
@@ -410,8 +426,8 @@ export class IikoDictionariesService {
           filters: {
             "DateTime.DateTyped": {
               filterType: "DateRange",
-              from: "2024-01-01",
-              to: "2024-01-31",
+              from: fromDate,
+              to: toDate,
               includeLow: true,
               includeHigh: true,
             },
@@ -631,6 +647,8 @@ export class IikoDictionariesService {
         // );
         // console.log("dda", result.corporateItemDtoes.corporateItemDto);
         // console.log("existing data", corpStoreTable);
+        console.log("started invoice db inserting");
+        console.time("invoice_db_inserting");
         for (const corpStoreTables of result.corporateItemDtoes
           .corporateItemDto) {
           let storeItem = {
@@ -689,6 +707,8 @@ export class IikoDictionariesService {
     } catch (error) {
       console.error("Error:", error);
     }
+    console.timeEnd("invoice_db_inserting");
+    console.log("finished invoice db inserting");
   }
 
   async getInternalTransfer(token: string) {
@@ -713,7 +733,7 @@ export class IikoDictionariesService {
     console.log("started invoice db inserting");
     console.time("invoice_db_inserting");
 
-    console.log("internalTransfers after", internalTransfers);
+    // console.log("internalTransfers after", internalTransfers);
     for (const internalTransfer of internalTransfers.response) {
       console.log("internalTransfer", internalTransfer);
       const existingInternalTransfer = existingInternalTransfers.find(
@@ -843,7 +863,7 @@ export class IikoDictionariesService {
       const docs = result[`${type}InvoiceDtoes`].document;
 
       for (const record of docs) {
-        // console.log("record", record);
+        console.log("record", record);
         const incomeDoc = {
           id:
             record.id && record.id[0]
@@ -873,7 +893,7 @@ export class IikoDictionariesService {
             record.revenueAccountCode && record.revenueAccountCode[0]
               ? this.checkForNullString(record.revenueAccountCode[0])
               : "",
-          defaultStoreId:
+          defaultStore:
             record.defaultStoreId && record.defaultStoreId[0]
               ? this.checkForNullString(record.defaultStoreId[0])
               : "",
@@ -881,7 +901,7 @@ export class IikoDictionariesService {
             record.defaultStoreCode && record.defaultStoreCode[0]
               ? this.checkForNullString(record.defaultStoreCode[0])
               : "",
-          counteragentId:
+          supplier:
             record.counteragentId && record.counteragentId[0]
               ? this.checkForNullString(record.counteragentId[0])
               : "",
@@ -900,117 +920,158 @@ export class IikoDictionariesService {
         );
 
         if (!existingIncomeDoc) {
-          await drizzleDb
-            .insert(invoices)
-            .values({
-              id: incomeDoc.id,
-              documentNumber: incomeDoc.documentNumber,
-              incomingDate: incomeDoc.incomingDate,
-              useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime,
-              status: incomeDoc.status,
-              accountToCode: incomeDoc.accountToCode,
-              revenueAccountCode: incomeDoc.revenueAccountCode,
-              defaultStoreId: incomeDoc.defaultStoreId,
-              defaultStoreCode: incomeDoc.defaultStoreCode,
-              counteragentId: incomeDoc.counteragentId,
-              counteragentCode: incomeDoc.counteragentCode,
-              linkedIncomingInvoiceId: incomeDoc.linkedIncomingInvoiceId,
-              type: type,
-            })
-            .execute();
+          try {
+            await drizzleDb
+              .insert(invoices)
+              .values({
+                id: incomeDoc.id,
+                documentNumber: incomeDoc.documentNumber,
+                incomingDate: incomeDoc.incomingDate,
+                useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime,
+                status: incomeDoc.status,
+                accountToCode: incomeDoc.accountToCode,
+                revenueAccountCode: incomeDoc.revenueAccountCode,
+                defaultStore: incomeDoc.defaultStore,
+                defaultStoreCode: incomeDoc.defaultStoreCode,
+                supplier: incomeDoc.supplier,
+                counteragentCode: incomeDoc.counteragentCode,
+                linkedIncomingInvoiceId: incomeDoc.linkedIncomingInvoiceId,
+                type: type,
+              })
+              .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
           for (const item of record.items[0].item) {
-            let recordItem = {
-              productId:
-                item.productId && item.productId[0]
-                  ? (this.checkForNullString(item.productId[0]) as string)
-                  : "",
-              productArticle:
-                item.productArticle && item.productArticle[0]
-                  ? (this.checkForNullString(item.productArticle[0]) as string)
-                  : "",
-              storeId:
-                item.storeId && item.storeId[0]
-                  ? (this.checkForNullString(item.storeId[0]) as string)
-                  : "",
-              storeCode:
-                item.storeCode && item.storeCode[0]
-                  ? (item.storeCode[0] as string)
-                  : "",
-              price: +item.price[0],
-              priceWithoutVat: +item.priceWithoutVat[0],
-              amount: this.parseInteger(item.amount[0]),
-              sum: +item.sum[0],
-              discountSum: +item.discountSum[0],
-              vatPercent: +item.vatPercent[0],
-              vatSum: +item.vatSum[0],
-              invoice_id: incomeDoc.id!.toString() || null,
-              invoiceincomingdate:
-                record.dateIncoming && record.dateIncoming[0]
-                  ? (this.checkForNullString(record.dateIncoming[0]) as string)
-                  : "",
-              // amountUnit: item.amountUnit[0],
-            };
-            await drizzleDb.insert(invoice_items).values(recordItem).execute();
-            // console.log("recordItem", recordItem);
+            try {
+              let recordItem = {
+                id:
+                  item.id && (item.id[0] as string)
+                    ? this.checkForNullString(item.id[0] as string)
+                    : item.id,
+                productId:
+                  item.productId && item.productId[0]
+                    ? (this.checkForNullString(item.productId[0]) as string)
+                    : "",
+                productArticle:
+                  item.productArticle && item.productArticle[0]
+                    ? (this.checkForNullString(
+                        item.productArticle[0]
+                      ) as string)
+                    : "",
+                storeId:
+                  item.storeId && item.storeId[0]
+                    ? (this.checkForNullString(item.storeId[0]) as string)
+                    : "",
+                storeCode:
+                  item.storeCode && item.storeCode[0]
+                    ? (item.storeCode[0] as string)
+                    : "",
+                price: +item.price[0],
+                priceWithoutVat: +item.priceWithoutVat[0],
+                amount: this.parseInteger(item.amount[0]),
+                sum: +item.sum[0],
+                discountSum: +item.discountSum[0],
+                vatPercent: +item.vatPercent[0],
+                vatSum: +item.vatSum[0],
+                invoice_id: incomeDoc.id!.toString() || null,
+                invoiceincomingdate:
+                  record.dateIncoming && record.dateIncoming[0]
+                    ? (this.checkForNullString(
+                        record.dateIncoming[0]
+                      ) as string)
+                    : "",
+                // amountUnit: item.amountUnit[0],
+              };
+              await drizzleDb
+                .insert(invoice_items)
+                .values(recordItem)
+                .execute();
+              // console.log("recordItem", recordItem);
+            } catch (e) {
+              console.log("e", e);
+            }
           }
         } else {
-          await drizzleDb
-            .update(invoices)
-            .set({
-              documentNumber: incomeDoc.documentNumber?.toString(),
-              incomingDate: incomeDoc.incomingDate?.toString(),
-              useDefaultDocumentTime:
-                incomeDoc.useDefaultDocumentTime as boolean,
-              status: incomeDoc.status?.toString(),
-              accountToCode: incomeDoc.accountToCode?.toString(),
-              revenueAccountCode: incomeDoc.revenueAccountCode?.toString(),
-              defaultStoreId: incomeDoc.defaultStoreId?.toString(),
-              defaultStoreCode: incomeDoc.defaultStoreCode?.toString(),
-              counteragentId: incomeDoc.counteragentId?.toString(),
-              counteragentCode: incomeDoc.counteragentCode?.toString(),
-              linkedIncomingInvoiceId:
-                incomeDoc.linkedIncomingInvoiceId?.toString(),
-            })
-            .where(eq(invoices.id, incomeDoc.id!));
-
-          await drizzleDb
-            .delete(invoice_items)
-            .where(eq(invoice_items.invoice_id, incomeDoc.id!.toString()))
-            .execute();
-
+          try {
+            await drizzleDb
+              .update(invoices)
+              .set({
+                documentNumber: incomeDoc.documentNumber?.toString(),
+                // incomingDate: incomeDoc.incomingDate?.toString(),
+                useDefaultDocumentTime:
+                  incomeDoc.useDefaultDocumentTime as boolean,
+                status: incomeDoc.status?.toString(),
+                accountToCode: incomeDoc.accountToCode?.toString(),
+                revenueAccountCode: incomeDoc.revenueAccountCode?.toString(),
+                defaultStore: incomeDoc.defaultStore?.toString(),
+                defaultStoreCode: incomeDoc.defaultStoreCode?.toString(),
+                supplier: incomeDoc.supplier?.toString(),
+                counteragentCode: incomeDoc.counteragentCode?.toString(),
+                linkedIncomingInvoiceId:
+                  incomeDoc.linkedIncomingInvoiceId?.toString(),
+              })
+              .where(eq(invoices.id, incomeDoc.id!));
+          } catch (e) {
+            console.log("e", e);
+          }
+          try {
+            await drizzleDb
+              .delete(invoice_items)
+              .where(eq(invoice_items.invoice_id, incomeDoc.id!.toString()))
+              .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
           for (const item of record.items[0].item) {
-            let recordItem = {
-              productId:
-                item.productId && item.productId[0]
-                  ? (this.checkForNullString(item.productId[0]) as string)
-                  : "",
-              productArticle:
-                item.productArticle && item.productArticle[0]
-                  ? (this.checkForNullString(item.productArticle[0]) as string)
-                  : "",
-              storeId:
-                item.storeId && item.storeId[0]
-                  ? (this.checkForNullString(item.storeId[0]) as string)
-                  : "",
-              storeCode:
-                item.storeCode && item.storeCode[0]
-                  ? (item.storeCode[0] as string)
-                  : "",
-              price: +item.price[0],
-              priceWithoutVat: +item.priceWithoutVat,
-              amount: this.parseInteger(item.amount),
-              sum: +item.sum,
-              discountSum: +item.discountSum[0],
-              vatPercent: +item.vatPercent[0],
-              vatSum: +item.vatSum[0],
-              invoice_id: incomeDoc.id!.toString() || null,
-              invoiceincomingdate:
-                record.dateIncoming && record.dateIncoming[0]
-                  ? (this.checkForNullString(record.dateIncoming[0]) as string)
-                  : "",
-              // amountUnit: item.amountUnit[0],
-            };
-            await drizzleDb.insert(invoice_items).values(recordItem).execute();
+            // console.log("item", item);
+            try {
+              let recordItem = {
+                id:
+                  item.id && (item.id[0] as string)
+                    ? this.checkForNullString(item.id[0] as string)
+                    : item.id,
+                productId:
+                  item.productId && item.productId[0]
+                    ? (this.checkForNullString(item.productId[0]) as string)
+                    : "",
+                productArticle:
+                  item.productArticle && item.productArticle[0]
+                    ? (this.checkForNullString(
+                        item.productArticle[0]
+                      ) as string)
+                    : "",
+                storeId:
+                  item.storeId && item.storeId[0]
+                    ? (this.checkForNullString(item.storeId[0]) as string)
+                    : "",
+                storeCode:
+                  item.storeCode && item.storeCode[0]
+                    ? (item.storeCode[0] as string)
+                    : "",
+                price: +item.price[0],
+                priceWithoutVat: +item.priceWithoutVat,
+                amount: this.parseInteger(item.amount[0]),
+                sum: +item.sum,
+                discountSum: +item.discountSum[0],
+                vatPercent: +item.vatPercent[0],
+                vatSum: +item.vatSum[0],
+                invoice_id: incomeDoc.id!.toString() || null,
+                invoiceincomingdate:
+                  record.dateIncoming && record.dateIncoming[0]
+                    ? (this.checkForNullString(
+                        record.dateIncoming[0]
+                      ) as string)
+                    : "",
+                // amountUnit: item.amountUnit[0],
+              };
+              await drizzleDb
+                .insert(invoice_items)
+                .values(recordItem)
+                .execute();
+            } catch (e) {
+              console.log("e", e);
+            }
           }
         }
       }
@@ -1107,202 +1168,220 @@ export class IikoDictionariesService {
         );
 
         if (!existingIncomeDoc) {
-          await drizzleDb
-            .insert(invoices)
-            .values({
-              id: incomeDoc.id,
-              incomingDocumentNumber: incomeDoc.incomingDocumentNumber,
-              incomingDate: incomeDoc.incomingDate,
-              useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime,
-              dueDate: incomeDoc.dueDate,
-              supplier: incomeDoc.supplier,
-              defaultStore: incomeDoc.defaultStore,
-              invoice: incomeDoc.invoice,
-              documentNumber: incomeDoc.documentNumber,
-              comment: incomeDoc.comment,
-              status: incomeDoc.status,
-              type: type,
-            })
-            .execute();
-
-          for (const item of record.items[0].item) {
-            // console.log("item", item);
-            let recordItem = {
-              id:
-                item.id && item.id[0]
-                  ? this.checkForNullString(item.id[0])
-                  : item.id,
-              isAdditionalExpense:
-                item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? (this.checkForNullString(
-                      item.isAdditionalExpense[0]
-                    ) as boolean)
-                  : false,
-              actualAmount: this.parseInteger(item.actualAmount[0]),
-              storeId:
-                item.store && item.store[0]
-                  ? (this.checkForNullString(item.store[0]) as string)
-                  : "",
-              actualAmount: this.parseInteger(item.actualAmount),
-              price: +item.price,
-              priceWithoutVat: +item.priceWithoutVat,
-              priceUnit:
-                item.priceUnit && item.priceUnit[0]
-                  ? (this.checkForNullString(item.priceUnit[0]) as string)
-                  : "",
-              sum: +item.sum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
-              discountSum: +item.discountSum,
-              amountUnit:
-                item.amountUnit && item.amountUnit[0]
-                  ? (this.checkForNullString(item.amountUnit[0]) as string)
-                  : "",
-              num:
-                item.num && item.num[0]
-                  ? (this.checkForNullString(item.num[0]) as string)
-                  : "",
-              product:
-                item.product && item.product[0]
-                  ? (this.checkForNullString(item.product[0]) as string)
-                  : "",
-              productArticle:
-                item.productArticle && item.productArticle[0]
-                  ? (this.checkForNullString(item.productArticle[0]) as string)
-                  : "",
-              supplierProduct:
-                item.supplierProduct && item.supplierProduct[0]
-                  ? (this.checkForNullString(item.supplierProduct[0]) as string)
-                  : "",
-              supplierProductArticle:
-                item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? (this.checkForNullString(
-                      item.supplierProductArticle[0]
-                    ) as string)
-                  : "",
-              amount: this.parseInteger(item.amount[0]),
-              invoice_id: incomeDoc.id!.toString() || null,
-              invoiceincomingdate:
-                record.incomingDate && record.incomingDate[0]
-                  ? (this.checkForNullString(record.incomingDate[0]) as string)
-                  : "",
-              amount: this.parseInteger(item.amount),
-            };
-            // console.log("recordItem.id", recordItem.id);
+          try {
             await drizzleDb
-              .insert(invoice_items)
+              .insert(invoices)
               .values({
-                id: recordItem.id,
-                isAdditionalExpense: recordItem.isAdditionalExpense,
-                actualAmount: recordItem.actualAmount,
-                store: recordItem.store,
-                price: recordItem.price,
-                priceWithoutVat: recordItem.priceWithoutVat,
-                priceUnit: recordItem.priceUnit,
-                sum: recordItem.sum,
-                vatPercent: recordItem.vatPercent,
-                vatSum: recordItem.vatSum,
-                discountSum: recordItem.discountSum,
-                amountUnit: recordItem.amountUnit,
-                num: recordItem.num,
-                product: recordItem.product,
-                supplierProduct: recordItem.supplierProduct,
-                productArticle: recordItem.productArticle,
-                amount: recordItem.amount,
-                invoice_id: incomeDoc.id!.toString() || null,
+                id: incomeDoc.id,
+                incomingDocumentNumber: incomeDoc.incomingDocumentNumber,
+                incomingDate: incomeDoc.incomingDate,
+                useDefaultDocumentTime: incomeDoc.useDefaultDocumentTime,
+                dueDate: incomeDoc.dueDate,
+                supplier: incomeDoc.supplier,
+                defaultStore: incomeDoc.defaultStore,
+                invoice: incomeDoc.invoice,
+                documentNumber: incomeDoc.documentNumber,
+                comment: incomeDoc.comment,
+                status: incomeDoc.status,
+                type: type,
               })
-
               .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
+          try {
+            for (const item of record.items[0].item) {
+              console.log("item", item);
+              let recordItem = {
+                id:
+                  item.id && (item.id[0] as string)
+                    ? this.checkForNullString(item.id[0] as string)
+                    : item.id,
+                isAdditionalExpense:
+                  item.isAdditionalExpense &&
+                  (item.isAdditionalExpense[0] as boolean)
+                    ? (this.checkForNullString(
+                        item.isAdditionalExpense[0]
+                      ) as boolean)
+                    : false,
+                actualAmount: this.parseInteger(item.actualAmount[0] as string),
+                storeId:
+                  item.store && item.store[0]
+                    ? (this.checkForNullString(item.store[0]) as string)
+                    : "",
+                // code: this.parseInteger(item.actualAmount),
+                price: +item.price,
+                priceWithoutVat: +item.priceWithoutVat,
+                // priceUnit:
+                //   item.priceUnit && item.priceUnit[0]
+                //     ? (this.checkForNullString(item.priceUnit[0]) as string)
+                //     : "",
+                sum: +item.sum,
+                vatPercent: +item.vatPercent,
+                vatSum: +item.vatSum,
+                discountSum: +item.discountSum,
+                amountUnit:
+                  item.amountUnit && item.amountUnit[0]
+                    ? (this.checkForNullString(item.amountUnit[0]) as string)
+                    : "",
+                num:
+                  item.num && (item.num[0] as string)
+                    ? (this.checkForNullString(item.num[0]) as string)
+                    : "",
+                productId:
+                  item.product && item.product[0]
+                    ? (this.checkForNullString(item.product[0]) as string)
+                    : "",
+                productArticle:
+                  item.productArticle && (item.productArticle[0] as string)
+                    ? (this.checkForNullString(
+                        item.productArticle[0]
+                      ) as string)
+                    : "",
+                // supplierProduct:
+                //   item.supplierProduct && item.supplierProduct[0]
+                //     ? (this.checkForNullString(
+                //         item.supplierProduct[0]
+                //       ) as string)
+                //     : "",
+                // supplierProductArticle:
+                //   item.supplierProductArticle && item.supplierProductArticle[0]
+                //     ? (this.checkForNullString(
+                //         item.supplierProductArticle[0]
+                //       ) as string)
+                //     : "",
+                amount: this.parseInteger(item.amount[0] as string),
+                invoice_id: incomeDoc.id!.toString() || null,
+                invoiceincomingdate:
+                  record.incomingDate && (record.incomingDate[0] as string)
+                    ? (this.checkForNullString(
+                        record.incomingDate[0]
+                      ) as string)
+                    : "",
+                // amount: this.parseInteger(item.amount),
+              };
+              // console.log("recordItem.id", recordItem.id);
+              await drizzleDb
+                .insert(invoice_items)
+                .values(recordItem)
+                .execute();
+            }
+          } catch (e) {
+            console.log("e", e);
           }
         } else {
-          await drizzleDb
-            .update(invoices)
-            .set({
-              incomingDocumentNumber:
-                incomeDoc.incomingDocumentNumber?.toString(),
-              incomingDate: incomeDoc.incomingDate?.toString(),
-              useDefaultDocumentTime:
-                incomeDoc.useDefaultDocumentTime as boolean,
-              dueDate: incomeDoc.dueDate?.toString(),
-              supplier: incomeDoc.supplier?.toString(),
-              defaultStore: incomeDoc.defaultStore?.toString(),
-              invoice: incomeDoc.invoice?.toString(),
-              documentNumber: incomeDoc.documentNumber?.toString(),
-              comment: incomeDoc.comment?.toString(),
-              status: incomeDoc.status?.toString(),
-            })
-            .where(eq(invoices.id, incomeDoc.id!));
+          try {
+            await drizzleDb
+              .update(invoices)
+              .set({
+                incomingDocumentNumber:
+                  incomeDoc.incomingDocumentNumber?.toString(),
+                // incomingDate: incomeDoc.incomingDate?.toString(),
+                useDefaultDocumentTime:
+                  incomeDoc.useDefaultDocumentTime as boolean,
+                dueDate: incomeDoc.dueDate?.toString(),
+                supplier: incomeDoc.supplier?.toString(),
+                defaultStore: incomeDoc.defaultStore?.toString(),
+                invoice: incomeDoc.invoice?.toString(),
+                documentNumber: incomeDoc.documentNumber?.toString(),
+                comment: incomeDoc.comment?.toString(),
+                status: incomeDoc.status?.toString(),
+              })
+              .where(eq(invoices.id, incomeDoc.id!));
+          } catch (e) {
+            console.log("e", e);
+          }
+          try {
+            await drizzleDb
+              .delete(invoice_items)
+              .where(eq(invoice_items.invoice_id, incomeDoc.id!.toString()))
+              .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
 
-          await drizzleDb
-            .delete(invoice_items)
-            .where(eq(invoice_items.invoice_id, incomeDoc.id!.toString()))
-            .execute();
-
-          for (const item of record.items[0].item) {
-            // console.log("item", item);
-            let recordItem = {
-              isAdditionalExpense:
-                item.isAdditionalExpense && item.isAdditionalExpense[0]
-                  ? (this.checkForNullString(
-                      item.isAdditionalExpense[0]
-                    ) as boolean)
-                  : false,
-              actualAmount: this.parseInteger(item.actualAmount[0]),
-              storeId:
-                item.store && item.store[0]
-                  ? (this.checkForNullString(item.store[0]) as string)
-                  : "",
-              actualAmount: this.parseInteger(item.actualAmount),
-              store:
-                item.store && item.store[0]
-                  ? this.checkForNullString(item.store[0])
-                  : "",
-              price: +item.price,
-              priceWithoutVat: +item.priceWithoutVat,
-              priceUnit:
-                item.priceUnit && item.priceUnit[0]
-                  ? (this.checkForNullString(item.priceUnit[0]) as string)
-                  : "",
-              sum: +item.sum,
-              vatPercent: +item.vatPercent,
-              vatSum: +item.vatSum,
-              discountSum: +item.discountSum,
-              amountUnit:
-                item.amountUnit && item.amountUnit[0]
-                  ? (this.checkForNullString(item.amountUnit[0]) as string)
-                  : "",
-              num:
-                item.num && item.num[0]
-                  ? (this.checkForNullString(item.num[0]) as string)
-                  : "",
-              product:
-                item.product && item.product[0]
-                  ? (this.checkForNullString(item.product[0]) as string)
-                  : "",
-              productArticle:
-                item.productArticle && item.productArticle[0]
-                  ? (this.checkForNullString(item.productArticle[0]) as string)
-                  : "",
-              supplierProduct:
-                item.supplierProduct && item.supplierProduct[0]
-                  ? (this.checkForNullString(item.supplierProduct[0]) as string)
-                  : "",
-              supplierProductArticle:
-                item.supplierProductArticle && item.supplierProductArticle[0]
-                  ? (this.checkForNullString(
-                      item.supplierProductArticle[0]
-                    ) as string)
-                  : "",
-              amount: this.parseInteger(item.amount[0]),
-              invoice_id: incomeDoc.id!.toString() || null,
-              invoiceincomingdate:
-                record.incomingDate && record.incomingDate[0]
-                  ? (this.checkForNullString(record.incomingDate[0]) as string)
-                  : "",
-              amount: this.parseInteger(item.amount),
-            };
-            // console.log("item", item);
-            await drizzleDb.insert(invoice_items).values(recordItem).execute();
+          try {
+            for (const item of record.items[0].item) {
+              // console.log("item", item);
+              let recordItem = {
+                id:
+                  item.id && (item.id[0] as string)
+                    ? this.checkForNullString(item.id[0] as string)
+                    : item.id,
+                isAdditionalExpense:
+                  item.isAdditionalExpense && item.isAdditionalExpense[0]
+                    ? (this.checkForNullString(
+                        item.isAdditionalExpense[0]
+                      ) as boolean)
+                    : false,
+                actualAmount: this.parseInteger(item.actualAmount[0]),
+                storeId:
+                  item.store && item.store[0]
+                    ? (this.checkForNullString(item.store[0]) as string)
+                    : "",
+                // actualAmount: this.parseInteger(item.actualAmount),
+                // store:
+                //   item.store && item.store[0]
+                //     ? this.checkForNullString(item.store[0])
+                //     : "",
+                price: +item.price[0],
+                priceWithoutVat: +item.priceWithoutVat,
+                // priceUnit:
+                //   item.priceUnit && item.priceUnit[0]
+                //     ? (this.checkForNullString(item.priceUnit[0]) as string)
+                //     : "",
+                sum: +item.sum,
+                vatPercent: +item.vatPercent,
+                vatSum: +item.vatSum,
+                discountSum: +item.discountSum,
+                amountUnit:
+                  item.amountUnit && item.amountUnit[0]
+                    ? (this.checkForNullString(item.amountUnit[0]) as string)
+                    : "",
+                num:
+                  item.num && item.num[0]
+                    ? (this.checkForNullString(item.num[0]) as string)
+                    : "",
+                productId:
+                  item.product && item.product[0]
+                    ? (this.checkForNullString(item.product[0]) as string)
+                    : "",
+                productArticle:
+                  item.productArticle && item.productArticle[0]
+                    ? (this.checkForNullString(
+                        item.productArticle[0]
+                      ) as string)
+                    : "",
+                // supplierProduct:
+                //   item.supplierProduct && item.supplierProduct[0]
+                //     ? (this.checkForNullString(
+                //         item.supplierProduct[0]
+                //       ) as string)
+                //     : "",
+                // supplierProductArticle:
+                //   item.supplierProductArticle && item.supplierProductArticle[0]
+                //     ? (this.checkForNullString(
+                //         item.supplierProductArticle[0]
+                //       ) as string)
+                //     : "",
+                amount: this.parseInteger(item.amount[0] as string),
+                invoice_id: incomeDoc.id!.toString() || null,
+                invoiceincomingdate:
+                  record.incomingDate && record.incomingDate[0]
+                    ? (this.checkForNullString(
+                        record.incomingDate[0]
+                      ) as string)
+                    : "",
+                // amount: this.parseInteger(item.amount),
+              };
+              // console.log("item", item);
+              await drizzleDb
+                .insert(invoice_items)
+                .values(recordItem)
+                .execute();
+            }
+          } catch (e) {
+            console.log("e", e);
           }
           // // .where(eq(record.id, incomeDoc.id));
           // // .execute();
@@ -1516,7 +1595,8 @@ export class IikoDictionariesService {
       const existingDiscountType = existingDiscountTypes.find(
         (existingDiscountType) => existingDiscountType.id === discountType.id
       );
-
+      console.log("started invoice db inserting");
+      console.time("invoice_db_inserting");
       if (!existingDiscountType) {
         await drizzleDb
           .insert(discount_type)
@@ -1538,6 +1618,8 @@ export class IikoDictionariesService {
           .where(eq(discount_type.id, discountType.id))
           .execute();
       }
+      console.timeEnd("invoice_db_inserting");
+      console.log("finished invoice db inserting");
     }
   }
 
@@ -1560,6 +1642,8 @@ export class IikoDictionariesService {
       const existingConception = existingConceptions.find(
         (existingConception) => existingConception.id === Conception.id
       );
+      console.log("started invoice db inserting");
+      console.time("invoice_db_inserting");
       if (!existingConception) {
         await drizzleDb
           .insert(conception)
@@ -1581,6 +1665,8 @@ export class IikoDictionariesService {
           .where(eq(conception.id, conception.id))
           .execute();
       }
+      console.timeEnd("invoice_db_inserting");
+      console.log("finished invoice db inserting");
     }
   }
 
@@ -1604,7 +1690,8 @@ export class IikoDictionariesService {
         (existingAccountingCategory) =>
           existingAccountingCategory.id === accountingCategory.id
       );
-
+      console.log("started invoice db inserting");
+      console.time("invoice_db_inserting");
       if (!existingAccountingCategory) {
         await drizzleDb
           .insert(accounting_category)
@@ -1626,6 +1713,8 @@ export class IikoDictionariesService {
           .where(eq(accounting_category.id, accountingCategory.id))
           .execute();
       }
+      console.timeEnd("invoice_db_inserting");
+      console.log("finished invoice db inserting");
     }
   }
 
@@ -1716,6 +1805,8 @@ export class IikoDictionariesService {
         (existingNomenclatureCategory) =>
           existingNomenclatureCategory.id === nomenclatureCategory.id
       );
+      console.log("started invoice db inserting");
+      console.time("invoice_db_inserting");
       try {
         if (!existingNomenclatureCategory) {
           await drizzleDb
@@ -1741,6 +1832,8 @@ export class IikoDictionariesService {
       } catch (e) {
         console.log(e);
       }
+      console.timeEnd("invoice_db_inserting");
+      console.log("finished invoice db inserting");
     }
   }
 
@@ -1764,8 +1857,11 @@ export class IikoDictionariesService {
         (existingNomenclatureElement) =>
           existingNomenclatureElement.id === nomenclatureElement.id
       );
+      console.log("started invoice db inserting");
+      console.time("invoice_db_inserting");
       try {
         if (!existingNomenclatureElement) {
+          console.log("nomenclatureElement", nomenclatureElement);
           await drizzleDb
             .insert(nomenclature_element)
             .values({
@@ -1805,9 +1901,90 @@ export class IikoDictionariesService {
       } catch (e) {
         console.log(e);
       }
+      console.timeEnd("invoice_db_inserting");
+      console.log("finished invoice db inserting");
     }
   }
+
+  async getSupplers(token: string) {
+    const response = await fetch(
+      `https://les-ailes-co-co.iiko.it/resto/api/suppliers?key=${token}`,
+      {
+        method: "GET",
+      }
+    );
+    // console.log("response", response);
+    const supplierText = await response.text();
+
+    // console.log("suppliers", suppliers);
+
+    const existingSuppliers = await drizzleDb
+      .select()
+      .from(suppliers)
+      .execute();
+
+    xml2js.parseString(supplierText, async (err, result) => {
+      if (err) {
+        throw err;
+      }
+      console.log("result", result.employees.employee);
+
+      for (const supplier of result.employees.employee) {
+        const existingSupplier = existingSuppliers.find(
+          (existingSupplier) => existingSupplier.id === supplier.id
+        );
+        console.log("started invoice db inserting");
+        console.time("invoice_db_inserting");
+        if (!existingSupplier) {
+          await drizzleDb
+            .insert(suppliers)
+            .values({
+              id: supplier.id,
+              code: supplier.code,
+              name: supplier.name,
+              cardNumber: supplier.cardNumber,
+              taxpayerIdNumber: supplier.taxpayerIdNumber,
+              snils: supplier.snils,
+              departmentCodes: supplier.departmentCodes,
+              responsibilityDepartmentCodes:
+                supplier.responsibilityDepartmentCodes,
+              deleted: supplier.deleted,
+              supplier: supplier.supplier,
+              employee: supplier.employee,
+              client: supplier.client,
+              representsStore: supplier.representsStore,
+              representedStoreId: supplier.representedStoreId,
+            })
+            .execute();
+        } else {
+          await drizzleDb
+            .update(suppliers)
+            .set({
+              code: supplier.code,
+              name: supplier.name,
+              cardNumber: supplier.cardNumber,
+              taxpayerIdNumber: supplier.taxpayerIdNumber,
+              snils: supplier.snils,
+              departmentCodes: supplier.departmentCodes,
+              responsibilityDepartmentCodes:
+                supplier.responsibilityDepartmentCodes,
+              deleted: supplier.deleted,
+              supplier: supplier.supplier,
+              employee: supplier.employee,
+              client: supplier.client,
+              representsStore: supplier.representsStore,
+              representedStoreId: supplier.representedStoreId,
+            })
+            .where(eq(suppliers.id, supplier.id))
+            .execute();
+        }
+        console.timeEnd("invoice_db_inserting");
+        console.log("finished invoice db inserting");
+      }
+    });
+  }
 }
+
 function where(arg0: SQL<unknown>) {
   throw new Error("Function not implemented.");
 }
