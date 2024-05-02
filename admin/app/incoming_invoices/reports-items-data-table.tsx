@@ -96,6 +96,7 @@ export function DataTable<TData, TValue>({
     if (data && data.data && Array.isArray(data.data)) {
       data.data.forEach((item) => {
         if (item.type === "income") {
+          // @ts-ignore
           total += item.amount;
         }
       });
@@ -109,6 +110,7 @@ export function DataTable<TData, TValue>({
     if (data && data.data && Array.isArray(data.data)) {
       data.data.forEach((item) => {
         if (item.type === "outcome") {
+          // @ts-ignore
           total += item.amount;
         }
       });
@@ -121,6 +123,7 @@ export function DataTable<TData, TValue>({
 
     if (data && data.data && Array.isArray(data.data)) {
       data.data.forEach((item) => {
+        // @ts-ignore
         total += item.amount;
       });
     }

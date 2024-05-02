@@ -679,6 +679,7 @@ export const reportsController = new Elysia({
           );
 
           result.incomes.push({
+            // @ts-ignore
             amount: cashReportItem?.amount ?? 0,
             error: null,
             type: "cash",
@@ -687,6 +688,7 @@ export const reportsController = new Elysia({
           });
 
           result.incomes.push({
+            // @ts-ignore
             amount: uzcardReportItem?.amount ?? 0,
             error: null,
             type: "uzcard",
@@ -695,6 +697,7 @@ export const reportsController = new Elysia({
           });
 
           result.incomes.push({
+            // @ts-ignore
             amount: humoReportItem?.amount ?? 0,
             error: null,
             type: "humo",
@@ -703,6 +706,7 @@ export const reportsController = new Elysia({
           });
 
           result.incomes.push({
+            // @ts-ignore
             amount: uzumTezkorReportItem?.amount ?? 0,
             error: null,
             type: "uzum_tezkor",
@@ -713,6 +717,7 @@ export const reportsController = new Elysia({
           for (const item of otherExpensesReportItems) {
             result.expenses.push({
               error: null,
+              // @ts-ignore
               amount: item.amount,
               readonly: false,
               type: "other_expenses",
@@ -887,6 +892,7 @@ export const reportsController = new Elysia({
           for (const item of reportItems) {
             if (item.type === "income") {
               result.incomes.push({
+                // @ts-ignore
                 amount: item.amount,
                 error: null,
                 type: item.source,
@@ -895,6 +901,7 @@ export const reportsController = new Elysia({
               });
             } else {
               result.expenses.push({
+                // @ts-ignore
                 amount: item.amount,
                 readonly: true,
                 error: null,
@@ -1428,7 +1435,7 @@ export const reportsController = new Elysia({
           report_date: resReports[0]!.date,
           type: item.type as "outcome" | "income",
         }));
-
+        // @ts-ignore
         await drizzle.insert(reports_items).values(reportItemsData).execute();
 
         // await this.prisma.reports_items.createMany({
@@ -1489,6 +1496,7 @@ export const reportsController = new Elysia({
           report_date: reportItem!.date,
           type: item.type as "outcome" | "income",
         }));
+        // @ts-ignore
         await drizzle.insert(reports_items).values(reportItemsData).execute();
       }
     },

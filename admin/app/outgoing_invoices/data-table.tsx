@@ -106,7 +106,7 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "suppliers.representedStoreId",
+        field: "defaultStore",
         operator: "eq",
         value: storeId,
       });

@@ -94,6 +94,7 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
 
       const saveUpdate = async () => {
         updateMutation.mutate({
+          // @ts-ignore
           data: { amount: +value },
           id: record.id,
         });
@@ -102,6 +103,7 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
       return isEditable ? (
         <div className="flex items-center space-x-3">
           <Input
+            // @ts-ignore
             defaultValue={record.amount}
             /** @ts-ignore */
             onChange={(e) => setValue(e.target.value)}
@@ -120,6 +122,7 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
         </div>
       ) : (
         <span className="pl-3">
+          {/* @ts-ignore */}
           {Intl.NumberFormat("ru-RU").format(record.amount)}
         </span>
       );
