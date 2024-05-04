@@ -4,6 +4,7 @@ import {
   Column,
   ColumnDef,
   PaginationState,
+  createColumnHelper,
   flexRender,
   getCoreRowModel,
   getPaginationRowModel,
@@ -14,6 +15,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -21,7 +23,7 @@ import {
 
 import { Button } from "@components/ui/button";
 
-import { CSSProperties, Fragment, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -35,18 +37,17 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
+import dayjs from "dayjs";
 
+import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
-import { invoices } from "@backend/../drizzle/schema";
-import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsTable } from "./invoice_items";
-import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
+  columns: ColumnDef<Stoplist, TValue>[];
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
@@ -70,15 +71,13 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   };
 };
 
-export function DataTable<TData, TValue>({
-  columns,
-}: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
-    pageSize: 100,
+    pageSize: 10,
   });
 
   const filters = useMemo(() => {
@@ -90,7 +89,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.from) {
       res.push({
-        field: "incomingDate",
+        field: "invoiceincomingdate",
         operator: "gte",
         value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
@@ -98,7 +97,7 @@ export function DataTable<TData, TValue>({
 
     if (date?.to) {
       res.push({
-        field: "incomingDate",
+        field: "invoiceincomingdate",
         operator: "lte",
         value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
@@ -106,7 +105,7 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "defaultStore",
+        field: "storeId",
         operator: "eq",
         value: storeId,
       });
@@ -114,13 +113,11 @@ export function DataTable<TData, TValue>({
 
     return JSON.stringify(res);
   }, [date, storeId]);
-
-  // console.log("filters", filters);
-
+  // console.log("filters", date);
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "incoming_with_items",
+      "franchise_incoming",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -128,12 +125,11 @@ export function DataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.invoices.incoming_with_items.get({
+      const { data } = await apiClient.api.invoices.franchise_incoming.get({
         query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-          fields: "id, incomingDocumentNumber, incomingDate",
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -153,11 +149,55 @@ export function DataTable<TData, TValue>({
     [pageIndex, pageSize]
   );
 
+  const columnHelper = createColumnHelper();
+
+  const columns = useMemo(() => {
+    let cols = [
+      {
+        accessorKey: "name",
+        header: "Название",
+        enablePinning: true,
+      },
+      {
+        accessorKey: "supplierProductArticle",
+        header: "Артикул",
+      },
+      {
+        accessorKey: "unit",
+        header: "Единица измерения",
+      },
+    ];
+    if (date && date.from && date.to) {
+      for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
+        cols.push(
+          // @ts-ignore
+          columnHelper.group({
+            id: m.format("YYYY-MM-DD"),
+            header: m.format("DD.MM.YYYY"),
+            columns: [
+              // @ts-ignore
+              columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
+                cell: (info) => info.getValue(),
+                header: () => "Оприходовано",
+              }),
+              // @ts-ignore
+              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
+                cell: (info) => info.getValue(),
+                header: () => "Актуально",
+              }),
+            ],
+          })
+        );
+      }
+    }
+    return cols;
+    console.log("cols", cols);
+  }, [date]);
+
   const table = useReactTable({
     data: data?.data ?? defaultData,
-    // @ts-ignore
     columns,
-    pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
+    pageCount: 100000,
     state: {
       pagination,
       rowPinning: {
@@ -167,7 +207,6 @@ export function DataTable<TData, TValue>({
     enablePinning: true,
     enableRowPinning: true,
     enableColumnPinning: true,
-    getRowCanExpand: (row) => true,
     onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
@@ -183,17 +222,17 @@ export function DataTable<TData, TValue>({
   return (
     <div className="space-y-4">
       <div className="rounded-md border relative">
-        <Table>
+        <Table wrapperClassName="h-screen">
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0 ">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="">
                 {headerGroup.headers.map((header) => {
                   const { column } = header;
                   return (
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-slate-400 bg-white  text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                      className="text-center  border bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                       style={{ ...getCommonPinningStyles(column) }}
                     >
                       {header.isPlaceholder
@@ -241,38 +280,27 @@ export function DataTable<TData, TValue>({
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <Fragment key={row.id}>
-                  <TableRow
-                    data-state={row.getIsSelected() && "selected"}
-                    className="text-black"
-                  >
-                    {row.getVisibleCells().map((cell) => {
-                      const { column } = cell;
-                      return (
-                        <TableCell
-                          key={cell.id}
-                          className="border border-r-2 border-slate-400 text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
-                          style={{ ...getCommonPinningStyles(column) }}
-                        >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                  {row.getIsExpanded() && (
-                    <TableRow className="text-black">
-                      <TableCell colSpan={row.getVisibleCells().length}>
-                        <InvoiceItemsTable
-                          invoiceId={row.original.id as string}
-                          invoiceDate={row.original.incomingDate! as string}
-                        />
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                  className="text-black"
+                >
+                  {row.getVisibleCells().map((cell) => {
+                    const { column } = cell;
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className="border border-slate-600 text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                        style={{ ...getCommonPinningStyles(column) }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
+                    );
+                  })}
+                </TableRow>
               ))
             ) : (
               <TableRow>

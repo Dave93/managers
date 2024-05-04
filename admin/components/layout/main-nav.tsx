@@ -94,6 +94,10 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/incoming_invoices",
   },
   {
+    title: "Приходная накладная (франчайзинг)",
+    href: "/franchise_manager",
+  },
+  {
     title: "Приходная накладная (Детально)",
     href: "/incoming_with_items",
   },

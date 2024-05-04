@@ -26,7 +26,7 @@ export const reportsColumns: ColumnDef<InferSelectModel<typeof invoices>>[] = [
     },
   },
   {
-    accessorKey: "documentNumber",
+    accessorKey: "incomingDocumentNumber",
     header: "Номер",
   },
   {
