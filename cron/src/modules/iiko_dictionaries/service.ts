@@ -62,11 +62,11 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    // await this.getIncomingInvoice(token);
-    // await this.getOutgoingInvoice(token);
+    await this.getIncomingInvoice(token);
+    await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
-    await this.getCorporatinStore(token);
+    // await this.getCorporatinStore(token);
     // await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
     // await this.getCorporationTerminals(token);
