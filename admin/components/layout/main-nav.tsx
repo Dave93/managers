@@ -90,7 +90,7 @@ const settingsMenu: { title: string; href: string }[] = [
 
 const storeMenu: { title: string; href: string }[] = [
   {
-    title: "Приходная накладная",
+    title: "Приходная накладная (Таблица)",
     href: "/incoming_invoices",
   },
   {
@@ -102,7 +102,7 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/incoming_with_items",
   },
   {
-    title: "Расходная накладная",
+    title: "Заказы",
     href: "/outgoing_invoices",
   },
   {

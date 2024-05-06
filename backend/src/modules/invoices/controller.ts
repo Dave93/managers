@@ -13,7 +13,7 @@ import {
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
-import { SelectedFields } from "drizzle-orm/pg-core";
+import { SelectedFields, doublePrecision } from "drizzle-orm/pg-core";
 import { Elysia, t } from "elysia";
 
 export const invoicesController = new Elysia({
@@ -204,21 +204,24 @@ export const invoicesController = new Elysia({
       }
       let selectFields: SelectedFields = {};
       if (fields) {
-        selectFields = parseSelectFields(fields, invoices, {});
+        selectFields = parseSelectFields(fields, invoices, {
+          suppliers,
+          corporation_store,
+        });
       }
       let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         let filtersArray = JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "corporation_store.id"
+          (filter: any) => filter.field === "suppliers.representedStoreId"
         );
         if (!storeIdFilter) {
           return {
             data: [],
           };
         }
-
+        // console.log("storeIdFilter", storeIdFilter);
         whereClause = parseFilterFields(filters, invoices, {
           suppliers,
           corporation_store,
@@ -230,6 +233,7 @@ export const invoicesController = new Elysia({
       const invoicesCount = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
         .where(and(...whereClause))
         .execute();
 
@@ -237,10 +241,6 @@ export const invoicesController = new Elysia({
         .select(selectFields)
         .from(invoices)
         .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
-        .leftJoin(
-          corporation_store,
-          eq(suppliers.representedStoreId, corporation_store.id)
-        )
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)
@@ -320,18 +320,13 @@ export const invoicesController = new Elysia({
 
       const invoicesList = await drizzle
         .select({
-          id: invoice_items.id,
-          documentNumber: invoices.documentNumber,
+          id: invoices.id,
+          incomingDocumentNumber: invoices.incomingDocumentNumber,
           incomingDate: invoices.incomingDate,
-          invoice_id: invoices.id,
+          // id: invoice_items.invoice_id,
         })
         .from(invoices)
-        .leftJoin(invoice_items, and(eq(invoices.id, invoice_items.invoice_id)))
-        .leftJoin(measure_unit, eq(invoice_items.amountUnit, measure_unit.id))
-        .leftJoin(
-          nomenclature_element,
-          eq(invoice_items.productId, nomenclature_element.id)
-        )
+
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)

@@ -115,7 +115,7 @@ export function DataTable<TData, TValue>({
     return JSON.stringify(res);
   }, [date, storeId]);
 
-  console.log("filters", filters);
+  // console.log("filters", filters);
 
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
