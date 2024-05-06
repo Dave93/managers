@@ -90,15 +90,19 @@ const settingsMenu: { title: string; href: string }[] = [
 
 const storeMenu: { title: string; href: string }[] = [
   {
-    title: "Приходная накладная",
+    title: "Приходная накладная (Таблица)",
     href: "/incoming_invoices",
+  },
+  {
+    title: "Приходная накладная (франчайзинг)",
+    href: "/franchise_manager",
   },
   {
     title: "Приходная накладная (Детально)",
     href: "/incoming_with_items",
   },
   {
-    title: "Расходная накладная",
+    title: "Заказы",
     href: "/outgoing_invoices",
   },
   {

@@ -8,9 +8,7 @@ export default function OutgoingListPage() {
   return (
     <div>
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Расходная накладная
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Заказы</h2>
       </div>
       <OutgoingFilters />
       <div className="py-10">

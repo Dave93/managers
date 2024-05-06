@@ -9,7 +9,7 @@ export default function ReportsListPage() {
     <div>
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
-          Приходная накладная
+          Приходная накладная (Таблица)
         </h2>
       </div>
       <InvoiceFilters />

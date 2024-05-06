@@ -102,7 +102,7 @@ export const InvoiceFilters = () => {
           <Select
             onValueChange={(value) => {
               const today = new Date();
-              // console.log("value", value);
+              console.log("value", value);
               switch (value) {
                 case "-1": // Yesterday
                   setDate({
