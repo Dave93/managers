@@ -62,7 +62,7 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
+    // await this.getIncomingInvoice(token);
     await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
@@ -863,7 +863,7 @@ export class IikoDictionariesService {
       const docs = result[`${type}InvoiceDtoes`].document;
 
       for (const record of docs) {
-        console.log("record", record);
+        // console.log("record", record);
         const incomeDoc = {
           id:
             record.id && record.id[0]
@@ -1122,8 +1122,8 @@ export class IikoDictionariesService {
               ? this.checkForNullString(record.incomingDocumentNumber[0])
               : "",
           incomingDate:
-            record.incomingDate && record.incomingDate[0]
-              ? this.checkForNullString(record.incomingDate[0])
+            record.dateIncoming && record.dateIncoming[0]
+              ? this.checkForNullString(record.dateIncoming[0])
               : "",
           useDefaultDocumentTime:
             record.useDefaultDocumentTime && record.useDefaultDocumentTime[0]
