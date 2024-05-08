@@ -42,7 +42,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoices } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsTable } from "./invoice_items";
+import { InvoiceItemsTable } from "./incoming_items";
 import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {

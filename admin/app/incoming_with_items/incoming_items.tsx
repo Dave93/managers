@@ -73,7 +73,7 @@ export function InvoiceItemsTable<TData, TValue>({
   const { data, isLoading } = useQuery({
     enabled: !!token,
     queryKey: [
-      "incomint_invoice_items",
+      "invoice_items",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
@@ -109,7 +109,6 @@ export function InvoiceItemsTable<TData, TValue>({
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
-    // @ts-ignore
     columns,
     pageCount: 1000000,
     state: {
