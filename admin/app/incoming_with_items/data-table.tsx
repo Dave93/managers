@@ -152,6 +152,11 @@ export function DataTable<TData, TValue>({
     }),
     [pageIndex, pageSize]
   );
+<<<<<<< HEAD
+=======
+  console.log("data", data);
+
+>>>>>>> 863c0fdc7744669973b005254c994efb53e321e2
   const table = useReactTable({
     data: data?.data ?? defaultData,
     // @ts-ignore

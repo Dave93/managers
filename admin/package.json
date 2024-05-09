@@ -12,6 +12,7 @@
     "@elysiajs/eden": "^1.0.2",
     "@hookform/resolvers": "^3.2.0",
     "@nextui-org/chip": "^2.0.25",
+    "@nextui-org/listbox": "^2.1.19",
     "@nextui-org/navbar": "^2.0.27",
     "@nextui-org/react": "^2.2.9",
     "@nextui-org/select": "^2.1.20",
