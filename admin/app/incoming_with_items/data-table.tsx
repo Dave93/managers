@@ -152,6 +152,7 @@ export function DataTable<TData, TValue>({
     }),
     [pageIndex, pageSize]
   );
+  console.log("data", data);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
