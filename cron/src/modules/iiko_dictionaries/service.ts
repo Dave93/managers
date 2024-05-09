@@ -63,7 +63,7 @@ export class IikoDictionariesService {
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
     // await this.getIncomingInvoice(token);
-    await this.getOutgoingInvoice(token);
+    // await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
@@ -1253,9 +1253,9 @@ export class IikoDictionariesService {
                 amount: this.parseInteger(item.amount[0] as string),
                 invoice_id: incomeDoc.id!.toString() || null,
                 invoiceincomingdate:
-                  record.incomingDate && (record.incomingDate[0] as string)
+                  record.dateIncoming && (record.dateIncoming[0] as string)
                     ? (this.checkForNullString(
-                        record.incomingDate[0]
+                        record.dateIncoming[0]
                       ) as string)
                     : "",
                 // amount: this.parseInteger(item.amount),
@@ -1367,9 +1367,9 @@ export class IikoDictionariesService {
                 amount: this.parseInteger(item.amount[0] as string),
                 invoice_id: incomeDoc.id!.toString() || null,
                 invoiceincomingdate:
-                  record.incomingDate && record.incomingDate[0]
+                  record.dateIncoming && record.dateIncoming[0]
                     ? (this.checkForNullString(
-                        record.incomingDate[0]
+                        record.dateIncoming[0]
                       ) as string)
                     : "",
                 // amount: this.parseInteger(item.amount),
