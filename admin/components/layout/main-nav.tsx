@@ -88,34 +88,41 @@ const settingsMenu: { title: string; href: string }[] = [
   },
 ];
 
-const storeMenu: { title: string; href: string }[] = [
+const storeMenu: { title: string; href: string; permissions: string }[] = [
   {
     title: "Приходная накладная (Таблица)",
     href: "/incoming_invoices",
+    permissions: "incoming_invoices.list",
   },
   {
     title: "Приходная накладная (франчайзинг)",
     href: "/franchise_manager",
+    permissions: "franchise_manager.list",
   },
   {
     title: "Приходная накладная (Детально)",
     href: "/incoming_with_items",
+    permissions: "incoming_with_items.list",
   },
   {
     title: "Заказы",
     href: "/outgoing_invoices",
+    permissions: "outgoing_invoices.list",
   },
   {
     title: "Акт Списания",
     href: "/writeoff_items",
+    permissions: "writeoff_items.list",
   },
   {
     title: "Внутреннее перемещение (Приход)",
     href: "/internal_transfer",
+    permissions: "internal_transfer.list",
   },
   {
     title: "Внутреннее перемещение (Расход)",
     href: "/expenses_transfer",
+    permissions: "expenses_transfer.list",
   },
 ];
 
@@ -217,15 +224,24 @@ export function NavigationMenuDemo() {
               >
                 {storeMenu.map((component) => (
                   <DropdownItem
-                    key={component.title}
                     title={component.title}
                     href={component.href}
+                    key={component.title}
                   />
                 ))}
               </DropdownMenu>
             </Dropdown>
           </Navbar>
         </NavigationMenuItem>
+        <CanAccess permission="franchise_manager.list">
+          <NavigationMenuItem>
+            <Link href="/franchise_manager" legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Приходная накладная (франчайзинг)
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
       </NavigationMenuList>
     </NavigationMenu>
   );

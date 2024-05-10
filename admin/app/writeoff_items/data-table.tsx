@@ -222,7 +222,7 @@ export function DataTable<TData, TValue>() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border relative">
+      <div className="rounded-md border relative ">
         <Table wrapperClassName="h-screen">
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0 ">
             {table.getHeaderGroups().map((headerGroup) => (
@@ -233,7 +233,7 @@ export function DataTable<TData, TValue>() {
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-slate-400 bg-white  text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                      className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                       style={{ ...getCommonPinningStyles(column) }}
                     >
                       {header.isPlaceholder
