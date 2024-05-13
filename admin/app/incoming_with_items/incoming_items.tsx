@@ -133,7 +133,7 @@ export function InvoiceItemsTable<TData, TValue>({
   }, [table]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 items-center ">
       <div className="rounded-md border relative">
         <Table>
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
