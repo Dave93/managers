@@ -62,7 +62,7 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    // await this.getIncomingInvoice(token);
+    await this.getIncomingInvoice(token);
     // await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
@@ -842,7 +842,7 @@ export class IikoDictionariesService {
     const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
     const response = await fetch(
-      `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}`,
+      `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
       {
         method: "GET",
       }
@@ -1085,7 +1085,7 @@ export class IikoDictionariesService {
     const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
     const response = await fetch(
-      `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}`,
+      `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
       {
         method: "GET",
       }
@@ -1105,7 +1105,7 @@ export class IikoDictionariesService {
       if (err) {
         throw err;
       }
-
+      console.log("result", result);
       console.log("started invoice db inserting");
       console.time("invoice_db_inserting");
 

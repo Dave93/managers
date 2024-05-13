@@ -90,24 +90,20 @@ const settingsMenu: { title: string; href: string }[] = [
 
 const storeMenu: { title: string; href: string }[] = [
   {
-    title: "Приходная накладная (Таблица)",
-    href: "/incoming_invoices",
+    title: "Заказы",
+    href: "/outgoing_invoices",
   },
   {
-    title: "Приходная накладная (франчайзинг)",
-    href: "/franchise_manager",
+    title: "Приходная накладная (Таблица)",
+    href: "/incoming_invoices",
   },
   {
     title: "Приходная накладная (Детально)",
     href: "/incoming_with_items",
   },
   {
-    title: "Заказы",
-    href: "/outgoing_invoices",
-  },
-  {
-    title: "Акт Списания",
-    href: "/writeoff_items",
+    title: "Приходная накладная (франчайзинг)",
+    href: "/franchise_manager",
   },
   {
     title: "Внутреннее перемещение (Приход)",
@@ -116,6 +112,10 @@ const storeMenu: { title: string; href: string }[] = [
   {
     title: "Внутреннее перемещение (Расход)",
     href: "/expenses_transfer",
+  },
+  {
+    title: "Акт Списания",
+    href: "/writeoff_items",
   },
 ];
 

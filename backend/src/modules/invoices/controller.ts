@@ -12,7 +12,7 @@ import {
   users_stores,
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
-import { SQLWrapper, sql, and, eq, inArray, asc, desc } from "drizzle-orm";
+import { SQLWrapper, sql, and, eq, inArray, asc, desc, not } from "drizzle-orm";
 import { SelectedFields, doublePrecision } from "drizzle-orm/pg-core";
 import { Elysia, t } from "elysia";
 
@@ -87,6 +87,7 @@ export const invoicesController = new Elysia({
         });
 
         whereClause.push(eq(invoices.type, "incoming"));
+        whereClause.push(not(eq(invoices.status, "DELETED")));
       }
 
       const invoiceItems = await drizzle
@@ -228,6 +229,7 @@ export const invoicesController = new Elysia({
         });
 
         whereClause.push(eq(invoices.type, "outgoing"));
+        whereClause.push(not(eq(invoices.status, "DELETED")));
       }
 
       const invoicesCount = await drizzle
@@ -310,6 +312,7 @@ export const invoicesController = new Elysia({
         });
 
         whereClause.push(eq(invoices.type, "incoming"));
+        whereClause.push(not(eq(invoices.status, "DELETED")));
       }
       console.log("whereClause", whereClause);
       const invoicesCount = await drizzle
@@ -415,6 +418,7 @@ export const invoicesController = new Elysia({
         });
 
         whereClause.push(eq(invoices.type, "incoming"));
+        whereClause.push(not(eq(invoices.status, "DELETED")));
       }
 
       const invoiceItems = await drizzle

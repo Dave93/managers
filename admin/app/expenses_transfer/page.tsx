@@ -10,7 +10,9 @@ export default function OutgoingListPage() {
     <div>
       <Back />
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Расходная товаров</h2>
+        <h2 className="text-3xl font-bold tracking-tight">
+          Внутреннее перемещение (Расход)
+        </h2>
       </div>
       <InternalTransferFilters />
       <div className="py-10">

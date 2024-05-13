@@ -7,29 +7,19 @@ import Back from "./Back";
 export default function ListBox() {
   const items = [
     {
-      key: "incoming invoices",
-      label: "Приходная накладная (Таблица)",
-      href: "/incoming_invoices",
-    },
-    {
-      key: "franchise_manager",
-      label: "Приходная накладная (франчайзинг)",
-      href: "/franchise_manager",
-    },
-    {
-      key: "incoming_with_items",
-      label: "Приходная накладная (Детально)",
-      href: "/incoming_with_items",
-    },
-    {
       key: "outgoing_invoices",
       label: "Заказы",
       href: "/outgoing_invoices",
     },
     {
-      key: "writeoff_items",
-      label: "Акт Списания",
-      href: "/writeoff_items",
+      key: "incoming invoices",
+      label: "Приходная накладная (Таблица)",
+      href: "/incoming_invoices",
+    },
+    {
+      key: "incoming_with_items",
+      label: "Приходная накладная (Детально)",
+      href: "/incoming_with_items",
     },
     {
       key: "internal_transfer",
@@ -40,6 +30,16 @@ export default function ListBox() {
       key: "expenses_transfer",
       label: "Внутреннее перемещение (Расход)",
       href: "/expenses_transfer",
+    },
+    {
+      key: "writeoff_items",
+      label: "Акт Списания",
+      href: "/writeoff_items",
+    },
+    {
+      key: "franchise_manager",
+      label: "Приходная накладная (франчайзинг)",
+      href: "/franchise_manager",
     },
   ];
   return (
