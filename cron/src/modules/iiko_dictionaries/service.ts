@@ -1238,18 +1238,18 @@ export class IikoDictionariesService {
                         item.productArticle[0]
                       ) as string)
                     : "",
-                // supplierProduct:
-                //   item.supplierProduct && item.supplierProduct[0]
-                //     ? (this.checkForNullString(
-                //         item.supplierProduct[0]
-                //       ) as string)
-                //     : "",
-                // supplierProductArticle:
-                //   item.supplierProductArticle && item.supplierProductArticle[0]
-                //     ? (this.checkForNullString(
-                //         item.supplierProductArticle[0]
-                //       ) as string)
-                //     : "",
+                supplierProduct:
+                  item.supplierProduct && item.supplierProduct[0]
+                    ? (this.checkForNullString(
+                        item.supplierProduct[0]
+                      ) as string)
+                    : "",
+                supplierProductArticle:
+                  item.supplierProductArticle && item.supplierProductArticle[0]
+                    ? (this.checkForNullString(
+                        item.supplierProductArticle[0]
+                      ) as string)
+                    : "",
                 amount: this.parseInteger(item.amount[0] as string),
                 invoice_id: incomeDoc.id!.toString() || null,
                 invoiceincomingdate:
@@ -1352,18 +1352,18 @@ export class IikoDictionariesService {
                         item.productArticle[0]
                       ) as string)
                     : "",
-                // supplierProduct:
-                //   item.supplierProduct && item.supplierProduct[0]
-                //     ? (this.checkForNullString(
-                //         item.supplierProduct[0]
-                //       ) as string)
-                //     : "",
-                // supplierProductArticle:
-                //   item.supplierProductArticle && item.supplierProductArticle[0]
-                //     ? (this.checkForNullString(
-                //         item.supplierProductArticle[0]
-                //       ) as string)
-                //     : "",
+                supplierProduct:
+                  item.supplierProduct && item.supplierProduct[0]
+                    ? (this.checkForNullString(
+                        item.supplierProduct[0]
+                      ) as string)
+                    : "",
+                supplierProductArticle:
+                  item.supplierProductArticle && item.supplierProductArticle[0]
+                    ? (this.checkForNullString(
+                        item.supplierProductArticle[0]
+                      ) as string)
+                    : "",
                 amount: this.parseInteger(item.amount[0] as string),
                 invoice_id: incomeDoc.id!.toString() || null,
                 invoiceincomingdate:

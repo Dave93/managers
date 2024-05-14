@@ -513,4 +513,92 @@ export const invoicesController = new Elysia({
         fields: t.Optional(t.String()),
       }),
     }
+  )
+
+  .get(
+    "/invoices/refund",
+    async ({
+      query: { limit, offset, sort, filters, fields },
+      user,
+      set,
+      drizzle,
+    }) => {
+      if (!user) {
+        set.status = 401;
+        return {
+          message: "User not found",
+        };
+      }
+      if (!user.permissions.includes("refund.list")) {
+        set.status = 401;
+        return {
+          message: "You don't have permissions",
+        };
+      }
+      let selectFields: SelectedFields = {};
+      if (fields) {
+        selectFields = await parseSelectFields(fields, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+      }
+      console.log("selectFields", selectFields);
+      let whereClause: (SQLWrapper | undefined)[] = [];
+      if (filters) {
+        let filtersArray = await JSON.parse(filters);
+
+        const storeIdFilter = filtersArray.find(
+          (filter: any) => filter.field === "defaultStore"
+        );
+        if (!storeIdFilter) {
+          return {
+            data: [],
+          };
+        }
+
+        whereClause = await parseFilterFields(filters, invoices, {
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+        });
+
+        whereClause.push(eq(invoices.type, "incoming"));
+        whereClause.push(not(eq(invoices.status, "DELETED")));
+      }
+      console.log("whereClause", whereClause);
+      const invoicesCount = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(invoices)
+        .where(and(...whereClause))
+        .execute();
+
+      const invoicesList = await drizzle
+        .select({
+          id: invoices.id,
+          incomingDocumentNumber: invoices.incomingDocumentNumber,
+          incomingDate: invoices.incomingDate,
+          // id: invoice_items.invoice_id,
+        })
+        .from(invoices)
+
+        .where(and(...whereClause))
+        .orderBy(desc(invoices.incomingDate))
+        .limit(+limit)
+        .offset(+offset)
+        .execute();
+      return {
+        total: invoicesCount[0].count,
+        data: invoicesList,
+      };
+    },
+    {
+      query: t.Object({
+        limit: t.String(),
+        offset: t.String(),
+        sort: t.Optional(t.String()),
+        filters: t.Optional(t.String()),
+        fields: t.Optional(t.String()),
+      }),
+    }
   );
