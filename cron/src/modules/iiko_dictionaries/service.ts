@@ -67,12 +67,12 @@ export class IikoDictionariesService {
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
-    await this.getReportOlap(token);
+    // await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
     // await this.getCorporationTerminals(token);
     // await this.getCorporationGroups(token);
     // await this.getBalanceStores(token);
-    // await this.getSupplers(token);
+    await this.getSupplers(token);
   }
 
   checkForNullString = (value: string) => {
@@ -1892,8 +1892,12 @@ export class IikoDictionariesService {
               accounting_category_id: nomenclatureElement.accountingCategory,
               mainUnit: nomenclatureElement.mainUnit,
               type: nomenclatureElement.type,
-              unitWeight: this.parseInteger(nomenclatureElement.unitWeight),
-              unitCapacity: this.parseInteger(nomenclatureElement.unitCapacity),
+              unitWeight: this.parseInteger(
+                nomenclatureElement.unitWeight
+              )?.toString(),
+              unitCapacity: this.parseInteger(
+                nomenclatureElement.unitCapacity
+              )?.toString(),
             })
             .where(eq(nomenclature_element.id, nomenclatureElement.id))
             .execute();
@@ -1927,7 +1931,7 @@ export class IikoDictionariesService {
       if (err) {
         throw err;
       }
-      console.log("result", result.employees.employee);
+      // console.log("result", result.employees.employee);
 
       for (const supplier of result.employees.employee) {
         const existingSupplier = existingSuppliers.find(
@@ -1936,47 +1940,55 @@ export class IikoDictionariesService {
         console.log("started invoice db inserting");
         console.time("invoice_db_inserting");
         if (!existingSupplier) {
-          await drizzleDb
-            .insert(suppliers)
-            .values({
-              id: supplier.id,
-              code: supplier.code,
-              name: supplier.name,
-              cardNumber: supplier.cardNumber,
-              taxpayerIdNumber: supplier.taxpayerIdNumber,
-              snils: supplier.snils,
-              departmentCodes: supplier.departmentCodes,
-              responsibilityDepartmentCodes:
-                supplier.responsibilityDepartmentCodes,
-              deleted: supplier.deleted,
-              supplier: supplier.supplier,
-              employee: supplier.employee,
-              client: supplier.client,
-              representsStore: supplier.representsStore,
-              representedStoreId: supplier.representedStoreId,
-            })
-            .execute();
+          try {
+            await drizzleDb
+              .insert(suppliers)
+              .values({
+                id: supplier.id,
+                code: supplier.code,
+                name: supplier.name,
+                cardNumber: supplier.cardNumber,
+                taxpayerIdNumber: supplier.taxpayerIdNumber,
+                snils: supplier.snils,
+                departmentCodes: supplier.departmentCodes,
+                responsibilityDepartmentCodes:
+                  supplier.responsibilityDepartmentCodes,
+                deleted: supplier.deleted,
+                supplier: supplier.supplier,
+                employee: supplier.employee,
+                client: supplier.client,
+                representsStore: supplier.representsStore,
+                representedStoreId: supplier.representedStoreId,
+              })
+              .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
         } else {
-          await drizzleDb
-            .update(suppliers)
-            .set({
-              code: supplier.code,
-              name: supplier.name,
-              cardNumber: supplier.cardNumber,
-              taxpayerIdNumber: supplier.taxpayerIdNumber,
-              snils: supplier.snils,
-              departmentCodes: supplier.departmentCodes,
-              responsibilityDepartmentCodes:
-                supplier.responsibilityDepartmentCodes,
-              deleted: supplier.deleted,
-              supplier: supplier.supplier,
-              employee: supplier.employee,
-              client: supplier.client,
-              representsStore: supplier.representsStore,
-              representedStoreId: supplier.representedStoreId,
-            })
-            .where(eq(suppliers.id, supplier.id))
-            .execute();
+          try {
+            await drizzleDb
+              .update(suppliers)
+              .set({
+                code: supplier.code,
+                name: supplier.name,
+                cardNumber: supplier.cardNumber,
+                taxpayerIdNumber: supplier.taxpayerIdNumber,
+                snils: supplier.snils,
+                departmentCodes: supplier.departmentCodes,
+                responsibilityDepartmentCodes:
+                  supplier.responsibilityDepartmentCodes,
+                deleted: supplier.deleted,
+                supplier: supplier.supplier,
+                employee: supplier.employee,
+                client: supplier.client,
+                representsStore: supplier.representsStore,
+                representedStoreId: supplier.representedStoreId,
+              })
+              .where(eq(suppliers.id, supplier.id))
+              .execute();
+          } catch (e) {
+            console.log("e", e);
+          }
         }
         console.timeEnd("invoice_db_inserting");
         console.log("finished invoice db inserting");
