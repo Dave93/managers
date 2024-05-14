@@ -2,7 +2,7 @@
 import { Tabs, Tab } from "@nextui-org/tabs";
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
-import { InvoiceFilters } from "./incoming_filter";
+import { RefundFilters } from "./refund_filter";
 import Back from "../manager_reports/Back";
 
 export default function ReportsListPage() {
@@ -10,11 +10,9 @@ export default function ReportsListPage() {
     <div>
       <Back />
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">
-          Приходная накладная (Возврат товаров)
-        </h2>
+        <h2 className="text-3xl font-bold tracking-tight">Возврат товаров</h2>
       </div>
-      <InvoiceFilters />
+      <RefundFilters />
       <div className="py-10">
         <DataTable columns={reportsColumns} />
       </div>

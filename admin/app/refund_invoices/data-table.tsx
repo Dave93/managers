@@ -42,7 +42,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoices } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { InvoiceItemsTable } from "./incoming_items";
+import { RefundItemsTable } from "./refund_items";
 import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
@@ -265,7 +265,7 @@ export function DataTable<TData, TValue>({
                   {row.getIsExpanded() && (
                     <TableRow className="text-black">
                       <TableCell colSpan={row.getVisibleCells().length}>
-                        <InvoiceItemsTable
+                        <RefundItemsTable
                           invoiceId={row.original.id as string}
                           invoiceDate={row.original.incomingDate! as string}
                         />

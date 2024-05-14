@@ -47,7 +47,7 @@ const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
   },
 ];
 
-export function InvoiceItemsTable<TData, TValue>({
+export function RefundItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
