@@ -62,12 +62,12 @@ export class IikoDictionariesService {
     // await this.getNomenclatureGroups(token);
     // await this.getNomenclatureCatergorys(token);
     // await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
+    // await this.getIncomingInvoice(token);
     // await this.getOutgoingInvoice(token);
     // await this.getInternalTransfer(token);
     // await this.getWriteOff(token);
     // await this.getCorporatinStore(token);
-    // await this.getReportOlap(token);
+    await this.getReportOlap(token);
     // await this.getCorporationDepartments(token);
     // await this.getCorporationTerminals(token);
     // await this.getCorporationGroups(token);
@@ -401,8 +401,8 @@ export class IikoDictionariesService {
       .add(5, "hour")
       .format("YYYY-MM-DD");
     const toDate = dayjs().endOf("month").add(5, "hour").format("YYYY-MM-DD");
-    console.log("fromDate", fromDate);
-    console.log("toDate", toDate);
+    // console.log("fromDate", fromDate);
+    // console.log("toDate", toDate);
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/olap?key=${token}`,
       {
@@ -509,10 +509,10 @@ export class IikoDictionariesService {
       }
     );
 
-    console.log("davr");
+    // console.log("davr");
 
     const writeoffs = await response.json();
-    console.log("writeoffs", writeoffs);
+    // console.log("writeoffs", writeoffs);
 
     const existingWriteOffs = await drizzleDb.select().from(writeoff).execute();
 
@@ -1105,7 +1105,7 @@ export class IikoDictionariesService {
       if (err) {
         throw err;
       }
-      console.log("result", result);
+      // console.log("result", result);
       console.log("started invoice db inserting");
       console.time("invoice_db_inserting");
 
@@ -1851,7 +1851,7 @@ export class IikoDictionariesService {
       .select()
       .from(nomenclature_element)
       .execute();
-    console.log("nomenclatureElements", nomenclatureElements);
+    // console.log("nomenclatureElements", nomenclatureElements);
     for (const nomenclatureElement of nomenclatureElements) {
       const existingNomenclatureElement = existingNomenclatureElements.find(
         (existingNomenclatureElement) =>

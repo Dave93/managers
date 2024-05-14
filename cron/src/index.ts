@@ -11,7 +11,7 @@ cron.schedule("0 */2 * * * *", async () => {
   await terminalService.getTerminalsFromIiko();
 });
 
-cron.schedule("*/1 * * * *", async () => {
+cron.schedule("*/20 * * * *", async () => {
   console.log("Running a task every minute");
   await iikoDictionariesService.getIikoDictionariesFromIiko();
 });

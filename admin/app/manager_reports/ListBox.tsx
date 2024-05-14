@@ -36,11 +36,11 @@ export default function ListBox() {
       label: "Акт Списания",
       href: "/writeoff_items",
     },
-    {
-      key: "franchise_manager",
-      label: "Приходная накладная (франчайзинг)",
-      href: "/franchise_manager",
-    },
+    // {
+    //   key: "franchise_manager",
+    //   label: "Приходная накладная (франчайзинг)",
+    //   href: "/franchise_manager",
+    // },
   ];
   return (
     <div className="px-4">
