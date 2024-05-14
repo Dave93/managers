@@ -106,12 +106,12 @@ export function DataTable<TData, TValue>({
 
     if (storeId) {
       res.push({
-        field: "defaultStore",
+        field: "suppliers.representedStoreId",
         operator: "eq",
         value: storeId,
       });
     }
-
+    // git ssssss
     return JSON.stringify(res);
   }, [date, storeId]);
 
@@ -120,7 +120,7 @@ export function DataTable<TData, TValue>({
   const { data, isLoading } = useQuery({
     enabled: !!token && !!date,
     queryKey: [
-      "incoming_with_items",
+      "refund_invoices",
       {
         limit: pageSize,
         offset: pageIndex * pageSize,

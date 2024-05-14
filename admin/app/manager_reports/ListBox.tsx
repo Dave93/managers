@@ -22,6 +22,11 @@ export default function ListBox() {
       href: "/incoming_with_items",
     },
     {
+      key: "refund_invoices",
+      label: "Возврат товаров",
+      href: "/refund_invoices",
+    },
+    {
       key: "internal_transfer",
       label: "Внутреннее перемещение (Приход)",
       href: "/internal_transfer",

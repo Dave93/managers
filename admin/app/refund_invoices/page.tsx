@@ -11,7 +11,7 @@ export default function ReportsListPage() {
       <Back />
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
-          Приходная накладная (Детально)
+          Приходная накладная (Возврат товаров)
         </h2>
       </div>
       <InvoiceFilters />
