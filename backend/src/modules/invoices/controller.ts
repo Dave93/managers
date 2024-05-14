@@ -529,7 +529,7 @@ export const invoicesController = new Elysia({
           message: "User not found",
         };
       }
-      if (!user.permissions.includes("refund.list")) {
+      if (!user.permissions.includes("refund_invoices.list")) {
         set.status = 401;
         return {
           message: "You don't have permissions",
@@ -538,6 +538,7 @@ export const invoicesController = new Elysia({
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = await parseSelectFields(fields, invoices, {
+          suppliers,
           invoice_items,
           measure_unit,
           nomenclature_element,
@@ -549,7 +550,7 @@ export const invoicesController = new Elysia({
         let filtersArray = await JSON.parse(filters);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "defaultStore"
+          (filter: any) => filter.field === "suppliers.representedStoreId"
         );
         if (!storeIdFilter) {
           return {
@@ -558,6 +559,7 @@ export const invoicesController = new Elysia({
         }
 
         whereClause = await parseFilterFields(filters, invoices, {
+          suppliers,
           invoice_items,
           measure_unit,
           nomenclature_element,
@@ -570,6 +572,7 @@ export const invoicesController = new Elysia({
       const invoicesCount = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
         .where(and(...whereClause))
         .execute();
 
@@ -581,7 +584,7 @@ export const invoicesController = new Elysia({
           // id: invoice_items.invoice_id,
         })
         .from(invoices)
-
+        .leftJoin(suppliers, eq(invoices.supplier, suppliers.id))
         .where(and(...whereClause))
         .orderBy(desc(invoices.incomingDate))
         .limit(+limit)
