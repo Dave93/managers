@@ -315,8 +315,8 @@ export function DataTable<TData, TValue>() {
           </TableBody>
         </Table>
       </div>
-      <div className="h-2" />
-      <div className="flex items-center justify-between px-2">
+      {/* <div className="h-2" /> */}
+      <div className="flex h-24 items-center justify-between pb-4 px-2">
         <div className="flex-1 text-sm text-muted-foreground"></div>
         <div className="flex items-center space-x-6 lg:space-x-8">
           <div className="flex items-center space-x-2">

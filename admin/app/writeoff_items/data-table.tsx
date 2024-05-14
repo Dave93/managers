@@ -224,7 +224,7 @@ export function DataTable<TData, TValue>() {
     <div className="space-y-4">
       <div className="rounded-md border relative ">
         <Table wrapperClassName="h-screen">
-          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0 lg:h-0 h-24">
+          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
@@ -233,7 +233,7 @@ export function DataTable<TData, TValue>() {
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950 rotate-90 lg:rotate-0"
+                      className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                       style={{ ...getCommonPinningStyles(column) }}
                     >
                       {header.isPlaceholder
@@ -316,8 +316,8 @@ export function DataTable<TData, TValue>() {
           </TableBody>
         </Table>
       </div>
-      <div className="h-2" />
-      <div className="flex items-center justify-between px-2">
+      {/* <div className="h-2" /> */}
+      <div className="flex h-24 items-center justify-between pb-4 px-2">
         <div className="flex-1 text-sm text-muted-foreground"></div>
         <div className="flex items-center space-x-6 lg:space-x-8">
           <div className="flex items-center space-x-2">

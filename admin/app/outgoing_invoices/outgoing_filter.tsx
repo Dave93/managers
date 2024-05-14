@@ -67,7 +67,7 @@ export const OutgoingFilters = () => {
   }, [token]);
 
   return (
-    <div className="py-4 flex space-x-3">
+    <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">
       <Popover>
         <PopoverTrigger asChild>
           <Button
