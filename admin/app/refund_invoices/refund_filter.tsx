@@ -45,7 +45,7 @@ import {
 } from "@backend/modules/cache_control/dto/cache.dto";
 import dayjs from "dayjs";
 
-export const InvoiceFilters = () => {
+export const RefundFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
