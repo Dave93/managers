@@ -24,6 +24,9 @@ export default function MainLayout({
         <NextUIProvider>
           {roleCode !== "manager" && <AdminLayout>{children}</AdminLayout>}
           {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
+          {/* {roleCode === "franchise_manager" && (
+            <ManagerLayout>{children}</ManagerLayout>
+          )} */}
           {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
           <Toaster />
         </NextUIProvider>

@@ -67,6 +67,7 @@ export const invoiceItemsController = new Elysia({
           productName: nomenclature_element.name,
           productArticle: invoice_items.productArticle,
           unit: measure_unit.name,
+          sum: invoice_items.sum,
         })
         .from(invoice_items)
         .leftJoin(

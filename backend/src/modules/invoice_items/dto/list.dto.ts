@@ -5,4 +5,5 @@ export type InvoiceItemsListDto = InferSelectModel<typeof invoice_items> & {
   productName: string;
   unit: string;
   productArticle: string;
+  sum: number;
 };
