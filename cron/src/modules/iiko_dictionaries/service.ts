@@ -67,12 +67,11 @@ export class IikoDictionariesService {
     await this.getInternalTransfer(token);
     await this.getWriteOff(token);
     await this.getCorporatinStore(token);
-    await this.getReportOlap(token);
     await this.getCorporationDepartments(token);
-    await this.getCorporationTerminals(token);
     await this.getCorporationGroups(token);
     await this.getBalanceStores(token);
     await this.getSupplers(token);
+    await this.getReportOlap(token);
   }
 
   checkForNullString = (value: string) => {
@@ -321,88 +320,6 @@ export class IikoDictionariesService {
     });
   }
 
-  async getCorporationTerminals(token: string) {
-    try {
-      const response = await fetch(
-        `https://les-ailes-co-co.iiko.it/resto/api/corporation/terminals?key=${token}`,
-        {
-          method: "GET",
-        }
-      );
-      // console.log("response", response);
-      let corporation = await response.text();
-      // console.log("corporation", corporation);
-
-      const corporationTerminals = await drizzleDb
-        .select()
-        .from(corporation_terminals)
-        .execute();
-
-      // xml2js.parseString(corporation, async (err, result) => {
-      //   if (err) {
-      //     throw err;
-      //   }
-
-      //   // console.log("result", result);
-      //   for (const corporationTerminalsTable of result.terminalDtoes
-      //     .terminalDto) {
-      //     // console.log("corporationTerminals", corporationTerminals);
-      //     let terminalItem = {
-      //       id:
-      //         corporationTerminalsTable.id && corporationTerminalsTable.id[0]
-      //           ? this.checkForNullString(corporationTerminalsTable.id[0])
-      //           : "",
-      //       name:
-      //         corporationTerminalsTable.name &&
-      //         corporationTerminalsTable.name[0]
-      //           ? this.checkForNullString(corporationTerminalsTable.name[0])
-      //           : "",
-      //       computerName:
-      //         corporationTerminalsTable.computerName &&
-      //         corporationTerminalsTable.computerName[0]
-      //           ? this.checkForNullString(
-      //               corporationTerminalsTable.computerName[0]
-      //             )
-      //           : "",
-      //       anonymous:
-      //         corporationTerminalsTable.anonymous &&
-      //         corporationTerminalsTable.anonymous[0]
-      //           ? this.checkForNullString(
-      //               corporationTerminalsTable.anonymous[0]
-      //             )
-      //           : "",
-      //     };
-      //     const existingCorporates = corporationTerminals.find(
-      //       (existingCorporates) => existingCorporates.id === terminalItem.id
-      //     );
-      //     if (!existingCorporates) {
-      //       await drizzleDb
-      //         .insert(corporation_terminals)
-      //         .values({
-      //           id: terminalItem.id!.toString(),
-      //           name: terminalItem.name!.toString(),
-      //           computerName: terminalItem.computerName!.toString(),
-      //           anonymous: terminalItem.anonymous!.toString(),
-      //         })
-      //         .execute();
-      //     } else {
-      //       await drizzleDb
-      //         .update(corporation_terminals)
-      //         .set({
-      //           name: terminalItem.name?.toString(),
-      //           computerName: terminalItem.computerName?.toString(),
-      //           anonymous: terminalItem.anonymous?.toString(),
-      //         })
-      //         .where(eq(corporation_terminals.id, terminalItem.id!.toString()))
-      //         .execute();
-      //     }
-      //   }
-      // });
-    } catch (error) {
-      console.log("error", error);
-    }
-  }
-
   async getReportOlap(token: string) {
     const fromDate = dayjs()
       .startOf("month")
@@ -539,7 +456,7 @@ export class IikoDictionariesService {
 
       if (!existingWriteOff) {
         try {
-          console.log("write_off", write_off);
+          // console.log("write_off", write_off);
           await drizzleDb
             .insert(writeoff)
             .values({
@@ -578,7 +495,7 @@ export class IikoDictionariesService {
         }
       } else {
         try {
-          console.log("write_off", write_off);
+          // console.log("write_off", write_off);
           await drizzleDb
 
             .update(writeoff)
@@ -599,7 +516,7 @@ export class IikoDictionariesService {
             .execute();
 
           for (const item of write_off.items) {
-            console.log("item", item);
+            // console.log("item", item);
             await drizzleDb
               .insert(writeoff_items)
               .values({
@@ -743,7 +660,7 @@ export class IikoDictionariesService {
 
     // console.log("internalTransfers after", internalTransfers);
     for (const internalTransfer of internalTransfers.response) {
-      console.log("internalTransfer", internalTransfer);
+      // console.log("internalTransfer", internalTransfer);
       const existingInternalTransfer = existingInternalTransfers.find(
         (existingInternalTransfer) =>
           existingInternalTransfer.id === internalTransfer.id
@@ -1199,7 +1116,7 @@ export class IikoDictionariesService {
           }
           try {
             for (const item of record.items[0].item) {
-              console.log("item", item);
+              // console.log("item", item);
               let recordItem = {
                 id:
                   item.id && (item.id[0] as string)
@@ -1456,7 +1373,7 @@ export class IikoDictionariesService {
       }
     );
     const paymentTypes = await response.json();
-
+    // console.log("paymentTypes", paymentTypes);
     const existingPaymentTypes = await drizzleDb
       .select()
       .from(payment_type)
@@ -1466,7 +1383,7 @@ export class IikoDictionariesService {
       const existingPaymentType = existingPaymentTypes.find(
         (existingPaymentType) => existingPaymentType.id === paymentType.id
       );
-
+      // console.log("paymentType", paymentType);
       console.log("started payment_type db inserting");
       console.time("payment_type_db_inserting");
       if (!existingPaymentType) {
@@ -1879,7 +1796,7 @@ export class IikoDictionariesService {
       console.time("NomenclatureElements_db_inserting");
       try {
         if (!existingNomenclatureElement) {
-          console.log("nomenclatureElement", nomenclatureElement);
+          // console.log("nomenclatureElement", nomenclatureElement);
           await drizzleDb
             .insert(nomenclature_element)
             .values({
@@ -1952,31 +1869,101 @@ export class IikoDictionariesService {
       // console.log("result", result.employees.employee);
 
       for (const supplier of result.employees.employee) {
+        const suppliersItems = {
+          id:
+            supplier.id && supplier.id[0]
+              ? this.checkForNullString(supplier.id[0] as string)
+              : null,
+          code:
+            supplier.code && supplier.code[0]
+              ? this.checkForNullString(supplier.code[0])
+              : "",
+          name:
+            supplier.name && supplier.name[0]
+              ? this.checkForNullString(supplier.name[0])
+              : "",
+          cardNumber:
+            supplier.cardNumber && supplier.cardNumber[0]
+              ? this.checkForNullString(supplier.cardNumber[0])
+              : "",
+          taxpayerIdNumber:
+            supplier.taxpayerIdNumber && supplier.taxpayerIdNumber[0]
+              ? this.checkForNullString(supplier.taxpayerIdNumber[0])
+              : "",
+          snils:
+            supplier.snils && supplier.snils[0]
+              ? this.checkForNullString(supplier.snils[0])
+              : "",
+          departmentCodes:
+            supplier.departmentCodes && supplier.departmentCodes[0]
+              ? this.checkForNullString(supplier.departmentCodes[0])
+              : "",
+          responsibilityDepartmentCodes:
+            supplier.responsibilityDepartmentCodes &&
+            supplier.responsibilityDepartmentCodes[0]
+              ? this.checkForNullString(
+                  supplier.responsibilityDepartmentCodes[0]
+                )
+              : "",
+          deleted:
+            supplier.deleted && (supplier.deleted[0] as boolean)
+              ? (this.checkForNullString(supplier.deleted[0]) as boolean)
+              : false,
+          supplier:
+            supplier.supplier && (supplier.supplier[0] as boolean)
+              ? (this.checkForNullString(supplier.supplier[0]) as boolean)
+              : false,
+          employee:
+            supplier.employee && (supplier.employee[0] as boolean)
+              ? (this.checkForNullString(supplier.employee[0]) as boolean)
+              : false,
+          client:
+            supplier.client && (supplier.client[0] as boolean)
+              ? (this.checkForNullString(supplier.client[0]) as boolean)
+              : false,
+          representsStore:
+            supplier.representsStore && (supplier.representsStore[0] as boolean)
+              ? (this.checkForNullString(
+                  supplier.representsStore[0]
+                ) as boolean)
+              : false,
+          representedStoreId:
+            supplier.representedStoreId &&
+            (supplier.representedStoreId[0] as string)
+              ? this.checkForNullString(
+                  supplier.representedStoreId[0] as string
+                )
+              : null,
+        };
+
         const existingSupplier = existingSuppliers.find(
-          (existingSupplier) => existingSupplier.id === supplier.id
+          (existingSupplier) => existingSupplier.id === suppliersItems.id
         );
+
         console.log("started Supplers db inserting");
         console.time("Supplers_db_inserting");
+
         if (!existingSupplier) {
           try {
             await drizzleDb
               .insert(suppliers)
               .values({
-                id: supplier.id,
-                code: supplier.code,
-                name: supplier.name,
-                cardNumber: supplier.cardNumber,
-                taxpayerIdNumber: supplier.taxpayerIdNumber,
-                snils: supplier.snils,
-                departmentCodes: supplier.departmentCodes,
+                id: suppliersItems.id!.toString(),
+                code: suppliersItems.code,
+                name: suppliersItems.name,
+                cardNumber: suppliersItems.cardNumber,
+                taxpayerIdNumber: suppliersItems.taxpayerIdNumber,
+                snils: suppliersItems.snils,
+                departmentCodes: suppliersItems.departmentCodes,
                 responsibilityDepartmentCodes:
-                  supplier.responsibilityDepartmentCodes,
-                deleted: supplier.deleted,
-                supplier: supplier.supplier,
-                employee: supplier.employee,
-                client: supplier.client,
-                representsStore: supplier.representsStore,
-                representedStoreId: supplier.representedStoreId,
+                  suppliersItems.responsibilityDepartmentCodes,
+                deleted: suppliersItems.deleted,
+                supplier: suppliersItems.supplier,
+                employee: suppliersItems.employee,
+                client: suppliersItems.client,
+                representsStore: suppliersItems.representsStore,
+                representedStoreId:
+                  suppliersItems.representedStoreId!.toString(),
               })
               .execute();
           } catch (e) {
@@ -1987,22 +1974,23 @@ export class IikoDictionariesService {
             await drizzleDb
               .update(suppliers)
               .set({
-                code: supplier.code,
-                name: supplier.name,
-                cardNumber: supplier.cardNumber,
-                taxpayerIdNumber: supplier.taxpayerIdNumber,
-                snils: supplier.snils,
-                departmentCodes: supplier.departmentCodes,
+                code: suppliersItems.code?.toString(),
+                name: suppliersItems.name?.toString(),
+                cardNumber: suppliersItems.cardNumber?.toString(),
+                taxpayerIdNumber: suppliersItems.taxpayerIdNumber?.toString(),
+                snils: suppliersItems.snils?.toString(),
+                departmentCodes: suppliersItems.departmentCodes?.toString(),
                 responsibilityDepartmentCodes:
-                  supplier.responsibilityDepartmentCodes,
-                deleted: supplier.deleted,
-                supplier: supplier.supplier,
-                employee: supplier.employee,
-                client: supplier.client,
-                representsStore: supplier.representsStore,
-                representedStoreId: supplier.representedStoreId,
+                  suppliersItems.responsibilityDepartmentCodes?.toString(),
+                deleted: suppliersItems.deleted,
+                supplier: suppliersItems.supplier,
+                employee: suppliersItems.employee,
+                client: suppliersItems.client,
+                representsStore: suppliersItems.representsStore,
+                representedStoreId:
+                  suppliersItems.representedStoreId?.toString(),
               })
-              .where(eq(suppliers.id, supplier.id))
+              .where(eq(suppliers.id, suppliersItems.id!.toString()))
               .execute();
           } catch (e) {
             console.log("e", e);

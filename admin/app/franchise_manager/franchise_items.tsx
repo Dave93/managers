@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  CellContext,
   ColumnDef,
   PaginationState,
   flexRender,
@@ -27,66 +26,40 @@ import { useQuery } from "@tanstack/react-query";
 import { invoice_items } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { InvoiceItemsListDto } from "@backend/modules/invoice_items/dto/list.dto";
-import { useCanAccess } from "@admin/components/use-can-access";
 
 interface DataTableProps<TData, TValue> {
   invoiceId: string;
   invoiceDate: string;
 }
 
-export function InvoiceItemsTable<TData, TValue>({
+const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
+  {
+    accessorKey: "productName",
+    header: "Название",
+  },
+  {
+    accessorKey: "unit",
+    header: "Единица измерения",
+  },
+  {
+    accessorKey: "amount",
+    header: "Количество",
+  },
+  {
+    accessorKey: "sum",
+    header: "Сумма",
+  },
+];
+
+export function FranchiseItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
   const token = useToken();
-  const isFranchiseAccess = useCanAccess("franchise_manager.list");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
   });
-
-  const columns = useMemo(() => {
-    if (!isFranchiseAccess) {
-      return [
-        {
-          accessorKey: "productName",
-          header: "Название",
-        },
-        {
-          accessorKey: "unit",
-          header: "Единица измерения",
-        },
-        {
-          accessorKey: "amount",
-          header: "Количество",
-        },
-      ];
-    } else {
-      return [
-        {
-          accessorKey: "productName",
-          header: "Название",
-        },
-        {
-          accessorKey: "unit",
-          header: "Единица измерения",
-        },
-        {
-          accessorKey: "amount",
-          header: "Количество",
-        },
-        {
-          accessorKey: "sum",
-          header: "Сумма",
-          cell: ({ row }: CellContext<InvoiceItemsListDto, any>) => {
-            const record = row.original;
-
-            return <span>{Intl.NumberFormat("ru-RU").format(record.sum)}</span>;
-          },
-        },
-      ];
-    }
-  }, [isFranchiseAccess]);
 
   const filters = [
     {
@@ -118,7 +91,7 @@ export function InvoiceItemsTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           filters: encodeURIComponent(JSON.stringify(filters)),
           fields:
-            "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
+            "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit,sum",
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -163,15 +136,6 @@ export function InvoiceItemsTable<TData, TValue>({
     });
   }, [table]);
 
-  const totalSum = useMemo(() => {
-    let totals = 0;
-    data?.data?.forEach((item) => {
-      totals += item.sum;
-    });
-
-    return totals;
-  }, [data, columns]);
-
   return (
     <div className="space-y-4 items-center ">
       <div className="rounded-md border relative">
@@ -185,7 +149,7 @@ export function InvoiceItemsTable<TData, TValue>({
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                      className="text-center border border-r-2 border-slate-400 bg-white  text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                     >
                       {header.isPlaceholder
                         ? null
@@ -200,20 +164,6 @@ export function InvoiceItemsTable<TData, TValue>({
             ))}
           </TableHeader>
           <TableBody>
-            {isFranchiseAccess && (
-              <TableRow>
-                <TableCell
-                  colSpan={3}
-                  className="text-white font-bold text-lg text-slate-900 dark:text-zinc-100"
-                >
-                  Итого
-                </TableCell>
-
-                <TableCell className="text-white font-bold text-center text-lg text-slate-900 dark:text-zinc-100">
-                  <span>{Intl.NumberFormat("ru-RU").format(totalSum)}</span>
-                </TableCell>
-              </TableRow>
-            )}
             {isLoading ? (
               <TableRow>
                 <TableCell

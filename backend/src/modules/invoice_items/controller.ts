@@ -62,30 +62,17 @@ export const invoiceItemsController = new Elysia({
       );
 
       const invoiceItems = (await drizzle
-        .select(
-          hasFranchisePermission
-            ? {
-                id: invoice_items.id,
-                actualAmount: invoice_items.actualAmount,
-                amount: invoice_items.amount,
-                productId: invoice_items.productId,
-                invoiceincomingdate: invoice_items.invoiceincomingdate,
-                productName: nomenclature_element.name,
-                productArticle: invoice_items.productArticle,
-                unit: measure_unit.name,
-                sum: invoice_items.sum,
-              }
-            : {
-                id: invoice_items.id,
-                actualAmount: invoice_items.actualAmount,
-                amount: invoice_items.amount,
-                productId: invoice_items.productId,
-                invoiceincomingdate: invoice_items.invoiceincomingdate,
-                productName: nomenclature_element.name,
-                productArticle: invoice_items.productArticle,
-                unit: measure_unit.name,
-              }
-        )
+        .select({
+          id: invoice_items.id,
+          actualAmount: invoice_items.actualAmount,
+          amount: invoice_items.amount,
+          productId: invoice_items.productId,
+          invoiceincomingdate: invoice_items.invoiceincomingdate,
+          productName: nomenclature_element.name,
+          productArticle: invoice_items.productArticle,
+          unit: measure_unit.name,
+          sum: invoice_items.sum,
+        })
         .from(invoice_items)
         .leftJoin(
           nomenclature_element,

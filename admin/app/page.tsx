@@ -6,7 +6,9 @@ export default function Home() {
   const roleCode = useGetRole();
   return (
     <>
-      {roleCode === "manager" && <ManagerReportPage />}
+      {["manager", "franchise_manager"].includes(roleCode!) && (
+        <ManagerReportPage />
+      )}
       {roleCode !== "manager" && (
         <main className="flex min-h-screen flex-col items-center justify-between p-24">
           this is the home page

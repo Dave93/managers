@@ -841,8 +841,8 @@ export const tax_category = pgTable(
   "tax_category",
   {
     id: uuid("id").defaultRandom().notNull(),
-    deleted: boolean("deleted").default(false).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
+    deleted: boolean("deleted").default(false),
+    name: varchar("name", { length: 255 }),
     code: varchar("code", { length: 255 }),
   },
   (table) => {
@@ -859,9 +859,9 @@ export const payment_type = pgTable(
   "payment_type",
   {
     id: uuid("id").defaultRandom().notNull(),
-    deleted: boolean("deleted").default(false).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    code: varchar("code", { length: 255 }).notNull(),
+    deleted: boolean("deleted").default(false),
+    name: varchar("name", { length: 255 }),
+    code: varchar("code", { length: 255 }),
   },
   (table) => {
     return {
@@ -914,7 +914,7 @@ export const discount_type = pgTable(
   {
     id: uuid("id").defaultRandom().notNull(),
     deleted: boolean("deleted").default(false).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }),
     code: varchar("code", { length: 255 }),
   },
   (table) => {
@@ -932,8 +932,8 @@ export const conception = pgTable(
   {
     id: uuid("id").defaultRandom().notNull(),
     deleted: boolean("deleted").default(false).notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    code: varchar("code", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }),
+    code: varchar("code", { length: 255 }),
   },
   (table) => {
     return {
