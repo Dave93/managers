@@ -106,10 +106,6 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/refund_invoices",
   },
   {
-    title: "Приходная накладная (франчайзинг)",
-    href: "/franchise_manager",
-  },
-  {
     title: "Внутреннее перемещение (Приход)",
     href: "/internal_transfer",
   },

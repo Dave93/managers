@@ -204,12 +204,12 @@ export function InvoiceItemsTable<TData, TValue>({
               <TableRow>
                 <TableCell
                   colSpan={3}
-                  className="text-white font-bold text-lg text-slate-900 dark:text-zinc-100"
+                  className="text-slate-900 font-bold text-lg dark:text-zinc-100 "
                 >
                   Итого
                 </TableCell>
 
-                <TableCell className="text-white font-bold text-center text-lg text-slate-900 dark:text-zinc-100">
+                <TableCell className="text-slate-900 font-bold text-center text-lg dark:text-zinc-100 ">
                   <span>{Intl.NumberFormat("ru-RU").format(totalSum)}</span>
                 </TableCell>
               </TableRow>
