@@ -45,6 +45,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
+import { access } from "fs";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
@@ -151,6 +152,8 @@ export function DataTable<TData, TValue>() {
 
   const columnHelper = createColumnHelper();
 
+  const [actColumns, setActColumns] = useState<string[]>([]);
+
   const columns = useMemo(() => {
     let cols = [
       {
@@ -166,9 +169,21 @@ export function DataTable<TData, TValue>() {
         accessorKey: "unit",
         header: "Единица измерения",
       },
+      {
+        accessorKey: "amount",
+        header: "Всего",
+      },
     ];
+
     if (date && date.from && date.to) {
+      const newActColumns = [];
+
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
+        const baseColumnId = m.format("YYYY-MM-DD") + "_base";
+        const actualColumnId = m.format("YYYY-MM-DD") + "_act";
+
+        newActColumns.push(actualColumnId);
+
         cols.push(
           // @ts-ignore
           columnHelper.group({
@@ -176,12 +191,12 @@ export function DataTable<TData, TValue>() {
             header: m.format("DD.MM.YYYY"),
             columns: [
               // @ts-ignore
-              columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
+              columnHelper.accessor(baseColumnId, {
                 cell: (info) => info.getValue(),
                 header: () => "Оприходовано",
               }),
               // @ts-ignore
-              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
+              columnHelper.accessor(actualColumnId, {
                 cell: (info) => info.getValue(),
                 header: () => "Актуально",
               }),
@@ -189,9 +204,9 @@ export function DataTable<TData, TValue>() {
           })
         );
       }
+      setActColumns(newActColumns);
     }
     return cols;
-    console.log("cols", cols);
   }, [date]);
 
   const table = useReactTable({
@@ -218,6 +233,18 @@ export function DataTable<TData, TValue>() {
       left: ["name"],
     });
   }, [table]);
+
+  const totalSum = useMemo(() => {
+    let totals = 0;
+    data?.data?.forEach((item) => {
+      console.log("item", data);
+      // totals += item.newActColumns;
+    });
+
+    return totals;
+  }, [data, columns]);
+
+  // console.log("totalSum", totalSum);
 
   return (
     <div className="space-y-4">

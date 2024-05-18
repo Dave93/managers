@@ -124,8 +124,8 @@ export class IikoDictionariesService {
         const existingBalanceStore = existingBalanceStores.find(
           (existingBalanceStore) => existingBalanceStore.id === balanceStore.id
         );
-        console.log("started invoice db inserting");
-        console.time("invoice_db_inserting");
+        console.log("started BalanceStore db inserting");
+        console.time("BalanceStore_db_inserting");
         if (!existingBalanceStore) {
           try {
             await drizzleDb
@@ -159,8 +159,8 @@ export class IikoDictionariesService {
             console.log(e);
           }
         }
-        console.timeEnd("invoice_db_inserting");
-        console.log("finished invoice db inserting");
+        console.timeEnd("BalanceStore_db_inserting");
+        console.log("finished BalanceStore db inserting");
       }
     }
   }
@@ -214,6 +214,8 @@ export class IikoDictionariesService {
         const existingCorporates = corporation_departments.find(
           (existingCorporates) => existingCorporates.id === departmentItem.id
         );
+        console.log("started Departments db inserting");
+        console.time("Departments_db_inserting");
         if (!existingCorporates) {
           await drizzleDb
             .insert(corporation_department)
@@ -235,6 +237,8 @@ export class IikoDictionariesService {
             .where(eq(corporation_department.id, departmentItem.id!.toString()))
             .execute();
         }
+        console.timeEnd("Departments_db_inserting");
+        console.log("finished Departments db inserting");
       }
     });
   }
@@ -288,6 +292,8 @@ export class IikoDictionariesService {
         const existingCorporates = existingCorporationGroups.find(
           (existingCorporates) => existingCorporates.id === groupItem.id
         );
+        console.log("started Cor_groups db inserting");
+        console.time("Cor_groups_db_inserting");
         if (!existingCorporates) {
           await drizzleDb
             .insert(corporation_groups)
@@ -309,6 +315,8 @@ export class IikoDictionariesService {
             .where(eq(corporation_groups.id, groupItem.id!.toString()))
             .execute();
         }
+        console.timeEnd("Cor_groups_db_inserting");
+        console.log("finished Cor_groups db inserting");
       }
     });
   }
@@ -647,8 +655,8 @@ export class IikoDictionariesService {
         // );
         // console.log("dda", result.corporateItemDtoes.corporateItemDto);
         // console.log("existing data", corpStoreTable);
-        console.log("started invoice db inserting");
-        console.time("invoice_db_inserting");
+        console.log("started Cor_stores db inserting");
+        console.time("Cor_stores_db_inserting");
         for (const corpStoreTables of result.corporateItemDtoes
           .corporateItemDto) {
           let storeItem = {
@@ -707,8 +715,8 @@ export class IikoDictionariesService {
     } catch (error) {
       console.error("Error:", error);
     }
-    console.timeEnd("invoice_db_inserting");
-    console.log("finished invoice db inserting");
+    console.timeEnd("Cor_stores_db_inserting");
+    console.log("finished Cor_stores db inserting");
   }
 
   async getInternalTransfer(token: string) {
@@ -730,8 +738,8 @@ export class IikoDictionariesService {
       .from(internal_transfer)
       .execute();
 
-    console.log("started invoice db inserting");
-    console.time("invoice_db_inserting");
+    console.log("started Transfers db inserting");
+    console.time("Transfers_db_inserting");
 
     // console.log("internalTransfers after", internalTransfers);
     for (const internalTransfer of internalTransfers.response) {
@@ -834,8 +842,8 @@ export class IikoDictionariesService {
       }
     }
 
-    console.timeEnd("invoice_db_inserting");
-    console.log("finished invoice db inserting");
+    console.timeEnd("Transfers_db_inserting");
+    console.log("finished Transfers db inserting");
   }
 
   async getOutgoingInvoice(token: string, type: string = "outgoing") {
@@ -857,8 +865,8 @@ export class IikoDictionariesService {
         throw err;
       }
 
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started outgoing db inserting");
+      console.time("outgoing_db_inserting");
 
       const docs = result[`${type}InvoiceDtoes`].document;
 
@@ -1076,8 +1084,8 @@ export class IikoDictionariesService {
         }
       }
 
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("outgoing_db_inserting");
+      console.log("finished outgoing db inserting");
     });
   }
 
@@ -1412,7 +1420,8 @@ export class IikoDictionariesService {
       const existingTaxCategory = existingTaxCategories.find(
         (existingTaxCategory) => existingTaxCategory.id === taxCategory.id
       );
-
+      console.log("started tax_category db inserting");
+      console.time("tax_category_db_inserting");
       if (!existingTaxCategory) {
         await drizzleDb
           .insert(tax_category)
@@ -1434,6 +1443,8 @@ export class IikoDictionariesService {
           .where(eq(tax_category.id, taxCategory.id))
           .execute();
       }
+      console.timeEnd("tax_category_db_inserting");
+      console.log("finished tax_category db inserting");
     }
   }
 
@@ -1456,6 +1467,8 @@ export class IikoDictionariesService {
         (existingPaymentType) => existingPaymentType.id === paymentType.id
       );
 
+      console.log("started payment_type db inserting");
+      console.time("payment_type_db_inserting");
       if (!existingPaymentType) {
         await drizzleDb
           .insert(payment_type)
@@ -1477,6 +1490,8 @@ export class IikoDictionariesService {
           .where(eq(payment_type.id, paymentType.id))
           .execute();
       }
+      console.timeEnd("payment_type_db_inserting");
+      console.log("finished payment_type db inserting");
     }
   }
 
@@ -1498,7 +1513,8 @@ export class IikoDictionariesService {
       const existingOrderType = existingOrderTypes.find(
         (existingOrderType) => existingOrderType.id === orderType.id
       );
-
+      console.log("started order_type db inserting");
+      console.time("order_type_db_inserting");
       if (!existingOrderType) {
         await drizzleDb
           .insert(order_type)
@@ -1520,6 +1536,8 @@ export class IikoDictionariesService {
           .where(eq(order_type.id, orderType.id))
           .execute();
       }
+      console.timeEnd("order_type_db_inserting");
+      console.log("finished order_type db inserting");
     }
   }
 
@@ -1543,8 +1561,8 @@ export class IikoDictionariesService {
         (existingMeasureUnit) => existingMeasureUnit.id === measureUnit.id
       );
       // console.log("measureUnit", measureUnit);
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started MeasureUnit db inserting");
+      console.time("MeasureUnit_db_inserting");
       try {
         if (!existingMeasureUnit) {
           await drizzleDb
@@ -1571,8 +1589,8 @@ export class IikoDictionariesService {
         console.log(e);
       }
 
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("MeasureUnit_db_inserting");
+      console.log("finished MeasureUnit db inserting");
     }
   }
 
@@ -1595,8 +1613,8 @@ export class IikoDictionariesService {
       const existingDiscountType = existingDiscountTypes.find(
         (existingDiscountType) => existingDiscountType.id === discountType.id
       );
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started DiscountTypes db inserting");
+      console.time("DiscountTypes_db_inserting");
       if (!existingDiscountType) {
         await drizzleDb
           .insert(discount_type)
@@ -1618,8 +1636,8 @@ export class IikoDictionariesService {
           .where(eq(discount_type.id, discountType.id))
           .execute();
       }
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("DiscountTypes_db_inserting");
+      console.log("finished DiscountTypes db inserting");
     }
   }
 
@@ -1642,8 +1660,8 @@ export class IikoDictionariesService {
       const existingConception = existingConceptions.find(
         (existingConception) => existingConception.id === Conception.id
       );
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started Conceptions db inserting");
+      console.time("Conceptions_db_inserting");
       if (!existingConception) {
         await drizzleDb
           .insert(conception)
@@ -1665,8 +1683,8 @@ export class IikoDictionariesService {
           .where(eq(conception.id, conception.id))
           .execute();
       }
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("Conceptions_db_inserting");
+      console.log("finished Conceptions db inserting");
     }
   }
 
@@ -1690,8 +1708,8 @@ export class IikoDictionariesService {
         (existingAccountingCategory) =>
           existingAccountingCategory.id === accountingCategory.id
       );
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started AccountingCategorys db inserting");
+      console.time("AccountingCategorys_db_inserting");
       if (!existingAccountingCategory) {
         await drizzleDb
           .insert(accounting_category)
@@ -1713,8 +1731,8 @@ export class IikoDictionariesService {
           .where(eq(accounting_category.id, accountingCategory.id))
           .execute();
       }
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("AccountingCategorys_db_inserting");
+      console.log("finished AccountingCategorys db inserting");
     }
   }
 
@@ -1735,8 +1753,8 @@ export class IikoDictionariesService {
       .execute();
 
     // console.log("nomenclatureGroups", nomenclatureGroups);
-    console.log("started invoice db inserting");
-    console.time("invoice_db_inserting");
+    console.log("started NomenclatureGroups db inserting");
+    console.time("NomenclatureGroups_db_inserting");
 
     for (const nomenclatureGroup of nomenclatureGroups) {
       const existingNomenclatureGroup = existingNomenclatureGroups.find(
@@ -1779,8 +1797,8 @@ export class IikoDictionariesService {
         }
       }
     }
-    console.timeEnd("invoice_db_inserting");
-    console.log("finished invoice db inserting");
+    console.timeEnd("NomenclatureGroups_db_inserting");
+    console.log("finished NomenclatureGroups db inserting");
   }
 
   async getNomenclatureCatergorys(token: string) {
@@ -1805,8 +1823,8 @@ export class IikoDictionariesService {
         (existingNomenclatureCategory) =>
           existingNomenclatureCategory.id === nomenclatureCategory.id
       );
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started NomenclatureCatergorys db inserting");
+      console.time("NomenclatureCatergorys_db_inserting");
       try {
         if (!existingNomenclatureCategory) {
           await drizzleDb
@@ -1832,8 +1850,8 @@ export class IikoDictionariesService {
       } catch (e) {
         console.log(e);
       }
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("NomenclatureCatergorys_db_inserting");
+      console.log("finished NomenclatureCatergorys db inserting");
     }
   }
 
@@ -1857,8 +1875,8 @@ export class IikoDictionariesService {
         (existingNomenclatureElement) =>
           existingNomenclatureElement.id === nomenclatureElement.id
       );
-      console.log("started invoice db inserting");
-      console.time("invoice_db_inserting");
+      console.log("started NomenclatureElements db inserting");
+      console.time("NomenclatureElements_db_inserting");
       try {
         if (!existingNomenclatureElement) {
           console.log("nomenclatureElement", nomenclatureElement);
@@ -1905,8 +1923,8 @@ export class IikoDictionariesService {
       } catch (e) {
         console.log(e);
       }
-      console.timeEnd("invoice_db_inserting");
-      console.log("finished invoice db inserting");
+      console.timeEnd("NomenclatureElements_db_inserting");
+      console.log("finished NomenclatureElements db inserting");
     }
   }
 
@@ -1937,8 +1955,8 @@ export class IikoDictionariesService {
         const existingSupplier = existingSuppliers.find(
           (existingSupplier) => existingSupplier.id === supplier.id
         );
-        console.log("started invoice db inserting");
-        console.time("invoice_db_inserting");
+        console.log("started Supplers db inserting");
+        console.time("Supplers_db_inserting");
         if (!existingSupplier) {
           try {
             await drizzleDb
@@ -1990,8 +2008,8 @@ export class IikoDictionariesService {
             console.log("e", e);
           }
         }
-        console.timeEnd("invoice_db_inserting");
-        console.log("finished invoice db inserting");
+        console.timeEnd("Supplers_db_inserting");
+        console.log("finished Supplers db inserting");
       }
     });
   }
