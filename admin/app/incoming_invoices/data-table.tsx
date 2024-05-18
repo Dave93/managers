@@ -176,13 +176,13 @@ export function DataTable<TData, TValue>() {
     ];
 
     if (date && date.from && date.to) {
-      const newActColumns = [];
+      // const newActColumns = [];
 
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
-        const baseColumnId = m.format("YYYY-MM-DD") + "_base";
-        const actualColumnId = m.format("YYYY-MM-DD") + "_act";
+        // const baseColumnId = m.format("YYYY-MM-DD") + "_base";
+        // const actualColumnId = m.format("YYYY-MM-DD") + "_act";
 
-        newActColumns.push(actualColumnId);
+        // newActColumns.push(actualColumnId);
 
         cols.push(
           // @ts-ignore
@@ -191,12 +191,12 @@ export function DataTable<TData, TValue>() {
             header: m.format("DD.MM.YYYY"),
             columns: [
               // @ts-ignore
-              columnHelper.accessor(baseColumnId, {
+              columnHelper.accessor(m.format("YYYY-MM-DD") + "_base", {
                 cell: (info) => info.getValue(),
                 header: () => "Оприходовано",
               }),
               // @ts-ignore
-              columnHelper.accessor(actualColumnId, {
+              columnHelper.accessor(m.format("YYYY-MM-DD") + "_act", {
                 cell: (info) => info.getValue(),
                 header: () => "Актуально",
               }),
@@ -204,7 +204,7 @@ export function DataTable<TData, TValue>() {
           })
         );
       }
-      setActColumns(newActColumns);
+      // setActColumns(newActColumns);
     }
     return cols;
   }, [date]);
