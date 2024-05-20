@@ -116,7 +116,7 @@ export function InvoiceItemsTable<TData, TValue>({
         query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
-          filters: encodeURIComponent(JSON.stringify(filters)),
+          filters: JSON.stringify(filters),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
         },
