@@ -181,7 +181,10 @@ export default function PermissionsForm({
                     name={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    onChange={(e) => {
+                      // @ts-ignore
+                      field.handleChange(e.target.value);
+                    }}
                   />
                 </>
               );
@@ -201,7 +204,10 @@ export default function PermissionsForm({
                     name={field.name}
                     value={field.state.value}
                     onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
+                    onChange={(e) => {
+                      // @ts-ignore
+                      field.handleChange(e.target.value);
+                    }}
                   />
                 </>
               );

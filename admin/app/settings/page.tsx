@@ -120,63 +120,67 @@ export default function ConfigsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Основные</h2>
         </div>
         <div className="py-10">
-          <form.Provider>
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                void form.handleSubmit();
-              }}
-              className="space-y-8"
-            >
-              <div className="space-y-2">
-                <div>
-                  <Label>Время начала рабочего дня</Label>
-                </div>
-                <form.Field name="workStartTime">
-                  {(field) => {
-                    return (
-                      <>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          value={field.getValue() ?? ""}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                        />
-                      </>
-                    );
-                  }}
-                </form.Field>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              void form.handleSubmit();
+            }}
+            className="space-y-8"
+          >
+            <div className="space-y-2">
+              <div>
+                <Label>Время начала рабочего дня</Label>
               </div>
-              <div className="space-y-2">
-                <div>
-                  <Label>Время окончания рабочего дня</Label>
-                </div>
-                <form.Field name="workEndTime">
-                  {(field) => {
-                    return (
-                      <>
-                        <Input
-                          id={field.name}
-                          name={field.name}
-                          value={field.getValue() ?? ""}
-                          onBlur={field.handleBlur}
-                          onChange={(e) => field.handleChange(e.target.value)}
-                        />
-                      </>
-                    );
-                  }}
-                </form.Field>
+              <form.Field name="workStartTime">
+                {(field) => {
+                  return (
+                    <>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.getValue() ?? ""}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => {
+                          // @ts-ignore
+                          field.handleChange(e.target.value);
+                        }}
+                      />
+                    </>
+                  );
+                }}
+              </form.Field>
+            </div>
+            <div className="space-y-2">
+              <div>
+                <Label>Время окончания рабочего дня</Label>
               </div>
-              <Button type="submit" disabled={createMutation.isPending}>
-                {createMutation.isPending && (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                )}
-                Save
-              </Button>
-            </form>
-          </form.Provider>
+              <form.Field name="workEndTime">
+                {(field) => {
+                  return (
+                    <>
+                      <Input
+                        id={field.name}
+                        name={field.name}
+                        value={field.getValue() ?? ""}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => {
+                          // @ts-ignore
+                          field.handleChange(e.target.value);
+                        }}
+                      />
+                    </>
+                  );
+                }}
+              </form.Field>
+            </div>
+            <Button type="submit" disabled={createMutation.isPending}>
+              {createMutation.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save
+            </Button>
+          </form>
         </div>
       </div>
     </CardContent>

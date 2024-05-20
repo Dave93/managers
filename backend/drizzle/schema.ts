@@ -1,5 +1,5 @@
-import { pgTable, pgEnum, uuid, text, timestamp, boolean, varchar, uniqueIndex, doublePrecision, index, integer, time, numeric, primaryKey } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
+import { pgTable, pgEnum, uuid, text, timestamp, boolean, varchar, uniqueIndex, doublePrecision, index, integer, time, numeric, primaryKey, foreignKey } from "drizzle-orm/pg-core"
+import { relations, sql } from "drizzle-orm"
 
 export const organization_payment_types = pgEnum("organization_payment_types", ['client', 'card', 'cash'])
 export const organization_system_type = pgEnum("organization_system_type", ['jowi', 'r_keeper', 'iiko'])
@@ -22,21 +22,21 @@ export const credentials = pgTable("credentials", {
 });
 
 export const measure_unit = pgTable("measure_unit", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false),
   name: varchar("name", { length: 255 }),
   code: varchar("code", { length: 255 }),
 });
 
 export const nomenclature_category = pgTable("nomenclature_category", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false),
   name: varchar("name", { length: 255 }),
   code: varchar("code", { length: 255 }),
 });
 
 export const discount_type = pgTable("discount_type", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }),
@@ -73,31 +73,40 @@ export const permissions = pgTable("permissions", {
   });
 
 export const order_type = pgTable("order_type", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }),
 });
 
 export const nomenclature_group = pgTable("nomenclature_group", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
-  tax_category_id: uuid("tax_category_id"),
-  category_id: uuid("category_id"),
-  accounting_category_id: uuid("accounting_category_id"),
+  tax_category_id: uuid("tax_category_id").references(
+    () => tax_category.id,
+    {}
+  ),
+  category_id: uuid("category_id").references(
+    () => nomenclature_category.id,
+    {}
+  ),
+  accounting_category_id: uuid("accounting_category_id").references(
+    () => accounting_category.id,
+    {}
+  ),
   parent_id: uuid("parent_id").defaultRandom().notNull(),
 });
 
 export const payment_type = pgTable("payment_type", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }),
   code: varchar("code", { length: 255 }),
 });
 
 export const conception = pgTable("conception", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }).notNull(),
@@ -121,7 +130,7 @@ export const api_tokens = pgTable("api_tokens", {
   });
 
 export const accounting_category = pgTable("accounting_category", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }).notNull(),
@@ -273,27 +282,39 @@ export const work_schedules = pgTable("work_schedules", {
 });
 
 export const corporation_department = pgTable("corporation_department", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   parentId: varchar("parentId", { length: 255 }),
   name: varchar("name", { length: 255 }),
   type: varchar("type", { length: 255 }),
 });
 
 export const users_stores = pgTable("users_stores", {
-  id: uuid("id").defaultRandom().notNull(),
-  user_id: uuid("user_id"),
-  corporation_store_id: uuid("corporation_store_id"),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  user_id: uuid("user_id").references(() => users.id, {}),
+  corporation_store_id: uuid("corporation_store_id").references(
+    () => corporation_store.id,
+    {}
+  ),
 });
 
 export const nomenclature_element = pgTable("nomenclature_element", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false),
   name: varchar("name", { length: 255 }),
   code: varchar("code", { length: 255 }),
   num: varchar("num", { length: 255 }),
-  tax_category_id: uuid("tax_category_id"),
-  category_id: uuid("category_id"),
-  accounting_category_id: uuid("accounting_category_id"),
+  tax_category_id: uuid("tax_category_id").references(
+    () => tax_category.id,
+    {}
+  ),
+  category_id: uuid("category_id").references(
+    () => nomenclature_category.id,
+    {}
+  ),
+  accounting_category_id: uuid("accounting_category_id").references(
+    () => accounting_category.id,
+    {}
+  ),
   mainUnit: uuid("mainUnit").defaultRandom(),
   type: varchar("type", { length: 255 }),
   unitWeight: numeric("unitWeight", { precision: 10, scale: 4 }),
@@ -301,7 +322,7 @@ export const nomenclature_element = pgTable("nomenclature_element", {
 });
 
 export const tax_category = pgTable("tax_category", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }),
@@ -314,7 +335,16 @@ export const report_groups = pgTable("report_groups", {
   created_at: timestamp("created_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
   parent_id: uuid("parent_id"),
-});
+},
+  (table) => {
+    return {
+      FK_parent_id_report_groups: foreignKey({
+        columns: [table.parent_id],
+        foreignColumns: [table.id],
+        name: "FK_parent_id_report_groups",
+      }).onUpdate("cascade").onDelete("cascade"),
+    }
+  });
 
 export const scheduled_reports_subscription = pgTable("scheduled_reports_subscription", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
@@ -334,15 +364,18 @@ export const timesheet = pgTable("timesheet", {
 });
 
 export const nomenclature_element_group = pgTable("nomenclature_element_group", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   deleted: boolean("deleted").default(false).notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   code: varchar("code", { length: 255 }).notNull(),
-  nomenclature_group_id: uuid("nomenclature_group_id"),
+  nomenclature_group_id: uuid("nomenclature_group_id").references(
+    () => nomenclature_group.id,
+    {}
+  ),
 });
 
 export const corporation_terminals = pgTable("corporation_terminals", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   name: varchar("name", { length: 255 }),
   computerName: varchar("computerName", { length: 255 }),
   anonymous: varchar("anonymous", { length: 255 }),
@@ -350,51 +383,86 @@ export const corporation_terminals = pgTable("corporation_terminals", {
 
 export const writeoff = pgTable("writeoff", {
   id: uuid("id").notNull(),
-  dateincoming: timestamp("dateincoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
+  dateIncoming: timestamp("dateincoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
   documnentNumber: varchar("documnentNumber", { length: 255 }),
   status: varchar("status", { length: 255 }),
-  conceptionId: uuid("conceptionId"),
+  conceptionId: uuid("conceptionId").references(() => conception.id, {}),
   comment: varchar("comment", { length: 255 }),
-  storeId: uuid("storeId"),
-});
+  storeId: uuid("storeId").references(() => corporation_store.id, {}),
+},
+  (table) => {
+    return {
+      writeoff_pkey: primaryKey({
+        columns: [table.id, table.dateIncoming],
+        name: "writeoff_pkey",
+      }),
+    };
+  });
 
 export const writeoff_items = pgTable("writeoff_items", {
-  productId: uuid("productId"),
+  id: uuid("id").defaultRandom().notNull(),
+  productId: uuid("productId").references(() => nomenclature_element.id, {}),
   productSizeId: varchar("productSizeId", { length: 255 }),
   amountFactor: integer("amountFactor"),
   amount: numeric("amount", { precision: 10, scale: 4 }),
-  measureUnitId: uuid("measureUnitId"),
+  measureUnitId: uuid("measureUnitId").references(() => measure_unit.id, {}),
   containerId: varchar("containerId", { length: 255 }),
   cost: integer("cost"),
-  writeoff_id: uuid("writeoff_id"),
+  writeoff_id: uuid("writeoff_id").references(() => writeoff.id, {}),
   writeoffincomingdate: timestamp("writeoffincomingdate", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
-  id: uuid("id").defaultRandom().notNull(),
-});
+},
+  (table) => {
+    return {
+      writeoffItems_pkey: primaryKey({
+        columns: [table.id, table.writeoffincomingdate],
+        name: "writeoffItems_pkey",
+      }),
+    };
+  });
 
 export const internal_transfer = pgTable("internal_transfer", {
   id: uuid("id").defaultRandom().notNull(),
   dateIncoming: timestamp("dateIncoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
-  documentnumber: varchar("documentnumber", { length: 255 }),
+  documentNumber: varchar("documentnumber", { length: 255 }),
   status: varchar("status", { length: 255 }),
-  conceptionId: uuid("conceptionId"),
-  storeFromId: uuid("storeFromId"),
-  storeToId: uuid("storeToId").notNull(),
-});
+  conceptionId: uuid("conceptionId").references(() => conception.id, {}),
+  storeFromId: uuid("storeFromId").references(() => corporation_store.id, {}),
+  storeToId: uuid("storeToId").references(() => corporation_store.id, {}),
+},
+  (table) => {
+    return {
+      internal_transfer_pkey: primaryKey({
+        columns: [table.id, table.dateIncoming],
+        name: "internal_transfer_pkey",
+      }),
+    };
+  });
 
 export const internal_transfer_items = pgTable("internal_transfer_items", {
   id: uuid("id").defaultRandom().notNull(),
-  productId: uuid("productId"),
+  productId: uuid("productId").references(() => nomenclature_element.id, {}),
   amount: numeric("amount", { precision: 10, scale: 4 }),
-  measureUnitId: uuid("measureUnitId"),
+  measureUnitId: uuid("measureUnitId").references(() => measure_unit.id, {}),
   containerId: varchar("containerId", { length: 255 }),
   cost: integer("cost"),
-  internal_transfer_id: uuid("internal_transfer_id"),
+  internal_transfer_id: uuid("internal_transfer_id").references(
+    () => internal_transfer.id,
+    {}
+  ),
   num: varchar("num", { length: 255 }),
   internaltransferdate: timestamp("internaltransferdate", { precision: 5, withTimezone: true, mode: 'string' }),
-});
+},
+  (table) => {
+    return {
+      internalTransferItems_pkey: primaryKey({
+        columns: [table.id, table.internaltransferdate],
+        name: "internalTransferItems_pkey",
+      }),
+    };
+  });
 
 export const corporation_store = pgTable("corporation_store", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   parentId: varchar("parentId", { length: 255 }),
   code: varchar("code", { length: 255 }),
   name: varchar("name", { length: 255 }),
@@ -402,25 +470,28 @@ export const corporation_store = pgTable("corporation_store", {
 });
 
 export const corporation_groups = pgTable("corporation_groups", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   name: varchar("name", { length: 255 }),
-  departmentId: uuid("departmentId"),
+  departmentId: uuid("departmentId").references(
+    () => corporation_department.id,
+    {}
+  ),
   groupServiceMode: varchar("groupServiceMode", { length: 255 }),
 });
 
 export const balance_store = pgTable("balance_store", {
-  id: uuid("id").defaultRandom().notNull(),
-  storeId: uuid("storeId"),
-  productId: uuid("productId"),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  storeId: uuid("storeId").references(() => corporation_store.id, {}),
+  productId: uuid("productId").references(() => nomenclature_element.id, {}),
   amount: doublePrecision("amount").default(10.1),
   sum: doublePrecision("sum").default(10.1),
   enddate: timestamp("enddate", { precision: 5, withTimezone: true, mode: 'string' }),
 });
 
 export const report_olap = pgTable("report_olap", {
-  id: uuid("id").defaultRandom().notNull(),
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
   dateTime: timestamp("dateTime", { precision: 5, withTimezone: true, mode: 'string' }),
-  productId: uuid("productId"),
+  productId: uuid("productId").references(() => nomenclature_element.id, {}),
   productName: varchar("productName", { length: 255 }),
   productType: varchar("productType", { length: 255 }),
   sessionGroup: varchar("sessionGroup", { length: 255 }),
@@ -501,6 +572,17 @@ export const users_roles = pgTable("users_roles", {
     }
   });
 
+export const usersToUsersRelations = relations(users_roles, ({ one }) => ({
+  role: one(roles, {
+    fields: [users_roles.role_id],
+    references: [roles.id],
+  }),
+  user: one(users, {
+    fields: [users_roles.user_id],
+    references: [users.id],
+  }),
+}));
+
 export const reports = pgTable("reports", {
   id: uuid("id").defaultRandom().notNull(),
   date: timestamp("date", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
@@ -533,6 +615,11 @@ export const reports_items = pgTable("reports_items", {
 },
   (table) => {
     return {
+      FK_reports_id: foreignKey({
+        columns: [table.report_id, table.report_date],
+        foreignColumns: [reports.id, reports.date],
+        name: "FK_reports_id",
+      }).onUpdate("cascade"),
       reports_items_pkey: primaryKey({ columns: [table.id, table.report_date], name: "reports_items_pkey" })
     }
   });
@@ -551,6 +638,16 @@ export const reports_logs = pgTable("reports_logs", {
 },
   (table) => {
     return {
+      FK_reports_logs_reports_id: foreignKey({
+        columns: [table.reports_id, table.report_date],
+        foreignColumns: [reports.id, reports.date],
+        name: "FK_reports_logs_reports_id",
+      }).onUpdate("cascade"),
+      FK_reports_logs_reports_item_id: foreignKey({
+        columns: [table.reports_item_id, table.report_date],
+        foreignColumns: [reports_items.id, reports_items.report_date],
+        name: "FK_reports_logs_reports_item_id",
+      }).onUpdate("cascade"),
       reports_logs_pkey: primaryKey({ columns: [table.id, table.report_date], name: "reports_logs_pkey" })
     }
   });
@@ -591,11 +688,11 @@ export const invoice_items = pgTable("invoice_items", {
   vatPercent: integer("vatPercent"),
   vatSum: integer("vatSum"),
   discountSum: integer("discountSum"),
-  amountUnit: uuid("amountUnit"),
+  amountUnit: uuid("amountUnit").references(() => measure_unit.id, {}),
   num: varchar("num", { length: 255 }),
   productArticle: varchar("productArticle", { length: 255 }),
   amount: numeric("amount", { precision: 10, scale: 4 }),
-  invoice_id: uuid("invoice_id"),
+  invoice_id: uuid("invoice_id").references(() => invoices.id, {}),
   priceWithoutVat: integer("priceWithoutVat"),
   priceUnit: varchar("priceUnit", { length: 255 }),
   supplierProduct: varchar("supplierProduct", { length: 255 }),

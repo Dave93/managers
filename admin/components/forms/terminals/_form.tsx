@@ -155,73 +155,78 @@ export default function TerminalsForm({
   }, [record, form]);
 
   return (
-    <form.Provider>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void form.handleSubmit();
-        }}
-        className="space-y-8"
-      >
-        <div className="space-y-2">
-          <div>
-            <Label>Активность</Label>
-          </div>
-          <form.Field name="active">
-            {(field) => {
-              return (
-                <>
-                  <Switch
-                    checked={field.getValue()}
-                    onCheckedChange={field.setValue}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void form.handleSubmit();
+      }}
+      className="space-y-8"
+    >
+      <div className="space-y-2">
+        <div>
+          <Label>Активность</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Название</Label>
-          </div>
-          <form.Field name="name">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+        <form.Field name="active">
+          {(field) => {
+            return (
+              <>
+                <Switch
+                  checked={field.getValue()}
+                  onCheckedChange={field.setValue}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Название</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Телефон</Label>
-          </div>
-          <form.Field name="phone">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.state.value}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+        <form.Field name="name">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Телефон</Label>
         </div>
-        {/* <div className="space-y-2">
+        <form.Field name="phone">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      {/* <div className="space-y-2">
           <div>
             <Label>Описание</Label>
           </div>
@@ -238,11 +243,10 @@ export default function TerminalsForm({
             }}
           </form.Field>
         </div> */}
-        <Button type="submit" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Submit
-        </Button>
-      </form>
-    </form.Provider>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Submit
+      </Button>
+    </form>
   );
 }

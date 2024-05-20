@@ -433,243 +433,255 @@ export default function UsersForm({
   }, [userTerminalsData, userStoresData]);
 
   return (
-    <form.Provider>
-      <form
-        ref={formRef}
-        onSubmit={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          void form.handleSubmit();
-        }}
-        className="space-y-8"
-      >
-        <div className="space-y-2">
-          <div>
-            <Label>Статус</Label>
-          </div>
-          <form.Field name="status">
-            {(field) => {
-              return (
-                <>
-                  <Select
-                    label="Статус"
-                    placeholder="Выберите статус"
-                    selectedKeys={[field.getValue()]}
-                    className="max-w-xs"
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                      field.setValue(
-                        e.target.value as "active" | "blocked" | "inactive"
-                      );
-                    }}
-                    popoverProps={{
-                      portalContainer: formRef.current!,
-                      offset: 0,
-                      containerPadding: 0,
-                    }}
-                  >
-                    {["active", "blocked", "inactive"].map((item) => (
-                      <SelectItem key={item} value={item}>
-                        {item}
-                      </SelectItem>
-                    ))}
-                  </Select>
-                </>
-              );
-            }}
-          </form.Field>
+    <form
+      ref={formRef}
+      onSubmit={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        void form.handleSubmit();
+      }}
+      className="space-y-8"
+    >
+      <div className="space-y-2">
+        <div>
+          <Label>Статус</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Логин</Label>
-          </div>
-          <form.Field name="login">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.getValue() ?? ""}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+        <form.Field name="status">
+          {(field) => {
+            return (
+              <>
+                <Select
+                  label="Статус"
+                  placeholder="Выберите статус"
+                  selectedKeys={[field.getValue()]}
+                  className="max-w-xs"
+                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                    field.setValue(
+                      // @ts-ignore
+                      e.target.value as "active" | "blocked" | "inactive"
+                    );
+                  }}
+                  popoverProps={{
+                    portalContainer: formRef.current!,
+                    offset: 0,
+                    containerPadding: 0,
+                  }}
+                >
+                  {["active", "blocked", "inactive"].map((item) => (
+                    <SelectItem key={item} value={item}>
+                      {item}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Логин</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Пароль</Label>
-          </div>
-          <form.Field name="password">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.getValue() ?? ""}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+        <form.Field name="login">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.getValue() ?? ""}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Пароль</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Роль</Label>
-          </div>
-          <Select
-            label="Роль"
-            placeholder="Выберите роль"
-            selectedKeys={userRoleId ? [userRoleId] : []}
-            className="max-w-xs"
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              setChangedRoleId(e.target.value);
-            }}
-            popoverProps={{
-              portalContainer: formRef.current!,
-              offset: 0,
-              containerPadding: 0,
-            }}
-          >
-            {Array.isArray(rolesData) ? (
-              rolesData?.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem key="0" value="0">
-                Загрузка...
+        <form.Field name="password">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.getValue() ?? ""}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Роль</Label>
+        </div>
+        <Select
+          label="Роль"
+          placeholder="Выберите роль"
+          selectedKeys={userRoleId ? [userRoleId] : []}
+          className="max-w-xs"
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+            // @ts-ignore
+            setChangedRoleId(e.target.value);
+          }}
+          popoverProps={{
+            portalContainer: formRef.current!,
+            offset: 0,
+            containerPadding: 0,
+          }}
+        >
+          {Array.isArray(rolesData) ? (
+            rolesData?.map((item) => (
+              <SelectItem key={item.id} value={item.id}>
+                {item.name}
               </SelectItem>
-            )}
-          </Select>
+            ))
+          ) : (
+            <SelectItem key="0" value="0">
+              Загрузка...
+            </SelectItem>
+          )}
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Филиалы</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Филиалы</Label>
-          </div>
-          <Select
-            label="Филиалы"
-            selectionMode="multiple"
-            isMultiline={true}
-            placeholder="Выберите филиал"
-            selectedKeys={changedTerminalId}
-            classNames={{
-              base: "max-w-xs",
-              trigger: "min-h-unit-12 py-2",
-            }}
-            onSelectionChange={setChangedTerminalId}
-            popoverProps={{
-              portalContainer: formRef.current!,
-              offset: 0,
-              containerPadding: 0,
-            }}
-            renderValue={(items: SelectedItems<string>) => {
-              return (
-                <div className="flex flex-wrap gap-2">
-                  {changedTerminalId != "all" &&
-                    Array.from(changedTerminalId).map((item) => (
-                      <Chip key={item}>{terminalLabelById[item]}</Chip>
-                    ))}
-                </div>
-              );
-            }}
-          >
-            {terminalsForSelect.map((terminal) => (
-              <SelectItem key={terminal.value} value={terminal.value}>
-                {terminal.label}
-              </SelectItem>
-            ))}
-          </Select>
+        <Select
+          label="Филиалы"
+          selectionMode="multiple"
+          isMultiline={true}
+          placeholder="Выберите филиал"
+          selectedKeys={changedTerminalId}
+          classNames={{
+            base: "max-w-xs",
+            trigger: "min-h-unit-12 py-2",
+          }}
+          onSelectionChange={setChangedTerminalId}
+          popoverProps={{
+            portalContainer: formRef.current!,
+            offset: 0,
+            containerPadding: 0,
+          }}
+          renderValue={(items: SelectedItems<string>) => {
+            return (
+              <div className="flex flex-wrap gap-2">
+                {changedTerminalId != "all" &&
+                  Array.from(changedTerminalId).map((item) => (
+                    <Chip key={item}>{terminalLabelById[item]}</Chip>
+                  ))}
+              </div>
+            );
+          }}
+        >
+          {terminalsForSelect.map((terminal) => (
+            <SelectItem key={terminal.value} value={terminal.value}>
+              {terminal.label}
+            </SelectItem>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Склады</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Склады</Label>
-          </div>
-          <Select
-            label="Cклады"
-            selectionMode="multiple"
-            isMultiline={true}
-            placeholder="Выберите склады"
-            selectedKeys={changedStoreId}
-            classNames={{
-              base: "max-w-xs",
-              trigger: "min-h-unit-12 py-2",
-            }}
-            onSelectionChange={setChangedStoreId}
-            popoverProps={{
-              portalContainer: formRef.current!,
-              offset: 0,
-              containerPadding: 0,
-            }}
-            renderValue={(items: SelectedItems<string>) => {
-              return (
-                <div className="flex flex-wrap gap-2">
-                  {changedStoreId != "all" &&
-                    Array.from(changedStoreId).map((item) => (
-                      <Chip key={item}>{storeLabelById[item]}</Chip>
-                    ))}
-                </div>
-              );
-            }}
-          >
-            {storesForSelect.map((store) => (
-              <SelectItem key={store.value} value={store.value}>
-                {store.label}
-              </SelectItem>
-            ))}
-          </Select>
+        <Select
+          label="Cклады"
+          selectionMode="multiple"
+          isMultiline={true}
+          placeholder="Выберите склады"
+          selectedKeys={changedStoreId}
+          classNames={{
+            base: "max-w-xs",
+            trigger: "min-h-unit-12 py-2",
+          }}
+          onSelectionChange={setChangedStoreId}
+          popoverProps={{
+            portalContainer: formRef.current!,
+            offset: 0,
+            containerPadding: 0,
+          }}
+          renderValue={(items: SelectedItems<string>) => {
+            return (
+              <div className="flex flex-wrap gap-2">
+                {changedStoreId != "all" &&
+                  Array.from(changedStoreId).map((item) => (
+                    <Chip key={item}>{storeLabelById[item]}</Chip>
+                  ))}
+              </div>
+            );
+          }}
+        >
+          {storesForSelect.map((store) => (
+            <SelectItem key={store.value} value={store.value}>
+              {store.label}
+            </SelectItem>
+          ))}
+        </Select>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Имя</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Имя</Label>
-          </div>
-          <form.Field name="first_name">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.getValue() ?? ""}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
+        <form.Field name="first_name">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.getValue() ?? ""}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Фамилия</Label>
         </div>
-        <div className="space-y-2">
-          <div>
-            <Label>Фамилия</Label>
-          </div>
-          <form.Field name="last_name">
-            {(field) => {
-              return (
-                <>
-                  <Input
-                    id={field.name}
-                    name={field.name}
-                    value={field.getValue() ?? ""}
-                    onBlur={field.handleBlur}
-                    onChange={(e) => field.handleChange(e.target.value)}
-                  />
-                </>
-              );
-            }}
-          </form.Field>
-        </div>
-        <Button type="submit" disabled={isLoading}>
-          {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Submit
-        </Button>
-      </form>
-    </form.Provider>
+        <form.Field name="last_name">
+          {(field) => {
+            return (
+              <>
+                <Input
+                  id={field.name}
+                  name={field.name}
+                  value={field.getValue() ?? ""}
+                  onBlur={field.handleBlur}
+                  onChange={(e) => {
+                    // @ts-ignore
+                    field.handleChange(e.target.value);
+                  }}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+      </div>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+        Submit
+      </Button>
+    </form>
   );
 }

@@ -61,14 +61,17 @@ export const StoplistFilters = () => {
   >([]);
 
   const handleSelectionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // @ts-ignore
     setStatus(e.target.value);
   };
 
   const handleTerminalChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // @ts-ignore
     setTerminalId(e.target.value);
   };
 
   const handleOrgChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    // @ts-ignore
     setOrganizationId(e.target.value);
   };
 

@@ -73,83 +73,90 @@ export default function Page() {
         <h2 className="text-3xl font-bold tracking-tight">IIKO</h2>
       </div>
       <div className="py-10">
-        <form.Provider>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              void form.handleSubmit();
-            }}
-            className="space-y-8"
-          >
-            <div className="space-y-2">
-              <div>
-                <Label>Ссылка</Label>
-              </div>
-              <form.Field name="api_url">
-                {(field) => {
-                  return (
-                    <>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.getValue() ?? ""}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                      />
-                    </>
-                  );
-                }}
-              </form.Field>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            void form.handleSubmit();
+          }}
+          className="space-y-8"
+        >
+          <div className="space-y-2">
+            <div>
+              <Label>Ссылка</Label>
             </div>
-            <div className="space-y-2">
-              <div>
-                <Label>Логин</Label>
-              </div>
-              <form.Field name="login">
-                {(field) => {
-                  return (
-                    <>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.getValue() ?? ""}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                      />
-                    </>
-                  );
-                }}
-              </form.Field>
+            <form.Field name="api_url">
+              {(field) => {
+                return (
+                  <>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.getValue() ?? ""}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => {
+                        // @ts-ignore
+                        field.handleChange(e.target.value);
+                      }}
+                    />
+                  </>
+                );
+              }}
+            </form.Field>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <Label>Логин</Label>
             </div>
-            <div className="space-y-2">
-              <div>
-                <Label>Пароль</Label>
-              </div>
-              <form.Field name="password">
-                {(field) => {
-                  return (
-                    <>
-                      <Input
-                        id={field.name}
-                        name={field.name}
-                        value={field.getValue() ?? ""}
-                        onBlur={field.handleBlur}
-                        onChange={(e) => field.handleChange(e.target.value)}
-                      />
-                    </>
-                  );
-                }}
-              </form.Field>
+            <form.Field name="login">
+              {(field) => {
+                return (
+                  <>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.getValue() ?? ""}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => {
+                        // @ts-ignore
+                        field.handleChange(e.target.value);
+                      }}
+                    />
+                  </>
+                );
+              }}
+            </form.Field>
+          </div>
+          <div className="space-y-2">
+            <div>
+              <Label>Пароль</Label>
             </div>
-            <Button type="submit" disabled={createMutation.isPending}>
-              {createMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              Save
-            </Button>
-          </form>
-        </form.Provider>
+            <form.Field name="password">
+              {(field) => {
+                return (
+                  <>
+                    <Input
+                      id={field.name}
+                      name={field.name}
+                      value={field.getValue() ?? ""}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => {
+                        // @ts-ignore
+                        field.handleChange(e.target.value);
+                      }}
+                    />
+                  </>
+                );
+              }}
+            </form.Field>
+          </div>
+          <Button type="submit" disabled={createMutation.isPending}>
+            {createMutation.isPending && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            )}
+            Save
+          </Button>
+        </form>
       </div>
     </div>
   );
