@@ -45,6 +45,8 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
+import { invoice_items } from "backend/drizzle/schema";
+import { InferSelectModel } from "drizzle-orm";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
@@ -166,6 +168,44 @@ export function DataTable<TData, TValue>() {
         accessorKey: "unit",
         header: "Единица измерения",
       },
+      columnHelper.group({
+        id: "group",
+        header: "Всего",
+        columns: [
+          // @ts-ignore
+          columnHelper.accessor("totalBase", {
+            header: "Оприходовано",
+            cell: ({ row: { original } }) => {
+              let res = 0;
+              // @ts-ignore
+              Object.keys(original).forEach((key) => {
+                // @ts-ignore
+                if (key.indexOf("_base") > -1) {
+                  // @ts-ignore
+                  res += +original[key];
+                }
+              });
+              return res;
+            },
+          }),
+          // @ts-ignore
+          columnHelper.accessor("totalAct", {
+            header: "Актуально",
+            cell: ({ row: { original } }) => {
+              let res = 0;
+              // @ts-ignore
+              Object.keys(original).forEach((key) => {
+                // @ts-ignore
+                if (key.indexOf("_act") > -1) {
+                  // @ts-ignore
+                  res += +original[key];
+                }
+              });
+              return res;
+            },
+          }),
+        ],
+      }),
     ];
     if (date && date.from && date.to) {
       for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
@@ -231,7 +271,7 @@ export function DataTable<TData, TValue>() {
                     <TableHead
                       key={header.id}
                       colSpan={header.colSpan}
-                      className="text-center  border bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                      className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                       style={{ ...getCommonPinningStyles(column) }}
                     >
                       {header.isPlaceholder
@@ -251,7 +291,7 @@ export function DataTable<TData, TValue>() {
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center relative "
+                  className="h-24 text-center relative"
                 >
                   <div
                     role="status"
@@ -289,7 +329,7 @@ export function DataTable<TData, TValue>() {
                     return (
                       <TableCell
                         key={cell.id}
-                        className="border border-slate-600 text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                        className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                         style={{ ...getCommonPinningStyles(column) }}
                       >
                         {flexRender(
