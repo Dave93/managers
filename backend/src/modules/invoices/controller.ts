@@ -291,7 +291,6 @@ export const invoicesController = new Elysia({
           nomenclature_element,
         });
       }
-      console.log("selectFields", selectFields);
       let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         let filtersArray = await JSON.parse(filters);
@@ -314,7 +313,6 @@ export const invoicesController = new Elysia({
         whereClause.push(eq(invoices.type, "incoming"));
         whereClause.push(not(eq(invoices.status, "DELETED")));
       }
-      console.log("whereClause", whereClause);
       const invoicesCount = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(invoices)
