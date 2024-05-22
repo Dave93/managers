@@ -1,3 +1,4 @@
+const MillionLint = require("@million/lint");
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
@@ -16,5 +17,5 @@ const nextConfig = {
     TRPC_API_URL: process.env.TRPC_API_URL,
   },
 };
-
+// module.exports = MillionLint.next({ rsc: true })(nextConfig);
 module.exports = nextConfig;
