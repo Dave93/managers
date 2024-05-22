@@ -764,7 +764,7 @@ export class IikoDictionariesService {
   }
 
   async getOutgoingInvoice(token: string, type: string = "outgoing") {
-    const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
+    const fromDate = dayjs().subtract(50, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
@@ -1007,7 +1007,7 @@ export class IikoDictionariesService {
   }
 
   async getIncomingInvoice(token: string, type: string = "incoming") {
-    const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
+    const fromDate = dayjs().subtract(50, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
