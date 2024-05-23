@@ -208,7 +208,9 @@ export function DataTable<TData, TValue>() {
       }),
     ];
     if (date && date.from && date.to) {
-      for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
+      let from = dayjs(date.from);
+      let to = dayjs(date.to).add(1, "day");
+      for (var m = from; m.isBefore(to); m = m.add(1, "day")) {
         cols.push(
           // @ts-ignore
           columnHelper.group({
