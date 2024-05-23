@@ -1,0 +1,4 @@
+import { pgTable, text, boolean, timestamp, integer } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+export const workSchedules = pgTable('work_schedules', { id: text('id').default(sql`gen_random_uuid()`).primaryKey(), name: text('name').notNull(), active: boolean('active').default(true).notNull(), organization_id: text('organization_id').notNull(), days: text('days').array().notNull(), start_time: timestamp('start_time', { mode: 'date', precision: 3 }).notNull(), end_time: timestamp('end_time', { mode: 'date', precision: 3 }).notNull(), max_start_time: timestamp('max_start_time', { mode: 'date', precision: 3 }).notNull(), bonus_price: integer('bonus_price').default(0).notNull(), created_at: timestamp('created_at', { mode: 'date', precision: 3 }).defaultNow().notNull(), updated_at: timestamp('updated_at', { mode: 'date', precision: 3 }).defaultNow().notNull(), created_by: text('created_by'), updated_by: text('updated_by') });

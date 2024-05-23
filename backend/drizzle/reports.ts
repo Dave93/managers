@@ -1,0 +1,4 @@
+import { pgTable, text, timestamp, integer } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+
+export const reports = pgTable('reports', { id: text('id').default(sql`gen_random_uuid()`).notNull(), date: timestamp('date', { mode: 'date', precision: 3 }).notNull(), status_id: text('status_id').notNull(), user_id: text('user_id').notNull(), terminal_id: text('terminal_id').notNull(), cash_ids: text('cash_ids').array().notNull(), total_amount: integer('total_amount').default(0).notNull(), total_manager_price: integer('total_manager_price').default(0).notNull(), difference: integer('difference').default(0).notNull(), arryt_income: integer('arryt_income').default(0).notNull() });
