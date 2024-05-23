@@ -44,8 +44,17 @@ import {
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import dayjs from "dayjs";
+import ToggleActualColumn from "./actualToggle";
 
-export const InvoiceFilters = () => {
+interface InvoiceFiltersProps {
+  showActualColumn: boolean;
+  toggleShowActualColumn: () => void;
+}
+
+export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({
+  showActualColumn,
+  toggleShowActualColumn,
+}) => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
@@ -179,6 +188,11 @@ export const InvoiceFilters = () => {
           </SelectGroup>
         </SelectContent>
       </Select>
+
+      <ToggleActualColumn
+        showActualColumn={showActualColumn}
+        toggleShowActualColumn={toggleShowActualColumn}
+      />
     </div>
   );
 };

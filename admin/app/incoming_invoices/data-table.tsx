@@ -47,9 +47,13 @@ import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoice_items } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
+import { Switch } from "@components/ui/switch";
+import ToggleActualColumn from "./actualToggle";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
+  showActualColumn: boolean;
+  toggleShowActualColumn: () => void;
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
@@ -73,7 +77,10 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   };
 };
 
-export function DataTable<TData, TValue>() {
+export function DataTable<TData, TValue>({
+  showActualColumn,
+  toggleShowActualColumn,
+}: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const token = useToken();
@@ -171,7 +178,6 @@ export function DataTable<TData, TValue>() {
       columnHelper.group({
         id: "group",
         header: () => <span style={{ color: "red" }}>Всего</span>,
-
         columns: [
           // @ts-ignore
           columnHelper.accessor("totalBase", {
@@ -190,22 +196,23 @@ export function DataTable<TData, TValue>() {
             },
           }),
           // @ts-ignore
-          columnHelper.accessor("totalAct", {
-            header: () => <span style={{ color: "red" }}>Актуально</span>,
-            cell: ({ row: { original } }) => {
-              let res = 0;
-              // @ts-ignore
-              Object.keys(original).forEach((key) => {
+          showActualColumn &&
+            columnHelper.accessor("totalAct", {
+              header: () => <span style={{ color: "red" }}>Актуально</span>,
+              cell: ({ row: { original } }) => {
+                let res = 0;
                 // @ts-ignore
-                if (key.indexOf("_act") > -1) {
+                Object.keys(original).forEach((key) => {
                   // @ts-ignore
-                  res += +original[key];
-                }
-              });
-              return <span>{Intl.NumberFormat("ru-RU").format(res)}</span>;
-            },
-          }),
-        ],
+                  if (key.indexOf("_act") > -1) {
+                    // @ts-ignore
+                    res += +original[key];
+                  }
+                });
+                return <span>{Intl.NumberFormat("ru-RU").format(res)}</span>;
+              },
+            }),
+        ].filter(Boolean),
       }),
     ];
     if (date && date.from && date.to) {
@@ -223,18 +230,19 @@ export function DataTable<TData, TValue>() {
                 cell: (info) => info.getValue(),
                 header: () => "Оприходовано",
               }),
-              // @ts-ignore
-              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
-                cell: (info) => info.getValue(),
-                header: () => "Актуально",
-              }),
-            ],
+              showActualColumn &&
+                // @ts-ignore
+                columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
+                  cell: (info) => info.getValue(),
+                  header: () => "Актуально",
+                }),
+            ].filter(Boolean),
           })
         );
       }
     }
     return cols;
-  }, [date]);
+  }, [date, showActualColumn]);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
