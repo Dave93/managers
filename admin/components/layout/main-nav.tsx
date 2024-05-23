@@ -86,6 +86,10 @@ const settingsMenu: { title: string; href: string }[] = [
     title: "Статус",
     href: "/system/reports_status",
   },
+  {
+    title: "Группы продуктов",
+    href: "/system/product_groups",
+  },
 ];
 
 const storeMenu: { title: string; href: string }[] = [

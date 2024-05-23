@@ -19,7 +19,7 @@
     "@trpc/server": "^10.38.4",
     "bullmq": "^5.1.5",
     "dayjs": "^1.11.9",
-    "drizzle-kit": "^0.21.2",
+    "drizzle-kit": "^0.21.4",
     "drizzle-orm": "^0.30.10",
     "drizzle-typebox": "^0.1.1",
     "elysia": "^1.0.20",

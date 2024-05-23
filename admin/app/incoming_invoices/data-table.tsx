@@ -170,11 +170,12 @@ export function DataTable<TData, TValue>() {
       },
       columnHelper.group({
         id: "group",
-        header: "Всего",
+        header: () => <span style={{ color: "red" }}>Всего</span>,
+
         columns: [
           // @ts-ignore
           columnHelper.accessor("totalBase", {
-            header: "Оприходовано",
+            header: () => <span style={{ color: "red" }}>Оприходовано</span>,
             cell: ({ row: { original } }) => {
               let res = 0;
               // @ts-ignore
@@ -185,12 +186,12 @@ export function DataTable<TData, TValue>() {
                   res += +original[key];
                 }
               });
-              return res;
+              return <span>{Intl.NumberFormat("ru-RU").format(res)}</span>;
             },
           }),
           // @ts-ignore
           columnHelper.accessor("totalAct", {
-            header: "Актуально",
+            header: () => <span style={{ color: "red" }}>Актуально</span>,
             cell: ({ row: { original } }) => {
               let res = 0;
               // @ts-ignore
@@ -201,14 +202,16 @@ export function DataTable<TData, TValue>() {
                   res += +original[key];
                 }
               });
-              return res;
+              return <span>{Intl.NumberFormat("ru-RU").format(res)}</span>;
             },
           }),
         ],
       }),
     ];
     if (date && date.from && date.to) {
-      for (var m = dayjs(date.from); m.isBefore(date.to); m = m.add(1, "day")) {
+      let from = dayjs(date.from);
+      let to = dayjs(date.to).add(1, "day");
+      for (var m = from; m.isBefore(to); m = m.add(1, "day")) {
         cols.push(
           // @ts-ignore
           columnHelper.group({

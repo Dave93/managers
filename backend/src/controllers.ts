@@ -27,6 +27,7 @@ import { invoiceItemsController } from "./modules/invoice_items/controller";
 import { writeItemsOffController } from "./modules/writeoff_items/controller";
 import { internalTransferOffController } from "./modules/internal_transfer/controller";
 import { internalTransferItemsController } from "./modules/internal_transfer_items/controller";
+import { productGroupsController } from "./modules/product_groups/controller";
 
 export const apiController = new Elysia({
   name: "@api",
@@ -59,4 +60,5 @@ export const apiController = new Elysia({
   .use(invoiceItemsController)
   .use(writeItemsOffController)
   .use(internalTransferOffController)
-  .use(internalTransferItemsController);
+  .use(internalTransferItemsController)
+  .use(productGroupsController);

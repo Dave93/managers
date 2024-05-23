@@ -11,6 +11,7 @@ import {
   credentials,
   organization,
   permissions,
+  product_groups,
   report_groups,
   reports_status,
   roles,
@@ -465,7 +466,7 @@ export class CacheControlService {
       await this.redis.del(
         `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
       );
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async getCachedUserDataByToken(accessToken: string): Promise<{
@@ -509,6 +510,29 @@ export class CacheControlService {
       const storesJson = JSON.parse(stores);
       return storesJson.slice(0, take) as InferSelectModel<
         typeof corporation_store
+      >[];
+    } else {
+      return [];
+    }
+  }
+
+  async cacheProductGroups() {
+    const productGroups = await this.drizzle.query.product_groups.findMany();
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}product_groups`,
+      JSON.stringify(productGroups)
+    );
+  }
+
+  async getCachedProductGroups({ take }: { take?: number }) {
+    const productGroups = (await this.redis.get(
+      `${process.env.PROJECT_PREFIX}product_groups`
+    )) as string | null;
+
+    if (productGroups) {
+      const productGroupsJson = JSON.parse(productGroups);
+      return productGroupsJson.slice(0, take) as InferSelectModel<
+        typeof product_groups
       >[];
     } else {
       return [];
