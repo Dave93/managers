@@ -7,11 +7,6 @@ import { InvoiceFilters } from "./invoice_filters";
 import Back from "../manager_reports/Back";
 
 export default function ReportsListPage() {
-  const [showActualColumn, setShowActualColumn] = useState(false);
-
-  const toggleShowActualColumn = () => {
-    setShowActualColumn((prev) => !prev);
-  };
   return (
     <div>
       <Back />
@@ -20,15 +15,9 @@ export default function ReportsListPage() {
           Приходная накладная (Таблица)
         </h2>
       </div>
-      <InvoiceFilters
-        showActualColumn={showActualColumn}
-        toggleShowActualColumn={toggleShowActualColumn}
-      />
+      <InvoiceFilters />
       <div className="py-10">
-        <DataTable
-          showActualColumn={showActualColumn}
-          toggleShowActualColumn={toggleShowActualColumn}
-        />
+        <DataTable />
       </div>
     </div>
   );

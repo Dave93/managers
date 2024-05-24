@@ -48,13 +48,8 @@ import { useStoplistFilterStore } from "./filters_store";
 import { invoice_items } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { Switch } from "@components/ui/switch";
-import ToggleActualColumn from "./actualToggle";
 
-interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<Stoplist, TValue>[];
-  showActualColumn: boolean;
-  toggleShowActualColumn: () => void;
-}
+interface DataTableProps<TData, TValue> {}
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   const isPinned = column.getIsPinned();
@@ -77,12 +72,12 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   };
 };
 
-export function DataTable<TData, TValue>({
-  showActualColumn,
-  toggleShowActualColumn,
-}: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
+  const showActualColumn = useStoplistFilterStore(
+    (state) => state.showActualColumn
+  );
   const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -178,6 +173,7 @@ export function DataTable<TData, TValue>({
       columnHelper.group({
         id: "group",
         header: () => <span style={{ color: "red" }}>Всего</span>,
+        // @ts-ignore
         columns: [
           // @ts-ignore
           columnHelper.accessor("totalBase", {
@@ -224,6 +220,7 @@ export function DataTable<TData, TValue>({
           columnHelper.group({
             id: m.format("YYYY-MM-DD"),
             header: m.format("DD.MM.YYYY"),
+            // @ts-ignore
             columns: [
               // @ts-ignore
               columnHelper.accessor(m.format("YYYY_MM_DD") + "_base", {
