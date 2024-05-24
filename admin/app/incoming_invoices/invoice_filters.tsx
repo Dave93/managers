@@ -39,16 +39,25 @@ import {
 } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import useToken from "@admin/store/get-token";
+import { Switch } from "@admin/components/ui/switch";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import dayjs from "dayjs";
 
-export const InvoiceFilters = () => {
+interface InvoiceFiltersProps {}
+
+export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({}) => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
+  const showActualColumn = useStoplistFilterStore(
+    (state) => state.showActualColumn
+  );
+  const toggleShowActualColumn = useStoplistFilterStore(
+    (state) => state.toggleShowActualColumn
+  );
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
@@ -179,6 +188,14 @@ export const InvoiceFilters = () => {
           </SelectGroup>
         </SelectContent>
       </Select>
+
+      <div className="flex items-center space-x-2">
+        <Switch
+          checked={showActualColumn}
+          onCheckedChange={toggleShowActualColumn}
+        />
+        <label>Актуально</label>
+      </div>
     </div>
   );
 };

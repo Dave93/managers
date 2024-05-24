@@ -1,4 +1,5 @@
 "use client";
+import React, { useState } from "react";
 import { Tabs, Tab } from "@nextui-org/tabs";
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
