@@ -3,7 +3,6 @@ module.exports = {
   apps: [
     {
       name: process.env.PM2_APP_NAME,
-      interpreter: "/root/.nvm/versions/node/v18.17.0/bin/npm",
       script: "npm",
       args: "run start",
       env: {
