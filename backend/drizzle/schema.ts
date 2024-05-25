@@ -539,7 +539,7 @@ export const usersToUsersRelations = relations(users_roles, ({ one }) => ({
 export const internal_transfer = pgTable("internal_transfer", {
     id: uuid("id").defaultRandom().notNull(),
     dateIncoming: timestamp("dateIncoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
-    documentnumber: varchar("documentnumber", { length: 255 }),
+    documentNumber: varchar("documentnumber", { length: 255 }),
     status: varchar("status", { length: 255 }),
     conceptionId: uuid("conceptionId"),
     storeFromId: uuid("storeFromId"),
