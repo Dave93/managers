@@ -448,7 +448,7 @@ export const work_schedules = pgTable("work_schedules", {
 
 export const writeoff = pgTable("writeoff", {
     id: uuid("id").notNull(),
-    dateincoming: timestamp("dateincoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
+    dateIncoming: timestamp("dateincoming", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
     documnentNumber: varchar("documnentNumber", { length: 255 }),
     status: varchar("status", { length: 255 }),
     conceptionId: uuid("conceptionId"),
