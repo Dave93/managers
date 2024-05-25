@@ -3,7 +3,7 @@ module.exports = {
   apps: [
     {
       name: process.env.PM2_APP_NAME,
-      script: "npm",
+      script: "nvm exec 18.17.0 npm",
       args: "run start",
       env: {
         PORT: 3000,
