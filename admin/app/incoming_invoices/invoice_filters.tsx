@@ -9,11 +9,9 @@ import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
-  addDays,
   startOfWeek,
   startOfMonth,
   endOfWeek,
-  addHours,
   endOfMonth,
   format,
   subDays,
@@ -31,20 +29,10 @@ import {
 } from "@admin/components/ui/select";
 import { useEffect, useState } from "react";
 import { InferSelectModel } from "drizzle-orm";
-import {
-  corporation_store,
-  organization,
-  terminals,
-  users_stores,
-} from "@backend/../drizzle/schema";
+import { corporation_store } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import useToken from "@admin/store/get-token";
 import { Switch } from "@admin/components/ui/switch";
-import {
-  organizationWithCredentials,
-  terminalsWithCredentials,
-} from "@backend/modules/cache_control/dto/cache.dto";
-import dayjs from "dayjs";
 
 interface InvoiceFiltersProps {}
 

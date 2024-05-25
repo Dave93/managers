@@ -35,7 +35,7 @@ export default function ProductGroupsListPage() {
     let res = [
       {
         id: "none",
-        title: "Неотсортировано",
+        title: "Не отсортировано",
       },
     ];
 

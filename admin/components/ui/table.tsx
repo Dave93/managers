@@ -6,15 +6,23 @@ import { cn } from "@admin/lib/utils";
 const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement> & { wrapperClassName?: string }
->(({ className, wrapperClassName, ...props }, ref) => (
-  <div className={cn("w-full overflow-auto", wrapperClassName)}>
+>(({ className, wrapperClassName, ...props }, ref) =>
+  wrapperClassName ? (
+    <div className={cn("w-full overflow-auto", wrapperClassName)}>
+      <table
+        ref={ref}
+        className={cn("w-full caption-bottom text-sm", className)}
+        {...props}
+      />
+    </div>
+  ) : (
     <table
       ref={ref}
       className={cn("w-full caption-bottom text-sm", className)}
       {...props}
     />
-  </div>
-));
+  )
+);
 Table.displayName = "Table";
 
 const TableHeader = React.forwardRef<

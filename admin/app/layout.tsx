@@ -1,6 +1,6 @@
 // "use client";
 import "./globals.css";
-import React from "react";
+import React, { StrictMode } from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import MainLayout from "@admin/components/layout/main-layout";
@@ -22,11 +22,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        <NextUIProviders>
-          <SessionLocalProvider>
-            <MainLayout>{children}</MainLayout>
-          </SessionLocalProvider>
-        </NextUIProviders>
+        <StrictMode>
+          <NextUIProviders>
+            <SessionLocalProvider>
+              <MainLayout>{children}</MainLayout>
+            </SessionLocalProvider>
+          </NextUIProviders>
+        </StrictMode>
       </body>
     </html>
   );
