@@ -8,10 +8,15 @@ import { Card, CardContent, CardHeader } from "@admin/components/ui/card";
 import { Button } from "@admin/components/ui/button";
 import { GripVertical } from "lucide-react";
 import { ScrollArea, ScrollBar } from "@admin/components/ui/scroll-area";
+import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
+import { GroupTitleEditable } from "./group_title_editable";
+import { ToggleGroupInventory } from "./toggle_inventory";
 
 export interface Column {
   id: UniqueIdentifier;
   title: string;
+  sort: number;
+  show_inventory: boolean;
 }
 
 export type ColumnType = "Column";
@@ -23,7 +28,7 @@ export interface ColumnDragData {
 
 interface BoardColumnProps {
   column: Column;
-  tasks: Task[];
+  tasks: ProductGroupsListDto[];
   isOverlay?: boolean;
 }
 
@@ -56,7 +61,7 @@ export function BoardColumn({ column, tasks, isOverlay }: BoardColumnProps) {
   };
 
   const variants = cva(
-    "h-[500px] max-h-[500px] w-[350px] max-w-full bg-primary-foreground flex flex-col flex-shrink-0 snap-center",
+    "h-[800px] max-h-[1000px] w-[350px] max-w-full bg-primary-foreground flex flex-col flex-shrink-0 snap-center",
     {
       variants: {
         dragging: {
@@ -76,17 +81,24 @@ export function BoardColumn({ column, tasks, isOverlay }: BoardColumnProps) {
         dragging: isOverlay ? "overlay" : isDragging ? "over" : undefined,
       })}
     >
-      <CardHeader className="p-4 font-semibold border-b-2 text-left flex flex-row space-between items-center">
-        <Button
-          variant={"ghost"}
-          {...attributes}
-          {...listeners}
-          className=" p-1 text-primary/50 -ml-2 h-auto cursor-grab relative"
-        >
-          <span className="sr-only">{`Move column: ${column.title}`}</span>
-          <GripVertical />
-        </Button>
-        <span className="ml-auto"> {column.title}</span>
+      <CardHeader className="p-4 font-semibold border-b-2 text-left">
+        <div className="flex flex-row space-between items-center">
+          <Button
+            variant={"ghost"}
+            {...attributes}
+            {...listeners}
+            className=" p-1 text-primary/50 -ml-2 h-auto cursor-grab relative"
+          >
+            <span className="sr-only">{`Move column: ${column.title}`}</span>
+            <GripVertical />
+          </Button>
+          <span className="ml-auto">
+            <GroupTitleEditable group={column} />
+          </span>
+        </div>
+        <div>
+          {column.id !== "null" && <ToggleGroupInventory group={column} />}
+        </div>
       </CardHeader>
       <ScrollArea>
         <CardContent className="flex flex-grow flex-col gap-2 p-2">

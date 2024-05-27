@@ -6,6 +6,7 @@ import { Button } from "@admin/components/ui/button";
 import { cva } from "class-variance-authority";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@admin/components/ui/badge";
+import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 
 export interface Task {
   id: UniqueIdentifier;
@@ -14,7 +15,7 @@ export interface Task {
 }
 
 interface TaskCardProps {
-  task: Task;
+  task: ProductGroupsListDto;
   isOverlay?: boolean;
 }
 
@@ -22,7 +23,7 @@ export type TaskType = "Task";
 
 export interface TaskDragData {
   type: TaskType;
-  task: Task;
+  task: ProductGroupsListDto;
 }
 
 export function TaskCard({ task, isOverlay }: TaskCardProps) {
@@ -66,7 +67,7 @@ export function TaskCard({ task, isOverlay }: TaskCardProps) {
         dragging: isOverlay ? "overlay" : isDragging ? "over" : undefined,
       })}
     >
-      <CardHeader className="px-3 py-3 space-between flex flex-row border-b-2 border-secondary relative">
+      <CardHeader className="px-3 py-3 space-between flex flex-row border-b-2 border-secondary relative items-center justify-between">
         <Button
           variant={"ghost"}
           {...attributes}
@@ -76,13 +77,9 @@ export function TaskCard({ task, isOverlay }: TaskCardProps) {
           <span className="sr-only">Move task</span>
           <GripVertical />
         </Button>
-        <Badge variant={"outline"} className="ml-auto font-semibold">
-          Task
-        </Badge>
+        <div className="font-bold">{task.name}</div>
       </CardHeader>
-      <CardContent className="px-3 pt-3 pb-6 text-left whitespace-pre-wrap">
-        {task.content}
-      </CardContent>
+      <CardContent className="px-3 pt-3 pb-6 text-left whitespace-pre-wrap"></CardContent>
     </Card>
   );
 }

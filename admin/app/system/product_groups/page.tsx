@@ -1,53 +1,73 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 
-import {
-  BoardColumn,
-  BoardContainer,
-} from "@admin/components/product_groups/board_column";
-import {
-  DndContext,
-  type DragEndEvent,
-  type DragOverEvent,
-  DragOverlay,
-  type DragStartEvent,
-  useSensor,
-  useSensors,
-  KeyboardSensor,
-  Announcements,
-  UniqueIdentifier,
-  TouchSensor,
-  MouseSensor,
-} from "@dnd-kit/core";
-import { SortableContext, arrayMove } from "@dnd-kit/sortable";
-import {
-  type Task,
-  TaskCard,
-} from "@admin/components/product_groups/task_card";
-import type { Column } from "@admin/components/product_groups/board_column";
-import { hasDraggableData } from "@admin/components/product_groups/utils";
-import { coordinateGetter } from "@admin/components/product_groups/multipleContainersKeyboardPreset";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@admin/utils/eden";
+import useToken from "@admin/store/get-token";
+import { Tabs, Tab } from "@nextui-org/tabs";
+import ProductGroupsKanban from "./kanban";
 
 export default function ProductGroupsListPage() {
-  const columns = useMemo(() => {
-    let res = [
-      {
-        id: "none",
-        title: "Не отсортировано",
-      },
-    ];
+  const token = useToken();
 
+  const { data, isLoading } = useQuery({
+    queryKey: [
+      "organization",
+      "product_groups",
+      {
+        fields: ["id", "name"],
+      },
+    ],
+    queryFn: async () => {
+      return await apiClient.api.organization.get({
+        query: {
+          fields: "id,name",
+          limit: "1000",
+          offset: "0",
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    },
+    enabled: !!token,
+  });
+  const tabs = useMemo(() => {
+    const res: {
+      id: string;
+      title: string;
+    }[] = [];
+    if (data?.data?.data && Array.isArray(data.data.data)) {
+      data.data.data.forEach((item) => {
+        res.push({
+          id: item.id,
+          title: item.name,
+        });
+      });
+    }
     return res;
-  }, []);
+  }, [data?.data]);
 
   return (
     <div>
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Группы продуктов</h2>
       </div>
-      <div className="py-10"></div>
+      <div className="py-10">
+        <Tabs
+          aria-label="Dynamic tabs"
+          items={tabs}
+          radius="full"
+          variant="bordered"
+        >
+          {(item) => (
+            <Tab key={item.id} value={item.id} title={item.title}>
+              <ProductGroupsKanban organizationId={item.id} />
+            </Tab>
+          )}
+        </Tabs>
+      </div>
     </div>
   );
 }
