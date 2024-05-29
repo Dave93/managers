@@ -12,13 +12,7 @@ export default function ProductGroupsListPage() {
   const token = useToken();
 
   const { data, isLoading } = useQuery({
-    queryKey: [
-      "organization",
-      "product_groups",
-      {
-        fields: ["id", "name"],
-      },
-    ],
+    queryKey: ["organization"],
     queryFn: async () => {
       return await apiClient.api.organization.get({
         query: {

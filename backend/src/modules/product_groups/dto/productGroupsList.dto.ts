@@ -1,6 +1,9 @@
-import { nomenclature_element } from "backend/drizzle/schema";
+import { nomenclature_element, organization } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export interface ProductGroupsListDto extends InferSelectModel<typeof nomenclature_element> {
+export interface ProductGroupsListDto {
+    id: string;
+    name: string | null;
     group_id: string;
+    organization: InferSelectModel<typeof organization>[];
 }

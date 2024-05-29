@@ -1,7 +1,7 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { nomenclature_element, nomenclature_element_group, product_group_items, product_groups } from "backend/drizzle/schema";
+import { nomenclature_element, nomenclature_element_group, nomenclature_element_organization, organization, product_group_items, product_groups } from "backend/drizzle/schema";
 import {
     InferSelectModel, SQLWrapper, and, desc,
     asc, eq, inArray, isNull, or, sql
@@ -74,30 +74,60 @@ export const productGroupsController = new Elysia({
             };
         }
 
-        const productElements = (await drizzle
+        const productElements = await drizzle
             .select({
                 id: nomenclature_element.id,
                 name: nomenclature_element.name,
                 group_id: product_group_items.product_group_id,
+                organization: {
+                    id: nomenclature_element_organization.organization_id,
+                    name: organization.name,
+                }
             })
             .from(nomenclature_element)
             .leftJoin(product_group_items, eq(product_group_items.product_id, nomenclature_element.id))
+            .leftJoin(nomenclature_element_organization, eq(nomenclature_element_organization.nomenclature_element_id, nomenclature_element.id))
+            .leftJoin(organization, eq(organization.id, nomenclature_element_organization.organization_id))
             .where(and(
-                // or(
-                //     eq(nomenclature_element.organization_id, organization_id),
-                //     isNull(nomenclature_element.organization_id)
-                // ),
+                or(
+                    eq(nomenclature_element_organization.organization_id, organization_id),
+                    isNull(nomenclature_element_organization.organization_id)
+                ),
                 eq(nomenclature_element.deleted, false),
                 inArray(nomenclature_element.type, ['PREPARED', 'GOODS'])
             ))
             .orderBy(asc(nomenclature_element.name))
-            .execute()) as ProductGroupsListDto[];
+            .execute();
 
-        return productElements.map(item => ({
+        const res = productElements.map(item => ({
             ...item,
             group_id: item.group_id ?? 'null'
         }));
+        const aggregatedResults: ProductGroupsListDto[] = [];
 
+        const elementMap = new Map<string, ProductGroupsListDto>();
+
+
+        res.forEach(result => {
+
+            if (!elementMap.has(result.id)) {
+                elementMap.set(result.id, {
+                    ...result,
+                    organization: [],
+                });
+            }
+
+            if (result.organization.id) {
+                elementMap.get(result.id)?.organization.push({
+                    id: result.organization.id,
+                    // @ts-ignore
+                    name: result.organization.name,
+                });
+            }
+        });
+
+        aggregatedResults.push(...elementMap.values());
+        return aggregatedResults;
     }, {
         query: t.Object({
             organization_id: t.String(),
