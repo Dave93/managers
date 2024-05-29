@@ -626,6 +626,8 @@ export const product_groups = pgTable("product_groups", {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     sort: integer("sort").default(0).notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    show_inventory: boolean("show_inventory").default(true),
     created_at: timestamp("created_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
@@ -637,3 +639,22 @@ export const product_group_items = pgTable("product_group_items", {
     created_at: timestamp("created_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
 });
+
+export const nomenclature_element_organization = pgTable("nomenclature_element_organization", {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    nomenclature_element_id: uuid("nomenclature_element_id").notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    created_at: timestamp("created_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { precision: 5, withTimezone: true, mode: 'string' }).defaultNow().notNull(),
+});
+
+export const nomenclatureElementToOrganization = relations(nomenclature_element_organization, ({ one }) => ({
+    nomenclatureElement: one(nomenclature_element, {
+        fields: [nomenclature_element_organization.nomenclature_element_id],
+        references: [nomenclature_element.id],
+    }),
+    organization: one(organization, {
+        fields: [nomenclature_element_organization.organization_id],
+        references: [organization.id],
+    }),
+}));

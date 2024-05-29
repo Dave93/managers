@@ -28,6 +28,7 @@ import { writeItemsOffController } from "./modules/writeoff_items/controller";
 import { internalTransferOffController } from "./modules/internal_transfer/controller";
 import { internalTransferItemsController } from "./modules/internal_transfer_items/controller";
 import { productGroupsController } from "./modules/product_groups/controller";
+import { nomenclatureElementOrganizationController } from "./modules/nomenclature_element_organization/controller";
 
 export const apiController = new Elysia({
   name: "@api",
@@ -61,4 +62,5 @@ export const apiController = new Elysia({
   .use(writeItemsOffController)
   .use(internalTransferOffController)
   .use(internalTransferItemsController)
-  .use(productGroupsController);
+  .use(productGroupsController)
+  .use(nomenclatureElementOrganizationController);

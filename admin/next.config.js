@@ -5,7 +5,7 @@ const nextConfig = {
   experimental: {
     // swcTraceProfiling: true,
     externalDir: true,
-    reactCompiler: true,
+    // reactCompiler: true,
     // swcPlugins: [
     //   [
     //     "next-superjson-plugin",
