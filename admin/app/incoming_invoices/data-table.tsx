@@ -348,6 +348,25 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
     });
   }, [table]);
 
+
+  const checkMismatch = (row: any) => {
+    const original = row.original;
+    let baseTotal = 0;
+    let actTotal = 0;
+  
+    Object.keys(original).forEach((key) => {
+      if (key.indexOf("_base") > -1) {
+        baseTotal += +original[key];
+      }
+      if (key.indexOf("_act") > -1) {
+        actTotal += +original[key];
+      }
+    });
+  
+    return baseTotal !== actTotal;
+  };
+
+  const mismatchClass = 'bg-red-50 dark:bg-red-600';
   return (
     <div className="space-y-4">
       <div
@@ -460,8 +479,9 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
           "h-auto": showActualColumn,
         })}
       >
+
         <Table wrapperClassName="h-screen">
-          <TableHeader className="z-50 sticky top-0 ">
+          <TableHeader className="z-50 sticky top-0 bg-white dark:bg-slate-950">
             {tableWithActual.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="">
                 {headerGroup.headers.map((header) => {
@@ -521,14 +541,14 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className="text-black"
+                  className={checkMismatch(row) ? mismatchClass : ''}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const { column } = cell;
                     return (
                       <TableCell
                         key={cell.id}
-                        className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                        // className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                         style={{ ...getCommonPinningStyles(column) }}
                       >
                         {flexRender(
