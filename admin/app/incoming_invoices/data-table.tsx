@@ -50,6 +50,7 @@ import { InferSelectModel } from "drizzle-orm";
 import { Switch } from "@components/ui/switch";
 import { cn } from "@admin/lib/utils";
 import { he } from "date-fns/locale";
+import './style.css';
 
 interface DataTableProps<TData, TValue> {}
 
@@ -366,7 +367,7 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
     return baseTotal !== actTotal;
   };
 
-  const mismatchClass = 'bg-red-50 dark:bg-red-600';
+  // const mismatchClass = 'bg-red-50 dark:bg-red-600';
   return (
     <div className="space-y-4">
       <div
@@ -541,7 +542,6 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={checkMismatch(row) ? mismatchClass : ''}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const { column } = cell;
@@ -549,6 +549,8 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                       <TableCell
                         key={cell.id}
                         // className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                  className={checkMismatch(row) ? 'bg-red-50 dark:bg-red-600' : ''}
+
                         style={{ ...getCommonPinningStyles(column) }}
                       >
                         {flexRender(
