@@ -52,25 +52,25 @@ export class IikoDictionariesService {
 
     // console.log("token", token);
 
-    await this.getTaxCategories(token);
-    await this.getPaymentTypes(token);
-    await this.getOrderTypes(token);
-    await this.getMeasureUnit(token);
-    await this.getDiscountTypes(token);
-    await this.getConceptions(token);
-    await this.getAccountingCategorys(token);
-    await this.getNomenclatureGroups(token);
-    await this.getNomenclatureCatergorys(token);
-    await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
-    await this.getOutgoingInvoice(token);
-    await this.getInternalTransfer(token);
-    await this.getWriteOff(token);
-    await this.getCorporatinStore(token);
-    await this.getCorporationDepartments(token);
-    await this.getCorporationGroups(token);
-    await this.getBalanceStores(token);
-    await this.getSupplers(token);
+    // await this.getTaxCategories(token);
+    // await this.getPaymentTypes(token);
+    // await this.getOrderTypes(token);
+    // await this.getMeasureUnit(token);
+    // await this.getDiscountTypes(token);
+    // await this.getConceptions(token);
+    // await this.getAccountingCategorys(token);
+    // await this.getNomenclatureGroups(token);
+    // await this.getNomenclatureCatergorys(token);
+    // await this.getNomenclatureElements(token);
+    // await this.getIncomingInvoice(token);
+    // await this.getOutgoingInvoice(token);
+    // await this.getInternalTransfer(token);
+    // await this.getWriteOff(token);
+    // await this.getCorporatinStore(token);
+    // await this.getCorporationDepartments(token);
+    // await this.getCorporationGroups(token);
+    // await this.getBalanceStores(token);
+    // await this.getSupplers(token);
     await this.getReportOlap(token);
   }
 
@@ -323,9 +323,13 @@ export class IikoDictionariesService {
   async getReportOlap(token: string) {
     const fromDate = dayjs()
       .startOf("month")
+      .subtract(7, 'day')
       .add(5, "hour")
       .format("YYYY-MM-DD");
-    const toDate = dayjs().endOf("month").add(5, "hour").format("YYYY-MM-DD");
+    const toDate = dayjs()
+    .subtract(7, 'day')
+    .add(5, "hour")
+    .format("YYYY-MM-DD");
     // console.log("fromDate", fromDate);
     // console.log("toDate", toDate);
     const response = await fetch(
