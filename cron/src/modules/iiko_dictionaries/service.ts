@@ -70,8 +70,8 @@ export class IikoDictionariesService {
     await this.getCorporationDepartments(token);
     await this.getCorporationGroups(token);
     await this.getBalanceStores(token);
-    await this.getSupplers(token);
     await this.getReportOlap(token);
+    await this.getSupplers(token);
   }
 
   checkForNullString = (value: string) => {
