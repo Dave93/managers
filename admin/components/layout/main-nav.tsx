@@ -121,6 +121,10 @@ const storeMenu: { title: string; href: string }[] = [
     title: "Акт Списания",
     href: "/writeoff_items",
   },
+  {
+    title: "Акт Реализации",
+    href: "/report_olap",
+  },
 ];
 
 export function NavigationMenuDemo() {
