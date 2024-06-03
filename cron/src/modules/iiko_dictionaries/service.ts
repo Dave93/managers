@@ -372,12 +372,9 @@ export class IikoDictionariesService {
         }),
       }
     );
-    // console.log("response", response);
     
     const reportOlap = await response.json();
-    
-    // console.log("reportOlap", reportOlap);
-    
+        
     const existingReportOlap = await drizzleDb
       .select()
       .from(report_olap)
@@ -386,16 +383,13 @@ export class IikoDictionariesService {
       console.log("started report olap db inserting");
       console.time("report_olap_db_inserting");
     
-    // console.log("reportOlap", reportOlap);
 
     for (const reportOlaps of reportOlap.data) {
       const existingReportOlapItem = existingReportOlap.find(
         (existingReportOlapItem) => existingReportOlapItem.id === reportOlaps.id
       );
-      // console.log("existingReportOlapItem", existingReportOlapItem);
       try {
         if (!existingReportOlapItem) {
-          // console.log("reportOlaps", reportOlaps);
           await drizzleDb
             .insert(report_olap)
             .values({
