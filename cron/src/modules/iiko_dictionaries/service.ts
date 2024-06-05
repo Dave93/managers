@@ -324,11 +324,9 @@ export class IikoDictionariesService {
     const fromDate = dayjs()
       .startOf("month")
       .subtract(7, 'day')
-      .add(5, "hour")
       .format("YYYY-MM-DD");
     const toDate = dayjs()
     .subtract(7, 'day')
-    .add(5, "hour")
     .format("YYYY-MM-DD");
     // console.log("fromDate", fromDate);
     // console.log("toDate", toDate);
@@ -375,6 +373,7 @@ export class IikoDictionariesService {
     
     const reportOlap = await response.json();
         
+    // console.log("reportOlap", reportOlap);
     const existingReportOlap = await drizzleDb
       .select()
       .from(report_olap)
