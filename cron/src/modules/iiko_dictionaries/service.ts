@@ -323,11 +323,13 @@ export class IikoDictionariesService {
   async getReportOlap(token: string) {
     const fromDate = dayjs()
       .startOf("month")
-      .subtract(7, 'day')
       .format("YYYY-MM-DD");
     const toDate = dayjs()
-    .subtract(7, 'day')
     .format("YYYY-MM-DD");
+    // const toDate = dayjs()
+    // .startOf("month")
+    // .subtract(6, 'day')
+    // .format("YYYY-MM-DDTHH:mm:ss.SSS");
     // console.log("fromDate", fromDate);
     // console.log("toDate", toDate);
     const response = await fetch(
@@ -339,7 +341,7 @@ export class IikoDictionariesService {
         },
         body: JSON.stringify({
           reportType: "TRANSACTIONS",
-          buildSummary: "true",
+          buildSummary: "false",
           groupByRowFields: [],
           groupByColFields: [
             "DateTime.DateTyped",
@@ -348,8 +350,12 @@ export class IikoDictionariesService {
             "Product.Type",
             "Product.Name",
             "Product.Id",
+            "Store",
+
           ],
-          aggregateFields: ["Amount.Out"],
+          aggregateFields: [
+            "Amount.Out"
+          ],
           filters: {
             "DateTime.DateTyped": {
               filterType: "DateRange",
@@ -370,7 +376,7 @@ export class IikoDictionariesService {
         }),
       }
     );
-    
+    // console.log("response", response);
     const reportOlap = await response.json();
         
     // console.log("reportOlap", reportOlap);
@@ -400,6 +406,7 @@ export class IikoDictionariesService {
               sessionGroup: reportOlaps["Session.Group"],
               transactionType: reportOlaps["TransactionType"],
               amauntOut: reportOlaps["Amount.Out"],
+              store: reportOlaps["Store"],
             })
             .execute();
         } else {
@@ -414,6 +421,7 @@ export class IikoDictionariesService {
               sessionGroup: reportOlaps["Session.Group"],
               transactionType: reportOlaps["TransactionType"],
               amauntOut: reportOlaps["Amount.Out"],
+              store: reportOlaps["Store"],
             })
             .where(eq(report_olap.id, reportOlaps.id))
             .execute();
