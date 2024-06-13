@@ -9,6 +9,7 @@ import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
+  addDays,
   startOfWeek,
   startOfMonth,
   endOfWeek,
@@ -19,6 +20,15 @@ import {
   endOfDay,
   subHours,
 } from "date-fns";
+// import { Select, SelectItem } from "@nextui-org/select";
+import { useEffect, useState } from "react";
+import { InferSelectModel } from "drizzle-orm";
+import {
+  corporation_store,
+  organization,
+  terminals,
+  users_stores,
+} from "@backend/../drizzle/schema";
 import {
   Select,
   SelectItem,
@@ -27,25 +37,19 @@ import {
   SelectValue,
   SelectGroup,
 } from "@admin/components/ui/select";
-import { useEffect, useState } from "react";
-import { InferSelectModel } from "drizzle-orm";
-import { corporation_store } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import useToken from "@admin/store/get-token";
-import { Switch } from "@admin/components/ui/switch";
+import {
+  organizationWithCredentials,
+  terminalsWithCredentials,
+} from "@backend/modules/cache_control/dto/cache.dto";
+import React from "react";
 
-interface InvoiceFiltersProps {}
-
-export const OlapFilters: React.FC<InvoiceFiltersProps> = ({}) => {
+export const OlapFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
-  const showActualColumn = useStoplistFilterStore(
-    (state) => state.showActualColumn
-  );
-  const toggleShowActualColumn = useStoplistFilterStore(
-    (state) => state.toggleShowActualColumn
-  );
+  
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
@@ -99,7 +103,6 @@ export const OlapFilters: React.FC<InvoiceFiltersProps> = ({}) => {
           <Select
             onValueChange={(value) => {
               const today = new Date();
-              // console.log("value", value);
               switch (value) {
                 case "-1": // Yesterday
                   setDate({
@@ -176,14 +179,7 @@ export const OlapFilters: React.FC<InvoiceFiltersProps> = ({}) => {
           </SelectGroup>
         </SelectContent>
       </Select>
-
-      <div className="flex items-center space-x-2">
-        <Switch
-          checked={showActualColumn}
-          onCheckedChange={toggleShowActualColumn}
-        />
-        <label>Актуально</label>
-      </div>
+     
     </div>
   );
 };

@@ -252,6 +252,7 @@ export const report_olap = pgTable("report_olap", {
     sessionGroup: varchar("sessionGroup", { length: 255 }),
     transactionType: varchar("transactionType", { length: 255 }),
     amauntOut: doublePrecision("amauntOut").default(10.1),
+    store: varchar("store", { length: 255 }),
 });
 
 export const reports_status = pgTable("reports_status", {
