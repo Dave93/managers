@@ -4,13 +4,10 @@ import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
   corporation_store,
   invoice_items,
-  invoices,
   measure_unit,
   nomenclature_element,
-  organization,
-  suppliers,
-  users_stores,
   report_olap
+  
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc, not } from "drizzle-orm";
@@ -45,11 +42,10 @@ export const reportOlapController = new Elysia({
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, report_olap, {
-          invoices,
           measure_unit,
           nomenclature_element,
           corporation_store,
-          report_olap,
+          invoice_items
         });
       }
       let whereClause: (SQLWrapper | undefined)[] = [];
@@ -86,10 +82,12 @@ export const reportOlapController = new Elysia({
         }
 
         whereClause = parseFilterFields(filters, report_olap, {
-          invoices,
+          invoice_items,
+          measure_unit,
+          nomenclature_element,
+          corporation_store,
         });
 
-     
       }
 
       const repOlapItems = await drizzle
@@ -103,13 +101,6 @@ export const reportOlapController = new Elysia({
           actualAmount: report_olap.amauntOut,
           nomenclature_element: nomenclature_element.name,
           supplierProductArticle:invoice_items.supplierProductArticle,
-          // actualAmount: invoice_items.actualAmount,
-          // amount: invoice_items.amount,
-          // productId: invoice_items.productId,
-          // storeId: invoice_items.storeId,
-          // invoiceincomingdate: invoice_items.invoiceincomingdate,
-          // supplierProductArticle: invoice_items.supplierProductArticle,
-          // unit: measure_unit.name,
         })
         .from(report_olap)
         .leftJoin(
@@ -130,7 +121,7 @@ export const reportOlapController = new Elysia({
         .execute();
       let productsByDate: Record<string, Record<string, any>> = {};
 
-      // console.log("repOlapItems", repOlapItems);
+      console.log("repOlapItems", repOlapItems);
       for (let repOlapItem of repOlapItems) {
         if (!productsByDate[repOlapItem.productId!]) {
           productsByDate[repOlapItem.productId!] = {
@@ -142,8 +133,6 @@ export const reportOlapController = new Elysia({
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {
             productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")] =
               "";
-            // productsByDate[writeoffItem.productId!][m.format("YYYY_MM_DD")] =
-            //   "";
           }
         }
 
