@@ -48,6 +48,7 @@ export const reportOlapController = new Elysia({
           invoices,
           measure_unit,
           nomenclature_element,
+          corporation_store,
           report_olap,
         });
       }
@@ -60,7 +61,7 @@ export const reportOlapController = new Elysia({
         console.log("filtersArray", filtersArray);
 
         const storeIdFilter = filtersArray.find(
-          (filter: any) => filter.field === "storeId"
+          (filter: any) => filter.field === "corporation_store.id"
         );
         if (!storeIdFilter) {
           return {
@@ -70,7 +71,7 @@ export const reportOlapController = new Elysia({
 
         const fromDateFilter = filtersArray.find(
           (filter: any) =>
-            filter.field === "invoiceincomingdate" && filter.operator === "gte"
+            filter.field === "dateTime" && filter.operator === "gte"
         );
         if (fromDateFilter) {
           fromDate = dayjs(fromDateFilter.value);
@@ -78,97 +79,92 @@ export const reportOlapController = new Elysia({
 
         const toDateFilter = filtersArray.find(
           (filter: any) =>
-            filter.field === "invoiceincomingdate" && filter.operator === "lte"
+            filter.field === "dateTime" && filter.operator === "lte"
         );
         if (toDateFilter) {
           toDate = dayjs(toDateFilter.value);
         }
 
-        whereClause = parseFilterFields(filters, invoice_items, {
+        whereClause = parseFilterFields(filters, report_olap, {
           invoices,
         });
 
-        whereClause.push(eq(invoices.type, "incoming"));
-        whereClause.push(not(eq(invoices.status, "DELETED")));
+     
       }
 
-      const invoiceItems = await drizzle
+      const repOlapItems = await drizzle
         .select({
-          id: invoice_items.id,
-          actualAmount: invoice_items.actualAmount,
-          amount: invoice_items.amount,
-          productId: invoice_items.productId,
-          storeId: invoice_items.storeId,
-          invoiceincomingdate: invoice_items.invoiceincomingdate,
-          productName: nomenclature_element.name,
-          supplierProductArticle: invoice_items.supplierProductArticle,
+          id: report_olap.id,
+          dateTime: report_olap.dateTime,
+          productId: report_olap.productId,
+          productName: report_olap.productName,
+          corporation_store: corporation_store.name,
           unit: measure_unit.name,
+          actualAmount: report_olap.amauntOut,
+          nomenclature_element: nomenclature_element.name,
+          supplierProductArticle:invoice_items.supplierProductArticle,
+          // actualAmount: invoice_items.actualAmount,
+          // amount: invoice_items.amount,
+          // productId: invoice_items.productId,
+          // storeId: invoice_items.storeId,
+          // invoiceincomingdate: invoice_items.invoiceincomingdate,
+          // supplierProductArticle: invoice_items.supplierProductArticle,
+          // unit: measure_unit.name,
         })
-        .from(invoice_items)
+        .from(report_olap)
         .leftJoin(
-          invoices,
+          corporation_store,
           and(
-            eq(invoice_items.invoice_id, invoices.id),
-            eq(invoices.incomingDate, invoice_items.invoiceincomingdate)
+            eq(corporation_store.name, report_olap.store)
           )
         )
-        .leftJoin(measure_unit, eq(invoice_items.amountUnit, measure_unit.id))
+        .leftJoin(measure_unit, eq(nomenclature_element.mainUnit, measure_unit.id))
         .leftJoin(
           nomenclature_element,
-          eq(invoice_items.productId, nomenclature_element.id)
+          eq(report_olap.productId, nomenclature_element.id)
         )
+        .leftJoin(invoice_items, 
+          eq(report_olap.productId, invoice_items.productId))
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
         .execute();
       let productsByDate: Record<string, Record<string, any>> = {};
-      for (let invoiceItem of invoiceItems) {
-        if (!productsByDate[invoiceItem.productId!]) {
-          productsByDate[invoiceItem.productId!] = {
-            name: invoiceItem.productName!,
-            unit: invoiceItem.unit!,
-            supplierProductArticle: invoiceItem.supplierProductArticle!,
+
+      // console.log("repOlapItems", repOlapItems);
+      for (let repOlapItem of repOlapItems) {
+        if (!productsByDate[repOlapItem.productId!]) {
+          productsByDate[repOlapItem.productId!] = {
+            name: repOlapItem.productName!,
+            unit: repOlapItem.unit!,
+            supplierProductArticle: repOlapItem.supplierProductArticle!,
           };
 
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {
-            productsByDate[invoiceItem.productId!][
-              m.format("YYYY_MM_DD") + "_act"
-            ] = "";
-            productsByDate[invoiceItem.productId!][
-              m.format("YYYY_MM_DD") + "_base"
-            ] = "";
+            productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")] =
+              "";
+            // productsByDate[writeoffItem.productId!][m.format("YYYY_MM_DD")] =
+            //   "";
           }
         }
 
         if (
-          invoiceItem.actualAmount &&
-          typeof productsByDate[invoiceItem.productId!][
-            dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") +
-              "_act"
-          ] == "string"
+          repOlapItem.actualAmount &&
+          typeof productsByDate[repOlapItem.productId!][
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+          ] == "string" &&
+          !productsByDate[repOlapItem.productId!][
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+          ]
         ) {
-          productsByDate[invoiceItem.productId!][
-            dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") +
-              "_act"
+          productsByDate[repOlapItem.productId!][
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
           ] = 0;
         }
-        if (
-          invoiceItem.amount &&
-          typeof productsByDate[invoiceItem.productId!][
-            dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") +
-              "_base"
-          ] == "string"
-        ) {
-          productsByDate[invoiceItem.productId!][
-            dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") +
-              "_base"
-          ] = 0;
+        if (repOlapItem.actualAmount) {
+          productsByDate[repOlapItem.productId!][
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+          ] += +repOlapItem.actualAmount!;
         }
-        productsByDate[invoiceItem.productId!][
-          dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") + "_act"
-        ] += +invoiceItem.actualAmount!;
-        productsByDate[invoiceItem.productId!][
-          dayjs(invoiceItem.invoiceincomingdate!).format("YYYY_MM_DD") + "_base"
-        ] += +invoiceItem.amount!;
       }
 
       return {
