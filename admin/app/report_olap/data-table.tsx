@@ -39,7 +39,6 @@ import {
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 
-import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
@@ -94,7 +93,6 @@ export function DataTable<TData, TValue>() {
         value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
       });
     }
-
     if (date?.to) {
       res.push({
         field: "dateTime",
@@ -102,7 +100,6 @@ export function DataTable<TData, TValue>() {
         value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
       });
     }
-
     if (storeId) {
       res.push({
         field: "corporation_store.id",
@@ -110,8 +107,7 @@ export function DataTable<TData, TValue>() {
         value: storeId,
       });
     }
-
-  
+ 
     // console.log(date);
     return JSON.stringify(res);
   }, [date, storeId]);
