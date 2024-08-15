@@ -244,7 +244,7 @@ export const report_groups = pgTable("report_groups", {
 });
 
 export const report_olap = pgTable("report_olap", {
-    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    id: uuid("id").defaultRandom(),
     dateTime: timestamp("dateTime", { precision: 5, withTimezone: true, mode: 'string' }),
     productId: uuid("productId"),
     productName: varchar("productName", { length: 255 }),

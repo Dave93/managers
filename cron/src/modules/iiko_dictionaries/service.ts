@@ -29,14 +29,18 @@ const fs = require("fs");
 const xml2js = require("xml2js");
 
 import { Redis } from "ioredis";
-import { SQL, eq } from "drizzle-orm";
+import { SQL, and, eq, sql } from "drizzle-orm";
 import { mapCompactResponse, t } from "elysia";
-import dayjs from "dayjs";
+import dayjs from 'dayjs';
 import client from "cron/src/redis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
-
+import utc from 'dayjs/plugin/utc';
+import timezone from 'dayjs/plugin/timezone';
 const cacheControlService = new CacheControlService(drizzleDb, client);
 
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 export class IikoDictionariesService {
   constructor(private readonly redis: Redis) {}
 
@@ -52,26 +56,26 @@ export class IikoDictionariesService {
 
     // console.log("token", token);
 
-    await this.getTaxCategories(token);
-    await this.getPaymentTypes(token);
-    await this.getOrderTypes(token);
-    await this.getMeasureUnit(token);
-    await this.getDiscountTypes(token);
-    await this.getConceptions(token);
-    await this.getAccountingCategorys(token);
-    await this.getNomenclatureGroups(token);
-    await this.getNomenclatureCatergorys(token);
-    await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
-    await this.getOutgoingInvoice(token);
-    await this.getInternalTransfer(token);
-    await this.getWriteOff(token);
-    await this.getCorporatinStore(token);
-    await this.getCorporationDepartments(token);
-    await this.getCorporationGroups(token);
-    await this.getBalanceStores(token);
+    // await this.getTaxCategories(token);
+    // await this.getPaymentTypes(token);
+    // await this.getOrderTypes(token);
+    // await this.getMeasureUnit(token);
+    // await this.getDiscountTypes(token);
+    // await this.getConceptions(token);
+    // await this.getAccountingCategorys(token);
+    // await this.getNomenclatureGroups(token);
+    // await this.getNomenclatureCatergorys(token);
+    // await this.getNomenclatureElements(token);
+    // await this.getIncomingInvoice(token);
+    // await this.getOutgoingInvoice(token);
+    // await this.getInternalTransfer(token);
+    // await this.getWriteOff(token);
+    // await this.getCorporatinStore(token);
+    // await this.getCorporationDepartments(token);
+    // await this.getCorporationGroups(token);
+    // await this.getBalanceStores(token);
     await this.getReportOlap(token);
-    await this.getSupplers(token);
+    // await this.getSupplers(token);
   }
 
   checkForNullString = (value: string) => {
@@ -326,10 +330,6 @@ export class IikoDictionariesService {
       .format("YYYY-MM-DD");
     const toDate = dayjs()
     .format("YYYY-MM-DD");
-    // const toDate = dayjs()
-    // .startOf("month")
-    // .subtract(6, 'day')
-    // .format("YYYY-MM-DDTHH:mm:ss.SSS");
     // console.log("fromDate", fromDate);
     // console.log("toDate", toDate);
     const response = await fetch(
@@ -341,7 +341,7 @@ export class IikoDictionariesService {
         },
         body: JSON.stringify({
           reportType: "TRANSACTIONS",
-          buildSummary: "false",
+          buildSummary: "true",
           groupByRowFields: [],
           groupByColFields: [
             "DateTime.DateTyped",
@@ -351,11 +351,8 @@ export class IikoDictionariesService {
             "Product.Name",
             "Product.Id",
             "Store",
-
           ],
-          aggregateFields: [
-            "Amount.Out"
-          ],
+          aggregateFields: ["Amount.Out"],
           filters: {
             "DateTime.DateTyped": {
               filterType: "DateRange",
@@ -370,13 +367,13 @@ export class IikoDictionariesService {
             },
             "Product.Type": {
               filterType: "IncludeValues",
-              values: ["PREPARED", "GOODS"],
+              values: ["GOODS", "PREPARED", "DISH"],
             },
           },
         }),
       }
     );
-    // console.log("response", response);
+    
     const reportOlap = await response.json();
         
     // console.log("reportOlap", reportOlap);
@@ -390,11 +387,19 @@ export class IikoDictionariesService {
     
 
     for (const reportOlaps of reportOlap.data) {
-      const existingReportOlapItem = existingReportOlap.find(
-        (existingReportOlapItem) => existingReportOlapItem.id === reportOlaps.id
-      );
+
       try {
-        if (!existingReportOlapItem) {
+            await drizzleDb
+            .delete(report_olap)
+            .where(
+              and(
+                eq(report_olap.dateTime, reportOlaps["DateTime.DateTyped"]),
+                eq(report_olap.productId, reportOlaps["Product.Id"]),
+                eq(report_olap.store, reportOlaps["Store"]),
+              )
+            )
+            .execute();
+        
           await drizzleDb
             .insert(report_olap)
             .values({
@@ -409,23 +414,11 @@ export class IikoDictionariesService {
               store: reportOlaps["Store"],
             })
             .execute();
-        } else {
+          
+        
           // console.log("reportOlaps", reportOlaps);
-          await drizzleDb
-            .update(report_olap)
-            .set({
-              dateTime: reportOlaps["DateTime.DateTyped"],
-              productId: reportOlaps["Product.Id"],
-              productName: reportOlaps["Product.Name"],
-              productType: reportOlaps["Product.Type"],
-              sessionGroup: reportOlaps["Session.Group"],
-              transactionType: reportOlaps["TransactionType"],
-              amauntOut: reportOlaps["Amount.Out"],
-              store: reportOlaps["Store"],
-            })
-            .where(eq(report_olap.id, reportOlaps.id))
-            .execute();
-        }
+          
+        
       } catch (error) {
         console.error("Error:", error);
       }

@@ -7,7 +7,7 @@ import client from "./redis";
 const terminalService = new TerminalsService(client);
 const iikoDictionariesService = new IikoDictionariesService(client);
 
-cron.schedule("0 */2 * * * *", async () => {
+cron.schedule("0 6 * * *", async () => {
   await terminalService.getTerminalsFromIiko();
 });
 
