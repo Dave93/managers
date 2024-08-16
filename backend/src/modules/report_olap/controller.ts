@@ -89,6 +89,8 @@ export const reportOlapController = new Elysia({
 
       }
 
+      
+
       const repOlapItems = await drizzle
         .select({
           id: report_olap.id,
@@ -97,22 +99,29 @@ export const reportOlapController = new Elysia({
           productName: report_olap.productName,
           unit: measure_unit.name,
           actualAmount: report_olap.amauntOut,
-          supplierProductArticle:nomenclature_element.num,
+          nomenclature_element: nomenclature_element.name,
+          supplierProductArticle:invoice_items.supplierProductArticle,
         })
         .from(report_olap)
         .leftJoin(
-          corporation_store, eq(corporation_store.name, report_olap.store))
+          corporation_store,
+          and(
+            eq(corporation_store.name, report_olap.store)
+          )
+        )
+        .leftJoin(measure_unit, eq(nomenclature_element.mainUnit, measure_unit.id))
         .leftJoin(
           nomenclature_element,
-          eq(nomenclature_element.id, report_olap.productId) 
+          eq(report_olap.productId, nomenclature_element.id)
         )
-        .leftJoin(measure_unit, eq(measure_unit.id, nomenclature_element.mainUnit ))
+        .leftJoin(invoice_items, 
+          eq(report_olap.productId, invoice_items.productId))
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
         .execute();
       let productsByDate: Record<string, Record<string, any>> = {};
 
-      console.log("repOlapItems", repOlapItems);
+      // console.log("repOlapItems", repOlapItems);
       for (let repOlapItem of repOlapItems) {
         if (!productsByDate[repOlapItem.productId!]) {
           productsByDate[repOlapItem.productId!] = {
