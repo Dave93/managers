@@ -98,7 +98,7 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
       res.push({
         field: "invoiceincomingdate",
         operator: "gte",
-        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
+        value: dayjs(date.from).toISOString(),
       });
     }
 
@@ -106,7 +106,7 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
       res.push({
         field: "invoiceincomingdate",
         operator: "lte",
-        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
+        value: dayjs(date.to).toISOString(),
       });
     }
 

@@ -90,14 +90,14 @@ export function DataTable<TData, TValue>() {
       res.push({
         field: "dateTime",
         operator: "gte",
-        value: dayjs(date.from).startOf("day").add(5, "hour").toISOString(),
+        value: dayjs(date.from).toISOString(),
       });
     }
     if (date?.to) {
       res.push({
         field: "dateTime",
         operator: "lte",
-        value: dayjs(date.to).endOf("day").add(5, "hour").toISOString(),
+        value: dayjs(date.to).toISOString(),
       });
     }
     if (storeId) {
@@ -153,7 +153,7 @@ export function DataTable<TData, TValue>() {
   const columns = useMemo(() => {
     let cols: ColumnDef<Stoplist, TValue>[] = [
       {
-        accessorKey: "productName",
+        accessorKey: "name",
         header: "Название",
         enablePinning: true,
       },
