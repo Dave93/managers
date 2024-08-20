@@ -7,7 +7,6 @@ import {
   measure_unit,
   nomenclature_element,
   report_olap
-  
 } from "backend/drizzle/schema";
 import dayjs from "dayjs";
 import { SQLWrapper, sql, and, eq, inArray, asc, desc, not } from "drizzle-orm";
@@ -98,22 +97,25 @@ export const reportOlapController = new Elysia({
           dateTime: report_olap.dateTime,
           productId: report_olap.productId,
           productName: report_olap.productName,
-          corporation_store: corporation_store.name,
           unit: measure_unit.name,
           actualAmount: report_olap.amauntOut,
-          supplierProductArticle: nomenclature_element.num
+          nomenclature_element: nomenclature_element.name,
+          supplierProductArticle:invoice_items.supplierProductArticle,
         })
         .from(report_olap)
         .leftJoin(
-          corporation_store, eq(corporation_store.name, report_olap.store)
+          corporation_store,
+          and(
+            eq(corporation_store.name, report_olap.store)
+          )
         )
+        .leftJoin(measure_unit, eq(nomenclature_element.mainUnit, measure_unit.id))
         .leftJoin(
-          nomenclature_element, eq(nomenclature_element.id, report_olap.productId) 
+          nomenclature_element,
+          eq(report_olap.productId, nomenclature_element.id)
         )
-        .leftJoin(
-          measure_unit, eq(measure_unit.id, nomenclature_element.mainUnit) 
-        )
-        
+        .leftJoin(invoice_items, 
+          eq(report_olap.productId, invoice_items.productId))
         .where(and(...whereClause))
         .orderBy(asc(nomenclature_element.name))
         .execute();

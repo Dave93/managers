@@ -49,7 +49,8 @@ export const OlapFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
-  
+
+
 
   const [usersStoresData, setUsersStoresData] = useState<
     InferSelectModel<typeof corporation_store>[]
@@ -179,7 +180,7 @@ export const OlapFilters = () => {
           </SelectGroup>
         </SelectContent>
       </Select>
-     
+
     </div>
   );
 };
