@@ -39,6 +39,7 @@ import {
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
+import { CorporationStoreModel } from "@admin/lib/models";
 
 export const OutgoingFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -46,7 +47,7 @@ export const OutgoingFilters = () => {
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
 
   const [usersStoresData, setUsersStoresData] = useState<
-    InferSelectModel<typeof corporation_store>[]
+    CorporationStoreModel[]
   >([]);
 
   const token = useToken();

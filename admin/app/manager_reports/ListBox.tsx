@@ -41,6 +41,11 @@ export default function ListBox() {
       label: "Акт Списания",
       href: "/writeoff_items",
     },
+    {
+      key: "report_olap",
+      label: "Акт Реализации",
+      href: "/report_olap",
+    },
     // {
     //   key: "franchise_manager",
     //   label: "Приходная накладная (франчайзинг)",
