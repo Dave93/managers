@@ -129,27 +129,26 @@ export const reportOlapController = new Elysia({
           };
 
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {
-            productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")] =
-              "";
+            productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")+ "_act"] = "";
           }
         }
 
         if (
           repOlapItem.actualAmount &&
           typeof productsByDate[repOlapItem.productId!][
-            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD") + "_act"
           ] == "string" &&
           !productsByDate[repOlapItem.productId!][
             dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
           ]
         ) {
           productsByDate[repOlapItem.productId!][
-            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD") + "_act"
           ] = 0;
         }
         if (repOlapItem.actualAmount) {
           productsByDate[repOlapItem.productId!][
-            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD")
+            dayjs(repOlapItem.dateTime!).format("YYYY_MM_DD") + "_act"
           ] += +repOlapItem.actualAmount!;
         }
       }
