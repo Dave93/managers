@@ -53,7 +53,7 @@ export default function ListBox() {
         <Listbox
           items={items}
           aria-label="Dynamic Actions"
-          // onAction={(key) => alert(key)}
+        // onAction={(key) => alert(key)}
         >
           {(item) => (
             <ListboxItem key={item.key} href={item.href} showDivider>
