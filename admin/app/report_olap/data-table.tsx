@@ -60,8 +60,8 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     boxShadow: isLastLeftPinnedColumn
       ? "-4px 0 4px -4px gray inset"
       : isFirstRightPinnedColumn
-      ? "4px 0 4px -4px gray inset"
-      : undefined,
+        ? "4px 0 4px -4px gray inset"
+        : undefined,
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     position: isPinned ? "sticky" : "relative",
@@ -107,7 +107,8 @@ export function DataTable<TData, TValue>() {
         value: storeId,
       });
     }
- 
+
+
     // console.log(date);
     return JSON.stringify(res);
   }, [date, storeId]);
@@ -165,21 +166,51 @@ export function DataTable<TData, TValue>() {
         accessorKey: "unit",
         header: "Единица измерения",
       },
+      // @ts-ignore
+      columnHelper.group({
+        id: "group",
+        header: () => <span style={{ color: "red" }}>Всего</span>,
+        // @ts-ignore
+        columns: [
+          // @ts-ignore
+          columnHelper.accessor("totalBase", {
+            header: () => <span style={{ color: "red" }}></span>,
+            cell: ({ row: { original } }) => {
+              let res = 0;
+              // @ts-ignore
+              Object.keys(original).forEach((key) => {
+                // @ts-ignore   
+                if (key.indexOf("_act") > -1) {
+                  // @ts-ignore
+                  res += +original[key];
+                }
+              });
+              return <span>{Intl.NumberFormat("ru-RU").format(res)}</span>;
+            },
+          }),
+        ],
+      }),
     ];
 
     if (date && date.from && date.to) {
       let from = dayjs(date.from);
       let to = dayjs(date.to).add(1, "day");
       for (var m = from; m.isBefore(to); m = m.add(1, "day")) {
-        cols.push({
-          accessorKey: m.format("YYYY_MM_DD"),
-          header: m.format("DD.MM.YYYY"),
-          enablePinning: true,
-          cell: (info) =>
-            info.getValue()
-              ? (Math.round(+info.getValue() * 1000) / 1000).toFixed(3)
-              : "",
-        });
+        cols.push(
+          // @ts-ignore
+          columnHelper.group({
+            id: m.format("YYYY-MM-DD"),
+            header: m.format("DD.MM.YYYY"),
+            // @ts-ignore
+            columns: [
+              // @ts-ignore
+              columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
+                cell: (info) => info.getValue(),
+                header: () => "",
+              }),
+            ],
+          })
+        );
       }
     }
     return cols;
@@ -230,9 +261,9 @@ export function DataTable<TData, TValue>() {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
