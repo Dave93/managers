@@ -47,8 +47,8 @@ import {
   organizationWithCredentials,
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
+import { CorporationStoreModel } from "@admin/lib/models";
 
-type CorporationStoreModel = typeof corporation_store.$inferSelect;
 
 export const InternalTransferFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);

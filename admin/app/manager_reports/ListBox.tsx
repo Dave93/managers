@@ -41,6 +41,11 @@ export default function ListBox() {
       label: "Акт Списания",
       href: "/writeoff_items",
     },
+    {
+      key: "report_olap",
+      label: "Акт Реализации",
+      href: "/report_olap",
+    },
     // {
     //   key: "franchise_manager",
     //   label: "Приходная накладная (франчайзинг)",
@@ -53,7 +58,7 @@ export default function ListBox() {
         <Listbox
           items={items}
           aria-label="Dynamic Actions"
-          // onAction={(key) => alert(key)}
+        // onAction={(key) => alert(key)}
         >
           {(item) => (
             <ListboxItem key={item.key} href={item.href} showDivider>
