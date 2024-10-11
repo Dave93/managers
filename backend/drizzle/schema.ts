@@ -248,7 +248,9 @@ export const report_olap = pgTable("report_olap", {
     dateTime: timestamp("dateTime", { precision: 5, withTimezone: true, mode: 'string' }),
     productId: uuid("productId"),
     productName: varchar("productName", { length: 255 }),
+    productNum: varchar("productNum", { length: 255 }),
     productType: varchar("productType", { length: 255 }),
+    productUnit: varchar("productUnit", { length: 255 }),
     sessionGroup: varchar("sessionGroup", { length: 255 }),
     transactionType: varchar("transactionType", { length: 255 }),
     amauntOut: doublePrecision("amauntOut").default(10.1),
@@ -659,3 +661,11 @@ export const nomenclatureElementToOrganization = relations(nomenclature_element_
         references: [organization.id],
     }),
 }));
+
+export const endDayMonths = pgTable("end_day_months", {
+    date: timestamp("date", { precision: 5, withTimezone: true, mode: 'string' }).notNull(),
+    store: uuid("store").notNull(),
+    product: uuid("product").notNull(),
+    amount: numeric("amount", { precision: 10, scale: 4 }),
+    sum: doublePrecision("sum").default(10.1),
+});

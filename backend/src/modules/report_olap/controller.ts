@@ -7,9 +7,9 @@ import {
   measure_unit,
   nomenclature_element,
   report_olap
-} from "backend/drizzle/schema";
+} from "@backend/../drizzle/schema";
 import dayjs from "dayjs";
-import { SQLWrapper, sql, and, eq, inArray, asc, desc, not } from "drizzle-orm";
+import { SQLWrapper, sql, and, eq, inArray, asc, desc, not, lte, gte } from "drizzle-orm";
 import { SelectedFields, doublePrecision } from "drizzle-orm/pg-core";
 import { Elysia, t } from "elysia";
 
@@ -87,37 +87,26 @@ export const reportOlapController = new Elysia({
           corporation_store,
         });
 
+        whereClause.push(gte(report_olap.dateTime, fromDate.toISOString()));
+        whereClause.push(lte(report_olap.dateTime, toDate.toISOString()))
       }
-
-      
-
-      const repOlapItems = await drizzle
+        const repOlapItems = await drizzle
         .select({
           id: report_olap.id,
           dateTime: report_olap.dateTime,
           productId: report_olap.productId,
           productName: report_olap.productName,
-          unit: measure_unit.name,
+          unit: report_olap.productUnit,
           actualAmount: report_olap.amauntOut,
-          nomenclature_element: nomenclature_element.name,
-          supplierProductArticle:invoice_items.supplierProductArticle,
+          supplierProductArticle:report_olap.productNum,
         })
         .from(report_olap)
         .leftJoin(
           corporation_store,
-          and(
-            eq(corporation_store.name, report_olap.store)
-          )
-        )
-        .leftJoin(measure_unit, eq(nomenclature_element.mainUnit, measure_unit.id))
-        .leftJoin(
-          nomenclature_element,
-          eq(report_olap.productId, nomenclature_element.id)
-        )
-        .leftJoin(invoice_items, 
-          eq(report_olap.productId, invoice_items.productId))
+          eq(corporation_store.name, report_olap.store)
+        )        
         .where(and(...whereClause))
-        .orderBy(asc(nomenclature_element.name))
+        .orderBy(asc(report_olap.productName))
         .execute();
       let productsByDate: Record<string, Record<string, any>> = {};
 
@@ -131,12 +120,8 @@ export const reportOlapController = new Elysia({
           };
 
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {
-<<<<<<< HEAD
             productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD") + "_act"] =
               "";
-=======
-            productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")+ "_act"] = "";
->>>>>>> refs/remotes/origin/main
           }
         }
 

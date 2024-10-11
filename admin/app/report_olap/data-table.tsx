@@ -139,6 +139,7 @@ export function DataTable<TData, TValue>() {
     },
   });
 
+
   const defaultData = useMemo(() => [], []);
 
   const pagination = useMemo(
