@@ -4,7 +4,7 @@ import {
   terminalsWithCredentials,
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
-import { InferSelectModel, eq, getTableColumns } from "drizzle-orm";
+import { InferSelectModel, eq, getTableColumns, sql } from "drizzle-orm";
 import {
   api_tokens,
   corporation_store,
@@ -24,9 +24,10 @@ import {
 } from "@backend/../drizzle/schema";
 import { RolesWithRelations } from "../roles/dto/roles.dto";
 import { verifyJwt } from "@backend/lib/bcrypt";
-import { userById, userFirstRole } from "@backend/lib/prepare_statements";
 import Redis from "ioredis";
+import crypto from "crypto";
 
+const { password, salt, tg_id, ...userDataFields } = getTableColumns(users);
 export class CacheControlService {
   constructor(
     private readonly drizzle: DrizzleDB,
@@ -412,14 +413,25 @@ export class CacheControlService {
     return res;
   }
 
-  async cacheUserDataByToken(
-    accessToken: string,
-    refreshToken: string,
-    userId: any
-  ) {
-    const foundUser = (await userById.execute({
-      id: userId,
-    })) as InferSelectModel<typeof users>;
+  async generateApiToken() {
+    const token = crypto.randomBytes(32).toString("hex");
+    return token;
+  }
+
+  async cacheUserDataByToken(userId: any) {
+    const sessionId = await this.generateApiToken();
+    const refreshToken = await this.generateApiToken();
+
+    const userById = this.drizzle
+      .select(userDataFields)
+      .from(users)
+      .where(eq(users.id, sql.placeholder("id")))
+      .prepare("userById");
+    const foundUser = (
+      await userById.execute({
+        id: userId,
+      })
+    )[0];
     if (!foundUser) {
       return null;
     }
@@ -428,36 +440,37 @@ export class CacheControlService {
       return null;
     }
 
-    const userRole = await userFirstRole.execute({ user_id: foundUser.id });
+    const roles = await this.getCachedRoles({});
+    const { permissions, ...userRoles } = roles.find(
+      (role) => role.id === foundUser.role_id
+    )!;
 
-    // getting rights
-    let permissions: string[] = [];
-    if (userRole) {
-      permissions = await this.getPermissionsByRoleId(userRole.role_id);
-    }
     await this.redis.set(
-      `${process.env.PROJECT_PREFIX}user_data:${accessToken}`,
+      `${process.env.PROJECT_PREFIX}user_data:${sessionId}`,
       JSON.stringify({
         user: foundUser,
-        accessToken,
-        refreshToken,
-        permissions: permissions,
-        role: {
-          id: userRole?.role_id,
-          code: userRole?.role?.code,
-        },
-      })
+        role: userRoles,
+      }),
+      "EX",
+      parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
+    );
+
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}refresh_token:${refreshToken}`,
+      JSON.stringify({
+        sessionId,
+        user: foundUser,
+        role: userRoles,
+      }),
+      "EX",
+      parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN ?? "0")
     );
 
     return {
       user: foundUser,
-      accessToken,
+      sessionId,
       refreshToken,
-      permissions: permissions,
-      role: {
-        id: userRole?.role_id,
-        code: userRole?.role?.code,
-      },
+      role: userRoles,
     };
   }
 
@@ -466,7 +479,7 @@ export class CacheControlService {
       await this.redis.del(
         `${process.env.PROJECT_PREFIX}user_data:${accessToken}`
       );
-    } catch (e) { }
+    } catch (e) {}
   }
 
   async getCachedUserDataByToken(accessToken: string): Promise<{

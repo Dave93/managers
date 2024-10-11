@@ -1,35 +1,41 @@
 import NextAuth, { DefaultSession } from "next-auth";
-import { InferSelectModel } from "drizzle-orm";
-import { users } from "@backend/../drizzle/schema";
+
+type UserRole = {
+  id: string;
+  name: string;
+  code: string | null;
+};
 
 declare module "next-auth" {
   /**
    * Returned by `useSession`, `getSession` and received as a prop on the `SessionProvider` React Context
    */
-  interface Session extends InferSelectModel<typeof users> {
-    user: InferSelectModel<typeof users>;
-    rights: string[];
-    accessToken: string;
-    refreshToken: string;
-    role: {
-      id: string;
-      code: string;
-    };
+  interface Session {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    sessionCookie?: string[];
+  }
+
+  interface User {
+    id: string;
+    name: string;
+    email: string;
+    role: UserRole;
+    sessionCookie?: string[];
   }
 }
 
 declare module "next-auth/jwt" {
   /** Returned by the `jwt` callback and `getToken`, when using JWT sessions */
-  interface JWT extends InferSelectModel<typeof users> {
-    user: InferSelectModel<typeof users>;
-    rights: string[];
-    accessToken: string;
-    refreshToken: string;
-    role: {
-      id: string;
-      code: string;
-    };
+  interface JWT {
+    id: string;
+    name: string;
+    email: string;
     exp: number;
     iat: number;
+    role: UserRole;
+    sessionCookie?: string[];
   }
 }

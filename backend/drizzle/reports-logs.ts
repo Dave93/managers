@@ -1,4 +1,0 @@
-import { pgTable, text, timestamp } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
-
-export const reportsLogs = pgTable('reports_logs', { id: text('id').default(sql`gen_random_uuid()`).notNull(), reports_id: text('reports_id').notNull(), reports_item_id: text('reports_item_id').notNull(), before_json: text('before_json'), after_json: text('after_json'), created_at: timestamp('created_at', { mode: 'date', precision: 3 }).defaultNow().notNull(), user_id: text('user_id').notNull(), before_text: text('before_text'), after_text: text('after_text'), report_date: timestamp('report_date', { mode: 'date', precision: 3 }).notNull() });

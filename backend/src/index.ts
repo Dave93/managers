@@ -1,17 +1,30 @@
-import { Elysia } from "elysia";
-import { apiController } from "./controllers";
+import cluster from "node:cluster";
+import { cpus } from "node:os";
+import process from "node:process";
+import app from "./app";
 
-const app = new Elysia()
-  .get("/", () => ({ hello: "world" }))
-  .use(apiController)
-  .listen(process.env.PORT || 3000);
+if (process.env.NODE_ENV === "development") {
+  app.listen(process.env.PORT || 3000);
+  console.log(
+    `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+  );
+} else {
+  if (cluster.isPrimary) {
+    console.log(`Primary ${process.pid} is running`);
 
-export type App = typeof app;
+    // Start N workers for the number of CPUs
+    for (let i = 0; i < 4; i++) {
+      cluster.fork();
+    }
 
-app.onStop(() => {
-  console.log("🦊 Elysia is stopping...");
-});
+    cluster.on("exit", (worker, code, signal) => {
+      console.log(`Worker ${worker.process.pid} exited`);
+    });
+  } else {
+    app.listen(process.env.PORT || 3000);
 
-console.log(
-  `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
-);
+    console.log(
+      `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
+    );
+  }
+}

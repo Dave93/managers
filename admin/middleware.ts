@@ -38,7 +38,7 @@ export default withAuth(
     callbacks: {
       authorized: ({ token, req }) => {
         if (!token) return false;
-        if (!token.accessToken) return false;
+        if (!token.role) return false;
 
         return true;
       },
