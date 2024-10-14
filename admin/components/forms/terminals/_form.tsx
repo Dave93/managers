@@ -10,7 +10,6 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
 import { terminals } from "@backend/../drizzle/schema";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { InferInsertModel } from "drizzle-orm";

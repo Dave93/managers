@@ -10,7 +10,6 @@ import { useCallback, useState } from "react";
 import { Chip } from "@nextui-org/chip";
 import { users } from "@backend/../drizzle/schema";
 import { InferInsertModel, InferSelectModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
 import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
@@ -291,8 +290,8 @@ export default function UsersForm({
         terminal_id:
           changedTerminalId !== "all"
             ? Array.from(changedTerminalId).map((terminalId) =>
-                terminalId.toString()
-              )
+              terminalId.toString()
+            )
             : [],
       });
       return assignStoreMutation.mutate({
@@ -315,36 +314,36 @@ export default function UsersForm({
   const terminalsForSelect = useMemo(() => {
     return terminalsData && Array.isArray(terminalsData)
       ? terminalsData.map((item) => ({
-          value: item.id,
-          label: item.name,
-        }))
+        value: item.id,
+        label: item.name,
+      }))
       : [];
   }, [terminalsData]);
 
   const terminalLabelById = useMemo(() => {
     return terminalsData && Array.isArray(terminalsData)
       ? terminalsData.reduce((acc, item) => {
-          acc[item.id] = item.name;
-          return acc;
-        }, {} as { [key: string]: string })
+        acc[item.id] = item.name;
+        return acc;
+      }, {} as { [key: string]: string })
       : {};
   }, [terminalsData]);
 
   const storesForSelect = useMemo(() => {
     return storesData && Array.isArray(storesData)
       ? storesData.map((item) => ({
-          value: item.id,
-          label: item.name,
-        }))
+        value: item.id,
+        label: item.name,
+      }))
       : [];
   }, [storesData]);
 
   const storeLabelById = useMemo(() => {
     return storesData && Array.isArray(storesData)
       ? storesData.reduce((acc, item) => {
-          acc[item.id] = item.name!;
-          return acc;
-        }, {} as { [key: string]: string })
+        acc[item.id] = item.name!;
+        return acc;
+      }, {} as { [key: string]: string })
       : {};
   }, [storesData]);
 

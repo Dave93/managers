@@ -21,7 +21,6 @@ import { permissions } from "@backend/../drizzle/schema";
 import { InferInsertModel } from "drizzle-orm";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 
 export default function PermissionsForm({
   setOpen,

@@ -38,7 +38,6 @@ import {
   SelectGroup,
 } from "@admin/components/ui/select";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,

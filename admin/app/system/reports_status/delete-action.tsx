@@ -1,5 +1,4 @@
 import { DeleteButton } from "@components/ui/delete-button";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 

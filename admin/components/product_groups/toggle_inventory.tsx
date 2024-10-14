@@ -2,7 +2,6 @@ import { Column } from "./board_column";
 import { Switch } from "@nextui-org/switch";
 import { Popover, PopoverTrigger, PopoverContent } from "@nextui-org/popover";
 import { Button } from "../ui/button";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useState } from "react";

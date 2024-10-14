@@ -5,7 +5,6 @@ import { Check, Edit, Edit2, RemoveFormatting, Save, X } from "lucide-react";
 import { Input } from "@nextui-org/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 
 interface GroupTitleEditableProps {
   group: Column;

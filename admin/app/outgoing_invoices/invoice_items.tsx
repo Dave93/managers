@@ -20,7 +20,6 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { invoice_items } from "backend/drizzle/schema";
@@ -146,9 +145,9 @@ export function InvoiceItemsTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

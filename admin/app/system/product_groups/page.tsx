@@ -4,7 +4,6 @@ import { useMemo, useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import { Tabs, Tab } from "@nextui-org/tabs";
 import ProductGroupsKanban from "./kanban";
 

@@ -1,6 +1,5 @@
 import { Button } from "@admin/components/ui/button";
 import { useToast } from "@admin/components/ui/use-toast";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";

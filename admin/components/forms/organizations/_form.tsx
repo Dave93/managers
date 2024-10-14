@@ -11,7 +11,6 @@ import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
 import { organization } from "backend/drizzle/schema";
 import { InferInsertModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 

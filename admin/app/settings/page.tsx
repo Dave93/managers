@@ -7,7 +7,6 @@ import { Label } from "@admin/components/ui/label";
 import { Input } from "@admin/components/ui/input";
 import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 

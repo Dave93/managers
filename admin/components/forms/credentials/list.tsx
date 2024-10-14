@@ -34,7 +34,6 @@ import {
 } from "@radix-ui/react-icons";
 import { credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -136,9 +135,9 @@ export function CredentialsList<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

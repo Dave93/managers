@@ -38,7 +38,6 @@ import {
   users_stores,
 } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,

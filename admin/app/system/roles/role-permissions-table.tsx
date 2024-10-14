@@ -19,7 +19,6 @@ import {
 import { useMemo } from "react";
 import { useRolesStore } from "@admin/store/states/roles";
 import { RolesPermissionsRelation } from "@backend/modules/roles_permissions/dto/roles_permissions.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -89,9 +88,9 @@ export function RolesPermissionsDataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

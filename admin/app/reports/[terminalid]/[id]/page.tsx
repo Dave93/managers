@@ -31,7 +31,6 @@ import { Skeleton } from "@admin/components/ui/skeleton";
 // @ts-ignore
 import { TimePicker } from "react-ios-time-picker";
 import { useToast } from "@admin/components/ui/use-toast";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import dayjs from "dayjs";
@@ -218,10 +217,10 @@ export default function ReportsPage(params: paramsProps) {
     const dataExpensesSum =
       data && "terminal_id" in data
         ? data?.expenses
-            .filter((item) => item.readonly)
-            .reduce((acc, curr) => {
-              return acc + Number(curr.amount);
-            }, 0)
+          .filter((item) => item.readonly)
+          .reduce((acc, curr) => {
+            return acc + Number(curr.amount);
+          }, 0)
         : 0;
 
     return localExpensesSum + dataExpensesSum;

@@ -3,7 +3,6 @@ import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
 import { useToast } from "@admin/components/ui/use-toast";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
 import { Loader2 } from "lucide-react";

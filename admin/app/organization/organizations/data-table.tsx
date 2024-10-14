@@ -37,7 +37,6 @@ import {
 import { organization } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { useQuery } from "@tanstack/react-query";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 
 interface DataTableProps<TData, TValue> {
@@ -109,9 +108,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

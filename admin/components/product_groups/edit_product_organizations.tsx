@@ -10,7 +10,6 @@ import {
 import { Button } from "../ui/button";
 import { Edit2Icon } from "lucide-react";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { organization } from "backend/drizzle/schema";
@@ -170,7 +169,7 @@ const ShowOrganizationsSelect = ({
               setSelectedOrganizations(e.target.value);
               setSelectedKeys(e.target.value.split(","));
             }}
-            // onSelectionChange={setValues}
+          // onSelectionChange={setValues}
           >
             {organizations.map((organization) => (
               <SelectItem key={organization.id}>{organization.name}</SelectItem>
