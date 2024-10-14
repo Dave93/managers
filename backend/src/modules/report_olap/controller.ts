@@ -53,7 +53,7 @@ export const reportOlapController = new Elysia({
       if (filters) {
         let filtersArray = JSON.parse(filters);
 
-        console.log("filtersArray", filtersArray);
+        // console.log("filtersArray", filtersArray);
 
         const storeIdFilter = filtersArray.find(
           (filter: any) => filter.field === "corporation_store.id"
@@ -131,12 +131,8 @@ export const reportOlapController = new Elysia({
           };
 
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {
-<<<<<<< HEAD
             productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD") + "_act"] =
               "";
-=======
-            productsByDate[repOlapItem.productId!][m.format("YYYY_MM_DD")+ "_act"] = "";
->>>>>>> refs/remotes/origin/main
           }
         }
 
