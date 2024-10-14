@@ -45,7 +45,6 @@ interface paramsProps {
 }
 
 export default function ReportsPage(params: paramsProps) {
-  const token = useToken();
   const { toast } = useToast();
   const router = useRouter();
   const expenseDefaultId = uuidv4();
@@ -145,16 +144,9 @@ export default function ReportsPage(params: paramsProps) {
         label: string;
       }[];
     }) => {
-      return apiClient.api.reports.post(
-        {
-          ...newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.reports.post({
+        ...newTodo,
+      });
     },
     onSuccess: () => onSuccessReport(),
     onError: onErrorReport,
@@ -169,7 +161,6 @@ export default function ReportsPage(params: paramsProps) {
   };
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "reports",
       {
@@ -179,18 +170,11 @@ export default function ReportsPage(params: paramsProps) {
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.reports.by_date.post(
-        {
-          terminal_id: terminalId,
-          date: id,
-          time: selectedTime,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      const { data } = await apiClient.api.reports.by_date.post({
+        terminal_id: terminalId,
+        date: id,
+        time: selectedTime,
+      });
       return data;
     },
     refetchOnWindowFocus: false,

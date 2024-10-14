@@ -38,7 +38,6 @@ export default function RolePermissionsForm({
 }: {
   children: React.ReactNode;
 }) {
-  const token = useToken();
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [open, setOpen] = useState<boolean>(false);
@@ -59,7 +58,7 @@ export default function RolePermissionsForm({
   ] = useQueries({
     queries: [
       {
-        enabled: !!token && Object.keys(roleSelection).length > 0 && open,
+        enabled: Object.keys(roleSelection).length > 0 && open,
         queryKey: [
           "roles_permissions_form",
           {
@@ -85,15 +84,11 @@ export default function RolePermissionsForm({
                 },
               ]),
             },
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           });
           return data;
         },
       },
       {
-        enabled: !!token,
         queryKey: [
           "permissions",
           {
@@ -108,9 +103,6 @@ export default function RolePermissionsForm({
               limit: "1000",
               offset: "0",
               fields: "id,slug,description,active",
-            },
-            headers: {
-              Authorization: `Bearer ${token}`,
             },
           });
           return data;
@@ -127,17 +119,10 @@ export default function RolePermissionsForm({
       role_id: string;
       permissions_ids: string[];
     }) => {
-      return apiClient.api.roles_permissions.assign_permissions.post(
-        {
-          role_id,
-          permissions_ids,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.roles_permissions.assign_permissions.post({
+        role_id,
+        permissions_ids,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

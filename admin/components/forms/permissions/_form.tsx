@@ -30,7 +30,6 @@ export default function PermissionsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const token = useToken();
   const { toast } = useToast();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
@@ -63,16 +62,9 @@ export default function PermissionsForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof permissions>) => {
-      return apiClient.api.permissions.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.permissions.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -83,16 +75,9 @@ export default function PermissionsForm({
       data: InferInsertModel<typeof permissions>;
       id: string;
     }) => {
-      return apiClient.api.permissions({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.permissions({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -117,16 +102,12 @@ export default function PermissionsForm({
     queryKey: ["one_permission", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.permissions({ id: recordId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.permissions({ id: recordId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!recordId && !!token,
+    enabled: !!recordId,
   });
 
   const isLoading = useMemo(() => {

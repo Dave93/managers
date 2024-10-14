@@ -10,7 +10,6 @@ import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 
 export default function Page() {
-  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -36,9 +35,6 @@ export default function Page() {
       return apiClient.api.settings[newTodo.key].post({
         data: {
           value: newTodo.value,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
     },

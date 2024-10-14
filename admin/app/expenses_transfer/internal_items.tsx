@@ -20,11 +20,8 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
-import { internal_transfer_items } from "backend/drizzle/schema";
-import { InferSelectModel } from "drizzle-orm";
 import { InternalTransferItemsListDto } from "@backend/modules/internal_transfer_items/dto/list.dto";
 
 interface DataTableProps<TData, TValue> {
@@ -51,7 +48,6 @@ export function InternalItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -71,7 +67,6 @@ export function InternalItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "internal_items",
       {
@@ -88,9 +83,6 @@ export function InternalItemsTable<TData, TValue>({
           filters: JSON.stringify(filters),
           fields:
             "id,amount,productId,internaltransferdate,productName,measureUnitId",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

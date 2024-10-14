@@ -27,18 +27,6 @@ export const writeItemsOffController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("writeoff_items.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, writeoff_items, {
@@ -157,8 +145,8 @@ export const writeItemsOffController = new Elysia({
         data: Object.values(productsByDate),
       };
     },
-
     {
+      permission: "writeoff_items.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

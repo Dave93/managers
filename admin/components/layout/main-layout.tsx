@@ -18,18 +18,26 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const roleCode = useGetRole();
+  console.log("roleCode", roleCode);
   return (
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <NextUIProvider>
-          {roleCode !== "manager" && <AdminLayout>{children}</AdminLayout>}
-          {roleCode === "manager" && <ManagerLayout>{children}</ManagerLayout>}
-          {/* {roleCode === "franchise_manager" && (
+        {roleCode && roleCode !== "manager" && (
+          <AdminLayout>{children}</AdminLayout>
+        )}
+        {roleCode && roleCode === "manager" && (
+          <ManagerLayout>{children}</ManagerLayout>
+        )}
+        {/* {roleCode === "franchise_manager" && (
             <ManagerLayout>{children}</ManagerLayout>
           )} */}
-          {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
-          <Toaster />
-        </NextUIProvider>
+        {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
+        {roleCode == undefined && (
+          <div className="h-[100dvh] flex items-center justify-center">
+            {children}
+          </div>
+        )}
+        <Toaster />
       </ThemeProvider>
     </Providers>
   );

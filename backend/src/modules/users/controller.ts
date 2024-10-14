@@ -406,14 +406,19 @@ export const usersController = new Elysia({
       }),
     }
   )
-  .get("/users/me", async ({ user, set, cacheController }) => {
+  .get("/users/my_permissions", async ({ user, set, cacheController }) => {
     if (!user) {
       set.status = 401;
       return {
         message: "User not found",
       };
     }
-    return user;
+
+    const permissions = await cacheController.getPermissionsByRoleId(
+      user.role.id
+    );
+
+    return { permissions };
   })
   .get(
     "/users/:id",

@@ -35,7 +35,6 @@ export interface TaskDragData {
 }
 
 export function TaskCard({ task, isOverlay }: TaskCardProps) {
-  // const token = useToken();
   const {
     setNodeRef,
     attributes,

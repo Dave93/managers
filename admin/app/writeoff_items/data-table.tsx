@@ -75,7 +75,6 @@ export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const productType = useStoplistFilterStore((state) => state.productType);
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -124,7 +123,7 @@ export function DataTable<TData, TValue>() {
   }, [date, storeId, productType]);
   // console.log("date", date);
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "writeoff",
       {
@@ -139,9 +138,6 @@ export function DataTable<TData, TValue>() {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       // console.log("data", data);

@@ -31,7 +31,6 @@ import { useEffect, useState } from "react";
 import { InferSelectModel } from "drizzle-orm";
 import { corporation_store } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import { Switch } from "@admin/components/ui/switch";
 
 interface InvoiceFiltersProps {}
@@ -51,13 +50,8 @@ export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({}) => {
     InferSelectModel<typeof corporation_store>[]
   >([]);
 
-  const token = useToken();
   const loadData = async () => {
-    const { data } = await apiClient.api.users_stores.cached.get({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const { data } = await apiClient.api.users_stores.cached.get({});
 
     if (data && Array.isArray(data)) {
       setUsersStoresData(data);
@@ -66,7 +60,7 @@ export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({}) => {
 
   useEffect(() => {
     loadData();
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">

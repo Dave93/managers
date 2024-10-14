@@ -51,7 +51,6 @@ export function RefundItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -71,7 +70,6 @@ export function RefundItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "invoice_items",
       {
@@ -88,9 +86,6 @@ export function RefundItemsTable<TData, TValue>({
           filters: JSON.stringify(filters),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

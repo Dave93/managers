@@ -9,8 +9,6 @@ import { Tabs, Tab } from "@nextui-org/tabs";
 import ProductGroupsKanban from "./kanban";
 
 export default function ProductGroupsListPage() {
-  const token = useToken();
-
   const { data, isLoading } = useQuery({
     queryKey: ["organization"],
     queryFn: async () => {
@@ -20,12 +18,8 @@ export default function ProductGroupsListPage() {
           limit: "1000",
           offset: "0",
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
   const tabs = useMemo(() => {
     const res: {

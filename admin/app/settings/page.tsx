@@ -12,7 +12,6 @@ import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export default function ConfigsPage() {
-  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -33,7 +32,6 @@ export default function ConfigsPage() {
   };
 
   const { data: settings, isLoading: isSettingsLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "setting",
       {
@@ -57,9 +55,6 @@ export default function ConfigsPage() {
             ])
           ),
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
       return data;
     },
@@ -71,9 +66,6 @@ export default function ConfigsPage() {
       return apiClient.api.settings[newTodo.key].post({
         data: {
           value: newTodo.value,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
     },

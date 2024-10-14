@@ -5,14 +5,9 @@ import { apiClient } from "@admin/utils/eden";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
   const queryClient = useQueryClient();
-  const token = useToken();
   const createMutation = useMutation({
     mutationFn: () => {
-      return apiClient.api.organization({ id: recordId }).delete({
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      return apiClient.api.organization({ id: recordId }).delete({});
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["organization"] });

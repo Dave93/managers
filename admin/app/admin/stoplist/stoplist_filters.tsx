@@ -9,7 +9,6 @@ import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
-  addDays,
   startOfWeek,
   startOfMonth,
   endOfWeek,
@@ -19,14 +18,10 @@ import {
   startOfDay,
   endOfDay,
   subHours,
-  addHours,
 } from "date-fns";
 import { Select, SelectItem } from "@nextui-org/select";
 import { useEffect, useState } from "react";
-import { InferSelectModel } from "drizzle-orm";
-import { organization, terminals } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
@@ -37,9 +32,7 @@ import {
   SelectContent,
   SelectTrigger,
   SelectValue,
-  SelectGroup,
 } from "@admin/components/ui/select";
-import { treaty } from "@elysiajs/eden";
 
 export const StoplistFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -49,8 +42,6 @@ export const StoplistFilters = () => {
   const setOrganizationId = useStoplistFilterStore(
     (state) => state.setOrganizationId
   );
-
-  const token = useToken();
 
   const [terminalsList, setTerminalsList] = useState<
     terminalsWithCredentials[]
@@ -76,21 +67,13 @@ export const StoplistFilters = () => {
   };
 
   const loadData = async () => {
-    const { data } = await apiClient.api.terminals.cached.get({
-      headers: {
-        Authorization: "Bearer " + token,
-      },
-    });
+    const { data } = await apiClient.api.terminals.cached.get({});
 
     if (data && Array.isArray(data)) {
       setTerminalsList(data);
     }
 
-    const { data: dataOrg } = await apiClient.api.organization.cached.get({
-      headers: {
-        Authorization: "Bearer " + token,
-      },
-    });
+    const { data: dataOrg } = await apiClient.api.organization.cached.get({});
     if (dataOrg && Array.isArray(dataOrg)) {
       setOrganizationList(dataOrg);
     }

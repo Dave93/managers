@@ -54,13 +54,8 @@ export const InternalTransferFilters = () => {
     InferSelectModel<typeof corporation_store>[]
   >([]);
 
-  const token = useToken();
   const loadData = async () => {
-    const { data } = await apiClient.api.users_stores.cached.get({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const { data } = await apiClient.api.users_stores.cached.get({});
 
     if (data && Array.isArray(data)) {
       setUsersStoresData(data);
@@ -69,7 +64,7 @@ export const InternalTransferFilters = () => {
 
   useEffect(() => {
     loadData();
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">

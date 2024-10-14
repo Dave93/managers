@@ -49,14 +49,13 @@ export function CredentialsList<TData, TValue>({
   model,
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!recordId,
+    enabled: !!recordId,
     queryKey: [
       "credentials",
       {
@@ -95,9 +94,6 @@ export function CredentialsList<TData, TValue>({
               value: recordId,
             },
           ]),
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

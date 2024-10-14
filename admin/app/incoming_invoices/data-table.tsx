@@ -2,7 +2,6 @@
 
 import {
   Column,
-  ColumnDef,
   PaginationState,
   createColumnHelper,
   flexRender,
@@ -15,7 +14,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -39,18 +37,11 @@ import {
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 
-import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
-import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
-import { invoice_items } from "backend/drizzle/schema";
-import { InferSelectModel } from "drizzle-orm";
-import { Switch } from "@components/ui/switch";
 import { cn } from "@admin/lib/utils";
-import { he } from "date-fns/locale";
-import './style.css';
+import "./style.css";
 
 interface DataTableProps<TData, TValue> {}
 
@@ -81,7 +72,6 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
   const showActualColumn = useStoplistFilterStore(
     (state) => state.showActualColumn
   );
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -122,7 +112,7 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
   }, [date, storeId]);
   // console.log("filters", date);
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "incoming_invoices",
       {
@@ -137,9 +127,6 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;
@@ -349,12 +336,11 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
     });
   }, [table]);
 
-
   const checkMismatch = (row: any) => {
     const original = row.original;
     let baseTotal = 0;
     let actTotal = 0;
-  
+
     Object.keys(original).forEach((key) => {
       if (key.indexOf("_base") > -1) {
         baseTotal += +original[key];
@@ -363,7 +349,7 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
         actTotal += +original[key];
       }
     });
-  
+
     return baseTotal !== actTotal;
   };
 
@@ -480,7 +466,6 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
           "h-auto": showActualColumn,
         })}
       >
-
         <Table wrapperClassName="h-screen">
           <TableHeader className="z-50 sticky top-0 bg-white dark:bg-slate-950">
             {tableWithActual.getHeaderGroups().map((headerGroup) => (
@@ -549,8 +534,9 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                       <TableCell
                         key={cell.id}
                         // className="text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
-                  className={checkMismatch(row) ? 'bg-red-50 dark:bg-red-600' : ''}
-
+                        className={
+                          checkMismatch(row) ? "bg-red-50 dark:bg-red-600" : ""
+                        }
                         style={{ ...getCommonPinningStyles(column) }}
                       >
                         {flexRender(

@@ -49,7 +49,6 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const rowSelection = useRolesStore((state) => state.selectedRows);
   const setRowSelection = useRolesStore((state) => state.toggleSelected);
 
@@ -59,7 +58,6 @@ export function DataTable<TData, TValue>({
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "roles",
       {
@@ -74,9 +72,6 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,active,name,code",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

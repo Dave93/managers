@@ -14,7 +14,6 @@ import { sessionController } from "./modules/sessions/controller";
 import { settingsController } from "./modules/settings/controller";
 import { terminalsController } from "./modules/terminals/controller";
 import { timesheetController } from "./modules/timesheet/controller";
-import { usersRolesController } from "./modules/users_roles/controller";
 import { usersTerminalsController } from "./modules/users_terminals/controller";
 import { usersWorkSchedulesController } from "./modules/users_work_schedules/controller";
 import { workScheduleEntriesController } from "./modules/work_schedule_entries/controller";
@@ -49,7 +48,6 @@ export const apiController = new Elysia({
   .use(settingsController)
   .use(terminalsController)
   .use(timesheetController)
-  .use(usersRolesController)
   .use(usersTerminalsController)
   .use(usersWorkSchedulesController)
   .use(workScheduleEntriesController)

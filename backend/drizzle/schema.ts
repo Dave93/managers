@@ -347,6 +347,8 @@ export const report_olap = pgTable("report_olap", {
   transactionType: varchar("transactionType", { length: 255 }),
   amauntOut: doublePrecision("amauntOut").default(10.1),
   store: varchar("store", { length: 255 }),
+  productNum: varchar("productNum", { length: 255 }),
+  productUnit: varchar("productUnit", { length: 255 }),
 });
 
 export const reports_status = pgTable("reports_status", {

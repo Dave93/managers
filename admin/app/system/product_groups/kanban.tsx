@@ -40,7 +40,6 @@ interface ProductGroupsKanbanProps {
 export default function ProductGroupsKanban({
   organizationId,
 }: ProductGroupsKanbanProps) {
-  const token = useToken();
   const queryClient = useQueryClient();
   const pickedUpTaskColumn = useRef<string | null>(null);
   const { data: groupsData, isLoading: groupsLoading } = useQuery({
@@ -65,12 +64,8 @@ export default function ProductGroupsKanban({
             },
           ]),
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const columns = useMemo<Column[]>(() => {
@@ -119,12 +114,8 @@ export default function ProductGroupsKanban({
         query: {
           organization_id: organizationId,
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const products = useMemo<ProductGroupsListDto[]>(() => {
@@ -164,19 +155,12 @@ export default function ProductGroupsKanban({
         .product_groups({
           id: data.id,
         })
-        .put(
-          {
-            data: {
-              name: data.name,
-              sort: data.sort,
-            },
+        .put({
+          data: {
+            name: data.name,
+            sort: data.sort,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        });
     },
   });
 
@@ -186,20 +170,13 @@ export default function ProductGroupsKanban({
       id: string;
       group_id: string;
     }) => {
-      return await apiClient.api.product_groups.set_group.post(
-        {
-          data: {
-            product_id: data.id,
-            before_group_id: data.before_group_id,
-            group_id: data.group_id,
-          },
+      return await apiClient.api.product_groups.set_group.post({
+        data: {
+          product_id: data.id,
+          before_group_id: data.before_group_id,
+          group_id: data.group_id,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

@@ -38,7 +38,6 @@ export function InvoiceItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const isFranchiseAccess = useCanAccess("franchise_manager.list");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -102,7 +101,6 @@ export function InvoiceItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "invoice_items",
       {
@@ -119,9 +117,6 @@ export function InvoiceItemsTable<TData, TValue>({
           filters: JSON.stringify(filters),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

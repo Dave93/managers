@@ -51,7 +51,6 @@ export function InternalItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -71,7 +70,6 @@ export function InternalItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "internal_items",
       {
@@ -87,9 +85,6 @@ export function InternalItemsTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           filters: JSON.stringify(filters),
           fields: "id,amount,productId,internaltransferdate,productName",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

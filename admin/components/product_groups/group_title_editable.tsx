@@ -13,7 +13,6 @@ interface GroupTitleEditableProps {
 
 export const GroupTitleEditable = ({ group }: GroupTitleEditableProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const token = useToken();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(group.title);
@@ -24,16 +23,9 @@ export const GroupTitleEditable = ({ group }: GroupTitleEditableProps) => {
         .product_groups({
           id: id,
         })
-        .put(
-          {
-            data: { name: title },
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        .put({
+          data: { name: title },
+        });
     },
     onSuccess: () => {
       setIsEditing(false);

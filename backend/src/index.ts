@@ -13,7 +13,7 @@ if (process.env.NODE_ENV === "development") {
     console.log(`Primary ${process.pid} is running`);
 
     // Start N workers for the number of CPUs
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < cpus().length; i++) {
       cluster.fork();
     }
 

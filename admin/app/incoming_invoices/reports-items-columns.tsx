@@ -6,10 +6,8 @@ import { Input } from "@admin/components/ui/input";
 import { Button } from "@admin/components/ui/button";
 import { Check } from "lucide-react";
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { roles } from "backend/drizzle/schema";
 
 const editableSources = ["cash", "uzcard", "humo", "other_expenses"];
 const editableStatusCode = ["checking", "confirmed", "rejected"];
@@ -53,7 +51,6 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
     header: "Сумма",
     cell: function Cell({ row }) {
       const queryClient = useQueryClient();
-      const token = useToken();
       const record = row.original;
 
       const [value, setValue] = useState(record.amount);
@@ -68,9 +65,6 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
           // @ts-ignore
           return apiClient.api.reports_items[newTodo.id].put({
             data: newTodo.data,
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           });
         },
         onSuccess: () => {

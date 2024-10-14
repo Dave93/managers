@@ -9,7 +9,6 @@ import { useState } from "react";
 
 export const ToggleGroupInventory = ({ group }: { group: Column }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const token = useToken();
   const queryClient = useQueryClient();
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -17,18 +16,11 @@ export const ToggleGroupInventory = ({ group }: { group: Column }) => {
         .product_groups({
           id: group.id,
         })
-        .put(
-          {
-            data: {
-              show_inventory: !group.show_inventory,
-            },
+        .put({
+          data: {
+            show_inventory: !group.show_inventory,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        });
     },
     onSuccess: () => {
       setIsOpen(false);

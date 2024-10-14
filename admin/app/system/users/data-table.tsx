@@ -48,14 +48,12 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "users",
       {
@@ -70,9 +68,6 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,login,status,first_name,last_name",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

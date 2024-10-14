@@ -10,24 +10,16 @@ interface GroupAddButtonProps {
 }
 //test
 export const GroupAddButton = ({ organizationId }: GroupAddButtonProps) => {
-  const token = useToken();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProductGroup = useMutation({
     mutationFn: async () => {
-      return await apiClient.api.product_groups.post(
-        {
-          data: {
-            organization_id: organizationId,
-            name: "New Group",
-          },
+      return await apiClient.api.product_groups.post({
+        data: {
+          organization_id: organizationId,
+          name: "New Group",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

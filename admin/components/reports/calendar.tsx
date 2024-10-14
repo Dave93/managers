@@ -18,12 +18,10 @@ export function CalendarReport({
   terminalId: string;
   reportsStatus: InferSelectModel<typeof reports_status>[];
 }) {
-  const token = useToken();
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
 
   const { data: reportsByDate, isLoading: isReportsByDateLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "my_terminal_reports",
       {
@@ -62,9 +60,6 @@ export function CalendarReport({
               value: dayjs(date).endOf("month").add(1, "day").toISOString(),
             },
           ]),
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

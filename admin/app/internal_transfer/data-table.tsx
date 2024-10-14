@@ -79,7 +79,6 @@ export function DataTable<TData, TValue>({
   const documentNumber = useStoplistFilterStore(
     (state) => state.documentNumber
   );
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -129,7 +128,7 @@ export function DataTable<TData, TValue>({
   // console.log("filters", filters);
 
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "internal_transfer",
       {
@@ -145,9 +144,6 @@ export function DataTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           filters,
           fields: "id,fromStoreName,toStoreName,invoiceincomingdate",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

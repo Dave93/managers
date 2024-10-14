@@ -32,18 +32,6 @@ export const usersSroresController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("users_stores.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, users_stores, {});
@@ -71,6 +59,7 @@ export const usersSroresController = new Elysia({
       };
     },
     {
+      permission: "users_stores.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -83,18 +72,6 @@ export const usersSroresController = new Elysia({
   .get(
     "/users_stores/cached",
     async ({ user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("users_stores.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const storesList = await cacheController.getCachedStores({});
 
       const usersStoresList = await drizzle
@@ -113,24 +90,14 @@ export const usersSroresController = new Elysia({
       }
 
       return storesList;
+    },
+    {
+      permission: "users_stores.list",
     }
   )
   .post(
     "/users_stores/assign_stores",
     async ({ body: { data }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("users_stores.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       await drizzle
         .delete(users_stores)
         .where(eq(users_stores.user_id, data.user_id))
@@ -150,6 +117,7 @@ export const usersSroresController = new Elysia({
       };
     },
     {
+      permission: "users_stores.edit",
       body: t.Object({
         data: t.Object({
           user_id: t.String(),
@@ -158,35 +126,29 @@ export const usersSroresController = new Elysia({
       }),
     }
   )
-  .get("/users_stores/my_stores", async ({ user, set, drizzle }) => {
-    if (!user) {
-      set.status = 401;
-      return {
-        message: "User not found",
-      };
-    }
-    if (!user.permissions.includes("users_stores.list")) {
-      set.status = 401;
-      return {
-        message: "You don't have permissions",
-      };
-    }
-    const users_storesList = (await drizzle
-      .select({
-        ...getTableColumns(users_stores),
-        corporation_store: {
-          ...getTableColumns(corporation_store),
-        },
-      })
-      .from(users_stores)
-      .where(eq(users_stores.user_id, user.user.id))
-      .leftJoin(
-        corporation_store,
-        eq(users_stores.corporation_store_id, corporation_store.id)
-      )
-      .execute()) as UsersStoresWithRelation[];
+  .get(
+    "/users_stores/my_stores",
+    async ({ user, set, drizzle }) => {
+      const users_storesList = (await drizzle
+        .select({
+          ...getTableColumns(users_stores),
+          corporation_store: {
+            ...getTableColumns(corporation_store),
+          },
+        })
+        .from(users_stores)
+        .where(eq(users_stores.user_id, user.user.id))
+        .leftJoin(
+          corporation_store,
+          eq(users_stores.corporation_store_id, corporation_store.id)
+        )
+        .execute()) as UsersStoresWithRelation[];
 
-    return {
-      data: users_storesList,
-    };
-  });
+      return {
+        data: users_storesList,
+      };
+    },
+    {
+      permission: "users_stores.list",
+    }
+  );

@@ -52,7 +52,6 @@ const ShowOrganizationsSelect = ({
   onClose: () => void;
   task: ProductGroupsListDto;
 }) => {
-  const token = useToken();
   const formRef = useRef<HTMLDivElement | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -66,12 +65,8 @@ const ShowOrganizationsSelect = ({
           limit: "1000",
           offset: "0",
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const { data: linkedOrganizations, isLoading: linkedOrganizationsLoading } =
@@ -88,12 +83,8 @@ const ShowOrganizationsSelect = ({
               limit: "1000",
               offset: "0",
             },
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           });
       },
-      enabled: !!token,
     });
 
   const organizations = useMemo(() => {
@@ -110,19 +101,12 @@ const ShowOrganizationsSelect = ({
     }: {
       organization_ids: string[];
     }) => {
-      return await apiClient.api.nomenclature_element_organization.set.post(
-        {
-          data: {
-            nomenclature_element_id: task.id,
-            organization_ids: organization_ids,
-          },
+      return await apiClient.api.nomenclature_element_organization.set.post({
+        data: {
+          nomenclature_element_id: task.id,
+          organization_ids: organization_ids,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       // queryClient.invalidateQueries({

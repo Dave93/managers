@@ -11,8 +11,6 @@ import { useQueries } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 
 export default function ManagerReportPage() {
-  const token = useToken();
-
   const [
     { data: terminalsList, isLoading: isTerminalsLoading },
     { data: reportsStatus, isLoading: isReportsStatusLoading },
@@ -21,26 +19,15 @@ export default function ManagerReportPage() {
       {
         queryKey: ["users_terminals"],
         queryFn: async () => {
-          const { data } = await apiClient.api.users_terminals.my_terminals.get(
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+          const { data } =
+            await apiClient.api.users_terminals.my_terminals.get();
           return data;
         },
-        enabled: !!token,
       },
       {
-        enabled: !!token,
         queryKey: ["reports_status"],
         queryFn: async () => {
-          const { data } = await apiClient.api.reports_status.cached.get({
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          const { data } = await apiClient.api.reports_status.cached.get({});
           return data;
         },
       },
