@@ -1,12 +1,9 @@
 import NextAuth from "next-auth";
-import type { AuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import dayjs from "dayjs";
 import { apiClient } from "@admin/utils/eden";
-import { treaty } from "@elysiajs/eden";
+import { parse } from "cookie";
 
-const authOptions: AuthOptions = {
-  debug: true,
+const handler = NextAuth({
   providers: [
     CredentialsProvider({
       name: "Credentials",
@@ -14,89 +11,67 @@ const authOptions: AuthOptions = {
         login: { label: "Login", type: "text" },
         password: { label: "Password", type: "password" },
       },
-      // @ts-ignore
-      async authorize(credentials, req) {
-        if (typeof credentials !== "undefined") {
-          const { login, password } = credentials;
-          try {
-            const { data: res, status } = await apiClient.api.users.login.post({
-              login,
-              password,
-            });
-            if (status == 200 && res && "accessToken" in res) {
-              return {
-                ...res.user,
-                accessToken: res.accessToken,
-                refreshToken: res.refreshToken,
-                rights: res.permissions,
-                role: res.role,
-              };
-            } else if (status == 401) {
-              if (res) {
-                throw new Error("Неверный логин или пароль");
-              }
-            } else {
-              return null;
-            }
-          } catch (error) {
+      async authorize(credentials) {
+        if (!credentials?.login || !credentials?.password) {
+          return null;
+        }
+
+        try {
+          const response = await apiClient.api.users.login.post({
+            login: credentials.login,
+            password: credentials.password,
+          });
+          console.log("response", response);
+          if (!response.data) {
             return null;
           }
-        } else {
+          const user = response.data;
+
+          if (!("user" in user)) {
+            return null;
+          }
+          // @ts-ignore
+          let sessionCookie = response.headers.getSetCookie();
+          let expires = new Date();
+          for (const cookie of sessionCookie) {
+            if (cookie.startsWith("sessionId=")) {
+              let sessionCookie = parse(cookie);
+              expires = new Date(sessionCookie.Expires);
+              break;
+            }
+          }
+
+          return {
+            id: user.user.id,
+            name: `${user.user.first_name} ${user.user.last_name}`,
+            email: user.user.login,
+            role: user.role,
+            sessionCookie,
+          };
+        } catch (error) {
+          console.error("Authentication error:", error);
           return null;
         }
       },
     }),
   ],
-  session: { strategy: "jwt", maxAge: 2 * 60 * 60 },
   callbacks: {
     async jwt({ token, user }) {
-      if (token && token.exp) {
-        const differenceInMinutes = dayjs
-          .unix(token!.exp!)
-          .diff(dayjs(), "minute");
-
-        if (differenceInMinutes < 30) {
-          // @ts-ignore
-          // const res = await trpcClient.users.refreshToken.mutate({
-          //   refreshToken: token.refreshToken as string,
-          // });
-          // if (typeof res !== "undefined") {
-          //   /** @ts-ignore */
-          //   token = {
-          //     ...token,
-          //     ...res.data,
-          //     accessToken: res.accessToken,
-          //     refreshToken: res.refreshToken,
-          //     rights: res.rights,
-          //   };
-          // }
-        }
-      }
-
-      if (typeof user !== "undefined") {
-        token = {
-          ...token,
-          ...user,
-          // accessToken: user.accessToken,
-          // refreshToken: user.refreshToken,
-          // rights: user.rights,
-          // token: user.token,
-        };
+      if (user) {
+        token.role = user.role;
+        token.sessionCookie = user.sessionCookie;
       }
       return token;
     },
     async session({ session, token }) {
-      if (typeof token !== "undefined") {
-        session = {
-          ...session,
-          ...token,
-        };
-      }
+      session.role = token.role;
+      session.sessionCookie = token.sessionCookie;
       return session;
     },
   },
-};
-
-const handler = NextAuth(authOptions);
+  pages: {
+    signIn: "/login",
+  },
+});
 
 export { handler as GET, handler as POST };

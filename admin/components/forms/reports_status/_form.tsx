@@ -21,7 +21,6 @@ import { reports_status } from "@backend/../drizzle/schema";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { InferInsertModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 
 export default function ReportsStatusForm({
   setOpen,
@@ -30,7 +29,6 @@ export default function ReportsStatusForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const token = useToken();
   const { toast } = useToast();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
@@ -63,16 +61,9 @@ export default function ReportsStatusForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof reports_status>) => {
-      return apiClient.api.reports_status.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.reports_status.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -83,16 +74,9 @@ export default function ReportsStatusForm({
       data: InferInsertModel<typeof reports_status>;
       id: string;
     }) => {
-      return apiClient.api.reports_status({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.reports_status({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -117,16 +101,12 @@ export default function ReportsStatusForm({
     queryKey: ["one_reports_status", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.reports_status({ id: recordId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.reports_status({ id: recordId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!recordId && !!token,
+    enabled: !!recordId,
   });
 
   const isLoading = useMemo(() => {

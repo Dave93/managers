@@ -5,7 +5,6 @@ import { Check, Edit, Edit2, RemoveFormatting, Save, X } from "lucide-react";
 import { Input } from "@nextui-org/react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 
 interface GroupTitleEditableProps {
   group: Column;
@@ -13,7 +12,6 @@ interface GroupTitleEditableProps {
 
 export const GroupTitleEditable = ({ group }: GroupTitleEditableProps) => {
   const [isEditing, setIsEditing] = useState(false);
-  const token = useToken();
   const queryClient = useQueryClient();
 
   const [title, setTitle] = useState(group.title);
@@ -24,16 +22,9 @@ export const GroupTitleEditable = ({ group }: GroupTitleEditableProps) => {
         .product_groups({
           id: id,
         })
-        .put(
-          {
-            data: { name: title },
-          },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        .put({
+          data: { name: title },
+        });
     },
     onSuccess: () => {
       setIsEditing(false);

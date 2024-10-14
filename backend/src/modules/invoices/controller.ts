@@ -28,19 +28,6 @@ export const invoicesController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("incoming_invoices.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, invoice_items, {
@@ -174,6 +161,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
+      permission: "invoices.incoming",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -191,18 +179,6 @@ export const invoicesController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("outgoing_invoices.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, invoices, {
@@ -254,6 +230,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
+      permission: "invoices.outgoing",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -271,18 +248,6 @@ export const invoicesController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("incoming_with_items.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = await parseSelectFields(fields, invoices, {
@@ -339,6 +304,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
+      permission: "invoices.incoming_with_items",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -357,18 +323,6 @@ export const invoicesController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("franchise_manager.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = await parseSelectFields(fields, invoices, {
@@ -427,6 +381,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
+      permission: "invoices.franchise_incoming",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -445,18 +400,6 @@ export const invoicesController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("refund_invoices.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = await parseSelectFields(fields, invoices, {
@@ -518,6 +461,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
+      permission: "invoices.refund",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

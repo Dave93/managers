@@ -37,7 +37,6 @@ import {
 } from "@radix-ui/react-icons";
 
 import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -48,14 +47,12 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "reports",
       {
@@ -72,9 +69,6 @@ export function DataTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           fields:
             "id,date,reports_status.color,reports_status.label,terminals.name,users.first_name,users.last_name,total_amount,total_manager_price,difference,arryt_income,status_id",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

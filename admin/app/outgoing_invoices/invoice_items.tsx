@@ -20,7 +20,6 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { invoice_items } from "backend/drizzle/schema";
@@ -51,7 +50,6 @@ export function InvoiceItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -71,7 +69,6 @@ export function InvoiceItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "invoice_items",
       {
@@ -88,9 +85,6 @@ export function InvoiceItemsTable<TData, TValue>({
           filters: JSON.stringify(filters),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;
@@ -151,9 +145,9 @@ export function InvoiceItemsTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

@@ -1,6 +1,6 @@
 import Redis from "ioredis";
 import { TerminalsService } from "./modules/terminals/service";
-import { IikoDictionariesService } from "./modules/iiko_dictionaries/service";
+import { IikoDictionariesService } from "../iiko_sync";
 import cron from "node-cron";
 import client from "./redis";
 

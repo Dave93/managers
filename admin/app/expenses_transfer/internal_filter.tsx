@@ -9,7 +9,6 @@ import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
-  addDays,
   subDays,
   startOfWeek,
   startOfMonth,
@@ -19,9 +18,6 @@ import {
   subHours,
   startOfDay,
   endOfDay,
-  addHours,
-  endOfToday,
-  startOfToday,
 } from "date-fns";
 import {
   Select,
@@ -32,23 +28,8 @@ import {
   SelectGroup,
 } from "@admin/components/ui/select";
 import { useEffect, useState } from "react";
-import { InferSelectModel } from "drizzle-orm";
-import {
-  corporation_store,
-  organization,
-  terminals,
-  users_stores,
-  internal_transfer,
-  internal_transfer_items,
-} from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
-import {
-  organizationWithCredentials,
-  terminalsWithCredentials,
-} from "@backend/modules/cache_control/dto/cache.dto";
 import { CorporationStoreModel } from "@admin/lib/models";
-
 
 export const InternalTransferFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -59,13 +40,8 @@ export const InternalTransferFilters = () => {
     CorporationStoreModel[]
   >([] as CorporationStoreModel[]);
 
-  const token = useToken();
   const loadData = async () => {
-    const { data } = await apiClient.api.users_stores.cached.get({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const { data } = await apiClient.api.users_stores.cached.get({});
 
     if (data && Array.isArray(data)) {
       setUsersStoresData(data);
@@ -74,7 +50,7 @@ export const InternalTransferFilters = () => {
 
   useEffect(() => {
     loadData();
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">

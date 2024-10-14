@@ -3,14 +3,12 @@ import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
 import { useToast } from "@admin/components/ui/use-toast";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 
 export default function Page() {
-  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -36,9 +34,6 @@ export default function Page() {
       return apiClient.api.settings[newTodo.key].post({
         data: {
           value: newTodo.value,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
     },

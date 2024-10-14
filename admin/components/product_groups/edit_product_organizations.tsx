@@ -10,7 +10,6 @@ import {
 import { Button } from "../ui/button";
 import { Edit2Icon } from "lucide-react";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { organization } from "backend/drizzle/schema";
@@ -52,7 +51,6 @@ const ShowOrganizationsSelect = ({
   onClose: () => void;
   task: ProductGroupsListDto;
 }) => {
-  const token = useToken();
   const formRef = useRef<HTMLDivElement | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
@@ -66,12 +64,8 @@ const ShowOrganizationsSelect = ({
           limit: "1000",
           offset: "0",
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const { data: linkedOrganizations, isLoading: linkedOrganizationsLoading } =
@@ -88,12 +82,8 @@ const ShowOrganizationsSelect = ({
               limit: "1000",
               offset: "0",
             },
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
           });
       },
-      enabled: !!token,
     });
 
   const organizations = useMemo(() => {
@@ -110,19 +100,12 @@ const ShowOrganizationsSelect = ({
     }: {
       organization_ids: string[];
     }) => {
-      return await apiClient.api.nomenclature_element_organization.set.post(
-        {
-          data: {
-            nomenclature_element_id: task.id,
-            organization_ids: organization_ids,
-          },
+      return await apiClient.api.nomenclature_element_organization.set.post({
+        data: {
+          nomenclature_element_id: task.id,
+          organization_ids: organization_ids,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       // queryClient.invalidateQueries({
@@ -186,7 +169,7 @@ const ShowOrganizationsSelect = ({
               setSelectedOrganizations(e.target.value);
               setSelectedKeys(e.target.value.split(","));
             }}
-            // onSelectionChange={setValues}
+          // onSelectionChange={setValues}
           >
             {organizations.map((organization) => (
               <SelectItem key={organization.id}>{organization.name}</SelectItem>

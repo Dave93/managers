@@ -29,18 +29,6 @@ export const reportsController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, reports, {
@@ -79,6 +67,7 @@ export const reportsController = new Elysia({
       };
     },
     {
+      permission: "reports.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -96,19 +85,6 @@ export const reportsController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       const userTerminals = await drizzle
         .select()
         .from(users_terminals)
@@ -150,6 +126,7 @@ export const reportsController = new Elysia({
       return reportsList;
     },
     {
+      permission: "reports.list",
       query: t.Object({
         terminal_id: t.String(),
         sort: t.Optional(t.String()),
@@ -161,18 +138,6 @@ export const reportsController = new Elysia({
   .get(
     "/reports/:id",
     async ({ params: { id }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.one")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const report = await drizzle
         .select()
         .from(reports)
@@ -181,6 +146,7 @@ export const reportsController = new Elysia({
       return report[0];
     },
     {
+      permission: "reports.one",
       params: t.Object({
         id: t.String(),
       }),
@@ -195,19 +161,6 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       const userTerminals = await drizzle
         .select({
           user_id: users_terminals.user_id,
@@ -916,6 +869,7 @@ export const reportsController = new Elysia({
       }
     },
     {
+      permission: "reports.list",
       body: t.Object({
         date: t.Union([t.String(), t.Number()]),
         terminal_id: t.String(),
@@ -932,18 +886,6 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.add")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const userTerminals = await drizzle
         .select({
           user_id: users_terminals.user_id,
@@ -1501,6 +1443,7 @@ export const reportsController = new Elysia({
       }
     },
     {
+      permission: "reports.add",
       body: t.Object({
         terminal_id: t.String(),
         date: t.Union([t.String(), t.Number()]),
@@ -1534,18 +1477,6 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const report = await drizzle
         .update(reports)
         .set(data)
@@ -1554,6 +1485,7 @@ export const reportsController = new Elysia({
       return report;
     },
     {
+      permission: "reports.edit",
       params: t.Object({
         id: t.String(),
       }),
@@ -1567,18 +1499,6 @@ export const reportsController = new Elysia({
   .delete(
     "/reports/:id",
     async ({ params: { id }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports.delete")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const report = await drizzle
         .delete(reports)
         .where(eq(reports.id, id))
@@ -1586,6 +1506,7 @@ export const reportsController = new Elysia({
       return report;
     },
     {
+      permission: "reports.delete",
       params: t.Object({
         id: t.String(),
       }),

@@ -13,7 +13,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -36,8 +35,6 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 
-import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
@@ -57,7 +54,6 @@ export function DataTable<TData, TValue>({
   const organizationId = useStoplistFilterStore(
     (state) => state.organizationId
   );
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -113,7 +109,7 @@ export function DataTable<TData, TValue>({
   }, [date, status, terminalId, organizationId]);
 
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "stoplist",
       {
@@ -128,9 +124,6 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

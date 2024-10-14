@@ -39,7 +39,6 @@ import {
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
@@ -73,7 +72,6 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -108,13 +106,12 @@ export function DataTable<TData, TValue>() {
       });
     }
 
-
     // console.log(date);
     return JSON.stringify(res);
   }, [date, storeId]);
   // console.log("date", date);
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "report_olap",
       {
@@ -129,9 +126,6 @@ export function DataTable<TData, TValue>() {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           filters,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       // console.log("data", data);
@@ -179,7 +173,7 @@ export function DataTable<TData, TValue>() {
               let res = 0;
               // @ts-ignore
               Object.keys(original).forEach((key) => {
-                // @ts-ignore   
+                // @ts-ignore
                 if (key.indexOf("_act") > -1) {
                   // @ts-ignore
                   res += +original[key];

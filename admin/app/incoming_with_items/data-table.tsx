@@ -36,7 +36,6 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useStoplistFilterStore } from "./filters_store";
@@ -75,7 +74,6 @@ export function DataTable<TData, TValue>({
 }: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -118,7 +116,7 @@ export function DataTable<TData, TValue>({
   // console.log("filters", filters);
 
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!date,
+    enabled: !!date,
     queryKey: [
       "incoming_with_items",
       {
@@ -134,9 +132,6 @@ export function DataTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           filters,
           fields: "id, incomingDocumentNumber, incomingDate",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

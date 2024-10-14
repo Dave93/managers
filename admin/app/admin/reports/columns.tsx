@@ -1,13 +1,6 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import {
-  CheckIcon,
-  Edit2Icon,
-  KeyRound,
-  Minus,
-  PlusIcon,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, Edit2Icon, XIcon } from "lucide-react";
 import { Button } from "@components/ui/button";
 
 import dayjs from "dayjs";
@@ -22,12 +15,9 @@ import {
 } from "@admin/components/ui/select";
 import ReportItemsSheet from "./report-items";
 import { cn } from "@admin/lib/utils";
-import { reports, roles } from "@backend/../drizzle/schema";
-import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import useToken from "@admin/store/get-token";
 
 export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   {
@@ -47,8 +37,6 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
       column: { id },
       table,
     }) {
-      const token = useToken();
-
       const queryClient = useQueryClient();
       const [isEditing, setIsEditing] = useState(false);
       const initialValue = getValue<string>();
@@ -58,14 +46,9 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
       );
 
       const { data, isLoading } = useQuery({
-        enabled: !!token,
         queryKey: ["report_status_cached"],
         queryFn: async () => {
-          const { data } = await apiClient.api.reports_status.cached.get({
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          });
+          const { data } = await apiClient.api.reports_status.cached.get({});
           return data;
         },
       });
@@ -77,16 +60,9 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
           };
           id: string;
         }) => {
-          return apiClient.api.reports({ id: newTodo.id }).put(
-            {
-              data: newTodo.data,
-            },
-            {
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
+          return apiClient.api.reports({ id: newTodo.id }).put({
+            data: newTodo.data,
+          });
         },
         onSuccess: () => {
           setIsEditing(false);

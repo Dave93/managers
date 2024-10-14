@@ -154,6 +154,7 @@ export function NavigationMenuDemo() {
                     key={component.title}
                     title={component.title}
                     href={component.href}
+                    as={Link}
                   />
                 ))}
               </DropdownMenu>

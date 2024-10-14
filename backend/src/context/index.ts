@@ -30,41 +30,118 @@ export const ctx = new Elysia({
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })
   )
-  // @ts-ignore
-  .use(bearer())
-  // @ts-ignore
-  .use(jwt)
-  .derive(
-    { as: "global" },
-    async ({
-      // @ts-ignore
-      bearer,
-      cacheController,
-    }) => {
-      const token = bearer;
-      if (!token) {
-        return {
-          user: null,
-        };
-      }
-
-      try {
-        if (token == process.env.API_TOKEN) {
-          return {
-            user: null,
-          };
-        }
-
-        const res = await cacheController.getCachedUserDataByToken(token);
-
-        return {
-          user: res,
-        };
-      } catch (error) {
-        console.log("error", error);
-        return {
-          user: null,
-        };
-      }
+  .derive(async ({ redis, cookie: { sessionId } }) => {
+    const sessionIdValue = sessionId.value;
+    if (!sessionIdValue) {
+      return {
+        user: null,
+      };
     }
-  );
+
+    try {
+      let cachedUser = await redis.get(
+        `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+      );
+      return {
+        user: cachedUser
+          ? (JSON.parse(cachedUser) as {
+              user: typeof users.$inferSelect;
+              role: {
+                id: string;
+                name: string;
+                code: string;
+              };
+            })
+          : null,
+      };
+    } catch (error) {
+      console.log("error", error);
+      return {
+        user: null,
+      };
+    }
+  })
+  .macro(({ onBeforeHandle }) => ({
+    permission(permission: string) {
+      if (!permission) return;
+      onBeforeHandle(
+        async ({
+          user,
+          redis,
+          error,
+          cacheController,
+          cookie: { sessionId, refreshToken },
+        }) => {
+          const sessionIdValue = sessionId.value;
+          const refreshTokenValue = refreshToken.value;
+          if (!sessionId.value) {
+            return error(401, {
+              message: "User not found",
+            });
+          }
+
+          let cachedUser = await redis.get(
+            `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+          );
+
+          if (!cachedUser) {
+            if (refreshTokenValue) {
+              const cachedRefreshToken = await redis.get(
+                `${process.env.PROJECT_PREFIX}refresh_token:${refreshTokenValue}`
+              );
+              if (!cachedRefreshToken) {
+                return error(401, {
+                  message: "User not found",
+                });
+              } else {
+                const { user, role } = JSON.parse(cachedRefreshToken);
+                await redis.set(
+                  `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`,
+                  JSON.stringify({ user, role }),
+                  "EX",
+                  parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
+                );
+                cachedUser = await redis.get(
+                  `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+                );
+              }
+            } else {
+              return error(401, {
+                message: "User not found",
+              });
+            }
+          }
+
+          // check `${process.env.PROJECT_PREFIX}user_data:${sessionId}` redis key expiration is less than 10 minutes
+          const redisUserExpiration = await redis.ttl(
+            `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+          );
+          if (redisUserExpiration < 600) {
+            await redis.expire(
+              `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`,
+              parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
+            );
+          }
+
+          const { role } = JSON.parse(cachedUser!) as {
+            user: typeof users.$inferSelect;
+            role: {
+              id: string;
+              name: string;
+              code: string;
+            };
+          };
+          const permissions = await cacheController.getPermissionsByRoleId(
+            role.id
+          );
+
+          if (!permissions.includes(permission)) {
+            return error(403, {
+              message: "You don't have permissions",
+            });
+          }
+        }
+      );
+    },
+  }))
+  .as("global");

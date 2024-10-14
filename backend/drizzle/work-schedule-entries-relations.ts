@@ -1,6 +1,0 @@
-import { relations } from 'drizzle-orm';
-import { workScheduleEntries } from './work-schedule-entries';
-import { users } from './users';
-import { workSchedules } from './work-schedules';
-
-export const workScheduleEntriesRelations = relations(workScheduleEntries, (helpers) => ({ work_schedule_entries_created_byTousers: helpers.one(users, { relationName: 'work_schedule_entries_created_byTousers', fields: [ workScheduleEntries.created_by ], references: [ users.id ] }), work_schedule_entries_updated_byTousers: helpers.one(users, { relationName: 'work_schedule_entries_updated_byTousers', fields: [ workScheduleEntries.updated_by ], references: [ users.id ] }), work_schedule_entries_users: helpers.one(users, { relationName: 'work_schedule_entries_users', fields: [ workScheduleEntries.user_id ], references: [ users.id ] }), work_schedule_entries_work_schedules: helpers.one(workSchedules, { relationName: 'work_schedule_entries_work_schedules', fields: [ workScheduleEntries.work_schedule_id ], references: [ workSchedules.id ] }) }));

@@ -28,19 +28,6 @@ export const internalTransferItemsController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("internal_transfer_items.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, internal_transfer_items, {
@@ -87,6 +74,7 @@ export const internalTransferItemsController = new Elysia({
       };
     },
     {
+      permission: "internal_transfer_items.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

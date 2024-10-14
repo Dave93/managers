@@ -26,7 +26,6 @@ import {
 import type { Column } from "@admin/components/product_groups/board_column";
 import { hasDraggableData } from "@admin/components/product_groups/utils";
 import { coordinateGetter } from "@admin/components/product_groups/multipleContainersKeyboardPreset";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
@@ -40,7 +39,6 @@ interface ProductGroupsKanbanProps {
 export default function ProductGroupsKanban({
   organizationId,
 }: ProductGroupsKanbanProps) {
-  const token = useToken();
   const queryClient = useQueryClient();
   const pickedUpTaskColumn = useRef<string | null>(null);
   const { data: groupsData, isLoading: groupsLoading } = useQuery({
@@ -65,12 +63,8 @@ export default function ProductGroupsKanban({
             },
           ]),
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const columns = useMemo<Column[]>(() => {
@@ -119,12 +113,8 @@ export default function ProductGroupsKanban({
         query: {
           organization_id: organizationId,
         },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
       });
     },
-    enabled: !!token,
   });
 
   const products = useMemo<ProductGroupsListDto[]>(() => {
@@ -164,19 +154,12 @@ export default function ProductGroupsKanban({
         .product_groups({
           id: data.id,
         })
-        .put(
-          {
-            data: {
-              name: data.name,
-              sort: data.sort,
-            },
+        .put({
+          data: {
+            name: data.name,
+            sort: data.sort,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        });
     },
   });
 
@@ -186,20 +169,13 @@ export default function ProductGroupsKanban({
       id: string;
       group_id: string;
     }) => {
-      return await apiClient.api.product_groups.set_group.post(
-        {
-          data: {
-            product_id: data.id,
-            before_group_id: data.before_group_id,
-            group_id: data.group_id,
-          },
+      return await apiClient.api.product_groups.set_group.post({
+        data: {
+          product_id: data.id,
+          before_group_id: data.before_group_id,
+          group_id: data.group_id,
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({
@@ -218,18 +194,16 @@ export default function ProductGroupsKanban({
       if (active.data.current?.type === "Column") {
         const startColumnIdx = columnIds.findIndex((id) => id === active.id);
         const startColumn = columns[startColumnIdx];
-        return `Picked up Column ${startColumn?.title} at position: ${
-          startColumnIdx + 1
-        } of ${columnIds.length}`;
+        return `Picked up Column ${startColumn?.title} at position: ${startColumnIdx + 1
+          } of ${columnIds.length}`;
       } else if (active.data.current?.type === "Task") {
         pickedUpTaskColumn.current = active.data.current.task.group_id;
         const { tasksInColumn, taskPosition, column } = getDraggingTaskData(
           active.id,
           pickedUpTaskColumn.current
         );
-        return `Picked up Task ${active.data.current.task.name} at position: ${
-          taskPosition + 1
-        } of ${tasksInColumn.length} in column ${column?.title}`;
+        return `Picked up Task ${active.data.current.task.name} at position: ${taskPosition + 1
+          } of ${tasksInColumn.length} in column ${column?.title}`;
       }
     },
     onDragOver({ active, over }) {
@@ -240,9 +214,8 @@ export default function ProductGroupsKanban({
         over.data.current?.type === "Column"
       ) {
         const overColumnIdx = columnIds.findIndex((id) => id === over.id);
-        return `Column ${active.data.current.column.title} was moved over ${
-          over.data.current.column.title
-        } at position ${overColumnIdx + 1} of ${columnIds.length}`;
+        return `Column ${active.data.current.column.title} was moved over ${over.data.current.column.title
+          } at position ${overColumnIdx + 1} of ${columnIds.length}`;
       } else if (
         active.data.current?.type === "Task" &&
         over.data.current?.type === "Task"
@@ -252,13 +225,11 @@ export default function ProductGroupsKanban({
           over.data.current.task.group_id
         );
         if (over.data.current.task.group_id !== pickedUpTaskColumn.current) {
-          return `Task ${active.data.current.task.name} was moved over column ${
-            column?.title
-          } in position ${taskPosition + 1} of ${tasksInColumn.length}`;
+          return `Task ${active.data.current.task.name} was moved over column ${column?.title
+            } in position ${taskPosition + 1} of ${tasksInColumn.length}`;
         }
-        return `Task was moved over position ${taskPosition + 1} of ${
-          tasksInColumn.length
-        } in column ${column?.title}`;
+        return `Task was moved over position ${taskPosition + 1} of ${tasksInColumn.length
+          } in column ${column?.title}`;
       }
     },
     onDragEnd({ active, over }) {
@@ -272,11 +243,9 @@ export default function ProductGroupsKanban({
       ) {
         const overColumnPosition = columnIds.findIndex((id) => id === over.id);
 
-        return `Column ${
-          active.data.current.column.title
-        } was dropped into position ${overColumnPosition + 1} of ${
-          columnIds.length
-        }`;
+        return `Column ${active.data.current.column.title
+          } was dropped into position ${overColumnPosition + 1} of ${columnIds.length
+          }`;
       } else if (
         active.data.current?.type === "Task" &&
         over.data.current?.type === "Task"
@@ -286,13 +255,11 @@ export default function ProductGroupsKanban({
           over.data.current.task.group_id
         );
         if (over.data.current.task.group_id !== pickedUpTaskColumn.current) {
-          return `Task was dropped into column ${column?.title} in position ${
-            taskPosition + 1
-          } of ${tasksInColumn.length}`;
+          return `Task was dropped into column ${column?.title} in position ${taskPosition + 1
+            } of ${tasksInColumn.length}`;
         }
-        return `Task was dropped into position ${taskPosition + 1} of ${
-          tasksInColumn.length
-        } in column ${column?.title}`;
+        return `Task was dropped into position ${taskPosition + 1} of ${tasksInColumn.length
+          } in column ${column?.title}`;
       }
       pickedUpTaskColumn.current = null;
     },

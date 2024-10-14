@@ -19,7 +19,6 @@ import {
 import { useMemo } from "react";
 import { useRolesStore } from "@admin/store/states/roles";
 import { RolesPermissionsRelation } from "@backend/modules/roles_permissions/dto/roles_permissions.dto";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,7 +29,6 @@ interface DataTableProps<TData, TValue> {
 export function RolesPermissionsDataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const rowSelection = useRolesStore((state) => state.selectedRows);
 
   const selectedRoleId = useMemo(() => {
@@ -38,7 +36,7 @@ export function RolesPermissionsDataTable<TData, TValue>({
   }, [rowSelection]);
 
   const { data, isLoading, error } = useQuery({
-    enabled: !!token && Object.keys(rowSelection).length > 0,
+    enabled: Object.keys(rowSelection).length > 0,
     queryKey: [
       "roles_permissions",
       {
@@ -63,9 +61,6 @@ export function RolesPermissionsDataTable<TData, TValue>({
               value: selectedRoleId,
             },
           ]),
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;
@@ -93,9 +88,9 @@ export function RolesPermissionsDataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

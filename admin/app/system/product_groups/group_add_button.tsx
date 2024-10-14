@@ -1,6 +1,5 @@
 import { Button } from "@admin/components/ui/button";
 import { useToast } from "@admin/components/ui/use-toast";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -10,24 +9,16 @@ interface GroupAddButtonProps {
 }
 //test
 export const GroupAddButton = ({ organizationId }: GroupAddButtonProps) => {
-  const token = useToken();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProductGroup = useMutation({
     mutationFn: async () => {
-      return await apiClient.api.product_groups.post(
-        {
-          data: {
-            organization_id: organizationId,
-            name: "New Group",
-          },
+      return await apiClient.api.product_groups.post({
+        data: {
+          organization_id: organizationId,
+          name: "New Group",
         },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({

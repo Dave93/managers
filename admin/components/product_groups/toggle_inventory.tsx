@@ -2,14 +2,12 @@ import { Column } from "./board_column";
 import { Switch } from "@nextui-org/switch";
 import { Popover, PopoverTrigger, PopoverContent } from "@nextui-org/popover";
 import { Button } from "../ui/button";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useState } from "react";
 
 export const ToggleGroupInventory = ({ group }: { group: Column }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const token = useToken();
   const queryClient = useQueryClient();
   const updateMutation = useMutation({
     mutationFn: async () => {
@@ -17,18 +15,11 @@ export const ToggleGroupInventory = ({ group }: { group: Column }) => {
         .product_groups({
           id: group.id,
         })
-        .put(
-          {
-            data: {
-              show_inventory: !group.show_inventory,
-            },
+        .put({
+          data: {
+            show_inventory: !group.show_inventory,
           },
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        });
     },
     onSuccess: () => {
       setIsOpen(false);

@@ -38,7 +38,6 @@ import { useRolesStore } from "@admin/store/states/roles";
 
 import { roles } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -49,7 +48,6 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const rowSelection = useRolesStore((state) => state.selectedRows);
   const setRowSelection = useRolesStore((state) => state.toggleSelected);
 
@@ -59,7 +57,6 @@ export function DataTable<TData, TValue>({
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "roles",
       {
@@ -74,9 +71,6 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,active,name,code",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;
@@ -123,9 +117,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

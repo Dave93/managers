@@ -19,18 +19,6 @@ export const rolesPermissionsController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("roles_permissions.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, roles_permissions, {
@@ -69,6 +57,7 @@ export const rolesPermissionsController = new Elysia({
       };
     },
     {
+      permission: "roles_permissions.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -81,18 +70,6 @@ export const rolesPermissionsController = new Elysia({
   .post(
     "/roles_permissions",
     async ({ body: { data }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("roles_permissions.add")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const role = await drizzle
         .insert(roles_permissions)
         .values(data)
@@ -101,6 +78,7 @@ export const rolesPermissionsController = new Elysia({
       return role;
     },
     {
+      permission: "roles_permissions.add",
       body: t.Object({
         data: t.Object({
           role_id: t.String(),
@@ -118,20 +96,6 @@ export const rolesPermissionsController = new Elysia({
       set,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-
-      if (!user.permissions.includes("roles_permissions.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       await drizzle
         .delete(roles_permissions)
         .where(eq(roles_permissions.role_id, role_id))
@@ -149,6 +113,7 @@ export const rolesPermissionsController = new Elysia({
       return res;
     },
     {
+      permission: "roles_permissions.edit",
       body: t.Object({
         role_id: t.String(),
         permissions_ids: t.Array(t.String()),

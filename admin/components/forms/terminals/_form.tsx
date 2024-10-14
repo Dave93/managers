@@ -10,7 +10,6 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
 import { terminals } from "@backend/../drizzle/schema";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { InferInsertModel } from "drizzle-orm";
@@ -22,7 +21,6 @@ export default function TerminalsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const token = useToken();
   const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
@@ -54,16 +52,9 @@ export default function TerminalsForm({
       organization_id: string;
       manager_name?: string;
     }) => {
-      return apiClient.api.terminals.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.terminals.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -83,16 +74,9 @@ export default function TerminalsForm({
       };
       id: string;
     }) => {
-      return apiClient.api.terminals({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.terminals({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -129,16 +113,12 @@ export default function TerminalsForm({
     queryKey: ["one_terminal", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.terminals({ id: recordId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.terminals({ id: recordId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!recordId && !!token,
+    enabled: !!recordId,
   });
 
   const isLoading = useMemo(() => {

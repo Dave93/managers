@@ -11,7 +11,6 @@ import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
 import { organization } from "backend/drizzle/schema";
 import { InferInsertModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 
@@ -23,7 +22,6 @@ export default function OrganizationsForm({
   recordId?: string;
 }) {
   const { toast } = useToast();
-  const token = useToken();
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -49,16 +47,9 @@ export default function OrganizationsForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof organization>) => {
-      return apiClient.api.organization.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.organization.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -69,16 +60,9 @@ export default function OrganizationsForm({
       data: InferInsertModel<typeof organization>;
       id: string;
     }) => {
-      return apiClient.api.organization({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.organization({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -105,16 +89,12 @@ export default function OrganizationsForm({
     queryKey: ["one_organization", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.organization({ id: recordId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.organization({ id: recordId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!recordId && !!token,
+    enabled: !!recordId,
   });
 
   const isLoading = useMemo(() => {

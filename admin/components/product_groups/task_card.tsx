@@ -7,7 +7,6 @@ import { cva } from "class-variance-authority";
 import { GripVertical } from "lucide-react";
 import { Badge } from "@admin/components/ui/badge";
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { Select, SelectItem } from "@nextui-org/react";
@@ -35,7 +34,6 @@ export interface TaskDragData {
 }
 
 export function TaskCard({ task, isOverlay }: TaskCardProps) {
-  // const token = useToken();
   const {
     setNodeRef,
     attributes,

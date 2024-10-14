@@ -11,7 +11,6 @@ import { credentials } from "@backend/../drizzle/schema";
 import { InferInsertModel } from "drizzle-orm";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 
 export default function CredentialsAddForm({
   setOpen,
@@ -25,7 +24,6 @@ export default function CredentialsAddForm({
   credentialId?: string;
 }) {
   const { toast } = useToast();
-  const token = useToken();
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -51,16 +49,9 @@ export default function CredentialsAddForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof credentials>) => {
-      return apiClient.api.credentials.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.credentials.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -71,16 +62,9 @@ export default function CredentialsAddForm({
       data: InferInsertModel<typeof credentials>;
       id: string;
     }) => {
-      return apiClient.api.credentials({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.credentials({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -113,16 +97,12 @@ export default function CredentialsAddForm({
     queryKey: ["one_credential", credentialId],
     queryFn: () => {
       if (credentialId) {
-        return apiClient.api.credentials({ id: credentialId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.credentials({ id: credentialId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!credentialId && !!token,
+    enabled: !!credentialId,
   });
 
   const isLoading = useMemo(() => {

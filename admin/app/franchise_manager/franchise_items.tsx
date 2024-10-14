@@ -20,11 +20,8 @@ import {
 
 import { useEffect, useMemo, useState } from "react";
 
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
-import { invoice_items } from "backend/drizzle/schema";
-import { InferSelectModel } from "drizzle-orm";
 import { InvoiceItemsListDto } from "@backend/modules/invoice_items/dto/list.dto";
 
 interface DataTableProps<TData, TValue> {
@@ -55,7 +52,6 @@ export function FranchiseItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,
@@ -75,7 +71,6 @@ export function FranchiseItemsTable<TData, TValue>({
   ];
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "invoice_items",
       {
@@ -92,9 +87,6 @@ export function FranchiseItemsTable<TData, TValue>({
           filters: encodeURIComponent(JSON.stringify(filters)),
           fields:
             "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit,sum",
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

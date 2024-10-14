@@ -18,18 +18,6 @@ export const organizationController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, organization, {});
@@ -56,6 +44,7 @@ export const organizationController = new Elysia({
       };
     },
     {
+      permission: "organizations.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -68,37 +57,16 @@ export const organizationController = new Elysia({
   .get(
     "/organization/cached",
     async ({ user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const rolesList = await cacheController.getCachedOrganization({});
       return rolesList;
+    },
+    {
+      permission: "organizations.cached",
     }
   )
   .get(
     "/organization/:id",
     async ({ params: { id }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.one")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const organizationItem = await drizzle
         .select()
         .from(organization)
@@ -113,6 +81,7 @@ export const organizationController = new Elysia({
       return organizationItem[0];
     },
     {
+      permission: "organizations.one",
       params: t.Object({
         id: t.String(),
       }),
@@ -121,18 +90,6 @@ export const organizationController = new Elysia({
   .post(
     "/organization",
     async ({ body: { data }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.add")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const organizationItem = await drizzle
         .insert(organization)
         .values(data)
@@ -166,29 +123,21 @@ export const organizationController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       await cacheController.cacheOrganization();
       const organizationItem = await drizzle
         .update(organization)
         .set(data)
         .where(eq(organization.id, id))
+        .returning({
+          id: organization.id,
+        })
         .execute();
 
       return organizationItem[0];
     },
 
     {
+      permission: "organizations.edit",
       params: t.Object({
         id: t.String(),
       }),
@@ -207,28 +156,19 @@ export const organizationController = new Elysia({
   .delete(
     "/organization/:id",
     async ({ params: { id }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("organizations.delete")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const organizationItem = await drizzle
         .delete(organization)
         .where(eq(organization.id, id))
+        .returning({
+          id: organization.id,
+        })
         .execute();
 
       await cacheController.cacheOrganization();
       return organizationItem[0];
     },
-
     {
+      permission: "organizations.delete",
       params: t.Object({
         id: t.String(),
       }),

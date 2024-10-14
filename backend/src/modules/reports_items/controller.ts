@@ -24,18 +24,6 @@ export const reportsItemsController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports_items.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, reports_items, {
@@ -74,6 +62,7 @@ export const reportsItemsController = new Elysia({
       };
     },
     {
+      permission: "reports_items.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -83,47 +72,29 @@ export const reportsItemsController = new Elysia({
       }),
     }
   )
-  .get("/reports_items/:id", async ({ params: { id }, user, set, drizzle }) => {
-    if (!user) {
-      set.status = 401;
-      return {
-        message: "User not found",
-      };
+  .get(
+    "/reports_items/:id",
+    async ({ params: { id }, user, set, drizzle }) => {
+      const reports_itemsList = await drizzle
+        .select()
+        .from(reports_items)
+        .where(eq(reports_items.id, id))
+        .execute();
+      if (!reports_itemsList.length) {
+        set.status = 404;
+        return {
+          message: "Reports_items not found",
+        };
+      }
+      return reports_itemsList[0];
+    },
+    {
+      permission: "reports_items.one",
     }
-    if (!user.permissions.includes("reports_items.one")) {
-      set.status = 401;
-      return {
-        message: "You don't have permissions",
-      };
-    }
-    const reports_itemsList = await drizzle
-      .select()
-      .from(reports_items)
-      .where(eq(reports_items.id, id))
-      .execute();
-    if (!reports_itemsList.length) {
-      set.status = 404;
-      return {
-        message: "Reports_items not found",
-      };
-    }
-    return reports_itemsList[0];
-  })
+  )
   .post(
     "/reports_items",
     async ({ body: { data }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports_items.add")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const reports_itemsList = await drizzle
         .insert(reports_items)
         // @ts-ignore
@@ -132,6 +103,7 @@ export const reportsItemsController = new Elysia({
       return reports_itemsList;
     },
     {
+      permission: "reports_items.add",
       body: t.Object({
         data: t.Object({
           report_id: t.String(),
@@ -155,18 +127,6 @@ export const reportsItemsController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports_items.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const reports_itemsList = await drizzle
         .update(reports_items)
         // @ts-ignore
@@ -220,6 +180,7 @@ export const reportsItemsController = new Elysia({
       return reports_itemsList;
     },
     {
+      permission: "reports_items.edit",
       params: t.Object({
         id: t.String(),
       }),
@@ -241,18 +202,6 @@ export const reportsItemsController = new Elysia({
   .delete(
     "/reports_items/:id",
     async ({ params: { id }, user, set, drizzle, cacheController }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("reports_items.delete")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
       const reports_itemsList = await drizzle
         .delete(reports_items)
         .where(eq(reports_items.id, id))
@@ -260,6 +209,7 @@ export const reportsItemsController = new Elysia({
       return reports_itemsList;
     },
     {
+      permission: "reports_items.delete",
       params: t.Object({
         id: t.String(),
       }),

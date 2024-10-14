@@ -26,25 +26,7 @@ export const internalTransferOffController = new Elysia({
   .use(ctx)
   .get(
     "/internal_transfer",
-    async ({
-      query: { limit, offset, sort, filters, fields },
-      user,
-      set,
-      drizzle,
-    }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("internal_transfer.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
+    async ({ query: { limit, offset, sort, filters, fields }, drizzle }) => {
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, internal_transfer, {
@@ -112,6 +94,7 @@ export const internalTransferOffController = new Elysia({
       };
     },
     {
+      permission: "internal_transfer.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

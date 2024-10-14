@@ -21,8 +21,7 @@ import {
 import { useMemo, useState } from "react";
 
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import useToken from "@admin/store/get-token";
+import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 
 interface DataTableProps<TData, TValue> {
@@ -34,14 +33,12 @@ export function DataTable<TData, TValue>({
   columns,
   recordId,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token,
     queryKey: [
       "reports_items",
       {
@@ -72,9 +69,6 @@ export function DataTable<TData, TValue>({
               value: recordId,
             },
           ]),
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;

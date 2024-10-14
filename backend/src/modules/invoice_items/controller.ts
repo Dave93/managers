@@ -24,22 +24,9 @@ export const invoiceItemsController = new Elysia({
     async ({
       query: { limit, offset, sort, filters, fields },
       user,
-      set,
       drizzle,
+      cacheController,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      if (!user.permissions.includes("invoice_items.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, invoice_items, {
@@ -57,8 +44,11 @@ export const invoiceItemsController = new Elysia({
           nomenclature_element,
         });
       }
+      const permissions = await cacheController.getPermissionsByRoleId(
+        user!.role.id
+      );
 
-      const hasFranchisePermission = user.permissions.includes(
+      const hasFranchisePermission = permissions.includes(
         "franchise_manager.list"
       );
 
@@ -105,6 +95,7 @@ export const invoiceItemsController = new Elysia({
       };
     },
     {
+      permission: "invoice_items.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

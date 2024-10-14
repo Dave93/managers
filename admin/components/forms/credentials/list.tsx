@@ -34,7 +34,6 @@ import {
 } from "@radix-ui/react-icons";
 import { credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
@@ -49,14 +48,13 @@ export function CredentialsList<TData, TValue>({
   model,
   columns,
 }: DataTableProps<TData, TValue>) {
-  const token = useToken();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
 
   const { data, isLoading } = useQuery({
-    enabled: !!token && !!recordId,
+    enabled: !!recordId,
     queryKey: [
       "credentials",
       {
@@ -95,9 +93,6 @@ export function CredentialsList<TData, TValue>({
               value: recordId,
             },
           ]),
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
       return data;
@@ -140,9 +135,9 @@ export function CredentialsList<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

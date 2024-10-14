@@ -38,7 +38,6 @@ import {
   SelectGroup,
 } from "@admin/components/ui/select";
 import { apiClient } from "@admin/utils/eden";
-import useToken from "@admin/store/get-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
@@ -57,13 +56,8 @@ export const WriteoffFilters = () => {
     InferSelectModel<typeof corporation_store>[]
   >([]);
 
-  const token = useToken();
   const loadData = async () => {
-    const { data } = await apiClient.api.users_stores.cached.get({
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+    const { data } = await apiClient.api.users_stores.cached.get({});
 
     if (data && Array.isArray(data)) {
       setUsersStoresData(data);
@@ -72,7 +66,7 @@ export const WriteoffFilters = () => {
 
   useEffect(() => {
     loadData();
-  }, [token]);
+  }, []);
 
   return (
     <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">

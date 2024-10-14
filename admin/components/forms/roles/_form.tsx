@@ -7,7 +7,6 @@ import * as z from "zod";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-import useToken from "@admin/store/get-token";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { InferInsertModel } from "drizzle-orm";
@@ -20,7 +19,6 @@ export default function RolesForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const token = useToken();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -45,16 +43,9 @@ export default function RolesForm({
 
   const createMutation = useMutation({
     mutationFn: (newTodo: InferInsertModel<typeof roles>) => {
-      return apiClient.api.roles.post(
-        {
-          data: newTodo,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.roles.post({
+        data: newTodo,
+      });
     },
     onSuccess: () => onAddSuccess("added"),
     onError,
@@ -65,16 +56,9 @@ export default function RolesForm({
       data: InferInsertModel<typeof roles>;
       id: string;
     }) => {
-      return apiClient.api.roles({ id: newTodo.id }).put(
-        {
-          data: newTodo.data,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      return apiClient.api.roles({ id: newTodo.id }).put({
+        data: newTodo.data,
+      });
     },
     onSuccess: () => onAddSuccess("updated"),
     onError,
@@ -103,16 +87,12 @@ export default function RolesForm({
     queryKey: ["one_role", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.roles({ id: recordId }).get({
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        return apiClient.api.roles({ id: recordId }).get({});
       } else {
         return null;
       }
     },
-    enabled: !!recordId && !!token,
+    enabled: !!recordId,
   });
 
   const isLoading = useMemo(() => {
