@@ -90,16 +90,6 @@ export default function UsersForm({
     onSuccess: (data) => onAddSuccess("updated", data),
     onError,
   });
-
-  const assignRoleMutation = useMutation({
-    mutationFn: (newTodo: { role_id: string; user_id: string }) => {
-      return apiClient.api.users.assign_role.post({
-        ...newTodo,
-      });
-    },
-    onError,
-  });
-
   const assignStoreMutation = useMutation({
     mutationFn: (newTodo: {
       corporation_store_id: string[];
@@ -124,7 +114,6 @@ export default function UsersForm({
   const [
     { data: record, isLoading: isRecordLoading },
     { data: rolesData, isLoading: isRolesLoading },
-    { data: userRolesData, isLoading: isUserRolesLoading },
     { data: terminalsData, isLoading: isTerminalsLoading },
     { data: userTerminalsData, isLoading: isUserTerminalsLoading },
     { data: storesData, isLoading: isStoresLoading },
@@ -150,32 +139,6 @@ export default function UsersForm({
         queryFn: async () => {
           const { data } = await apiClient.api.roles.cached.get({});
           return data;
-        },
-      },
-      {
-        enabled: !!recordId,
-        queryKey: ["users_roles", recordId],
-        queryFn: async () => {
-          if (recordId) {
-            //@ts-ignore
-            const { data } = await apiClient.api.users_roles.get({
-              query: {
-                limit: "30",
-                offset: "0",
-                filters: JSON.stringify([
-                  {
-                    field: "user_id",
-                    operator: "=",
-                    value: recordId,
-                  },
-                ]),
-                fields: "role_id,user_id",
-              },
-            });
-            return data;
-          } else {
-            return null;
-          }
         },
       },
       {
@@ -252,6 +215,7 @@ export default function UsersForm({
       password: "",
       first_name: record?.data?.first_name || "",
       last_name: record?.data?.last_name || "",
+      role_id: record?.data?.role_id || "",
     },
     onSubmit: async ({ value }) => {
       if (recordId) {
@@ -262,19 +226,6 @@ export default function UsersForm({
     },
   });
 
-  const userRoleId = useMemo(() => {
-    if (changedRoleId) {
-      return changedRoleId;
-    } else if (
-      userRolesData &&
-      userRolesData.data &&
-      userRolesData.data.length > 0
-    ) {
-      return userRolesData.data[0].role_id;
-    } else {
-      return null;
-    }
-  }, [userRolesData, changedRoleId]);
 
   const assignRole = useCallback(
     async (recordData: typeof users.$inferSelect) => {
@@ -282,10 +233,6 @@ export default function UsersForm({
       if (recordId) {
         userId = recordId;
       }
-      await assignRoleMutation.mutate({
-        user_id: userId,
-        role_id: changedRoleId ? changedRoleId! : userRoleId!,
-      });
       assignTerminalMutation.mutate({
         user_id: recordData?.id,
         terminal_id:
@@ -303,7 +250,7 @@ export default function UsersForm({
             : [],
       });
     },
-    [changedRoleId, userRoleId, recordId, changedTerminalId, changedStoreId]
+    [recordId, changedTerminalId, changedStoreId]
   );
 
   const isLoading = useMemo(() => {
@@ -466,33 +413,38 @@ export default function UsersForm({
         <div>
           <Label>Роль</Label>
         </div>
-        <Select
-          label="Роль"
-          placeholder="Выберите роль"
-          selectedKeys={userRoleId ? [userRoleId] : []}
-          className="max-w-xs"
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-            // @ts-ignore
-            setChangedRoleId(e.target.value);
+        <form.Field name="role_id">
+          {(field) => {
+            return (
+              <Select
+                label="Роль"
+                placeholder="Выберите роль"
+                selectedKeys={field.getValue() ? [field.getValue() as string] : []}
+                className="max-w-xs"
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  field.setValue(e.target.value);
+                }}
+                popoverProps={{
+                  portalContainer: formRef.current!,
+                  offset: 0,
+                  containerPadding: 0,
+                }}
+            >
+              {Array.isArray(rolesData) ? (
+                rolesData?.map((item) => (
+                  <SelectItem key={item.id} value={item.id}>
+                    {item.name}
+                  </SelectItem>
+                ))
+              ) : (
+                <SelectItem key="0" value="0">
+                  Загрузка...
+                </SelectItem>
+                )}
+              </Select>
+            );
           }}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-        >
-          {Array.isArray(rolesData) ? (
-            rolesData?.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.name}
-              </SelectItem>
-            ))
-          ) : (
-            <SelectItem key="0" value="0">
-              Загрузка...
-            </SelectItem>
-          )}
-        </Select>
+        </form.Field>
       </div>
       <div className="space-y-2">
         <div>

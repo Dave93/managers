@@ -17,6 +17,7 @@ const nextConfig = {
   },
   env: {
     TRPC_API_URL: process.env.TRPC_API_URL,
+    COOKIE_DOMAIN: process.env.COOKIE_DOMAIN,
   },
 };
 // module.exports = MillionLint.next({ rsc: true })(nextConfig);

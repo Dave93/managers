@@ -4,7 +4,7 @@ import { cors } from "@elysiajs/cors";
 import jwt from "@backend/jwt";
 import { bearer } from "@elysiajs/bearer";
 import { verifyJwt } from "@backend/lib/bcrypt";
-import { users, users_roles } from "backend/drizzle/schema";
+import { users } from "backend/drizzle/schema";
 import { eq } from "drizzle-orm";
 import Redis from "ioredis";
 import { CacheControlService } from "@backend/modules/cache_control/service";
@@ -32,6 +32,7 @@ export const ctx = new Elysia({
   )
   .derive(async ({ redis, cookie: { sessionId } }) => {
     const sessionIdValue = sessionId.value;
+    console.log('sessionIdValue', sessionIdValue)
     if (!sessionIdValue) {
       return {
         user: null,
