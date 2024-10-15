@@ -53,7 +53,7 @@ export const WriteoffFilters = () => {
   );
 
   const [usersStoresData, setUsersStoresData] = useState<
-    InferSelectModel<typeof corporation_store>[]
+    (typeof corporation_store.$inferSelect)[]
   >([]);
 
   const loadData = async () => {

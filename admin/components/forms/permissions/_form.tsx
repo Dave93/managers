@@ -60,7 +60,7 @@ export default function PermissionsForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof permissions>) => {
+    mutationFn: (newTodo: typeof permissions.$inferInsert) => {
       return apiClient.api.permissions.post({
         data: newTodo,
       });
@@ -71,7 +71,7 @@ export default function PermissionsForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof permissions>;
+      data: typeof permissions.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.permissions({ id: newTodo.id }).put({
@@ -82,7 +82,7 @@ export default function PermissionsForm({
     onError,
   });
 
-  const form = useForm<InferInsertModel<typeof permissions>>({
+  const form = useForm<typeof permissions.$inferInsert>({
     defaultValues: {
       active: true,
       slug: "",

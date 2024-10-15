@@ -79,6 +79,7 @@ export const usersSroresController = new Elysia({
           corporation_store_id: users_stores.corporation_store_id,
         })
         .from(users_stores)
+        //@ts-ignore
         .where(eq(users_stores.user_id, user.user.id))
         .execute();
       console.log("davr", usersStoresList);
@@ -137,6 +138,7 @@ export const usersSroresController = new Elysia({
           },
         })
         .from(users_stores)
+        //@ts-ignore
         .where(eq(users_stores.user_id, user.user.id))
         .leftJoin(
           corporation_store,

@@ -9,7 +9,7 @@ import CanAccess from "@admin/components/can-access";
 import { roles } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const rolesColumns: ColumnDef<InferSelectModel<typeof roles>>[] = [
+export const rolesColumns: ColumnDef<typeof roles.$inferSelect>[] = [
   {
     accessorKey: "active",
     header: "Активен",

@@ -6,7 +6,7 @@ import { invoices } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { Minus, Plus } from "lucide-react";
 
-export const reportsColumns: ColumnDef<InferSelectModel<typeof invoices>>[] = [
+export const reportsColumns: ColumnDef<typeof invoices.$inferSelect>[] = [
   {
     accessorKey: "id",
     header: () => null,

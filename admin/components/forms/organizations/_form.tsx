@@ -46,7 +46,7 @@ export default function OrganizationsForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof organization>) => {
+    mutationFn: (newTodo: typeof organization.$inferInsert) => {
       return apiClient.api.organization.post({
         data: newTodo,
       });
@@ -57,7 +57,7 @@ export default function OrganizationsForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof organization>;
+      data: typeof organization.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.organization({ id: newTodo.id }).put({
@@ -68,7 +68,7 @@ export default function OrganizationsForm({
     onError,
   });
 
-  const form = useForm<InferInsertModel<typeof organization>>({
+  const form = useForm<typeof organization.$inferInsert>({
     defaultValues: {
       active: true,
       name: "",

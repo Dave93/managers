@@ -11,39 +11,39 @@ import { credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
 export const credentialsColumns: ColumnDef<
-  InferSelectModel<typeof credentials>
+  typeof credentials.$inferSelect
 >[] = [
-  {
-    accessorKey: "key",
-    header: "Ключ",
-  },
-  {
-    accessorKey: "type",
-    header: "Тип",
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const record = row.original;
-
-      return (
-        <div className="flex items-center space-x-2">
-          <CanAccess permission="credentials.edit">
-            <CredentialsAddFormSheet
-              credentialId={record.id}
-              recordId={record.model_id}
-              model={record.model}
-            >
-              <Button variant="outline" size="sm">
-                <Edit2Icon className="h-4 w-4" />
-              </Button>
-            </CredentialsAddFormSheet>
-          </CanAccess>
-          <CanAccess permission="credentials.delete">
-            <DeleteAction recordId={record.id} />
-          </CanAccess>
-        </div>
-      );
+    {
+      accessorKey: "key",
+      header: "Ключ",
     },
-  },
-];
+    {
+      accessorKey: "type",
+      header: "Тип",
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const record = row.original;
+
+        return (
+          <div className="flex items-center space-x-2">
+            <CanAccess permission="credentials.edit">
+              <CredentialsAddFormSheet
+                credentialId={record.id}
+                recordId={record.model_id}
+                model={record.model}
+              >
+                <Button variant="outline" size="sm">
+                  <Edit2Icon className="h-4 w-4" />
+                </Button>
+              </CredentialsAddFormSheet>
+            </CanAccess>
+            <CanAccess permission="credentials.delete">
+              <DeleteAction recordId={record.id} />
+            </CanAccess>
+          </div>
+        );
+      },
+    },
+  ];

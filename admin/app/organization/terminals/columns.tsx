@@ -11,16 +11,16 @@ import CredentialsFormSheet from "@admin/components/forms/credentials/list_sheet
 import { terminals } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const terminalsColumns: ColumnDef<InferSelectModel<typeof terminals>>[] =
+export const terminalsColumns: ColumnDef<typeof terminals.$inferSelect>[] =
   [
     {
       accessorKey: "name",
       header: "Название",
     },
-    // {
-    //   accessorKey: "description",
-    //   header: "Описание",
-    // },
+    // // {
+    // //   accessorKey: "description",
+    // //   header: "Описание",
+    // // },
     {
       id: "actions",
       cell: ({ row }) => {

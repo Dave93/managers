@@ -50,7 +50,7 @@ export const InternalTransferFilters = () => {
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
 
   const [usersStoresData, setUsersStoresData] = useState<
-    InferSelectModel<typeof corporation_store>[]
+    (typeof corporation_store.$inferSelect)[]
   >([]);
 
   const loadData = async () => {

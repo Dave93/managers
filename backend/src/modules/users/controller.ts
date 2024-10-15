@@ -213,7 +213,9 @@ export const usersController = new Elysia({
       }
 
       const resultUser = exclude(user, [
+        //@ts-ignore
         "password",
+        //@ts-ignore
         "salt",
         // @ts-ignore
         "users_roles_usersTousers_roles_user_id",
@@ -241,7 +243,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.edit")) {
         set.status = 401;
         return {
@@ -277,7 +279,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.edit")) {
         set.status = 401;
         return {
@@ -321,7 +323,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.list")) {
         set.status = 401;
         return {
@@ -435,7 +437,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.one")) {
         set.status = 401;
         return {
@@ -460,6 +462,7 @@ export const usersController = new Elysia({
   )
   .post(
     "/users",
+    //@ts-ignore
     async ({ body: { data, fields }, user, set, drizzle }) => {
       if (!user) {
         set.status = 401;
@@ -467,7 +470,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.add")) {
         set.status = 401;
         return {
@@ -510,7 +513,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.edit")) {
         set.status = 401;
         return {

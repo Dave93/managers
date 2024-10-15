@@ -53,7 +53,7 @@ export default function UsersForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof users>) => {
+    mutationFn: (newTodo: typeof users.$inferInsert) => {
       return apiClient.api.users.post({
         data: newTodo,
         fields: [
@@ -72,7 +72,7 @@ export default function UsersForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof users>;
+      data: typeof users.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.users({ id: newTodo.id }).put({
@@ -157,6 +157,7 @@ export default function UsersForm({
         queryKey: ["users_roles", recordId],
         queryFn: async () => {
           if (recordId) {
+            //@ts-ignore
             const { data } = await apiClient.api.users_roles.get({
               query: {
                 limit: "30",
@@ -244,7 +245,7 @@ export default function UsersForm({
     ],
   });
 
-  const form = useForm<InferInsertModel<typeof users>>({
+  const form = useForm<typeof users.$inferInsert>({
     defaultValues: {
       status: record?.data?.status || "active",
       login: record?.data?.login || "",
@@ -276,7 +277,7 @@ export default function UsersForm({
   }, [userRolesData, changedRoleId]);
 
   const assignRole = useCallback(
-    async (recordData: InferSelectModel<typeof users>) => {
+    async (recordData: typeof users.$inferSelect) => {
       let userId = recordData?.id;
       if (recordId) {
         userId = recordId;

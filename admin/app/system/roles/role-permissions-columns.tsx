@@ -17,22 +17,22 @@ export const rolesPermissionsColumns: ColumnDef<RolesPermissionsRelation>[] = [
 ];
 
 export const linkedRolesPermissionsColumns: ColumnDef<
-  InferSelectModel<typeof permissions>
+  typeof permissions.$inferSelect
 >[] = [
-  {
-    accessorKey: "selected",
-    header: "",
-    cell: ({ row }) => {
-      const isSelected = row.getIsSelected();
-      return isSelected ? <CheckIcon className="h-4 w-4" /> : null;
+    {
+      accessorKey: "selected",
+      header: "",
+      cell: ({ row }) => {
+        const isSelected = row.getIsSelected();
+        return isSelected ? <CheckIcon className="h-4 w-4" /> : null;
+      },
     },
-  },
-  {
-    accessorKey: "name",
-    cell: ({ row }) => {
-      const record = row.original;
-      return record.description;
+    {
+      accessorKey: "name",
+      cell: ({ row }) => {
+        const record = row.original;
+        return record.description;
+      },
+      header: "Заголовок",
     },
-    header: "Заголовок",
-  },
-];
+  ];

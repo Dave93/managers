@@ -48,7 +48,7 @@ export default function CredentialsAddForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof credentials>) => {
+    mutationFn: (newTodo: typeof credentials.$inferInsert) => {
       return apiClient.api.credentials.post({
         data: newTodo,
       });
@@ -59,7 +59,7 @@ export default function CredentialsAddForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof credentials>;
+      data: typeof credentials.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.credentials({ id: newTodo.id }).put({
@@ -70,7 +70,7 @@ export default function CredentialsAddForm({
     onError,
   });
 
-  const form = useForm<InferInsertModel<typeof credentials>>({
+  const form = useForm<typeof credentials.$inferInsert>({
     defaultValues: {
       model: "",
       model_id: "",

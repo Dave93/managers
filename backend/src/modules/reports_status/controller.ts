@@ -94,6 +94,7 @@ export const reportsStatusController = new Elysia({
         .insert(reports_status)
         .values(data)
         .execute();
+      //@ts-ignore
       return reports_statusList[0];
     },
     {
@@ -115,6 +116,7 @@ export const reportsStatusController = new Elysia({
         .set(data)
         .where(eq(reports_status.id, id))
         .execute();
+      //@ts-ignore
       return reports_statusList[0];
     },
     {

@@ -33,9 +33,9 @@ import { corporation_store } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import { Switch } from "@admin/components/ui/switch";
 
-interface InvoiceFiltersProps {}
+interface InvoiceFiltersProps { }
 
-export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({}) => {
+export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({ }) => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
@@ -47,7 +47,7 @@ export const InvoiceFilters: React.FC<InvoiceFiltersProps> = ({}) => {
   );
 
   const [usersStoresData, setUsersStoresData] = useState<
-    InferSelectModel<typeof corporation_store>[]
+    (typeof corporation_store.$inferSelect)[]
   >([]);
 
   const loadData = async () => {

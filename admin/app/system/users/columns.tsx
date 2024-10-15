@@ -8,7 +8,7 @@ import { Badge } from "@components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const usersColumns: ColumnDef<InferSelectModel<typeof users>>[] = [
+export const usersColumns: ColumnDef<typeof users.$inferSelect>[] = [
   {
     accessorKey: "status",
     header: "Статус",
