@@ -87,7 +87,7 @@ const ShowOrganizationsSelect = ({
     });
 
   const organizations = useMemo(() => {
-    let res: InferSelectModel<typeof organization>[] = [];
+    let res: typeof organization.$inferSelect[] = [];
     if (data?.data && data.data.data && Array.isArray(data.data.data)) {
       res = data.data.data;
     }

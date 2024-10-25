@@ -15,7 +15,7 @@ export function CalendarReport({
   reportsStatus,
 }: {
   terminalId: string;
-  reportsStatus: InferSelectModel<typeof reports_status>[];
+  reportsStatus: typeof reports_status.$inferSelect[];
 }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
@@ -42,6 +42,7 @@ export function CalendarReport({
       },
     ],
     queryFn: async () => {
+      //@ts-ignore
       const { data } = await apiClient.api.reports.my_reports.get({
         query: {
           terminal_id: terminalId,

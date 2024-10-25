@@ -38,7 +38,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof credentials>, TValue>[];
+  columns: ColumnDef<typeof credentials.$inferSelect, TValue>[];
   recordId: string;
   model: string;
 }

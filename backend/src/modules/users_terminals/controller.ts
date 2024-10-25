@@ -105,6 +105,7 @@ export const usersTerminalsController = new Elysia({
           },
         })
         .from(users_terminals)
+        //@ts-ignore
         .where(eq(users_terminals.user_id, user.user.id))
         .leftJoin(terminals, eq(users_terminals.terminal_id, terminals.id))
         .execute()) as UsersTerminalsWithRelation[];

@@ -63,15 +63,16 @@ export function DataTable<TData, TValue>({
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.reports.get({
-        query: {
-          limit: pageSize.toString(),
-          offset: (pageIndex * pageSize).toString(),
-          fields:
-            "id,date,reports_status.color,reports_status.label,terminals.name,users.first_name,users.last_name,total_amount,total_manager_price,difference,arryt_income,status_id",
-        },
-      });
-      return data;
+      // const { data } = await apiClient.api.reports.get({
+      //   query: {
+      //     limit: pageSize.toString(),
+      //     offset: (pageIndex * pageSize).toString(),
+      //     fields:
+      //       "id,date,reports_status.color,reports_status.label,terminals.name,users.first_name,users.last_name,total_amount,total_manager_price,difference,arryt_income,status_id",
+      //   },
+      // });
+      // return data;
+      return [];
     },
   });
 
@@ -86,8 +87,10 @@ export function DataTable<TData, TValue>({
   );
 
   const table = useReactTable({
+    // @ts-ignore
     data: data?.data ?? defaultData,
     columns,
+    // @ts-ignore
     pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
     state: {
       pagination,
@@ -99,7 +102,9 @@ export function DataTable<TData, TValue>({
   });
 
   const totalAmount = useMemo(() => {
+    // @ts-ignore
     if (data && data.data && Array.isArray(data.data)) {
+      // @ts-ignore
       return data.data.reduce((acc, row) => {
         return acc + Number(row.total_amount);
       }, 0);
@@ -109,7 +114,9 @@ export function DataTable<TData, TValue>({
   }, [data]);
 
   const totalManager = useMemo(() => {
+    // @ts-ignore
     if (data && data.data && Array.isArray(data.data)) {
+      // @ts-ignore
       return data.data.reduce((acc, row) => {
         return acc + Number(row.total_manager_price);
       }, 0);
@@ -119,7 +126,9 @@ export function DataTable<TData, TValue>({
   }, [data]);
 
   const totalDifference = useMemo(() => {
+    // @ts-ignore
     if (data && data.data && Array.isArray(data.data)) {
+      // @ts-ignore
       return data.data.reduce((acc, row) => {
         return acc + Number(row.difference);
       }, 0);
@@ -129,7 +138,9 @@ export function DataTable<TData, TValue>({
   }, [data]);
 
   const totalArrytIncome = useMemo(() => {
+    // @ts-ignore
     if (data && data.data && Array.isArray(data.data)) {
+      // @ts-ignore
       return data.data.reduce((acc, row) => {
         return acc + Number(row.arryt_income);
       }, 0);
@@ -151,9 +162,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

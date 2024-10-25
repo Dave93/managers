@@ -42,7 +42,7 @@ export default function RolesForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof roles>) => {
+    mutationFn: (newTodo: typeof roles.$inferInsert) => {
       return apiClient.api.roles.post({
         data: newTodo,
       });
@@ -53,7 +53,7 @@ export default function RolesForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof roles>;
+      data: typeof roles.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.roles({ id: newTodo.id }).put({

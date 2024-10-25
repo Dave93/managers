@@ -60,7 +60,7 @@ export default function ReportsStatusForm({
   };
 
   const createMutation = useMutation({
-    mutationFn: (newTodo: InferInsertModel<typeof reports_status>) => {
+    mutationFn: (newTodo: typeof reports_status.$inferInsert) => {
       return apiClient.api.reports_status.post({
         data: newTodo,
       });
@@ -71,7 +71,7 @@ export default function ReportsStatusForm({
 
   const updateMutation = useMutation({
     mutationFn: (newTodo: {
-      data: InferInsertModel<typeof reports_status>;
+      data: typeof reports_status.$inferInsert;
       id: string;
     }) => {
       return apiClient.api.reports_status({ id: newTodo.id }).put({

@@ -6,3 +6,4 @@ dumo.rdb
 **/*.ignode.json
 
 merchants_api/.cache
+backend/app

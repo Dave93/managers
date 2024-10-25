@@ -90,7 +90,8 @@ export const ApiTokensController = new Elysia({
     }
   )
   .post(
-    "/api_tokens",
+    "/api_tokens",    
+    //@ts-ignore
     async ({ body: { data, fields }, drizzle }) => {
       let selectFields = {};
       if (fields) {

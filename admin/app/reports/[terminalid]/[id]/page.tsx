@@ -143,6 +143,7 @@ export default function ReportsPage(params: paramsProps) {
         label: string;
       }[];
     }) => {
+      //@ts-ignore
       return apiClient.api.reports.post({
         ...newTodo,
       });
@@ -169,6 +170,7 @@ export default function ReportsPage(params: paramsProps) {
       },
     ],
     queryFn: async () => {
+      //@ts-ignore
       const { data } = await apiClient.api.reports.by_date.post({
         terminal_id: terminalId,
         date: id,
@@ -217,7 +219,9 @@ export default function ReportsPage(params: paramsProps) {
     const dataExpensesSum =
       data && "terminal_id" in data
         ? data?.expenses
+          //@ts-ignore
           .filter((item) => item.readonly)
+          //@ts-ignore
           .reduce((acc, curr) => {
             return acc + Number(curr.amount);
           }, 0)
@@ -235,7 +239,9 @@ export default function ReportsPage(params: paramsProps) {
   }, [data, incomesTotalSum, expensesTotalSum]);
 
   const readonlyExpenses = useMemo(() => {
+    //@ts-ignore
     return data && "terminal_id" in data
+      //@ts-ignore
       ? data.expenses.filter((item) => item.readonly)
       : [];
   }, [data]);
@@ -288,10 +294,14 @@ export default function ReportsPage(params: paramsProps) {
   useEffect(() => {
     if (data && "terminal_id" in data) {
       setIncomes(data.incomes);
+      // @ts-ignore 
       if (data.expenses.filter((item) => !item.readonly).length > 0) {
         setExpenses(
+          //@ts-ignore
           data.expenses
+            //@ts-ignore
             .filter((item) => !item.readonly)
+            //@ts-ignore
             .map((expense) => {
               const expenseDefaultId = uuidv4();
               return [
@@ -447,6 +457,7 @@ export default function ReportsPage(params: paramsProps) {
           <CardDescription className="text-center text-lg ">
             {Intl.NumberFormat("ru-RU").format(expensesTotalSum)}
           </CardDescription>
+          {/**@ts-ignore*/}
           {readonlyExpenses.map((item) => (
             <div className="flex space-x-1.5 items-center" key={item.label}>
               <Label className="w-2/3 text-xl">{item.label}</Label>

@@ -28,6 +28,7 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
+            {/*@ts-ignore*/}
             <p className="text-sm font-medium leading-none">{session?.login}</p>
           </div>
         </DropdownMenuLabel>

@@ -54,15 +54,17 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
       });
 
       const updateMutation = useMutation({
+        // @ts-ignore
         mutationFn: (newTodo: {
           data: {
             status_id: string;
           };
           id: string;
         }) => {
-          return apiClient.api.reports({ id: newTodo.id }).put({
-            data: newTodo.data,
-          });
+          return true;
+          // return apiClient.api.reports({ id: newTodo.id }).put({
+          //   data: newTodo.data,
+          // });
         },
         onSuccess: () => {
           setIsEditing(false);

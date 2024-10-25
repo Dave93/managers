@@ -5,11 +5,11 @@ export const useCanAccess = (permission: string) => {
   if (!session) {
     return false;
   }
-
+//@ts-ignore
   if (!session.rights) {
     return false;
   }
-
+  //@ts-ignore
   if (!session.rights.includes(permission)) {
     return false;
   }

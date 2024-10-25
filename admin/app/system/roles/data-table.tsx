@@ -42,7 +42,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof roles>, TValue>[];
+  columns: ColumnDef<typeof roles.$inferSelect, TValue>[];
 }
 
 export function DataTable<TData, TValue>({

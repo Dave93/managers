@@ -45,7 +45,7 @@ import { InvoiceItemsTable } from "./invoice_items";
 import dayjs from "dayjs";
 
 interface DataTableProps<TData, TValue> {
-  columns: ColumnDef<InferSelectModel<typeof invoices>, TValue>[];
+  columns: ColumnDef<typeof invoices.$inferSelect, TValue>[];
 }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {

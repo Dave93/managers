@@ -11,61 +11,61 @@ import { organization } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
 export const organizationsColumns: ColumnDef<
-  InferSelectModel<typeof organization>
+  typeof organization.$inferSelect
 >[] = [
-  {
-    accessorKey: "active",
-    header: "Активен",
-    cell: ({ row }) => {
-      const record = row.original;
+    {
+      accessorKey: "active",
+      header: "Активен",
+      cell: ({ row }) => {
+        const record = row.original;
 
-      return (
-        <div className="flex items-center space-x-2">
-          <Switch checked={record.active} disabled />
-        </div>
-      );
+        return (
+          <div className="flex items-center space-x-2">
+            <Switch checked={record.active} disabled />
+          </div>
+        );
+      },
     },
-  },
-  {
-    accessorKey: "name",
-    header: "Название",
-  },
-  {
-    accessorKey: "code",
-    header: "Код",
-  },
-  {
-    accessorKey: "phone",
-    header: "Телефон",
-  },
-  {
-    accessorKey: "description",
-    header: "Описание",
-  },
-  {
-    id: "actions",
-    cell: ({ row }) => {
-      const record = row.original;
+    {
+      accessorKey: "name",
+      header: "Название",
+    },
+    {
+      accessorKey: "code",
+      header: "Код",
+    },
+    {
+      accessorKey: "phone",
+      header: "Телефон",
+    },
+    {
+      accessorKey: "description",
+      header: "Описание",
+    },
+    {
+      id: "actions",
+      cell: ({ row }) => {
+        const record = row.original;
 
-      return (
-        <div className="flex items-center space-x-2">
-          <CanAccess permission="organizations.edit">
-            <OrganizationsFormSheet recordId={record.id}>
-              <Button variant="outline" size="sm">
-                <Edit2Icon className="h-4 w-4" />
+        return (
+          <div className="flex items-center space-x-2">
+            <CanAccess permission="organizations.edit">
+              <OrganizationsFormSheet recordId={record.id}>
+                <Button variant="outline" size="sm">
+                  <Edit2Icon className="h-4 w-4" />
+                </Button>
+              </OrganizationsFormSheet>
+            </CanAccess>
+            <CanAccess permission="organizations.delete">
+              <DeleteAction recordId={record.id} />
+            </CanAccess>
+            <CredentialsFormSheet recordId={record.id} model="organization">
+              <Button variant="secondary" size="sm">
+                <KeyRound className="h-4 w-4" />
               </Button>
-            </OrganizationsFormSheet>
-          </CanAccess>
-          <CanAccess permission="organizations.delete">
-            <DeleteAction recordId={record.id} />
-          </CanAccess>
-          <CredentialsFormSheet recordId={record.id} model="organization">
-            <Button variant="secondary" size="sm">
-              <KeyRound className="h-4 w-4" />
-            </Button>
-          </CredentialsFormSheet>
-        </div>
-      );
+            </CredentialsFormSheet>
+          </div>
+        );
+      },
     },
-  },
-];
+  ];

@@ -722,34 +722,6 @@ export const roles_permissions = pgTable(
   }
 );
 
-export const users_roles = pgTable(
-  "users_roles",
-  {
-    user_id: uuid("user_id").notNull(),
-    role_id: uuid("role_id").notNull(),
-    created_by: uuid("created_by"),
-    updated_by: uuid("updated_by"),
-  },
-  (table) => {
-    return {
-      PK_c525e9373d63035b9919e578a9c: primaryKey({
-        columns: [table.user_id, table.role_id],
-        name: "PK_c525e9373d63035b9919e578a9c",
-      }),
-    };
-  }
-);
-
-export const usersToUsersRelations = relations(users_roles, ({ one }) => ({
-  role: one(roles, {
-    fields: [users_roles.role_id],
-    references: [roles.id],
-  }),
-  user: one(users, {
-    fields: [users_roles.user_id],
-    references: [users.id],
-  }),
-}));
 
 export const internal_transfer = pgTable(
   "internal_transfer",

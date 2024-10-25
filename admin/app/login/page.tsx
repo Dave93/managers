@@ -53,7 +53,7 @@ export default function LoginPage() {
       if (sessionData.sessionCookie) {
         sessionData.sessionCookie.forEach((cookie) => {
           // @ts-ignore
-          document.cookie = cookie;
+          document.cookie = cookie + "; domain=" + process.env.COOKIE_DOMAIN;
         });
         router.push("/");
       } else {

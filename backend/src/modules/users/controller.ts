@@ -1,7 +1,6 @@
 import Elysia, { error, t } from "elysia";
 import {
   users,
-  users_roles,
   users_terminals,
 } from "@backend/../drizzle/schema";
 import { createHash, createHmac } from "crypto";
@@ -125,6 +124,7 @@ export const usersController = new Elysia({
       }),
     }
   )
+  
   .post(
     "/users/refresh_token",
     async ({ body: { refreshToken }, set, cacheController, drizzle }) => {
@@ -142,17 +142,13 @@ export const usersController = new Elysia({
           message: "Invalid token",
         };
       }
+
       const userById = drizzle
         .select(userDataFields)
         .from(users)
         .where(eq(users.id, sql.placeholder("id")))
         .prepare("userById");
-
-      const user = (
-        await userById.execute({
-          id: jwtResult.payload.id,
-        })
-      )[0];
+      const user = (await userById.execute({ id: jwtResult.payload.id }))[0];
 
       if (!user) {
         set.status = 401;
@@ -161,7 +157,7 @@ export const usersController = new Elysia({
         };
       }
 
-      if (user.status == "blocked") {
+      if (user.status != "active") {
         set.status = 401;
         return {
           message: "User is blocked",
@@ -188,43 +184,15 @@ export const usersController = new Elysia({
         process.env.JWT_REFRESH_EXPIRES_IN
       );
 
-      const userFirstRole = drizzle.query.users_roles
-        .findFirst({
-          where: (users_roles, { eq }) =>
-            eq(users_roles.user_id, sql.placeholder("user_id")),
-          with: {
-            role: {
-              columns: {
-                code: true,
-              },
-            },
-          },
-        })
-        .prepare("userFirstRole");
+      const res = await cacheController.cacheUserDataByToken(user.id);
 
-      const userRole = await userFirstRole.execute({ user_id: user.id });
-
-      // getting rights
-      let permissions: string[] = [];
-      if (userRole) {
-        permissions = await cacheController.getPermissionsByRoleId(
-          userRole.role_id
-        );
+      if (!res) {
+        set.status = 401;
+        return {
+          message: "User not found",
+        };
       }
-
-      const resultUser = exclude(user, [
-        "password",
-        "salt",
-        // @ts-ignore
-        "users_roles_usersTousers_roles_user_id",
-      ]);
-
-      return {
-        data: resultUser,
-        refreshToken: refreshTokenNew,
-        accessToken,
-        rights: permissions,
-      };
+      return res;
     },
     {
       body: t.Object({
@@ -232,42 +200,42 @@ export const usersController = new Elysia({
       }),
     }
   )
-  .post(
-    "/users/assign_role",
-    async ({ body: { user_id, role_id }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
+  // .post(
+  //   "/users/assign_role",
+  //   async ({ body: { user_id, role_id }, user, set, drizzle }) => {
+  //     if (!user) {
+  //       set.status = 401;
+  //       return {
+  //         message: "User not found",
+  //       };
+  //     }
+  //     //@ts-ignore
+  //     if (!user.permissions.includes("users.edit")) {
+  //       set.status = 401;
+  //       return {
+  //         message: "You don't have permissions",
+  //       };
+  //     }
 
-      if (!user.permissions.includes("users.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
-
-      await drizzle
-        .delete(users_roles)
-        .where(eq(users_roles.user_id, user_id))
-        .execute();
-      await drizzle.insert(users_roles).values({ user_id, role_id }).execute();
-      return {
-        data: {
-          user_id,
-          role_id,
-        },
-      };
-    },
-    {
-      body: t.Object({
-        user_id: t.String(),
-        role_id: t.String(),
-      }),
-    }
-  )
+  //     await drizzle
+  //       .delete(users_roles)
+  //       .where(eq(users_roles.user_id, user_id))
+  //       .execute();
+  //     await drizzle.insert(users_roles).values({ user_id, role_id }).execute();
+  //     return {
+  //       data: {
+  //         user_id,
+  //         role_id,
+  //       },
+  //     };
+  //   },
+  //   {
+  //     body: t.Object({
+  //       user_id: t.String(),
+  //       role_id: t.String(),
+  //     }),
+  //   }
+  // )
   .post(
     "/users/assign_terminal",
     async ({ body: { user_id, terminal_id }, user, set, drizzle }) => {
@@ -277,7 +245,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.edit")) {
         set.status = 401;
         return {
@@ -321,7 +289,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.list")) {
         set.status = 401;
         return {
@@ -435,7 +403,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.one")) {
         set.status = 401;
         return {
@@ -460,6 +428,7 @@ export const usersController = new Elysia({
   )
   .post(
     "/users",
+    //@ts-ignore
     async ({ body: { data, fields }, user, set, drizzle }) => {
       if (!user) {
         set.status = 401;
@@ -467,7 +436,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.add")) {
         set.status = 401;
         return {
@@ -510,7 +479,7 @@ export const usersController = new Elysia({
           message: "User not found",
         };
       }
-
+      //@ts-ignore
       if (!user.permissions.includes("users.edit")) {
         set.status = 401;
         return {
