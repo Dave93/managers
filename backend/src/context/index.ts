@@ -45,6 +45,7 @@ export const ctx = new Elysia({
       return {
         user: cachedUser
           ? (JSON.parse(cachedUser) as {
+              permissions: any;
               user: typeof users.$inferSelect;
               role: {
                 id: string;

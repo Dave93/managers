@@ -239,19 +239,19 @@ export const usersController = new Elysia({
   .post(
     "/users/assign_terminal",
     async ({ body: { user_id, terminal_id }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      //@ts-ignore
-      if (!user.permissions.includes("users.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
+      // if (!user) {
+      //   set.status = 401;
+      //   return {
+      //     message: "User not found",
+      //   };
+      // }
+      // //@ts-ignore
+      // if (!user.permissions.includes("users.edit")) {
+      //   set.status = 401;
+      //   return {
+      //     message: "You don't have permissions",
+      //   };
+      // }
 
       await drizzle
         .delete(users_terminals)
@@ -269,6 +269,7 @@ export const usersController = new Elysia({
       };
     },
     {
+      permission: "users.edit",
       body: t.Object({
         user_id: t.String(),
         terminal_id: t.Array(t.String()),
@@ -283,19 +284,7 @@ export const usersController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
-      //@ts-ignore
-      if (!user.permissions.includes("users.list")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
+     
       let res: {
         [key: string]: UsersModel & {
           work_schedules: {
@@ -308,6 +297,7 @@ export const usersController = new Elysia({
           }[];
         };
       } = {};
+
       let selectFields: SelectedFields = {};
       if (fields) {
         fields = fields
@@ -365,6 +355,7 @@ export const usersController = new Elysia({
       };
     },
     {
+      permission: "users.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -397,19 +388,19 @@ export const usersController = new Elysia({
       set,
       drizzle,
     }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
+      // if (!user) {
+      //   set.status = 401;
+      //   return {
+      //     message: "User not found",
+      //   };
+      // }
       //@ts-ignore
-      if (!user.permissions.includes("users.one")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
+      // if (!user.permissions.includes("users.one")) {
+      //   set.status = 401;
+      //   return {
+      //     message: "You don't have permissions",
+      //   };
+      // }
       const { password, salt, ...usersFields } = getTableColumns(users);
       const permissionsRecord = await drizzle
         .select(usersFields)
@@ -421,6 +412,7 @@ export const usersController = new Elysia({
       };
     },
     {
+      permission: "users.one",
       params: t.Object({
         id: t.String(),
       }),
@@ -430,19 +422,19 @@ export const usersController = new Elysia({
     "/users",
     //@ts-ignore
     async ({ body: { data, fields }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
+      // if (!user) {
+      //   set.status = 401;
+      //   return {
+      //     message: "User not found",
+      //   };
+      // }
       //@ts-ignore
-      if (!user.permissions.includes("users.add")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
+      // if (!user.permissions.includes("users.add")) {
+      //   set.status = 401;
+      //   return {
+      //     message: "You don't have permissions",
+      //   };
+      // }
       if (data.password) {
         const { hash, salt } = await hashPassword(data.password);
         data.password = hash;
@@ -464,6 +456,7 @@ export const usersController = new Elysia({
       return result[0];
     },
     {
+      permission: "users.add",
       body: t.Object({
         data: createInsertSchema(users) as any,
         fields: t.Optional(t.Array(t.String())),
@@ -473,19 +466,19 @@ export const usersController = new Elysia({
   .put(
     "/users/:id",
     async ({ params: { id }, body: { data, fields }, user, set, drizzle }) => {
-      if (!user) {
-        set.status = 401;
-        return {
-          message: "User not found",
-        };
-      }
+      // if (!user) {
+      //   set.status = 401;
+      //   return {
+      //     message: "User not found",
+      //   };
+      // }
       //@ts-ignore
-      if (!user.permissions.includes("users.edit")) {
-        set.status = 401;
-        return {
-          message: "You don't have permissions",
-        };
-      }
+      // if (!user.permissions.includes("users.edit")) {
+      //   set.status = 401;
+      //   return {
+      //     message: "You don't have permissions",
+      //   };
+      // }
       let selectFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, users, {});
@@ -512,6 +505,7 @@ export const usersController = new Elysia({
       };
     },
     {
+      permission: "users.edit",
       params: t.Object({
         id: t.String(),
       }),
