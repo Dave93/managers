@@ -34,10 +34,10 @@ export default function CredentialsFormSheet({
   return (
     <Sheet onOpenChange={beforeOpen} open={open}>
       <SheetTrigger asChild>{children}</SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px]">
+      <SheetContent className="w-full sm:w-full max-w-3xl sm:max-w-3xl">
         <SheetHeader>
           <SheetTitle asChild>
-            <div className="flex justify-between mt-7 items-center">
+            <div className="flex justify-between my-7 items-center">
               <span>Credentials List</span>
               <CredentialsAddFormSheet recordId={recordId} model={model}>
                 <Button size="sm">
