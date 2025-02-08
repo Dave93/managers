@@ -8,15 +8,18 @@
   },
   "dependencies": {
     "@elysiajs/cron": "^0.6.0",
+    "dayjs": "^1.11.13",
     "drizzle-orm": "^0.33.0",
     "elysia": "latest",
     "ioredis": "^5.3.2",
     "node-cron": "^3.0.3",
+    "pg": "^8.13.1",
     "postgres": "^3.4.4",
     "xml2js": "^0.6.2",
     "zod": "3.21.1"
   },
   "devDependencies": {
+    "@types/bun": "^1.1.16",
     "@types/node-cron": "^3.0.11",
     "bun-types": "latest"
   },

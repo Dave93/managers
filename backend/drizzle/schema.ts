@@ -13,6 +13,9 @@ import {
   index,
   time,
   primaryKey,
+  pgView,
+  decimal,
+  pgMaterializedView
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -323,19 +326,6 @@ export const permissions = pgTable(
     };
   }
 );
-
-export const report_groups = pgTable("report_groups", {
-  id: uuid("id").defaultRandom().primaryKey().notNull(),
-  name: text("name").notNull(),
-  code: text("code").notNull(),
-  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
-    .defaultNow()
-    .notNull(),
-  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
-    .defaultNow()
-    .notNull(),
-  parent_id: uuid("parent_id"),
-});
 
 export const report_olap = pgTable("report_olap", {
   id: uuid("id").defaultRandom(),
@@ -722,7 +712,6 @@ export const roles_permissions = pgTable(
   }
 );
 
-
 export const internal_transfer = pgTable(
   "internal_transfer",
   {
@@ -806,7 +795,6 @@ export const reports_items = pgTable(
     type: report_item_type("type").notNull(),
     amount: integer("amount").default(0),
     source: varchar("source", { length: 255 }).notNull(),
-    group_id: uuid("group_id"),
     report_date: timestamp("report_date", {
       withTimezone: true,
       mode: "string",
@@ -911,3 +899,209 @@ export const nomenclatureElementToOrganization = relations(
     }),
   })
 );
+
+
+
+export const orders = pgTable('orders', {
+  id: uuid('id').notNull(),
+  cashRegisterName: varchar('cash_register_name', { length: 255 }),
+  cashRegisterNumber: numeric('cash_register_number'),
+  openTime: timestamp('open_time', { mode: 'string' }),
+  closeTime: timestamp('close_time', { mode: 'string' }),
+  deliveryActualTime: timestamp('delivery_actual_time', { mode: 'string' }),
+  deliveryBillTime: timestamp('delivery_bill_time', { mode: 'string' }),
+  deliveryCloseTime: timestamp('delivery_close_time', { mode: 'string' }),
+  deliveryCustomerPhone: varchar('delivery_customer_phone', { length: 255 }),
+  deliveryEmail: varchar('delivery_email', { length: 255 }),
+  deliveryId: varchar('delivery_id', { length: 255 }),
+  isDelivery: varchar('is_delivery', { length: 255 }),
+  deliveryNumber: varchar('delivery_number', { length: 255 }),
+  deliveryPhone: varchar('delivery_phone', { length: 255 }),
+  deliveryPrintTime: timestamp('delivery_print_time', { mode: 'string' }),
+  deliverySendTime: timestamp('delivery_send_time', { mode: 'string' }),
+  deliveryServiceType: varchar('delivery_service_type', { length: 255 }),
+  deliverySourceKey: varchar('delivery_source_key', { length: 255 }),
+  deliveryWayDuration: varchar('delivery_way_duration', { length: 255 }),
+  conception: varchar('conception', { length: 255 }),
+  dayOfWeekOpen: varchar('day_of_week_open', { length: 255 }),
+  deletedWithWriteoff: varchar('deleted_with_writeoff', { length: 255 }),
+  department: varchar('department', { length: 255 }),
+  departmentId: varchar('department_id', { length: 255 }),
+  discountPercent: numeric('discount_percent'),
+  discountSum: numeric('discount_sum'),
+  dishAmountInt: numeric('dish_amount_int'),
+  dishDiscountSumInt: numeric('dish_discount_sum_int'),
+  externalNumber: varchar('external_number', { length: 255 }),
+  fiscalChequeNumber: numeric('fiscal_cheque_number'),
+  hourClose: varchar('hour_close', { length: 255 }),
+  hourOpen: varchar('hour_open', { length: 255 }),
+  increasePercent: numeric('increase_percent'),
+  jurName: varchar('jur_name', { length: 255 }),
+  monthOpen: varchar('month_open', { length: 255 }),
+  openDateTyped: timestamp('open_date_typed', { mode: 'string' }).notNull(),
+  orderDeleted: varchar('order_deleted', { length: 255 }),
+  orderDiscountType: varchar('order_discount_type', { length: 255 }),
+  orderNum: numeric('order_num'),
+  orderServiceType: varchar('order_service_type', { length: 255 }),
+  orderType: varchar('order_type', { length: 255 }),
+  orderTypeId: varchar('order_type_id', { length: 255 }),
+  originName: varchar('origin_name', { length: 255 }),
+  payTypesCombo: varchar('pay_types_combo', { length: 255 }),
+  prechequeTime: timestamp('precheque_time', { mode: 'string' }),
+  priceCategory: varchar('price_category', { length: 255 }),
+  quarterOpen: varchar('quarter_open', { length: 255 }),
+  restaurantSectionId: uuid('restaurant_section_id'),
+  restaurantGroup: varchar('restaurant_group', { length: 255 }),
+  restaurantGroupId: uuid('restaurant_group_id'),
+  sessionNum: numeric('session_num'),
+  storeId: uuid('store_id'),
+  storeName: varchar('store_name', { length: 255 }),
+  storeTo: varchar('store_to', { length: 255 }),
+  tableNum: numeric('table_num'),
+  uniqOrderIdId: uuid('uniq_order_id_id'),
+  weekInMonthOpen: varchar('week_in_month_open', { length: 255 }),
+  weekInYearOpen: varchar('week_in_year_open', { length: 255 }),
+  yearOpen: varchar('year_open', { length: 255 }),
+  storned: varchar('storned', { length: 255 }),
+  dishType: varchar('dish_type', { length: 255 }),
+}, (table) => {
+  return {
+    orderPK: primaryKey({ columns: [table.id, table.openDateTyped] }),
+  };
+});
+
+
+
+
+
+export const orders_by_time = pgTable('orders_by_time', {
+  id: uuid('id').notNull(),
+  cashRegisterName: varchar('cash_register_name', { length: 255 }),
+  cashRegisterNumber: numeric('cash_register_number'),
+  openTime: timestamp('open_time', { mode: 'string' }).notNull(),
+  closeTime: timestamp('close_time', { mode: 'string' }),
+  deliveryActualTime: timestamp('delivery_actual_time', { mode: 'string' }),
+  deliveryBillTime: timestamp('delivery_bill_time', { mode: 'string' }),
+  deliveryCloseTime: timestamp('delivery_close_time', { mode: 'string' }),
+  deliveryCustomerPhone: varchar('delivery_customer_phone', { length: 255 }),
+  deliveryEmail: varchar('delivery_email', { length: 255 }),
+  deliveryId: varchar('delivery_id', { length: 255 }),
+  isDelivery: varchar('is_delivery', { length: 255 }),
+  deliveryNumber: varchar('delivery_number', { length: 255 }),
+  deliveryPhone: varchar('delivery_phone', { length: 255 }),
+  deliveryPrintTime: timestamp('delivery_print_time', { mode: 'string' }),
+  deliverySendTime: timestamp('delivery_send_time', { mode: 'string' }),
+  deliveryServiceType: varchar('delivery_service_type', { length: 255 }),
+  deliverySourceKey: varchar('delivery_source_key', { length: 255 }),
+  deliveryWayDuration: varchar('delivery_way_duration', { length: 255 }),
+  conception: varchar('conception', { length: 255 }),
+  dayOfWeekOpen: varchar('day_of_week_open', { length: 255 }),
+  deletedWithWriteoff: varchar('deleted_with_writeoff', { length: 255 }),
+  department: varchar('department', { length: 255 }),
+  departmentId: varchar('department_id', { length: 255 }),
+  discountPercent: numeric('discount_percent'),
+  discountSum: numeric('discount_sum'),
+  dishAmountInt: numeric('dish_amount_int'),
+  dishDiscountSumInt: numeric('dish_discount_sum_int'),
+  externalNumber: varchar('external_number', { length: 255 }),
+  fiscalChequeNumber: numeric('fiscal_cheque_number'),
+  hourClose: varchar('hour_close', { length: 255 }),
+  hourOpen: varchar('hour_open', { length: 255 }),
+  increasePercent: numeric('increase_percent'),
+  jurName: varchar('jur_name', { length: 255 }),
+  monthOpen: varchar('month_open', { length: 255 }),
+  openDateTyped: timestamp('open_date_typed', { mode: 'string' }).notNull(),
+  orderDeleted: varchar('order_deleted', { length: 255 }),
+  orderDiscountType: varchar('order_discount_type', { length: 255 }),
+  orderNum: numeric('order_num'),
+  orderServiceType: varchar('order_service_type', { length: 255 }),
+  orderType: varchar('order_type', { length: 255 }),
+  orderTypeId: varchar('order_type_id', { length: 255 }),
+  originName: varchar('origin_name', { length: 255 }),
+  payTypesCombo: varchar('pay_types_combo', { length: 255 }),
+  prechequeTime: timestamp('precheque_time', { mode: 'string' }),
+  priceCategory: varchar('price_category', { length: 255 }),
+  quarterOpen: varchar('quarter_open', { length: 255 }),
+  restaurantSectionId: uuid('restaurant_section_id'),
+  restaurantGroup: varchar('restaurant_group', { length: 255 }),
+  restaurantGroupId: uuid('restaurant_group_id'),
+  sessionNum: numeric('session_num'),
+  storeId: uuid('store_id'),
+  storeName: varchar('store_name', { length: 255 }),
+  storeTo: varchar('store_to', { length: 255 }),
+  tableNum: numeric('table_num'),
+  uniqOrderIdId: uuid('uniq_order_id_id'),
+  weekInMonthOpen: varchar('week_in_month_open', { length: 255 }),
+  weekInYearOpen: varchar('week_in_year_open', { length: 255 }),
+  yearOpen: varchar('year_open', { length: 255 }),
+  storned: varchar('storned', { length: 255 }),
+  dishType: varchar('dish_type', { length: 255 }),
+}, (table) => {
+  return {
+    orderByTimePK: primaryKey({ columns: [table.id, table.openTime] }),
+  };
+});
+
+export const ordersHourlyAggregation = pgMaterializedView("orders_hourly_aggregation", {
+  bucket: timestamp("bucket"),
+  restaurantGroupId: integer("restaurant_group_id"),
+  departmentId: integer("department_id"),
+  orderCount: integer("order_count"),
+  totalRevenue: decimal("total_revenue"),
+}).existing();
+
+export const revenueDailyAggregation = pgMaterializedView("revenue_daily_aggregation", {
+  bucket: timestamp("bucket"),
+  restaurantGroupId: integer("restaurant_group_id"),
+  departmentId: integer("department_id"),
+  orderCount: integer("order_count"),
+  totalRevenue: decimal("total_revenue"),
+}).existing();
+
+export const revenueMonthlyAggregation = pgMaterializedView("revenue_monthly_aggregation", {
+  bucket: timestamp("bucket"),
+  restaurantGroupId: integer("restaurant_group_id"),
+  departmentId: integer("department_id"),
+  orderCount: integer("order_count"),
+  totalRevenue: decimal("total_revenue"),
+}).existing();
+
+export const revenueWeeklyAggregation = pgMaterializedView("revenue_weekly_aggregation", {
+  bucket: timestamp("bucket"),
+  restaurantGroupId: integer("restaurant_group_id"),
+  departmentId: integer("department_id"),
+  orderCount: integer("order_count"),
+  totalRevenue: decimal("total_revenue"),
+}).existing();
+
+
+export const order_items = pgTable('order_items', {
+  id: uuid('id').notNull(),
+  uniqOrderId: uuid('uniq_order_id').notNull(),
+  dishId: uuid('dish_id'),
+  dishName: varchar('dish_name', { length: 255 }),
+  dishAmountInt: numeric('dish_amount_int'),
+  dishDiscountSumInt: numeric('dish_discount_sum_int'),
+  dishType: varchar('dish_type', { length: 255 }),
+  orderType: varchar('order_type', { length: 255 }),
+  orderTypeId: varchar('order_type_id', { length: 255 }),
+  openDateTyped: timestamp('open_date_typed', { mode: 'string' }).notNull(),
+  deliveryPhone: varchar('delivery_phone', { length: 255 }),
+  restaurantGroup: varchar('restaurant_group', { length: 255 }),
+  restaurantGroupId: uuid('restaurant_group_id'),
+  department: varchar('department', { length: 255 }),
+  departmentId: varchar('department_id', { length: 255 }),
+}, (table) => [
+  primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
+]);
+
+
+export const productDailyAggregation = pgMaterializedView("product_daily_aggregation", {
+  bucket: timestamp("bucket"),
+  restaurantGroupId: varchar("restaurant_group_id"),
+  departmentId: varchar("department_id"),
+  dishId: varchar("dish_id"),
+  dishName: varchar("dish_name", { length: 255 }),
+  dishDiscountSumInt: integer("dish_discount_sum_int"),
+  totalCount: integer("total_count"),
+}).existing();
