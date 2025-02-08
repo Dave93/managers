@@ -466,7 +466,7 @@ export default function UsersForm({
             offset: 0,
             containerPadding: 0,
           }}
-          renderValue={(items: SelectedItems<string>) => {
+          renderValue={() => {
             return (
               <div className="flex flex-wrap gap-2">
                 {changedTerminalId != "all" &&
