@@ -101,5 +101,8 @@
   },
   "devDependencies": {
     "@types/uuid": "^9.0.8"
-  }
+  },
+  "trustedDependencies": [
+    "@parcel/watcher"
+  ]
 }
