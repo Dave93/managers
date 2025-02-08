@@ -161,7 +161,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
-      permission: "invoices.incoming",
+      permission: "incoming_invoices.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -230,7 +230,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
-      permission: "invoices.outgoing",
+      permission: "outgoing_invoices.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -304,7 +304,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
-      permission: "invoices.incoming_with_items",
+      permission: "incoming_with_items.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -381,7 +381,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
-      permission: "invoices.franchise_incoming",
+      permission: "franchise_manager.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
@@ -461,7 +461,7 @@ export const invoicesController = new Elysia({
       };
     },
     {
-      permission: "invoices.refund",
+      permission: "refund_invoices.list",
       query: t.Object({
         limit: t.String(),
         offset: t.String(),

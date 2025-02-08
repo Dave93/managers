@@ -280,6 +280,7 @@ export const usersController = new Elysia({
           }[];
         };
       } = {};
+
       let selectFields: SelectedFields = {};
       if (fields) {
         fields = fields

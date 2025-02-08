@@ -25,7 +25,6 @@ export const ctx = new Elysia({
   .decorate("drizzle", drizzleDb)
   .decorate("cacheController", cacheControlService)
   .use(
-    // @ts-ignore
     cors({
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })

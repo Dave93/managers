@@ -16,6 +16,7 @@ export const credentialsColumns: ColumnDef<
     {
       accessorKey: "key",
       header: "Ключ",
+      size: 100,
     },
     {
       accessorKey: "type",
