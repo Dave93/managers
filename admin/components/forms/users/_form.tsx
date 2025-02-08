@@ -234,7 +234,7 @@ export default function UsersForm({
         userId = recordId;
       }
       assignTerminalMutation.mutate({
-        user_id: recordData?.id,
+        user_id: userId,
         terminal_id:
           changedTerminalId !== "all"
             ? Array.from(changedTerminalId).map((terminalId) =>
@@ -243,7 +243,7 @@ export default function UsersForm({
             : [],
       });
       return assignStoreMutation.mutate({
-        user_id: recordData?.id,
+        user_id: userId,
         corporation_store_id:
           changedStoreId !== "all"
             ? Array.from(changedStoreId).map((storeId) => storeId.toString())
@@ -429,17 +429,17 @@ export default function UsersForm({
                   offset: 0,
                   containerPadding: 0,
                 }}
-            >
-              {Array.isArray(rolesData) ? (
-                rolesData?.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
+              >
+                {Array.isArray(rolesData) ? (
+                  rolesData?.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem key="0" value="0">
+                    Загрузка...
                   </SelectItem>
-                ))
-              ) : (
-                <SelectItem key="0" value="0">
-                  Загрузка...
-                </SelectItem>
                 )}
               </Select>
             );

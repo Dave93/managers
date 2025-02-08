@@ -3,6 +3,7 @@ import { NavigationMenuDemo } from "@components/layout/main-nav";
 import { Search } from "lucide-react";
 import { UserNav } from "@components/layout/user-nav";
 import { ModeToggle } from "@components/layout/mode-toggle";
+import LanguageSwitcher from "@admin/components/ui/language-switcher";
 
 export default function AdminLayout({
   children,
@@ -16,6 +17,7 @@ export default function AdminLayout({
           <NavigationMenuDemo />
           <div className="ml-auto flex items-center space-x-4">
             <Search />
+            <LanguageSwitcher />
             <UserNav />
             <ModeToggle />
           </div>

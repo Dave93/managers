@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "title": "Бошқарма",
+    "description": "Бошқарма"
+  },
+  "charts": {
+    "all": "Барчаси",
+    "billion": "млрд",
+    "million": "млн",
+    "thousand": "минг",
+    "intervals": {
+      "1_day": "К",
+      "1_week": "Ҳ",
+      "1_month": "ОЙ"
+    },
+    "monday": "Д",
+    "tuesday": "С",
+    "wednesday": "Ч",
+    "thursday": "П",
+    "friday": "Ж",
+    "saturday": "Ш",
+    "sunday": "Я",
+    "time": "Вақт",
+    "dayOfTheWeek": "Куни",
+    "filters": {
+      "title": "Фильтр",
+      "thisWeek": "Бу ҳафта",
+      "thisMonth": "Бу ой",
+      "previousMonth": "Олдинги ой"
+    },
+    "RevenueChart": {
+      "title": "Тушум",
+      "totalRevenue": "Жами тушум",
+      "currentRevenue": "Ҳозирги тушум",
+      "previousRevenue": "Олдинги тушум",
+      "difference": "Фарқ"
+    },
+    "RevenueByBranches": {
+      "title": "Тушум булимлар бўйича",
+      "currentRevenue": "Ҳозирги тушум",
+      "previousRevenue": "Олдинги тушум",
+      "difference": "Фарқ"
+    },
+    "OrderCountChart": {
+      "title": "Буйуртмалар сони",
+      "totalOrderCount": "Жами буйуртмалар сони",
+      "currentOrderCount": "Ҳозирги буйуртмалар сони",
+      "previousOrderCount": "Олдинги буйуртмалар сони",
+      "difference": "Фарқ"
+    },
+    "OrderCountByBranches": {
+      "title": "Буйуртмалар сони булимлар бўйича",
+      "currentOrderCount": "Ҳозирги буйуртмалар сони",
+      "previousOrderCount": "Олдинги буйуртмалар сони",
+      "difference": "Фарқ"
+    },
+    "AverageCheckChart": {
+      "title": "Ўртача чек",
+      "currentAverageCheck": "Ҳозирги ўртача чек",
+      "previousAverageCheck": "Олдинги ўртача чек",
+      "difference": "Фарқ",
+      "averageCheck": "Ўртача чек"
+    },
+    "OrderHourlyHeatmapChart": {
+      "title": "Буйуртмалар сони вақт бўйича",
+      "averageOrderCount": "Ўртача буйуртмалар сони"
+    },
+    "OrderDistributionChart": {
+      "title": "Буйурмалар тақсимоти",
+      "current": "Ҳозирги",
+      "previous": "Олдинги",
+      "difference": "Фарқ",
+      "offline": "Офлайн",
+      "online": "Онлайн"
+    },
+    "OrderAmountHourlyHeatmapChart": {
+      "title": "Буйуртмалар суммаси вақт бўйича"
+    },
+    "PopularDishesChart": {
+      "title": "Ўртача буйуртмалар сони",
+      "countOfSales": "Буйуртмалар сони"
+    },
+    "PopularDishesByPrice": {
+      "title": "Toп 10 буйуртмалар",
+      "salesAmount": "Буйуртмалар суммаси"
+    }
+  }
+}

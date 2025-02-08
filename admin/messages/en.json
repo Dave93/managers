@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "title": "Office Portal",
+    "description": "Office Portal"
+  },
+  "charts": {
+    "all": "All",
+    "billion": "B",
+    "million": "M",
+    "thousand": "K",
+    "intervals": {
+      "1_day": "D",
+      "1_week": "W",
+      "1_month": "M"
+    },
+    "monday": "Mon",
+    "tuesday": "Tue",
+    "wednesday": "Wed",
+    "thursday": "Thu",
+    "friday": "Fri",
+    "saturday": "Sat",
+    "sunday": "Sun",
+    "time": "Time",
+    "dayOfTheWeek": "Day of the Week",
+    "filters": {
+      "title": "Dashboard Filters",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month",
+      "previousMonth": "Previous Month"
+    },
+    "RevenueChart": {
+      "title": "Revenue",
+      "totalRevenue": "Total Revenue",
+      "currentRevenue": "Current Revenue",
+      "previousRevenue": "Previous Revenue",
+      "difference": "Difference"
+    },
+    "RevenueByBranches": {
+      "title": "Revenue by Branches",
+      "currentRevenue": "Current Revenue",
+      "previousRevenue": "Previous Revenue",
+      "difference": "Difference"
+    },
+    "OrderCountChart": {
+      "title": "Order Count",
+      "totalOrderCount": "Total Order Count",
+      "currentOrderCount": "Current Order Count",
+      "previousOrderCount": "Previous Order Count",
+      "difference": "Difference"
+    },
+    "OrderCountByBranches": {
+      "title": "Order Count by Branches",
+      "currentOrderCount": "Current Order Count",
+      "previousOrderCount": "Previous Order Count",
+      "difference": "Difference"
+    },
+    "AverageCheckChart": {
+      "title": "Average Check",
+      "currentAverageCheck": "Current Average Check",
+      "previousAverageCheck": "Previous Average Check",
+      "difference": "Difference",
+      "averageCheck": "Average Check"
+    },
+    "OrderHourlyHeatmapChart": {
+      "title": "Average number of orders per hour",
+      "averageOrderCount": "Average Order Count"
+    },
+    "OrderDistributionChart": {
+      "title": "Order Distribution",
+      "current": "Current",
+      "previous": "Previous",
+      "difference": "Difference",
+      "offline": "Offline",
+      "online": "Online"
+    },
+    "OrderAmountHourlyHeatmapChart": {
+      "title": "Order Amount Distribution by Hours"
+    },
+    "PopularDishesChart": {
+      "title": "Top 10 by Sales",
+      "countOfSales": "Count of Sales"
+    },
+    "PopularDishesByPrice": {
+      "title": "Top 10 by Sales Amount",
+      "salesAmount": "Sales Amount"
+    }
+  }
+}
