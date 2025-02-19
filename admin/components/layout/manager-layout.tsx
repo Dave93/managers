@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import Back from "@admin/app/manager_reports/Back";
+import Back from "@admin/app/[locale]/manager_reports/Back";
 
 export default function ManagerLayout({
   children,
@@ -44,9 +44,9 @@ export default function ManagerLayout({
               className="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
             >
               <path
-                fill-rule="evenodd"
+                fillRule="evenodd"
                 d="M3 3.5A1.5 1.5 0 0 1 4.5 2h6.879a1.5 1.5 0 0 1 1.06.44l4.122 4.12A1.5 1.5 0 0 1 17 7.622V16.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 3 16.5v-13ZM13.25 9a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5a.75.75 0 0 1 .75-.75Zm-6.5 4a.75.75 0 0 1 .75.75v.5a.75.75 0 0 1-1.5 0v-.5a.75.75 0 0 1 .75-.75Zm4-1.25a.75.75 0 0 0-1.5 0v2.5a.75.75 0 0 0 1.5 0v-2.5Z"
-                clip-rule="evenodd"
+                clipRule="evenodd"
               />
             </svg>
 

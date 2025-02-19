@@ -83,6 +83,27 @@ export const terminalsController = new Elysia({
       }),
     }
   )
+  .get('/terminals/my_terminals', async ({ user, set, cacheController, error }) => {
+    if (!user) {
+      return error(401, "User not found");
+    }
+
+    if (!user.terminals) {
+      return {
+        data: [],
+      };
+    }
+
+    const cachedTerminals = await cacheController.getCachedTerminals({});
+    if (user.terminals.length) {
+      return {
+        data: cachedTerminals.filter(terminal => user.terminals.includes(terminal.id)),
+      };
+    }
+    return {
+      data: cachedTerminals,
+    };
+  })
   .get(
     "/terminals/cached",
     async ({ user, set, cacheController }) => {

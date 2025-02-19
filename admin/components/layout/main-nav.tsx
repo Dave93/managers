@@ -30,6 +30,7 @@ import {
 } from "@nextui-org/react";
 import CanAccess from "../can-access";
 import { ArrowDown, ChevronDown } from "lucide-react";
+import { useLocale } from "next-intl";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -69,6 +70,7 @@ const components: { title: string; href: string; description: string }[] = [
   },
 ];
 
+<<<<<<< HEAD
 const hrMenu: { title: string; href: string }[] = [
   {
     title: "Вакансии",
@@ -145,8 +147,71 @@ const storeMenu: { title: string; href: string }[] = [
     href: "/report_olap",
   },
 ];
+=======
+>>>>>>> origin/main
 
 export function NavigationMenuDemo() {
+  const locale = useLocale();
+
+
+  const settingsMenu: { title: string; href: string }[] = [
+    {
+      title: "Разрешения",
+      href: `/${locale}/system/permissions`,
+    },
+    {
+      title: "Роли",
+      href: `/${locale}/system/roles`,
+    },
+    {
+      title: "Пользователи",
+      href: `/${locale}/system/users`,
+    },
+    {
+      title: "Статус",
+      href: `/${locale}/system/reports_status`,
+    },
+    {
+      title: "Группы продуктов",
+      href: `/${locale}/system/product_groups`,
+    },
+  ];
+
+  const storeMenu: { title: string; href: string }[] = [
+    {
+      title: "Заказы",
+      href: `/${locale}/outgoing_invoices`,
+    },
+    {
+      title: "Приходная накладная (Таблица)",
+      href: `/${locale}/incoming_invoices`,
+    },
+    {
+      title: "Приходная накладная (Детально)",
+      href: `/${locale}/incoming_with_items`,
+    },
+    {
+      title: "Возврат товаров",
+      href: `/${locale}/refund_invoices`,
+    },
+    {
+      title: "Внутреннее перемещение (Приход)",
+      href: `/${locale}/internal_transfer`,
+    },
+    {
+      title: "Внутреннее перемещение (Расход)",
+      href: `/${locale}/expenses_transfer`,
+    },
+    {
+      title: "Акт Списания",
+      href: `/${locale}/writeoff_items`,
+    },
+    {
+      title: "Акт Реализации",
+      href: `/${locale}/report_olap`,
+    },
+  ];
+
   return (
     <NavigationMenu>
       <NavigationMenuList>
@@ -182,7 +247,7 @@ export function NavigationMenuDemo() {
         </NavigationMenuItem>
         <CanAccess permission="organizations.list">
           <NavigationMenuItem>
-            <Link href="/organization/organizations" legacyBehavior passHref>
+            <Link href={`/${locale}/organization/organizations`} legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                 Организации
               </NavigationMenuLink>
@@ -191,7 +256,7 @@ export function NavigationMenuDemo() {
         </CanAccess>
         <CanAccess permission="terminals.list">
           <NavigationMenuItem>
-            <Link href="/organization/terminals" legacyBehavior passHref>
+            <Link href={`/${locale}/organization/terminals`} legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                 Филиалы
               </NavigationMenuLink>
@@ -200,7 +265,7 @@ export function NavigationMenuDemo() {
         </CanAccess>
         <CanAccess permission="reports.list">
           <NavigationMenuItem>
-            <Link href="/admin/reports" legacyBehavior passHref>
+            <Link href={`/${locale}/admin/reports`} legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                 Кассы
               </NavigationMenuLink>
@@ -209,7 +274,7 @@ export function NavigationMenuDemo() {
         </CanAccess>
         <CanAccess permission="stoplist.list">
           <NavigationMenuItem>
-            <Link href="/admin/stoplist" legacyBehavior passHref>
+            <Link href={`/${locale}/admin/stoplist`} legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                 Стоп-лист
               </NavigationMenuLink>
@@ -218,9 +283,18 @@ export function NavigationMenuDemo() {
         </CanAccess>
         <CanAccess permission="settings.list">
           <NavigationMenuItem>
-            <Link href="/settings" legacyBehavior passHref>
+            <Link href={`/${locale}/settings`} legacyBehavior passHref>
               <NavigationMenuLink className={navigationMenuTriggerStyle()}>
                 Конфиги
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
+        <CanAccess permission="charts.list">
+          <NavigationMenuItem>
+            <Link href={`/${locale}/dashboard`} legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Дашборд
               </NavigationMenuLink>
             </Link>
           </NavigationMenuItem>

@@ -1,8 +1,5 @@
 import Elysia, { error, t } from "elysia";
-import {
-  users,
-  users_terminals,
-} from "@backend/../drizzle/schema";
+import { users, users_terminals } from "@backend/../drizzle/schema";
 import { createHash, createHmac } from "crypto";
 import {
   InferSelectModel,
@@ -54,18 +51,18 @@ export const usersController = new Elysia({
       drizzle,
       cookie: { sessionId, refreshToken },
     }) => {
-      const userPasswordByLogin = drizzle
-        .select({
-          password: users.password,
-          salt: users.salt,
-          status: users.status,
-          id: users.id,
-        })
-        .from(users)
-        .where(eq(users.login, sql.placeholder("login")))
-        .prepare("userPasswordByLogin");
-
-      const userPasswords = (await userPasswordByLogin.execute({ login }))[0];
+      const userPasswords = (
+        await drizzle
+          .select({
+            password: users.password,
+            salt: users.salt,
+            status: users.status,
+            id: users.id,
+          })
+          .from(users)
+          .where(eq(users.login, login))
+          .execute()
+      )[0];
       if (!userPasswords) {
         set.status = 401;
         return {
@@ -124,7 +121,7 @@ export const usersController = new Elysia({
       }),
     }
   )
-  
+
   .post(
     "/users/refresh_token",
     async ({ body: { refreshToken }, set, cacheController, drizzle }) => {
@@ -142,13 +139,13 @@ export const usersController = new Elysia({
           message: "Invalid token",
         };
       }
-
-      const userById = drizzle
-        .select(userDataFields)
-        .from(users)
-        .where(eq(users.id, sql.placeholder("id")))
-        .prepare("userById");
-      const user = (await userById.execute({ id: jwtResult.payload.id }))[0];
+      const user = (
+        await drizzle
+          .select(userDataFields)
+          .from(users)
+          .where(eq(users.id, jwtResult.payload.id as string))
+          .execute()
+      )[0];
 
       if (!user) {
         set.status = 401;
@@ -239,19 +236,6 @@ export const usersController = new Elysia({
   .post(
     "/users/assign_terminal",
     async ({ body: { user_id, terminal_id }, user, set, drizzle }) => {
-      // if (!user) {
-      //   set.status = 401;
-      //   return {
-      //     message: "User not found",
-      //   };
-      // }
-      // //@ts-ignore
-      // if (!user.permissions.includes("users.edit")) {
-      //   set.status = 401;
-      //   return {
-      //     message: "You don't have permissions",
-      //   };
-      // }
 
       await drizzle
         .delete(users_terminals)
@@ -269,7 +253,7 @@ export const usersController = new Elysia({
       };
     },
     {
-      permission: "users.edit",
+      permission: "users.add",
       body: t.Object({
         user_id: t.String(),
         terminal_id: t.Array(t.String()),
@@ -284,7 +268,6 @@ export const usersController = new Elysia({
       set,
       drizzle,
     }) => {
-     
       let res: {
         [key: string]: UsersModel & {
           work_schedules: {
@@ -387,20 +370,8 @@ export const usersController = new Elysia({
       user,
       set,
       drizzle,
+      cacheController,
     }) => {
-      // if (!user) {
-      //   set.status = 401;
-      //   return {
-      //     message: "User not found",
-      //   };
-      // }
-      //@ts-ignore
-      // if (!user.permissions.includes("users.one")) {
-      //   set.status = 401;
-      //   return {
-      //     message: "You don't have permissions",
-      //   };
-      // }
       const { password, salt, ...usersFields } = getTableColumns(users);
       const permissionsRecord = await drizzle
         .select(usersFields)
@@ -429,20 +400,7 @@ export const usersController = new Elysia({
   .post(
     "/users",
     //@ts-ignore
-    async ({ body: { data, fields }, user, set, drizzle }) => {
-      // if (!user) {
-      //   set.status = 401;
-      //   return {
-      //     message: "User not found",
-      //   };
-      // }
-      //@ts-ignore
-      // if (!user.permissions.includes("users.add")) {
-      //   set.status = 401;
-      //   return {
-      //     message: "You don't have permissions",
-      //   };
-      // }
+    async ({ body: { data, fields }, user, set, drizzle, cacheController }) => {
       if (data.password) {
         const { hash, salt } = await hashPassword(data.password);
         data.password = hash;
@@ -461,6 +419,8 @@ export const usersController = new Elysia({
         .values(data)
         .returning(selectFields);
 
+      await cacheController.cacheUsersTerminalsByUserId();
+
       return result[0];
     },
     {
@@ -473,20 +433,14 @@ export const usersController = new Elysia({
   )
   .put(
     "/users/:id",
-    async ({ params: { id }, body: { data, fields }, user, set, drizzle }) => {
-      // if (!user) {
-      //   set.status = 401;
-      //   return {
-      //     message: "User not found",
-      //   };
-      // }
-      //@ts-ignore
-      // if (!user.permissions.includes("users.edit")) {
-      //   set.status = 401;
-      //   return {
-      //     message: "You don't have permissions",
-      //   };
-      // }
+    async ({
+      params: { id },
+      body: { data, fields },
+      user,
+      set,
+      drizzle,
+      cacheController,
+    }) => {
       let selectFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, users, {});
@@ -507,6 +461,8 @@ export const usersController = new Elysia({
         .set(data)
         .where(eq(users.id, id))
         .returning(selectFields);
+
+      await cacheController.cacheUsersTerminalsByUserId();
 
       return {
         data: result[0],

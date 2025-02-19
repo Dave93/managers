@@ -1,0 +1,88 @@
+{
+  "metadata": {
+    "title": "Boshqarma",
+    "description": "Boshqarma"
+  },
+  "charts": {
+    "all": "Barchasi",
+    "billion": "mlrd",
+    "million": "mln",
+    "thousand": "ming",
+    "intervals": {
+      "1_day": "K",
+      "1_week": "H",
+      "1_month": "OY"
+    },
+    "monday": "D",
+    "tuesday": "S",
+    "wednesday": "Ch",
+    "thursday": "P",
+    "friday": "J",
+    "saturday": "Sh",
+    "sunday": "Ya",
+    "time": "Vaqt",
+    "dayOfTheWeek": "Kuni",
+    "filters": {
+      "title": "Filtr",
+      "thisWeek": "Bu hafta",
+      "thisMonth": "Bu oy",
+      "previousMonth": "Oldingi oy"
+    },
+    "RevenueChart": {
+      "title": "Tushum",
+      "totalRevenue": "Jami tushum",
+      "currentRevenue": "Hozirgi tushum",
+      "previousRevenue": "Oldingi tushum",
+      "difference": "Farq"
+    },
+    "RevenueByBranches": {
+      "title": "Tushum bo'limlar bo'yicha",
+      "currentRevenue": "Hozirgi tushum",
+      "previousRevenue": "Oldingi tushum",
+      "difference": "Farq"
+    },
+    "OrderCountChart": {
+      "title": "Buyurtmalar soni",
+      "totalOrderCount": "Jami buyurtmalar soni",
+      "currentOrderCount": "Hozirgi buyurtmalar soni",
+      "previousOrderCount": "Oldingi buyurtmalar soni",
+      "difference": "Farq"
+    },
+    "OrderCountByBranches": {
+      "title": "Buyurtmalar soni bo'limlar bo'yicha",
+      "currentOrderCount": "Hozirgi buyurtmalar soni",
+      "previousOrderCount": "Oldingi buyurtmalar soni",
+      "difference": "Farq"
+    },
+    "AverageCheckChart": {
+      "title": "O'rtacha chek",
+      "currentAverageCheck": "Hozirgi o'rtacha chek",
+      "previousAverageCheck": "Oldingi o'rtacha chek",
+      "difference": "Farq",
+      "averageCheck": "O'rtacha chek"
+    },
+    "OrderHourlyHeatmapChart": {
+      "title": "Buyurtmalar soni vaqt bo'yicha",
+      "averageOrderCount": "O'rtacha buyurtmalar soni"
+    },
+    "OrderDistributionChart": {
+      "title": "Buyurtmalar taqsimoti",
+      "current": "Hozirgi",
+      "previous": "Oldingi",
+      "difference": "Farq",
+      "offline": "Ofline",
+      "online": "Online"
+    },
+    "OrderAmountHourlyHeatmapChart": {
+      "title": "Buyurtmalar summasi vaqt bo'yicha"
+    },
+    "PopularDishesChart": {
+      "title": "O'rtacha buyurtmalar soni",
+      "countOfSales": "Buyurtmalar soni"
+    },
+    "PopularDishesByPrice": {
+      "title": "Top 10 buyurtmalar",
+      "salesAmount": "Buyurtmalar summasi"
+    }
+  }
+}

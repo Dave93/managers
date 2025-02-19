@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "title": "Панель управления",
+    "description": "Панель управления"
+  },
+  "charts": {
+    "all": "Все",
+    "billion": "млрд",
+    "million": "млн",
+    "thousand": "тыс",
+    "intervals": {
+      "1_day": "Д",
+      "1_week": "Н",
+      "1_month": "М"
+    },
+    "monday": "Пн",
+    "tuesday": "Вт",
+    "wednesday": "Ср",
+    "thursday": "Чт",
+    "friday": "Пт",
+    "saturday": "Сб",
+    "sunday": "Вс",
+    "time": "Время",
+    "dayOfTheWeek": "День недели",
+    "filters": {
+      "title": "Фильтр",
+      "thisWeek": "Эта неделя",
+      "thisMonth": "Этот месяц",
+      "previousMonth": "Предыдущий месяц"
+    },
+    "RevenueChart": {
+      "title": "Доход",
+      "totalRevenue": "Общий доход",
+      "currentRevenue": "Текущий доход",
+      "previousRevenue": "Предыдущий доход",
+      "difference": "Разница"
+    },
+    "RevenueByBranches": {
+      "title": "Доход по подразделениям",
+      "currentRevenue": "Текущий доход",
+      "previousRevenue": "Предыдущий доход",
+      "difference": "Разница"
+    },
+    "OrderCountChart": {
+      "title": "Количество заказов",
+      "totalOrderCount": "Общий количество заказов",
+      "currentOrderCount": "Текущее количество заказов",
+      "previousOrderCount": "Предыдущее количество заказов",
+      "difference": "Разница"
+    },
+    "OrderCountByBranches": {
+      "title": "Количество заказов по подразделениям",
+      "currentOrderCount": "Текущее количество заказов",
+      "previousOrderCount": "Предыдущее количество заказов",
+      "difference": "Разница"
+    },
+    "AverageCheckChart": {
+      "title": "Средний чек",
+      "currentAverageCheck": "Текущий средний чек",
+      "previousAverageCheck": "Предыдущий средний чек",
+      "difference": "Разница",
+      "averageCheck": "Средний чек"
+    },
+    "OrderHourlyHeatmapChart": {
+      "title": "Среднее количество заказов в час",
+      "averageOrderCount": "Среднее количество заказов"
+    },
+    "OrderDistributionChart": {
+      "title": "Распределение заказов",
+      "current": "Текущее",
+      "previous": "Предыдущее",
+      "difference": "Разница",
+      "offline": "Офлайн",
+      "online": "Онлайн"
+    },
+    "OrderAmountHourlyHeatmapChart": {
+      "title": "Распределение суммы заказов по часам"
+    },
+    "PopularDishesChart": {
+      "title": "Top 10 по продажам",
+      "countOfSales": "Количество продаж"
+    },
+    "PopularDishesByPrice": {
+      "title": "Top 10 по продажам",
+      "salesAmount": "Сумма продаж"
+    }
+  },
+  "filters": {
+    "pickDate": "Выберите дату"
+  }
+}

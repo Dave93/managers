@@ -1,12 +1,7 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import {
-  report_groups,
-  reports,
-  reports_items,
-  reports_status,
-} from "backend/drizzle/schema";
+import { reports, reports_items, reports_status } from "backend/drizzle/schema";
 import { sql, and, SQLWrapper, eq, desc } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
@@ -27,7 +22,6 @@ export const reportsItemsController = new Elysia({
       let selectFields: SelectedFields = {};
       if (fields) {
         selectFields = parseSelectFields(fields, reports_items, {
-          report_groups,
           reports,
           reports_status,
         });
@@ -35,7 +29,6 @@ export const reportsItemsController = new Elysia({
       let whereClause: (SQLWrapper | undefined)[] = [];
       if (filters) {
         whereClause = parseFilterFields(filters, reports_items, {
-          report_groups,
           reports,
           reports_status,
         });
@@ -49,7 +42,6 @@ export const reportsItemsController = new Elysia({
         .select(selectFields)
         .from(reports_items)
         .where(and(...whereClause))
-        .leftJoin(report_groups, eq(reports_items.group_id, report_groups.id))
         .leftJoin(reports, eq(reports_items.report_id, reports.id))
         .leftJoin(reports_status, eq(reports.status_id, reports_status.id))
         .limit(+limit)

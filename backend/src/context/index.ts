@@ -31,7 +31,6 @@ export const ctx = new Elysia({
   )
   .derive(async ({ redis, cookie: { sessionId } }) => {
     const sessionIdValue = sessionId.value;
-    console.log('sessionIdValue', sessionIdValue)
     if (!sessionIdValue) {
       return {
         user: null,
@@ -45,14 +44,14 @@ export const ctx = new Elysia({
       return {
         user: cachedUser
           ? (JSON.parse(cachedUser) as {
-              permissions: any;
-              user: typeof users.$inferSelect;
-              role: {
-                id: string;
-                name: string;
-                code: string;
-              };
-            })
+            user: typeof users.$inferSelect;
+            role: {
+              id: string;
+              name: string;
+              code: string;
+            };
+            terminals: string[];
+          })
           : null,
       };
     } catch (error) {
@@ -131,6 +130,7 @@ export const ctx = new Elysia({
               name: string;
               code: string;
             };
+            terminals: string[];
           };
           const permissions = await cacheController.getPermissionsByRoleId(
             role.id

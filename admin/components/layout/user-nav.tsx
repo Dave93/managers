@@ -49,7 +49,9 @@ export function UserNav() {
           <DropdownMenuItem>New Team</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => signOut({
+          callbackUrl: '/login'
+        })}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

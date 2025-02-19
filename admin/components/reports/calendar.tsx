@@ -9,6 +9,7 @@ import { reports_status } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useLocale } from "next-intl";
 
 export function CalendarReport({
   terminalId,
@@ -19,6 +20,7 @@ export function CalendarReport({
 }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const router = useRouter();
+  const locale = useLocale();
 
   const { data: reportsByDate, isLoading: isReportsByDateLoading } = useQuery({
     queryKey: [
@@ -97,7 +99,7 @@ export function CalendarReport({
       mode="single"
       selected={date}
       onSelect={(day, selectedDay) => {
-        router.push(`/reports/${terminalId}/${dayjs(selectedDay).unix()}`);
+        router.push(`/${locale}/reports/${terminalId}/${dayjs(selectedDay).unix()}`);
       }}
       onMonthChange={(month) => {
         setDate(month);

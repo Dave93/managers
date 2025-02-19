@@ -234,7 +234,7 @@ export default function UsersForm({
         userId = recordId;
       }
       assignTerminalMutation.mutate({
-        user_id: recordData?.id,
+        user_id: userId,
         terminal_id:
           changedTerminalId !== "all"
             ? Array.from(changedTerminalId).map((terminalId) =>
@@ -243,7 +243,7 @@ export default function UsersForm({
             : [],
       });
       return assignStoreMutation.mutate({
-        user_id: recordData?.id,
+        user_id: userId,
         corporation_store_id:
           changedStoreId !== "all"
             ? Array.from(changedStoreId).map((storeId) => storeId.toString())
@@ -466,7 +466,7 @@ export default function UsersForm({
             offset: 0,
             containerPadding: 0,
           }}
-          renderValue={(items: SelectedItems<string>) => {
+          renderValue={() => {
             return (
               <div className="flex flex-wrap gap-2">
                 {changedTerminalId != "all" &&
@@ -504,7 +504,7 @@ export default function UsersForm({
             offset: 0,
             containerPadding: 0,
           }}
-          renderValue={(items: SelectedItems<string>) => {
+          renderValue={() => {
             return (
               <div className="flex flex-wrap gap-2">
                 {changedStoreId != "all" &&
