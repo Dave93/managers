@@ -429,17 +429,17 @@ export default function UsersForm({
                   offset: 0,
                   containerPadding: 0,
                 }}
-            >
-              {Array.isArray(rolesData) ? (
-                rolesData?.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.name}
+              >
+                {Array.isArray(rolesData) ? (
+                  rolesData?.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem key="0" value="0">
+                    Загрузка...
                   </SelectItem>
-                ))
-              ) : (
-                <SelectItem key="0" value="0">
-                  Загрузка...
-                </SelectItem>
                 )}
               </Select>
             );
