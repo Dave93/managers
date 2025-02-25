@@ -900,8 +900,6 @@ export const nomenclatureElementToOrganization = relations(
   })
 );
 
-
-
 export const orders = pgTable('orders', {
   id: uuid('id').notNull(),
   cashRegisterName: varchar('cash_register_name', { length: 255 }),
@@ -969,10 +967,6 @@ export const orders = pgTable('orders', {
     orderPK: primaryKey({ columns: [table.id, table.openDateTyped] }),
   };
 });
-
-
-
-
 
 export const orders_by_time = pgTable('orders_by_time', {
   id: uuid('id').notNull(),
@@ -1074,7 +1068,6 @@ export const revenueWeeklyAggregation = pgMaterializedView("revenue_weekly_aggre
   totalRevenue: decimal("total_revenue"),
 }).existing();
 
-
 export const order_items = pgTable('order_items', {
   id: uuid('id').notNull(),
   uniqOrderId: uuid('uniq_order_id').notNull(),
@@ -1095,7 +1088,6 @@ export const order_items = pgTable('order_items', {
   primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
 ]);
 
-
 export const productDailyAggregation = pgMaterializedView("product_daily_aggregation", {
   bucket: timestamp("bucket"),
   restaurantGroupId: varchar("restaurant_group_id"),
@@ -1105,3 +1097,21 @@ export const productDailyAggregation = pgMaterializedView("product_daily_aggrega
   dishDiscountSumInt: integer("dish_discount_sum_int"),
   totalCount: integer("total_count"),
 }).existing();
+
+export const productCookingTime = pgTable('product_cooking_time', {
+  id: uuid('id').defaultRandom().notNull(),
+  uniqOrderId: uuid('uniq_order_id').notNull(),
+  restorauntGroup: varchar('restoraunt_group', { length: 255 }).notNull(),
+  cookingPlace: varchar('cooking_place', { length: 255 }).notNull(),
+  // orderType: varchar('order_type', { length: 255 }).notNull(),
+  dishName: varchar('dish_name', { length: 255 }).notNull(),
+  openTime: timestamp('open_time', { mode: 'string' }).notNull(),
+  cookingFinishTime: timestamp('cooking_finish_time', { mode: 'string' }),
+  dishAmountInt: integer('dish_amount_int').notNull(),
+  guestWaitTimeAvg: integer('guest_wait_time_avg').notNull(),
+  openDateTyped: timestamp('open_date_typed', { mode: 'string' }).notNull(),
+  departmentId: varchar('department_id', { length: 255 }).notNull(),
+  department: varchar('department', { length: 255 }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
+]);

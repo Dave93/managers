@@ -238,7 +238,6 @@ export class CacheControlService {
     }
 
     const roles = await this.getCachedRoles({});
-    console.log("roles", roles);
     const role = roles.find((role) => role.id === roleId);
     if (!role) {
       return [];
