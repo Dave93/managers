@@ -70,6 +70,85 @@ const components: { title: string; href: string; description: string }[] = [
   },
 ];
 
+<<<<<<< HEAD
+const hrMenu: { title: string; href: string }[] = [
+  {
+    title: "Вакансии",
+    href: "/hr/vacancy"
+  },
+  {
+    title: "Должность",
+    href: "/hr/position"
+  },
+  {
+    title: "График Работ",
+    href: "/hr/schedule"
+  },
+  {
+    title: "Анкета",
+    href: "/hr/candidates"
+  }
+]
+
+const settingsMenu: { title: string; href: string }[] = [
+  {
+    title: "Разрешения",
+    href: "/system/permissions",
+  },
+  {
+    title: "Роли",
+    href: "/system/roles",
+  },
+  {
+    title: "Пользователи",
+    href: "/system/users",
+  },
+  {
+    title: "Статус",
+    href: "/system/reports_status",
+  },
+  {
+    title: "Группы продуктов",
+    href: "/system/product_groups",
+  },
+];
+
+const storeMenu: { title: string; href: string }[] = [
+  {
+    title: "Заказы",
+    href: "/outgoing_invoices",
+  },
+  {
+    title: "Приходная накладная (Таблица)",
+    href: "/incoming_invoices",
+  },
+  {
+    title: "Приходная накладная (Детально)",
+    href: "/incoming_with_items",
+  },
+  {
+    title: "Возврат товаров",
+    href: "/refund_invoices",
+  },
+  {
+    title: "Внутреннее перемещение (Приход)",
+    href: "/internal_transfer",
+  },
+  {
+    title: "Внутреннее перемещение (Расход)",
+    href: "/expenses_transfer",
+  },
+  {
+    title: "Акт Списания",
+    href: "/writeoff_items",
+  },
+  {
+    title: "Акт Реализации",
+    href: "/report_olap",
+  },
+];
+=======
+>>>>>>> origin/main
 
 export function NavigationMenuDemo() {
   const locale = useLocale();
@@ -239,6 +318,35 @@ export function NavigationMenuDemo() {
                 }}
               >
                 {storeMenu.map((component) => (
+                  <DropdownItem
+                    key={component.title}
+                    title={component.title}
+                    href={component.href}
+                  />
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </Navbar>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <Navbar>
+            <Dropdown>
+              <NavbarItem className="cursor-pointer">
+                <DropdownTrigger>
+                  <div className="flex items-center">
+                    HR
+                    <ChevronDown className="ml-2" size={18} />
+                  </div>
+                </DropdownTrigger>
+              </NavbarItem>
+              <DropdownMenu
+                aria-label="ACME features"
+                className="w-[340px]"
+                itemClasses={{
+                  base: "gap-4",
+                }}
+              >
+                {hrMenu.map((component) => (
                   <DropdownItem
                     key={component.title}
                     title={component.title}

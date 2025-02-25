@@ -61,7 +61,7 @@ export const organizationController = new Elysia({
       return rolesList;
     },
     {
-      permission: "organizations.cached",
+      permission: "organizations.list",
     }
   )
   .get(

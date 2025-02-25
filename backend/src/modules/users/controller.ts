@@ -389,6 +389,14 @@ export const usersController = new Elysia({
       }),
     }
   )
+
+  .get("/users/cached", async ({ query: { limit, offset, sort, filters, fields }, user, set, drizzle, cacheController }) => {
+    const usersList = await cacheController.getCachedUsers({});
+    return usersList;
+  },
+  {
+    permission: "users.list",
+  })
   .post(
     "/users",
     //@ts-ignore
