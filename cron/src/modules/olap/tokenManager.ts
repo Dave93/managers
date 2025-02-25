@@ -11,7 +11,7 @@ class TokenManager {
     private constructor() {
         const client = new Redis({
             port: 6379,
-            host: "127.0.0.1",
+            host: process.env.REDIS_HOST,
             retryStrategy(times) {
                 const delay = Math.min(times * 50, 2000);
                 return delay;

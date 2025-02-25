@@ -83,6 +83,22 @@
     "PopularDishesByPrice": {
       "title": "Top 10 по продажам",
       "salesAmount": "Сумма продаж"
+    },
+    "ProductCookingTime": {
+      "title": "Время приготовления блюд",
+      "dishName": "Название блюда",
+      "searchPlaceholder": "Поиск блюд...",
+      "openFullTable": "Открыть полное таблицу",
+      "hideHeatmap": "Скрыть гистограмму",
+      "showHeatmap": "Показать гистограмму",
+      "exportCSV": "Экспортировать в CSV",
+      "perDishHeatmap": "Тепловая карта по блюдам",
+      "globalHeatmap": "Общая тепловая карта",
+      "total": "Всего",
+      "loading": "Загрузка блюд...",
+      "scrollToLoadMore": "Прокрутите для загрузки дополнительных блюд",
+      "noResults": "Не найдено блюд, соответствующих вашему запросу",
+      "sortHint": "Нажмите на заголовки столбцов для сортировки"
     }
   },
   "filters": {

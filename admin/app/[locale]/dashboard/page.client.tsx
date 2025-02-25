@@ -24,7 +24,7 @@ import OrderDistributionChart from "./OrderDistributionChart";
 import OrderAmountHourlyHeatmapChart from "./OrderAmountHourlyHeatmapChart";
 import PopularDishesChart from "./PopularDishesChart";
 import PopularDishesByPrice from "./PopularDishesByPrice";
-
+import ProductCookingTime from "./ProductCookingTime";
 
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -76,6 +76,9 @@ export default function ChartsPageClient() {
             </ChartWrapper>
             <ChartWrapper className="col-span-2">
                 <PopularDishesByPrice />
+            </ChartWrapper>
+            <ChartWrapper className="col-span-2">
+                <ProductCookingTime />
             </ChartWrapper>
         </>
     )
