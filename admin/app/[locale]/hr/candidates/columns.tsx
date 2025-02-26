@@ -9,19 +9,19 @@ import { CandidateSheet } from "@admin/components/forms/candidate/sheet";
 export const candidateColumns: ColumnDef<typeof candidates.$inferSelect>[] = [
     {
         accessorKey: "fullName",
-        header: "FIO",
+        header: "FIO1",
     },
     {
         accessorKey: "phoneNumber",
         header: "номер телефона",
     },
     {
-        accessorKey: "requirements",
-        header: "Требования",
+        accessorKey: "source",
+        header: "откуда узнали",
     },
     {
         accessorKey: "vacancyId",
-        header: "",
+        header: "вакансия",
     },
     {
         id: "actions",

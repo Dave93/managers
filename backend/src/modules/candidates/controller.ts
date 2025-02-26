@@ -1,14 +1,49 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { candidates, vacancy } from "backend/drizzle/schema";
+import { candidates, education, vacancy } from "backend/drizzle/schema";
 import { and, eq, InferSelectModel, sql, SQLWrapper } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 
 type CandidateInsert = typeof candidates.$inferInsert;
+type EducationInsert = typeof education.$inferInsert;
 type ErrorResponse = { message: string; stack?: string };
 type ResultStatus = "positive" | "negative" | "neutral" | null;
+
+interface EducationEntry {
+    dateStart: string;
+    dateEnd: string;
+    educationType: string;
+    university: string;
+    speciality: string;
+}
+
+interface CandidateBody {
+    vacancyId: string;
+    fullName: string;
+    birthDate: string;
+    phoneNumber: string;
+    email?: string;
+    citizenship?: string;
+    residence?: string;
+    passportNumber?: string;
+    passportSeries?: string;
+    passportIdDate?: string;
+    passportIdPlace?: string;
+    source?: string;
+    familyStatus?: string;
+    children?: number;
+    language?: string;
+    desiredSalary?: string;
+    desiredSchedule?: string;
+    purpose?: string;
+    strengthsShortage?: string;
+    relatives?: string;
+    desiredPosition?: string;
+    resultStatus?: ResultStatus;
+    educations?: EducationEntry[];
+}
 
 export const candidatesController = new Elysia({
     name: "@api/candidates",
@@ -20,6 +55,7 @@ export const candidatesController = new Elysia({
                 id: candidates.id,
                 vacancyId: candidates.vacancyId,
                 fullName: candidates.fullName,
+                birthDate: candidates.birthDate,
                 phoneNumber: candidates.phoneNumber,
                 email: candidates.email,
                 citizenship: candidates.citizenship,
@@ -85,6 +121,7 @@ export const candidatesController = new Elysia({
             };
         }
     }, {
+        permission: "candidates.list",
         query: t.Object({
             limit: t.Optional(t.String()),
             offset: t.Optional(t.String()),
@@ -96,29 +133,137 @@ export const candidatesController = new Elysia({
 
     .post("/candidates", async ({ body, user, set, drizzle, cacheController }) => {
         try {
-            const candidateData: CandidateInsert = {
-                ...body,
-                desiredSalary: body.desiredSalary ? Number(body.desiredSalary) : null,
-                resultStatus: (body.resultStatus as ResultStatus) || null,
-                createdAt: new Date(),
-                updatedAt: new Date(),
-            };
-            
-            const candidate = await drizzle
-                .insert(candidates)
-                .values(candidateData)
-                .execute();
-            
+            // Validate request body
+            if (!body || typeof body !== 'object') {
+                set.status = 400;
+                return {
+                    error: 'Invalid request body',
+                    message: 'Request body must be an object'
+                };
+            }
+
+            const candidateBody = body as CandidateBody;
+
+            // Validate required fields
+            if (!candidateBody.vacancyId) {
+                set.status = 400;
+                return {
+                    error: 'Missing required field',
+                    message: 'vacancyId is required'
+                };
+            }
+
+            if (!candidateBody.fullName) {
+                set.status = 400;
+                return {
+                    error: 'Missing required field',
+                    message: 'fullName is required'
+                };
+            }
+
+            if (!candidateBody.phoneNumber) {
+                set.status = 400;
+                return {
+                    error: 'Missing required field',
+                    message: 'phoneNumber is required'
+                };
+            }
+
+            console.log('Starting candidate creation with data:', candidateBody);
+            console.log('Education data received:', candidateBody.educations);
+
+            // Start transaction
+            const result = await drizzle.transaction(async (tx) => {
+                // Create candidate
+                const candidateData: CandidateInsert = {
+                    vacancyId: candidateBody.vacancyId,
+                    fullName: candidateBody.fullName,
+                    birthDate: candidateBody.birthDate ? new Date(candidateBody.birthDate).toISOString() : null,
+                    phoneNumber: candidateBody.phoneNumber,
+                    email: candidateBody.email || null,
+                    citizenship: candidateBody.citizenship || null,
+                    residence: candidateBody.residence || null,
+                    passportNumber: candidateBody.passportNumber || null,
+                    passportSeries: candidateBody.passportSeries || null,
+                    passportIdDate: candidateBody.passportIdDate ? new Date(candidateBody.passportIdDate).toISOString() : null,
+                    passportIdPlace: candidateBody.passportIdPlace || null,
+                    source: candidateBody.source || null,
+                    familyStatus: candidateBody.familyStatus || null,
+                    children: candidateBody.children || null,
+                    language: candidateBody.language || null,
+                    desiredSalary: candidateBody.desiredSalary ? Number(candidateBody.desiredSalary) : null,
+                    desiredSchedule: candidateBody.desiredSchedule || null,
+                    purpose: candidateBody.purpose || null,
+                    strengthsShortage: candidateBody.strengthsShortage || null,
+                    relatives: candidateBody.relatives || null,
+                    desiredPosition: candidateBody.desiredPosition || null,
+                    resultStatus: candidateBody.resultStatus || 'neutral'
+                };
+
+                const [newCandidate] = await tx
+                    .insert(candidates)
+                    .values(candidateData)
+                    .returning()
+                    .execute();
+
+                if (!newCandidate?.id) {
+                    throw new Error('Failed to create candidate record');
+                }
+
+                console.log('Created candidate:', newCandidate);
+
+                // Handle education data
+                if (candidateBody.educations && Array.isArray(candidateBody.educations) && candidateBody.educations.length > 0) {
+                    console.log('Processing education records:', candidateBody.educations);
+
+                    try {
+                        const educationRecords = candidateBody.educations.map(edu => ({
+                            candidateId: newCandidate.id,
+                            dateStart: new Date(edu.dateStart).toISOString(),
+                            dateEnd: new Date(edu.dateEnd).toISOString(),
+                            educationType: edu.educationType,
+                            university: edu.university,
+                            speciality: edu.speciality
+                        }));
+
+                        console.log('Inserting education records:', educationRecords);
+
+                        const educationResult = await tx
+                            .insert(education)
+                            .values(educationRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Created education records:', educationResult);
+                        
+                        // Return candidate with education data
+                        return {
+                            ...newCandidate,
+                            education: educationResult
+                        };
+                    } catch (educationError) {
+                        console.error('Error creating education records:', educationError);
+                        // Continue without education if there's an error
+                        return newCandidate;
+                    }
+                } else {
+                    console.log('No education data to process');
+                    return newCandidate;
+                }
+            });
+
             await cacheController.cachePermissions();
-            return {
-                data: candidate,
-            };
-        } catch (error) {
-            const err = error as ErrorResponse;
+            return { data: result };
+        } catch (error: any) {
+            console.error('Error creating candidate:', {
+                message: error?.message || 'Unknown error',
+                stack: error?.stack,
+                body: body
+            });
             set.status = 500;
             return {
-                error: "Failed to create candidate",
-                message: err.message
+                error: 'Failed to create candidate',
+                message: error?.message || 'Unknown error'
             };
         }
     }, {
@@ -126,25 +271,33 @@ export const candidatesController = new Elysia({
         body: t.Object({
             vacancyId: t.String(),
             fullName: t.String(),
+            birthDate: t.Optional(t.String()),
             phoneNumber: t.String(),
-            email: t.String(),
-            citizenship: t.String(),
-            residence: t.String(),
-            passportNumber: t.String(),
-            passportSeries: t.String(),
-            passportIdDate: t.String(),
-            passportIdPlace: t.String(),
-            source: t.String(),
-            familyStatus: t.String(),
-            children: t.Number(),
-            language: t.String(),
-            strengthsShortage: t.Optional(t.String()),
-            relatives: t.Optional(t.String()),
+            email: t.Optional(t.String()),
+            citizenship: t.Optional(t.String()),
+            residence: t.Optional(t.String()),
+            passportNumber: t.Optional(t.String()),
+            passportSeries: t.Optional(t.String()),
+            passportIdDate: t.Optional(t.String()),
+            passportIdPlace: t.Optional(t.String()),
+            source: t.Optional(t.String()),
+            familyStatus: t.Optional(t.String()),
+            children: t.Optional(t.Number()),
+            language: t.Optional(t.String()),
             desiredSalary: t.Optional(t.String()),
             desiredSchedule: t.Optional(t.String()),
             purpose: t.Optional(t.String()),
+            strengthsShortage: t.Optional(t.String()),
+            relatives: t.Optional(t.String()),
             desiredPosition: t.Optional(t.String()),
-            resultStatus: t.Optional(t.Enum({ positive: "positive", negative: "negative", neutral: "neutral" }))
+            resultStatus: t.Optional(t.Enum({ positive: "positive", negative: "negative", neutral: "neutral" })),
+            educations: t.Optional(t.Array(t.Object({
+                dateStart: t.String(),
+                dateEnd: t.String(),
+                educationType: t.String(),
+                university: t.String(),
+                speciality: t.String()
+            })))
         })
     })
 
@@ -191,6 +344,7 @@ export const candidatesController = new Elysia({
         body: t.Object({
             vacancyId: t.String(),
             fullName: t.String(),
+            birthDate: t.String(),
             phoneNumber: t.String(),
             email: t.Optional(t.String()),
             citizenship: t.Optional(t.String()),

@@ -23,19 +23,19 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
 
     const deleteMutation = useMutation({
         mutationFn: (id: string) => {
-            return apiClient.api.work_schedule({ id }).delete();
+            return apiClient.api.candidates({ id }).delete();
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["work_schedules"] });
+            queryClient.invalidateQueries({ queryKey: ["candidates"] });
             toast({
-                title: "Успешно",
-                description: "график работы успешно удалена",
+                title: "Success",
+                description: "Candidate deleted successfully",
                 duration: 5000,
             });
         },
         onError: (error: any) => {
             toast({
-                title: "Ошибка",
+                title: "Error",
                 description: error.message,
                 variant: "destructive",
                 duration: 5000,
@@ -52,18 +52,18 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Это действие нельзя отменить. график будет удалена безвозвратно.
+                        This action cannot be undone. The candidate will be permanently deleted.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => deleteMutation.mutate(recordId)}
                         className="bg-red-600 hover:bg-red-700"
                     >
-                        {deleteMutation.isPending ? "Удаление..." : "Удалить"}
+                        {deleteMutation.isPending ? "Deleting..." : "Delete"}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
