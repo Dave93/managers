@@ -6,6 +6,7 @@ import DeleteAction from "./delete-action";
 import { candidates } from "@backend/../drizzle/schema";
 import { CandidateSheet } from "@admin/components/forms/candidate/sheet";
 
+
 export const candidateColumns: ColumnDef<typeof candidates.$inferSelect>[] = [
     {
         accessorKey: "fullName",
