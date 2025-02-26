@@ -104,19 +104,14 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-<<<<<<< HEAD
     "@types/uuid": "^9.0.8",
-    "prettier": "^3.4.2"
-  }
-=======
+    "prettier": "^3.4.2",
     "@types/uuid": "^9.0.8"
   },
   "trustedDependencies": [
-    "@parcel/watcher"
+    "@parcel/watcher",
+    "cli-high",
+    "esbuild",
+    "xycolors"
   ]
-<<<<<<< HEAD
 }
-=======
->>>>>>> origin/main
-}
->>>>>>> a37f5706652e4c1b326626d824ac162cac890834

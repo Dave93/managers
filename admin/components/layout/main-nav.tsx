@@ -70,7 +70,6 @@ const components: { title: string; href: string; description: string }[] = [
   },
 ];
 
-<<<<<<< HEAD
 const hrMenu: { title: string; href: string }[] = [
   {
     title: "Вакансии",
@@ -90,65 +89,6 @@ const hrMenu: { title: string; href: string }[] = [
   }
 ]
 
-const settingsMenu: { title: string; href: string }[] = [
-  {
-    title: "Разрешения",
-    href: "/system/permissions",
-  },
-  {
-    title: "Роли",
-    href: "/system/roles",
-  },
-  {
-    title: "Пользователи",
-    href: "/system/users",
-  },
-  {
-    title: "Статус",
-    href: "/system/reports_status",
-  },
-  {
-    title: "Группы продуктов",
-    href: "/system/product_groups",
-  },
-];
-
-const storeMenu: { title: string; href: string }[] = [
-  {
-    title: "Заказы",
-    href: "/outgoing_invoices",
-  },
-  {
-    title: "Приходная накладная (Таблица)",
-    href: "/incoming_invoices",
-  },
-  {
-    title: "Приходная накладная (Детально)",
-    href: "/incoming_with_items",
-  },
-  {
-    title: "Возврат товаров",
-    href: "/refund_invoices",
-  },
-  {
-    title: "Внутреннее перемещение (Приход)",
-    href: "/internal_transfer",
-  },
-  {
-    title: "Внутреннее перемещение (Расход)",
-    href: "/expenses_transfer",
-  },
-  {
-    title: "Акт Списания",
-    href: "/writeoff_items",
-  },
-  {
-    title: "Акт Реализации",
-    href: "/report_olap",
-  },
-];
-=======
->>>>>>> origin/main
 
 export function NavigationMenuDemo() {
   const locale = useLocale();
