@@ -245,10 +245,10 @@ const CookingTimeTable: React.FC<{
         const rowsToRender = filteredAndSortedDishes.slice(0, visibleRows);
 
         return (
-            <React.Fragment>
+            <>
                 {rowsToRender.map((dish) => (
                     <TableRow key={dish.name}>
-                        <TableCell className="sticky left-0 bg-background font-medium">
+                        <TableCell className="sticky left-0 bg-background font-medium z-10">
                             {dish.name}
                         </TableCell>
                         {data?.data?.timeRanges.map((timeRange, index) => (
@@ -274,19 +274,19 @@ const CookingTimeTable: React.FC<{
                         </TableCell>
                     </TableRow>
                 )}
-            </React.Fragment>
+            </>
         );
     };
 
     if (!data?.data) return null;
 
     return (
-        <div className={cn("overflow-x-auto", className)} ref={tableRef}>
-            <Table>
-                <TableHeader>
+        <div className={cn("overflow-auto", className)} ref={tableRef}>
+            <Table className="relative">
+                <TableHeader className="sticky top-0 z-20">
                     <TableRow>
                         <TableHead
-                            className="sticky left-0 bg-background w-[200px] cursor-pointer hover:bg-muted/50 transition-colors group"
+                            className="sticky left-0 top-0 bg-background w-[200px] cursor-pointer hover:bg-muted/50 transition-colors group z-20"
                             onClick={() => handleHeaderClick('name')}
                         >
                             <div className="flex items-center">
@@ -335,9 +335,9 @@ const CookingTimeTable: React.FC<{
                 <TableBody>
                     {renderTableRows()}
                 </TableBody>
-                <TableFooter>
+                <TableFooter className="sticky bottom-0 z-20">
                     <TableRow>
-                        <TableCell className="sticky left-0 bg-muted font-bold text-foreground">
+                        <TableCell className="sticky left-0 bottom-0 bg-muted font-bold text-foreground z-20">
                             {t('charts.ProductCookingTime.total')}
                         </TableCell>
                         {data.data.timeRanges.map((_, index) => {

@@ -77,7 +77,7 @@ export default function ChartsPageClient() {
             <ChartWrapper className="col-span-2">
                 <PopularDishesByPrice />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="col-span-4">
                 <ProductCookingTime />
             </ChartWrapper>
         </>
