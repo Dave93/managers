@@ -5,10 +5,12 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Select, SelectItem } from "@nextui-org/select";
 import { useState, useRef } from "react";
-import { Trash2 } from "lucide-react";
+import { CalendarIcon, Trash2 } from "lucide-react";
+import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { useToast } from "@admin/components/ui/use-toast";
-import { Chip } from "@nextui-org/react";
+import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
+import { cn } from "@admin/lib/utils";
 
 export interface EducationEntry {
     dateStart: string;
@@ -25,6 +27,8 @@ interface EducationFormProps {
 }
 
 export default function EducationForm({ onAdd, onRemove, entries }: EducationFormProps) {
+
+
     const formRef = useRef<HTMLDivElement>(null);
     const { toast } = useToast();
     const [educationType, setEducationType] = useState("");
@@ -33,8 +37,14 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
     const [dateStart, setDateStart] = useState("");
     const [dateEnd, setDateEnd] = useState("");
 
-    const handleAdd = () => {
+    const handleAdd = (e?: React.MouseEvent) => {
         try {
+            // Prevent any form submission if this is triggered by an event
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
             console.log('Adding education with data:', {
                 educationType,
                 university,
@@ -44,7 +54,14 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
             });
 
             // Validate required fields
-            if (!educationType || !university || !speciality || !dateStart || !dateEnd) {
+            const missingFields = [];
+            if (!educationType) missingFields.push("Тип образования");
+            if (!university) missingFields.push("Учебное заведение");
+            if (!speciality) missingFields.push("Специальность");
+            if (!dateStart) missingFields.push("Дата начала");
+            if (!dateEnd) missingFields.push("Дата окончания");
+
+            if (missingFields.length > 0) {
                 console.error('Validation failed: Missing required fields', {
                     educationType,
                     university,
@@ -54,7 +71,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                 });
                 toast({
                     title: "Ошибка",
-                    description: "Пожалуйста, заполните все поля",
+                    description: `Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`,
                     variant: "destructive",
                 });
                 return;
@@ -138,13 +155,21 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
     };
 
     return (
-        <div className="space-y-4" ref={formRef}>
+        <div
+            className="space-y-4"
+            ref={formRef}
+            onSubmit={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                return false;
+            }}
+        >
             <div className="flex justify-between items-center">
                 <h2 className="text-xl font-semibold">Записи образования</h2>
             </div>
 
             {entries.length > 0 && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-md mb-4">
+                <div className="p-3 rounded-md mb-4">
                     <p className="font-medium text-green-700">Добавлено записей: {entries.length}</p>
                     <ul className="list-disc pl-5 mt-2">
                         {entries.map((entry, index) => (
@@ -164,31 +189,77 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                 </div>
             )}
 
-            <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-border bg-slate-50">
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-border">
                 <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">Добавить новое образование</h3>
 
                 <div className="space-y-2">
-                    <Label>Дата начала *</Label>
-                    <Input
-                        type="date"
-                        value={dateStart}
-                        onChange={(e) => setDateStart(e.target.value)}
-                        required
-                        className="bg-white"
-                    />
+                    <Label className="flex items-center">
+                        Дата начала <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dateStart && "text-muted-foreground"
+                                )}
+                                aria-label="Select date"
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateStart ? format(dateStart, "PPP") : <span>Выберите дату</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={dateStart ? new Date(dateStart) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setDateStart(format(date, "yyyy-MM-dd"));
+                                    }
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
                 <div className="space-y-2">
-                    <Label>Дата окончания *</Label>
-                    <Input
-                        type="date"
-                        value={dateEnd}
-                        onChange={(e) => setDateEnd(e.target.value)}
-                        required
-                        className="bg-white"
-                    />
+                    <Label className="flex items-center">
+                        Дата окончания <span className="text-red-500 ml-1">*</span>
+                    </Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                variant={"outline"}
+                                className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !dateEnd && "text-muted-foreground"
+                                )}
+                                aria-label="Select date"
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {dateEnd ? format(dateEnd, "PPP") : <span>Выберите дату</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={dateEnd ? new Date(dateEnd) : undefined}
+                                onSelect={(date) => {
+                                    if (date) {
+                                        setDateEnd(format(date, "yyyy-MM-dd"));
+                                    }
+                                }}
+                                initialFocus
+                            />
+                        </PopoverContent>
+                    </Popover>
                 </div>
                 <div className="space-y-2">
-                    <Label>Тип образования *</Label>
+                    <Label className="flex items-center">
+                        Тип образования <span className="text-red-500 ml-1">*</span>
+                    </Label>
                     <Select
                         placeholder="Выберите тип"
                         selectedKeys={educationType ? [educationType] : []}
@@ -196,7 +267,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                             const selected = Array.from(keys)[0] as string;
                             setEducationType(selected);
                         }}
-                        className="max-w-full bg-white"
+                        className="max-w-full "
                         popoverProps={{
                             portalContainer: formRef.current!,
                             offset: 0,
@@ -209,30 +280,39 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     </Select>
                 </div>
                 <div className="space-y-2">
-                    <Label>Учебное заведение *</Label>
+                    <Label className="flex items-center">
+                        Учебное заведение <span className="text-red-500 ml-1">*</span>
+                    </Label>
                     <Input
                         placeholder="Введите название"
                         value={university}
                         onChange={(e) => setUniversity(e.target.value)}
-                        required
-                        className="bg-white"
+                        className=""
                     />
                 </div>
                 <div className="space-y-2 col-span-2">
-                    <Label>Специальность *</Label>
+                    <Label className="flex items-center">
+                        Специальность <span className="text-red-500 ml-1">*</span>
+                    </Label>
                     <Input
                         placeholder="Введите специальность"
                         value={speciality}
                         onChange={(e) => setSpeciality(e.target.value)}
-                        required
                         className=""
                     />
                 </div>
 
                 <div className="col-span-2 mt-4 flex justify-center">
                     <Button
-                        onClick={handleAdd}
-                        className="bg-primary  w-full py-6 text-lg"
+                        type="button"
+                        onClick={(e) => {
+                            if (e) {
+                                e.preventDefault();
+                                e.stopPropagation();
+                            }
+                            handleAdd(e);
+                        }}
+                        className="bg-primary w-full py-6 text-lg"
                         size="lg"
                     >
                         + Добавить запись об образовании

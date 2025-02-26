@@ -119,6 +119,7 @@ export default function CandidateForm({
     const [selectedResultStatus, setSelectedResultStatus] = useState<Selection>(new Set([]));
     const [showEducationForm, setShowEducationForm] = useState(!recordId);
     const [educations, setEducations] = useState<EducationEntry[]>([]);
+    const [passDate, setPassDate] = useState<Date>();
 
     // Add positions query
     const vacanciesQuery = useQuery({
@@ -474,17 +475,22 @@ export default function CandidateForm({
 
     const handleAddEducation = (education: EducationEntry) => {
         console.log('handleAddEducation called with:', education);
-        // Создаем новый массив, чтобы убедиться что состояние обновляется
-        const updatedEducations = [...educations, education];
-        console.log('Updated educations array:', updatedEducations);
-        setEducations(updatedEducations);
+        // Prevent any form submission
+        try {
+            // Создаем новый массив, чтобы убедиться что состояние обновляется
+            const updatedEducations = [...educations, education];
+            console.log('Updated educations array:', updatedEducations);
+            setEducations(updatedEducations);
 
-        // Показываем уведомление об успешном добавлении
-        toast({
-            title: "Образование добавлено",
-            description: `${education.university} - ${education.speciality}`,
-            duration: 3000,
-        });
+            // Показываем уведомление об успешном добавлении
+            toast({
+                title: "Образование добавлено",
+                description: `${education.university} - ${education.speciality}`,
+                duration: 3000,
+            });
+        } catch (error) {
+            console.error('Error in handleAddEducation:', error);
+        }
     };
 
     const handleRemoveEducation = (index: number) => {
@@ -819,14 +825,34 @@ export default function CandidateForm({
                     <Label>Дата выдачи паспорта</Label>
                     <form.Field name="passportIdDate">
                         {(field) => (
-                            <Input
-                                id={field.name}
-                                name={field.name}
-                                value={field.getValue() ?? ""}
-                                onBlur={field.handleBlur}
-                                onChange={(e) => field.handleChange(e.target.value)}
-                                type="date"
-                            />
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal",
+                                            !passDate && "text-muted-foreground"
+                                        )}
+                                        aria-label="Select date"
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                        mode="single"
+                                        selected={passDate}
+                                        onSelect={(date) => {
+                                            setPassDate(date);
+                                            if (date) {
+                                                field.handleChange(format(date, "yyyy-MM-dd"));
+                                            }
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         )}
                     </form.Field>
                 </div>
@@ -993,12 +1019,14 @@ export default function CandidateForm({
                 </div>
 
                 {showEducationForm && (
-                    <div className="mt-2 p-4 border rounded-md bg-slate-50">
-                        <EducationForm
-                            entries={educations}
-                            onAdd={handleAddEducation}
-                            onRemove={handleRemoveEducation}
-                        />
+                    <div className="mt-2 p-4 border rounded-md">
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <EducationForm
+                                entries={educations}
+                                onAdd={handleAddEducation}
+                                onRemove={handleRemoveEducation}
+                            />
+                        </div>
                     </div>
                 )}
 
