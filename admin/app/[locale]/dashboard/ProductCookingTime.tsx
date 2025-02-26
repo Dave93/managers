@@ -23,6 +23,7 @@ import {
     DialogTitle,
 } from "@admin/components/ui/dialog";
 import { cn } from "@admin/lib/utils";
+import { saveAs } from 'file-saver';
 
 interface DishData {
     name: string;
@@ -98,6 +99,7 @@ const CookingTimeTable: React.FC<{
     onSort?: (field: SortField, direction: SortDirection) => void;
     showHeatmap?: boolean;
     perDishHeatmap?: boolean;
+    onFilteredDishesChange?: (dishes: DishData[]) => void;
 }> = React.memo(({
     data,
     searchQuery,
@@ -106,7 +108,8 @@ const CookingTimeTable: React.FC<{
     sortDirection = null,
     onSort = () => { },
     showHeatmap = false,
-    perDishHeatmap = true
+    perDishHeatmap = true,
+    onFilteredDishesChange
 }) => {
     const t = useTranslations("");
     const tableRef = React.useRef<HTMLDivElement>(null);
@@ -231,6 +234,12 @@ const CookingTimeTable: React.FC<{
         setVisibleRows(50);
     }, [searchQuery, sortField, sortDirection]);
 
+    useEffect(() => {
+        if (onFilteredDishesChange) {
+            onFilteredDishesChange(filteredAndSortedDishes);
+        }
+    }, [filteredAndSortedDishes, onFilteredDishesChange]);
+
     const renderTableRows = () => {
         if (filteredAndSortedDishes.length === 0) {
             return (
@@ -248,7 +257,7 @@ const CookingTimeTable: React.FC<{
             <>
                 {rowsToRender.map((dish) => (
                     <TableRow key={dish.name}>
-                        <TableCell className="sticky left-0 bg-background font-medium z-10">
+                        <TableCell className="sticky left-0 bg-background font-medium z-10 ">
                             {dish.name}
                         </TableCell>
                         {data?.data?.timeRanges.map((timeRange, index) => (
@@ -281,7 +290,7 @@ const CookingTimeTable: React.FC<{
     if (!data?.data) return null;
 
     return (
-        <div className={cn("overflow-auto", className)} ref={tableRef}>
+        <div className={cn("overflow-auto h-full", className)} ref={tableRef}>
             <Table className="relative">
                 <TableHeader className="sticky top-0 z-20">
                     <TableRow>
@@ -415,6 +424,7 @@ const ProductCookingTime = () => {
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
     const [showHeatmap, setShowHeatmap] = useState(true);
     const [perDishHeatmap, setPerDishHeatmap] = useState(true);
+    const [filteredDishes, setFilteredDishes] = useState<DishData[]>([]);
 
     const queryParams = React.useMemo(() => ({
         startDate: dayjs(startDate).format('YYYY-MM-DD'),
@@ -456,53 +466,43 @@ const ProductCookingTime = () => {
     const exportToCSV = React.useCallback(() => {
         if (!data?.data) return;
 
-        const worker = new Worker(
-            URL.createObjectURL(
-                new Blob(
-                    [
-                        `
-                        self.onmessage = function(e) {
-                            const { dishes, timeRanges } = e.data;
-                            
-                            const headers = ['Dish Name', ...timeRanges, 'Total'];
-                            const rows = dishes.map(dish => {
-                                const total = dish.values.reduce((sum, value) => sum + value, 0);
-                                return [dish.name, ...dish.values.map(v => v.toString()), total.toString()];
-                            });
-                            
-                            const csvContent = [
-                                headers.join(','),
-                                ...rows.map(row => row.join(','))
-                            ].join('\\n');
-                            
-                            self.postMessage(csvContent);
-                        }
-                        `
-                    ],
-                    { type: 'application/javascript' }
-                )
-            )
-        );
+        try {
+            // Создаем заголовки с BOM для правильной кодировки в Excel
+            const BOM = "\uFEFF";
+            const headers = ['Наименование блюда', ...data.data.timeRanges, 'Время приготовления'];
 
-        worker.onmessage = function (e) {
-            const csvContent = e.data;
+            // Создаем строки данных
+            const rows = filteredDishes.map(dish => {
+                const total = dish.values.reduce((sum, value) => sum + value, 0);
+                return [
+                    dish.name,
+                    ...dish.values,
+                    total
+                ];
+            });
+
+            // Функция для экранирования значений CSV
+            const escapeCSV = (value: any) => {
+                const str = String(value);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+
+            // Формируем CSV контент с BOM для Excel
+            const csvContent = BOM + [
+                headers.map(escapeCSV).join(';'),  // Используем точку с запятой для Excel
+                ...rows.map(row => row.map(escapeCSV).join(';'))
+            ].join('\r\n');  // Используем CRLF для Windows
+
+            // Создаем и скачиваем файл
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `cooking-time-${dayjs().format('YYYY-MM-DD')}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            worker.terminate();
-        };
-
-        worker.postMessage({
-            dishes: data.data.dishes,
-            timeRanges: data.data.timeRanges
-        });
-    }, [data]);
+            saveAs(blob, `cooking-time-${dayjs().format('YYYY-MM-DD')}.csv`);
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+        }
+    }, [data, filteredDishes]);
 
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
     const [debouncedModalSearchQuery, setDebouncedModalSearchQuery] = useState(modalSearchQuery);
@@ -522,13 +522,13 @@ const ProductCookingTime = () => {
     }, [modalSearchQuery]);
 
     return (
-        <Card className="h-full flex flex-col">
+        <Card className="h-[600px] flex flex-col">
             <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 mb-2 sm:flex-row">
                 <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
                     <CardTitle>{t('charts.ProductCookingTime.title')}</CardTitle>
                     {selectedTerminal && (
                         <p className="text-sm text-muted-foreground mt-1">
-                            {terminalsData?.data.find(terminal => terminal.id === selectedTerminal)?.name}
+                            {terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name}
                         </p>
                     )}
                 </div>
@@ -558,7 +558,7 @@ const ProductCookingTime = () => {
                     </div>
                 )}
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex-1 overflow-hidden">
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <SearchInput
@@ -610,12 +610,13 @@ const ProductCookingTime = () => {
                 <CookingTimeTable
                     data={data}
                     searchQuery={debouncedSearchQuery}
-                    className="h-[200px]"
+                    className="h-[calc(100%-60px)]"
                     sortField={sortField}
                     sortDirection={sortDirection}
                     onSort={handleSort}
                     showHeatmap={showHeatmap}
                     perDishHeatmap={perDishHeatmap}
+                    onFilteredDishesChange={setFilteredDishes}
                 />
 
                 <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
@@ -624,7 +625,7 @@ const ProductCookingTime = () => {
                             <DialogTitle>{t('charts.ProductCookingTime.title')}</DialogTitle>
                             {selectedTerminal && (
                                 <p className="text-sm text-muted-foreground mt-1">
-                                    {terminalsData?.data.find(terminal => terminal.id === selectedTerminal)?.name}
+                                    {terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name}
                                 </p>
                             )}
                             <p className="text-sm text-muted-foreground mt-1">
@@ -675,6 +676,7 @@ const ProductCookingTime = () => {
                             onSort={handleSort}
                             showHeatmap={showHeatmap}
                             perDishHeatmap={perDishHeatmap}
+                            onFilteredDishesChange={setFilteredDishes}
                         />
                     </DialogContent>
                 </Dialog>
