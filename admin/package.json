@@ -104,8 +104,11 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
+<<<<<<< HEAD
     "@types/uuid": "^9.0.8",
     "prettier": "^3.4.2",
+=======
+>>>>>>> af77d71 (ddd)
     "@types/uuid": "^9.0.8"
   },
   "trustedDependencies": [
@@ -114,4 +117,8 @@
     "esbuild",
     "xycolors"
   ]
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> af77d71 (ddd)

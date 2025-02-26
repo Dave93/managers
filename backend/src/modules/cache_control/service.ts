@@ -55,6 +55,9 @@ export class CacheControlService {
     this.cacheUsers();
     this.cacheWorkSchedule();
     this.cacheUsersTerminalsByUserId();
+    this.cachePositions();
+    this.cacheUsers();
+    this.cacheWorkSchedule();
   }
 
   async cachePermissions() {
