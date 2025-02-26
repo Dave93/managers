@@ -87,7 +87,7 @@ const fetchProductCookingTime = async (
 }
 
 type SortDirection = 'asc' | 'desc' | null;
-type SortField = 'name' | number | null;
+type SortField = 'name' | number | 'total' | null;
 
 const CookingTimeTable: React.FC<{
     data: CookingTimeResponse | undefined;
@@ -235,7 +235,7 @@ const CookingTimeTable: React.FC<{
         if (filteredAndSortedDishes.length === 0) {
             return (
                 <TableRow>
-                    <TableCell colSpan={data?.data.timeRanges.length ? data.data.timeRanges.length + 2 : 3} className="text-center py-4">
+                    <TableCell colSpan={(data?.data?.timeRanges.length || 0) + 2} className="text-center py-4">
                         {t('charts.ProductCookingTime.noResults')}
                     </TableCell>
                 </TableRow>
@@ -251,7 +251,7 @@ const CookingTimeTable: React.FC<{
                         <TableCell className="sticky left-0 bg-background font-medium">
                             {dish.name}
                         </TableCell>
-                        {data.data.timeRanges.map((timeRange, index) => (
+                        {data?.data?.timeRanges.map((timeRange, index) => (
                             <TableCell
                                 key={`${dish.name}-${timeRange}`}
                                 className="min-w-[80px]"
@@ -267,7 +267,7 @@ const CookingTimeTable: React.FC<{
                 ))}
                 {visibleRows < filteredAndSortedDishes.length && (
                     <TableRow>
-                        <TableCell colSpan={data.data.timeRanges.length + 2} className="text-center py-4">
+                        <TableCell colSpan={(data?.data?.timeRanges.length || 0) + 2} className="text-center py-4">
                             {isLoadingMore
                                 ? t('charts.ProductCookingTime.loading')
                                 : t('charts.ProductCookingTime.scrollToLoadMore')}
