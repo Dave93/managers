@@ -17,7 +17,7 @@ import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
-
+// import { Calendar, DatePicker } from "@heroui/react";
 interface ApiResponse<T = any> {
     data?: T[];
     error?: string;
@@ -652,6 +652,7 @@ export default function CandidateForm({
                                                 field.handleChange(format(date, "yyyy-MM-dd"));
                                             }
                                         }}
+                                        className="rounded-md border shadow"
                                         initialFocus
                                     />
                                 </PopoverContent>
@@ -825,6 +826,18 @@ export default function CandidateForm({
                     <Label>Дата выдачи паспорта</Label>
                     <form.Field name="passportIdDate">
                         {(field) => (
+                            // <DatePicker
+                            //     showMonthAndYearPickers
+                            //     className="max-w-md"
+                            //     value={date}
+                            //     variant="bordered"
+                            //     onChange={setDate}
+                            //     popoverProps={{
+                            //         portalContainer: formRef.current!,
+                            //         offset: 0,
+                            //         containerPadding: 0,
+                            //     }}
+                            // />
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
