@@ -952,7 +952,7 @@ export const positions = pgTable('positions', {
 // кондидаты
 export const candidates = pgTable('candidates', {
   id: uuid('id').defaultRandom().primaryKey().notNull(),
-  vacancyId: uuid('vacancy_id').references(() => vacancy.id), // вакансия 
+  vacancyId: uuid('vacancy_id').references(() => vacancy.id), // вакансия
   fullName: varchar('full_name', { length: 255 }).notNull(), // ФИО
   birthDate: timestamp('birth_date', { withTimezone: true, mode: "string" }), // дата рождения
   citizenship: varchar('citizenship', { length: 255 }), // гражданство
@@ -974,6 +974,7 @@ export const candidates = pgTable('candidates', {
   purpose: varchar('purpose', { length: 255 }), // цель прихода на наше предприятие
   desiredPosition: varchar('desired_position', { length: 255 }), // желаемая должность
   resultStatus: interviewResultEnum("result_status").default('neutral'), // результат собеседования
+  isFirstJob: boolean('is_first_job').default(false), // является ли это первым местом работы
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
