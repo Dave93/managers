@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 
 import dayjs from "dayjs";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
-import { Chip } from "@nextui-org/chip";
+import { Badge } from "@admin/components/ui/badge";
 
 export const reportsColumns: ColumnDef<Stoplist>[] = [
   {
@@ -24,9 +24,9 @@ export const reportsColumns: ColumnDef<Stoplist>[] = [
     cell: ({ row }) => {
       const record = row.original;
       return record.status == "stop" ? (
-        <Chip color="danger">На стопе</Chip>
+        <Badge variant="destructive">На стопе</Badge>
       ) : (
-        <Chip color="success">Доступен</Chip>
+        <Badge variant="success">Доступен</Badge>
       );
     },
   },

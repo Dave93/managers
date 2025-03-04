@@ -1,17 +1,22 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Loader2, CalendarIcon } from "lucide-react";
+import { Loader2, CalendarIcon, Check } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { vacancy, work_schedules } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Select, SelectItem } from "@nextui-org/select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@components/ui/select";
 import { Textarea } from "@components/ui/textarea";
-import { Selection } from "@react-types/shared";
-import { Chip } from "@nextui-org/chip";
+import { Badge } from "@components/ui/badge";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
@@ -346,44 +351,39 @@ export default function VacancyForm({
         isWorkSchedulesLoading
     ]);
 
-    const [changedOrganizationId, setChangedOrganizationId] = useState<Selection>(new Set([]));
-    const [changedTerminalId, setChangedTerminalId] = useState<Selection>(new Set([]));
-    const [changedPositionId, setChangedPositionId] = useState<Selection>(new Set([]));
-    const [changedRecruiterId, setChangedRecruiterId] = useState<Selection>(new Set([]));
-    const [changedWorkScheduleId, setChangedWorkScheduleId] = useState<Selection>(new Set([]));
+    const [changedOrganizationId, setChangedOrganizationId] = useState<string>("");
+    const [changedTerminalId, setChangedTerminalId] = useState<string>("");
+    const [changedPositionId, setChangedPositionId] = useState<string>("");
+    const [changedRecruiterId, setChangedRecruiterId] = useState<string>("");
+    const [changedWorkScheduleId, setChangedWorkScheduleId] = useState<string>("");
 
-    const handleWorkScheduleChange = (selection: Selection) => {
+    const handleWorkScheduleChange = (value: string) => {
         try {
-            setChangedWorkScheduleId(selection);
-            const selectedSchedule = Array.from(selection)[0] as string | undefined;
-            form.setFieldValue("work_schedule_id", selectedSchedule || undefined);
+            setChangedWorkScheduleId(value);
+            form.setFieldValue("work_schedule_id", value || undefined);
         } catch (error) {
             console.error('Error in handleWorkScheduleChange:', error);
         }
     };
 
-    const handleOrganizationChange = (selection: Selection) => {
-        setChangedOrganizationId(selection);
-        const selectedOrg = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("organizationId", selectedOrg || "");
+    const handleOrganizationChange = (value: string) => {
+        setChangedOrganizationId(value);
+        form.setFieldValue("organizationId", value || "");
     };
 
-    const handleTerminalChange = (selection: Selection) => {
-        setChangedTerminalId(selection);
-        const selectedTerminal = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("terminalId", selectedTerminal || "");
+    const handleTerminalChange = (value: string) => {
+        setChangedTerminalId(value);
+        form.setFieldValue("terminalId", value || "");
     };
 
-    const handlePositionChange = (selection: Selection) => {
-        setChangedPositionId(selection);
-        const selectedPosition = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("position", selectedPosition || "");
+    const handlePositionChange = (value: string) => {
+        setChangedPositionId(value);
+        form.setFieldValue("position", value || "");
     };
 
-    const handleRecruiterChange = (selection: Selection) => {
-        setChangedRecruiterId(selection);
-        const selectedRecruiter = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("recruiter", selectedRecruiter || "");
+    const handleRecruiterChange = (value: string) => {
+        setChangedRecruiterId(value);
+        form.setFieldValue("recruiter", value || "");
     };
 
     const organizationLabelById = useMemo(() => {
@@ -454,19 +454,19 @@ export default function VacancyForm({
             });
 
             if (record.organizationId) {
-                setChangedOrganizationId(new Set([record.organizationId]));
+                setChangedOrganizationId(record.organizationId);
             }
             if (record.terminalId) {
-                setChangedTerminalId(new Set([record.terminalId]));
+                setChangedTerminalId(record.terminalId);
             }
             if (record.position) {
-                setChangedPositionId(new Set([record.position]));
+                setChangedPositionId(record.position);
             }
             if (record.recruiter) {
-                setChangedRecruiterId(new Set([record.recruiter]));
+                setChangedRecruiterId(record.recruiter);
             }
             if (record.workScheduleId) {
-                setChangedWorkScheduleId(new Set([record.workScheduleId]))
+                setChangedWorkScheduleId(record.workScheduleId);
             }
         }
     }, [record, form]);
@@ -536,47 +536,22 @@ export default function VacancyForm({
                 <form.Field name="status">
                     {(field) => (
                         <Select
-                            label="Статус"
-                            placeholder="Выберите статус"
-                            selectedKeys={[field.getValue()]}
-                            className="max-w-xs"
-                            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                                field.setValue(e.target.value as "open" | "in_progress" | "found_candidates" | "interview" | "closed" | "cancelled");
+                            value={field.getValue()}
+                            onValueChange={(value) => {
+                                field.setValue(value as VacancyStatus);
                             }}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
-                            }}
-                            renderValue={(items) => (
-                                <div>
-                                    {[field.getValue()].map((item) => (
-                                        <Chip key={item}>
-                                            {[
-                                                { value: "open", label: "Открыта" },
-                                                { value: "in_progress", label: "В процессе" },
-                                                { value: "found_candidates", label: "Найдены кандидаты" },
-                                                { value: "interview", label: "Собеседование" },
-                                                { value: "closed", label: "Закрыта" },
-                                                { value: "cancelled", label: "Отменена" }
-                                            ].find(status => status.value === item)?.label}
-                                        </Chip>
-                                    ))}
-                                </div>
-                            )}
                         >
-                            {[
-                                { value: "open", label: "Открыта" },
-                                { value: "in_progress", label: "В процессе" },
-                                { value: "found_candidates", label: "Найдены кандидаты" },
-                                { value: "interview", label: "Собеседование" },
-                                { value: "closed", label: "Закрыта" },
-                                { value: "cancelled", label: "Отменена" }
-                            ].map((status) => (
-                                <SelectItem key={status.value} value={status.value}>
-                                    {status.label}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите статус" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="open">Открыта</SelectItem>
+                                <SelectItem value="in_progress">В процессе</SelectItem>
+                                <SelectItem value="found_candidates">Найдены кандидаты</SelectItem>
+                                <SelectItem value="interview">Собеседование</SelectItem>
+                                <SelectItem value="closed">Закрыта</SelectItem>
+                                <SelectItem value="cancelled">Отменена</SelectItem>
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>
@@ -605,31 +580,25 @@ export default function VacancyForm({
                 <form.Field name="organizationId">
                     {(field) => (
                         <Select
-                            name="organizationId"
-                            label="Бренд"
-                            selectionMode="single"
-                            placeholder="Выберите бренд"
-                            selectedKeys={changedOrganizationId}
-                            className="max-w-xs"
-                            onSelectionChange={handleOrganizationChange}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
+                            value={changedOrganizationId || ""}
+                            onValueChange={(value) => {
+                                handleOrganizationChange(value);
                             }}
-                            renderValue={(items) => (
-                                <div className="flex flex-wrap gap-2">
-                                    {Array.from(changedOrganizationId).map((item) => (
-                                        <Chip key={item}>{organizationLabelById[item]}</Chip>
-                                    ))}
-                                </div>
-                            )}
                         >
-                            {(organizationsData || []).map((org) => (
-                                <SelectItem key={org.id} value={org.id}>
-                                    {org.name}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите бренд">
+                                    {changedOrganizationId ?
+                                        organizationLabelById[changedOrganizationId] :
+                                        "Выберите бренд"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(organizationsData || []).map((org) => (
+                                    <SelectItem key={org.id} value={org.id}>
+                                        {org.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>
@@ -642,30 +611,25 @@ export default function VacancyForm({
                 <form.Field name="terminalId">
                     {(field) => (
                         <Select
-                            label="Филиал"
-                            placeholder="Выберите филиал"
-                            selectedKeys={changedTerminalId}
-                            className="max-w-xs"
-                            onSelectionChange={handleTerminalChange}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
+                            value={changedTerminalId || ""}
+                            onValueChange={(value) => {
+                                handleTerminalChange(value);
                             }}
-                            renderValue={(items) => (
-                                <div>
-                                    {Array.from(changedTerminalId).map((item) => (
-                                        <Chip key={item}>{terminalLabelById[item]}</Chip>
-                                    ))}
-                                </div>
-                            )}
                         >
-
-                            {(terminalsData || []).map((terminal) => (
-                                <SelectItem key={terminal.id} value={terminal.id}>
-                                    {terminal.name}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите филиал">
+                                    {changedTerminalId ?
+                                        terminalLabelById[changedTerminalId] :
+                                        "Выберите филиал"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(terminalsData || []).map((terminal) => (
+                                    <SelectItem key={terminal.id} value={terminal.id}>
+                                        {terminal.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>
@@ -678,29 +642,25 @@ export default function VacancyForm({
                 <form.Field name="position">
                     {(field) => (
                         <Select
-                            label="Должность"
-                            placeholder="Выберите Должность"
-                            selectedKeys={changedPositionId}
-                            className="max-w-xs"
-                            onSelectionChange={handlePositionChange}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
+                            value={changedPositionId || ""}
+                            onValueChange={(value) => {
+                                handlePositionChange(value);
                             }}
-                            renderValue={(items) => (
-                                <div>
-                                    {Array.from(changedPositionId).map((item) => (
-                                        <Chip key={item}>{positionLabelById[item]}</Chip>
-                                    ))}
-                                </div>
-                            )}
                         >
-                            {(positionData || []).map((position) => (
-                                <SelectItem key={position.id} value={position.id}>
-                                    {position.title}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите должность">
+                                    {changedPositionId ?
+                                        positionLabelById[changedPositionId] :
+                                        "Выберите должность"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(positionData || []).map((position) => (
+                                    <SelectItem key={position.id} value={position.id}>
+                                        {position.title}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>
@@ -713,25 +673,25 @@ export default function VacancyForm({
                 <form.Field name="work_schedule_id">
                     {(field) => (
                         <Select
-                            name="work_schedule_id"
-                            label="График работы"
-                            selectionMode="single"
-                            placeholder="Выберите график работы"
-                            selectedKeys={changedWorkScheduleId}
-                            className="max-w-xs"
-                            onSelectionChange={handleWorkScheduleChange}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
+                            value={changedWorkScheduleId || ""}
+                            onValueChange={(value) => {
+                                handleWorkScheduleChange(value);
                             }}
-
                         >
-                            {(workSchedulesData || []).map((schedule: WorkSchedule) => (
-                                <SelectItem key={schedule.id} value={schedule.id}>
-                                    {schedule.name}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите график работы">
+                                    {changedWorkScheduleId ?
+                                        workSchedulesLabelById[changedWorkScheduleId] :
+                                        "Выберите график работы"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(workSchedulesData || []).map((schedule: WorkSchedule) => (
+                                    <SelectItem key={schedule.id} value={schedule.id}>
+                                        {schedule.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>
@@ -883,30 +843,25 @@ export default function VacancyForm({
                 <form.Field name="recruiter">
                     {(field) => (
                         <Select
-                            label="Рекрутер"
-                            placeholder="Выберите рекрутера"
-                            selectedKeys={changedRecruiterId}
-                            className="max-w-xs"
-                            onSelectionChange={handleRecruiterChange}
-                            popoverProps={{
-                                portalContainer: formRef.current!,
-                                offset: 0,
-                                containerPadding: 0,
+                            value={changedRecruiterId || ""}
+                            onValueChange={(value) => {
+                                handleRecruiterChange(value);
                             }}
-                            renderValue={(items) => (
-                                <div>
-                                    {Array.from(changedRecruiterId).map((item) => (
-                                        <Chip key={item}>{recruiterLabelById[item]}</Chip>
-                                    ))}
-                                </div>
-                            )}
-
                         >
-                            {(recruitersData || []).map((user) => (
-                                <SelectItem key={user.id} value={user.id}>
-                                    {`${user.first_name} ${user.last_name}`}
-                                </SelectItem>
-                            ))}
+                            <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Выберите рекрутера">
+                                    {changedRecruiterId ?
+                                        recruiterLabelById[changedRecruiterId] :
+                                        "Выберите рекрутера"}
+                                </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                                {(recruitersData || []).map((user) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                        {`${user.first_name} ${user.last_name}`}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
                         </Select>
                     )}
                 </form.Field>

@@ -7,13 +7,34 @@ import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { useCallback, useState } from "react";
-import { Chip } from "@nextui-org/chip";
+import { Badge } from "@components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries } from "@tanstack/react-query";
-import { Select, SelectItem, SelectedItems } from "@nextui-org/select";
-import { Selection } from "@react-types/shared";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@components/ui/popover";
+import { Check, ChevronsUpDown, X } from "lucide-react";
+import { cn } from "@admin/lib/utils";
+import { ScrollArea } from "@components/ui/scroll-area";
 
 export default function UsersForm({
   setOpen,
@@ -25,10 +46,8 @@ export default function UsersForm({
   const formRef = useRef<HTMLFormElement | null>(null);
   const { toast } = useToast();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
-  const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
-    new Set([])
-  );
-  const [changedStoreId, setChangedStoreId] = useState<Selection>(new Set([]));
+  const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
+  const [changedStoreId, setChangedStoreId] = useState<string[]>([]);
   const closeForm = () => {
     form.reset();
     setOpen(false);
@@ -236,17 +255,15 @@ export default function UsersForm({
       assignTerminalMutation.mutate({
         user_id: userId,
         terminal_id:
-          changedTerminalId !== "all"
-            ? Array.from(changedTerminalId).map((terminalId) =>
-              terminalId.toString()
-            )
+          changedTerminalId.length > 0
+            ? changedTerminalId
             : [],
       });
       return assignStoreMutation.mutate({
         user_id: userId,
         corporation_store_id:
-          changedStoreId !== "all"
-            ? Array.from(changedStoreId).map((storeId) => storeId.toString())
+          changedStoreId.length > 0
+            ? changedStoreId
             : [],
       });
     },
@@ -302,7 +319,7 @@ export default function UsersForm({
       Array.isArray(userTerminalsData.data)
     ) {
       setChangedTerminalId(
-        new Set(userTerminalsData.data.map((item) => item.terminal_id))
+        userTerminalsData.data.map((item) => item.terminal_id)
       );
     }
 
@@ -312,7 +329,7 @@ export default function UsersForm({
       Array.isArray(userStoresData.data)
     ) {
       setChangedStoreId(
-        new Set(userStoresData.data.map((item) => item.corporation_store_id!))
+        userStoresData.data.map((item) => item.corporation_store_id!)
       );
     }
   }, [userTerminalsData, userStoresData]);
@@ -336,27 +353,23 @@ export default function UsersForm({
             return (
               <>
                 <Select
-                  label="Статус"
-                  placeholder="Выберите статус"
-                  selectedKeys={[field.getValue()]}
-                  className="max-w-xs"
-                  onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  value={field.getValue()}
+                  onValueChange={(value) => {
                     field.setValue(
-                      // @ts-ignore
-                      e.target.value as "active" | "blocked" | "inactive"
+                      value as "active" | "blocked" | "inactive"
                     );
                   }}
-                  popoverProps={{
-                    portalContainer: formRef.current!,
-                    offset: 0,
-                    containerPadding: 0,
-                  }}
                 >
-                  {["active", "blocked", "inactive"].map((item) => (
-                    <SelectItem key={item} value={item}>
-                      {item}
-                    </SelectItem>
-                  ))}
+                  <SelectTrigger className="w-full max-w-xs">
+                    <SelectValue placeholder="Выберите статус" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {["active", "blocked", "inactive"].map((item) => (
+                      <SelectItem key={item} value={item}>
+                        {item}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
                 </Select>
               </>
             );
@@ -417,30 +430,27 @@ export default function UsersForm({
           {(field) => {
             return (
               <Select
-                label="Роль"
-                placeholder="Выберите роль"
-                selectedKeys={field.getValue() ? [field.getValue() as string] : []}
-                className="max-w-xs"
-                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                  field.setValue(e.target.value);
-                }}
-                popoverProps={{
-                  portalContainer: formRef.current!,
-                  offset: 0,
-                  containerPadding: 0,
+                value={field.getValue() || ""}
+                onValueChange={(value) => {
+                  field.setValue(value);
                 }}
               >
-                {Array.isArray(rolesData) ? (
-                  rolesData?.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name}
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Выберите роль" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Array.isArray(rolesData) ? (
+                    rolesData?.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="0">
+                      Загрузка...
                     </SelectItem>
-                  ))
-                ) : (
-                  <SelectItem key="0" value="0">
-                    Загрузка...
-                  </SelectItem>
-                )}
+                  )}
+                </SelectContent>
               </Select>
             );
           }}
@@ -450,77 +460,139 @@ export default function UsersForm({
         <div>
           <Label>Филиалы</Label>
         </div>
-        <Select
-          label="Филиалы"
-          selectionMode="multiple"
-          isMultiline={true}
-          placeholder="Выберите филиал"
-          selectedKeys={changedTerminalId}
-          classNames={{
-            base: "max-w-xs",
-            trigger: "min-h-unit-12 py-2",
-          }}
-          onSelectionChange={setChangedTerminalId}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-          renderValue={() => {
-            return (
-              <div className="flex flex-wrap gap-2">
-                {changedTerminalId != "all" &&
-                  Array.from(changedTerminalId).map((item) => (
-                    <Chip key={item}>{terminalLabelById[item]}</Chip>
-                  ))}
-              </div>
-            );
-          }}
-        >
-          {terminalsForSelect.map((terminal) => (
-            <SelectItem key={terminal.value} value={terminal.value}>
-              {terminal.label}
-            </SelectItem>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full max-w-xs justify-between"
+            >
+              {changedTerminalId.length > 0
+                ? `${changedTerminalId.length} выбрано`
+                : "Выберите филиал"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full max-w-xs p-0">
+            <Command>
+              <CommandInput placeholder="Поиск филиала..." />
+              <CommandEmpty>Филиалы не найдены.</CommandEmpty>
+              <CommandList>
+                <CommandGroup>
+                  <ScrollArea className="h-72">
+                    {terminalsForSelect.map((terminal) => (
+                      <CommandItem
+                        key={terminal.value}
+                        value={terminal.value}
+                        onSelect={() => {
+                          setChangedTerminalId((prev) =>
+                            prev.includes(terminal.value)
+                              ? prev.filter((id) => id !== terminal.value)
+                              : [...prev, terminal.value]
+                          );
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            changedTerminalId.includes(terminal.value)
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {terminal.label}
+                      </CommandItem>
+                    ))}
+                  </ScrollArea>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {changedTerminalId.map((id) => (
+            <Badge key={id} variant="secondary" className="flex items-center gap-1">
+              {terminalLabelById[id]}
+              <X
+                className="h-3 w-3 cursor-pointer"
+                onClick={() => {
+                  setChangedTerminalId((prev) =>
+                    prev.filter((item) => item !== id)
+                  );
+                }}
+              />
+            </Badge>
           ))}
-        </Select>
+        </div>
       </div>
       <div className="space-y-2">
         <div>
           <Label>Склады</Label>
         </div>
-        <Select
-          label="Cклады"
-          selectionMode="multiple"
-          isMultiline={true}
-          placeholder="Выберите склады"
-          selectedKeys={changedStoreId}
-          classNames={{
-            base: "max-w-xs",
-            trigger: "min-h-unit-12 py-2",
-          }}
-          onSelectionChange={setChangedStoreId}
-          popoverProps={{
-            portalContainer: formRef.current!,
-            offset: 0,
-            containerPadding: 0,
-          }}
-          renderValue={() => {
-            return (
-              <div className="flex flex-wrap gap-2">
-                {changedStoreId != "all" &&
-                  Array.from(changedStoreId).map((item) => (
-                    <Chip key={item}>{storeLabelById[item]}</Chip>
-                  ))}
-              </div>
-            );
-          }}
-        >
-          {storesForSelect.map((store) => (
-            <SelectItem key={store.value} value={store.value}>
-              {store.label}
-            </SelectItem>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full max-w-xs justify-between"
+            >
+              {changedStoreId.length > 0
+                ? `${changedStoreId.length} выбрано`
+                : "Выберите склады"}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-full max-w-xs p-0">
+            <Command>
+              <CommandInput placeholder="Поиск склада..." />
+              <CommandEmpty>Склады не найдены.</CommandEmpty>
+              <CommandList>
+                <CommandGroup>
+                  <ScrollArea className="h-72">
+                    {storesForSelect.map((store) => (
+                      <CommandItem
+                        key={store.value}
+                        value={store.value}
+                        onSelect={() => {
+                          setChangedStoreId((prev) =>
+                            prev.includes(store.value)
+                              ? prev.filter((id) => id !== store.value)
+                              : [...prev, store.value]
+                          );
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            changedStoreId.includes(store.value)
+                              ? "opacity-100"
+                              : "opacity-0"
+                          )}
+                        />
+                        {store.label}
+                      </CommandItem>
+                    ))}
+                  </ScrollArea>
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <div className="flex flex-wrap gap-2 mt-2">
+          {changedStoreId.map((id) => (
+            <Badge key={id} variant="secondary" className="flex items-center gap-1">
+              {storeLabelById[id]}
+              <X
+                className="h-3 w-3 cursor-pointer"
+                onClick={() => {
+                  setChangedStoreId((prev) =>
+                    prev.filter((item) => item !== id)
+                  );
+                }}
+              />
+            </Badge>
           ))}
-        </Select>
+        </div>
       </div>
       <div className="space-y-2">
         <div>

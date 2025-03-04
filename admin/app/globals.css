@@ -2,7 +2,6 @@
 
 @plugin 'tailwindcss-animate';
 
-@source '../node_modules/@nextui-org/theme/dist/**/*.{js,ts,jsx,tsx}';
 
 @custom-variant dark (&:is(.dark *));
 

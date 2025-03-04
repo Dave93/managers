@@ -3,7 +3,13 @@
 import { Button } from "@components/ui/button";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-import { Select, SelectItem } from "@nextui-org/select";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@components/ui/select";
 import { useState, useRef } from "react";
 import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@admin/components/ui/calendar";
@@ -261,22 +267,17 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                         Тип образования <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Select
-                        placeholder="Выберите тип"
-                        selectedKeys={educationType ? [educationType] : []}
-                        onSelectionChange={(keys) => {
-                            const selected = Array.from(keys)[0] as string;
-                            setEducationType(selected);
-                        }}
-                        className="max-w-full "
-                        popoverProps={{
-                            portalContainer: formRef.current!,
-                            offset: 0,
-                            containerPadding: 0,
-                        }}
+                        value={educationType}
+                        onValueChange={(value) => setEducationType(value)}
                     >
-                        <SelectItem key="Высшее">Высшее</SelectItem>
-                        <SelectItem key="Среднее">Среднее</SelectItem>
-                        <SelectItem key="Профессиональное">Профессиональное</SelectItem>
+                        <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Выберите тип" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="Высшее">Высшее</SelectItem>
+                            <SelectItem value="Среднее">Среднее</SelectItem>
+                            <SelectItem value="Профессиональное">Профессиональное</SelectItem>
+                        </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">

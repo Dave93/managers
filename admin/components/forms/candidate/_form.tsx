@@ -9,16 +9,13 @@ import { Input } from "@components/ui/input";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Textarea } from "@components/ui/textarea";
-import { Selection } from "@react-types/shared";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
 import LastWorkPlaceForm, { LastWorkPlaceEntry } from "../last_work_place/LastWorkPlaceForm";
 import FamilyListForm, { FamilyListEntry } from "../family_list/FamilyListForm";
-import Component from "@admin/components/ui/Component";
-import { DatePicker } from "@heroui/react";
-import { parseDate, parseZonedDateTime } from "@internationalized/date";
+import { parseZonedDateTime } from "@internationalized/date";
 import React from "react";
 import {
     Select,
@@ -27,7 +24,6 @@ import {
     SelectTrigger,
     SelectValue
 } from "@components/ui/select";
-import { Badge } from "@components/ui/badge";
 import { Calendar } from "@admin/components/ui/calendar";
 
 interface DropdownNavProps {
@@ -754,7 +750,6 @@ export default function CandidateForm({
                                     <PopoverContent className="w-auto p-0"
                                         container={formRef.current!}
                                     >
-
                                         <Calendar
                                             mode="single"
                                             selected={date}

@@ -4,13 +4,31 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@admin/components/ui/use-toast";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
-import { Loader2 } from "lucide-react";
+import { Loader2, Check } from "lucide-react";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { Button } from "@components/ui/button";
-import { Select, SelectItem } from "@nextui-org/select";
-import { Chip } from "@nextui-org/chip";
-import { Selection } from "@react-types/shared";
+import { Badge } from "@components/ui/badge";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@components/ui/select";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+} from "@components/ui/command";
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@components/ui/popover";
+import { cn } from "@admin/lib/utils";
 
 type WorkSchedule = {
     id: string;
@@ -221,13 +239,12 @@ export default function WorkScheduleForm({
     }, [
         createMutation.isPending, updateMutation.isPending, isOrganizationsLoading]);
 
-    const [changedOrganizationId, setChangedOrganizationId] = useState<Selection>(new Set([]));
+    const [changedOrganizationId, setChangedOrganizationId] = useState<string>("");
 
 
-    const handleOrganizationChange = (selection: Selection) => {
-        setChangedOrganizationId(selection);
-        const selectedOrg = Array.from(selection)[0] as string;
-        form.setFieldValue("organization_id", selectedOrg);
+    const handleOrganizationChange = (value: string) => {
+        setChangedOrganizationId(value);
+        form.setFieldValue("organization_id", value);
     };
 
     const organizationLabelById = useMemo(() => {
@@ -244,7 +261,7 @@ export default function WorkScheduleForm({
             form.setFieldValue("name", schedule.name);
             form.setFieldValue("active", schedule.active);
             form.setFieldValue("organization_id", schedule.organization_id);
-            setChangedOrganizationId(new Set([schedule.organization_id]));
+            setChangedOrganizationId(schedule.organization_id);
             form.setFieldValue("days", schedule.days);
             form.setFieldValue("start_time", schedule.start_time);
             form.setFieldValue("end_time", schedule.end_time);
@@ -291,30 +308,19 @@ export default function WorkScheduleForm({
                     <form.Field name="organization_id">
                         {(field) => (
                             <Select
-                                name="organization_id"
-                                selectionMode="single"
-                                placeholder="Выберите бренд"
-                                selectedKeys={changedOrganizationId}
-                                className="max-w-xs"
-                                onSelectionChange={handleOrganizationChange}
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                renderValue={(items) => (
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(changedOrganizationId).map((item) => (
-                                            <Chip key={item}>{organizationLabelById[item]}</Chip>
-                                        ))}
-                                    </div>
-                                )}
+                                value={field.state.value}
+                                onValueChange={handleOrganizationChange}
                             >
-                                {(organizationsData || []).map((org) => (
-                                    <SelectItem key={org.id} value={org.id}>
-                                        {org.name}
-                                    </SelectItem>
-                                ))}
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите бренд" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(organizationsData || []).map((org) => (
+                                        <SelectItem key={org.id} value={org.id}>
+                                            {org.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>
@@ -324,29 +330,63 @@ export default function WorkScheduleForm({
                     <Label>Рабочие дни</Label>
                     <form.Field name="days">
                         {(field) => (
-                            <Select
-                                name="days"
-                                placeholder="Выберите рабочие дни"
-                                selectionMode="multiple"
-                                selectedKeys={new Set(field.state.value)}
-                                className="max-w-xs"
-                                onSelectionChange={(keys) => {
-                                    field.handleChange(Array.from(keys) as string[]);
-                                }}
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                            >
-                                {daysWeek.map((day) => (
-                                    <SelectItem key={day} value={day}>
-                                        {day}
-                                    </SelectItem>
-                                ))}
-                            </Select>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        className="w-full justify-between"
+                                    >
+                                        {field.state.value.length > 0
+                                            ? `Выбрано ${field.state.value.length} дней`
+                                            : "Выберите рабочие дни"}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-full p-0">
+                                    <Command>
+                                        <CommandInput placeholder="Поиск дня..." />
+                                        <CommandEmpty>Дни не найдены</CommandEmpty>
+                                        <CommandGroup>
+                                            {daysWeek.map((day) => {
+                                                const isSelected = field.state.value.includes(day);
+                                                return (
+                                                    <CommandItem
+                                                        key={day}
+                                                        onSelect={() => {
+                                                            const newValue = isSelected
+                                                                ? field.state.value.filter((d) => d !== day)
+                                                                : [...field.state.value, day];
+                                                            field.handleChange(newValue);
+                                                        }}
+                                                    >
+                                                        <div className={cn(
+                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                                                            isSelected ? "bg-primary text-primary-foreground" : "opacity-50"
+                                                        )}>
+                                                            {isSelected && <Check className="h-4 w-4" />}
+                                                        </div>
+                                                        {day}
+                                                    </CommandItem>
+                                                );
+                                            })}
+                                        </CommandGroup>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
                         )}
                     </form.Field>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                        <form.Field name="days">
+                            {(field) => (
+                                <>
+                                    {field.state.value.map((day) => (
+                                        <Badge key={day} variant="secondary" className="mr-1">
+                                            {day}
+                                        </Badge>
+                                    ))}
+                                </>
+                            )}
+                        </form.Field>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
@@ -413,21 +453,16 @@ export default function WorkScheduleForm({
                     <form.Field name="active">
                         {(field) => (
                             <Select
-                                placeholder="Выберите статус"
-                                selectedKeys={[field.state.value ? "active" : "inactive"]}
-                                onChange={(e) => field.handleChange(e.target.value === "active")}
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
+                                value={field.state.value ? "active" : "inactive"}
+                                onValueChange={(value) => field.handleChange(value === "active")}
                             >
-                                <SelectItem key="active" value="active">
-                                    Активный
-                                </SelectItem>
-                                <SelectItem key="inactive" value="inactive">
-                                    Неактивный
-                                </SelectItem>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите статус" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="active">Активный</SelectItem>
+                                    <SelectItem value="inactive">Неактивный</SelectItem>
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>

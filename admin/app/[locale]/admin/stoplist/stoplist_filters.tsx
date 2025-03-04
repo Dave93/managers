@@ -19,7 +19,6 @@ import {
   endOfDay,
   subHours,
 } from "date-fns";
-import { Select, SelectItem } from "@nextui-org/select";
 import { useEffect, useState } from "react";
 import { apiClient } from "@admin/utils/eden";
 import {
@@ -27,9 +26,9 @@ import {
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import {
-  Select as ShadncUISelect,
-  SelectItem as ShadncUISelectItem,
+  Select,
   SelectContent,
+  SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
@@ -111,7 +110,7 @@ export const StoplistFilters = () => {
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
-          <ShadncUISelect
+          <Select
             onValueChange={(value) => {
               const today = new Date();
               switch (value) {
@@ -154,16 +153,16 @@ export const StoplistFilters = () => {
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent position="popper">
-              <ShadncUISelectItem value="-1">Вчера</ShadncUISelectItem>
-              <ShadncUISelectItem value="0">Сегодня</ShadncUISelectItem>
-              <ShadncUISelectItem value="lastWeek">
+              <SelectItem value="-1">Вчера</SelectItem>
+              <SelectItem value="0">Сегодня</SelectItem>
+              <SelectItem value="lastWeek">
                 За прошлую неделю
-              </ShadncUISelectItem>
-              <ShadncUISelectItem value="lastMonth">
+              </SelectItem>
+              <SelectItem value="lastMonth">
                 За прошлый месяц
-              </ShadncUISelectItem>
+              </SelectItem>
             </SelectContent>
-          </ShadncUISelect>
+          </Select>
 
           <Calendar
             initialFocus
@@ -176,64 +175,66 @@ export const StoplistFilters = () => {
         </PopoverContent>
       </Popover>
 
-      <Select
-        labelPlacement="inside"
-        label="Статус"
-        className="max-w-xs"
-        onChange={handleSelectionChange}
-      >
-        <SelectItem key="stop" value="stop">
-          На стопе
-        </SelectItem>
-        <SelectItem key="available" value="available">
-          Доступен
-        </SelectItem>
-      </Select>
+      <div className="w-[200px]">
+        <Select onValueChange={(value) => setStatus(value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Статус" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="stop">На стопе</SelectItem>
+            <SelectItem value="available">Доступен</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Select
-        labelPlacement="inside"
-        label="Бренд"
-        className="max-w-xs"
-        onChange={handleOrgChange}
-      >
-        {organizatonList.map((org) => {
-          let orgId = "";
-          const iikoCredentialsLogin = org.credentials.find(
-            (c) => c.type === "iiko_id"
-          );
-          if (iikoCredentialsLogin) {
-            orgId = iikoCredentialsLogin.key;
-          }
+      <div className="w-[200px]">
+        <Select onValueChange={(value) => setOrganizationId(value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Бренд" />
+          </SelectTrigger>
+          <SelectContent>
+            {organizatonList.map((org) => {
+              let orgId = "";
+              const iikoCredentialsLogin = org.credentials.find(
+                (c) => c.type === "iiko_id"
+              );
+              if (iikoCredentialsLogin) {
+                orgId = iikoCredentialsLogin.key;
+              }
 
-          return (
-            <SelectItem key={orgId} value={orgId}>
-              {org.name}
-            </SelectItem>
-          );
-        })}
-      </Select>
+              return (
+                <SelectItem key={orgId} value={orgId}>
+                  {org.name}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <Select
-        labelPlacement="inside"
-        label="Филиал"
-        className="max-w-xs"
-        onChange={handleTerminalChange}
-      >
-        {terminalsList.map((terminal) => {
-          let terminalId = "";
-          const iikoCredentials = terminal.credentials.find(
-            (c) => c.type === "iiko_id"
-          );
-          if (iikoCredentials) {
-            terminalId = iikoCredentials.key;
-          }
-          return (
-            <SelectItem key={terminalId} value={terminalId}>
-              {terminal.name}
-            </SelectItem>
-          );
-        })}
-      </Select>
+      <div className="w-[200px]">
+        <Select onValueChange={(value) => setTerminalId(value)}>
+          <SelectTrigger>
+            <SelectValue placeholder="Филиал" />
+          </SelectTrigger>
+          <SelectContent>
+            {terminalsList.map((terminal) => {
+              let terminalId = "";
+              const iikoCredentials = terminal.credentials.find(
+                (c) => c.type === "iiko_id"
+              );
+              if (iikoCredentials) {
+                terminalId = iikoCredentials.key;
+              }
+              return (
+                <SelectItem key={terminalId} value={terminalId}>
+                  {terminal.name}
+                </SelectItem>
+              );
+            })}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 };
