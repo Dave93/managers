@@ -5,31 +5,19 @@ import Link from "next/link";
 
 import { cn } from "@admin/lib/utils";
 import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
+  NavigationMenu, NavigationMenuItem,
   NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
+  NavigationMenuList, navigationMenuTriggerStyle
 } from "@components/ui/navigation-menu";
 
 import {
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  NavbarMenuToggle,
-  NavbarMenu,
-  NavbarMenuItem,
-  Dropdown,
+  Navbar, NavbarItem, Dropdown,
   DropdownMenu,
   DropdownTrigger,
-  DropdownItem,
-  Select,
+  DropdownItem
 } from "@nextui-org/react";
 import CanAccess from "../can-access";
-import { ArrowDown, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { useLocale } from "next-intl";
 
 const components: { title: string; href: string; description: string }[] = [
