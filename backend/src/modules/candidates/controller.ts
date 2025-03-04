@@ -1,13 +1,15 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { candidates, education, vacancy } from "backend/drizzle/schema";
+import { candidates, education, vacancy, last_work_place, family_list } from "backend/drizzle/schema";
 import { and, eq, InferSelectModel, sql, SQLWrapper } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 
 type CandidateInsert = typeof candidates.$inferInsert;
 type EducationInsert = typeof education.$inferInsert;
+type LastWorkPlaceInsert = typeof last_work_place.$inferInsert;
+type FamilyListInsert = typeof family_list.$inferInsert;
 type ErrorResponse = { message: string; stack?: string };
 type ResultStatus = "positive" | "negative" | "neutral" | null;
 
@@ -17,6 +19,27 @@ interface EducationEntry {
     educationType: string;
     university: string;
     speciality: string;
+}
+
+interface LastWorkPlaceEntry {
+    lastWorkPlace: string;
+    dismissalDate: string;
+    employmentDate: string;
+    experience: string;
+    organizationName: string;
+    position: string;
+    addressOrg: string;
+    dismissalReason: string;
+    
+}
+
+interface FamilyListEntry {
+    familyListName: string;
+    familyListBirthDate: string;
+    familyListPhone: string;
+    familyListRelation: string;
+    familyListAddress: string;
+    familyJob: string;
 }
 
 interface CandidateBody {
@@ -43,6 +66,9 @@ interface CandidateBody {
     desiredPosition?: string;
     resultStatus?: ResultStatus;
     educations?: EducationEntry[];
+    lastWorkPlaces?: LastWorkPlaceEntry[];
+    isFirstJob?: boolean;
+    familyLists?: FamilyListEntry[];
 }
 
 export const candidatesController = new Elysia({
@@ -77,6 +103,7 @@ export const candidatesController = new Elysia({
                 resultStatus: candidates.resultStatus,
                 createdAt: candidates.createdAt,
                 updatedAt: candidates.updatedAt,
+                isFirstJob: candidates.isFirstJob,
             };
 
             if (fields) {
@@ -85,32 +112,88 @@ export const candidatesController = new Elysia({
                 });
             }
 
-            let whereClause: (SQLWrapper | undefined)[] = [];
+            let whereClause: SQLWrapper[] = [];
             if (filters) {
-                whereClause = parseFilterFields(filters, candidates, {
+                const parsedFilters = parseFilterFields(filters, candidates, {
                     vacancy: vacancy,
                 });
+                whereClause = parsedFilters.filter((clause): clause is SQLWrapper => clause !== undefined);
             }
 
-            const candidatesCount = await drizzle
-                .select({ count: sql<number>`count(*)` })
-                .from(candidates)
-                .leftJoin(vacancy, eq(vacancy.id, candidates.vacancyId))
-                .where(and(...whereClause))
-                .execute();
+            // Обрабатываем сортировку
+            let sortFields: any[] = [];
+            if (sort) {
+                try {
+                    // Используем any для обхода проблем с типами
+                    sortFields = parseSelectFields(sort, candidates, {
+                        vacancy: vacancy,
+                    }) as any[];
+                    sortFields = sortFields.filter(field => field !== undefined);
+                } catch (error) {
+                    console.error('Error parsing sort fields:', error);
+                }
+            }
 
-            const candidatesList = await drizzle
+            const whereConditions = whereClause.length > 0 ? and(...whereClause) : undefined;
+
+            // Получаем кандидатов с учетом фильтров и сортировки
+            const candidatesResult = await drizzle
                 .select(selectFields)
                 .from(candidates)
-                .leftJoin(vacancy, eq(vacancy.id, candidates.vacancyId))
-                .where(and(...whereClause))
-                .limit(limit ? Number(limit) : 50)
+                .where(whereConditions)
+                .limit(limit ? Number(limit) : 10)
                 .offset(offset ? Number(offset) : 0)
+                .orderBy(...sortFields)
                 .execute();
 
+            // Получаем общее количество кандидатов
+            const [{ count }] = await drizzle
+                .select({ count: sql<number>`count(*)` })
+                .from(candidates)
+                .where(whereConditions)
+                .execute();
+
+            // Получаем дополнительные данные для каждого кандидата
+            const candidatesWithDetails = await Promise.all(
+                candidatesResult.map(async (candidate) => {
+                    // Получаем данные об образовании
+                    const educationData = await drizzle
+                        .select()
+                        .from(education)
+                        .where(eq(education.candidateId, candidate.id as string))
+                        .execute();
+
+                    // Получаем данные о последних местах работы
+                    const lastWorkPlaceData = await drizzle
+                        .select()
+                        .from(last_work_place)
+                        .where(eq(last_work_place.candidateId, candidate.id as string))
+                        .execute();
+
+                    // Получаем данные о родственниках
+                    const familyListData = await drizzle
+                        .select()
+                        .from(family_list)
+                        .where(eq(family_list.candidateId, candidate.id as string))
+                        .execute();
+
+                    // Возвращаем кандидата с дополнительными данными
+                    return {
+                        ...candidate,
+                        education: educationData,
+                        lastWorkPlace: lastWorkPlaceData,
+                        familyList: familyListData
+                    };
+                })
+            );
+
             return {
-                total: candidatesCount[0].count,
-                data: candidatesList,
+                data: candidatesWithDetails,
+                meta: {
+                    total: Number(count),
+                    limit: limit ? Number(limit) : 10,
+                    offset: offset ? Number(offset) : 0,
+                }
             };
         } catch (error) {
             const err = error as ErrorResponse;
@@ -174,47 +257,29 @@ export const candidatesController = new Elysia({
 
             // Start transaction
             const result = await drizzle.transaction(async (tx) => {
-                // Create candidate
-                const candidateData: CandidateInsert = {
-                    vacancyId: candidateBody.vacancyId,
-                    fullName: candidateBody.fullName,
-                    birthDate: candidateBody.birthDate ? new Date(candidateBody.birthDate).toISOString() : null,
-                    phoneNumber: candidateBody.phoneNumber,
-                    email: candidateBody.email || null,
-                    citizenship: candidateBody.citizenship || null,
-                    residence: candidateBody.residence || null,
-                    passportNumber: candidateBody.passportNumber || null,
-                    passportSeries: candidateBody.passportSeries || null,
-                    passportIdDate: candidateBody.passportIdDate ? new Date(candidateBody.passportIdDate).toISOString() : null,
-                    passportIdPlace: candidateBody.passportIdPlace || null,
-                    source: candidateBody.source || null,
-                    familyStatus: candidateBody.familyStatus || null,
-                    children: candidateBody.children || null,
-                    language: candidateBody.language || null,
-                    desiredSalary: candidateBody.desiredSalary ? Number(candidateBody.desiredSalary) : null,
-                    desiredSchedule: candidateBody.desiredSchedule || null,
-                    purpose: candidateBody.purpose || null,
-                    strengthsShortage: candidateBody.strengthsShortage || null,
-                    relatives: candidateBody.relatives || null,
-                    desiredPosition: candidateBody.desiredPosition || null,
-                    resultStatus: candidateBody.resultStatus || 'neutral'
-                };
-
+                // Создаем кандидата
                 const [newCandidate] = await tx
                     .insert(candidates)
-                    .values(candidateData)
+                    .values({
+                        ...candidateBody,
+                        desiredSalary: candidateBody.desiredSalary ? Number(candidateBody.desiredSalary) : null,
+                        resultStatus: candidateBody.resultStatus as ResultStatus | null,
+                        isFirstJob: candidateBody.isFirstJob || false,
+                        createdAt: new Date(),
+                        updatedAt: new Date(),
+                    })
                     .returning()
                     .execute();
 
-                if (!newCandidate?.id) {
-                    throw new Error('Failed to create candidate record');
-                }
-
                 console.log('Created candidate:', newCandidate);
 
-                // Handle education data
+                // Обрабатываем данные об образовании, если они предоставлены
+                let educationData: InferSelectModel<typeof education>[] = [];
+                let lastWorkPlaceData: InferSelectModel<typeof last_work_place>[] = [];
+                let familyListData: InferSelectModel<typeof family_list>[] = [];
+
                 if (candidateBody.educations && Array.isArray(candidateBody.educations) && candidateBody.educations.length > 0) {
-                    console.log('Processing education records:', candidateBody.educations);
+                    console.log('Processing education data:', candidateBody.educations);
 
                     try {
                         const educationRecords = candidateBody.educations.map(edu => ({
@@ -228,28 +293,94 @@ export const candidatesController = new Elysia({
 
                         console.log('Inserting education records:', educationRecords);
 
-                        const educationResult = await tx
+                        educationData = await tx
                             .insert(education)
                             .values(educationRecords)
                             .returning()
                             .execute();
 
-                        console.log('Created education records:', educationResult);
-                        
-                        // Return candidate with education data
-                        return {
-                            ...newCandidate,
-                            education: educationResult
-                        };
+                        console.log('Created education records:', educationData);
                     } catch (educationError) {
                         console.error('Error creating education records:', educationError);
                         // Continue without education if there's an error
-                        return newCandidate;
                     }
                 } else {
                     console.log('No education data to process');
-                    return newCandidate;
                 }
+
+                // Обрабатываем данные о последних местах работы, если они предоставлены и это не первое место работы
+                if (!candidateBody.isFirstJob && candidateBody.lastWorkPlaces && Array.isArray(candidateBody.lastWorkPlaces) && candidateBody.lastWorkPlaces.length > 0) {
+                    console.log('Processing last work place data:', candidateBody.lastWorkPlaces);
+
+                    try {
+                        const lastWorkPlaceRecords = candidateBody.lastWorkPlaces.map(work => ({
+                            candidateId: newCandidate.id,
+                            lastWorkPlace: work.lastWorkPlace || null,
+                            dismissalDate: new Date(work.dismissalDate).toISOString(),
+                            employmentDate: new Date(work.employmentDate).toISOString(),
+                            experience: work.experience || null,
+                            organizationName: work.organizationName,
+                            position: work.position,
+                            addressOrg: work.addressOrg || null,
+                            dismissalReason: work.dismissalReason || null
+                        }));
+
+                        console.log('Inserting last work place records:', lastWorkPlaceRecords);
+
+                        lastWorkPlaceData = await tx
+                            .insert(last_work_place)
+                            .values(lastWorkPlaceRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Created last work place records:', lastWorkPlaceData);
+                    } catch (lastWorkPlaceError) {
+                        console.error('Error creating last work place records:', lastWorkPlaceError);
+                        // Continue without last work place if there's an error
+                    }
+                } else {
+                    console.log('No last work place data to process');
+                }
+
+                // Обрабатываем данные о родственниках, если они предоставлены
+                if (candidateBody.familyLists && Array.isArray(candidateBody.familyLists) && candidateBody.familyLists.length > 0) {
+                    console.log('Processing family list data:', candidateBody.familyLists);
+
+                    try {
+                        const familyListRecords = candidateBody.familyLists.map(family => ({
+                            candidateId: newCandidate.id,
+                            familyListName: family.familyListName,
+                            familyListBirthDate: family.familyListBirthDate ? new Date(family.familyListBirthDate).toISOString() : null,
+                            familyListPhone: family.familyListPhone || null,
+                            familyListRelation: family.familyListRelation,
+                            familyListAddress: family.familyListAddress || null,
+                            familyJob: family.familyJob || null
+                        }));
+
+                        console.log('Inserting family list records:', familyListRecords);
+
+                        familyListData = await tx
+                            .insert(family_list)
+                            .values(familyListRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Created family list records:', familyListData);
+                    } catch (familyListError) {
+                        console.error('Error creating family list records:', familyListError);
+                        // Continue without family list if there's an error
+                    }
+                } else {
+                    console.log('No family list data to process');
+                }
+
+                // Возвращаем кандидата с дополнительными данными
+                return {
+                    ...newCandidate,
+                    education: educationData,
+                    lastWorkPlace: lastWorkPlaceData,
+                    familyList: familyListData
+                };
             });
 
             await cacheController.cachePermissions();
@@ -297,7 +428,26 @@ export const candidatesController = new Elysia({
                 educationType: t.String(),
                 university: t.String(),
                 speciality: t.String()
-            })))
+            }))),
+            lastWorkPlaces: t.Optional(t.Array(t.Object({
+                lastWorkPlace: t.Optional(t.String()),
+                dismissalDate: t.String(),
+                employmentDate: t.String(),
+                experience: t.Optional(t.String()),
+                organizationName: t.String(),
+                position: t.String(),
+                addressOrg: t.Optional(t.String()),
+                dismissalReason: t.Optional(t.String())
+            }))),
+            isFirstJob: t.Optional(t.Boolean()),
+            familyLists: t.Optional(t.Array(t.Object({
+                familyListName: t.String(),
+                familyListBirthDate: t.Optional(t.String()),
+                familyListPhone: t.Optional(t.String()),
+                familyListRelation: t.String(),
+                familyListAddress: t.Optional(t.String()),
+                familyJob: t.Optional(t.String())
+            }))),
         })
     })
 
@@ -307,26 +457,142 @@ export const candidatesController = new Elysia({
                 ...body,
                 desiredSalary: body.desiredSalary ? Number(body.desiredSalary) : undefined,
                 resultStatus: body.resultStatus as ResultStatus | undefined,
+                isFirstJob: body.isFirstJob,
                 updatedAt: new Date(),
             };
 
-            const candidate = await drizzle
-                .update(candidates)
-                .set(updateData)
-                .where(eq(candidates.id, id))
-                .returning()
-                .execute();
+            // Обновляем данные кандидата в транзакции
+            const result = await drizzle.transaction(async (tx) => {
+                // Обновляем основные данные кандидата
+                const [updatedCandidate] = await tx
+                    .update(candidates)
+                    .set(updateData)
+                    .where(eq(candidates.id, id))
+                    .returning()
+                    .execute();
 
-            if (!candidate.length) {
-                set.status = 404;
+                if (!updatedCandidate) {
+                    throw new Error("Candidate not found");
+                }
+
+                // Обрабатываем данные об образовании, если они предоставлены
+                let educationResult: InferSelectModel<typeof education>[] = [];
+                let lastWorkPlaceResult: InferSelectModel<typeof last_work_place>[] = [];
+                let familyListResult: InferSelectModel<typeof family_list>[] = [];
+
+                if (body.educations && Array.isArray(body.educations) && body.educations.length > 0) {
+                    console.log('Processing education records for update:', body.educations);
+
+                    try {
+                        // Сначала удаляем существующие записи об образовании
+                        await tx
+                            .delete(education)
+                            .where(eq(education.candidateId, id))
+                            .execute();
+
+                        // Затем добавляем новые записи
+                        const educationRecords = body.educations.map(edu => ({
+                            candidateId: id,
+                            dateStart: new Date(edu.dateStart).toISOString(),
+                            dateEnd: new Date(edu.dateEnd).toISOString(),
+                            educationType: edu.educationType,
+                            university: edu.university,
+                            speciality: edu.speciality
+                        }));
+
+                        educationResult = await tx
+                            .insert(education)
+                            .values(educationRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Updated education records:', educationResult);
+                    } catch (educationError) {
+                        console.error('Error updating education records:', educationError);
+                    }
+                }
+
+                // Обрабатываем данные о последних местах работы, если они предоставлены и это не первое место работы
+                if (!body.isFirstJob && body.lastWorkPlaces && Array.isArray(body.lastWorkPlaces) && body.lastWorkPlaces.length > 0) {
+                    console.log('Processing last work place records for update:', body.lastWorkPlaces);
+
+                    try {
+                        // Сначала удаляем существующие записи о местах работы
+                        await tx
+                            .delete(last_work_place)
+                            .where(eq(last_work_place.candidateId, id))
+                            .execute();
+
+                        // Затем добавляем новые записи
+                        const lastWorkPlaceRecords = body.lastWorkPlaces.map(work => ({
+                            candidateId: id,
+                            lastWorkPlace: work.lastWorkPlace || null,
+                            dismissalDate: new Date(work.dismissalDate).toISOString(),
+                            employmentDate: new Date(work.employmentDate).toISOString(),
+                            experience: work.experience || null,
+                            organizationName: work.organizationName,
+                            position: work.position,
+                            addressOrg: work.addressOrg || null,
+                            dismissalReason: work.dismissalReason || null
+                        }));
+
+                        lastWorkPlaceResult = await tx
+                            .insert(last_work_place)
+                            .values(lastWorkPlaceRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Updated last work place records:', lastWorkPlaceResult);
+                    } catch (lastWorkPlaceError) {
+                        console.error('Error updating last work place records:', lastWorkPlaceError);
+                    }
+                }
+
+                // Обрабатываем данные о родственниках, если они предоставлены
+                if (body.familyLists && Array.isArray(body.familyLists) && body.familyLists.length > 0) {
+                    console.log('Processing family list records for update:', body.familyLists);
+
+                    try {
+                        // Сначала удаляем существующие записи о родственниках
+                        await tx
+                            .delete(family_list)
+                            .where(eq(family_list.candidateId, id))
+                            .execute();
+
+                        // Затем добавляем новые записи
+                        const familyListRecords = body.familyLists.map(family => ({
+                            candidateId: id,
+                            familyListName: family.familyListName,
+                            familyListBirthDate: family.familyListBirthDate ? new Date(family.familyListBirthDate).toISOString() : null,
+                            familyListPhone: family.familyListPhone || null,
+                            familyListRelation: family.familyListRelation,
+                            familyListAddress: family.familyListAddress || null,
+                            familyJob: family.familyJob || null
+                        }));
+
+                        familyListResult = await tx
+                            .insert(family_list)
+                            .values(familyListRecords)
+                            .returning()
+                            .execute();
+
+                        console.log('Updated family list records:', familyListResult);
+                    } catch (familyListError) {
+                        console.error('Error updating family list records:', familyListError);
+                    }
+                }
+
                 return {
-                    error: "Candidate not found"
+                    ...updatedCandidate,
+                    education: educationResult,
+                    lastWorkPlace: lastWorkPlaceResult,
+                    familyList: familyListResult
                 };
-            }
+            });
 
             await cacheController.cachePermissions();
             return {
-                data: candidate[0],
+                data: result,
             };
         } catch (error) {
             const err = error as ErrorResponse;
@@ -363,7 +629,33 @@ export const candidatesController = new Elysia({
             desiredSchedule: t.Optional(t.String()),
             purpose: t.Optional(t.String()),
             desiredPosition: t.Optional(t.String()),
-            resultStatus: t.Optional(t.Enum({ positive: "positive", negative: "negative", neutral: "neutral" }))
+            resultStatus: t.Optional(t.Enum({ positive: "positive", negative: "negative", neutral: "neutral" })),
+            educations: t.Optional(t.Array(t.Object({
+                dateStart: t.String(),
+                dateEnd: t.String(),
+                educationType: t.String(),
+                university: t.String(),
+                speciality: t.String()
+            }))),
+            lastWorkPlaces: t.Optional(t.Array(t.Object({
+                lastWorkPlace: t.Optional(t.String()),
+                dismissalDate: t.String(),
+                employmentDate: t.String(),
+                experience: t.Optional(t.String()),
+                organizationName: t.String(),
+                position: t.String(),
+                addressOrg: t.Optional(t.String()),
+                dismissalReason: t.Optional(t.String())
+            }))),
+            isFirstJob: t.Optional(t.Boolean()),
+            familyLists: t.Optional(t.Array(t.Object({
+                familyListName: t.String(),
+                familyListBirthDate: t.Optional(t.String()),
+                familyListPhone: t.Optional(t.String()),
+                familyListRelation: t.String(),
+                familyListAddress: t.Optional(t.String()),
+                familyJob: t.Optional(t.String())
+            }))),
         })
     })
 
