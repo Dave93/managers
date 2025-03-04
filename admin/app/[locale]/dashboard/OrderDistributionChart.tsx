@@ -105,7 +105,7 @@ const DistributionTooltip = ({ active, payload }: any) => {
   }
 
   return (
-    <div className="rounded-lg border bg-background p-2 shadow-sm">
+    <div className="rounded-lg border bg-background p-2 shadow-xs">
       <div className="grid gap-2">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -185,7 +185,7 @@ const OrderDistributionChart = () => {
         <CardHeader>
           <CardTitle>{t('charts.OrderDistributionChart.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="flex-grow flex items-center justify-center">
+        <CardContent className="grow flex items-center justify-center">
           <p>Ошибка загрузки данных: {error.message}</p>
         </CardContent>
       </Card>
@@ -251,8 +251,8 @@ const OrderDistributionChart = () => {
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col">
-        <div className="flex-grow">
+      <CardContent className="grow flex flex-col">
+        <div className="grow">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={combinedData}

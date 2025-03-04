@@ -121,7 +121,7 @@ export default function ReportsPage(params: paramsProps) {
                 role="alert"
               >
                 <svg
-                  className="flex-shrink-0 inline w-4 h-4 mr-3"
+                  className="shrink-0 inline w-4 h-4 mr-3"
                   aria-hidden="true"
                   xmlns="http://www.w3.org/2000/svg"
                   fill="currentColor"

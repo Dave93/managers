@@ -414,7 +414,7 @@ export default function ProductGroupsKanban({
         <GroupAddButton organizationId={organizationId} />
       </div>
       {isLoading && (
-        <div className="absolute backdrop-blur flex h-full items-center justify-center left-0 top-0 w-full z-10">
+        <div className="absolute backdrop-blur-sm flex h-full items-center justify-center left-0 top-0 w-full z-10">
           <svg
             className="animate-spin h-10 w-10 text-sky-500"
             xmlns="http://www.w3.org/2000/svg"

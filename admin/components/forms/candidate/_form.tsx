@@ -8,11 +8,8 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Select, SelectItem } from "@nextui-org/select";
 import { Textarea } from "@components/ui/textarea";
 import { Selection } from "@react-types/shared";
-import { Chip } from "@nextui-org/chip";
-import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
@@ -23,6 +20,26 @@ import Component from "@admin/components/ui/Component";
 import { DatePicker } from "@heroui/react";
 import { parseDate, parseZonedDateTime } from "@internationalized/date";
 import React from "react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@components/ui/select";
+import { Badge } from "@components/ui/badge";
+import { Calendar } from "@admin/components/ui/calendar";
+
+interface DropdownNavProps {
+    children: React.ReactNode;
+}
+
+interface DropdownProps {
+    value: number;
+    onChange?: (value: number) => void;
+    options?: { value: number; label: string; disabled?: boolean }[];
+}
+
 interface ApiResponse<T = any> {
     data?: T[];
     error?: string;
@@ -131,8 +148,8 @@ export default function CandidateForm({
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [date, setDate] = useState(parseZonedDateTime("2024-04-04T00:00[UTC]"));
-    const [selectedVacancyId, setSelectedVacancyId] = useState<Selection>(new Set([]));
-    const [selectedResultStatus, setSelectedResultStatus] = useState<Selection>(new Set([]));
+    const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
+    const [selectedResultStatus, setSelectedResultStatus] = useState<'positive' | 'negative' | 'neutral'>("neutral");
     const [showEducationForm, setShowEducationForm] = useState(!recordId);
     const [educations, setEducations] = useState<EducationEntry[]>([]);
     const [showLastWorkPlaceForm, setShowLastWorkPlaceForm] = useState(!recordId);
@@ -498,16 +515,14 @@ export default function CandidateForm({
         }
     });
 
-    const handleVacancyChange = (selection: Selection) => {
-        setSelectedVacancyId(selection);
-        const selectedVacancy = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("vacancyId", selectedVacancy || "");
+    const handleVacancyChange = (value: string) => {
+        setSelectedVacancyId(value);
+        form.setFieldValue("vacancyId", value || "");
     };
 
-    const handleResultStatusChange = (selection: Selection) => {
-        setSelectedResultStatus(selection);
-        const selectedStatus = Array.from(selection)[0] as 'positive' | 'negative' | 'neutral' | undefined;
-        form.setFieldValue("resultStatus", selectedStatus || "neutral");
+    const handleResultStatusChange = (value: string) => {
+        setSelectedResultStatus(value as 'positive' | 'negative' | 'neutral');
+        form.setFieldValue("resultStatus", value || "neutral");
     };
 
     const handleAddEducation = (education: EducationEntry) => {
@@ -609,10 +624,10 @@ export default function CandidateForm({
 
             // Set selected values for dropdowns
             if (candidate.vacancyId) {
-                setSelectedVacancyId(new Set([candidate.vacancyId]));
+                setSelectedVacancyId(candidate.vacancyId);
             }
             if (candidate.resultStatus) {
-                setSelectedResultStatus(new Set([candidate.resultStatus]));
+                setSelectedResultStatus(candidate.resultStatus);
             }
             // if (candidate.birthDate) {
             //     setDate(new Date(candidate.birthDate));
@@ -666,6 +681,15 @@ export default function CandidateForm({
         }
     };
 
+    const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+        const _event = {
+            target: {
+                value: String(_value),
+            },
+        } as React.ChangeEvent<HTMLSelectElement>
+        _e(_event)
+    }
+
     return (
         <form
             ref={formRef}
@@ -678,37 +702,20 @@ export default function CandidateForm({
                     <form.Field name="vacancyId">
                         {(field) => (
                             <Select
-                                id={field.name}
-                                name={field.name}
                                 value={field.getValue() ?? ""}
-                                selectedKeys={selectedVacancyId}
-                                onSelectionChange={handleVacancyChange}
-                                isLoading={vacanciesQuery.isLoading}
-                                placeholder="Выберите вакансию"
-                                isRequired
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                renderValue={(items) => (
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(selectedVacancyId).map((item) => {
-                                            const vacancy = vacanciesQuery.data?.data?.find(v => v.id === item);
-                                            return (
-                                                <Chip key={item}>
-                                                    {vacancy ? `${vacancy.applicationNum} - ${vacancy.position}` : item}
-                                                </Chip>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                onValueChange={handleVacancyChange}
+                                disabled={vacanciesQuery.isLoading}
                             >
-                                {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
-                                    <SelectItem key={vacancy.id} value={vacancy.id}>
-                                        {vacancy.applicationNum} - {vacancy.position}
-                                    </SelectItem>
-                                )) : []}
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите вакансию" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
+                                        <SelectItem key={vacancy.id} value={vacancy.id}>
+                                            {vacancy.applicationNum} - {vacancy.position}
+                                        </SelectItem>
+                                    )) : []}
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>
@@ -733,48 +740,73 @@ export default function CandidateForm({
                 <div className="space-y-2">
                     <Label>Дата рождения</Label>
                     <form.Field name="birthDate">
-                        {(field) => (
-                            <DatePicker
-                                showMonthAndYearPickers
-                                variant="bordered"
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                value={date}
-                                onChange={setDate}
-                            />
-                            // <Popover>
-                            //     <PopoverTrigger asChild>
-                            //         <Button
-                            //             variant={"outline"}
-                            //             className={cn(
-                            //                 "w-full justify-start text-left font-normal",
-                            //                 !date && "text-muted-foreground"
-                            //             )}
-                            //             aria-label="Select date"
-                            //         >
-                            //             <CalendarIcon className="mr-2 h-4 w-4" />
-                            //             {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                            //         </Button>
-                            //     </PopoverTrigger>
-                            //     <PopoverContent className="w-auto p-0">
+                        {(field) => {
+                            let date = field.getValue() ?? new Date();
+                            return (
+                                <Popover>
+                                    <PopoverTrigger className={cn(
+                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
+                                        !date && "text-muted-foreground"
+                                    )}>
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"
+                                        container={formRef.current!}
+                                    >
 
-                            //         {/* <Calendar
-                            //             mode="single"
-                            //             selected={date}
-                            //             onSelect={(date) => {
-                            //                 setDate(date);
-                            //                 if (date) {
-                            //                     field.handleChange(format(date, "yyyy-MM-dd"));
-                            //                 }
-                            //             }}
-                            //             initialFocus
-                            //         /> */}
-                            //     </PopoverContent>
-                            // </Popover>
-                        )}
+                                        <Calendar
+                                            mode="single"
+                                            selected={date}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    field.handleChange(format(date, "yyyy-MM-dd"));
+                                                } else {
+                                                    field.handleChange("");
+                                                }
+                                            }}
+                                            className="rounded-md border p-2"
+                                            classNames={{
+                                                month_caption: "mx-0",
+                                            }}
+                                            captionLayout="dropdown"
+                                            defaultMonth={new Date()}
+                                            startMonth={new Date(1980, 6)}
+                                            hideNavigation
+                                            components={{
+                                                DropdownNav: (props: DropdownNavProps) => {
+                                                    return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                                },
+                                                Dropdown: (props: DropdownProps) => {
+                                                    return (
+                                                        <Select
+                                                            value={String(props.value)}
+                                                            onValueChange={(value) => {
+                                                                if (props.onChange) {
+                                                                    handleCalendarChange(value, props.onChange)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                                {props.options?.map((option) => (
+                                                                    <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )
+                                                },
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+
+                            )
+                        }}
                     </form.Field>
                 </div>
                 <div className="space-y-2">
@@ -959,7 +991,6 @@ export default function CandidateForm({
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0">
                                     <Calendar
-
                                         mode="single"
                                         selected={passDate}
                                         onSelect={(date) => {
@@ -1092,31 +1123,17 @@ export default function CandidateForm({
                     <form.Field name="resultStatus">
                         {(field) => (
                             <Select
-                                id={field.name}
-                                name={field.name}
                                 value={field.getValue() ?? "neutral"}
-                                selectedKeys={selectedResultStatus}
-                                onSelectionChange={handleResultStatusChange}
-                                placeholder="Выберите статус результата"
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                renderValue={(items) => (
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(selectedResultStatus).map((item) => (
-                                            <Chip key={item}>
-                                                {item === 'positive' ? 'Положительный' :
-                                                    item === 'negative' ? 'Отрицательный' : 'Нейтральный'}
-                                            </Chip>
-                                        ))}
-                                    </div>
-                                )}
+                                onValueChange={handleResultStatusChange}
                             >
-                                <SelectItem key="positive" value="positive">Положительный</SelectItem>
-                                <SelectItem key="negative" value="negative">Отрицательный</SelectItem>
-                                <SelectItem key="neutral" value="neutral">Нейтральный</SelectItem>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите статус результата" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="positive">Положительный</SelectItem>
+                                    <SelectItem value="negative">Отрицательный</SelectItem>
+                                    <SelectItem value="neutral">Нейтральный</SelectItem>
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>

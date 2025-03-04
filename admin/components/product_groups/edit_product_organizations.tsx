@@ -29,7 +29,7 @@ export default function EditProductOrganizations({
       <Button size="xs" variant="ghost" onClick={onOpen}>
         <Edit2Icon className="h-3 w-3" />
       </Button>
-      <Modal backdrop="blur" isOpen={isOpen} onClose={onClose}>
+      <Modal backdrop="blur-sm" isOpen={isOpen} onClose={onClose}>
         {isOpen && (
           <ModalContent>
             {(onClose) => (

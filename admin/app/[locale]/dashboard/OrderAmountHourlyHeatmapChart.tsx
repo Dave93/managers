@@ -100,7 +100,7 @@ const OrderAmountHourlyHeatmapChart = () => {
             <CardHeader className="pb-0">
                 <CardTitle>{t('charts.OrderAmountHourlyHeatmapChart.title')}</CardTitle>
             </CardHeader>
-            <CardContent className="p-6 pt-0 flex-grow flex flex-col">
+            <CardContent className="p-6 pt-0 grow flex flex-col">
                 <ResponsiveHeatMapCanvas
                     data={formattedData}
                     margin={{ top: 5, right: 0, bottom: 40, left: 50 }}

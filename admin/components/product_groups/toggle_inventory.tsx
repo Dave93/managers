@@ -36,7 +36,7 @@ export const ToggleGroupInventory = ({ group }: { group: Column }) => {
         showArrow
         offset={10}
         placement="bottom"
-        backdrop="blur"
+        backdrop="blur-sm"
         isOpen={isOpen}
         onOpenChange={(open) => setIsOpen(open)}
       >

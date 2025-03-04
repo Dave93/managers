@@ -133,7 +133,7 @@ const PopularDishesChart = () => {
         <CardHeader className="pb-0">
           <CardTitle>{t('charts.PopularDishesChart.title')}</CardTitle>
         </CardHeader>
-        <CardContent className="p-2 flex-grow flex flex-col">
+        <CardContent className="p-2 grow flex flex-col">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={topDishes}

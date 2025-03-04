@@ -336,8 +336,8 @@ const RevenueChart = () => {
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col">
-        <div className="flex-grow">
+      <CardContent className="grow flex flex-col">
+        <div className="grow">
           <div
             className="h-full"
             onWheel={handleZoom}
