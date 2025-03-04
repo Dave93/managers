@@ -13,6 +13,8 @@ import {
   index,
   time,
   primaryKey,
+  serial,
+  jsonb,
   pgView,
   decimal,
   pgMaterializedView
@@ -47,6 +49,29 @@ export const user_status = pgEnum("user_status", [
 export const work_schedule_entry_status = pgEnum("work_schedule_entry_status", [
   "open",
   "closed",
+]);
+
+export const vacancyStatusEnumV2 = pgEnum('vacancy_status_v2', [
+  "open",
+  "in_progress",
+  "found_candidates",
+  "interview",
+  "closed",
+  "cancelled",
+]);
+
+export const interviewStatusEnum = pgEnum('interview_status', [
+  'scheduled',
+  'completed',
+  'cancelled',
+  'pending'
+]);
+
+// результат собеседования
+export const interviewResultEnum = pgEnum('interview_result', [
+  'positive',
+  'negative',
+  'neutral',
 ]);
 
 export const invoices = pgTable(
@@ -597,14 +622,14 @@ export const work_schedule_entries = pgTable(
 
 export const work_schedules = pgTable("work_schedules", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
-  name: text("name").notNull(),
-  active: boolean("active").default(true).notNull(),
-  organization_id: uuid("organization_id").notNull(),
-  days: text("days").array(),
-  start_time: time("start_time", { withTimezone: true }).notNull(),
-  end_time: time("end_time", { withTimezone: true }).notNull(),
-  max_start_time: time("max_start_time", { withTimezone: true }).notNull(),
-  bonus_price: integer("bonus_price").default(0).notNull(),
+  name: text("name").notNull(), // название графика
+  active: boolean("active").default(true).notNull(), // активен ли график
+  organization_id: uuid("organization_id").notNull(), // id организации
+  days: text("days").array(), // дни недели
+  start_time: time("start_time", { withTimezone: true }).notNull(), // начало рабочего дня
+  end_time: time("end_time", { withTimezone: true }).notNull(), // конец рабочего дня
+  max_start_time: time("max_start_time", { withTimezone: true }).notNull(), // максимальное время начала работы
+  bonus_price: integer("bonus_price").default(0).notNull(), // цена бонуса  
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
@@ -886,6 +911,120 @@ export const nomenclature_element_organization = pgTable(
   }
 );
 
+export const vacancy = pgTable("vacancy", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  applicationNum: varchar("application_num", { length: 255 }).notNull(),
+  organizationId: uuid("organization_id").references(() => organization.id),
+  terminalId: uuid("terminal_id").references(() => terminals.id),
+  position: uuid("position").references(() => positions.id),
+  work_schedule_id: uuid("work_schedule_id").references(() => work_schedules.id),
+  reason: varchar("reason", { length: 255 }).notNull(),
+  openDate: timestamp("open_date", { withTimezone: true, mode: "string" }).notNull(),
+  closingDate: timestamp("closing_date", { withTimezone: true, mode: "string" }),
+  recruiter: uuid("recruiter").references(() => users.id),
+  internshipDate: timestamp("internship_date", { withTimezone: true, mode: "string" }),
+  comments: text("comments"),
+  status: vacancyStatusEnumV2('status').default('open'),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  createdBy: uuid("created_by"),
+  updatedBy: uuid("updated_by"),
+});
+
+
+// Должность
+export const positions = pgTable('positions', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  title: varchar('title', { length: 100 }).notNull(), // название должности
+  description: text('description'), // описание должности
+  requirements: text('requirements'), // требования
+  salaryMin: integer('salary_min'), // минимальная зарплата
+  salaryMax: integer('salary_max'), // максимальная зарплата
+  terminalId: uuid('terminal_id').references(() => terminals.id), // филиал  
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+// кондидаты
+export const candidates = pgTable('candidates', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  vacancyId: uuid('vacancy_id').references(() => vacancy.id), // вакансия
+  fullName: varchar('full_name', { length: 255 }).notNull(), // ФИО
+  birthDate: timestamp('birth_date', { withTimezone: true, mode: "string" }), // дата рождения
+  citizenship: varchar('citizenship', { length: 255 }), // гражданство
+  residence: varchar('residence', { length: 255 }), // место поживания
+  phoneNumber: varchar('phone_number', { length: 255 }).notNull(), // телефон
+  email: varchar('email', { length: 255 }), // email
+  passportNumber: varchar('passport_number', { length: 255 }), // номер паспорта
+  passportSeries: varchar('passport_series', { length: 255 }), // серия паспорта
+  passportIdDate: timestamp('passport_id_date', { withTimezone: true, mode: "string" }), // дата выдачи паспорта
+  passportIdPlace: varchar('passport_id_place', { length: 255 }), // место выдачи паспорта
+  source: varchar('source', { length: 255 }), // откуда узнали об вакансии
+  familyStatus: varchar('family_status', { length: 255 }), // семейное положение
+  children: integer('children'), // количество детей
+  language: varchar('language', { length: 255 }), // язык
+  strengthsShortage: varchar('strengths_shortage', { length: 255 }), // слабые стороны
+  relatives: varchar('relatives', { length: 255 }), // родственники
+  desiredSalary: integer('desired_salary'), // желаемая зарплата
+  desiredSchedule: varchar('desired_schedule', { length: 255 }), // желаемый график работы
+  purpose: varchar('purpose', { length: 255 }), // цель прихода на наше предприятие
+  desiredPosition: varchar('desired_position', { length: 255 }), // желаемая должность
+  resultStatus: interviewResultEnum("result_status").default('neutral'), // результат собеседования
+  isFirstJob: boolean('is_first_job').default(false), // является ли это первым местом работы
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
+export const education = pgTable('education', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  candidateId: uuid('candidate_id').references(() => candidates.id), // кондидат
+  dateStart: timestamp('date_start', { withTimezone: true, mode: "string" }), // дата начала обучения
+  dateEnd: timestamp('date_end', { withTimezone: true, mode: "string" }), // дата окончания обучения
+  educationType: varchar('education_type', { length: 255 }), // тип образования
+  university: varchar('university', { length: 255 }), // ВУЗ
+  speciality: varchar('speciality', { length: 255 }), // специальность
+});
+
+export const last_work_place = pgTable('last_work_place', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  candidateId: uuid('candidate_id').references(() => candidates.id), // кондидат
+  lastWorkPlace: varchar('last_work_place', { length: 255 }), // последнее место работы
+  dismissalDate: timestamp('dismissal_date', { withTimezone: true, mode: "string" }), // дата увольнения
+  employmentDate: timestamp('employment_date', { withTimezone: true, mode: "string" }), // дата приема на работу
+  experience: varchar('experience', { length: 255 }), // опыт работы
+  organizationName: varchar('organization_name', { length: 255 }), // наименование организации
+  position: varchar('position', { length: 255 }), // должность
+  addressOrg: varchar('address_org', { length: 255 }), // адресс организации
+  dismissalReason: varchar('dismissal_reason', { length: 255 }), // причина увольнения
+});
+
+export const family_list = pgTable('family_list', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  candidateId: uuid('candidate_id').references(() => candidates.id), // кондидат
+  familyListName: varchar('family_list_name', { length: 255 }), // ФИО родственников
+  familyListBirthDate: timestamp('family_list_birth_date', { withTimezone: true, mode: "string" }), // дата рождения родственников
+  familyListPhone: varchar('family_list_phone', { length: 255 }), // телефон родственников
+  familyListRelation: varchar('family_list_relation', { length: 255 }), // родственные отношения
+  familyListAddress: varchar('family_list_address', { length: 255 }), // адресс родственников
+  familyJob: varchar('family_job', { length: 255 }), // место работы родственников
+});
+
+// собеседования
+export const interviews = pgTable('interviews', {
+  id: uuid('id').defaultRandom().primaryKey().notNull(),
+  candidateId: uuid('candidate_id').references(() => candidates.id), // кондидат
+  interviewerId: uuid('interviewer_id').references(() => users.id), // интервьюер
+  interviewDate: timestamp('interview_date').notNull(), // дата интервью
+  interviewResult: varchar('interview_result', { length: 255 }), // результат интервью
+  status: interviewStatusEnum('status').default('scheduled'), // статус интервью
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+});
+
 export const nomenclatureElementToOrganization = relations(
   nomenclature_element_organization,
   ({ one }) => ({
@@ -900,7 +1039,20 @@ export const nomenclatureElementToOrganization = relations(
   })
 );
 
-
+export const vacancyRelations = relations(vacancy, ({ one }) => ({
+  creator: one(users, {
+    fields: [vacancy.createdBy],
+    references: [users.id],
+  }),
+  updater: one(users, {
+    fields: [vacancy.updatedBy],
+    references: [users.id],
+  }),
+  workSchedule: one(work_schedules, {
+    fields: [vacancy.work_schedule_id],
+    references: [work_schedules.id],
+  }),
+}));
 
 export const orders = pgTable('orders', {
   id: uuid('id').notNull(),
@@ -969,10 +1121,6 @@ export const orders = pgTable('orders', {
     orderPK: primaryKey({ columns: [table.id, table.openDateTyped] }),
   };
 });
-
-
-
-
 
 export const orders_by_time = pgTable('orders_by_time', {
   id: uuid('id').notNull(),
@@ -1074,7 +1222,6 @@ export const revenueWeeklyAggregation = pgMaterializedView("revenue_weekly_aggre
   totalRevenue: decimal("total_revenue"),
 }).existing();
 
-
 export const order_items = pgTable('order_items', {
   id: uuid('id').notNull(),
   uniqOrderId: uuid('uniq_order_id').notNull(),
@@ -1095,7 +1242,6 @@ export const order_items = pgTable('order_items', {
   primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
 ]);
 
-
 export const productDailyAggregation = pgMaterializedView("product_daily_aggregation", {
   bucket: timestamp("bucket"),
   restaurantGroupId: varchar("restaurant_group_id"),
@@ -1105,3 +1251,21 @@ export const productDailyAggregation = pgMaterializedView("product_daily_aggrega
   dishDiscountSumInt: integer("dish_discount_sum_int"),
   totalCount: integer("total_count"),
 }).existing();
+
+export const productCookingTime = pgTable('product_cooking_time', {
+  id: uuid('id').defaultRandom().notNull(),
+  uniqOrderId: uuid('uniq_order_id').notNull(),
+  restorauntGroup: varchar('restoraunt_group', { length: 255 }).notNull(),
+  cookingPlace: varchar('cooking_place', { length: 255 }).notNull(),
+  // orderType: varchar('order_type', { length: 255 }).notNull(),
+  dishName: varchar('dish_name', { length: 255 }).notNull(),
+  openTime: timestamp('open_time', { mode: 'string' }).notNull(),
+  cookingFinishTime: timestamp('cooking_finish_time', { mode: 'string' }),
+  dishAmountInt: integer('dish_amount_int').notNull(),
+  guestWaitTimeAvg: integer('guest_wait_time_avg').notNull(),
+  openDateTyped: timestamp('open_date_typed', { mode: 'string' }).notNull(),
+  departmentId: varchar('department_id', { length: 255 }).notNull(),
+  department: varchar('department', { length: 255 }).notNull(),
+}, (table) => [
+  primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
+]);

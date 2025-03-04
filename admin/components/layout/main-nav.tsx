@@ -58,6 +58,25 @@ const components: { title: string; href: string; description: string }[] = [
   },
 ];
 
+const hrMenu: { title: string; href: string }[] = [
+  {
+    title: "Вакансии",
+    href: "/hr/vacancy"
+  },
+  {
+    title: "Должность",
+    href: "/hr/position"
+  },
+  {
+    title: "График Работ",
+    href: "/hr/schedule"
+  },
+  {
+    title: "Анкета",
+    href: "/hr/candidates"
+  }
+]
+
 
 export function NavigationMenuDemo() {
   const locale = useLocale();
@@ -227,6 +246,35 @@ export function NavigationMenuDemo() {
                 }}
               >
                 {storeMenu.map((component) => (
+                  <DropdownItem
+                    key={component.title}
+                    title={component.title}
+                    href={component.href}
+                  />
+                ))}
+              </DropdownMenu>
+            </Dropdown>
+          </Navbar>
+        </NavigationMenuItem>
+        <NavigationMenuItem>
+          <Navbar>
+            <Dropdown>
+              <NavbarItem className="cursor-pointer">
+                <DropdownTrigger>
+                  <div className="flex items-center">
+                    HR
+                    <ChevronDown className="ml-2" size={18} />
+                  </div>
+                </DropdownTrigger>
+              </NavbarItem>
+              <DropdownMenu
+                aria-label="ACME features"
+                className="w-[340px]"
+                itemClasses={{
+                  base: "gap-4",
+                }}
+              >
+                {hrMenu.map((component) => (
                   <DropdownItem
                     key={component.title}
                     title={component.title}

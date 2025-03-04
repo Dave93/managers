@@ -1090,3 +1090,137 @@ export const chartsController = new Elysia({
             terminals: t.Optional(t.String()),
         }),
     })
+    .get('/charts/cooking-time-distribution', async ({
+        query: {
+            startDate,
+            endDate,
+            terminals,
+            organization
+        },
+        user,
+        set,
+        drizzle,
+        cacheController
+    }) => {
+        const apiStartTime = performance.now();
+
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+
+        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
+        if (user?.terminals && user.terminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        }
+
+        const terminalList = currentTerminals.map(terminal => {
+            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
+            return credentials?.key;
+        }).filter(id => id !== null);
+
+        const terminalCondition = terminalList.length > 0
+            ? sql`AND restoraunt_group IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
+            : sql``;
+        // Создаем временные интервалы по 5 минут до 4 часов
+        const sqlQuery = sql`
+            WITH cooking_stats AS (
+                SELECT
+                    dish_name,
+                    -- Округляем вверх к ближайшему 5-минутному интервалу
+                    CASE
+                        WHEN guest_wait_time_avg = 0 THEN 300  -- Если 0 секунд, помещаем в 0-5 мин
+                        ELSE ((guest_wait_time_avg + 299) / 300) * 300  -- Округляем вверх к 5-минутному интервалу
+                    END AS time_range,
+                    SUM(dish_amount_int) AS dishes_count
+                FROM product_cooking_time
+                WHERE
+                    guest_wait_time_avg <= 14400  -- Учитываем все блюда до 4 часов
+                    AND cooking_finish_time IS NOT NULL  -- Только завершенные блюда
+                    AND open_date_typed >= ${startDate}::timestamp AND open_date_typed <= ${endDate}::timestamp
+                    ${terminalCondition}
+                    ${organization ? sql`AND department_id = ${organization}` : sql``}
+                GROUP BY dish_name, time_range
+            )
+            SELECT
+                cs.dish_name,
+                json_agg(
+                    json_build_object(
+                        'time_range', cs.time_range,
+                        'formatted_range',
+                            CASE
+                                WHEN cs.time_range = 300 THEN '0-5 min'
+                                ELSE CONCAT((cs.time_range - 300) / 60, '-', cs.time_range / 60, ' min')
+                            END,
+                        'dishes_count', COALESCE(cs.dishes_count, 0)
+                    )
+                    ORDER BY cs.time_range
+                ) AS time_ranges
+            FROM cooking_stats cs
+            GROUP BY cs.dish_name
+            ORDER BY cs.dish_name;
+        `;
+
+        try {
+            const sqlStartTime = performance.now();
+            const result = await drizzle.execute<{
+                dish_name: string;
+                time_ranges: Array<{
+                    time_range: number;
+                    dishes_count: number;
+                }>;
+            }>(sqlQuery);
+            const sqlEndTime = performance.now();
+
+            const apiEndTime = performance.now();
+
+            if (!Array.isArray(result.rows)) {
+                throw new Error("Unexpected data format: not an array");
+            }
+
+            // Получаем все уникальные временные интервалы
+            const allTimeRanges = new Set<number>();
+            result.rows.forEach(row => {
+                row.time_ranges.forEach((range) => {
+                    allTimeRanges.add(range.time_range);
+                });
+            });
+
+            // Сортируем временные интервалы
+            const sortedTimeRanges = Array.from(allTimeRanges).sort((a, b) => a - b);
+
+            // Форматируем данные для ответа
+            const formattedData = {
+                timeRanges: sortedTimeRanges.map(range => `${Math.floor(range / 60)}:${(range % 60).toString().padStart(2, '0')}`),
+                dishes: result.rows.map(row => {
+                    const timeRangeMap = new Map(
+                        row.time_ranges.map((r) => [r.time_range, r.dishes_count])
+                    );
+
+                    return {
+                        name: row.dish_name,
+                        values: sortedTimeRanges.map(range =>
+                            timeRangeMap.get(range) || 0
+                        )
+                    };
+                })
+            };
+
+            return {
+                data: formattedData,
+                debug: {
+                    sqlQueryTime: sqlEndTime - sqlStartTime,
+                    apiTime: apiEndTime - apiStartTime
+                }
+            };
+        } catch (error) {
+            console.error("Error fetching cooking time distribution:", error);
+            set.status = 500;
+            return { message: "Error fetching cooking time distribution", error: String(error) };
+        }
+    }, {
+        permission: "charts.list",
+        query: t.Object({
+            startDate: t.String(),
+            endDate: t.String(),
+            terminals: t.Optional(t.String()),
+            organization: t.Optional(t.String()),
+        }),
+    })

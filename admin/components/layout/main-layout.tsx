@@ -12,8 +12,6 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const roleCode = useGetRole();
-  console.log('roleCode', roleCode)
-  console.log('davr')
   return (
     <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>

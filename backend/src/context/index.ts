@@ -12,7 +12,7 @@ import { Queue } from "bullmq";
 
 const client = new Redis({
   port: 6379, // Redis port
-  host: "127.0.0.1", // Redis host
+  host: process.env.REDIS_HOST, // Redis host
   //   maxRetriesPerRequest: null,
 });
 

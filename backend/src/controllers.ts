@@ -28,7 +28,14 @@ import { internalTransferItemsController } from "./modules/internal_transfer_ite
 import { productGroupsController } from "./modules/product_groups/controller";
 import { nomenclatureElementOrganizationController } from "./modules/nomenclature_element_organization/controller";
 import { reportOlapController } from "./modules/report_olap/controller";
+import { positionsController } from "./modules/positions/controller";
+import { vacancyController } from "./modules/vacancy/controller";
+import { candidatesController } from "./modules/candidates/controller";
 import { chartsController } from "./modules/charts/controller";
+import { educationController } from "./modules/education/controller";
+import { lastWorkPlaceController } from "./modules/last_work_place/controller";
+import { familyListController } from "./modules/family_list/controller";
+
 
 export const apiController = new Elysia({
   name: "@api",
@@ -63,4 +70,10 @@ export const apiController = new Elysia({
   .use(productGroupsController)
   .use(nomenclatureElementOrganizationController)
   .use(reportOlapController)
-  .use(chartsController);
+  .use(positionsController)
+  .use(vacancyController)
+  .use(candidatesController)
+  .use(chartsController)
+  .use(educationController)
+  .use(lastWorkPlaceController)
+  .use(familyListController);

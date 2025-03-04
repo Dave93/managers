@@ -83,6 +83,9 @@
     "PopularDishesByPrice": {
       "title": "Top 10 buyurtmalar",
       "salesAmount": "Buyurtmalar summasi"
+    },
+    "ProductCookingTime": {
+      "title": "Tayyorlash vaqti"
     }
   }
 }

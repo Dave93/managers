@@ -7,3 +7,7 @@ dumo.rdb
 
 merchants_api/.cache
 backend/app
+cron/dashboards_sync
+cron/date.json
+cron/getProductsCookingTime
+cron/cookingdate.json

@@ -83,6 +83,22 @@
     "PopularDishesByPrice": {
       "title": "Top 10 by Sales Amount",
       "salesAmount": "Sales Amount"
+    },
+    "ProductCookingTime": {
+      "title": "Dish Cooking Time",
+      "dishName": "Dish Name",
+      "searchPlaceholder": "Search dishes...",
+      "openFullTable": "Open Full Table",
+      "hideHeatmap": "Hide Heatmap",
+      "showHeatmap": "Show Heatmap",
+      "exportCSV": "Export CSV",
+      "perDishHeatmap": "Per dish heatmap",
+      "globalHeatmap": "Global heatmap",
+      "total": "Total",
+      "loading": "Loading more dishes...",
+      "scrollToLoadMore": "Scroll to load more dishes",
+      "noResults": "No dishes found matching your search",
+      "sortHint": "Click on column headers to sort"
     }
   }
 }

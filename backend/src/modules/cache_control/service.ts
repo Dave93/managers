@@ -1,7 +1,10 @@
 import {
   apiTokensWithRelations,
   organizationWithCredentials,
+  positionsWithRelations,
   terminalsWithCredentials,
+  usersWithRelations,
+  workSchedulesWithRelations,
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
 import { InferSelectModel, eq, getTableColumns, sql } from "drizzle-orm";
@@ -48,7 +51,13 @@ export class CacheControlService {
     this.cacheCredentials();
     this.cacheReportStatuses();
     this.cacheStores();
+    this.cachePositions();
+    this.cacheUsers();
+    this.cacheWorkSchedule();
     this.cacheUsersTerminalsByUserId();
+    this.cachePositions();
+    this.cacheUsers();
+    this.cacheWorkSchedule();
   }
 
   async cachePermissions() {
@@ -119,6 +128,142 @@ export class CacheControlService {
       res = res.slice(0, take);
     }
 
+    return res;
+  }
+
+  async cachePositions() {
+    const positions = await this.drizzle.query.positions.findMany();
+
+    const credentialsList = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "positions"),
+    });
+
+    const credentialsByPositionId = credentialsList.reduce((acc, credential) => {
+      if (!acc[credential.model_id]) {
+        acc[credential.model_id] = [];
+      }
+      acc[credential.model_id].push(credential);
+      return acc;
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+
+    const newPositions: positionsWithRelations[] = [];
+
+    for (const position of positions) {
+      const credentials = credentialsByPositionId[position.id];
+      const newPosition: positionsWithRelations = {
+        ...position,
+        credentials: [],
+      };
+      if (credentials) {
+        newPosition.credentials = credentials;
+      }
+      newPositions.push(newPosition);
+    }
+
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}positions`,
+      JSON.stringify(newPositions)
+    );
+  }
+
+  async getCachedPositions({ take }: { take?: number }) {
+    const positions = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}positions`,
+    );
+    let res = JSON.parse(positions ?? "[]") as positionsWithRelations[];
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
+    return res;
+
+  }
+
+  async cacheUsers() {
+    const users = await this.drizzle.query.users.findMany();
+    const credentialsList = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "users"),
+    });
+    const credentialsByUserId = credentialsList.reduce((acc, credential) => {
+      if (!acc[credential.model_id]) {
+        acc[credential.model_id] = [];
+      }
+      acc[credential.model_id].push(credential);
+      return acc;
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+
+    const newUsers: usersWithRelations[] = [];
+    for (const user of users) {
+      const credentials = credentialsByUserId[user.id];
+      const newUser: usersWithRelations = {
+        ...user,
+        credentials: [],
+      };
+      if (credentials) {
+        newUser.credentials = credentials;
+      }
+      newUsers.push(newUser);
+    }
+
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}users`,
+      JSON.stringify(newUsers)
+    );
+  }
+
+  async getCachedUsers({ take }: { take?: number }) {
+    const users = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}users`
+    );
+    let res = JSON.parse(users ?? "[]") as usersWithRelations[];
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
+    return res;
+  }
+
+
+  async cacheWorkSchedule() {
+    const workSchedules = await this.drizzle.query.work_schedules.findMany();
+    const credentialsList = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "work_schedules"),
+    });
+
+    const credentialsByScheduleId = credentialsList.reduce((acc, credential) => {
+      if (!acc[credential.model_id]) {
+        acc[credential.model_id] = [];
+      }
+      acc[credential.model_id].push(credential);
+      return acc;
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+
+    const newWorkSchedules: workSchedulesWithRelations[] = [];
+
+    for (const schedule of workSchedules) {
+      const credentials = credentialsByScheduleId[schedule.id];
+      const newSchedule: workSchedulesWithRelations = {
+        ...schedule,
+        credentials: credentials || [],
+      };
+      newWorkSchedules.push(newSchedule);
+    }
+
+    await this.redis.set(
+      `${process.env.PROJECT_PREFIX}work_schedules`,
+      JSON.stringify(newWorkSchedules)
+    );
+  }
+
+  async getCachedWorkSchedule({ take }: { take?: number }) {
+    const workSchedules = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}work_schedules`
+    );
+    let res = JSON.parse(workSchedules ?? "[]") as workSchedulesWithRelations[];
+
+    if (take && res.length > take) {
+      res = res.slice(0, take);
+    }
     return res;
   }
 
@@ -238,7 +383,6 @@ export class CacheControlService {
     }
 
     const roles = await this.getCachedRoles({});
-    console.log("roles", roles);
     const role = roles.find((role) => role.id === roleId);
     if (!role) {
       return [];
