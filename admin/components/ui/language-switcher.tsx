@@ -1,9 +1,16 @@
 'use client';
 
 import React from 'react';
-import { Dropdown, DropdownTrigger, DropdownMenu, DropdownItem, Button } from "@nextui-org/react";
 import { routing, usePathname, useRouter } from '@admin/i18n/routing';
 import { useLocale } from 'next-intl';
+import { Button } from "@components/ui/button";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 const languageNames = {
     'en': 'English',
@@ -22,25 +29,23 @@ export default function LanguageSwitcher() {
     };
 
     return (
-        <Dropdown>
-            <DropdownTrigger>
-                <Button
-                    variant="bordered"
-                    className="capitalize"
-                >
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="capitalize flex items-center gap-1">
                     {languageNames[locale as keyof typeof languageNames]}
+                    <ChevronDown className="h-4 w-4" />
                 </Button>
-            </DropdownTrigger>
-            <DropdownMenu
-                aria-label="Language selection"
-                onAction={(key) => handleLanguageChange(key as string)}
-            >
-                {routing.locales.map((locale) => (
-                    <DropdownItem key={locale}>
-                        {languageNames[locale as keyof typeof languageNames]}
-                    </DropdownItem>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+                {routing.locales.map((localeOption) => (
+                    <DropdownMenuItem
+                        key={localeOption}
+                        onClick={() => handleLanguageChange(localeOption)}
+                    >
+                        {languageNames[localeOption as keyof typeof languageNames]}
+                    </DropdownMenuItem>
                 ))}
-            </DropdownMenu>
-        </Dropdown>
+            </DropdownMenuContent>
+        </DropdownMenu>
     );
 } 

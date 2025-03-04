@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Column } from "./board_column";
 import { Button } from "../ui/button";
 import { Check, Edit, Edit2, RemoveFormatting, Save, X } from "lucide-react";
-import { Input } from "@nextui-org/react";
+import { Input } from "../ui/input";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 
@@ -41,7 +41,6 @@ export const GroupTitleEditable = ({ group }: GroupTitleEditableProps) => {
                 <Input
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  variant="bordered"
                   className="w-full"
                 />
               </div>
