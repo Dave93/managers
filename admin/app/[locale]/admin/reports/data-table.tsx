@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@components/ui/table";
 
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useState } from "react";
 import {

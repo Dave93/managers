@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Calendar } from "@components/ui/calendar";
 import {
     Collapsible,

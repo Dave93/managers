@@ -1,4 +1,4 @@
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Popover,
   PopoverClose,

@@ -23,7 +23,6 @@ import {
   corporation_groups,
   balance_store,
   suppliers,
-  endDayMonths
 } from "backend/drizzle/schema";
 import path from "path";
 const fs = require("fs");
@@ -76,7 +75,6 @@ export class IikoDictionariesService {
     // await this.getBalanceStores(token);
     await this.getReportOlap(token);
     await this.getSupplers(token);
-    await this.getEndDayMonths(token);
   }
 
   checkForNullString = (value: string) => {
@@ -99,65 +97,6 @@ export class IikoDictionariesService {
     return isNaN(intValue) ? null : intValue;
   };
 
-
-  async getEndDayMonths(token: string) {
-    const date = dayjs()
-    // .startOf("month")
-    .add(5, "hour")
-    .format("YYYY-MM-DDTHH:mm:ss");
-
-const responce = await fetch(
-
-  `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/balance/stores?timestamp=${date}&key=${token}`,
-  {
-    method: "GET",
-  }
-);
-
-    const meaningEndDayMonths = await responce.json();
-
-    const existingEndDayMonths = await drizzleDb
-    .select()
-    .from(endDayMonths)
-    .execute();
-
-
-    // console.log("parsedResult", meaningEndDayMonths);
-
-    console.log("Started endDayMonths db inserting")
-    console.time("endDayMonths_db_inserting")
-    try{
-      await drizzleDb
-      .delete(endDayMonths)
-      .where(eq(endDayMonths.date, date))
-      .execute()
-
-    }catch(e){
-      console.log("error deleting endDayMonths", e)
-      process.exit(1)
-    }
-
-    for(const endDayMonth of meaningEndDayMonths){
-      try{
-        await drizzleDb
-        .insert(endDayMonths)
-        .values({
-          date: date,
-          store: endDayMonth.store,
-          product: endDayMonth.product,
-          sum: endDayMonth.sum,
-          amount: endDayMonth.amount,
-        })
-      }catch(e){
-        console.log("error inserting endDayMonths", e)
-        process.exit(1)
-      }
-    }
-
-    console.timeEnd("endDayMonths_db_inserting")
-    console.log("Finished endDayMonths db inserting")
-
-  }
 
   async getBalanceStores(token: string) {
     const date = dayjs()

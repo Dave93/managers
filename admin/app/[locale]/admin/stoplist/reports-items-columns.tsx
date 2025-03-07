@@ -3,7 +3,7 @@ import { ColumnDef } from "@tanstack/react-table";
 
 import { useMemo, useState } from "react";
 import { Input } from "@admin/components/ui/input";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Check } from "lucide-react";
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
 import { apiClient } from "@admin/utils/eden";

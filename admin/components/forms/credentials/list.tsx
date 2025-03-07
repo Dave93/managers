@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,

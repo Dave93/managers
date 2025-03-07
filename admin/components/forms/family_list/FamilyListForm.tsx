@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { useState, useRef } from "react";

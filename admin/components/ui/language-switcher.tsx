@@ -3,7 +3,7 @@
 import React from 'react';
 import { routing, usePathname, useRouter } from '@admin/i18n/routing';
 import { useLocale } from 'next-intl';
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
     DropdownMenu,
     DropdownMenuContent,

@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogHeader,
 } from "@admin/components/ui/alert-dialog";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { CardFooter } from "@admin/components/ui/card";
 import { toast } from "@admin/components/ui/use-toast";
 import { useReportDataStore } from "@admin/store/states/report_data";

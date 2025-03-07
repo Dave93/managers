@@ -1,6 +1,6 @@
 "use client";
 import { CardContent } from "@admin/components/ui/card";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { useForm } from "@tanstack/react-form";
 import { useToast } from "@admin/components/ui/use-toast";
 import { Label } from "@admin/components/ui/label";

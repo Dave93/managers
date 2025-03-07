@@ -5,7 +5,7 @@ import {
   PopoverTrigger,
   PopoverContent
 } from "../ui/popover";
-import { Button } from "../ui/button";
+import { Button } from "../ui/buttonOrigin";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useState } from "react";

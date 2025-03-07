@@ -19,7 +19,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/button";
 import CanAccess from "../can-access";
 
 const components: { title: string; href: string; description: string }[] = [

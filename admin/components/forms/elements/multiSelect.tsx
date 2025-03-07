@@ -3,7 +3,7 @@ import React from "react";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@admin/lib/utils";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Command,
   CommandEmpty,
@@ -46,15 +46,15 @@ export default function MultiSelect({
           <div>
             {value
               ? data
-                  .filter((framework) => value.includes(framework.value))
-                  .map((framework) => (
-                    <div
-                      className="bg-secondary max-w-max min-w-[8rem] px-2 rounded-lg mx-1 my-1"
-                      key={framework.value}
-                    >
-                      {framework.label}
-                    </div>
-                  ))
+                .filter((framework) => value.includes(framework.value))
+                .map((framework) => (
+                  <div
+                    className="bg-secondary max-w-max min-w-[8rem] px-2 rounded-lg mx-1 my-1"
+                    key={framework.value}
+                  >
+                    {framework.label}
+                  </div>
+                ))
               : "Выберите филиал..."}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

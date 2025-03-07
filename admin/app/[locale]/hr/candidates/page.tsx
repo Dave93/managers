@@ -1,7 +1,7 @@
 "use client"
 
 import { Metadata } from "next";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { CalendarIcon, Plus } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "./data-table";

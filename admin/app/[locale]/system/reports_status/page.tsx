@@ -2,7 +2,7 @@
 
 import { DataTable } from "./data-table";
 import { reportsStatusColumns } from "./columns";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import ReportsStatusFormSheet from "@admin/components/forms/reports_status/sheet";
 import CanAccess from "@admin/components/can-access";

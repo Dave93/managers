@@ -19,7 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@admin/components/ui/alert-dialog";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
 import Link from "next/link";

@@ -2,7 +2,7 @@
 
 import { DataTable } from "./data-table";
 import { terminalsColumns } from "./columns";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import TerminalsFormSheet from "@admin/components/forms/terminals/sheet";
 import CanAccess from "@admin/components/can-access";

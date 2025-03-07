@@ -3,7 +3,7 @@
 import { DataTable } from "./data-table";
 import { vacancyColumns } from "./columns";
 import VacancyFormSheet from "@components/forms/vacancy/sheet";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 
 export default function UsersListPage() {

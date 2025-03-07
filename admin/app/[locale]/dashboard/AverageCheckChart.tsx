@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@admin/components/ui/card";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Bar,
   CartesianGrid,

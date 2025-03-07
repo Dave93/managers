@@ -1,7 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import VacancyFormSheet from "@components/forms/vacancy/sheet";
 import { Badge } from "@components/ui/badge";
 import { vacancy } from "@backend/../drizzle/schema";

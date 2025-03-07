@@ -1,7 +1,7 @@
 "use client";
 import { DataTable } from "./data-table";
 import { rolesColumns } from "./columns";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import RolePermissions from "./role-permissions";
 import RolesFormSheet from "@admin/components/forms/roles/sheet";

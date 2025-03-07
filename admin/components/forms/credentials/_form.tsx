@@ -1,5 +1,5 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";

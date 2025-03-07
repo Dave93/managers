@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@components/ui/table";
 
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { CSSProperties, Fragment, useEffect, useMemo, useState } from "react";
 import {
@@ -58,8 +58,8 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     boxShadow: isLastLeftPinnedColumn
       ? "-4px 0 4px -4px gray inset"
       : isFirstRightPinnedColumn
-      ? "4px 0 4px -4px gray inset"
-      : undefined,
+        ? "4px 0 4px -4px gray inset"
+        : undefined,
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     position: isPinned ? "sticky" : "relative",
@@ -204,9 +204,9 @@ export function DataTable<TData, TValue>({
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

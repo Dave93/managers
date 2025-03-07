@@ -1,5 +1,5 @@
 import { useToast } from "@admin/components/ui/use-toast";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";

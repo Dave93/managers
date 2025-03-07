@@ -7,7 +7,7 @@ import { useForm } from "@tanstack/react-form";
 import { Loader2, Check } from "lucide-react";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Badge } from "@components/ui/badge";
 import {
     Select,

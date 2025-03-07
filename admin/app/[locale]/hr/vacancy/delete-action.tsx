@@ -1,5 +1,5 @@
 import { Trash2Icon } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { useToast } from "@components/ui/use-toast";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
