@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Eye, EyeOff } from "lucide-react";
 import type { Session } from "next-auth";
 

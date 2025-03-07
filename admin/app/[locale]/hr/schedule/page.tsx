@@ -3,7 +3,7 @@
 import { WorkScheduleFormSheet } from "@admin/components/forms/schedule/sheet";
 import { DataTable } from "./data-table";
 import { sheduleColumns } from "./columns";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import CanAccess from "@admin/components/can-access";
 

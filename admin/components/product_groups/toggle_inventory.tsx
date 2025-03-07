@@ -1,7 +1,11 @@
 import { Column } from "./board_column";
-import { Switch } from "@nextui-org/switch";
-import { Popover, PopoverTrigger, PopoverContent } from "@nextui-org/popover";
-import { Button } from "../ui/button";
+import { Switch } from "../ui/switch";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent
+} from "../ui/popover";
+import { Button } from "../ui/buttonOrigin";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useState } from "react";
@@ -32,18 +36,11 @@ export const ToggleGroupInventory = ({ group }: { group: Column }) => {
   return (
     <div className="flex flex-row items-center gap-2 justify-end">
       <span className="text-sm">Показывать в инвентаре</span>
-      <Popover
-        showArrow
-        offset={10}
-        placement="bottom"
-        backdrop="blur-sm"
-        isOpen={isOpen}
-        onOpenChange={(open) => setIsOpen(open)}
-      >
-        <PopoverTrigger>
-          <Switch isSelected={group.show_inventory} isReadOnly />
+      <Popover open={isOpen} onOpenChange={setIsOpen}>
+        <PopoverTrigger asChild>
+          <Switch checked={group.show_inventory} className="cursor-pointer" />
         </PopoverTrigger>
-        <PopoverContent className="w-[200px] px-4 py-2">
+        <PopoverContent className="w-[200px] p-4">
           <div className="flex flex-col gap-2">
             <div className="font-bold text-center">
               Вы уверены, что хотите{" "}

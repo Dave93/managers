@@ -6,7 +6,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@components/ui/sheet";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useState, useMemo, useEffect } from "react";
 import { useToast } from "@components/ui/use-toast";

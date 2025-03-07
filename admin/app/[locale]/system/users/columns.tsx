@@ -1,7 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import UsersFormSheet from "@components/forms/users/sheet";
 
 import { Badge } from "@components/ui/badge";

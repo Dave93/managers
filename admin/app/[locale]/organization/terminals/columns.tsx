@@ -1,7 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon, KeyRound } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";

@@ -4,12 +4,11 @@ import {
   PopoverTrigger,
 } from "@admin/components/ui/popover";
 import { useStoplistFilterStore } from "./filters_store";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { cn } from "@admin/lib/utils";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Calendar } from "@admin/components/ui/calendar";
 import {
-  addDays,
   startOfWeek,
   startOfMonth,
   endOfWeek,
@@ -18,16 +17,11 @@ import {
   subDays,
   startOfDay,
   endOfDay,
-  subHours,
+  subHours
 } from "date-fns";
-// import { Select, SelectItem } from "@nextui-org/select";
 import { useEffect, useState } from "react";
-import { InferSelectModel } from "drizzle-orm";
 import {
-  corporation_store,
-  organization,
-  terminals,
-  users_stores,
+  corporation_store
 } from "@backend/../drizzle/schema";
 import {
   Select,
@@ -38,11 +32,6 @@ import {
   SelectGroup,
 } from "@admin/components/ui/select";
 import { apiClient } from "@admin/utils/eden";
-import {
-  organizationWithCredentials,
-  terminalsWithCredentials,
-} from "@backend/modules/cache_control/dto/cache.dto";
-import React from "react";
 
 export const WriteoffFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);

@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from "@components/ui/sheet";
 import { List } from "lucide-react";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { DataTable } from "./reports-items-data-table";
 import { reportsItemsColumns } from "./reports-items-columns";
 

@@ -3,7 +3,7 @@
 import { DataTable } from "./data-table";
 import { usersColumns } from "./columns";
 import UsersFormSheet from "@components/forms/users/sheet";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 
 export default function UsersListPage() {

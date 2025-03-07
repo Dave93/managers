@@ -1,6 +1,5 @@
 "use client";
 import React, { useState } from "react";
-import { Tabs, Tab } from "@nextui-org/tabs";
 import { DataTable } from "./data-table";
 import { OlapFilters } from "./olap_filters";
 import Back from "../manager_reports/Back";

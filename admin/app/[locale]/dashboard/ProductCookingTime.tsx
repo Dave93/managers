@@ -15,7 +15,7 @@ import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
 import { Search, X } from "lucide-react";
 import dayjs from "dayjs";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
     Dialog,
     DialogContent,

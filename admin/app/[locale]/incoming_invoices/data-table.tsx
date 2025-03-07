@@ -19,7 +19,7 @@ import {
   TableRow,
 } from "@components/ui/table";
 
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { CSSProperties, useEffect, useMemo, useState } from "react";
 import {
@@ -43,7 +43,7 @@ import { useStoplistFilterStore } from "./filters_store";
 import { cn } from "@admin/lib/utils";
 import "./style.css";
 
-interface DataTableProps<TData, TValue> {}
+interface DataTableProps<TData, TValue> { }
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   const isPinned = column.getIsPinned();
@@ -56,8 +56,8 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     boxShadow: isLastLeftPinnedColumn
       ? "-4px 0 4px -4px gray inset"
       : isFirstRightPinnedColumn
-      ? "4px 0 4px -4px gray inset"
-      : undefined,
+        ? "4px 0 4px -4px gray inset"
+        : undefined,
     left: isPinned === "left" ? `${column.getStart("left")}px` : undefined,
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     position: isPinned ? "sticky" : "relative",
@@ -66,7 +66,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   };
 };
 
-export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
+export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const showActualColumn = useStoplistFilterStore(
@@ -380,9 +380,9 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}
@@ -482,9 +482,9 @@ export function DataTable<TData, TValue>({}: DataTableProps<TData, TValue>) {
                       {header.isPlaceholder
                         ? null
                         : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
+                          header.column.columnDef.header,
+                          header.getContext()
+                        )}
                     </TableHead>
                   );
                 })}

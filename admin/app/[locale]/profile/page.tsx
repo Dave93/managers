@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { signOut } from "next-auth/react";
 
 export default function Profile() {

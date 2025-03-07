@@ -1,7 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { CheckIcon, Edit2Icon, XIcon } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 import dayjs from "dayjs";
 import { Badge } from "@admin/components/ui/badge";

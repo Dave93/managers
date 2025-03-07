@@ -1,6 +1,6 @@
 "use client";
 import { useToast } from "@admin/components/ui/use-toast";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
@@ -9,16 +9,13 @@ import { Input } from "@components/ui/input";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Textarea } from "@components/ui/textarea";
-import { Selection } from "@react-types/shared";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
 import LastWorkPlaceForm, { LastWorkPlaceEntry } from "../last_work_place/LastWorkPlaceForm";
 import FamilyListForm, { FamilyListEntry } from "../family_list/FamilyListForm";
-import Component from "@admin/components/ui/Component";
-import { DatePicker } from "@heroui/react";
-import { parseDate, parseZonedDateTime } from "@internationalized/date";
+import { parseZonedDateTime } from "@internationalized/date";
 import React from "react";
 import {
     Select,
@@ -27,8 +24,9 @@ import {
     SelectTrigger,
     SelectValue
 } from "@components/ui/select";
-import { Badge } from "@components/ui/badge";
+import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
 import { Calendar } from "@admin/components/ui/calendar";
+
 
 interface DropdownNavProps {
     children: React.ReactNode;
@@ -521,8 +519,17 @@ export default function CandidateForm({
     };
 
     const handleResultStatusChange = (value: string) => {
-        setSelectedResultStatus(value as 'positive' | 'negative' | 'neutral');
-        form.setFieldValue("resultStatus", value || "neutral");
+        // Create a properly typed variable
+        let typedStatus: 'positive' | 'negative' | 'neutral';
+
+        // Assign the correct value based on input
+        if (value === 'positive') typedStatus = 'positive';
+        else if (value === 'negative') typedStatus = 'negative';
+        else typedStatus = 'neutral';
+
+        // Now use the properly typed variable
+        setSelectedResultStatus(typedStatus);
+        form.setFieldValue("resultStatus", typedStatus);
     };
 
     const handleAddEducation = (education: EducationEntry) => {
@@ -744,18 +751,30 @@ export default function CandidateForm({
                             let date = field.getValue() ?? new Date();
                             return (
                                 <Popover>
-                                    <PopoverTrigger className={cn(
+                                    {/* <PopoverTrigger className={cn(
                                         "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
                                         !date && "text-muted-foreground"
                                     )}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                    </PopoverTrigger> */}
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                            aria-label="Select date"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                        </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"
                                         container={formRef.current!}
                                     >
-
-                                        <Calendar
+                                        <CalendarOrigin
                                             mode="single"
                                             selected={date}
                                             onSelect={(date) => {
@@ -974,36 +993,115 @@ export default function CandidateForm({
                 <div className="space-y-2">
                     <Label>Дата выдачи паспорта</Label>
                     <form.Field name="passportIdDate">
-                        {(field) => (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !passDate && "text-muted-foreground"
-                                        )}
-                                        aria-label="Select date"
-                                    >
+                        {(field) => {
+                            let date = field.getValue() ?? new Date();
+
+                            return (
+                                <Popover>
+                                    {/* <PopoverTrigger className={cn(
+                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
+                                        !date && "text-muted-foreground"
+                                    )}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={passDate}
-                                        onSelect={(date) => {
-                                            setPassDate(date);
-                                            if (date) {
-                                                field.handleChange(format(date, "yyyy-MM-dd"));
-                                            }
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                    </PopoverTrigger> */}
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                            aria-label="Select date"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"
+                                        container={formRef.current!}
+                                    >
+                                        <CalendarOrigin
+                                            mode="single"
+                                            selected={date}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    field.handleChange(format(date, "yyyy-MM-dd"));
+                                                } else {
+                                                    field.handleChange("");
+                                                }
+                                            }}
+                                            className="rounded-md border p-2"
+                                            classNames={{
+                                                month_caption: "mx-0",
+                                            }}
+                                            captionLayout="dropdown"
+                                            defaultMonth={new Date()}
+                                            startMonth={new Date(1980, 6)}
+                                            hideNavigation
+                                            components={{
+                                                DropdownNav: (props: DropdownNavProps) => {
+                                                    return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                                },
+                                                Dropdown: (props: DropdownProps) => {
+                                                    return (
+                                                        <Select
+                                                            value={String(props.value)}
+                                                            onValueChange={(value) => {
+                                                                if (props.onChange) {
+                                                                    handleCalendarChange(value, props.onChange)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                                {props.options?.map((option) => (
+                                                                    <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )
+                                                },
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                // <Popover>
+                                //     <PopoverTrigger asChild>
+                                //         <Button
+                                //             variant={"outline"}
+                                //             className={cn(
+                                //                 "w-full justify-start text-left font-normal",
+                                //                 !passDate && "text-muted-foreground"
+                                //             )}
+                                //             aria-label="Select date"
+                                //         >
+                                //             <CalendarIcon className="mr-2 h-4 w-4" />
+                                //             {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
+                                //         </Button>
+                                //     </PopoverTrigger>
+                                //     <PopoverContent className="w-auto p-0">
+                                //         <Calendar
+                                //             mode="single"
+                                //             selected={passDate}
+                                //             onSelect={(date) => {
+                                //                 setPassDate(date);
+                                //                 if (date) {
+                                //                     field.handleChange(format(date, "yyyy-MM-dd"));
+                                //                 }
+                                //             }}
+                                //             initialFocus
+                                //         />
+                                //     </PopoverContent>
+                                // </Popover>
+
+
+                            )
+                        }}
                     </form.Field>
                 </div>
                 <div className="space-y-2">

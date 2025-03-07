@@ -1,6 +1,6 @@
 "use client";
 
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@admin/components/ui/input";
 import { useReportDataStore } from "@admin/store/states/report_data";
 import { useSuspenseQuery } from "@tanstack/react-query";

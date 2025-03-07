@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import { Tabs, Tab } from "@nextui-org/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@admin/components/ui/tabs";
 import ProductGroupsKanban from "./kanban";
 
 export default function ProductGroupsListPage() {
@@ -20,6 +20,7 @@ export default function ProductGroupsListPage() {
       });
     },
   });
+
   const tabs = useMemo(() => {
     const res: {
       id: string;
@@ -36,24 +37,37 @@ export default function ProductGroupsListPage() {
     return res;
   }, [data?.data]);
 
+  const [activeTab, setActiveTab] = useState<string>("");
+
+  // Set the first tab as active when data is loaded
+  useMemo(() => {
+    if (tabs.length > 0 && !activeTab) {
+      setActiveTab(tabs[0].id);
+    }
+  }, [tabs, activeTab]);
+
   return (
     <div>
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Группы продуктов</h2>
       </div>
       <div className="py-10">
-        <Tabs
-          aria-label="Dynamic tabs"
-          items={tabs}
-          radius="full"
-          variant="bordered"
-        >
-          {(item) => (
-            <Tab key={item.id} value={item.id} title={item.title}>
-              <ProductGroupsKanban organizationId={item.id} />
-            </Tab>
-          )}
-        </Tabs>
+        {tabs.length > 0 && (
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mb-4">
+              {tabs.map((item) => (
+                <TabsTrigger key={item.id} value={item.id}>
+                  {item.title}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+            {tabs.map((item) => (
+              <TabsContent key={item.id} value={item.id}>
+                <ProductGroupsKanban organizationId={item.id} />
+              </TabsContent>
+            ))}
+          </Tabs>
+        )}
       </div>
     </div>
   );
