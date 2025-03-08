@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@admin/components/lib/utils";
+import { cn } from "@admin/lib/utils";
 import {
   DateFieldProps,
   DateField as DateFieldRac,

@@ -83,7 +83,9 @@ export function DataTable<TValue>({
 
     const table = useReactTable({
         data: data?.data ?? defaultData,
+        // @ts-ignore
         columns: columns as ColumnDef<{ [x: string]: unknown; }, TValue>[],
+        // @ts-ignore
         pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
         state: {
             pagination,

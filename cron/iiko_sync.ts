@@ -22,7 +22,7 @@ import {
   corporation_department,
   corporation_groups,
   balance_store,
-  suppliers,
+  suppliers
 } from "backend/drizzle/schema";
 import path from "path";
 const fs = require("fs");
@@ -96,7 +96,6 @@ export class IikoDictionariesService {
     const intValue = parseFloat(value);
     return isNaN(intValue) ? null : intValue;
   };
-
 
   async getBalanceStores(token: string) {
     const date = dayjs()

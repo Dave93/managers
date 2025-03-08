@@ -103,6 +103,7 @@
     "prettier": "^3.4.2"
   },
   "trustedDependencies": [
+    "@heroui/shared-utils",
     "@parcel/watcher",
     "cli-high",
     "esbuild",

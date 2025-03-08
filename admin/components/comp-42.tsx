@@ -1,6 +1,6 @@
 "use client";
 
-import { cn } from "@admin/components/lib/utils";
+import { cn } from "@admin/lib/utils";
 import { RangeCalendar } from "@admin/components/ui/calendar-rac";
 import { DateInput, dateInputStyle } from "@admin/components/ui/datefield-rac";
 import { CalendarIcon } from "lucide-react";

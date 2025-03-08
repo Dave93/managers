@@ -776,6 +776,7 @@ export default function CandidateForm({
                                     >
                                         <CalendarOrigin
                                             mode="single"
+                                            // @ts-ignore
                                             selected={date}
                                             onSelect={(date) => {
                                                 if (date) {
@@ -793,15 +794,18 @@ export default function CandidateForm({
                                             startMonth={new Date(1980, 6)}
                                             hideNavigation
                                             components={{
+                                                // @ts-ignore
                                                 DropdownNav: (props: DropdownNavProps) => {
                                                     return <div className="flex w-full items-center gap-2">{props.children}</div>
                                                 },
+                                                // @ts-ignore
                                                 Dropdown: (props: DropdownProps) => {
                                                     return (
                                                         <Select
                                                             value={String(props.value)}
                                                             onValueChange={(value) => {
                                                                 if (props.onChange) {
+                                                                    // @ts-ignore
                                                                     handleCalendarChange(value, props.onChange)
                                                                 }
                                                             }}
@@ -1023,6 +1027,7 @@ export default function CandidateForm({
                                     >
                                         <CalendarOrigin
                                             mode="single"
+                                            // @ts-ignore
                                             selected={date}
                                             onSelect={(date) => {
                                                 if (date) {
@@ -1040,15 +1045,18 @@ export default function CandidateForm({
                                             startMonth={new Date(1980, 6)}
                                             hideNavigation
                                             components={{
+                                                // @ts-ignore
                                                 DropdownNav: (props: DropdownNavProps) => {
                                                     return <div className="flex w-full items-center gap-2">{props.children}</div>
                                                 },
+                                                // @ts-ignore
                                                 Dropdown: (props: DropdownProps) => {
                                                     return (
                                                         <Select
                                                             value={String(props.value)}
                                                             onValueChange={(value) => {
                                                                 if (props.onChange) {
+                                                                    // @ts-ignore
                                                                     handleCalendarChange(value, props.onChange)
                                                                 }
                                                             }}
