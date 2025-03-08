@@ -11,3 +11,4 @@ cron/dashboards_sync
 cron/date.json
 cron/getProductsCookingTime
 cron/cookingdate.json
+cron/iiko_sync
