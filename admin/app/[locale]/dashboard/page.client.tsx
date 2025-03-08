@@ -25,6 +25,10 @@ import OrderAmountHourlyHeatmapChart from "./OrderAmountHourlyHeatmapChart";
 import PopularDishesChart from "./PopularDishesChart";
 import PopularDishesByPrice from "./PopularDishesByPrice";
 import ProductCookingTime from "./ProductCookingTime";
+import BasketAdditionalSales from "./BasketAdditionalSales";
+import BasketAdditionalSalesBySource from "./BasketAdditionalSalesBySource";
+import BasketAdditionalSalesBySourceGroup from "./BasketAdditionalSalesBySourceGroup";
+import BasketAdditionalSalesTrendChart from "./BasketAdditionalSalesTrendChart";
 
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -77,8 +81,20 @@ export default function ChartsPageClient() {
             <ChartWrapper className="col-span-2">
                 <PopularDishesByPrice />
             </ChartWrapper>
-            <ChartWrapper className="col-span-4">
+            <ChartWrapper className="col-span-4 h-[600px]">
                 <ProductCookingTime />
+            </ChartWrapper>
+            <ChartWrapper className="col-span-2 h-[600px]">
+                <BasketAdditionalSales />
+            </ChartWrapper>
+            <ChartWrapper className="col-span-2">
+                <BasketAdditionalSalesBySource />
+            </ChartWrapper>
+            <ChartWrapper className="col-span-4 h-[600px]">
+                <BasketAdditionalSalesBySourceGroup />
+            </ChartWrapper>
+            <ChartWrapper className="col-span-4">
+                <BasketAdditionalSalesTrendChart />
             </ChartWrapper>
         </>
     )

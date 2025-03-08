@@ -1224,3 +1224,377 @@ export const chartsController = new Elysia({
             organization: t.Optional(t.String()),
         }),
     })
+    .get('/charts/basket-additional-sales', async ({
+        query: {
+            startDate,
+            endDate,
+            terminals,
+            organization
+        },
+        user,
+        set,
+        drizzle,
+        cacheController
+    }) => {
+        const apiStartTime = performance.now();
+
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+
+        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
+        if (user?.terminals && user.terminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        }
+        const terminalList = currentTerminals.map(terminal => {
+            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
+            return credentials?.key;
+        }).filter(id => id !== null);
+        const terminalCondition = terminalList.length > 0
+            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
+            : sql``;
+        console.log('terminalIds', terminalList)
+        const organizationCondition = organization ? sql`AND organization_id = ${organization}` : sql``;
+        const sqlQuery = sql`
+            SELECT
+                name,
+                SUM(quantity) as total_quantity,
+                SUM(price * quantity) as total_sales
+            FROM basket_additional_sales
+            WHERE
+                created_at >= ${startDate}::timestamp 
+                AND created_at <= ${endDate}::timestamp
+                ${terminalCondition}
+                ${organizationCondition}
+            GROUP BY name
+            ORDER BY total_sales DESC;
+        `;
+
+        try {
+            const sqlStartTime = performance.now();
+            const result = await drizzle.execute(sqlQuery);
+            const sqlEndTime = performance.now();
+
+            const apiEndTime = performance.now();
+
+            if (!Array.isArray(result.rows)) {
+                throw new Error("Unexpected data format: not an array");
+            }
+            console.log('result', result.rows)
+            // Форматируем данные для ответа
+            const formattedData = {
+                products: result.rows.map(row => ({
+                    name: String(row.name),
+                    quantity: Number(row.total_quantity) || 0,
+                    totalSales: Number(row.total_sales) || 0
+                }))
+            };
+
+            return {
+                data: formattedData,
+                debug: {
+                    sqlQueryTime: sqlEndTime - sqlStartTime,
+                    apiTime: apiEndTime - apiStartTime
+                }
+            };
+        } catch (error) {
+            console.error("Error fetching basket additional sales:", error);
+            set.status = 500;
+            return { message: "Error fetching basket additional sales", error: String(error) };
+        }
+    }, {
+        permission: "charts.list",
+        query: t.Object({
+            startDate: t.String(),
+            endDate: t.String(),
+            terminals: t.Optional(t.String()),
+            organization: t.Optional(t.String()),
+        }),
+    })
+    .get('/charts/basket-additional-sales-by-source', async ({
+        query: {
+            startDate,
+            endDate,
+            terminals,
+            organization
+        },
+        user,
+        set,
+        drizzle,
+        cacheController
+    }) => {
+        const apiStartTime = performance.now();
+
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+
+        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
+        if (user?.terminals && user.terminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        }
+        const terminalList = currentTerminals.map(terminal => {
+            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
+            return credentials?.key;
+        }).filter(id => id !== null);
+        const terminalCondition = terminalList.length > 0
+            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
+            : sql``;
+
+        const organizationCondition = organization
+            ? sql`AND organization_id = ${organization}`
+            : sql``;
+
+        const sqlQuery = sql`
+            SELECT
+                source,
+                SUM(quantity) as total_quantity,
+                SUM(price * quantity) as total_sales
+            FROM basket_additional_sales
+            WHERE
+                created_at >= ${startDate}::timestamp 
+                AND created_at <= ${endDate}::timestamp
+                ${terminalCondition}
+                ${organizationCondition}
+            GROUP BY source
+            ORDER BY total_sales DESC;
+        `;
+
+        try {
+            const sqlStartTime = performance.now();
+            const result = await drizzle.execute(sqlQuery);
+            const sqlEndTime = performance.now();
+
+            const apiEndTime = performance.now();
+
+            if (!Array.isArray(result.rows)) {
+                throw new Error("Unexpected data format: not an array");
+            }
+
+            // Форматируем данные для ответа
+            const formattedData = {
+                sources: result.rows.map(row => ({
+                    name: String(row.source),
+                    quantity: Number(row.total_quantity) || 0,
+                    totalSales: Number(row.total_sales) || 0
+                }))
+            };
+
+            return {
+                data: formattedData,
+                debug: {
+                    sqlQueryTime: sqlEndTime - sqlStartTime,
+                    apiTime: apiEndTime - apiStartTime
+                }
+            };
+        } catch (error) {
+            console.error("Error fetching basket additional sales by source:", error);
+            set.status = 500;
+            return { message: "Error fetching basket additional sales by source", error: String(error) };
+        }
+    }, {
+        permission: "charts.list",
+        query: t.Object({
+            startDate: t.String(),
+            endDate: t.String(),
+            terminals: t.Optional(t.String()),
+            organization: t.Optional(t.String()),
+        }),
+    })
+    .get('/charts/basket-additional-sales-by-source-group', async ({
+        query: {
+            startDate,
+            endDate,
+            terminals,
+            organization
+        },
+        user,
+        set,
+        drizzle,
+        cacheController
+    }) => {
+        const apiStartTime = performance.now();
+
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+
+        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
+        if (user?.terminals && user.terminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        }
+        const terminalList = currentTerminals.map(terminal => {
+            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
+            return credentials?.key;
+        }).filter(id => id !== null);
+        const terminalCondition = terminalList.length > 0
+            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
+            : sql``;
+
+        const organizationCondition = organization
+            ? sql`AND organization_id = ${organization}`
+            : sql``;
+
+        // First, get all unique sources
+        const sourcesQuery = sql`
+            SELECT DISTINCT source
+            FROM basket_additional_sales
+            WHERE
+                created_at >= ${startDate}::timestamp 
+                AND created_at <= ${endDate}::timestamp
+                ${terminalCondition}
+                ${organizationCondition}
+            ORDER BY source;
+        `;
+
+        // Then, get product data grouped by source
+        const productSourceQuery = sql`
+            SELECT
+                name,
+                source,
+                SUM(quantity) as total_quantity,
+                SUM(price * quantity) as total_sales
+            FROM basket_additional_sales
+            WHERE
+                created_at >= ${startDate}::timestamp 
+                AND created_at <= ${endDate}::timestamp
+                ${terminalCondition}
+                ${organizationCondition}
+            GROUP BY name, source
+            ORDER BY name, source;
+        `;
+
+        try {
+            const sqlStartTime = performance.now();
+
+            // Execute both queries
+            const sourcesResult = await drizzle.execute(sourcesQuery);
+            const productSourceResult = await drizzle.execute(productSourceQuery);
+
+            const sqlEndTime = performance.now();
+            const apiEndTime = performance.now();
+
+            if (!Array.isArray(sourcesResult.rows) || !Array.isArray(productSourceResult.rows)) {
+                throw new Error("Unexpected data format: not an array");
+            }
+
+            // Extract unique sources
+            const sources = sourcesResult.rows.map(row => String(row.source));
+
+            // Format product source data
+            const productSources = productSourceResult.rows.map(row => ({
+                productName: String(row.name),
+                sourceName: String(row.source),
+                quantity: Number(row.total_quantity) || 0,
+                totalSales: Number(row.total_sales) || 0
+            }));
+
+            return {
+                data: {
+                    sources,
+                    productSources
+                },
+                debug: {
+                    sqlQueryTime: sqlEndTime - sqlStartTime,
+                    apiTime: apiEndTime - apiStartTime
+                }
+            };
+        } catch (error) {
+            console.error("Error fetching basket additional sales by source group:", error);
+            set.status = 500;
+            return { message: "Error fetching basket additional sales by source group", error: String(error) };
+        }
+    }, {
+        permission: "charts.list",
+        query: t.Object({
+            startDate: t.String(),
+            endDate: t.String(),
+            terminals: t.Optional(t.String()),
+            organization: t.Optional(t.String()),
+        }),
+    })
+    .get('/charts/basket-additional-sales-trend', async ({
+        query: {
+            startDate,
+            endDate,
+            interval,
+            terminals,
+            organization
+        },
+        user,
+        set,
+        drizzle,
+        cacheController
+    }) => {
+        const apiStartTime = performance.now();
+
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+
+        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
+        if (user?.terminals && user.terminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        }
+        const terminalList = currentTerminals.map(terminal => {
+            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
+            return credentials?.key;
+        }).filter(id => id !== null);
+        const terminalCondition = terminalList.length > 0
+            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
+            : sql``;
+
+        const organizationCondition = organization
+            ? sql`AND organization_id = ${organization}`
+            : sql``;
+
+        // Get the appropriate time bucket based on the interval
+        const timeBucket = getIntervalForTimeBucket(interval || '1 day');
+
+        const sqlQuery = sql`
+            SELECT
+                time_bucket('${sql.raw(timeBucket)}', created_at) as date,
+                source,
+                SUM(price * quantity) as total_sales
+            FROM basket_additional_sales
+            WHERE
+                created_at >= ${startDate}::timestamp 
+                AND created_at <= ${endDate}::timestamp
+                ${terminalCondition}
+                ${organizationCondition}
+            GROUP BY date, source
+            ORDER BY date, source;
+        `;
+
+        try {
+            const sqlStartTime = performance.now();
+            const result = await drizzle.execute(sqlQuery);
+            const sqlEndTime = performance.now();
+
+            const apiEndTime = performance.now();
+
+            if (!Array.isArray(result.rows)) {
+                throw new Error("Unexpected data format: not an array");
+            }
+
+            // Format data for response
+            const formattedData = result.rows.map(row => ({
+                date: row.date instanceof Date ? row.date.toISOString().split('T')[0] : String(row.date).split('T')[0], // Format as YYYY-MM-DD
+                source: String(row.source),
+                total_sales: Number(row.total_sales) || 0
+            }));
+
+            return {
+                data: formattedData,
+                debug: {
+                    sqlQueryTime: sqlEndTime - sqlStartTime,
+                    apiTime: apiEndTime - apiStartTime
+                }
+            };
+        } catch (error) {
+            console.error("Error fetching basket additional sales trend:", error);
+            set.status = 500;
+            return { message: "Error fetching basket additional sales trend", error: String(error) };
+        }
+    }, {
+        permission: "charts.list",
+        query: t.Object({
+            startDate: t.String(),
+            endDate: t.String(),
+            interval: t.String(),
+            terminals: t.Optional(t.String()),
+            organization: t.Optional(t.String()),
+        }),
+    })

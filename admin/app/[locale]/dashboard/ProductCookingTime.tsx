@@ -76,15 +76,15 @@ const fetchProductCookingTime = async (
         };
     }
 
-    const response = await apiClient.api.charts["cooking-time-distribution"].get({
+    const { data, status } = await apiClient.api.charts["cooking-time-distribution"].get({
         query
     });
 
-    if (response.status !== 200 || !response.data) {
+    if (status !== 200 || !data) {
         throw new Error("Failed to fetch product cooking time");
     }
 
-    return response.data as CookingTimeResponse;
+    return data as CookingTimeResponse;
 }
 
 type SortDirection = 'asc' | 'desc' | null;

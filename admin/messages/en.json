@@ -26,7 +26,17 @@
       "title": "Dashboard Filters",
       "thisWeek": "This Week",
       "thisMonth": "This Month",
-      "previousMonth": "Previous Month"
+      "previousMonth": "Previous Month",
+      "dateRange": {
+        "today": "Today",
+        "yesterday": "Yesterday",
+        "last7days": "Last 7 days",
+        "last30days": "Last 30 days",
+        "monthToDate": "Month to date",
+        "lastMonth": "Last month",
+        "yearToDate": "Year to date",
+        "lastYear": "Last year"
+      }
     },
     "RevenueChart": {
       "title": "Revenue",
@@ -99,6 +109,30 @@
       "scrollToLoadMore": "Scroll to load more dishes",
       "noResults": "No dishes found matching your search",
       "sortHint": "Click on column headers to sort"
+    },
+    "basketAdditionalSales": {
+      "title": "Additional Sales",
+      "total": "Total",
+      "searchPlaceholder": "Search products...",
+      "sortHint": "Click on column headers to sort",
+      "productName": "Product Name",
+      "quantity": "Quantity",
+      "totalSales": "Total Sales",
+      "noResults": "No products found matching your search",
+      "exportToCSV": "Export to CSV",
+      "fullScreen": "Full Screen"
+    },
+    "basketAdditionalSalesBySource": {
+      "title": "Additional Sales by Sources",
+      "total": "Total",
+      "searchPlaceholder": "Search sources...",
+      "sortHint": "Click on column headers to sort",
+      "sourceName": "Source Name",
+      "quantity": "Quantity",
+      "totalSales": "Total Sales",
+      "noResults": "No sources found matching your search",
+      "exportToCSV": "Export to CSV",
+      "fullScreen": "Full Screen"
     }
   }
 }

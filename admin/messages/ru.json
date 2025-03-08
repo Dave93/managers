@@ -26,7 +26,18 @@
       "title": "Фильтр",
       "thisWeek": "Эта неделя",
       "thisMonth": "Этот месяц",
-      "previousMonth": "Предыдущий месяц"
+      "previousMonth": "Предыдущий месяц",
+      "pickDate": "Выберите дату",
+      "dateRange": {
+        "today": "Сегодня",
+        "yesterday": "Вчера",
+        "last7days": "Последние 7 дней",
+        "last30days": "Последние 30 дней",
+        "monthToDate": "Месяц до даты",
+        "lastMonth": "Последний месяц",
+        "yearToDate": "Год до даты",
+        "lastYear": "Последний год"
+      }
     },
     "RevenueChart": {
       "title": "Доход",
@@ -99,9 +110,55 @@
       "scrollToLoadMore": "Прокрутите для загрузки дополнительных блюд",
       "noResults": "Не найдено блюд, соответствующих вашему запросу",
       "sortHint": "Нажмите на заголовки столбцов для сортировки"
+    },
+    "basketAdditionalSales": {
+      "title": "Доп. продажи",
+      "total": "Всего",
+      "searchPlaceholder": "Поиск продуктов...",
+      "sortHint": "Нажмите на заголовки столбцов для сортировки",
+      "productName": "Название продукта",
+      "quantity": "Количество",
+      "totalSales": "Сумма продаж",
+      "noResults": "Не найдено продуктов, соответствующих вашему запросу",
+      "exportToCSV": "Экспортировать в CSV",
+      "fullScreen": "Полноэкранный режим"
+    },
+    "basketAdditionalSalesBySource": {
+      "title": "Доп. продажи по источникам",
+      "total": "Всего",
+      "searchPlaceholder": "Поиск источников...",
+      "sortHint": "Нажмите на заголовки столбцов для сортировки",
+      "sourceName": "Название источника",
+      "quantity": "Количество",
+      "totalSales": "Сумма продаж",
+      "noResults": "Не найдено источников, соответствующих вашему запросу",
+      "exportToCSV": "Экспортировать в CSV",
+      "fullScreen": "Полноэкранный режим"
+    },
+    "basketAdditionalSalesBySourceGroup": {
+      "title": "Доп. продажи по источникам",
+      "total": "Всего",
+      "searchPlaceholder": "Поиск продуктов...",
+      "sortHint": "Нажмите на заголовки столбцов для сортировки",
+      "productName": "Название продукта",
+      "quantity": "Количество",
+      "totalSales": "Сумма продаж",
+      "noResults": "Не найдено продуктов, соответствующих вашему запросу",
+      "exportToCSV": "Экспортировать в CSV",
+      "fullScreen": "Полноэкранный режим"
+    },
+    "basketAdditionalSalesTrend": {
+      "title": "Доп. продажи по источникам",
+      "total": "Всего",
+      "searchPlaceholder": "Поиск продуктов...",
+      "sortHint": "Нажмите на заголовки столбцов для сортировки",
+      "productName": "Название продукта",
+      "quantity": "Количество",
+      "totalSales": "Сумма продаж",
+      "noResults": "Не найдено продуктов, соответствующих вашему запросу",
+      "exportToCSV": "Экспортировать в CSV",
+      "fullScreen": "Полноэкранный режим",
+      "resetZoom": "Сбросить масштаб"
     }
-  },
-  "filters": {
-    "pickDate": "Выберите дату"
   }
 }

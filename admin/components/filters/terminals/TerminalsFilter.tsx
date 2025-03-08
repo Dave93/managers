@@ -57,31 +57,24 @@ export default function TerminalsFilter() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className="w-[300px] justify-between relative"
-        >
-          {selectedTerminal
-            ? terminals.find((t) => t.id === selectedTerminal)?.name
-            : "Все терминалы"}
-          <div className="flex items-center">
-            {selectedTerminal && (
-              <X
-                className="h-4 w-4 mr-2 cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (typeof setSelectedTerminal === 'function') {
-                    setSelectedTerminal(null);
-                  }
-                }}
-              />
-            )}
-            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
-          </div>
-        </Button>
+      <PopoverTrigger className="border flex items-center justify-between px-3 relative rounded-md w-[300px]">
+        {selectedTerminal
+          ? terminals.find((t) => t.id === selectedTerminal)?.name
+          : "Все терминалы"}
+        <div className="flex items-center">
+          {selectedTerminal && (
+            <X
+              className="h-4 w-4 mr-2 cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (typeof setSelectedTerminal === 'function') {
+                  setSelectedTerminal(null);
+                }
+              }}
+            />
+          )}
+          <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+        </div>
       </PopoverTrigger>
       <PopoverContent className="w-[300px] p-0">
         <Command shouldFilter={false}>

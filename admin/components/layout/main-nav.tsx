@@ -147,11 +147,9 @@ export function NavigationMenuDemo() {
       <NavigationMenuList>
         <NavigationMenuItem>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                Настройки
-                <ChevronDown size={18} />
-              </Button>
+            <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+              Настройки
+              <ChevronDown size={18} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[340px]">
               {settingsMenu.map((component) => (
@@ -220,11 +218,9 @@ export function NavigationMenuDemo() {
         </CanAccess>
         <NavigationMenuItem>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                Отчеты
-                <ChevronDown size={18} />
-              </Button>
+            <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+              Отчеты
+              <ChevronDown size={18} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[340px]">
               {storeMenu.map((component) => (
@@ -239,11 +235,9 @@ export function NavigationMenuDemo() {
         </NavigationMenuItem>
         <NavigationMenuItem>
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2">
-                HR
-                <ChevronDown size={18} />
-              </Button>
+            <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+              HR
+              <ChevronDown size={18} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-[340px]">
               {hrMenu.map((component) => (

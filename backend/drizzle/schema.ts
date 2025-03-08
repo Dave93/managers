@@ -1269,3 +1269,21 @@ export const productCookingTime = pgTable('product_cooking_time', {
 }, (table) => [
   primaryKey({ columns: [table.id, table.uniqOrderId, table.openDateTyped] }),
 ]);
+
+export const basketAdditionalSales = pgTable('basket_additional_sales', {
+  id: uuid('id').defaultRandom().notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  terminalId: uuid('terminal_id').notNull(),
+  quantity: integer('quantity').notNull(),
+  price: numeric('price').notNull(),
+  operator: varchar('operator', { length: 255 }),
+  source: varchar('source', { length: 255 }).notNull(),
+  organizationId: varchar('organization_id', { length: 255 }).notNull(),
+  orderId: varchar('order_id', { length: 255 }),
+  createdAt: timestamp('created_at').defaultNow(),
+  updatedAt: timestamp('updated_at').defaultNow(),
+}, (table) => [
+  primaryKey({ columns: [table.id, table.createdAt] }),
+  index('idx_basket_additional_sales_source').on(table.source),
+  index('idx_basket_additional_sales_operator').on(table.operator),
+]);

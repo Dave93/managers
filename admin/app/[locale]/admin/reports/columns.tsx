@@ -98,12 +98,12 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
           </Select>
           <Button
             variant="destructive"
-            size="xs"
+            size="sm"
             onClick={() => setIsEditing(false)}
           >
             <XIcon className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="xs" onClick={saveStatus} className="">
+          <Button variant="outline" size="sm" onClick={saveStatus} className="">
             <CheckIcon className="h-4 w-4 dark:text-white" />
           </Button>
         </div>
@@ -120,7 +120,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
           </Badge>
           <Button
             variant="outline"
-            size="xs"
+            size="sm"
             onClick={() => setIsEditing(true)}
           >
             <Edit2Icon className="h-4 w-4 dark:text-white" />

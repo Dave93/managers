@@ -4,47 +4,52 @@ import {
   startOfMonth,
   endOfMonth,
   subMonths,
+  startOfYear,
+  endOfYear,
+  subYears,
+  subDays,
 } from "date-fns";
 import { useTranslations, useLocale } from "next-intl";
 import { useQueryState } from "nuqs";
 import { DateRange } from "react-day-picker";
 import * as dateLocales from "date-fns/locale";
 
+const today = new Date();
+const yesterday = {
+  from: subDays(today, 1),
+  to: subDays(today, 1),
+};
+const last7Days = {
+  from: subDays(today, 6),
+  to: today,
+};
+const last30Days = {
+  from: subDays(today, 29),
+  to: today,
+};
+const monthToDate = {
+  from: startOfMonth(today),
+  to: today,
+};
+const lastMonth = {
+  from: startOfMonth(subMonths(today, 1)),
+  to: endOfMonth(subMonths(today, 1)),
+};
+const yearToDate = {
+  from: startOfYear(today),
+  to: today,
+};
+const lastYear = {
+  from: startOfYear(subYears(today, 1)),
+  to: endOfYear(subYears(today, 1)),
+};
+
 export function useDateRangeState() {
-  const t = useTranslations("charts.filters");
-  const locale = useLocale();
-  const dateFnsLocale =
-    locale == "en"
-      ? dateLocales.enUS
-      : dateLocales[locale as keyof typeof dateLocales] || dateLocales.enUS;
-  const presets = [
-    {
-      label: t("thisWeek"),
-      getValue: () => ({
-        from: startOfWeek(new Date(), { locale: dateFnsLocale }),
-        to: endOfWeek(new Date(), { locale: dateFnsLocale }),
-      }),
-    },
-    {
-      label: t("thisMonth"),
-      getValue: () => ({
-        from: startOfMonth(new Date()),
-        to: endOfMonth(new Date()),
-      }),
-    },
-    {
-      label: t("previousMonth"),
-      getValue: () => {
-        const lastMonth = subMonths(new Date(), 1);
-        return { from: startOfMonth(lastMonth), to: endOfMonth(lastMonth) };
-      },
-    },
-  ];
 
   const [dateRange, setDateRange] = useQueryState<DateRange | undefined>(
     "date",
     {
-      defaultValue: presets[2].getValue(),
+      defaultValue: last30Days,
       parse: (value) => {
         const [from, to] = value.split(",");
         return { from: new Date(from), to: new Date(to) };
@@ -53,5 +58,5 @@ export function useDateRangeState() {
         value ? `${value.from?.toISOString()},${value.to?.toISOString()}` : "",
     }
   );
-  return { dateRange, setDateRange, presets };
+  return { dateRange, setDateRange, today, yesterday, last7Days, last30Days, monthToDate, lastMonth, yearToDate, lastYear };
 }
