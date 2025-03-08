@@ -2,7 +2,7 @@
 import { Check, ChevronsUpDown, X } from "lucide-react";
 
 import { cn } from "@admin/lib/utils";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Command,
   CommandEmpty,

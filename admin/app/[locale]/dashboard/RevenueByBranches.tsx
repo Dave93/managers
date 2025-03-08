@@ -291,8 +291,8 @@ const RevenueByBranches = () => {
             </div>
           )}
         </CardHeader>
-        <CardContent className="p-2 pt-0 flex-grow flex flex-col overflow-hidden">
-          <div className="flex-grow min-h-0 overflow-auto">
+        <CardContent className="p-2 pt-0 grow flex flex-col overflow-hidden">
+          <div className="grow min-h-0 overflow-auto">
             <div style={{ height: chartHeight }}>
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart

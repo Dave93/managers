@@ -10,7 +10,7 @@ import { CredentialsList } from "./list";
 import { credentialsColumns } from "./columns";
 import { PlusIcon } from "lucide-react";
 import CredentialsAddFormSheet from "./form_sheet";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 
 export default function CredentialsFormSheet({
   children,

@@ -28,7 +28,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 // import ExportExcelButton from "@admin/components/layout/ExportExcelButton";
 import { ArrowDown, ArrowUp, ZoomOut } from "lucide-react";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { formatDate, intervals } from "./intervalFunctions";
 import { CustomTooltip } from "./CustomTooltip";
 import { organizations } from "@admin/lib/organizations";
@@ -356,8 +356,8 @@ const OrderCountChart = () => {
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col">
-        <div className="flex-grow">
+      <CardContent className="grow flex flex-col">
+        <div className="grow">
           <div
             className="h-full"
             onWheel={handleZoom}

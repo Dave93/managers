@@ -2,7 +2,7 @@
 
 import { DataTable } from "./data-table";
 import { permissionsColumns } from "./columns";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import PermissionsFormSheet from "@admin/components/forms/permissions/sheet";
 

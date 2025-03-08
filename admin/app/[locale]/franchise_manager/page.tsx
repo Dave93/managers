@@ -1,5 +1,5 @@
 "use client";
-import { Tabs, Tab } from "@nextui-org/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@admin/components/ui/tabs";
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
 import { InvoiceFilters } from "./franchise_filter";

@@ -6,7 +6,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@admin/components/ui/card";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Bar,
   CartesianGrid,
@@ -343,8 +343,8 @@ const AverageCheckChart = () => {
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-grow flex flex-col">
-        <div className="flex-grow">
+      <CardContent className="grow flex flex-col">
+        <div className="grow">
           <div
             className="h-full"
             onWheel={handleZoom}

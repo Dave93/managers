@@ -1,10 +1,17 @@
 "use client";
 import React from "react";
-import { Listbox, ListboxItem } from "@nextui-org/react";
-import { ListboxWrapper } from "./ListboxWrapper";
-import Back from "./Back";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@components/ui/select"
+import { useRouter } from "next/navigation";
 
 export default function ListBox() {
+  const router = useRouter();
   const items = [
     {
       key: "outgoing_invoices",
@@ -52,21 +59,23 @@ export default function ListBox() {
     //   href: "/franchise_manager",
     // },
   ];
+
   return (
-    <div className="px-4">
-      <ListboxWrapper>
-        <Listbox
-          items={items}
-          aria-label="Dynamic Actions"
-        // onAction={(key) => alert(key)}
-        >
-          {(item) => (
-            <ListboxItem key={item.key} href={item.href} showDivider>
-              {item.label}
-            </ListboxItem>
-          )}
-        </Listbox>
-      </ListboxWrapper>
+    <div className="px-4 w-full max-w-[400px]">
+      <Select onValueChange={(value) => router.push(value)}>
+        <SelectTrigger>
+          <SelectValue placeholder="Выберите отчет" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.key} value={item.href}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
     </div>
   );
 }

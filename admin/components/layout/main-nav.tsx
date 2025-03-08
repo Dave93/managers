@@ -2,35 +2,25 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { ChevronDown } from "lucide-react";
+import { useLocale } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import {
   NavigationMenu,
-  NavigationMenuContent,
   NavigationMenuItem,
   NavigationMenuLink,
   NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
+  navigationMenuTriggerStyle
 } from "@components/ui/navigation-menu";
-
 import {
-  Navbar,
-  NavbarBrand,
-  NavbarContent,
-  NavbarItem,
-  NavbarMenuToggle,
-  NavbarMenu,
-  NavbarMenuItem,
-  Dropdown,
   DropdownMenu,
-  DropdownTrigger,
-  DropdownItem,
-  Select,
-} from "@nextui-org/react";
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@components/ui/dropdown-menu";
+import { Button } from "@admin/components/ui/button";
 import CanAccess from "../can-access";
-import { ArrowDown, ChevronDown } from "lucide-react";
-import { useLocale } from "next-intl";
 
 const components: { title: string; href: string; description: string }[] = [
   {
@@ -156,34 +146,23 @@ export function NavigationMenuDemo() {
     <NavigationMenu>
       <NavigationMenuList>
         <NavigationMenuItem>
-          <Navbar>
-            <Dropdown>
-              <NavbarItem className="cursor-pointer">
-                <DropdownTrigger>
-                  <div className="flex items-center">
-                    Настройки
-                    <ChevronDown className="ml-2" size={18} />
-                  </div>
-                </DropdownTrigger>
-              </NavbarItem>
-              <DropdownMenu
-                aria-label="ACME features"
-                className="w-[340px]"
-                itemClasses={{
-                  base: "gap-4",
-                }}
-              >
-                {settingsMenu.map((component) => (
-                  <DropdownItem
-                    key={component.title}
-                    title={component.title}
-                    href={component.href}
-                    as={Link}
-                  />
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </Navbar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                Настройки
+                <ChevronDown size={18} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[340px]">
+              {settingsMenu.map((component) => (
+                <DropdownMenuItem key={component.title} asChild>
+                  <Link href={component.href}>
+                    {component.title}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </NavigationMenuItem>
         <CanAccess permission="organizations.list">
           <NavigationMenuItem>
@@ -240,62 +219,42 @@ export function NavigationMenuDemo() {
           </NavigationMenuItem>
         </CanAccess>
         <NavigationMenuItem>
-          <Navbar>
-            <Dropdown>
-              <NavbarItem className="cursor-pointer">
-                <DropdownTrigger>
-                  <div className="flex items-center">
-                    Отчеты
-                    <ChevronDown className="ml-2" size={18} />
-                  </div>
-                </DropdownTrigger>
-              </NavbarItem>
-              <DropdownMenu
-                aria-label="ACME features"
-                className="w-[340px]"
-                itemClasses={{
-                  base: "gap-4",
-                }}
-              >
-                {storeMenu.map((component) => (
-                  <DropdownItem
-                    key={component.title}
-                    title={component.title}
-                    href={component.href}
-                  />
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </Navbar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                Отчеты
+                <ChevronDown size={18} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[340px]">
+              {storeMenu.map((component) => (
+                <DropdownMenuItem key={component.title} asChild>
+                  <Link href={component.href}>
+                    {component.title}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </NavigationMenuItem>
         <NavigationMenuItem>
-          <Navbar>
-            <Dropdown>
-              <NavbarItem className="cursor-pointer">
-                <DropdownTrigger>
-                  <div className="flex items-center">
-                    HR
-                    <ChevronDown className="ml-2" size={18} />
-                  </div>
-                </DropdownTrigger>
-              </NavbarItem>
-              <DropdownMenu
-                aria-label="ACME features"
-                className="w-[340px]"
-                itemClasses={{
-                  base: "gap-4",
-                }}
-              >
-                {hrMenu.map((component) => (
-                  <DropdownItem
-                    key={component.title}
-                    title={component.title}
-                    href={component.href}
-                  />
-                ))}
-              </DropdownMenu>
-            </Dropdown>
-          </Navbar>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2">
+                HR
+                <ChevronDown size={18} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-[340px]">
+              {hrMenu.map((component) => (
+                <DropdownMenuItem key={component.title} asChild>
+                  <Link href={component.href}>
+                    {component.title}
+                  </Link>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </NavigationMenuItem>
       </NavigationMenuList>
     </NavigationMenu>
@@ -312,7 +271,7 @@ const ListItem = React.forwardRef<
         <a
           ref={ref}
           className={cn(
-            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
+            "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-hidden transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
             className
           )}
           {...props}

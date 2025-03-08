@@ -1,4 +1,4 @@
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import { RolesPermissionsDataTable } from "./role-permissions-table";
 import { rolesPermissionsColumns } from "./role-permissions-columns";

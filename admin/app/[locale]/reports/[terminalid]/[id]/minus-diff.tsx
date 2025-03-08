@@ -11,7 +11,7 @@ export default function MinusDiff() {
       <CardTitle className="text-center text-4xl mt-6">
         Недостающая сумма
       </CardTitle>
-      <div className="!text-4xl">
+      <div className="text-4xl!">
         {Intl.NumberFormat("ru-RU").format(balanceValue)}
       </div>
     </div>

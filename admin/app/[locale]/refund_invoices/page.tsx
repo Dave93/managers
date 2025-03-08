@@ -1,5 +1,4 @@
 "use client";
-import { Tabs, Tab } from "@nextui-org/tabs";
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
 import { RefundFilters } from "./refund_filter";

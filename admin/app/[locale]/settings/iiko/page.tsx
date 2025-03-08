@@ -1,5 +1,5 @@
 "use client";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
 import { useToast } from "@admin/components/ui/use-toast";

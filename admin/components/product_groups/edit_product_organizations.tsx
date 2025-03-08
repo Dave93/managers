@@ -1,20 +1,35 @@
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 import {
-  Modal,
-  ModalBody,
-  ModalContent,
-  ModalFooter,
-  ModalHeader,
-  useDisclosure,
-} from "@nextui-org/modal";
-import { Button } from "../ui/button";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@components/ui/dialog";
+import { Button } from "../ui/buttonOrigin";
 import { Edit2Icon } from "lucide-react";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { organization } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
-import { Select, SelectItem } from "@nextui-org/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList
+} from "@components/ui/command";
+import { CheckIcon } from "lucide-react";
+import { cn } from "@admin/lib/utils";
 
 interface EditProductOrganizationsProps {
   task: ProductGroupsListDto;
@@ -23,23 +38,20 @@ interface EditProductOrganizationsProps {
 export default function EditProductOrganizations({
   task,
 }: EditProductOrganizationsProps) {
-  const { isOpen, onOpen, onClose } = useDisclosure();
+  const [open, setOpen] = useState(false);
+
   return (
     <div>
-      <Button size="xs" variant="ghost" onClick={onOpen}>
+      <Button size="lg" variant="ghost" onClick={() => setOpen(true)}>
         <Edit2Icon className="h-3 w-3" />
       </Button>
-      <Modal backdrop="blur" isOpen={isOpen} onClose={onClose}>
-        {isOpen && (
-          <ModalContent>
-            {(onClose) => (
-              <>
-                <ShowOrganizationsSelect onClose={onClose} task={task} />
-              </>
-            )}
-          </ModalContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        {open && (
+          <DialogContent>
+            <ShowOrganizationsSelect onClose={() => setOpen(false)} task={task} />
+          </DialogContent>
         )}
-      </Modal>
+      </Dialog>
     </div>
   );
 }
@@ -51,7 +63,6 @@ const ShowOrganizationsSelect = ({
   onClose: () => void;
   task: ProductGroupsListDto;
 }) => {
-  const formRef = useRef<HTMLDivElement | null>(null);
   const [selectedOrganizations, setSelectedOrganizations] = useState("");
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
 
@@ -143,48 +154,65 @@ const ShowOrganizationsSelect = ({
     );
   };
 
+  const toggleOrganization = (id: string) => {
+    setSelectedKeys(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(key => key !== id);
+      } else {
+        return [...prev, id];
+      }
+    });
+
+    setSelectedOrganizations(prev => {
+      const ids = prev ? prev.split(",") : [];
+      if (ids.includes(id)) {
+        return ids.filter(key => key !== id).join(",");
+      } else {
+        return [...ids, id].join(",");
+      }
+    });
+  };
+
   return (
     <>
-      <ModalHeader className="flex flex-col gap-1">
-        Изменить организацию
-      </ModalHeader>
-      <ModalBody>
-        <div ref={formRef}>
-          <Select
-            label="Организация"
-            selectionMode="multiple"
-            placeholder="Выберите организацию"
-            popoverProps={{
-              portalContainer: formRef.current!,
-              offset: 0,
-              containerPadding: 0,
-            }}
-            selectedKeys={selectedKeys}
-            className="max-w-xs"
-            onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-              console.log("e", e.target.value);
-              // setOrganizationMutation.mutate({
-              //   organization_id: e.target.value,
-              // });
-              setSelectedOrganizations(e.target.value);
-              setSelectedKeys(e.target.value.split(","));
-            }}
-          // onSelectionChange={setValues}
-          >
-            {organizations.map((organization) => (
-              <SelectItem key={organization.id}>{organization.name}</SelectItem>
-            ))}
-          </Select>
-        </div>
-      </ModalBody>
-      <ModalFooter>
-        <Button color="primary" variant="default" onClick={onSave}>
+      <DialogHeader>
+        <DialogTitle>Изменить организацию</DialogTitle>
+      </DialogHeader>
+      <div className="py-4">
+        <Command className="rounded-lg border shadow-md">
+          <CommandInput placeholder="Поиск организации..." />
+          <CommandList>
+            <CommandEmpty>Организации не найдены</CommandEmpty>
+            <CommandGroup>
+              {organizations.map((org) => (
+                <CommandItem
+                  key={org.id}
+                  onSelect={() => toggleOrganization(org.id)}
+                  className="flex items-center gap-2"
+                >
+                  <div className={cn(
+                    "flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
+                    selectedKeys.includes(org.id) ? "bg-primary text-primary-foreground" : "opacity-50"
+                  )}>
+                    {selectedKeys.includes(org.id) && (
+                      <CheckIcon className="h-3 w-3" />
+                    )}
+                  </div>
+                  <span>{org.name}</span>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </div>
+      <DialogFooter>
+        <Button variant="default" onClick={onSave}>
           Сохранить
         </Button>
-        <Button color="danger" variant="destructive" onClick={onClose}>
+        <Button variant="destructive" onClick={onClose}>
           Отмена
         </Button>
-      </ModalFooter>
+      </DialogFooter>
     </>
   );
 };

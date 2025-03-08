@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from "@components/ui/sheet";
 import { List } from "lucide-react";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { DataTable } from "./reports-items-data-table";
 import { reportsItemsColumns } from "./reports-items-columns";
 
@@ -32,7 +32,7 @@ export default function ReportItemsSheet({ recordId }: { recordId: string }) {
       <SheetContent className="w-1/3 sm:max-w-4xl">
         <SheetHeader>
           <SheetTitle asChild>
-            <div className="flex justify-between mt-7 mb-4 items-center !text-2xl">
+            <div className="flex justify-between mt-7 mb-4 items-center text-2xl!">
               <span>Позиции кассы</span>
             </div>
           </SheetTitle>

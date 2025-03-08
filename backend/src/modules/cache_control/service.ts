@@ -928,6 +928,7 @@ export class CacheControlService {
       if (smsForm) {
         await smsForm?.waitForSelector("input");
         authFormSelector = "pb-sms-confirm";
+        await new Promise((r) => setTimeout(r, 2000));
         let file = Bun.file(
           path.resolve(import.meta.dir, "./paymedata.ignore.json")
         );

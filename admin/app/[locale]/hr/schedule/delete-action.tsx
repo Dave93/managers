@@ -11,7 +11,7 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from "@components/ui/alert-dialog";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";

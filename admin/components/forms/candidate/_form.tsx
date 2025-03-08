@@ -1,6 +1,6 @@
 "use client";
 import { useToast } from "@admin/components/ui/use-toast";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
@@ -8,15 +8,35 @@ import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { Select, SelectItem } from "@nextui-org/select";
 import { Textarea } from "@components/ui/textarea";
-import { Selection } from "@react-types/shared";
-import { Chip } from "@nextui-org/chip";
-import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
+import LastWorkPlaceForm, { LastWorkPlaceEntry } from "../last_work_place/LastWorkPlaceForm";
+import FamilyListForm, { FamilyListEntry } from "../family_list/FamilyListForm";
+import { parseZonedDateTime } from "@internationalized/date";
+import React from "react";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue
+} from "@components/ui/select";
+import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
+import { Calendar } from "@admin/components/ui/calendar";
+
+
+interface DropdownNavProps {
+    children: React.ReactNode;
+}
+
+interface DropdownProps {
+    value: number;
+    onChange?: (value: number) => void;
+    options?: { value: number; label: string; disabled?: boolean }[];
+}
 
 interface ApiResponse<T = any> {
     data?: T[];
@@ -48,6 +68,9 @@ interface ApiCandidateData {
     desiredPosition: string;
     resultStatus: 'positive' | 'negative' | 'neutral';
     educations: EducationEntry[];
+    lastWorkPlaces: LastWorkPlaceEntry[];
+    isFirstJob: boolean;
+    familyLists: FamilyListEntry[];
 }
 
 interface CandidateFormData {
@@ -74,6 +97,9 @@ interface CandidateFormData {
     desiredPosition?: string;
     resultStatus?: 'positive' | 'negative' | 'neutral';
     educations: EducationEntry[];
+    lastWorkPlaces: LastWorkPlaceEntry[];
+    isFirstJob: boolean;
+    familyLists: FamilyListEntry[];
 }
 
 interface CandidateResponse {
@@ -102,6 +128,11 @@ interface CandidateResponse {
     resultStatus?: 'positive' | 'negative' | 'neutral';
     education?: EducationEntry[];
     educations?: EducationEntry[];
+    lastWorkPlace?: LastWorkPlaceEntry[];
+    lastWorkPlaces?: LastWorkPlaceEntry[];
+    isFirstJob?: boolean;
+    familyList?: FamilyListEntry[];
+    familyLists?: FamilyListEntry[];
 }
 
 export default function CandidateForm({
@@ -114,12 +145,17 @@ export default function CandidateForm({
     const formRef = useRef<HTMLFormElement | null>(null);
     const { toast } = useToast();
     const queryClient = useQueryClient();
-    const [date, setDate] = useState<Date>();
-    const [selectedVacancyId, setSelectedVacancyId] = useState<Selection>(new Set([]));
-    const [selectedResultStatus, setSelectedResultStatus] = useState<Selection>(new Set([]));
+    const [date, setDate] = useState(parseZonedDateTime("2024-04-04T00:00[UTC]"));
+    const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
+    const [selectedResultStatus, setSelectedResultStatus] = useState<'positive' | 'negative' | 'neutral'>("neutral");
     const [showEducationForm, setShowEducationForm] = useState(!recordId);
     const [educations, setEducations] = useState<EducationEntry[]>([]);
+    const [showLastWorkPlaceForm, setShowLastWorkPlaceForm] = useState(!recordId);
+    const [lastWorkPlaces, setLastWorkPlaces] = useState<LastWorkPlaceEntry[]>([]);
     const [passDate, setPassDate] = useState<Date>();
+    const [isFirstJob, setIsFirstJob] = useState(false);
+    const [showFamilyListForm, setShowFamilyListForm] = useState(!recordId);
+    const [familyLists, setFamilyLists] = useState<FamilyListEntry[]>([]);
 
     // Add positions query
     const vacanciesQuery = useQuery({
@@ -148,19 +184,14 @@ export default function CandidateForm({
                     }])
                 }
             });
-            const rawData = response.data?.data as Array<{
-                id: string;
-                vacancyId: string;
-                fullName: string;
-                birthDate: string;
-                phoneNumber: string;
-                [key: string]: any;
-            }>;
+
+            // Cast to unknown first to avoid type errors
+            const rawData = (response.data?.data as unknown) as CandidateResponse[];
             if (!rawData) {
                 throw new Error('Invalid response from API');
             }
             return {
-                data: rawData as CandidateResponse[]
+                data: rawData
             };
         },
         enabled: !!recordId
@@ -193,9 +224,12 @@ export default function CandidateForm({
     const createMutation = useMutation({
         mutationFn: async (newCandidate: CandidateFormData) => {
             try {
-                console.log('Starting candidate creation with education data:', {
+                console.log('Starting candidate creation with education and work place data:', {
                     candidate: newCandidate,
-                    educations: educations
+                    educations: educations,
+                    lastWorkPlaces: lastWorkPlaces,
+                    isFirstJob: isFirstJob,
+                    familyLists: familyLists
                 });
 
                 // Validate and format dates
@@ -236,7 +270,10 @@ export default function CandidateForm({
                     relatives: newCandidate.relatives || "",
                     desiredPosition: newCandidate.desiredPosition || "",
                     resultStatus: newCandidate.resultStatus as 'positive' | 'negative' | 'neutral' || 'neutral',
-                    educations: educations
+                    educations: educations,
+                    lastWorkPlaces: isFirstJob ? [] : lastWorkPlaces,
+                    isFirstJob: isFirstJob,
+                    familyLists: familyLists,
                 };
 
                 console.log('Sending formatted data to API:', formattedData);
@@ -256,7 +293,10 @@ export default function CandidateForm({
                     message: error?.message || 'Unknown error',
                     stack: error?.stack || 'No stack trace',
                     originalData: newCandidate,
-                    educations: educations
+                    educations: educations,
+                    lastWorkPlaces: lastWorkPlaces,
+                    isFirstJob: isFirstJob,
+                    familyLists: familyLists
                 });
                 throw error;
             }
@@ -328,7 +368,9 @@ export default function CandidateForm({
                     relatives?: string;
                     desiredPosition?: string;
                     resultStatus?: 'positive' | 'negative' | 'neutral';
-
+                    educations?: EducationEntry[];
+                    lastWorkPlaces?: LastWorkPlaceEntry[];
+                    familyLists?: FamilyListEntry[];
                 } = {
                     // Обязательные поля
                     vacancyId: params.data.vacancyId,
@@ -356,6 +398,11 @@ export default function CandidateForm({
                 if (changedFields.relatives !== undefined) updateData.relatives = changedFields.relatives;
                 if (changedFields.desiredPosition !== undefined) updateData.desiredPosition = changedFields.desiredPosition;
                 if (changedFields.resultStatus !== undefined) updateData.resultStatus = changedFields.resultStatus;
+
+                // Всегда добавляем актуальные данные об образовании, местах работы и родственниках
+                updateData.educations = educations;
+                updateData.lastWorkPlaces = lastWorkPlaces;
+                updateData.familyLists = familyLists;
 
                 return await apiClient.api.candidates({ id: params.id }).put(updateData);
             } catch (error) {
@@ -393,7 +440,10 @@ export default function CandidateForm({
                 relatives: candidate?.relatives || "",
                 desiredPosition: candidate?.desiredPosition || "",
                 resultStatus: candidate?.resultStatus || "neutral",
-                educations: []
+                educations: [],
+                lastWorkPlaces: [],
+                isFirstJob: candidate?.isFirstJob || false,
+                familyLists: [],
             };
         }, [candidateQuery.data]),
         onSubmit: async ({ value }) => {
@@ -428,6 +478,7 @@ export default function CandidateForm({
             try {
                 // Check if we have any education entries
                 console.log('Current educations state before submission:', educations);
+                console.log('Current last work places state before submission:', lastWorkPlaces);
 
                 // Проверяем, есть ли записи об образовании
                 if (educations.length === 0) {
@@ -439,13 +490,14 @@ export default function CandidateForm({
                     }
                 }
 
-                // Include educations in the submission data
+                // Include educations and last work places in the submission data
                 const submissionData = {
                     ...value,
-                    educations: educations
+                    educations: educations,
+                    lastWorkPlaces: lastWorkPlaces
                 };
 
-                console.log('Submitting candidate data with educations:', submissionData);
+                console.log('Submitting candidate data with educations and last work places:', submissionData);
 
                 if (recordId) {
                     await updateMutation.mutateAsync({
@@ -461,16 +513,23 @@ export default function CandidateForm({
         }
     });
 
-    const handleVacancyChange = (selection: Selection) => {
-        setSelectedVacancyId(selection);
-        const selectedVacancy = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("vacancyId", selectedVacancy || "");
+    const handleVacancyChange = (value: string) => {
+        setSelectedVacancyId(value);
+        form.setFieldValue("vacancyId", value || "");
     };
 
-    const handleResultStatusChange = (selection: Selection) => {
-        setSelectedResultStatus(selection);
-        const selectedStatus = Array.from(selection)[0] as 'positive' | 'negative' | 'neutral' | undefined;
-        form.setFieldValue("resultStatus", selectedStatus || "neutral");
+    const handleResultStatusChange = (value: string) => {
+        // Create a properly typed variable
+        let typedStatus: 'positive' | 'negative' | 'neutral';
+
+        // Assign the correct value based on input
+        if (value === 'positive') typedStatus = 'positive';
+        else if (value === 'negative') typedStatus = 'negative';
+        else typedStatus = 'neutral';
+
+        // Now use the properly typed variable
+        setSelectedResultStatus(typedStatus);
+        form.setFieldValue("resultStatus", typedStatus);
     };
 
     const handleAddEducation = (education: EducationEntry) => {
@@ -495,6 +554,48 @@ export default function CandidateForm({
 
     const handleRemoveEducation = (index: number) => {
         setEducations(educations.filter((_, i) => i !== index));
+    };
+
+    const handleAddLastWorkPlace = (lastWorkPlace: LastWorkPlaceEntry) => {
+        console.log('handleAddLastWorkPlace called with:', lastWorkPlace);
+        try {
+            const updatedLastWorkPlaces = [...lastWorkPlaces, lastWorkPlace];
+            console.log('Updated last work places array:', updatedLastWorkPlaces);
+            setLastWorkPlaces(updatedLastWorkPlaces);
+
+            toast({
+                title: "Место работы добавлено",
+                description: `${lastWorkPlace.organizationName} - ${lastWorkPlace.position}`,
+                duration: 3000,
+            });
+        } catch (error) {
+            console.error('Error in handleAddLastWorkPlace:', error);
+        }
+    };
+
+    const handleRemoveLastWorkPlace = (index: number) => {
+        setLastWorkPlaces(lastWorkPlaces.filter((_, i) => i !== index));
+    };
+
+    const handleAddFamilyList = (familyList: FamilyListEntry) => {
+        console.log('handleAddFamilyList called with:', familyList);
+        try {
+            const updatedFamilyLists = [...familyLists, familyList];
+            console.log('Updated family lists array:', updatedFamilyLists);
+            setFamilyLists(updatedFamilyLists);
+
+            toast({
+                title: "Родственник добавлен",
+                description: `${familyList.familyListName} - ${familyList.familyListRelation}`,
+                duration: 3000,
+            });
+        } catch (error) {
+            console.error('Error in handleAddFamilyList:', error);
+        }
+    };
+
+    const handleRemoveFamilyList = (index: number) => {
+        setFamilyLists(familyLists.filter((_, i) => i !== index));
     };
 
     useEffect(() => {
@@ -530,14 +631,14 @@ export default function CandidateForm({
 
             // Set selected values for dropdowns
             if (candidate.vacancyId) {
-                setSelectedVacancyId(new Set([candidate.vacancyId]));
+                setSelectedVacancyId(candidate.vacancyId);
             }
             if (candidate.resultStatus) {
-                setSelectedResultStatus(new Set([candidate.resultStatus]));
+                setSelectedResultStatus(candidate.resultStatus);
             }
-            if (candidate.birthDate) {
-                setDate(new Date(candidate.birthDate));
-            }
+            // if (candidate.birthDate) {
+            //     setDate(new Date(candidate.birthDate));
+            // }
 
             // Set education data if available
             if (candidate.education && Array.isArray(candidate.education) && candidate.education.length > 0) {
@@ -547,6 +648,29 @@ export default function CandidateForm({
                 console.log('Setting education data from candidate.educations:', candidate.educations);
                 setEducations(candidate.educations);
             }
+
+            // Set last work place data if available
+            if (candidate.lastWorkPlace && Array.isArray(candidate.lastWorkPlace) && candidate.lastWorkPlace.length > 0) {
+                console.log('Setting last work place data from candidate.lastWorkPlace:', candidate.lastWorkPlace);
+                setLastWorkPlaces(candidate.lastWorkPlace);
+                setIsFirstJob(false);
+            } else if (candidate.lastWorkPlaces && Array.isArray(candidate.lastWorkPlaces) && candidate.lastWorkPlaces.length > 0) {
+                console.log('Setting last work place data from candidate.lastWorkPlaces:', candidate.lastWorkPlaces);
+                setLastWorkPlaces(candidate.lastWorkPlaces);
+                setIsFirstJob(false);
+            } else {
+                // Если нет данных о местах работы, возможно это первое место работы
+                setIsFirstJob(candidate.isFirstJob || false);
+            }
+
+            // Set family list data if available
+            if (candidate.familyList && Array.isArray(candidate.familyList) && candidate.familyList.length > 0) {
+                console.log('Setting family list data from candidate.familyList:', candidate.familyList);
+                setFamilyLists(candidate.familyList);
+            } else if (candidate.familyLists && Array.isArray(candidate.familyLists) && candidate.familyLists.length > 0) {
+                console.log('Setting family list data from candidate.familyLists:', candidate.familyLists);
+                setFamilyLists(candidate.familyLists);
+            }
         }
     }, [candidateQuery.data, form]);
 
@@ -554,11 +678,24 @@ export default function CandidateForm({
         try {
             e.preventDefault();
             e.stopPropagation();
+
+            // Обновляем значение isFirstJob в форме перед отправкой
+            form.setFieldValue("isFirstJob", isFirstJob);
+
             await form.handleSubmit();
         } catch (error) {
             console.error('Error in handleSubmit:', error);
         }
     };
+
+    const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+        const _event = {
+            target: {
+                value: String(_value),
+            },
+        } as React.ChangeEvent<HTMLSelectElement>
+        _e(_event)
+    }
 
     return (
         <form
@@ -572,37 +709,20 @@ export default function CandidateForm({
                     <form.Field name="vacancyId">
                         {(field) => (
                             <Select
-                                id={field.name}
-                                name={field.name}
                                 value={field.getValue() ?? ""}
-                                selectedKeys={selectedVacancyId}
-                                onSelectionChange={handleVacancyChange}
-                                isLoading={vacanciesQuery.isLoading}
-                                placeholder="Выберите вакансию"
-                                isRequired
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                renderValue={(items) => (
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(selectedVacancyId).map((item) => {
-                                            const vacancy = vacanciesQuery.data?.data?.find(v => v.id === item);
-                                            return (
-                                                <Chip key={item}>
-                                                    {vacancy ? `${vacancy.applicationNum} - ${vacancy.position}` : item}
-                                                </Chip>
-                                            );
-                                        })}
-                                    </div>
-                                )}
+                                onValueChange={handleVacancyChange}
+                                disabled={vacanciesQuery.isLoading}
                             >
-                                {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
-                                    <SelectItem key={vacancy.id} value={vacancy.id}>
-                                        {vacancy.applicationNum} - {vacancy.position}
-                                    </SelectItem>
-                                )) : []}
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите вакансию" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
+                                        <SelectItem key={vacancy.id} value={vacancy.id}>
+                                            {vacancy.applicationNum} - {vacancy.position}
+                                        </SelectItem>
+                                    )) : []}
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>
@@ -627,36 +747,85 @@ export default function CandidateForm({
                 <div className="space-y-2">
                     <Label>Дата рождения</Label>
                     <form.Field name="birthDate">
-                        {(field) => (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !date && "text-muted-foreground"
-                                        )}
-                                        aria-label="Select date"
-                                    >
+                        {(field) => {
+                            let date = field.getValue() ?? new Date();
+                            return (
+                                <Popover>
+                                    {/* <PopoverTrigger className={cn(
+                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
+                                        !date && "text-muted-foreground"
+                                    )}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
                                         {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={date}
-                                        onSelect={(date) => {
-                                            setDate(date);
-                                            if (date) {
-                                                field.handleChange(format(date, "yyyy-MM-dd"));
-                                            }
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                    </PopoverTrigger> */}
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                            aria-label="Select date"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"
+                                        container={formRef.current!}
+                                    >
+                                        <CalendarOrigin
+                                            mode="single"
+                                            selected={date}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    field.handleChange(format(date, "yyyy-MM-dd"));
+                                                } else {
+                                                    field.handleChange("");
+                                                }
+                                            }}
+                                            className="rounded-md border p-2"
+                                            classNames={{
+                                                month_caption: "mx-0",
+                                            }}
+                                            captionLayout="dropdown"
+                                            defaultMonth={new Date()}
+                                            startMonth={new Date(1980, 6)}
+                                            hideNavigation
+                                            components={{
+                                                DropdownNav: (props: DropdownNavProps) => {
+                                                    return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                                },
+                                                Dropdown: (props: DropdownProps) => {
+                                                    return (
+                                                        <Select
+                                                            value={String(props.value)}
+                                                            onValueChange={(value) => {
+                                                                if (props.onChange) {
+                                                                    handleCalendarChange(value, props.onChange)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                                {props.options?.map((option) => (
+                                                                    <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )
+                                                },
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+
+                            )
+                        }}
                     </form.Field>
                 </div>
                 <div className="space-y-2">
@@ -824,36 +993,115 @@ export default function CandidateForm({
                 <div className="space-y-2">
                     <Label>Дата выдачи паспорта</Label>
                     <form.Field name="passportIdDate">
-                        {(field) => (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-normal",
-                                            !passDate && "text-muted-foreground"
-                                        )}
-                                        aria-label="Select date"
-                                    >
+                        {(field) => {
+                            let date = field.getValue() ?? new Date();
+
+                            return (
+                                <Popover>
+                                    {/* <PopoverTrigger className={cn(
+                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
+                                        !date && "text-muted-foreground"
+                                    )}>
                                         <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={passDate}
-                                        onSelect={(date) => {
-                                            setPassDate(date);
-                                            if (date) {
-                                                field.handleChange(format(date, "yyyy-MM-dd"));
-                                            }
-                                        }}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                    </PopoverTrigger> */}
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-normal",
+                                                !date && "text-muted-foreground"
+                                            )}
+                                            aria-label="Select date"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"
+                                        container={formRef.current!}
+                                    >
+                                        <CalendarOrigin
+                                            mode="single"
+                                            selected={date}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    field.handleChange(format(date, "yyyy-MM-dd"));
+                                                } else {
+                                                    field.handleChange("");
+                                                }
+                                            }}
+                                            className="rounded-md border p-2"
+                                            classNames={{
+                                                month_caption: "mx-0",
+                                            }}
+                                            captionLayout="dropdown"
+                                            defaultMonth={new Date()}
+                                            startMonth={new Date(1980, 6)}
+                                            hideNavigation
+                                            components={{
+                                                DropdownNav: (props: DropdownNavProps) => {
+                                                    return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                                },
+                                                Dropdown: (props: DropdownProps) => {
+                                                    return (
+                                                        <Select
+                                                            value={String(props.value)}
+                                                            onValueChange={(value) => {
+                                                                if (props.onChange) {
+                                                                    handleCalendarChange(value, props.onChange)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                                {props.options?.map((option) => (
+                                                                    <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                                        {option.label}
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                    )
+                                                },
+                                            }}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                // <Popover>
+                                //     <PopoverTrigger asChild>
+                                //         <Button
+                                //             variant={"outline"}
+                                //             className={cn(
+                                //                 "w-full justify-start text-left font-normal",
+                                //                 !passDate && "text-muted-foreground"
+                                //             )}
+                                //             aria-label="Select date"
+                                //         >
+                                //             <CalendarIcon className="mr-2 h-4 w-4" />
+                                //             {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
+                                //         </Button>
+                                //     </PopoverTrigger>
+                                //     <PopoverContent className="w-auto p-0">
+                                //         <Calendar
+                                //             mode="single"
+                                //             selected={passDate}
+                                //             onSelect={(date) => {
+                                //                 setPassDate(date);
+                                //                 if (date) {
+                                //                     field.handleChange(format(date, "yyyy-MM-dd"));
+                                //                 }
+                                //             }}
+                                //             initialFocus
+                                //         />
+                                //     </PopoverContent>
+                                // </Popover>
+
+
+                            )
+                        }}
                     </form.Field>
                 </div>
                 <div className="space-y-2">
@@ -973,31 +1221,17 @@ export default function CandidateForm({
                     <form.Field name="resultStatus">
                         {(field) => (
                             <Select
-                                id={field.name}
-                                name={field.name}
                                 value={field.getValue() ?? "neutral"}
-                                selectedKeys={selectedResultStatus}
-                                onSelectionChange={handleResultStatusChange}
-                                placeholder="Выберите статус результата"
-                                popoverProps={{
-                                    portalContainer: formRef.current!,
-                                    offset: 0,
-                                    containerPadding: 0,
-                                }}
-                                renderValue={(items) => (
-                                    <div className="flex flex-wrap gap-2">
-                                        {Array.from(selectedResultStatus).map((item) => (
-                                            <Chip key={item}>
-                                                {item === 'positive' ? 'Положительный' :
-                                                    item === 'negative' ? 'Отрицательный' : 'Нейтральный'}
-                                            </Chip>
-                                        ))}
-                                    </div>
-                                )}
+                                onValueChange={handleResultStatusChange}
                             >
-                                <SelectItem key="positive" value="positive">Положительный</SelectItem>
-                                <SelectItem key="negative" value="negative">Отрицательный</SelectItem>
-                                <SelectItem key="neutral" value="neutral">Нейтральный</SelectItem>
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите статус результата" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="positive">Положительный</SelectItem>
+                                    <SelectItem value="negative">Отрицательный</SelectItem>
+                                    <SelectItem value="neutral">Нейтральный</SelectItem>
+                                </SelectContent>
                             </Select>
                         )}
                     </form.Field>
@@ -1042,6 +1276,138 @@ export default function CandidateForm({
                                         variant="ghost"
                                         size="sm"
                                         onClick={() => handleRemoveEducation(index)}
+                                        className="ml-2 h-6 text-red-500 hover:text-red-700"
+                                    >
+                                        Удалить
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </div>
+
+            {/* Добавляем секцию для последнего места работы */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center border-t pt-4 mt-4">
+                    <Label className="text-lg font-bold">Места работы</Label>
+                    <div className="flex items-center gap-4">
+                        <div className="flex items-center space-x-2">
+                            <input
+                                type="checkbox"
+                                id="isFirstJob"
+                                checked={isFirstJob}
+                                onChange={(e) => {
+                                    setIsFirstJob(e.target.checked);
+                                    if (e.target.checked) {
+                                        // Если это первое место работы, очищаем список мест работы
+                                        setLastWorkPlaces([]);
+                                        setShowLastWorkPlaceForm(false);
+                                    }
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                            />
+                            <Label htmlFor="isFirstJob" className="text-sm font-medium">
+                                Это первое место работы
+                            </Label>
+                        </div>
+                        {!isFirstJob && (
+                            <Button
+                                type="button"
+                                variant={showLastWorkPlaceForm ? "outline" : "default"}
+                                size="sm"
+                                onClick={() => setShowLastWorkPlaceForm(!showLastWorkPlaceForm)}
+                                className="flex items-center gap-2"
+                            >
+                                {showLastWorkPlaceForm ? "Скрыть форму" : `Добавить место работы ${lastWorkPlaces.length > 0 ? `(${lastWorkPlaces.length})` : ''}`}
+                            </Button>
+                        )}
+                    </div>
+                </div>
+
+                {!isFirstJob && showLastWorkPlaceForm && (
+                    <div className="mt-2 p-4 border rounded-md">
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <LastWorkPlaceForm
+                                entries={lastWorkPlaces}
+                                onAdd={handleAddLastWorkPlace}
+                                onRemove={handleRemoveLastWorkPlace}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Отображаем список добавленных записей даже если форма скрыта */}
+                {!isFirstJob && lastWorkPlaces.length > 0 && !showLastWorkPlaceForm && (
+                    <div className="mt-2 p-4 border rounded-md">
+                        <p className="font-medium mb-2">Добавленные записи о местах работы: {lastWorkPlaces.length}</p>
+                        <ul className="list-disc pl-5">
+                            {lastWorkPlaces.map((work, index) => (
+                                <li key={index} className="mb-1">
+                                    {work.organizationName} - {work.position} ({format(new Date(work.employmentDate), "dd.MM.yyyy")} - {format(new Date(work.dismissalDate), "dd.MM.yyyy")})
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveLastWorkPlace(index)}
+                                        className="ml-2 h-6 text-red-500 hover:text-red-700"
+                                    >
+                                        Удалить
+                                    </Button>
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+
+                {isFirstJob && (
+                    <div className="mt-2 p-4 border rounded-md bg-gray-50">
+                        <p className="text-gray-600 italic">
+                            Информация о предыдущих местах работы не требуется, так как это первое место работы кандидата.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            {/* После секции с местами работы добавляем секцию для родственников */}
+            <div className="space-y-4">
+                <div className="flex justify-between items-center border-t pt-4 mt-4">
+                    <Label className="text-lg font-bold">Ближайшие родственники</Label>
+                    <Button
+                        type="button"
+                        variant={showFamilyListForm ? "outline" : "default"}
+                        size="sm"
+                        onClick={() => setShowFamilyListForm(!showFamilyListForm)}
+                        className="flex items-center gap-2"
+                    >
+                        {showFamilyListForm ? "Скрыть форму" : `Добавить родственника ${familyLists.length > 0 ? `(${familyLists.length})` : ''}`}
+                    </Button>
+                </div>
+
+                {showFamilyListForm && (
+                    <div className="mt-2 p-4 border rounded-md">
+                        <div onClick={(e) => e.stopPropagation()}>
+                            <FamilyListForm
+                                entries={familyLists}
+                                onAdd={handleAddFamilyList}
+                                onRemove={handleRemoveFamilyList}
+                            />
+                        </div>
+                    </div>
+                )}
+
+                {/* Отображаем список добавленных родственников даже если форма скрыта */}
+                {familyLists.length > 0 && !showFamilyListForm && (
+                    <div className="mt-2 p-4 border rounded-md">
+                        <p className="font-medium mb-2">Добавленные родственники: {familyLists.length}</p>
+                        <ul className="list-disc pl-5">
+                            {familyLists.map((family, index) => (
+                                <li key={index} className="mb-1">
+                                    {family.familyListName} - {family.familyListRelation}
+                                    {family.familyListBirthDate && ` (${format(new Date(family.familyListBirthDate), "dd.MM.yyyy")})`}
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleRemoveFamilyList(index)}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить

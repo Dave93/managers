@@ -1,7 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon } from "lucide-react";
-import { Button } from "@components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import DeleteAction from "./delete-action";
 import { work_schedules } from "@backend/../drizzle/schema";
 import { WorkScheduleFormSheet } from "@admin/components/forms/schedule/sheet";

@@ -1,7 +1,7 @@
 import React from "react";
 import managarReports from "./page";
 import Link from "next/link";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { ChevronLeft } from "lucide-react";
 import dayjs from "dayjs";
 function Back() {
