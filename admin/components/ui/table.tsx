@@ -19,12 +19,12 @@ const Table = (
     />
   </div>
 ) : (
-  <table
-    ref={ref}
-    className={cn("w-full caption-bottom text-sm", className)}
-    {...props}
-  />
-);
+    <table
+      ref={ref}
+      className={cn("w-full caption-bottom text-sm", className)}
+      {...props}
+    />
+  );
 Table.displayName = "Table";
 
 const TableHeader = (
