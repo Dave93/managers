@@ -12,11 +12,13 @@ import {
 } from "@components/ui/select";
 import { useState, useRef } from "react";
 import { CalendarIcon, Trash2 } from "lucide-react";
-import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { useToast } from "@admin/components/ui/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
+import { DropdownProps } from "react-day-picker";
+import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
+import { DropdownNavProps } from "react-day-picker";
 
 export interface EducationEntry {
     dateStart: string;
@@ -30,6 +32,15 @@ interface EducationFormProps {
     onAdd: (education: EducationEntry) => void;
     onRemove: (index: number) => void;
     entries: EducationEntry[];
+}
+
+const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+    const _event = {
+        target: {
+            value: String(_value),
+        },
+    } as React.ChangeEvent<HTMLSelectElement>
+    _e(_event)
 }
 
 export default function EducationForm({ onAdd, onRemove, entries }: EducationFormProps) {
@@ -184,7 +195,11 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => onRemove(index)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onRemove(index);
+                                    }}
                                     className="ml-2 h-6 text-red-500 hover:text-red-700"
                                 >
                                     <Trash2 className="h-3 w-3 mr-1" /> Удалить
@@ -203,8 +218,9 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                         Дата начала <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger className="w-full">
                             <Button
+                                type="button"
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
@@ -216,8 +232,10 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 {dateStart ? format(dateStart, "PPP") : <span>Выберите дату</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
+                        <PopoverContent className="w-auto p-0"
+                            container={formRef.current!}
+                        >
+                            <CalendarOrigin
                                 mode="single"
                                 selected={dateStart ? new Date(dateStart) : undefined}
                                 onSelect={(date) => {
@@ -225,7 +243,42 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                         setDateStart(format(date, "yyyy-MM-dd"));
                                     }
                                 }}
-                                initialFocus
+                                className="rounded-md border p-2"
+                                classNames={{
+                                    month_caption: "mx-0",
+                                }}
+                                captionLayout="dropdown"
+                                defaultMonth={new Date()}
+                                startMonth={new Date(1980, 6)}
+                                hideNavigation
+                                components={{
+                                    DropdownNav: (props: DropdownNavProps) => {
+                                        return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                    },
+                                    Dropdown: (props: DropdownProps) => {
+                                        return (
+                                            <Select
+                                                value={String(props.value)}
+                                                onValueChange={(value) => {
+                                                    if (props.onChange) {
+                                                        handleCalendarChange(value, props.onChange)
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                    {props.options?.map((option) => (
+                                                        <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )
+                                    },
+                                }}
                             />
                         </PopoverContent>
                     </Popover>
@@ -235,8 +288,9 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                         Дата окончания <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger className="w-full">
                             <Button
+                                type="button"
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
@@ -248,8 +302,10 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 {dateEnd ? format(dateEnd, "PPP") : <span>Выберите дату</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
+                        <PopoverContent className="w-auto p-0"
+                            container={formRef.current!}
+                        >
+                            <CalendarOrigin
                                 mode="single"
                                 selected={dateEnd ? new Date(dateEnd) : undefined}
                                 onSelect={(date) => {
@@ -257,7 +313,42 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                         setDateEnd(format(date, "yyyy-MM-dd"));
                                     }
                                 }}
-                                initialFocus
+                                className="rounded-md border p-2"
+                                classNames={{
+                                    month_caption: "mx-0",
+                                }}
+                                captionLayout="dropdown"
+                                defaultMonth={new Date()}
+                                startMonth={new Date(1980, 6)}
+                                hideNavigation
+                                components={{
+                                    DropdownNav: (props: DropdownNavProps) => {
+                                        return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                    },
+                                    Dropdown: (props: DropdownProps) => {
+                                        return (
+                                            <Select
+                                                value={String(props.value)}
+                                                onValueChange={(value) => {
+                                                    if (props.onChange) {
+                                                        handleCalendarChange(value, props.onChange)
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                    {props.options?.map((option) => (
+                                                        <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )
+                                    },
+                                }}
                             />
                         </PopoverContent>
                     </Popover>

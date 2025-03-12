@@ -1,21 +1,20 @@
 "use client";
 import { useToast } from "@admin/components/ui/use-toast";
-import { Button } from "@admin/components/ui/button";
+import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Label } from "@components/ui/label";
-import { Input } from "@components/ui/input";
+import { Label } from "@admin/components/ui/label";
+import { Input } from "@admin/components/ui/input";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Textarea } from "@components/ui/textarea";
 import { format } from "date-fns";
-import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
 import LastWorkPlaceForm, { LastWorkPlaceEntry } from "../last_work_place/LastWorkPlaceForm";
 import FamilyListForm, { FamilyListEntry } from "../family_list/FamilyListForm";
-import { parseZonedDateTime } from "@internationalized/date";
 import React from "react";
 import {
     Select,
@@ -23,20 +22,22 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue
-} from "@components/ui/select";
+} from "@admin/components/ui/select";
 import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
-import { Calendar } from "@admin/components/ui/calendar";
+import { DropdownNavProps, DropdownProps } from "react-day-picker";
 
-
-interface DropdownNavProps {
-    children: React.ReactNode;
+// Helper function for calendar dropdown changes
+const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+    const _event = {
+        target: {
+            value: String(_value),
+        },
+    } as React.ChangeEvent<HTMLSelectElement>
+    _e(_event)
 }
 
-interface DropdownProps {
-    value: number;
-    onChange?: (value: number) => void;
-    options?: { value: number; label: string; disabled?: boolean }[];
-}
+//     options?: { value: number; label: string; disabled?: boolean }[];
+// }
 
 interface ApiResponse<T = any> {
     data?: T[];
@@ -145,14 +146,12 @@ export default function CandidateForm({
     const formRef = useRef<HTMLFormElement | null>(null);
     const { toast } = useToast();
     const queryClient = useQueryClient();
-    const [date, setDate] = useState(parseZonedDateTime("2024-04-04T00:00[UTC]"));
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
     const [selectedResultStatus, setSelectedResultStatus] = useState<'positive' | 'negative' | 'neutral'>("neutral");
     const [showEducationForm, setShowEducationForm] = useState(!recordId);
     const [educations, setEducations] = useState<EducationEntry[]>([]);
     const [showLastWorkPlaceForm, setShowLastWorkPlaceForm] = useState(!recordId);
     const [lastWorkPlaces, setLastWorkPlaces] = useState<LastWorkPlaceEntry[]>([]);
-    const [passDate, setPassDate] = useState<Date>();
     const [isFirstJob, setIsFirstJob] = useState(false);
     const [showFamilyListForm, setShowFamilyListForm] = useState(!recordId);
     const [familyLists, setFamilyLists] = useState<FamilyListEntry[]>([]);
@@ -269,7 +268,7 @@ export default function CandidateForm({
                     strengthsShortage: newCandidate.strengthsShortage || "",
                     relatives: newCandidate.relatives || "",
                     desiredPosition: newCandidate.desiredPosition || "",
-                    resultStatus: newCandidate.resultStatus as 'positive' | 'negative' | 'neutral' || 'neutral',
+                    resultStatus: newCandidate.resultStatus || 'neutral',
                     educations: educations,
                     lastWorkPlaces: isFirstJob ? [] : lastWorkPlaces,
                     isFirstJob: isFirstJob,
@@ -494,10 +493,12 @@ export default function CandidateForm({
                 const submissionData = {
                     ...value,
                     educations: educations,
-                    lastWorkPlaces: lastWorkPlaces
+                    lastWorkPlaces: lastWorkPlaces,
+                    familyLists: familyLists,
+                    isFirstJob: isFirstJob
                 };
 
-                console.log('Submitting candidate data with educations and last work places:', submissionData);
+                console.log('Submitting candidate data with educations, last work places, family lists, and job status:', submissionData);
 
                 if (recordId) {
                     await updateMutation.mutateAsync({
@@ -636,9 +637,6 @@ export default function CandidateForm({
             if (candidate.resultStatus) {
                 setSelectedResultStatus(candidate.resultStatus);
             }
-            // if (candidate.birthDate) {
-            //     setDate(new Date(candidate.birthDate));
-            // }
 
             // Set education data if available
             if (candidate.education && Array.isArray(candidate.education) && candidate.education.length > 0) {
@@ -719,7 +717,7 @@ export default function CandidateForm({
                                 <SelectContent>
                                     {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
                                         <SelectItem key={vacancy.id} value={vacancy.id}>
-                                            {vacancy.applicationNum} - {vacancy.position}
+                                            {vacancy.applicationNum}
                                         </SelectItem>
                                     )) : []}
                                 </SelectContent>
@@ -751,15 +749,9 @@ export default function CandidateForm({
                             let date = field.getValue() ?? new Date();
                             return (
                                 <Popover>
-                                    {/* <PopoverTrigger className={cn(
-                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
-                                        !date && "text-muted-foreground"
-                                    )}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                                    </PopoverTrigger> */}
-                                    <PopoverTrigger asChild>
+                                    <PopoverTrigger className="w-full" >
                                         <Button
+                                            type="button"
                                             variant={"outline"}
                                             className={cn(
                                                 "w-full justify-start text-left font-normal",
@@ -771,12 +763,10 @@ export default function CandidateForm({
                                             {date ? format(date, "PPP") : <span>Выберите дату</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"
-                                        container={formRef.current!}
-                                    >
+                                    <PopoverContent container={formRef.current!} className="w-auto p-0">
                                         <CalendarOrigin
                                             mode="single"
-                                            selected={date}
+                                            selected={date ? new Date(date) : undefined}
                                             onSelect={(date) => {
                                                 if (date) {
                                                     field.handleChange(format(date, "yyyy-MM-dd"));
@@ -823,7 +813,6 @@ export default function CandidateForm({
                                         />
                                     </PopoverContent>
                                 </Popover>
-
                             )
                         }}
                     </form.Field>
@@ -998,15 +987,9 @@ export default function CandidateForm({
 
                             return (
                                 <Popover>
-                                    {/* <PopoverTrigger className={cn(
-                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
-                                        !date && "text-muted-foreground"
-                                    )}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                                    </PopoverTrigger> */}
-                                    <PopoverTrigger asChild>
+                                    <PopoverTrigger className="w-full" >
                                         <Button
+                                            type="button"
                                             variant={"outline"}
                                             className={cn(
                                                 "w-full justify-start text-left font-normal",
@@ -1018,12 +1001,10 @@ export default function CandidateForm({
                                             {date ? format(date, "PPP") : <span>Выберите дату</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"
-                                        container={formRef.current!}
-                                    >
+                                    <PopoverContent container={formRef.current!} className="w-auto p-0">
                                         <CalendarOrigin
                                             mode="single"
-                                            selected={date}
+                                            selected={date ? new Date(date) : undefined}
                                             onSelect={(date) => {
                                                 if (date) {
                                                     field.handleChange(format(date, "yyyy-MM-dd"));
@@ -1070,36 +1051,6 @@ export default function CandidateForm({
                                         />
                                     </PopoverContent>
                                 </Popover>
-                                // <Popover>
-                                //     <PopoverTrigger asChild>
-                                //         <Button
-                                //             variant={"outline"}
-                                //             className={cn(
-                                //                 "w-full justify-start text-left font-normal",
-                                //                 !passDate && "text-muted-foreground"
-                                //             )}
-                                //             aria-label="Select date"
-                                //         >
-                                //             <CalendarIcon className="mr-2 h-4 w-4" />
-                                //             {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
-                                //         </Button>
-                                //     </PopoverTrigger>
-                                //     <PopoverContent className="w-auto p-0">
-                                //         <Calendar
-                                //             mode="single"
-                                //             selected={passDate}
-                                //             onSelect={(date) => {
-                                //                 setPassDate(date);
-                                //                 if (date) {
-                                //                     field.handleChange(format(date, "yyyy-MM-dd"));
-                                //                 }
-                                //             }}
-                                //             initialFocus
-                                //         />
-                                //     </PopoverContent>
-                                // </Popover>
-
-
                             )
                         }}
                     </form.Field>
@@ -1275,7 +1226,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveEducation(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveEducation(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить
@@ -1348,7 +1303,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveLastWorkPlace(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveLastWorkPlace(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить
@@ -1407,7 +1366,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveFamilyList(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveFamilyList(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить

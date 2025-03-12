@@ -10,6 +10,12 @@ import {
 import { Plus, Pencil } from "lucide-react";
 import PositionsForm from "./_form";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+
+// Добавляем функцию для отладки
+const debugLog = (message: string, data: any) => {
+    console.log(`[PositionsSheet] ${message}:`, data);
+};
 
 export function PositionsSheet({
     recordId,
@@ -19,20 +25,22 @@ export function PositionsSheet({
     trigger?: React.ReactNode;
 }) {
     const [open, setOpen] = useState(false);
+    const queryClient = useQueryClient();
 
-
-    const beforeOpen = async (open: boolean) => {
-        if (open) {
-            setOpen(true);
+    const handleOpenChange = (newOpen: boolean) => {
+        if (newOpen) {
+            // Если открываем форму редактирования, инвалидируем запрос
             if (recordId) {
+                queryClient.invalidateQueries({ queryKey: ["one_position", recordId] });
             }
+            setOpen(true);
         } else {
             setOpen(false);
         }
     };
 
     return (
-        <Sheet open={open} onOpenChange={setOpen}>
+        <Sheet open={open} onOpenChange={handleOpenChange}>
             <SheetTrigger asChild>
                 {trigger || (
                     <Button>

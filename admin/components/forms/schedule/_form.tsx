@@ -7,27 +7,28 @@ import { useForm } from "@tanstack/react-form";
 import { Loader2, Check } from "lucide-react";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-import { Button } from "@admin/components/ui/buttonOrigin";
+import { Button } from "@admin/components/ui/button";
 import { Badge } from "@components/ui/badge";
+
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@components/ui/select";
+} from "@admin/components/ui/select";
 import {
     Command,
     CommandEmpty,
     CommandGroup,
     CommandInput,
     CommandItem,
-} from "@components/ui/command";
+} from "@admin/components/ui/command";
 import {
     Popover,
     PopoverContent,
     PopoverTrigger,
-} from "@components/ui/popover";
+} from "@admin/components/ui/popover";
 import { cn } from "@admin/lib/utils";
 
 type WorkSchedule = {
@@ -228,7 +229,9 @@ export default function WorkScheduleForm({
         ]
     });
 
-    const isInitialLoading = isRecordLoading;
+    // Добавляем состояние для отслеживания загрузки данных формы
+    const [formDataLoaded, setFormDataLoaded] = useState(false);
+    const isInitialLoading = isRecordLoading && !formDataLoaded;
 
     const isLoading = useMemo(() => {
         return (
@@ -245,6 +248,7 @@ export default function WorkScheduleForm({
     const handleOrganizationChange = (value: string) => {
         setChangedOrganizationId(value);
         form.setFieldValue("organization_id", value);
+        console.log('Organization changed:', value);
     };
 
     const organizationLabelById = useMemo(() => {
@@ -255,20 +259,48 @@ export default function WorkScheduleForm({
             }, {} as { [key: string]: string })
             : {};
     }, [organizationsData]);
+    // Состояние для отслеживания выбранных дней
+    const [selectedDays, setSelectedDays] = useState<string[]>([]);
+
+    // Обработчик изменения выбора дней
+    const handleDaysChange = (days: string[]) => {
+        setSelectedDays(days);
+        form.setFieldValue("days", days);
+        console.log('Days changed:', days);
+    };
+
     useEffect(() => {
         if (record?.data?.data?.[0]) {
             const schedule = record.data.data[0] as WorkSchedule;
-            form.setFieldValue("name", schedule.name);
-            form.setFieldValue("active", schedule.active);
-            form.setFieldValue("organization_id", schedule.organization_id);
+            console.log('Raw schedule data received:', schedule);
+
+            // Установка всех значений формы из полученных данных
+            const formValues = {
+                name: schedule.name,
+                active: schedule.active,
+                organization_id: schedule.organization_id,
+                days: Array.isArray(schedule.days) ? schedule.days : [],
+                start_time: schedule.start_time,
+                end_time: schedule.end_time,
+                max_start_time: schedule.max_start_time,
+                bonus_price: schedule.bonus_price,
+            };
+
+            // Обновляем состояние для организации
             setChangedOrganizationId(schedule.organization_id);
-            form.setFieldValue("days", schedule.days);
-            form.setFieldValue("start_time", schedule.start_time);
-            form.setFieldValue("end_time", schedule.end_time);
-            form.setFieldValue("max_start_time", schedule.max_start_time);
-            form.setFieldValue("bonus_price", schedule.bonus_price);
+
+            // Обновляем состояние для дней недели
+            setSelectedDays(Array.isArray(schedule.days) ? schedule.days : []);
+
+            // Устанавливаем все значения в форму сразу после получения данных
+            setTimeout(() => {
+                Object.entries(formValues).forEach(([key, value]) => {
+                    form.setFieldValue(key as keyof FormValues, value);
+                });
+                console.log('Form values set:', formValues);
+            }, 0);
         }
-    }, [record, form]);
+    }, [record]);
 
     if (isInitialLoading) {
         return (
@@ -284,6 +316,7 @@ export default function WorkScheduleForm({
             onSubmit={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
+                console.log('Form submitted with values:', form.state.values);
                 void form.handleSubmit();
             }}
             className="space-y-8"
@@ -329,64 +362,68 @@ export default function WorkScheduleForm({
                 <div className="space-y-2">
                     <Label>Рабочие дни</Label>
                     <form.Field name="days">
-                        {(field) => (
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        className="w-full justify-between"
-                                    >
-                                        {field.state.value.length > 0
-                                            ? `Выбрано ${field.state.value.length} дней`
-                                            : "Выберите рабочие дни"}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-full p-0">
-                                    <Command>
-                                        <CommandInput placeholder="Поиск дня..." />
-                                        <CommandEmpty>Дни не найдены</CommandEmpty>
-                                        <CommandGroup>
-                                            {daysWeek.map((day) => {
-                                                const isSelected = field.state.value.includes(day);
-                                                return (
-                                                    <CommandItem
-                                                        key={day}
-                                                        onSelect={() => {
-                                                            const newValue = isSelected
-                                                                ? field.state.value.filter((d) => d !== day)
-                                                                : [...field.state.value, day];
+                        {(field) => {
+                            // Используем состояние selectedDays для отображения выбранных дней
+                            const days = field.state.value;
+
+                            return (
+                                <div className="space-y-3">
+                                    <div className="grid grid-cols-7 gap-2">
+                                        {daysWeek.map((day) => {
+                                            const isSelected = days.includes(day);
+                                            const shortDay = day.substring(0, 2);
+                                            return (
+                                                <div
+                                                    key={day}
+                                                    className={cn(
+                                                        "flex flex-col items-center justify-center p-2 rounded-md border cursor-pointer transition-all duration-200 hover:border-primary",
+                                                        isSelected ? "bg-primary text-primary-foreground border-primary" : "border-input"
+                                                    )}
+                                                    onClick={() => {
+                                                        const newValue = isSelected
+                                                            ? days.filter((d) => d !== day)
+                                                            : [...days, day];
+
+                                                        // Обновляем и состояние, и поле формы
+                                                        field.handleChange(newValue);
+                                                        handleDaysChange(newValue);
+                                                    }}
+                                                >
+                                                    <span className="text-sm font-medium">{shortDay}</span>
+                                                    {isSelected && <Check className="h-3 w-3 mt-1" />}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1">
+                                        {days.length > 0 ? (
+                                            days.map((day) => (
+                                                <Badge key={day} variant="secondary" className="mr-1">
+                                                    {day}
+                                                    <span
+                                                        className="ml-1 cursor-pointer hover:text-destructive"
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            const newValue = days.filter((d) => d !== day);
+
+                                                            // Обновляем и состояние, и поле формы
                                                             field.handleChange(newValue);
+                                                            handleDaysChange(newValue);
                                                         }}
                                                     >
-                                                        <div className={cn(
-                                                            "mr-2 flex h-4 w-4 items-center justify-center rounded-sm border border-primary",
-                                                            isSelected ? "bg-primary text-primary-foreground" : "opacity-50"
-                                                        )}>
-                                                            {isSelected && <Check className="h-4 w-4" />}
-                                                        </div>
-                                                        {day}
-                                                    </CommandItem>
-                                                );
-                                            })}
-                                        </CommandGroup>
-                                    </Command>
-                                </PopoverContent>
-                            </Popover>
-                        )}
+                                                        ×
+                                                    </span>
+                                                </Badge>
+                                            ))
+                                        ) : (
+                                            <span className="text-sm text-muted-foreground">Выберите рабочие дни</span>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        }}
                     </form.Field>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                        <form.Field name="days">
-                            {(field) => (
-                                <>
-                                    {field.state.value.map((day) => (
-                                        <Badge key={day} variant="secondary" className="mr-1">
-                                            {day}
-                                        </Badge>
-                                    ))}
-                                </>
-                            )}
-                        </form.Field>
-                    </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">

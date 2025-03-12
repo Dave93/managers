@@ -1,16 +1,15 @@
 import { useToast } from "@admin/components/ui/use-toast";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Label } from "@admin/components/ui/label";
 import { Input } from "@components/ui/input";
 import { positions } from "backend/drizzle/schema";
 import { Loader2 } from "lucide-react";
-import { Selection } from "@react-types/shared";
-import { useQueryClient } from "@tanstack/react-query";
 
+import { useQueryClient } from "@tanstack/react-query";
 
 type ApiData = {
     title: string;
@@ -18,7 +17,6 @@ type ApiData = {
     requirements?: string;
     salaryMin?: number;
     salaryMax?: number;
-    terminalId?: string;
 };
 
 type FormValues = {
@@ -27,7 +25,6 @@ type FormValues = {
     requirements: string;
     salaryMin: number;
     salaryMax: number;
-    terminalId: string | undefined;
 };
 
 
@@ -41,9 +38,7 @@ export default function PositionsForm({
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
     const { toast } = useToast();
-    const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
-        new Set([])
-    );
+
     const queryClient = useQueryClient();
 
     const onAddSuccess = (actionText: string) => {
@@ -58,9 +53,10 @@ export default function PositionsForm({
     };
 
     const onError = (error: any) => {
+        const errorMessage = error?.message || "Произошла неизвестная ошибка";
         toast({
-            title: "Error",
-            description: error.message,
+            title: "Ошибка",
+            description: errorMessage,
             variant: "destructive",
             duration: 5000
         });
@@ -74,7 +70,6 @@ export default function PositionsForm({
                 requirements: newTodo.requirements ?? undefined,
                 salaryMin: newTodo.salaryMin ?? undefined,
                 salaryMax: newTodo.salaryMax ?? undefined,
-                terminalId: newTodo.terminalId ?? undefined,
             };
             return apiClient.api.positions.post({
                 data,
@@ -95,16 +90,67 @@ export default function PositionsForm({
                 requirements: newTodo.data.requirements ?? undefined,
                 salaryMin: newTodo.data.salaryMin ?? undefined,
                 salaryMax: newTodo.data.salaryMax ?? undefined,
-                terminalId: newTodo.data.terminalId ?? undefined,
             };
             return apiClient.api.positions({ id: newTodo.id }).put({
                 data,
 
             });
         },
-        onSuccess: () => onAddSuccess("updated"),
+        onSuccess: () => onAddSuccess("обновлена"),
         onError,
     });
+
+    const { data: record, isLoading: isRecordLoading } = useQuery({
+        queryKey: ["one_position", recordId],
+        queryFn: async () => {
+            if (!recordId) return null;
+
+            console.log("Fetching position with ID", recordId);
+
+            try {
+                // Пробуем получить данные напрямую по ID
+                const response = await apiClient.api.positions({ id: recordId }).get();
+                console.log("Direct ID fetch response", response);
+                return response;
+            } catch (error) {
+                console.log("Error fetching by direct ID, trying with filters", error);
+
+                try {
+                    // Если прямой запрос не сработал, пробуем через фильтры
+                    const response = await apiClient.api.positions.get({
+                        query: {
+                            filters: JSON.stringify([
+                                {
+                                    field: "id",
+                                    operator: "=",
+                                    value: recordId
+                                }
+                            ])
+                        }
+                    });
+                    console.log("Filter fetch response", response);
+                    return response;
+                } catch (filterError) {
+                    console.log("Error fetching with filters", filterError);
+                    throw filterError;
+                }
+            }
+        },
+        enabled: !!recordId,
+        staleTime: 0, // Disable caching to always get fresh data
+        refetchOnWindowFocus: false,
+        refetchOnMount: true, // Always refetch when component mounts
+        retry: 3, // Retry failed requests 3 times
+        retryDelay: 1000, // Wait 1 second between retries
+    });
+
+
+
+    const isInitialLoading = isRecordLoading;
+
+    const isLoading = useMemo(() => {
+        return createMutation.isPending || updateMutation.isPending;
+    }, [createMutation.isPending, updateMutation.isPending]);
 
     const form = useForm<FormValues>({
         defaultValues: {
@@ -113,7 +159,6 @@ export default function PositionsForm({
             requirements: "",
             salaryMin: 0,
             salaryMax: 0,
-            terminalId: undefined,
         },
         onSubmit: async ({ value }) => {
             if (recordId) {
@@ -124,108 +169,79 @@ export default function PositionsForm({
         },
     });
 
-    const [
-        { data: record, isLoading: isRecordLoading },
-        { data: terminalsData, isLoading: isTerminalsLoading },
-        { data: userTerminalsData, isLoading: isUserTerminalsLoading },
+    // We don't need to reset the form when recordId changes
+    // This was causing the form to reset before data was loaded
 
-    ] = useQueries({
-        queries: [
-            {
-                queryKey: ["one_position", recordId],
-                queryFn: () => {
-                    if (recordId) {
-                        return apiClient.api.positions.get({
-                            query: {
-                                filters: JSON.stringify({ id: recordId })
-                            }
-                        });
-                    }
-                    return null;
-                },
-                enabled: !!recordId,
-            },
-            {
-                queryKey: ["terminals_cached"],
-                queryFn: async () => {
-                    const { data } = await apiClient.api.terminals.cached.get({});
-                    return data;
-                },
-            },
-            {
-                enabled: !!recordId,
-                queryKey: ["users_terminals", recordId],
-                queryFn: async () => {
-                    if (recordId) {
-                        const { data } = await apiClient.api.users_terminals.get({
-                            query: {
-                                limit: "30",
-                                offset: "0",
-                                filters: JSON.stringify([
-                                    {
-                                        field: "user_id",
-                                        operator: "=",
-                                        value: recordId,
-                                    },
-                                ]),
-                                fields: "terminal_id,user_id",
-                            },
-                        });
-                        return data;
-                    } else {
-                        return null;
-                    }
-                },
-            },
-        ]
-    });
-
-    const isInitialLoading = isRecordLoading || isTerminalsLoading;
-
-    const isLoading = useMemo(() => {
-        return createMutation.isPending || updateMutation.isPending;
-    }, [createMutation.isPending, updateMutation.isPending]);
-
+    // Update form values when record data is loaded
     useEffect(() => {
-        if (record?.data?.data?.[0]) {
-            const position = record.data.data[0];
-            form.setFieldValue("title", position.title as string);
-            form.setFieldValue("description", position.description as string);
-            form.setFieldValue("requirements", position.requirements as string);
-            form.setFieldValue("salaryMin", position.salaryMin as number);
-            form.setFieldValue("salaryMax", position.salaryMax as number);
+        if (!record) return;
 
-            if (position.terminalId) {
-                const terminalId = position.terminalId as string;
-                setChangedTerminalId(new Set([terminalId]) as Selection);
-                form.setFieldValue("terminalId", terminalId);
+        console.log("Setting form values from record:", record);
+
+        // Safely extract position data from various response formats
+        const extractPosition = (data: any) => {
+            if (!data) return null;
+
+            console.log("Extracting position from data:", JSON.stringify(data));
+
+            // Handle different response formats
+            if (data.data) {
+                if (Array.isArray(data.data) && data.data.length > 0) {
+                    console.log("Found position in array data[0]:", data.data[0]);
+                    return data.data[0];
+                } else if (typeof data.data === 'object') {
+                    console.log("Found position in object data:", data.data);
+                    return data.data;
+                }
+            } else if (data.id) {
+                // Direct object with id
+                console.log("Found position with direct id:", data);
+                return data;
             }
+
+            console.log("Using data directly as position:", data);
+            return data;
+        };
+
+        const position = extractPosition(record);
+        console.log("Extracted position:", position);
+
+        if (position) {
+            // First reset the form to clear any previous values
+            form.reset();
+
+            // Устанавливаем значения с проверкой на undefined
+            const formValues = {
+                title: position.title || "",
+                description: position.description || "",
+                requirements: position.requirements || "",
+                salaryMin: Number(position.salaryMin) || 0,
+                salaryMax: Number(position.salaryMax) || 0
+            };
+
+            console.log("Setting form values:", formValues);
+
+            // Use setTimeout to ensure the form has been reset before setting new values
+            setTimeout(() => {
+                // Устанавливаем значения формы
+                Object.entries(formValues).forEach(([key, value]) => {
+                    form.setFieldValue(key as keyof FormValues, value);
+                });
+
+                // Проверка, что значения установлены
+                setTimeout(() => {
+                    const currentValues = {
+                        title: form.getFieldValue("title"),
+                        description: form.getFieldValue("description"),
+                        requirements: form.getFieldValue("requirements"),
+                        salaryMin: form.getFieldValue("salaryMin"),
+                        salaryMax: form.getFieldValue("salaryMax")
+                    };
+                    console.log("Form values after setting:", currentValues);
+                }, 100);
+            }, 0);
         }
     }, [record, form]);
-
-    const terminalsForSelect = useMemo(() => {
-        return terminalsData && Array.isArray(terminalsData)
-            ? terminalsData.map((item) => ({
-                value: item.id,
-                label: item.name,
-            }))
-            : [];
-    }, [terminalsData]);
-
-    const terminalLabelById = useMemo(() => {
-        return terminalsData && Array.isArray(terminalsData)
-            ? terminalsData.reduce((acc, item) => {
-                acc[item.id] = item.name;
-                return acc;
-            }, {} as { [key: string]: string })
-            : {};
-    }, [terminalsData]);
-
-    const handleTerminalChange = (selection: Selection) => {
-        setChangedTerminalId(selection);
-        const selectedTerminal = Array.from(selection)[0] as string | undefined;
-        form.setFieldValue("terminalId", () => selectedTerminal);
-    };
 
     if (isInitialLoading) {
         return (
@@ -247,7 +263,7 @@ export default function PositionsForm({
         >
             <div>
                 <div>
-                    <Label>Название Должность</Label>
+                    <Label>Название должности</Label>
                 </div>
                 <form.Field name="title">
                     {(field) => {
@@ -258,20 +274,16 @@ export default function PositionsForm({
                                     name={field.name}
                                     value={field.state.value}
                                     onBlur={field.handleBlur}
-                                    onChange={(e) => {
-                                        field.handleChange(e.target.value);
-                                    }}
-
+                                    onChange={(e) => field.handleChange(e.target.value)}
                                 />
                             </>
-                        )
-                    }
-                    }
+                        );
+                    }}
                 </form.Field>
             </div>
             <div>
                 <div>
-                    <Label>Описание Должность</Label>
+                    <Label>Описание должности</Label>
                 </div>
                 <form.Field name="description">
                     {(field) => {
@@ -288,14 +300,13 @@ export default function PositionsForm({
 
                                 />
                             </>
-                        )
-                    }
-                    }
+                        );
+                    }}
                 </form.Field>
             </div>
             <div>
                 <div>
-                    <Label>Требование</Label>
+                    <Label>Требования</Label>
                 </div>
                 <form.Field name="requirements">
                     {(field) => {
@@ -312,9 +323,8 @@ export default function PositionsForm({
 
                                 />
                             </>
-                        )
-                    }
-                    }
+                        );
+                    }}
                 </form.Field>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -358,45 +368,6 @@ export default function PositionsForm({
                     </form.Field>
                 </div>
             </div>
-            {/* <div>
-                <div>
-                    <Label>Филиалы</Label>
-                </div>
-
-                <Select
-                    name="terminalId"
-                    label="Филиалы"
-                    selectionMode="single"
-                    isMultiline={true}
-                    placeholder="Выберите филиал"
-                    selectedKeys={changedTerminalId}
-                    classNames={{
-                        base: "max-w-xs",
-                        trigger: "min-h-unit-12 py-2",
-                    }}
-                    onSelectionChange={handleTerminalChange}
-                    popoverProps={{
-                        portalContainer: formRef.current!,
-                        offset: 0,
-                        containerPadding: 0,
-                    }}
-                    renderValue={(items: SelectedItems<string>) => {
-                        return (
-                            <div className="flex flex-wrap gap-2">
-                                {Array.from(changedTerminalId).map((item) => (
-                                    <Chip key={item}>{terminalLabelById[item]}</Chip>
-                                ))}
-                            </div>
-                        );
-                    }}
-                >
-                    {terminalsForSelect.map((terminal) => (
-                        <SelectItem key={terminal.value} value={terminal.value}>
-                            {terminal.label}
-                        </SelectItem>
-                    ))}
-                </Select>
-            </div> */}
             <div className="flex justify-end space-x-4">
                 <Button
                     variant="outline"

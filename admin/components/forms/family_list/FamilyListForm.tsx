@@ -8,7 +8,14 @@ import { format } from "date-fns";
 import { cn } from "@admin/lib/utils";
 import { useToast } from "@admin/components/ui/use-toast";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
-import { Calendar } from "@admin/components/ui/calendar";
+import { SelectValue } from "@admin/components/ui/select";
+import { SelectTrigger } from "@admin/components/ui/select";
+import { SelectItem } from "@admin/components/ui/select";
+import { Select } from "@admin/components/ui/select";
+import { SelectContent } from "@admin/components/ui/select";
+import { DropdownNavProps } from "react-day-picker";
+import { DropdownProps } from "react-day-picker";
+import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
 
 export interface FamilyListEntry {
     familyListName: string;
@@ -23,6 +30,15 @@ interface FamilyListFormProps {
     entries: FamilyListEntry[];
     onAdd: (entry: FamilyListEntry) => void;
     onRemove: (index: number) => void;
+}
+
+const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+    const _event = {
+        target: {
+            value: String(_value),
+        },
+    } as React.ChangeEvent<HTMLSelectElement>
+    _e(_event)
 }
 
 export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListFormProps) {
@@ -200,8 +216,9 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                 <div className="space-y-2">
                     <Label>Дата рождения</Label>
                     <Popover>
-                        <PopoverTrigger asChild>
+                        <PopoverTrigger className="w-full">
                             <Button
+                                type="button"
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
@@ -210,11 +227,13 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {familyListBirthDate ? format(new Date(familyListBirthDate), "PPP") : <span>Выберите дату</span>}
+                                {familyListBirthDate ? format(familyListBirthDate, "PPP") : <span>Выберите дату</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
+                        <PopoverContent className="w-auto p-0"
+                            container={formRef.current!}
+                        >
+                            <CalendarOrigin
                                 mode="single"
                                 selected={familyListBirthDate ? new Date(familyListBirthDate) : undefined}
                                 onSelect={(date) => {
@@ -222,7 +241,42 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                                         setFamilyListBirthDate(format(date, "yyyy-MM-dd"));
                                     }
                                 }}
-                                initialFocus
+                                className="rounded-md border p-2"
+                                classNames={{
+                                    month_caption: "mx-0",
+                                }}
+                                captionLayout="dropdown"
+                                defaultMonth={new Date()}
+                                startMonth={new Date(1980, 6)}
+                                hideNavigation
+                                components={{
+                                    DropdownNav: (props: DropdownNavProps) => {
+                                        return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                    },
+                                    Dropdown: (props: DropdownProps) => {
+                                        return (
+                                            <Select
+                                                value={String(props.value)}
+                                                onValueChange={(value) => {
+                                                    if (props.onChange) {
+                                                        handleCalendarChange(value, props.onChange)
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                    {props.options?.map((option) => (
+                                                        <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )
+                                    },
+                                }}
                             />
                         </PopoverContent>
                     </Popover>

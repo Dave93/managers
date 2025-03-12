@@ -661,6 +661,23 @@ export const candidatesController = new Elysia({
 
     .delete("/candidates/:id", async ({ params: { id }, user, set, drizzle, cacheController }) => {
         try {
+            // Сначала удаляем связанные записи
+            await drizzle
+                .delete(education)
+                .where(eq(education.candidateId, id))
+                .execute();
+                
+            await drizzle
+                .delete(last_work_place)
+                .where(eq(last_work_place.candidateId, id))
+                .execute();
+                
+            await drizzle
+                .delete(family_list)
+                .where(eq(family_list.candidateId, id))
+                .execute();
+
+            // Затем удаляем самого кандидата
             const candidate = await drizzle
                 .delete(candidates)
                 .where(eq(candidates.id, id))
