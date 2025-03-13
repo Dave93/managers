@@ -94,7 +94,7 @@ const OrderHourlyHeatmapChart = () => {
                 };
             })
         }));
-    }, [data]);
+    }, [data, t]);
 
     const maxValue = Math.max(...formattedData.flatMap(d => d.data.map(h => h.y)));
 

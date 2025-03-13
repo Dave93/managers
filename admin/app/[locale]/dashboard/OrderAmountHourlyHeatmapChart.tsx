@@ -51,7 +51,10 @@ const fetchHourlyAmountHeatmapData = async (
 
 const OrderAmountHourlyHeatmapChart = () => {
     const t = useTranslations();
-    const now = new Date();
+
+    // Move 'now' inside a useMemo to avoid recreating it on every render
+    const now = React.useMemo(() => new Date(), []);
+
     const { dateRange } = useDateRangeState();
     const { startDate, endDate } = React.useMemo(() => {
         if (dateRange) {
@@ -64,7 +67,7 @@ const OrderAmountHourlyHeatmapChart = () => {
             startDate: new Date(now.getFullYear(), now.getMonth(), 1),
             endDate: new Date(now.getFullYear(), now.getMonth() + 1, 0),
         };
-    }, [dateRange]);
+    }, [dateRange, now]);
     const [terminals] = useQueryState("terminals", parseAsString);
 
     const { data } = useSuspenseQuery({
@@ -91,7 +94,7 @@ const OrderAmountHourlyHeatmapChart = () => {
                 };
             })
         }));
-    }, [data]);
+    }, [data, t]);
 
     const maxValue = Math.max(...formattedData.flatMap(d => d.data.map(h => h.y)));
 
