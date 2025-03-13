@@ -120,7 +120,7 @@ const OrderAmountHourlyHeatmapChart = () => {
                         legendOffset: -40
                     }}
                     borderColor={{ from: 'color', modifiers: [['darker', 0.4]] }}
-                    labelTextColor={({ value }) => {
+                    labelTextColor={({ value }: { value: number }) => {
                         const threshold = maxValue * 0.7;
                         return value && value > threshold ? '#ffffff' : '#000000';
                     }}
@@ -148,7 +148,7 @@ const OrderAmountHourlyHeatmapChart = () => {
                         type: 'sequential',
                         scheme: 'blue_green'
                     }}
-                    tooltip={({ cell }) => {
+                    tooltip={({ cell }: { cell: { serieId: string; data: { x: string; y: number }; } }) => {
                         const formatter = new Intl.NumberFormat('ru-RU', {
                             style: 'currency',
                             currency: 'UZS',
