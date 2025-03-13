@@ -18,9 +18,9 @@ interface SelectClearableProps extends React.ComponentPropsWithoutRef<typeof Sel
 }
 
 const SelectClearable = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Root>,
+    React.ElementRef<typeof SelectPrimitive.Trigger>,
     SelectClearableProps
->(({ onClear, ...props }, ref) => {
+>(({ onClear, ...props }, _ref) => {
     return <SelectPrimitive.Root {...props} />
 })
 SelectClearable.displayName = "SelectClearable"
@@ -72,6 +72,41 @@ const SelectTriggerClearable = React.forwardRef<
     </div>
 ))
 SelectTriggerClearable.displayName = "SelectTriggerClearable"
+
+// Create standalone components for scroll buttons to avoid ref issues
+const SelectScrollUpButton = React.forwardRef<
+    React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
+    React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
+>(({ className, ...props }, ref) => (
+    <SelectPrimitive.ScrollUpButton
+        ref={ref}
+        className={cn(
+            "flex cursor-default items-center justify-center py-1",
+            className
+        )}
+        {...props}
+    >
+        <ChevronUpIcon />
+    </SelectPrimitive.ScrollUpButton>
+))
+SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
+
+const SelectScrollDownButton = React.forwardRef<
+    React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
+    React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
+>(({ className, ...props }, ref) => (
+    <SelectPrimitive.ScrollDownButton
+        ref={ref}
+        className={cn(
+            "flex cursor-default items-center justify-center py-1",
+            className
+        )}
+        {...props}
+    >
+        <ChevronDownIcon />
+    </SelectPrimitive.ScrollDownButton>
+))
+SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName
 
 // Re-export other components from the original select
 const SelectContent = React.forwardRef<
@@ -151,40 +186,6 @@ const SelectSeparator = React.forwardRef<
     />
 ))
 SelectSeparator.displayName = SelectPrimitive.Separator.displayName
-
-const SelectScrollUpButton = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.ScrollUpButton>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollUpButton>
->(({ className, ...props }, ref) => (
-    <SelectPrimitive.ScrollUpButton
-        ref={ref}
-        className={cn(
-            "flex cursor-default items-center justify-center py-1",
-            className
-        )}
-        {...props}
-    >
-        <ChevronUpIcon />
-    </SelectPrimitive.ScrollUpButton>
-))
-SelectScrollUpButton.displayName = SelectPrimitive.ScrollUpButton.displayName
-
-const SelectScrollDownButton = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.ScrollDownButton>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.ScrollDownButton>
->(({ className, ...props }, ref) => (
-    <SelectPrimitive.ScrollDownButton
-        ref={ref}
-        className={cn(
-            "flex cursor-default items-center justify-center py-1",
-            className
-        )}
-        {...props}
-    >
-        <ChevronDownIcon />
-    </SelectPrimitive.ScrollDownButton>
-))
-SelectScrollDownButton.displayName = SelectPrimitive.ScrollDownButton.displayName
 
 export {
     SelectClearable,

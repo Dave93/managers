@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import { work_schedules } from "backend/drizzle/schema";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
 import { Loader2, Check } from "lucide-react";
@@ -76,26 +76,16 @@ export default function WorkScheduleForm({
     recordId?: string;
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
-    const { toast } = useToast();
     const queryClient = useQueryClient();
     const onAddSuccess = (actionText: string) => {
         queryClient.invalidateQueries({ queryKey: ['work_schedules'] });
         queryClient.invalidateQueries({ queryKey: ['work_schedules_cached'] });
-        toast({
-            title: "Успешно",
-            description: `График Работ успешно ${actionText}`,
-            duration: 5000,
-        });
+        toast.success(`График Работ успешно ${actionText}`);
         setOpen(false);
     };
 
     const onError = (error: any) => {
-        toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-            duration: 5000
-        });
+        toast.error(error.message);
     };
 
     const createMutation = useMutation({

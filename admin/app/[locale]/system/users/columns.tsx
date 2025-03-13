@@ -16,7 +16,7 @@ export const usersColumns: ColumnDef<typeof users.$inferSelect>[] = [
       const record = row.original;
 
       return (
-        <Badge variant={record.status === "active" ? "success" : "destructive"}>
+        <Badge variant={record.status === "active" ? "default" : "destructive"}>
           {record.status}
         </Badge>
       );

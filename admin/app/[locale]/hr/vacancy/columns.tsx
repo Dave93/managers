@@ -43,7 +43,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
       }
 
       const statusMap = {
-        open: { label: "Открыта", variant: "success" as const },
+        open: { label: "Открыта", variant: "default" as const },
         in_progress: { label: "В процессе", variant: "secondary" as const },
         found_candidates: { label: "Найдены кандидаты", variant: "outline" as const },
         interview: { label: "Собеседование", variant: "secondary" as const },

@@ -2,30 +2,19 @@
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 
 export default function Page() {
-  const { toast } = useToast();
-
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: "Iiko settings saved",
-      duration: 5000,
-    });
+    toast.success("Iiko settings saved");
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

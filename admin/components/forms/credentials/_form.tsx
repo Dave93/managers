@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useEffect } from "react";
@@ -23,15 +23,10 @@ export default function CredentialsAddForm({
   model: string;
   credentialId?: string;
 }) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: `Credential ${actionText}`,
-      duration: 5000,
-    });
+    toast.success(`Credential ${actionText}`);
     queryClient.invalidateQueries({
       queryKey: ["credentials"],
     });
@@ -39,12 +34,7 @@ export default function CredentialsAddForm({
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

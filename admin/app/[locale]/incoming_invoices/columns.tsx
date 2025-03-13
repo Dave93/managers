@@ -26,7 +26,7 @@ export const reportsColumns: ColumnDef<Stoplist>[] = [
       return record.status == "stop" ? (
         <Badge variant="destructive">На стопе</Badge>
       ) : (
-        <Badge variant="success">Доступен</Badge>
+        <Badge variant="default">Доступен</Badge>
       );
     },
   },

@@ -1,7 +1,6 @@
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Popover,
-  PopoverClose,
   PopoverContent,
   PopoverTrigger,
 } from "@components/ui/popover";
@@ -43,11 +42,6 @@ export function DeleteButton({
             >
               Удалить
             </Button>
-            <PopoverClose aria-label="Close">
-              <Button variant="secondary" size="sm">
-                Отмена
-              </Button>
-            </PopoverClose>
           </div>
         </div>
       </PopoverContent>

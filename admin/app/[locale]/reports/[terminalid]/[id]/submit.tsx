@@ -12,7 +12,7 @@ import {
 } from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { CardFooter } from "@admin/components/ui/card";
-import { toast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { useReportDataStore } from "@admin/store/states/report_data";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -53,22 +53,12 @@ export default function ReportSubmit({ terminalId, id }: SubmitProps) {
   });
 
   const onSuccessReport = () => {
-    toast({
-      title: "Ураааа!!!",
-      description: "Отчёт успешно отправлен",
-      variant: "default",
-      duration: 5000,
-    });
+    toast.success("Отчёт успешно отправлен");
     router.push("/");
   };
 
   const onErrorReport = (error: any) => {
-    toast({
-      title: "Ошибка",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const assignRoleMutation = useMutation({

@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 import { useMemo, useEffect } from "react";
@@ -20,25 +20,15 @@ export default function RolesForm({
   recordId?: string;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: `Role ${actionText}`,
-      duration: 5000,
-    });
-    // form.reset();
+    toast.success(`Role ${actionText}`);
+    queryClient.invalidateQueries({ queryKey: ["roles"] });
     setOpen(false);
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

@@ -84,7 +84,7 @@ export default function ChartsPageClient() {
             <ChartWrapper className="col-span-4 h-[600px]">
                 <ProductCookingTime />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2 h-[600px]">
+            <ChartWrapper className="col-span-2 h-[650px]">
                 <BasketAdditionalSales />
             </ChartWrapper>
             <ChartWrapper className="col-span-2">

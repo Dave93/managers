@@ -1,11 +1,12 @@
 "use client";
 import { ThemeProvider } from "@components/theme-provider";
-import { Toaster } from "@components/ui/toaster";
 import { Providers } from "@admin/store/provider";
 import { useGetRole } from "@admin/utils/get_role";
 import AdminLayout from "./admin-layout";
 import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
+import { Toaster } from "@admin/components/ui/sonner"
+
 export default function MainLayout({
   children,
 }: {

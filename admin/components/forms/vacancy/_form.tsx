@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon, Check } from "lucide-react";
@@ -82,7 +82,6 @@ export default function VacancyForm({
     recordId?: string;
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
-    const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const closeForm = () => {
@@ -91,22 +90,13 @@ export default function VacancyForm({
     };
 
     const onAddSuccess = (actionText: string) => {
-        toast({
-            title: "Success",
-            description: `Vacancy ${actionText}`,
-            duration: 5000,
-        });
+        toast.success(`Vacancy ${actionText}`);
         queryClient.invalidateQueries({ queryKey: ["vacancy"] });
         closeForm();
     };
 
     const onError = (error: any) => {
-        toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-            duration: 5000,
-        });
+        toast.error(error.message);
     };
 
     type TreatyResponse<T> = {
@@ -286,32 +276,17 @@ export default function VacancyForm({
         }, [record]),
         onSubmit: async ({ value }) => {
             if (!value.applicationNum) {
-                toast({
-                    title: "Error",
-                    description: "Номер вакансии обязателен",
-                    variant: "destructive",
-                    duration: 5000,
-                });
+                toast.error("Номер вакансии обязателен");
                 return;
             }
 
             if (!value.organizationId) {
-                toast({
-                    title: "Error",
-                    description: "Выберите бренд",
-                    variant: "destructive",
-                    duration: 5000,
-                });
+                toast.error("Выберите бренд");
                 return;
             }
 
             if (!value.position) {
-                toast({
-                    title: "Error",
-                    description: "Выберите должность",
-                    variant: "destructive",
-                    duration: 5000,
-                });
+                toast.error("Выберите должность");
                 return;
             }
 

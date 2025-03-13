@@ -2,7 +2,7 @@
 import { CardContent } from "@admin/components/ui/card";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { useForm } from "@tanstack/react-form";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Label } from "@admin/components/ui/label";
 import { Input } from "@admin/components/ui/input";
 import { Loader2 } from "lucide-react";
@@ -11,23 +11,13 @@ import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 export default function ConfigsPage() {
-  const { toast } = useToast();
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: "Main settings saved",
-      duration: 5000,
-    });
+    toast.success("Main settings saved");
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const { data: settings, isLoading: isSettingsLoading } = useQuery({

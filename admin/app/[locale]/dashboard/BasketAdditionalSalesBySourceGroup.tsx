@@ -127,28 +127,35 @@ const BasketSalesBySourceGroupTable: React.FC<{
     sortField?: SortField;
     sortDirection?: SortDirection;
     onSort?: (field: SortField, direction: SortDirection) => void;
-}> = React.memo(({ data, searchQuery, className, sortField, sortDirection, onSort }) => {
+    getFilteredData?: (searchText: string) => ProductSourceData[];
+}> = React.memo(({ data, searchQuery, className, sortField, sortDirection, onSort, getFilteredData }) => {
     const t = useTranslations("charts.basketAdditionalSalesBySourceGroup");
 
     const filteredData = React.useMemo(() => {
         if (!data?.data?.productSources || !data?.data?.sources) return { productMap: new Map(), sources: [] };
 
-        let filtered = [...data.data.productSources];
+        let filtered;
         const sources = [...data.data.sources];
 
-        // Apply search filter
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            filtered = filtered.filter(item =>
-                item.productName.toLowerCase().includes(query)
-            );
+        // Используем getFilteredData если он предоставлен, иначе фильтруем локально
+        if (getFilteredData) {
+            filtered = getFilteredData(searchQuery);
+        } else {
+            filtered = [...data.data.productSources];
+            // Apply search filter
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                filtered = filtered.filter(item =>
+                    item.productName.toLowerCase().includes(query)
+                );
+            }
         }
 
         // Group by product
         const productMap = groupDataByProduct(filtered, sources);
 
         return { productMap, sources };
-    }, [data, searchQuery]);
+    }, [data, searchQuery, getFilteredData]);
 
     // Calculate totals for footer
     const totals = React.useMemo(() => {
@@ -183,12 +190,16 @@ const BasketSalesBySourceGroupTable: React.FC<{
                     <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
                             <TableHead className="cursor-pointer">
-                                {t("productName")}
+                                <div className="flex items-center">
+                                    {t("productName")}
+                                </div>
                             </TableHead>
                             {filteredData.sources.map(source => (
                                 <React.Fragment key={source}>
                                     <TableHead className="text-center border-l" colSpan={2}>
-                                        {source}
+                                        <div className="flex items-center justify-center">
+                                            {source}
+                                        </div>
                                     </TableHead>
                                 </React.Fragment>
                             ))}
@@ -198,10 +209,14 @@ const BasketSalesBySourceGroupTable: React.FC<{
                             {filteredData.sources.map(source => (
                                 <React.Fragment key={source}>
                                     <TableHead className="text-right border-l">
-                                        {t("quantity")}
+                                        <div className="flex items-center justify-end">
+                                            {t("quantity")}
+                                        </div>
                                     </TableHead>
                                     <TableHead className="text-right">
-                                        {t("totalSales")}
+                                        <div className="flex items-center justify-end">
+                                            {t("totalSales")}
+                                        </div>
                                     </TableHead>
                                 </React.Fragment>
                             ))}
@@ -306,18 +321,25 @@ const BasketAdditionalSalesBySourceGroup = () => {
         endDate: dateRange?.to ?? new Date()
     }), [dateRange]);
     const [terminals] = useTerminalsFilter();
-    const [organization, setOrganization] = useState<string | null>(null);
+    const [organization, setOrganization] = useState<string>("");
     const [searchQuery, setSearchQuery] = useState("");
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalSearchQuery, setModalSearchQuery] = useState("");
     const [sortField, setSortField] = useState<SortField>(null);
     const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
+    // Sync modal search query with main search query when opening modal
+    useEffect(() => {
+        if (isModalOpen) {
+            setModalSearchQuery(searchQuery);
+        }
+    }, [isModalOpen, searchQuery]);
+
     const queryParams = React.useMemo(() => ({
         startDate: dayjs(startDate).format('YYYY-MM-DD'),
         endDate: dayjs(endDate).format('YYYY-MM-DD'),
         terminals: terminals?.toString(),
-        organization: organization ?? undefined
+        organization: organization ? organization : undefined
     }), [startDate, endDate, terminals, organization]);
 
     const { data } = useSuspenseQuery<BasketAdditionalSalesBySourceGroupResponse>({
@@ -350,6 +372,18 @@ const BasketAdditionalSalesBySourceGroup = () => {
         setSortDirection(direction);
     }, []);
 
+    // Функция для фильтрации данных на основе текущего поискового запроса
+    const getFilteredData = useCallback((searchText: string) => {
+        if (!data?.data?.productSources) return [];
+
+        if (!searchText) return data.data.productSources;
+
+        const query = searchText.toLowerCase();
+        return data.data.productSources.filter(item =>
+            item.productName.toLowerCase().includes(query)
+        );
+    }, [data]);
+
     const exportToCSV = React.useCallback(() => {
         if (!data?.data) return;
 
@@ -363,8 +397,12 @@ const BasketAdditionalSalesBySourceGroup = () => {
                 headers.push(`${source} - ${t("quantity")}`, `${source} - ${t("totalSales")}`);
             });
 
+            // Получаем отфильтрованные данные на основе текущего контекста (модальное окно или основной вид)
+            const currentSearchQuery = isModalOpen ? modalSearchQuery : searchQuery;
+            const filteredProductSources = getFilteredData(currentSearchQuery);
+
             // Group data by product
-            const productMap = groupDataByProduct(data.data.productSources, data.data.sources);
+            const productMap = groupDataByProduct(filteredProductSources, data.data.sources);
 
             // Create rows
             const rows = Array.from(productMap.entries()).map(([productName, sourceData]) => {
@@ -387,8 +425,8 @@ const BasketAdditionalSalesBySourceGroup = () => {
                 sourceTotals[source] = { quantity: 0, totalSales: 0 };
             });
 
-            // Calculate totals
-            data.data.productSources.forEach(item => {
+            // Calculate totals for filtered data
+            filteredProductSources.forEach(item => {
                 if (sourceTotals[item.sourceName]) {
                     sourceTotals[item.sourceName].quantity += item.quantity;
                     sourceTotals[item.sourceName].totalSales += item.totalSales;
@@ -422,20 +460,47 @@ const BasketAdditionalSalesBySourceGroup = () => {
 
             // Создаем и скачиваем файл
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            saveAs(blob, `basket-additional-sales-by-source-group-${dayjs().format('YYYY-MM-DD')}.csv`);
+            saveAs(blob, `basket-additional-sales-by-source-group-${dayjs().format('YYYY-MM-DD')}${organization ? `-${organization}` : ''}.csv`);
         } catch (error) {
             console.error("Error exporting to CSV:", error);
         }
-    }, [data]);
+    }, [data, searchQuery, modalSearchQuery, isModalOpen, organization, t, getFilteredData]);
 
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        {t("title")}
-                    </CardTitle>
-                    <div className="flex space-x-2">
+                <CardHeader className="flex flex-col items-stretch space-y-0 border-b pb-2 sm:flex-row">
+                    <div className="flex flex-1 flex-col justify-center px-6 py-2">
+                        <CardTitle className="text-sm font-medium">
+                            {t("title")}
+                        </CardTitle>
+                    </div>
+                    {!terminals && (
+                        <div className="flex mt-2 sm:mt-0">
+                            <button
+                                data-active={!organization || organization.length == 0}
+                                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                                onClick={() => setOrganization("")}
+                            >
+                                <span className="text-sm font-bold leading-none">{t('all')}</span>
+                            </button>
+                            {organizations.map((org) => {
+                                return (
+                                    <button
+                                        key={org.id}
+                                        data-active={organization === org.id}
+                                        className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                                        onClick={() => setOrganization(org.id)}
+                                    >
+                                        <span className="text-sm font-bold leading-none">
+                                            {org.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="flex space-x-2 mt-2 sm:mt-0 justify-end px-6 py-2">
                         <Button
                             variant="outline"
                             size="sm"
@@ -455,16 +520,19 @@ const BasketAdditionalSalesBySourceGroup = () => {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        <SearchInput
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                        />
+                        <div className="px-2">
+                            <SearchInput
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                            />
+                        </div>
                         <BasketSalesBySourceGroupTable
                             data={data}
                             searchQuery={searchQuery}
                             sortField={sortField}
                             sortDirection={sortDirection}
                             onSort={handleSort}
+                            getFilteredData={getFilteredData}
                         />
                     </div>
                 </CardContent>
@@ -472,14 +540,41 @@ const BasketAdditionalSalesBySourceGroup = () => {
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
-                    <DialogHeader>
+                    <DialogHeader className="pb-2 border-b">
                         <DialogTitle>{t("title")}</DialogTitle>
+                        {!terminals && (
+                            <div className="flex mt-2 border-t sm:border-t-0">
+                                <button
+                                    data-active={!organization || organization.length == 0}
+                                    className="relative z-30 flex flex-1 flex-col justify-center gap-1 p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l"
+                                    onClick={() => setOrganization("")}
+                                >
+                                    <span className="text-sm font-bold leading-none">{t('all')}</span>
+                                </button>
+                                {organizations.map((org) => {
+                                    return (
+                                        <button
+                                            key={org.id}
+                                            data-active={organization === org.id}
+                                            className="relative z-30 flex flex-1 flex-col justify-center gap-1 p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l"
+                                            onClick={() => setOrganization(org.id)}
+                                        >
+                                            <span className="text-sm font-bold leading-none">
+                                                {org.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </DialogHeader>
                     <div className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
-                        <SearchInput
-                            value={modalSearchQuery}
-                            onChange={setModalSearchQuery}
-                        />
+                        <div className="px-4">
+                            <SearchInput
+                                value={modalSearchQuery}
+                                onChange={setModalSearchQuery}
+                            />
+                        </div>
                         <div className="flex-1 overflow-hidden flex flex-col">
                             <BasketSalesBySourceGroupTable
                                 data={data}
@@ -488,9 +583,10 @@ const BasketAdditionalSalesBySourceGroup = () => {
                                 sortField={sortField}
                                 sortDirection={sortDirection}
                                 onSort={handleSort}
+                                getFilteredData={getFilteredData}
                             />
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end pt-2">
                             <Button
                                 variant="outline"
                                 onClick={exportToCSV}

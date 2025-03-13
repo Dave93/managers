@@ -239,7 +239,7 @@ export function DataTable<TData, TValue>() {
   return (
     <div className="space-y-4">
       <div className="rounded-md border relative ">
-        <Table wrapperClassName="h-screen">
+        <Table>
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>

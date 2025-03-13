@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 
@@ -21,15 +21,10 @@ export default function OrganizationsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: `Organization ${actionText}`,
-      duration: 5000,
-    });
+    toast.success(`Organization ${actionText}`);
     queryClient.invalidateQueries({
       queryKey: ["organization"],
     });
@@ -37,12 +32,7 @@ export default function OrganizationsForm({
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

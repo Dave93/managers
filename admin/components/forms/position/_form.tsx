@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMutation, useQueries, useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
@@ -40,7 +40,6 @@ export default function PositionsForm({
     recordId?: string;
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
-    const { toast } = useToast();
     const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
         new Set([])
     );
@@ -49,21 +48,12 @@ export default function PositionsForm({
     const onAddSuccess = (actionText: string) => {
         queryClient.invalidateQueries({ queryKey: ['positions'] });
         queryClient.invalidateQueries({ queryKey: ['positions_cached'] });
-        toast({
-            title: "Успешно",
-            description: `Должность успешно ${actionText}`,
-            duration: 5000,
-        });
+        toast.success(`Должность успешно ${actionText}`);
         setOpen(false);
     };
 
     const onError = (error: any) => {
-        toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-            duration: 5000
-        });
+        toast.error(error.message);
     };
 
     const createMutation = useMutation({

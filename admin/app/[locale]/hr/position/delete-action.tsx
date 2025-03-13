@@ -15,10 +15,9 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import { useToast } from "@components/ui/use-toast";
+import { toast } from "sonner";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
-    const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
@@ -27,19 +26,10 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["positions"] });
-            toast({
-                title: "Успешно",
-                description: "Должность успешно удалена",
-                duration: 5000,
-            });
+            toast.success("Должность успешно удалена");
         },
         onError: (error: any) => {
-            toast({
-                title: "Ошибка",
-                description: error.message,
-                variant: "destructive",
-                duration: 5000,
-            });
+            toast.error(error.message);
         },
     });
 
