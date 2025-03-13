@@ -10,7 +10,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { CandidateSheet } from "@admin/components/forms/candidate/sheet";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@admin/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
@@ -28,15 +28,11 @@ import { useState } from "react";
 // };
 
 export default function CandidatesListPage() {
-    const { toast } = useToast();
     const searchParams = useSearchParams();
     const vacancyId = searchParams.get('vacancyId') || '';
 
     const handleSubmit = async () => {
-        toast({
-            title: "Успех",
-            description: "Список кандидатов обновлен",
-        });
+        toast.success("Список кандидатов обновлен");
     };
 
     const [date, setDate] = useState(new Date("2024-04-04T00:00[UTC]"));

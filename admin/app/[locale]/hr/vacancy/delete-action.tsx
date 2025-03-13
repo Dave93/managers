@@ -1,6 +1,6 @@
 import { Trash2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { useToast } from "@components/ui/use-toast";
+import { toast } from "sonner";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -16,7 +16,6 @@ import {
 } from "@components/ui/alert-dialog";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
-    const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
@@ -24,20 +23,11 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
             return apiClient.api.vacancy({ id: recordId }).delete();
         },
         onSuccess: () => {
-            toast({
-                title: "Success",
-                description: "Вакансия удалена",
-                duration: 5000,
-            });
+            toast.success("Вакансия удалена");
             queryClient.invalidateQueries({ queryKey: ["vacancy"] });
         },
         onError: (error: any) => {
-            toast({
-                title: "Error",
-                description: error.message,
-                variant: "destructive",
-                duration: 5000,
-            });
+            toast.error(error.message);
         },
     });
 

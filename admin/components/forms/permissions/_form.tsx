@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Form,
@@ -29,7 +29,7 @@ export default function PermissionsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
   //   resolver: zodResolver(PermissionsCreateInputSchema),
@@ -41,22 +41,13 @@ export default function PermissionsForm({
   // });
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: `Permission ${actionText}`,
-      duration: 5000,
-    });
-    // form.reset();
+    toast.success(`Permission ${actionText}`);
+    queryClient.invalidateQueries({ queryKey: ["permissions"] });
     setOpen(false);
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

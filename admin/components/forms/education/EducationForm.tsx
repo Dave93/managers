@@ -14,7 +14,7 @@ import { useState, useRef } from "react";
 import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 
@@ -36,7 +36,6 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
 
 
     const formRef = useRef<HTMLDivElement>(null);
-    const { toast } = useToast();
     const [educationType, setEducationType] = useState("");
     const [university, setUniversity] = useState("");
     const [speciality, setSpeciality] = useState("");
@@ -75,11 +74,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     dateStart,
                     dateEnd
                 });
-                toast({
-                    title: "Ошибка",
-                    description: `Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`,
-                    variant: "destructive",
-                });
+                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
                 return;
             }
 
@@ -94,11 +89,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     startDate,
                     endDate
                 });
-                toast({
-                    title: "Ошибка",
-                    description: "Пожалуйста, введите корректные даты",
-                    variant: "destructive",
-                });
+                toast.error("Пожалуйста, введите корректные даты");
                 return;
             }
 
@@ -107,11 +98,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     startDate,
                     endDate
                 });
-                toast({
-                    title: "Ошибка",
-                    description: "Дата окончания не может быть раньше даты начала",
-                    variant: "destructive",
-                });
+                toast.error("Дата окончания не может быть раньше даты начала");
                 return;
             }
 
@@ -129,10 +116,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast({
-                title: "Успешно",
-                description: "Запись об образовании добавлена",
-            });
+            toast.success("Запись об образовании добавлена");
 
             // Reset form
             setEducationType("");
@@ -152,11 +136,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     dateEnd
                 }
             });
-            toast({
-                title: "Ошибка",
-                description: "Произошла ошибка при добавлении образования",
-                variant: "destructive",
-            });
+            toast.error("Произошла ошибка при добавлении образования");
         }
     };
 

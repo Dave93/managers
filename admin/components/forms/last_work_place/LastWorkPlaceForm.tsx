@@ -7,7 +7,7 @@ import { useState, useRef } from "react";
 import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import { Textarea } from "@components/ui/textarea";
@@ -31,7 +31,6 @@ interface LastWorkPlaceFormProps {
 
 export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWorkPlaceFormProps) {
     const formRef = useRef<HTMLDivElement>(null);
-    const { toast } = useToast();
 
     const [lastWorkPlace, setLastWorkPlace] = useState("");
     const [organizationName, setOrganizationName] = useState("");
@@ -80,11 +79,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     employmentDate,
                     dismissalDate
                 });
-                toast({
-                    title: "Ошибка",
-                    description: `Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`,
-                    variant: "destructive",
-                });
+                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
                 return;
             }
 
@@ -99,11 +94,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     startDate,
                     endDate
                 });
-                toast({
-                    title: "Ошибка",
-                    description: "Пожалуйста, введите корректные даты",
-                    variant: "destructive",
-                });
+                toast.error("Пожалуйста, введите корректные даты");
                 return;
             }
 
@@ -112,11 +103,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     startDate,
                     endDate
                 });
-                toast({
-                    title: "Ошибка",
-                    description: "Дата увольнения не может быть раньше даты приема на работу",
-                    variant: "destructive",
-                });
+                toast.error("Дата увольнения не может быть раньше даты приема на работу");
                 return;
             }
 
@@ -137,10 +124,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast({
-                title: "Успешно",
-                description: "Запись о месте работы добавлена",
-            });
+            toast.success("Запись о месте работы добавлена");
 
             // Reset form
             setLastWorkPlace("");
@@ -166,11 +150,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     dismissalDate
                 }
             });
-            toast({
-                title: "Ошибка",
-                description: "Произошла ошибка при добавлении места работы",
-                variant: "destructive",
-            });
+            toast.error("Произошла ошибка при добавлении места работы");
         }
     };
 

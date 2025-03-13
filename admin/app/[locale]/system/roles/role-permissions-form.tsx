@@ -9,7 +9,7 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useState, useMemo, useEffect } from "react";
-import { useToast } from "@components/ui/use-toast";
+import { toast } from "sonner";
 import { useRolesStore } from "@admin/store/states/roles";
 import {
   flexRender,
@@ -38,7 +38,6 @@ export default function RolePermissionsForm({
   children: React.ReactNode;
 }) {
   const queryClient = useQueryClient();
-  const { toast } = useToast();
   const [open, setOpen] = useState<boolean>(false);
   const roleSelection = useRolesStore((state) => state.selectedRows);
   const rowSelection = useRolePermissionStore((state) => state.selectedRows);
@@ -127,11 +126,7 @@ export default function RolePermissionsForm({
       queryClient.invalidateQueries({
         queryKey: ["roles_permissions"],
       });
-      toast({
-        title: "Success",
-        description: `Role permissions added`,
-        duration: 5000,
-      });
+      toast.success(`Role permissions added`);
       setSelectedRows({});
       setOpen(false);
     },

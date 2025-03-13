@@ -1,5 +1,5 @@
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
@@ -9,7 +9,6 @@ interface GroupAddButtonProps {
 }
 //test
 export const GroupAddButton = ({ organizationId }: GroupAddButtonProps) => {
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const createProductGroup = useMutation({
     mutationFn: async () => {
@@ -27,12 +26,10 @@ export const GroupAddButton = ({ organizationId }: GroupAddButtonProps) => {
       queryClient.invalidateQueries({
         queryKey: ["products"],
       });
-      toast({
-        title: "Success",
-        description: "Group added",
-        duration: 5000,
-      });
-      return;
+      toast.success("Group added");
+    },
+    onError: (error) => {
+      toast.error(error.message);
     },
   });
 

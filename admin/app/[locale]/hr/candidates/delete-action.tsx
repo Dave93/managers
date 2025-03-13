@@ -15,10 +15,10 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import { useToast } from "@components/ui/use-toast";
+import { toast } from "sonner"
+
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
-    const { toast } = useToast();
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
@@ -27,19 +27,10 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["candidates"] });
-            toast({
-                title: "Success",
-                description: "Candidate deleted successfully",
-                duration: 5000,
-            });
+            toast.success("Candidate deleted successfully");
         },
         onError: (error: any) => {
-            toast({
-                title: "Error",
-                description: error.message,
-                variant: "destructive",
-                duration: 5000,
-            });
+            toast.error(error.message);
         },
     });
 

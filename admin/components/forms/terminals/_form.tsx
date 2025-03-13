@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 
@@ -11,7 +11,7 @@ import { Input } from "@components/ui/input";
 import { Textarea } from "@admin/components/ui/textarea";
 import { terminals } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { InferInsertModel } from "drizzle-orm";
 
 export default function TerminalsForm({
@@ -21,24 +21,16 @@ export default function TerminalsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
-    toast({
-      title: "Success",
-      description: `Terminal ${actionText}`,
-      duration: 5000,
-    });
+    toast.success(`Terminal ${actionText}`);
+    queryClient.invalidateQueries({ queryKey: ["terminals"] });
     setOpen(false);
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({

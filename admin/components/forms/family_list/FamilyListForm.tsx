@@ -6,7 +6,7 @@ import { useState, useRef } from "react";
 import { CalendarIcon, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@admin/lib/utils";
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { Calendar } from "@admin/components/ui/calendar";
 
@@ -27,7 +27,6 @@ interface FamilyListFormProps {
 
 export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListFormProps) {
     const formRef = useRef<HTMLDivElement>(null);
-    const { toast } = useToast();
 
     const [familyListName, setFamilyListName] = useState("");
     const [familyListBirthDate, setFamilyListBirthDate] = useState("");
@@ -63,11 +62,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     familyListName,
                     familyListRelation
                 });
-                toast({
-                    title: "Ошибка",
-                    description: `Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`,
-                    variant: "destructive",
-                });
+                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
                 return;
             }
 
@@ -79,11 +74,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     console.error('Validation failed: Invalid birth date', {
                         familyListBirthDate
                     });
-                    toast({
-                        title: "Ошибка",
-                        description: "Пожалуйста, введите корректную дату рождения",
-                        variant: "destructive",
-                    });
+                    toast.error("Пожалуйста, введите корректную дату рождения");
                     return;
                 }
                 formattedBirthDate = format(birthDate, "yyyy-MM-dd");
@@ -104,10 +95,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast({
-                title: "Успешно",
-                description: "Родственник добавлен",
-            });
+            toast.success("Родственник добавлен");
 
             // Reset form
             setFamilyListName("");
@@ -129,11 +117,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     familyJob
                 }
             });
-            toast({
-                title: "Ошибка",
-                description: "Произошла ошибка при добавлении родственника",
-                variant: "destructive",
-            });
+            toast.error("Произошла ошибка при добавлении родственника");
         }
     };
 

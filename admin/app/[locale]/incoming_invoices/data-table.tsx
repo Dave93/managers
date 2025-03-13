@@ -364,7 +364,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
           "h-auto": !showActualColumn,
         })}
       >
-        <Table wrapperClassName="h-screen">
+        <Table>
           <TableHeader className="z-50 sticky top-0 ">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="">
@@ -466,7 +466,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
           "h-auto": showActualColumn,
         })}
       >
-        <Table wrapperClassName="h-screen">
+        <Table>
           <TableHeader className="z-50 sticky top-0 bg-white dark:bg-slate-950">
             {tableWithActual.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="">

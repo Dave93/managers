@@ -1,5 +1,5 @@
-"use client";
-import { useToast } from "@admin/components/ui/use-toast";
+'use client';
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon } from "lucide-react";
@@ -143,7 +143,6 @@ export default function CandidateForm({
     recordId?: string;
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
-    const { toast } = useToast();
     const queryClient = useQueryClient();
     const [date, setDate] = useState(parseZonedDateTime("2024-04-04T00:00[UTC]"));
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
@@ -203,22 +202,13 @@ export default function CandidateForm({
     };
 
     const onAddSuccess = (actionText: string) => {
-        toast({
-            title: "Успешно",
-            description: `Кандидат ${actionText}`,
-            duration: 5000,
-        });
+        toast.success(`Кандидат ${actionText}`);
         queryClient.invalidateQueries({ queryKey: ["candidates"] });
         closeForm();
     };
 
     const onError = (error: any) => {
-        toast({
-            title: "Ошибка",
-            description: error.message,
-            variant: "destructive",
-            duration: 5000,
-        });
+        toast.error(error.message);
     };
 
     const createMutation = useMutation({
@@ -304,12 +294,7 @@ export default function CandidateForm({
         onSuccess: () => onAddSuccess("добавлен успешно"),
         onError: (error: any) => {
             console.error('Mutation error:', error);
-            toast({
-                title: "Ошибка",
-                description: error.message || "Не удалось создать кандидата",
-                variant: "destructive",
-                duration: 5000,
-            });
+            toast.error(error.message || "Не удалось создать кандидата");
         },
     });
 
@@ -449,29 +434,17 @@ export default function CandidateForm({
         onSubmit: async ({ value }) => {
             // Validate required fields
             if (!value.vacancyId) {
-                toast({
-                    title: "Ошибка",
-                    description: "Пожалуйста, выберите вакансию",
-                    variant: "destructive",
-                });
+                toast.error("Пожалуйста, выберите вакансию");
                 return;
             }
 
             if (!value.fullName) {
-                toast({
-                    title: "Ошибка",
-                    description: "ФИО обязательно для заполнения",
-                    variant: "destructive",
-                });
+                toast.error("ФИО обязательно для заполнения");
                 return;
             }
 
             if (!value.phoneNumber) {
-                toast({
-                    title: "Ошибка",
-                    description: "Номер телефона обязателен для заполнения",
-                    variant: "destructive",
-                });
+                toast.error("Номер телефона обязателен для заполнения");
                 return;
             }
 
@@ -542,11 +515,7 @@ export default function CandidateForm({
             setEducations(updatedEducations);
 
             // Показываем уведомление об успешном добавлении
-            toast({
-                title: "Образование добавлено",
-                description: `${education.university} - ${education.speciality}`,
-                duration: 3000,
-            });
+            toast.success(`Образование добавлено`);
         } catch (error) {
             console.error('Error in handleAddEducation:', error);
         }
@@ -563,11 +532,7 @@ export default function CandidateForm({
             console.log('Updated last work places array:', updatedLastWorkPlaces);
             setLastWorkPlaces(updatedLastWorkPlaces);
 
-            toast({
-                title: "Место работы добавлено",
-                description: `${lastWorkPlace.organizationName} - ${lastWorkPlace.position}`,
-                duration: 3000,
-            });
+            toast.success(`Место работы добавлено`);
         } catch (error) {
             console.error('Error in handleAddLastWorkPlace:', error);
         }
@@ -584,11 +549,7 @@ export default function CandidateForm({
             console.log('Updated family lists array:', updatedFamilyLists);
             setFamilyLists(updatedFamilyLists);
 
-            toast({
-                title: "Родственник добавлен",
-                description: `${familyList.familyListName} - ${familyList.familyListRelation}`,
-                duration: 3000,
-            });
+            toast.success(`Родственник добавлен`);
         } catch (error) {
             console.error('Error in handleAddFamilyList:', error);
         }

@@ -1,4 +1,4 @@
-import { useToast } from "@admin/components/ui/use-toast";
+import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useEffect, useRef } from "react";
@@ -11,7 +11,7 @@ import { Badge } from "@components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
-import { useMutation, useQueries } from "@tanstack/react-query";
+import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
@@ -44,7 +44,7 @@ export default function UsersForm({
   recordId?: string;
 }) {
   const formRef = useRef<HTMLFormElement | null>(null);
-  const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
   const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
   const [changedStoreId, setChangedStoreId] = useState<string[]>([]);
@@ -54,21 +54,12 @@ export default function UsersForm({
   };
 
   const onAddSuccess = (actionText: string, successData: any) => {
-    toast({
-      title: "Success",
-      description: `User ${actionText}`,
-      duration: 5000,
-    });
+    toast.success(`User ${actionText}`);
     assignRole(successData?.data);
   };
 
   const onError = (error: any) => {
-    toast({
-      title: "Error",
-      description: error.message,
-      variant: "destructive",
-      duration: 5000,
-    });
+    toast.error(error.message);
   };
 
   const createMutation = useMutation({
