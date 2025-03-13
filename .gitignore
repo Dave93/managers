@@ -12,3 +12,4 @@ cron/date.json
 cron/getProductsCookingTime
 cron/cookingdate.json
 cron/iiko_sync
+cron/get_attitional_sales
