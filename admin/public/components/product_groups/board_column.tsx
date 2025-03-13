@@ -13,7 +13,7 @@ import { ScrollArea, ScrollBar } from "@admin/components/ui/scroll-area";
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 import { GroupTitleEditable } from "./group_title_editable";
 import { ToggleGroupInventory } from "./toggle_inventory";
-import SortableContextClient from "@admin/app/[locale]/system/product_groups/SortableContextClient";
+import SortableContextClient from "@admin/public/product_groups/SortableContextClient";
 
 export interface Column {
   id: UniqueIdentifier;
