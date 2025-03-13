@@ -1,5 +1,6 @@
+'use client';
+
 import React from "react";
-import { ResponsiveHeatMapCanvas } from "@nivo/heatmap";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import {
@@ -12,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@admin/components/ui/c
 import { DebugInfo } from "@admin/components/charts/DebugInfo";
 import { useTranslations } from "next-intl";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
+import { HeatmapChartClient } from "./HeatmapChartClient";
 
 const fetchHourlyHeatmapData = async (
     startDate: string,
@@ -102,7 +104,7 @@ const OrderHourlyHeatmapChart = () => {
                 <CardTitle>{t('charts.OrderHourlyHeatmapChart.title')}</CardTitle>
             </CardHeader>
             <CardContent className="p-6 pt-0 grow flex flex-col">
-                <ResponsiveHeatMapCanvas
+                <HeatmapChartClient
                     data={formattedData}
                     margin={{ top: 5, right: 0, bottom: 40, left: 50 }}
                     valueFormat=" >-.2s"
