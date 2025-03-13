@@ -2,7 +2,6 @@
 
 import React from "react";
 import dynamic from 'next/dynamic';
-import { HeatMapCanvasProps } from "@nivo/heatmap";
 
 // Define our own data type that matches what we're actually using
 export type HeatmapDataItem = {
@@ -15,25 +14,41 @@ export type HeatmapSeries = {
     data: HeatmapDataItem[];
 }[];
 
-// Create a more flexible props type that matches our actual data structure
-export type HeatmapChartProps = Omit<
-    HeatMapCanvasProps<any, any>,
-    "width" | "height"
-> & {
+// Define the props we need without relying on Nivo's types
+export type HeatmapChartProps = {
     data: HeatmapSeries;
+    margin?: { top: number; right: number; bottom: number; left: number };
+    valueFormat?: string;
+    forceSquare?: boolean;
+    axisRight?: any;
+    axisBottom?: any;
+    axisLeft?: any;
+    borderColor?: any;
+    labelTextColor?: any;
+    renderCell?: string;
+    legends?: any[];
+    animate?: boolean;
+    hoverTarget?: string;
+    colors?: any;
+    tooltip?: any;
+    [key: string]: any; // Allow any other props
 };
 
-// Dynamically import the Nivo component to avoid SSR issues
-const ResponsiveHeatMapCanvas = dynamic(
-    () => import('@nivo/heatmap').then(mod => mod.ResponsiveHeatMapCanvas),
-    { ssr: false }
-);
+// Create a wrapper component that will load the actual component
+const HeatmapChartWrapper = (props: HeatmapChartProps) => {
+    // This component will be loaded only on the client side
+    const NivoHeatmap = React.useMemo(() => {
+        return dynamic(
+            () => import('./NivoHeatmapComponent'),
+            { ssr: false }
+        );
+    }, []);
 
-export function HeatmapChartClient(props: HeatmapChartProps) {
     return (
         <div style={{ width: '100%', height: '100%' }}>
-            {/* @ts-ignore - We're ignoring type issues here as we know our data format works with the component */}
-            <ResponsiveHeatMapCanvas {...props} />
+            <NivoHeatmap {...props} />
         </div>
     );
-} 
+};
+
+export { HeatmapChartWrapper as HeatmapChartClient }; 
