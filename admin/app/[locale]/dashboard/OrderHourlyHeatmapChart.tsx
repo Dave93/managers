@@ -120,7 +120,7 @@ const OrderHourlyHeatmapChart = () => {
                         legendOffset: -40
                     }}
                     borderColor={{ from: 'color', modifiers: [['darker', 0.4]] }}
-                    labelTextColor={({ value }) => {
+                    labelTextColor={({ value }: { value: number }) => {
                         const threshold = maxValue * 0.7;
                         return value && value > threshold ? '#ffffff' : '#000000';
                     }}
@@ -147,7 +147,7 @@ const OrderHourlyHeatmapChart = () => {
                     ]}
                     animate={false}
                     hoverTarget="cell"
-                    tooltip={({ cell }) => (
+                    tooltip={({ cell }: { cell: { serieId: string; data: { x: string; y: number }; } }) => (
                         <div style={{
                             color: 'black',
                             backgroundColor: 'white',
