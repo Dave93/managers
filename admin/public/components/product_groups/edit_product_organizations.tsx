@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogFooter
 } from "@components/ui/dialog";
-import { Button } from "../ui/buttonOrigin";
+import { Button } from "../../../components/ui/buttonOrigin";
 import { Edit2Icon } from "lucide-react";
 import { FC, useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";

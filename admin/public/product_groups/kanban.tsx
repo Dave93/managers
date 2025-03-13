@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import {
   BoardColumn,
   BoardContainer,
-} from "@admin/components/product_groups/board_column";
+} from "@admin/public/components/product_groups/board_column";
 import {
   type DragEndEvent,
   type DragOverEvent,
@@ -23,10 +23,10 @@ import { arrayMove } from "@dnd-kit/sortable";
 import {
   type Task,
   TaskCard,
-} from "@admin/components/product_groups/task_card";
-import type { Column } from "@admin/components/product_groups/board_column";
-import { hasDraggableData } from "@admin/components/product_groups/utils";
-import { coordinateGetter } from "@admin/components/product_groups/multipleContainersKeyboardPreset";
+} from "@admin/public/components/product_groups/task_card";
+import type { Column } from "@admin/public/components/product_groups/board_column";
+import { hasDraggableData } from "@admin/public/components/product_groups/utils";
+import { coordinateGetter } from "@admin/public/components/product_groups/multipleContainersKeyboardPreset";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";

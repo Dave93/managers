@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Column } from "./board_column";
-import { Button } from "../ui/buttonOrigin";
+import { Button } from "../../../components/ui/buttonOrigin";
 import { Check, Edit, Edit2, RemoveFormatting, Save, X } from "lucide-react";
-import { Input } from "../ui/input";
+import { Input } from "../../../components/ui/input";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 
