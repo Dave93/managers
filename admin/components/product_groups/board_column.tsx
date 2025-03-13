@@ -1,4 +1,6 @@
-import { SortableContext, useSortable } from "@dnd-kit/sortable";
+'use client';
+
+import { useSortable } from "@dnd-kit/sortable";
 import { useDndContext, type UniqueIdentifier } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { useMemo } from "react";
@@ -11,6 +13,7 @@ import { ScrollArea, ScrollBar } from "@admin/components/ui/scroll-area";
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 import { GroupTitleEditable } from "./group_title_editable";
 import { ToggleGroupInventory } from "./toggle_inventory";
+import SortableContextClient from "@admin/app/[locale]/system/product_groups/SortableContextClient";
 
 export interface Column {
   id: UniqueIdentifier;
@@ -102,11 +105,11 @@ export function BoardColumn({ column, tasks, isOverlay }: BoardColumnProps) {
       </CardHeader>
       <ScrollArea>
         <CardContent className="flex grow flex-col gap-2 p-2">
-          <SortableContext items={tasksIds}>
+          <SortableContextClient items={tasksIds}>
             {tasks.map((task) => (
               <TaskCard key={task.id} task={task} />
             ))}
-          </SortableContext>
+          </SortableContextClient>
         </CardContent>
       </ScrollArea>
     </Card>

@@ -1,3 +1,5 @@
+'use client';
+
 import { createPortal } from "react-dom";
 
 import {
@@ -18,7 +20,7 @@ import {
   TouchSensor,
   MouseSensor,
 } from "@dnd-kit/core";
-import { SortableContext, arrayMove } from "@dnd-kit/sortable";
+import { arrayMove } from "@dnd-kit/sortable";
 import {
   type Task,
   TaskCard,
@@ -31,6 +33,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useRef, useState } from "react";
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 import { GroupAddButton } from "./group_add_button";
+import SortableContextClient from "./SortableContextClient";
 
 interface ProductGroupsKanbanProps {
   organizationId: string;
@@ -382,7 +385,7 @@ export default function ProductGroupsKanban({
         onDragOver={onDragOver}
       >
         <BoardContainer>
-          <SortableContext items={columnIds}>
+          <SortableContextClient items={columnIds}>
             {columns.map((col) => (
               <BoardColumn
                 key={col.id}
@@ -390,7 +393,7 @@ export default function ProductGroupsKanban({
                 tasks={products.filter((task) => task.group_id === col.id)}
               />
             ))}
-          </SortableContext>
+          </SortableContextClient>
         </BoardContainer>
 
         {"document" in window &&
