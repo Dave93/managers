@@ -17,6 +17,7 @@ import {
   UniqueIdentifier,
   TouchSensor,
   MouseSensor,
+  closestCorners,
 } from "@dnd-kit/core";
 import { arrayMove } from "@dnd-kit/sortable";
 import {
@@ -34,6 +35,7 @@ import { GroupAddButton } from "./group_add_button";
 import SortableContextClient from "./SortableContextClient";
 import DndContextClient from "./DndContextClient";
 import DragOverlayClient from "./DragOverlayClient";
+import { useTranslations } from "next-intl";
 
 interface ProductGroupsKanbanProps {
   organizationId: string;
@@ -42,6 +44,7 @@ interface ProductGroupsKanbanProps {
 export default function ProductGroupsKanban({
   organizationId,
 }: ProductGroupsKanbanProps) {
+  const t = useTranslations();
   const queryClient = useQueryClient();
   const pickedUpTaskColumn = useRef<string | null>(null);
   const { data: groupsData, isLoading: groupsLoading } = useQuery({
