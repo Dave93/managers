@@ -7,10 +7,8 @@ import {
   BoardContainer,
 } from "@admin/components/product_groups/board_column";
 import {
-  DndContext,
   type DragEndEvent,
   type DragOverEvent,
-  DragOverlay,
   type DragStartEvent,
   useSensor,
   useSensors,
@@ -34,6 +32,8 @@ import { useMemo, useRef, useState } from "react";
 import { ProductGroupsListDto } from "@backend/modules/product_groups/dto/productGroupsList.dto";
 import { GroupAddButton } from "./group_add_button";
 import SortableContextClient from "./SortableContextClient";
+import DndContextClient from "./DndContextClient";
+import DragOverlayClient from "./DragOverlayClient";
 
 interface ProductGroupsKanbanProps {
   organizationId: string;
@@ -374,31 +374,33 @@ export default function ProductGroupsKanban({
   }
 
   return (
-    <div className="relative">
-      <DndContext
-        accessibility={{
-          announcements,
-        }}
-        sensors={sensors}
-        onDragStart={onDragStart}
-        onDragEnd={onDragEnd}
-        onDragOver={onDragOver}
-      >
-        <BoardContainer>
-          <SortableContextClient items={columnIds}>
-            {columns.map((col) => (
-              <BoardColumn
-                key={col.id}
-                column={col}
-                tasks={products.filter((task) => task.group_id === col.id)}
-              />
-            ))}
-          </SortableContextClient>
-        </BoardContainer>
+    <div className="flex h-full w-full flex-col overflow-x-auto">
+      <div className="flex justify-between p-4">
+        <h1 className="text-xl font-bold">{t("product_groups.title")}</h1>
+        <GroupAddButton organizationId={organizationId} />
+      </div>
+      <div className="flex-1 p-4">
+        <DndContextClient
+          sensors={sensors}
+          collisionDetection={closestCorners}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragOver={onDragOver}
+        >
+          <BoardContainer>
+            <SortableContextClient items={columnIds}>
+              {columns.map((col) => (
+                <BoardColumn
+                  key={col.id}
+                  column={col}
+                  tasks={products.filter((task) => task.group_id === col.id)}
+                />
+              ))}
+            </SortableContextClient>
+          </BoardContainer>
 
-        {"document" in window &&
-          createPortal(
-            <DragOverlay>
+          {createPortal(
+            <DragOverlayClient>
               {activeColumn && (
                 <BoardColumn
                   isOverlay
@@ -409,12 +411,10 @@ export default function ProductGroupsKanban({
                 />
               )}
               {activeTask && <TaskCard task={activeTask} isOverlay />}
-            </DragOverlay>,
+            </DragOverlayClient>,
             document.body
           )}
-      </DndContext>
-      <div className="absolute top-0 left-0 z-10">
-        <GroupAddButton organizationId={organizationId} />
+        </DndContextClient>
       </div>
       {isLoading && (
         <div className="absolute backdrop-blur-sm flex h-full items-center justify-center left-0 top-0 w-full z-10">
