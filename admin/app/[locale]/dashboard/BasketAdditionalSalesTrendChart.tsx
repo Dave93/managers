@@ -28,6 +28,7 @@ import { useTerminalsFilter } from "@admin/components/filters/terminals/terminal
 import { useTranslations } from 'next-intl';
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import dayjs from "dayjs";
+import { organizations } from "@admin/lib/organizations";
 
 interface BasketAdditionalSalesTrendData {
     date: string;
@@ -151,7 +152,7 @@ const BasketAdditionalSalesTrendChart = () => {
         endDate: dateRange?.to ?? new Date()
     }), [dateRange]);
     const [terminals] = useTerminalsFilter();
-    const [organization, setOrganization] = useState<string | null>(null);
+    const [organization, setOrganization] = useState<string>("");
     const [interval, setInterval] = useState("1 day");
 
     // For zoom functionality
@@ -167,7 +168,7 @@ const BasketAdditionalSalesTrendChart = () => {
         endDate: dayjs(endDate).format('YYYY-MM-DD'),
         interval,
         terminals: terminals?.toString(),
-        organization: organization ?? undefined
+        organization: organization ? organization : undefined
     }), [startDate, endDate, interval, terminals, organization]);
 
     const { data } = useSuspenseQuery<BasketAdditionalSalesTrendResponse>({
@@ -347,11 +348,38 @@ const BasketAdditionalSalesTrendChart = () => {
 
     return (
         <Card className="h-full">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                    {t("charts.basketAdditionalSalesTrend.title")}
-                </CardTitle>
-                <div className="flex items-center space-x-2">
+            <CardHeader className="flex flex-col items-stretch space-y-0 border-b pb-2 sm:flex-row">
+                <div className="flex flex-1 flex-col justify-center px-6 py-2">
+                    <CardTitle className="text-sm font-medium">
+                        {t("charts.basketAdditionalSalesTrend.title")}
+                    </CardTitle>
+                </div>
+                {!terminals && (
+                    <div className="flex mt-2 sm:mt-0">
+                        <button
+                            data-active={!organization || organization.length == 0}
+                            className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                            onClick={() => setOrganization("")}
+                        >
+                            <span className="text-sm font-bold leading-none">{t('charts.basketAdditionalSalesTrend.all')}</span>
+                        </button>
+                        {organizations.map((org) => {
+                            return (
+                                <button
+                                    key={org.id}
+                                    data-active={organization === org.id}
+                                    className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                                    onClick={() => setOrganization(org.id)}
+                                >
+                                    <span className="text-sm font-bold leading-none">
+                                        {org.label}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+                <div className="flex items-center space-x-2 mt-2 sm:mt-0 justify-end px-6 py-2">
                     <Tabs
                         defaultValue={interval}
                         onValueChange={setInterval}

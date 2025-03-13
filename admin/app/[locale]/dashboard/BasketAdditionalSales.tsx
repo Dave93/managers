@@ -187,22 +187,28 @@ const BasketSalesTable: React.FC<{
                                 className="cursor-pointer"
                                 onClick={() => handleHeaderClick('name')}
                             >
-                                {t("productName")}
-                                {getSortIcon('name')}
+                                <div className="flex items-center">
+                                    {t("productName")}
+                                    {getSortIcon('name')}
+                                </div>
                             </TableHead>
                             <TableHead
                                 className="cursor-pointer text-right"
                                 onClick={() => handleHeaderClick('quantity')}
                             >
-                                {t("quantity")}
-                                {getSortIcon('quantity')}
+                                <div className="flex items-center justify-end">
+                                    {t("quantity")}
+                                    {getSortIcon('quantity')}
+                                </div>
                             </TableHead>
                             <TableHead
                                 className="cursor-pointer text-right"
                                 onClick={() => handleHeaderClick('totalSales')}
                             >
-                                {t("totalSales")}
-                                {getSortIcon('totalSales')}
+                                <div className="flex items-center justify-end">
+                                    {t("totalSales")}
+                                    {getSortIcon('totalSales')}
+                                </div>
                             </TableHead>
                         </TableRow>
                     </TableHeader>
@@ -371,11 +377,11 @@ const BasketAdditionalSales = () => {
 
             // Создаем и скачиваем файл
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            saveAs(blob, `basket-additional-sales-${dayjs().format('YYYY-MM-DD')}.csv`);
+            saveAs(blob, `basket-additional-sales-${dayjs().format('YYYY-MM-DD')}${organization ? `-${organization}` : ''}.csv`);
         } catch (error) {
             console.error("Error exporting to CSV:", error);
         }
-    }, [data, filteredProducts]);
+    }, [data, filteredProducts, organization, t]);
 
     // Update filtered products when data or search query changes
     useEffect(() => {
@@ -415,11 +421,38 @@ const BasketAdditionalSales = () => {
     return (
         <div className="space-y-4">
             <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        {t("title")}
-                    </CardTitle>
-                    <div className="flex space-x-2">
+                <CardHeader className="flex flex-col items-stretch space-y-0 border-b pb-2 sm:flex-row">
+                    <div className="flex flex-1 flex-col justify-center px-6 py-2">
+                        <CardTitle className="text-sm font-medium">
+                            {t("title")}
+                        </CardTitle>
+                    </div>
+                    {!terminals && (
+                        <div className="flex mt-2 sm:mt-0">
+                            <button
+                                data-active={!organization || organization.length == 0}
+                                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                                onClick={() => setOrganization("")}
+                            >
+                                <span className="text-sm font-bold leading-none">{t('all')}</span>
+                            </button>
+                            {organizations.map((org) => {
+                                return (
+                                    <button
+                                        key={org.id}
+                                        data-active={organization === org.id}
+                                        className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
+                                        onClick={() => setOrganization(org.id)}
+                                    >
+                                        <span className="text-sm font-bold leading-none">
+                                            {org.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    )}
+                    <div className="flex space-x-2 mt-2 sm:mt-0 justify-end px-6 py-2">
                         <Button
                             variant="outline"
                             size="sm"
@@ -439,10 +472,12 @@ const BasketAdditionalSales = () => {
                 </CardHeader>
                 <CardContent>
                     <div className="space-y-4">
-                        <SearchInput
-                            value={searchQuery}
-                            onChange={setSearchQuery}
-                        />
+                        <div className="px-2">
+                            <SearchInput
+                                value={searchQuery}
+                                onChange={setSearchQuery}
+                            />
+                        </div>
                         <BasketSalesTable
                             data={data}
                             searchQuery={searchQuery}
@@ -456,14 +491,41 @@ const BasketAdditionalSales = () => {
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-5xl h-[80vh] flex flex-col">
-                    <DialogHeader>
+                    <DialogHeader className="pb-2 border-b">
                         <DialogTitle>{t("title")}</DialogTitle>
+                        {!terminals && (
+                            <div className="flex mt-2 border-t sm:border-t-0">
+                                <button
+                                    data-active={!organization || organization.length == 0}
+                                    className="relative z-30 flex flex-1 flex-col justify-center gap-1 p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l"
+                                    onClick={() => setOrganization("")}
+                                >
+                                    <span className="text-sm font-bold leading-none">{t('all')}</span>
+                                </button>
+                                {organizations.map((org) => {
+                                    return (
+                                        <button
+                                            key={org.id}
+                                            data-active={organization === org.id}
+                                            className="relative z-30 flex flex-1 flex-col justify-center gap-1 p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l"
+                                            onClick={() => setOrganization(org.id)}
+                                        >
+                                            <span className="text-sm font-bold leading-none">
+                                                {org.label}
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        )}
                     </DialogHeader>
                     <div className="flex-1 overflow-hidden flex flex-col space-y-4 py-4">
-                        <SearchInput
-                            value={modalSearchQuery}
-                            onChange={setModalSearchQuery}
-                        />
+                        <div className="px-4">
+                            <SearchInput
+                                value={modalSearchQuery}
+                                onChange={setModalSearchQuery}
+                            />
+                        </div>
                         <div className="flex-1 overflow-hidden flex flex-col">
                             <BasketSalesTable
                                 data={data}
@@ -474,7 +536,7 @@ const BasketAdditionalSales = () => {
                                 onSort={handleSort}
                             />
                         </div>
-                        <div className="flex justify-end">
+                        <div className="flex justify-end pt-2">
                             <Button
                                 variant="outline"
                                 onClick={exportToCSV}
