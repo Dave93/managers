@@ -97,6 +97,7 @@ export function useVacancyColumns() {
       );
 >>>>>>> refs/remotes/origin/main
     },
+
     {
       accessorKey: "openDate",
       header: t("openDate"),
