@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Loader2, CalendarIcon } from "lucide-react";
+import { Loader2, CalendarIcon, Trash2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
@@ -15,7 +15,6 @@ import { cn } from "@admin/lib/utils";
 import EducationForm, { EducationEntry } from "../education/EducationForm";
 import LastWorkPlaceForm, { LastWorkPlaceEntry } from "../last_work_place/LastWorkPlaceForm";
 import FamilyListForm, { FamilyListEntry } from "../family_list/FamilyListForm";
-import { parseZonedDateTime } from "@internationalized/date";
 import React from "react";
 import {
     Select,
@@ -25,18 +24,57 @@ import {
     SelectValue
 } from "@components/ui/select";
 import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
-import { Calendar } from "@admin/components/ui/calendar";
+import { DropdownNavProps, DropdownProps } from "react-day-picker";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from "@components/ui/alert-dialog";
 
-
-interface DropdownNavProps {
-    children: React.ReactNode;
+// Helper function for calendar dropdown changes
+const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+    const _event = {
+        target: {
+            value: String(_value),
+        },
+    } as React.ChangeEvent<HTMLSelectElement>
+    _e(_event)
 }
 
-interface DropdownProps {
-    value: number;
-    onChange?: (value: number) => void;
-    options?: { value: number; label: string; disabled?: boolean }[];
-}
+// Helper functions for API data formatting
+const formatDateForApi = (dateStr: string | undefined | null): string => {
+    if (!dateStr) return '';
+    
+    try {
+        // If it already looks like a proper ISO date, return it
+        if (dateStr.includes('T')) return dateStr;
+        
+        // If it's in yyyy-MM-dd format, convert to ISO
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) {
+            console.warn('Invalid date:', dateStr);
+            return dateStr;
+        }
+        
+        // Format as YYYY-MM-DD (without time component)
+        return format(date, 'yyyy-MM-dd');
+    } catch (e) {
+        console.error('Error formatting date:', dateStr, e);
+        return dateStr;
+    }
+};
+
+// Helper to ensure values are strings
+const ensureString = (value: any): string => {
+    if (value === null || value === undefined) return '';
+    return String(value);
+};
 
 interface ApiResponse<T = any> {
     data?: T[];
@@ -144,17 +182,16 @@ export default function CandidateForm({
 }) {
     const formRef = useRef<HTMLFormElement | null>(null);
     const queryClient = useQueryClient();
-    const [date, setDate] = useState(parseZonedDateTime("2024-04-04T00:00[UTC]"));
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
     const [selectedResultStatus, setSelectedResultStatus] = useState<'positive' | 'negative' | 'neutral'>("neutral");
     const [showEducationForm, setShowEducationForm] = useState(!recordId);
     const [educations, setEducations] = useState<EducationEntry[]>([]);
     const [showLastWorkPlaceForm, setShowLastWorkPlaceForm] = useState(!recordId);
     const [lastWorkPlaces, setLastWorkPlaces] = useState<LastWorkPlaceEntry[]>([]);
-    const [passDate, setPassDate] = useState<Date>();
     const [isFirstJob, setIsFirstJob] = useState(false);
     const [showFamilyListForm, setShowFamilyListForm] = useState(!recordId);
     const [familyLists, setFamilyLists] = useState<FamilyListEntry[]>([]);
+
 
     // Add positions query
     const vacanciesQuery = useQuery({
@@ -242,31 +279,57 @@ export default function CandidateForm({
                 // Prepare data for API
                 const formattedData: ApiCandidateData = {
                     ...newCandidate,
-                    email: newCandidate.email || "",
-                    citizenship: newCandidate.citizenship || "",
-                    residence: newCandidate.residence || "",
-                    passportNumber: newCandidate.passportNumber || "",
-                    passportSeries: newCandidate.passportSeries || "",
-                    passportIdDate: newCandidate.passportIdDate ? new Date(newCandidate.passportIdDate).toISOString() : "",
-                    passportIdPlace: newCandidate.passportIdPlace || "",
-                    source: newCandidate.source || "",
-                    familyStatus: newCandidate.familyStatus || "",
+                    email: ensureString(newCandidate.email),
+                    citizenship: ensureString(newCandidate.citizenship),
+                    residence: ensureString(newCandidate.residence),
+                    passportNumber: ensureString(newCandidate.passportNumber),
+                    passportSeries: ensureString(newCandidate.passportSeries),
+                    passportIdDate: newCandidate.passportIdDate ? formatDateForApi(newCandidate.passportIdDate) : "",
+                    passportIdPlace: ensureString(newCandidate.passportIdPlace),
+                    source: ensureString(newCandidate.source),
+                    familyStatus: ensureString(newCandidate.familyStatus),
                     children: newCandidate.children || 0,
-                    language: newCandidate.language || "",
-                    desiredSalary: newCandidate.desiredSalary || "",
-                    desiredSchedule: newCandidate.desiredSchedule || "",
-                    purpose: newCandidate.purpose || "",
-                    strengthsShortage: newCandidate.strengthsShortage || "",
-                    relatives: newCandidate.relatives || "",
-                    desiredPosition: newCandidate.desiredPosition || "",
+                    language: ensureString(newCandidate.language),
+                    desiredSalary: ensureString(newCandidate.desiredSalary),
+                    desiredSchedule: ensureString(newCandidate.desiredSchedule),
+                    purpose: ensureString(newCandidate.purpose),
+                    strengthsShortage: ensureString(newCandidate.strengthsShortage),
+                    relatives: ensureString(newCandidate.relatives),
+                    desiredPosition: ensureString(newCandidate.desiredPosition),
                     resultStatus: newCandidate.resultStatus as 'positive' | 'negative' | 'neutral' || 'neutral',
-                    educations: educations,
-                    lastWorkPlaces: isFirstJob ? [] : lastWorkPlaces,
+                    educations: educations.map(edu => ({
+                        ...edu,
+                        dateStart: formatDateForApi(edu.dateStart),
+                        dateEnd: formatDateForApi(edu.dateEnd),
+                        educationType: ensureString(edu.educationType),
+                        university: ensureString(edu.university),
+                        speciality: ensureString(edu.speciality)
+                    })),
+                    lastWorkPlaces: isFirstJob ? [] : lastWorkPlaces.map(work => ({
+                        ...work,
+                        employmentDate: formatDateForApi(work.employmentDate),
+                        dismissalDate: formatDateForApi(work.dismissalDate),
+                        lastWorkPlace: ensureString(work.lastWorkPlace),
+                        experience: ensureString(work.experience),
+                        organizationName: ensureString(work.organizationName),
+                        position: ensureString(work.position),
+                        addressOrg: ensureString(work.addressOrg),
+                        dismissalReason: ensureString(work.dismissalReason)
+                    })),
                     isFirstJob: isFirstJob,
-                    familyLists: familyLists,
+                    familyLists: familyLists.map(family => ({
+                        ...family,
+                        familyListBirthDate: formatDateForApi(family.familyListBirthDate),
+                        familyListName: ensureString(family.familyListName),
+                        familyListPhone: ensureString(family.familyListPhone),
+                        familyListRelation: ensureString(family.familyListRelation),
+                        familyListAddress: ensureString(family.familyListAddress),
+                        familyJob: ensureString(family.familyJob)
+                    })),
                 };
 
                 console.log('Sending formatted data to API:', formattedData);
+                console.log('API request payload:', JSON.stringify(formattedData, null, 2));
 
                 const response = await apiClient.api.candidates.post(formattedData);
                 const responseData = (response as any)?.data;
@@ -288,6 +351,25 @@ export default function CandidateForm({
                     isFirstJob: isFirstJob,
                     familyLists: familyLists
                 });
+                
+                // Показать подробное сообщение об ошибке валидации, если оно есть
+                if (error.response?.data?.errors) {
+                    const validationErrors = error.response.data.errors;
+                    console.error('Validation errors:', validationErrors);
+                    
+                    // Формируем читабельное сообщение об ошибках
+                    let errorMessage = "Ошибка валидации: ";
+                    if (Array.isArray(validationErrors)) {
+                        errorMessage += validationErrors.map(err => 
+                            `${err.path}: ${err.message}`
+                        ).join("; ");
+                    } else {
+                        errorMessage += JSON.stringify(validationErrors);
+                    }
+                    
+                    throw new Error(errorMessage);
+                }
+                
                 throw error;
             }
         },
@@ -304,91 +386,74 @@ export default function CandidateForm({
             id: string
         }) => {
             try {
-                // Получаем текущие данные из базы
+                console.log('Starting update with data:', params.data);
+                console.log('Current educations:', educations);
+                console.log('Current work places:', lastWorkPlaces);
+                console.log('Current family lists:', familyLists);
+                console.log('isFirstJob flag:', isFirstJob);
+
+                // Get current data from API (this is just for logging and comparison)
                 const currentData = candidateQuery.data?.data?.[0];
                 if (!currentData) {
-                    throw new Error("Current candidate data not found");
+                    console.warn("Current candidate data not found, proceeding with update anyway");
                 }
 
-                // Создаем объект только с измененными полями
-                const changedFields = Object.entries(params.data).reduce((acc, [key, newValue]) => {
-                    const currentValue = currentData[key as keyof typeof currentData];
-                    // Сравниваем значения и добавляем только если они действительно изменились
-                    if (JSON.stringify(newValue) !== JSON.stringify(currentValue)) {
-                        // Для обязательных полей всегда используем значение
-                        if (key === 'vacancyId' || key === 'fullName' || key === 'phoneNumber') {
-                            acc[key as keyof CandidateFormData] = newValue;
-                        }
-                        // Для опциональных полей используем undefined вместо пустых значений
-                        else if (newValue === '' || newValue === null) {
-                            acc[key as keyof CandidateFormData] = undefined;
-                        } else {
-                            acc[key as keyof CandidateFormData] = newValue;
-                        }
-                    }
-                    return acc;
-                }, {} as Partial<CandidateFormData>);
+                // Format dates properly if they exist
+                let formattedData = { ...params.data };
+                
+                // Ensure dates are in yyyy-MM-dd format without time component
+                if (formattedData.birthDate) {
+                    formattedData.birthDate = formatDateForApi(formattedData.birthDate);
+                }
+                
+                if (formattedData.passportIdDate) {
+                    formattedData.passportIdDate = formatDateForApi(formattedData.passportIdDate);
+                }
 
-                // Формируем объект для обновления с учетом типов API
-                const updateData: {
-                    vacancyId: string;
-                    fullName: string;
-                    phoneNumber: string;
-                    birthDate: string;
-                    email?: string;
-                    citizenship?: string;
-                    residence?: string;
-                    passportNumber?: string;
-                    passportSeries?: string;
-                    passportIdDate?: string;
-                    passportIdPlace?: string;
-                    source?: string;
-                    familyStatus?: string;
-                    children?: number;
-                    language?: string;
-                    desiredSalary?: string;
-                    desiredSchedule?: string;
-                    purpose?: string;
-                    strengthsShortage?: string;
-                    relatives?: string;
-                    desiredPosition?: string;
-                    resultStatus?: 'positive' | 'negative' | 'neutral';
-                    educations?: EducationEntry[];
-                    lastWorkPlaces?: LastWorkPlaceEntry[];
-                    familyLists?: FamilyListEntry[];
-                } = {
-                    // Обязательные поля
-                    vacancyId: params.data.vacancyId,
-                    fullName: params.data.fullName,
-                    phoneNumber: params.data.phoneNumber,
-                    birthDate: params.data.birthDate || currentData.birthDate || ''
+                // Ensure desiredSalary is a string
+                formattedData.desiredSalary = ensureString(formattedData.desiredSalary);
+
+                // Prepare update data with all form fields plus our current collections
+                const updateData = {
+                    ...formattedData,
+                    educations: educations.map(edu => ({
+                        ...edu,
+                        // Ensure education dates are properly formatted
+                        dateStart: formatDateForApi(edu.dateStart),
+                        dateEnd: formatDateForApi(edu.dateEnd)
+                    })),
+                    lastWorkPlaces: isFirstJob ? [] : lastWorkPlaces.map(work => ({
+                        ...work,
+                        // Ensure work dates are properly formatted
+                        employmentDate: formatDateForApi(work.employmentDate),
+                        dismissalDate: formatDateForApi(work.dismissalDate),
+                        // Ensure all string fields are actually strings
+                        lastWorkPlace: ensureString(work.lastWorkPlace),
+                        experience: ensureString(work.experience),
+                        organizationName: ensureString(work.organizationName),
+                        position: ensureString(work.position),
+                        addressOrg: ensureString(work.addressOrg),
+                        dismissalReason: ensureString(work.dismissalReason)
+                    })),
+                    isFirstJob: isFirstJob,
+                    familyLists: familyLists.map(family => ({
+                        ...family,
+                        // Ensure family birth dates are properly formatted
+                        familyListBirthDate: formatDateForApi(family.familyListBirthDate),
+                        // Ensure all string fields are actually strings
+                        familyListName: ensureString(family.familyListName),
+                        familyListPhone: ensureString(family.familyListPhone),
+                        familyListRelation: ensureString(family.familyListRelation),
+                        familyListAddress: ensureString(family.familyListAddress),
+                        familyJob: ensureString(family.familyJob)
+                    }))
                 };
 
-                // Добавляем опциональные поля только если они определены
-                if (changedFields.email !== undefined) updateData.email = changedFields.email;
-                if (changedFields.citizenship !== undefined) updateData.citizenship = changedFields.citizenship;
-                if (changedFields.residence !== undefined) updateData.residence = changedFields.residence;
-                if (changedFields.passportNumber !== undefined) updateData.passportNumber = changedFields.passportNumber;
-                if (changedFields.passportSeries !== undefined) updateData.passportSeries = changedFields.passportSeries;
-                if (changedFields.passportIdDate !== undefined) updateData.passportIdDate = changedFields.passportIdDate;
-                if (changedFields.passportIdPlace !== undefined) updateData.passportIdPlace = changedFields.passportIdPlace;
-                if (changedFields.source !== undefined) updateData.source = changedFields.source;
-                if (changedFields.familyStatus !== undefined) updateData.familyStatus = changedFields.familyStatus;
-                if (changedFields.children !== undefined) updateData.children = changedFields.children;
-                if (changedFields.language !== undefined) updateData.language = changedFields.language;
-                if (changedFields.desiredSalary !== undefined) updateData.desiredSalary = changedFields.desiredSalary;
-                if (changedFields.desiredSchedule !== undefined) updateData.desiredSchedule = changedFields.desiredSchedule;
-                if (changedFields.purpose !== undefined) updateData.purpose = changedFields.purpose;
-                if (changedFields.strengthsShortage !== undefined) updateData.strengthsShortage = changedFields.strengthsShortage;
-                if (changedFields.relatives !== undefined) updateData.relatives = changedFields.relatives;
-                if (changedFields.desiredPosition !== undefined) updateData.desiredPosition = changedFields.desiredPosition;
-                if (changedFields.resultStatus !== undefined) updateData.resultStatus = changedFields.resultStatus;
-
-                // Всегда добавляем актуальные данные об образовании, местах работы и родственниках
-                updateData.educations = educations;
-                updateData.lastWorkPlaces = lastWorkPlaces;
-                updateData.familyLists = familyLists;
-
+                console.log('Sending update data to API:', updateData);
+                
+                // Debug the exact data structure being sent
+                console.log('API request payload:', JSON.stringify(updateData, null, 2));
+                
                 return await apiClient.api.candidates({ id: params.id }).put(updateData);
             } catch (error) {
                 console.error('Error in updateMutation:', error);
@@ -396,8 +461,68 @@ export default function CandidateForm({
             }
         },
         onSuccess: () => onAddSuccess("обновлен успешно"),
-        onError,
+        onError: (error: any) => {
+            console.error('Update error:', error);
+            if (error.response) {
+                console.error('Response error data:', error.response.data);
+                
+                // Показать подробное сообщение об ошибке валидации, если оно есть
+                if (error.response.data?.errors) {
+                    const validationErrors = error.response.data.errors;
+                    console.error('Validation errors:', validationErrors);
+                    
+                    // Формируем читабельное сообщение об ошибках
+                    let errorMessage = "Ошибка валидации: ";
+                    if (Array.isArray(validationErrors)) {
+                        errorMessage += validationErrors.map(err => 
+                            `${err.path}: ${err.message}`
+                        ).join("; ");
+                    } else {
+                        errorMessage += JSON.stringify(validationErrors);
+                    }
+                    
+                    toast.error(errorMessage);
+                    return;
+                }
+            }
+            toast.error(error.message || "Не удалось обновить кандидата");
+        },
     });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (id: string) => {
+            try {
+                console.log('Deleting candidate and all related data for ID:', id);
+                const response = await apiClient.api.candidates({ id: id }).delete();
+                return response.data;
+            } catch (error) {
+                console.error('Error in delete mutation:', error);
+                throw error;
+            }
+        },
+        onSuccess: () => {
+            toast.success("Кандидат и все связанные данные удалены");
+            queryClient.invalidateQueries({ queryKey: ["candidates"] });
+            closeForm();
+        },
+        onError: (error: any) => {
+            console.error('Delete mutation error:', error);
+            toast.error(error.message || "Не удалось удалить кандидата");
+        },
+    });
+
+    const handleDelete = async () => {
+        if (!recordId) {
+            toast.error("ID кандидата не найден");
+            return;
+        }
+        
+        try {
+            await deleteMutation.mutateAsync(recordId);
+        } catch (error) {
+            console.error('Error in handleDelete:', error);
+        }
+    };
 
     const form = useForm<CandidateFormData>({
         defaultValues: useMemo(() => {
@@ -492,17 +617,13 @@ export default function CandidateForm({
     };
 
     const handleResultStatusChange = (value: string) => {
-        // Create a properly typed variable
-        let typedStatus: 'positive' | 'negative' | 'neutral';
-
-        // Assign the correct value based on input
-        if (value === 'positive') typedStatus = 'positive';
-        else if (value === 'negative') typedStatus = 'negative';
-        else typedStatus = 'neutral';
-
-        // Now use the properly typed variable
-        setSelectedResultStatus(typedStatus);
-        form.setFieldValue("resultStatus", typedStatus);
+        if (value !== 'positive' && value !== 'negative' && value !== 'neutral') {
+            console.error('Invalid result status value:', value);
+            return;
+        }
+        
+        setSelectedResultStatus(value);
+        form.setFieldValue("resultStatus", value);
     };
 
     const handleAddEducation = (education: EducationEntry) => {
@@ -562,6 +683,8 @@ export default function CandidateForm({
     useEffect(() => {
         const candidate = candidateQuery.data?.data?.[0];
         if (candidate) {
+            console.log('Initializing form with candidate data:', candidate);
+
             // Set initial form values
             Object.entries({
                 vacancyId: candidate.vacancyId || "",
@@ -597,40 +720,56 @@ export default function CandidateForm({
             if (candidate.resultStatus) {
                 setSelectedResultStatus(candidate.resultStatus);
             }
-            // if (candidate.birthDate) {
-            //     setDate(new Date(candidate.birthDate));
-            // }
 
-            // Set education data if available
+            // Set firstJob flag
+            setIsFirstJob(candidate.isFirstJob || false);
+
+            // Handle education data
+            let educationData: EducationEntry[] = [];
             if (candidate.education && Array.isArray(candidate.education) && candidate.education.length > 0) {
                 console.log('Setting education data from candidate.education:', candidate.education);
-                setEducations(candidate.education);
+                educationData = candidate.education;
             } else if (candidate.educations && Array.isArray(candidate.educations) && candidate.educations.length > 0) {
                 console.log('Setting education data from candidate.educations:', candidate.educations);
-                setEducations(candidate.educations);
+                educationData = candidate.educations;
+            }
+            
+            if (educationData.length > 0) {
+                setEducations(educationData);
+                // Don't show education form initially if we already have data
+                setShowEducationForm(false);
             }
 
-            // Set last work place data if available
+            // Handle work experience data
+            let workPlaceData: LastWorkPlaceEntry[] = [];
             if (candidate.lastWorkPlace && Array.isArray(candidate.lastWorkPlace) && candidate.lastWorkPlace.length > 0) {
                 console.log('Setting last work place data from candidate.lastWorkPlace:', candidate.lastWorkPlace);
-                setLastWorkPlaces(candidate.lastWorkPlace);
-                setIsFirstJob(false);
+                workPlaceData = candidate.lastWorkPlace;
             } else if (candidate.lastWorkPlaces && Array.isArray(candidate.lastWorkPlaces) && candidate.lastWorkPlaces.length > 0) {
                 console.log('Setting last work place data from candidate.lastWorkPlaces:', candidate.lastWorkPlaces);
-                setLastWorkPlaces(candidate.lastWorkPlaces);
-                setIsFirstJob(false);
-            } else {
-                // Если нет данных о местах работы, возможно это первое место работы
-                setIsFirstJob(candidate.isFirstJob || false);
+                workPlaceData = candidate.lastWorkPlaces;
+            }
+            
+            if (workPlaceData.length > 0) {
+                setLastWorkPlaces(workPlaceData);
+                // Don't show work experience form initially if we already have data
+                setShowLastWorkPlaceForm(false);
             }
 
-            // Set family list data if available
+            // Handle family data
+            let familyData: FamilyListEntry[] = [];
             if (candidate.familyList && Array.isArray(candidate.familyList) && candidate.familyList.length > 0) {
                 console.log('Setting family list data from candidate.familyList:', candidate.familyList);
-                setFamilyLists(candidate.familyList);
+                familyData = candidate.familyList;
             } else if (candidate.familyLists && Array.isArray(candidate.familyLists) && candidate.familyLists.length > 0) {
                 console.log('Setting family list data from candidate.familyLists:', candidate.familyLists);
-                setFamilyLists(candidate.familyLists);
+                familyData = candidate.familyLists;
+            }
+            
+            if (familyData.length > 0) {
+                setFamilyLists(familyData);
+                // Don't show family form initially if we already have data
+                setShowFamilyListForm(false);
             }
         }
     }, [candidateQuery.data, form]);
@@ -643,9 +782,25 @@ export default function CandidateForm({
             // Обновляем значение isFirstJob в форме перед отправкой
             form.setFieldValue("isFirstJob", isFirstJob);
 
+            // Log submission attempt
+            console.log('Submitting form with educations:', educations);
+            console.log('Submitting form with lastWorkPlaces:', lastWorkPlaces);
+            console.log('Submitting form with familyLists:', familyLists);
+            console.log('Submitting form with isFirstJob:', isFirstJob);
+
+            // Execute form submission
             await form.handleSubmit();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error in handleSubmit:', error);
+            
+            // More detailed error handling
+            if (error.response) {
+                console.error('Response error data:', error.response.data);
+                const errorMessage = error.response.data?.message || error.message || "Ошибка при отправке формы";
+                toast.error(errorMessage);
+            } else {
+                toast.error("Ошибка при отправке формы");
+            }
         }
     };
 
@@ -662,7 +817,7 @@ export default function CandidateForm({
         <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className="space-y-4"
+            className="space-y-4 p-4"
         >
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -680,7 +835,7 @@ export default function CandidateForm({
                                 <SelectContent>
                                     {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
                                         <SelectItem key={vacancy.id} value={vacancy.id}>
-                                            {vacancy.applicationNum} - {vacancy.position}
+                                            {vacancy.applicationNum}
                                         </SelectItem>
                                     )) : []}
                                 </SelectContent>
@@ -709,27 +864,20 @@ export default function CandidateForm({
                     <Label>Дата рождения</Label>
                     <form.Field name="birthDate">
                         {(field) => {
-                            let date = field.getValue() ?? new Date();
+                            const dateValue = field.getValue() ? new Date(field.getValue()) : undefined;
                             return (
                                 <Popover>
-                                    {/* <PopoverTrigger className={cn(
-                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
-                                        !date && "text-muted-foreground"
-                                    )}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                                    </PopoverTrigger> */}
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant={"outline"}
                                             className={cn(
                                                 "w-full justify-start text-left font-normal",
-                                                !date && "text-muted-foreground"
+                                                !dateValue && "text-muted-foreground"
                                             )}
                                             aria-label="Select date"
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                            {dateValue ? format(dateValue, "PPP") : <span>Выберите дату</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"
@@ -737,8 +885,7 @@ export default function CandidateForm({
                                     >
                                         <CalendarOrigin
                                             mode="single"
-                                            // @ts-ignore
-                                            selected={date}
+                                            selected={dateValue}
                                             onSelect={(date) => {
                                                 if (date) {
                                                     field.handleChange(format(date, "yyyy-MM-dd"));
@@ -751,7 +898,7 @@ export default function CandidateForm({
                                                 month_caption: "mx-0",
                                             }}
                                             captionLayout="dropdown"
-                                            defaultMonth={new Date()}
+                                            defaultMonth={dateValue || new Date()}
                                             startMonth={new Date(1980, 6)}
                                             hideNavigation
                                             components={{
@@ -788,7 +935,6 @@ export default function CandidateForm({
                                         />
                                     </PopoverContent>
                                 </Popover>
-
                             )
                         }}
                     </form.Field>
@@ -959,28 +1105,20 @@ export default function CandidateForm({
                     <Label>Дата выдачи паспорта</Label>
                     <form.Field name="passportIdDate">
                         {(field) => {
-                            let date = field.getValue() ?? new Date();
-
+                            const dateValue = field.getValue() ? new Date(field.getValue()) : undefined;
                             return (
                                 <Popover>
-                                    {/* <PopoverTrigger className={cn(
-                                        "w-full justify-start text-left font-normal flex items-center p-2 border rounded-md",
-                                        !date && "text-muted-foreground"
-                                    )}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP") : <span>Выберите дату</span>}
-                                    </PopoverTrigger> */}
                                     <PopoverTrigger asChild>
                                         <Button
                                             variant={"outline"}
                                             className={cn(
                                                 "w-full justify-start text-left font-normal",
-                                                !date && "text-muted-foreground"
+                                                !dateValue && "text-muted-foreground"
                                             )}
                                             aria-label="Select date"
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {date ? format(date, "PPP") : <span>Выберите дату</span>}
+                                            {dateValue ? format(dateValue, "PPP") : <span>Выберите дату</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"
@@ -988,8 +1126,7 @@ export default function CandidateForm({
                                     >
                                         <CalendarOrigin
                                             mode="single"
-                                            // @ts-ignore
-                                            selected={date}
+                                            selected={dateValue}
                                             onSelect={(date) => {
                                                 if (date) {
                                                     field.handleChange(format(date, "yyyy-MM-dd"));
@@ -1002,7 +1139,7 @@ export default function CandidateForm({
                                                 month_caption: "mx-0",
                                             }}
                                             captionLayout="dropdown"
-                                            defaultMonth={new Date()}
+                                            defaultMonth={dateValue || new Date()}
                                             startMonth={new Date(1980, 6)}
                                             hideNavigation
                                             components={{
@@ -1039,36 +1176,6 @@ export default function CandidateForm({
                                         />
                                     </PopoverContent>
                                 </Popover>
-                                // <Popover>
-                                //     <PopoverTrigger asChild>
-                                //         <Button
-                                //             variant={"outline"}
-                                //             className={cn(
-                                //                 "w-full justify-start text-left font-normal",
-                                //                 !passDate && "text-muted-foreground"
-                                //             )}
-                                //             aria-label="Select date"
-                                //         >
-                                //             <CalendarIcon className="mr-2 h-4 w-4" />
-                                //             {passDate ? format(passDate, "PPP") : <span>Выберите дату</span>}
-                                //         </Button>
-                                //     </PopoverTrigger>
-                                //     <PopoverContent className="w-auto p-0">
-                                //         <Calendar
-                                //             mode="single"
-                                //             selected={passDate}
-                                //             onSelect={(date) => {
-                                //                 setPassDate(date);
-                                //                 if (date) {
-                                //                     field.handleChange(format(date, "yyyy-MM-dd"));
-                                //                 }
-                                //             }}
-                                //             initialFocus
-                                //         />
-                                //     </PopoverContent>
-                                // </Popover>
-
-
                             )
                         }}
                     </form.Field>
@@ -1153,7 +1260,7 @@ export default function CandidateForm({
                 </form.Field>
             </div>
 
-            <div className="space-y-2">
+            {/* <div className="space-y-2">
                 <Label>Родственники</Label>
                 <form.Field name="relatives">
                     {(field) => (
@@ -1167,7 +1274,7 @@ export default function CandidateForm({
                         />
                     )}
                 </form.Field>
-            </div>
+            </div> */}
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -1244,7 +1351,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveEducation(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveEducation(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить
@@ -1317,7 +1428,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveLastWorkPlace(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveLastWorkPlace(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить
@@ -1376,7 +1491,11 @@ export default function CandidateForm({
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() => handleRemoveFamilyList(index)}
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            handleRemoveFamilyList(index);
+                                        }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
                                         Удалить
@@ -1388,7 +1507,7 @@ export default function CandidateForm({
                 )}
             </div>
 
-            <div className="flex justify-end space-x-4">
+            <div className="flex space-x-4">
                 <Button
                     type="button"
                     variant="outline"
@@ -1397,6 +1516,44 @@ export default function CandidateForm({
                 >
                     Отмена
                 </Button>
+                
+                {recordId && (
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                aria-label="Удалить кандидата"
+                                className="mr-auto"
+                            >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Удалить
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Это действие нельзя отменить. Кандидат и все связанные данные (образование, опыт работы, родственники) будут удалены.
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
+                                    {deleteMutation.isPending ? (
+                                        <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Удаление...
+                                        </>
+                                    ) : (
+                                        "Удалить"
+                                    )}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                )}
+                
                 <Button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}

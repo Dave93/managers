@@ -79,7 +79,7 @@ export const candidatesController = new Elysia({
         try {
             let selectFields: SelectedFields = {
                 id: candidates.id,
-                vacancyId: candidates.vacancyId,
+                vacancyId: vacancy.applicationNum,
                 fullName: candidates.fullName,
                 birthDate: candidates.birthDate,
                 phoneNumber: candidates.phoneNumber,
@@ -116,6 +116,10 @@ export const candidatesController = new Elysia({
             if (filters) {
                 const parsedFilters = parseFilterFields(filters, candidates, {
                     vacancy: vacancy,
+                    education: education,
+                    last_work_place: last_work_place,
+                    family_list: family_list,
+
                 });
                 whereClause = parsedFilters.filter((clause): clause is SQLWrapper => clause !== undefined);
             }
@@ -140,6 +144,7 @@ export const candidatesController = new Elysia({
             const candidatesResult = await drizzle
                 .select(selectFields)
                 .from(candidates)
+                .leftJoin(vacancy, eq(candidates.vacancyId, vacancy.id))
                 .where(whereConditions)
                 .limit(limit ? Number(limit) : 10)
                 .offset(offset ? Number(offset) : 0)
@@ -661,22 +666,76 @@ export const candidatesController = new Elysia({
 
     .delete("/candidates/:id", async ({ params: { id }, user, set, drizzle, cacheController }) => {
         try {
-            const candidate = await drizzle
-                .delete(candidates)
-                .where(eq(candidates.id, id))
-                .returning()
-                .execute();
+            // Execute everything in a transaction
+            const result = await drizzle.transaction(async (tx) => {
+                // First, check if candidate exists
+                const candidateExists = await tx
+                    .select({ id: candidates.id })
+                    .from(candidates)
+                    .where(eq(candidates.id, id))
+                    .execute();
 
-            if (!candidate.length) {
-                set.status = 404;
+                if (candidateExists.length === 0) {
+                    set.status = 404;
+                    return {
+                        error: "Candidate not found"
+                    };
+                }
+
+                console.log('Deleting related data for candidate:', id);
+
+                // Delete all education records for this candidate
+                const deletedEducation = await tx
+                    .delete(education)
+                    .where(eq(education.candidateId, id))
+                    .returning()
+                    .execute();
+                
+                console.log(`Deleted ${deletedEducation.length} education records`);
+
+                // Delete all last work place records for this candidate
+                const deletedWorkPlaces = await tx
+                    .delete(last_work_place)
+                    .where(eq(last_work_place.candidateId, id))
+                    .returning()
+                    .execute();
+                
+                console.log(`Deleted ${deletedWorkPlaces.length} work place records`);
+
+                // Delete all family list records for this candidate
+                const deletedFamilyLists = await tx
+                    .delete(family_list)
+                    .where(eq(family_list.candidateId, id))
+                    .returning()
+                    .execute();
+                
+                console.log(`Deleted ${deletedFamilyLists.length} family member records`);
+
+                // Finally, delete the candidate
+                const deletedCandidate = await tx
+                    .delete(candidates)
+                    .where(eq(candidates.id, id))
+                    .returning()
+                    .execute();
+
+                if (deletedCandidate.length === 0) {
+                    throw new Error("Failed to delete candidate after removing related records");
+                }
+
                 return {
-                    error: "Candidate not found"
+                    candidate: deletedCandidate[0],
+                    deletedData: {
+                        education: deletedEducation.length,
+                        workPlaces: deletedWorkPlaces.length,
+                        familyMembers: deletedFamilyLists.length
+                    }
                 };
-            }
+            });
 
             await cacheController.cachePermissions();
             return {
-                data: candidate[0],
+                data: result,
+                message: "Candidate and all related data deleted successfully"
             };
         } catch (error) {
             const err = error as ErrorResponse;

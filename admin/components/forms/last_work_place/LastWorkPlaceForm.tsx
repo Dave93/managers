@@ -11,6 +11,14 @@ import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import { Textarea } from "@components/ui/textarea";
+import { DropdownNavProps } from "react-day-picker";
+import { SelectValue } from "@admin/components/ui/select";
+import { SelectTrigger } from "@admin/components/ui/select";
+import { SelectItem } from "@admin/components/ui/select";
+import { SelectContent } from "@admin/components/ui/select";
+import { DropdownProps } from "react-day-picker";
+import { Select } from "@admin/components/ui/select";
+import { CalendarOrigin } from "@admin/components/ui/calendarOrigin";
 
 export interface LastWorkPlaceEntry {
     lastWorkPlace: string;
@@ -27,6 +35,15 @@ interface LastWorkPlaceFormProps {
     onAdd: (lastWorkPlace: LastWorkPlaceEntry) => void;
     onRemove: (index: number) => void;
     entries: LastWorkPlaceEntry[];
+}
+
+const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHandler<HTMLSelectElement>) => {
+    const _event = {
+        target: {
+            value: String(_value),
+        },
+    } as React.ChangeEvent<HTMLSelectElement>
+    _e(_event)
 }
 
 export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWorkPlaceFormProps) {
@@ -178,7 +195,11 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => onRemove(index)}
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onRemove(index);
+                                    }}
                                     className="ml-2 h-6 text-red-500 hover:text-red-700"
                                 >
                                     <Trash2 className="h-3 w-3 mr-1" /> Удалить
@@ -220,6 +241,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
+                                type="button"
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
@@ -228,11 +250,11 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {employmentDate ? format(new Date(employmentDate), "PPP") : <span>Выберите дату</span>}
+                                {employmentDate ? format(employmentDate, "PPP") : <span>Выберите дату</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
+                        <PopoverContent container={formRef.current!} className="w-auto p-0">
+                            <CalendarOrigin
                                 mode="single"
                                 selected={employmentDate ? new Date(employmentDate) : undefined}
                                 onSelect={(date) => {
@@ -240,7 +262,42 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                         setEmploymentDate(format(date, "yyyy-MM-dd"));
                                     }
                                 }}
-                                initialFocus
+                                className="rounded-md border p-2"
+                                classNames={{
+                                    month_caption: "mx-0",
+                                }}
+                                captionLayout="dropdown"
+                                defaultMonth={new Date()}
+                                startMonth={new Date(1980, 6)}
+                                hideNavigation
+                                components={{
+                                    DropdownNav: (props: DropdownNavProps) => {
+                                        return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                    },
+                                    Dropdown: (props: DropdownProps) => {
+                                        return (
+                                            <Select
+                                                value={String(props.value)}
+                                                onValueChange={(value) => {
+                                                    if (props.onChange) {
+                                                        handleCalendarChange(value, props.onChange)
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                    {props.options?.map((option) => (
+                                                        <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )
+                                    },
+                                }}
                             />
                         </PopoverContent>
                     </Popover>
@@ -252,6 +309,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
+                                type="button"
                                 variant={"outline"}
                                 className={cn(
                                     "w-full justify-start text-left font-normal",
@@ -260,11 +318,11 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dismissalDate ? format(new Date(dismissalDate), "PPP") : <span>Выберите дату</span>}
+                                {dismissalDate ? format(dismissalDate, "PPP") : <span>Выберите дату</span>}
                             </Button>
                         </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
+                        <PopoverContent container={formRef.current!} className="w-auto p-0">
+                            <CalendarOrigin
                                 mode="single"
                                 selected={dismissalDate ? new Date(dismissalDate) : undefined}
                                 onSelect={(date) => {
@@ -272,7 +330,42 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                         setDismissalDate(format(date, "yyyy-MM-dd"));
                                     }
                                 }}
-                                initialFocus
+                                className="rounded-md border p-2"
+                                classNames={{
+                                    month_caption: "mx-0",
+                                }}
+                                captionLayout="dropdown"
+                                defaultMonth={new Date()}
+                                startMonth={new Date(1980, 6)}
+                                hideNavigation
+                                components={{
+                                    DropdownNav: (props: DropdownNavProps) => {
+                                        return <div className="flex w-full items-center gap-2">{props.children}</div>
+                                    },
+                                    Dropdown: (props: DropdownProps) => {
+                                        return (
+                                            <Select
+                                                value={String(props.value)}
+                                                onValueChange={(value) => {
+                                                    if (props.onChange) {
+                                                        handleCalendarChange(value, props.onChange)
+                                                    }
+                                                }}
+                                            >
+                                                <SelectTrigger className="h-8 w-fit font-medium first:grow">
+                                                    <SelectValue />
+                                                </SelectTrigger>
+                                                <SelectContent className="max-h-[min(26rem,var(--radix-select-content-available-height))]">
+                                                    {props.options?.map((option) => (
+                                                        <SelectItem key={option.value} value={String(option.value)} disabled={option.disabled}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        )
+                                    },
+                                }}
                             />
                         </PopoverContent>
                     </Popover>
