@@ -79,7 +79,7 @@ export const candidatesController = new Elysia({
         try {
             let selectFields: SelectedFields = {
                 id: candidates.id,
-                vacancyId: candidates.vacancyId,
+                vacancyId: vacancy.applicationNum,
                 fullName: candidates.fullName,
                 birthDate: candidates.birthDate,
                 phoneNumber: candidates.phoneNumber,
@@ -116,6 +116,10 @@ export const candidatesController = new Elysia({
             if (filters) {
                 const parsedFilters = parseFilterFields(filters, candidates, {
                     vacancy: vacancy,
+                    education: education,
+                    last_work_place: last_work_place,
+                    family_list: family_list,
+
                 });
                 whereClause = parsedFilters.filter((clause): clause is SQLWrapper => clause !== undefined);
             }
@@ -140,6 +144,7 @@ export const candidatesController = new Elysia({
             const candidatesResult = await drizzle
                 .select(selectFields)
                 .from(candidates)
+                .leftJoin(vacancy, eq(candidates.vacancyId, vacancy.id))
                 .where(whereConditions)
                 .limit(limit ? Number(limit) : 10)
                 .offset(offset ? Number(offset) : 0)
@@ -661,25 +666,106 @@ export const candidatesController = new Elysia({
 
     .delete("/candidates/:id", async ({ params: { id }, user, set, drizzle, cacheController }) => {
         try {
-            const candidate = await drizzle
-                .delete(candidates)
+            console.log('Starting deletion process for candidate:', id);
+            
+            // First check if candidate exists outside transaction
+            const candidateExists = await drizzle
+                .select({ id: candidates.id })
+                .from(candidates)
                 .where(eq(candidates.id, id))
-                .returning()
                 .execute();
 
-            if (!candidate.length) {
+            if (candidateExists.length === 0) {
+                console.log('Candidate not found:', id);
                 set.status = 404;
                 return {
                     error: "Candidate not found"
                 };
             }
 
+            // Check for related records
+            const relatedEducation = await drizzle
+                .select({ count: sql<number>`count(*)` })
+                .from(education)
+                .where(eq(education.candidateId, id))
+                .execute();
+
+            console.log('Found related education records:', relatedEducation[0].count);
+
+            // Execute everything in a transaction
+            const result = await drizzle.transaction(async (tx) => {
+                console.log('Starting transaction');
+
+                try {
+                    // First delete all education records
+                    if (relatedEducation[0].count > 0) {
+                        console.log('Attempting to delete education records');
+                        const deletedEducation = await tx
+                            .delete(education)
+                            .where(eq(education.candidateId, id))
+                            .returning()
+                            .execute();
+                        
+                        console.log(`Successfully deleted ${deletedEducation.length} education records`);
+                    }
+
+                    // Delete all last work place records
+                    console.log('Attempting to delete work place records');
+                    const deletedWorkPlaces = await tx
+                        .delete(last_work_place)
+                        .where(eq(last_work_place.candidateId, id))
+                        .returning()
+                        .execute();
+                    
+                    console.log(`Successfully deleted ${deletedWorkPlaces.length} work place records`);
+
+                    // Delete all family list records
+                    console.log('Attempting to delete family list records');
+                    const deletedFamilyLists = await tx
+                        .delete(family_list)
+                        .where(eq(family_list.candidateId, id))
+                        .returning()
+                        .execute();
+                    
+                    console.log(`Successfully deleted ${deletedFamilyLists.length} family member records`);
+
+                    // Finally, delete the candidate
+                    console.log('Attempting to delete candidate');
+                    const deletedCandidate = await tx
+                        .delete(candidates)
+                        .where(eq(candidates.id, id))
+                        .returning()
+                        .execute();
+
+                    console.log('Candidate deletion result:', deletedCandidate);
+
+                    if (deletedCandidate.length === 0) {
+                        throw new Error("Failed to delete candidate after removing related records");
+                    }
+
+                    return {
+                        candidate: deletedCandidate[0],
+                        deletedData: {
+                            education: relatedEducation[0].count,
+                            workPlaces: deletedWorkPlaces.length,
+                            familyMembers: deletedFamilyLists.length
+                        }
+                    };
+                } catch (deleteError) {
+                    console.error('Error during deletion process:', deleteError);
+                    throw deleteError;
+                }
+            });
+
+            console.log('Transaction completed successfully:', result);
             await cacheController.cachePermissions();
             return {
-                data: candidate[0],
+                data: result,
+                message: "Candidate and all related data deleted successfully"
             };
         } catch (error) {
             const err = error as ErrorResponse;
+            console.error('Failed to delete candidate:', err);
             set.status = 500;
             return {
                 error: "Failed to delete candidate",

@@ -31,6 +31,7 @@ export const ctx = new Elysia({
   )
   .derive(async ({ redis, cookie: { sessionId } }) => {
     const sessionIdValue = sessionId.value;
+    console.log("sessionIdValue", sessionIdValue);
     if (!sessionIdValue) {
       return {
         user: null,

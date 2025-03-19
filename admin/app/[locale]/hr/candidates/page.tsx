@@ -2,7 +2,7 @@
 
 import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { CalendarIcon, Plus } from "lucide-react";
+import { CalendarIcon, Plus, Download } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "./data-table";
 import { candidateColumns } from "./columns";
@@ -18,9 +18,9 @@ import { SelectContent, SelectValue, SelectItem, SelectTrigger, Select } from "@
 import { Calendar } from "@admin/components/ui/calendar";
 import type { DropdownNavProps, DropdownProps } from "react-day-picker"
 import { parseZonedDateTime } from "@internationalized/date";
-import { useState } from "react";
-
-
+import { useState, useCallback } from "react";
+import dayjs from "dayjs";
+import { saveAs } from 'file-saver';
 
 // export const metadata: Metadata = {
 //     title: "Candidates",
@@ -45,6 +45,70 @@ export default function CandidatesListPage() {
         } as React.ChangeEvent<HTMLSelectElement>
         _e(_event)
     }
+    
+    const { data: candidatesData, refetch } = useQuery({
+        queryKey: ["candidates-export"],
+        queryFn: async () => {
+            const { data } = await apiClient.api.candidates.get({
+                query: {
+                    limit: "1000", // Получаем больше записей для экспорта
+                },
+            });
+            return data;
+        },
+        enabled: false, // Не выполняем запрос автоматически
+    });
+    
+    const exportToCSV = useCallback(async () => {
+        // Сначала получаем данные
+        toast.loading("Загрузка данных...");
+        const { data: freshData } = await refetch();
+        toast.dismiss();
+        
+        if (!freshData?.data || freshData.data.length === 0) {
+            toast.error("Нет данных для экспорта");
+            return;
+        }
+        
+        try {
+            // Создаем заголовки с BOM для правильной кодировки в Excel
+            const BOM = "\uFEFF";
+            const headers = ["ФИО", "Номер телефона", "Откуда узнали", "Вакансия"];
+            
+            // Создаем строки данных
+            const rows = freshData.data.map((candidate: any) => [
+                candidate.fullName || "",
+                candidate.phoneNumber || "",
+                candidate.source || "",
+                candidate.vacancyId || ""
+            ]);
+            
+            // Функция для экранирования значений CSV
+            const escapeCSV = (value: any) => {
+                const str = String(value);
+                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                    return `"${str.replace(/"/g, '""')}"`;
+                }
+                return str;
+            };
+            
+            // Формируем CSV контент с BOM для Excel
+            const csvContent = BOM + [
+                headers.map(escapeCSV).join(';'),  // Используем точку с запятой для Excel
+                ...rows.map(row => row.map(escapeCSV).join(';'))
+            ].join('\r\n');  // Используем CRLF для Windows
+            
+            // Создаем и скачиваем файл
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            saveAs(blob, `candidates-${dayjs().format('YYYY-MM-DD')}.csv`);
+            
+            toast.success("Экспорт выполнен успешно");
+        } catch (error) {
+            console.error("Error exporting to CSV:", error);
+            toast.error("Ошибка при экспорте");
+        }
+    }, [refetch]);
+    
     return (
         <div>
             <div className="flex justify-between">
@@ -52,6 +116,15 @@ export default function CandidatesListPage() {
                     Анкета
                 </h1>
                 <div className="flex items-center space-x-2">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={exportToCSV}
+                        className="mr-2"
+                    >
+                        <Download className="h-4 w-4 mr-2" />
+                        Экспорт в Excel
+                    </Button>
                     <CanAccess permission="candidates.add">
                         <CandidateSheet />
                         {/* <CandidateSheet2 onSubmit={handleSubmit} vacancyId={vacancyId} /> */}
@@ -61,30 +134,6 @@ export default function CandidatesListPage() {
             <div className="py-10">
                 <DataTable columns={candidateColumns} />
             </div>
-            <Popover>
-                <PopoverTrigger>
-                    <Button
-                        variant={"outline"}
-                        className={cn(
-                            "w-full justify-start text-left font-normal",
-                            !date && "text-muted-foreground"
-                        )}
-                        aria-label="Select date"
-                    >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {date.toLocaleDateString()}
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0"
-                >
-
-                    davr
-                </PopoverContent>
-            </Popover>
-            <Popover>
-                <PopoverTrigger>Open</PopoverTrigger>
-                <PopoverContent>Place content for the popover here.</PopoverContent>
-            </Popover>
         </div>
     );
 }
