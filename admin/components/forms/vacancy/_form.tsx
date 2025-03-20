@@ -502,198 +502,220 @@ export default function VacancyForm({
         <form
             ref={formRef}
             onSubmit={handleSubmit}
-            className="grid gap-3 grid-cols-2 space-y-3 space-x-2"
+            className="grid gap-4 p-4"
         >
-            <div className="space-y-2">
-                <div>
-                    <Label>Статус</Label>
-                </div>
-                <form.Field name="status">
-                    {(field) => (
-                        <Select
-                            value={field.getValue()}
-                            onValueChange={(value) => {
-                                field.setValue(value as VacancyStatus);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите статус" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="open">Открыта</SelectItem>
-                                <SelectItem value="in_progress">В процессе</SelectItem>
-                                <SelectItem value="found_candidates">Найдены кандидаты</SelectItem>
-                                <SelectItem value="interview">Собеседование</SelectItem>
-                                <SelectItem value="closed">Закрыта</SelectItem>
-                                <SelectItem value="cancelled">Отменена</SelectItem>
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-            <div className="col-span-2">
-                <div>
-                    <Label>Номер вакансии</Label>
-                </div>
-                <form.Field name="applicationNum">
-                    {(field) => (
-                        <Input
-                            id={field.name}
-                            name={field.name}
-                            value={field.getValue() ?? ""}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                        />
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="space-y-2">
-                <div>
-                    <Label>Бренд</Label>
-                </div>
-                <form.Field name="organizationId">
-                    {(field) => (
-                        <Select
-                            value={changedOrganizationId || ""}
-                            onValueChange={(value) => {
-                                handleOrganizationChange(value);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите бренд">
-                                    {changedOrganizationId ?
-                                        organizationLabelById[changedOrganizationId] :
-                                        "Выберите бренд"}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(organizationsData || []).map((org) => (
-                                    <SelectItem key={org.id} value={org.id}>
-                                        {org.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="space-y-2">
-                <div>
-                    <Label>Филиал</Label>
-                </div>
-                <form.Field name="terminalId">
-                    {(field) => (
-                        <Select
-                            value={changedTerminalId || ""}
-                            onValueChange={(value) => {
-                                handleTerminalChange(value);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите филиал">
-                                    {changedTerminalId ?
-                                        terminalLabelById[changedTerminalId] :
-                                        "Выберите филиал"}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(terminalsData || []).map((terminal) => (
-                                    <SelectItem key={terminal.id} value={terminal.id}>
-                                        {terminal.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="space-y-2">
-                <div>
-                    <Label>Должность</Label>
-                </div>
-                <form.Field name="position">
-                    {(field) => (
-                        <Select
-                            value={changedPositionId || ""}
-                            onValueChange={(value) => {
-                                handlePositionChange(value);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите должность">
-                                    {changedPositionId ?
-                                        positionLabelById[changedPositionId] :
-                                        "Выберите должность"}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(positionData || []).map((position) => (
-                                    <SelectItem key={position.id} value={position.id}>
-                                        {position.title}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="space-y-2">
-                <div>
-                    <Label>График работы</Label>
-                </div>
-                <form.Field name="work_schedule_id">
-                    {(field) => (
-                        <Select
-                            value={changedWorkScheduleId || ""}
-                            onValueChange={(value) => {
-                                handleWorkScheduleChange(value);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите график работы">
-                                    {changedWorkScheduleId ?
-                                        workSchedulesLabelById[changedWorkScheduleId] :
-                                        "Выберите график работы"}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(workSchedulesData || []).map((schedule: WorkSchedule) => (
-                                    <SelectItem key={schedule.id} value={schedule.id}>
-                                        {schedule.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="space-y-2">
-                <div>
-                    <Label>Причина вакансии</Label>
-                </div>
-                <form.Field name="reason">
-                    {(field) => (
-                        <Input
-                            id={field.name}
-                            name={field.name}
-                            value={field.getValue() ?? ""}
-                            onBlur={field.handleBlur}
-                            onChange={(e) => field.handleChange(e.target.value)}
-                        />
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <div>
-                        <Label>Дата открытия</Label>
-                    </div>
+                    <Label>Статус</Label>
+                    <form.Field name="status">
+                        {(field) => (
+                            <Select
+                                value={field.getValue()}
+                                onValueChange={(value) => {
+                                    field.setValue(value as VacancyStatus);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите статус" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="open">Открыта</SelectItem>
+                                    <SelectItem value="in_progress">В процессе</SelectItem>
+                                    <SelectItem value="found_candidates">Найдены кандидаты</SelectItem>
+                                    <SelectItem value="interview">Собеседование</SelectItem>
+                                    <SelectItem value="closed">Закрыта</SelectItem>
+                                    <SelectItem value="cancelled">Отменена</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+                
+                <div className="space-y-2">
+                    <Label>Номер вакансии</Label>
+                    <form.Field name="applicationNum">
+                        {(field) => (
+                            <Input
+                                id={field.name}
+                                name={field.name}
+                                value={field.getValue() ?? ""}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                            />
+                        )}
+                    </form.Field>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Бренд</Label>
+                    <form.Field name="organizationId">
+                        {(field) => (
+                            <Select
+                                value={changedOrganizationId || ""}
+                                onValueChange={(value) => {
+                                    handleOrganizationChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите бренд">
+                                        {changedOrganizationId ?
+                                            organizationLabelById[changedOrganizationId] :
+                                            "Выберите бренд"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(organizationsData || []).map((org) => (
+                                        <SelectItem key={org.id} value={org.id}>
+                                            {org.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Филиал</Label>
+                    <form.Field name="terminalId">
+                        {(field) => (
+                            <Select
+                                value={changedTerminalId || ""}
+                                onValueChange={(value) => {
+                                    handleTerminalChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите филиал">
+                                        {changedTerminalId ?
+                                            terminalLabelById[changedTerminalId] :
+                                            "Выберите филиал"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(terminalsData || []).map((terminal) => (
+                                        <SelectItem key={terminal.id} value={terminal.id}>
+                                            {terminal.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Должность</Label>
+                    <form.Field name="position">
+                        {(field) => (
+                            <Select
+                                value={changedPositionId || ""}
+                                onValueChange={(value) => {
+                                    handlePositionChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите должность">
+                                        {changedPositionId ?
+                                            positionLabelById[changedPositionId] :
+                                            "Выберите должность"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(positionData || []).map((position) => (
+                                        <SelectItem key={position.id} value={position.id}>
+                                            {position.title}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>График работы</Label>
+                    <form.Field name="work_schedule_id">
+                        {(field) => (
+                            <Select
+                                value={changedWorkScheduleId || ""}
+                                onValueChange={(value) => {
+                                    handleWorkScheduleChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите график работы">
+                                        {changedWorkScheduleId ?
+                                            workSchedulesLabelById[changedWorkScheduleId] :
+                                            "Выберите график работы"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(workSchedulesData || []).map((schedule: WorkSchedule) => (
+                                        <SelectItem key={schedule.id} value={schedule.id}>
+                                            {schedule.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>Причина вакансии</Label>
+                    <form.Field name="reason">
+                        {(field) => (
+                            <Input
+                                id={field.name}
+                                name={field.name}
+                                value={field.getValue() ?? ""}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                            />
+                        )}
+                    </form.Field>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Рекрутер</Label>
+                    <form.Field name="recruiter">
+                        {(field) => (
+                            <Select
+                                value={changedRecruiterId || ""}
+                                onValueChange={(value) => {
+                                    handleRecruiterChange(value);
+                                }}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder="Выберите рекрутера">
+                                        {changedRecruiterId ?
+                                            recruiterLabelById[changedRecruiterId] :
+                                            "Выберите рекрутера"}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {(recruitersData || []).map((user) => (
+                                        <SelectItem key={user.id} value={user.id}>
+                                            {`${user.first_name} ${user.last_name}`}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
+                    </form.Field>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                    <Label>Дата открытия</Label>
                     <form.Field name="openDate">
                         {(field) => (
                             <Popover>
@@ -701,7 +723,7 @@ export default function VacancyForm({
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-[150px] pl-3 text-left font-normal",
+                                            "w-full pl-3 text-left font-normal",
                                             !field.getValue() && "text-muted-foreground"
                                         )}
                                     >
@@ -731,9 +753,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <div>
-                        <Label>Дата закрытия</Label>
-                    </div>
+                    <Label>Дата закрытия</Label>
                     <form.Field name="closingDate">
                         {(field) => (
                             <Popover>
@@ -741,7 +761,7 @@ export default function VacancyForm({
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-[150px] pl-3 text-left font-normal",
+                                            "w-full pl-3 text-left font-normal",
                                             !field.getValue() && "text-muted-foreground"
                                         )}
                                     >
@@ -771,9 +791,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <div>
-                        <Label>Дата стажировки</Label>
-                    </div>
+                    <Label>Дата стажировки</Label>
                     <form.Field name="internship_date">
                         {(field) => (
                             <Popover>
@@ -781,7 +799,7 @@ export default function VacancyForm({
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-[150px] pl-3 text-left font-normal",
+                                            "w-full pl-3 text-left font-normal",
                                             !field.getValue() && "text-muted-foreground"
                                         )}
                                     >
@@ -812,40 +830,7 @@ export default function VacancyForm({
             </div>
 
             <div className="space-y-2">
-                <div>
-                    <Label>Рекрутер</Label>
-                </div>
-                <form.Field name="recruiter">
-                    {(field) => (
-                        <Select
-                            value={changedRecruiterId || ""}
-                            onValueChange={(value) => {
-                                handleRecruiterChange(value);
-                            }}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Выберите рекрутера">
-                                    {changedRecruiterId ?
-                                        recruiterLabelById[changedRecruiterId] :
-                                        "Выберите рекрутера"}
-                                </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent>
-                                {(recruitersData || []).map((user) => (
-                                    <SelectItem key={user.id} value={user.id}>
-                                        {`${user.first_name} ${user.last_name}`}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
-                </form.Field>
-            </div>
-
-            <div className="col-span-2">
-                <div>
-                    <Label>Комментарии</Label>
-                </div>
+                <Label>Комментарии</Label>
                 <form.Field name="comments">
                     {(field) => (
                         <Textarea
@@ -859,10 +844,12 @@ export default function VacancyForm({
                 </form.Field>
             </div>
 
-            <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {recordId ? "Обновить" : "Создать"}
-            </Button>
-        </form >
+            <div className="mt-4">
+                <Button type="submit" disabled={isLoading}>
+                    {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {recordId ? "Обновить" : "Создать"}
+                </Button>
+            </div>
+        </form>
     );
 }

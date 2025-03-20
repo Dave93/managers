@@ -96,11 +96,14 @@ export const vacancyColumns: ColumnDef<any>[] = [
 
       return (
         <div className="flex items-center space-x-2">
-          <VacancyFormSheet recordId={record.id}>
-            <Button variant="secondary" size="sm">
-              <Edit2Icon className="h-4 w-4" />
-            </Button>
-          </VacancyFormSheet>
+          <VacancyFormSheet 
+            recordId={record.id}
+            trigger={
+              <Button variant="secondary" size="sm">
+                <Edit2Icon className="h-4 w-4" />
+              </Button>
+            }
+          />
           <DeleteAction recordId={record.id} />
         </div>
       );
