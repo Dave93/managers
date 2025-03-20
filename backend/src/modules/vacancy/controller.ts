@@ -29,6 +29,7 @@ export const vacancyController = new Elysia({
             reason: vacancy.reason,
             openDate: vacancy.openDate,
             closingDate: vacancy.closingDate,
+            termClosingDate: vacancy.termClosingDate,
             recruiter: vacancy.recruiter,
             recruiterName: users.first_name,
             recruiterLastName: users.last_name,
@@ -123,6 +124,7 @@ export const vacancyController = new Elysia({
                     openDate: t.String(),
                     closingDate: t.Optional(t.String()),
                     recruiter: t.Optional(t.String()),
+                    termClosingDate: t.Optional(t.String()),
                     internshipDate: t.Optional(t.String()),
                     comments: t.Optional(t.String()),
                     status: t.Optional(t.Union([
@@ -170,6 +172,7 @@ export const vacancyController = new Elysia({
                     openDate: t.Optional(t.String()),
                     closingDate: t.Optional(t.String()),
                     recruiter: t.Optional(t.String()),
+                    termClosingDate: t.Optional(t.String()),
                     internshipDate: t.Optional(t.String()),
                     comments: t.Optional(t.String()),
                     status: t.Optional(t.Union([

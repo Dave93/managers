@@ -45,6 +45,7 @@ interface VacancyFormData {
     reason: string;
     openDate: string;
     closingDate?: string;
+    termClosingDate?: string;
     recruiter?: string;
     internship_date?: string;
     comments?: string;
@@ -61,6 +62,7 @@ type VacancyRecord = {
     reason: string;
     openDate: string;
     closingDate?: string;
+    termClosingDate?: string;
     recruiter?: string;
     internshipDate?: string;
     comments?: string;
@@ -144,6 +146,7 @@ export default function VacancyForm({
                     reason: newVacancy.reason,
                     openDate: newVacancy.openDate,
                     closingDate: newVacancy.closingDate,
+                    termClosingDate: newVacancy.termClosingDate,
                     recruiter: newVacancy.recruiter,
                     internshipDate: newVacancy.internship_date,
                     comments: newVacancy.comments,
@@ -174,6 +177,7 @@ export default function VacancyForm({
                     reason: newVacancy.data.reason,
                     openDate: newVacancy.data.openDate,
                     closingDate: newVacancy.data.closingDate,
+                    termClosingDate: newVacancy.data.termClosingDate,
                     recruiter: newVacancy.data.recruiter,
                     internshipDate: newVacancy.data.internship_date,
                     comments: newVacancy.data.comments,
@@ -267,8 +271,9 @@ export default function VacancyForm({
                 reason: record?.reason || "",
                 openDate: record?.openDate || new Date().toISOString(),
                 closingDate: record?.closingDate || undefined,
+                termClosingDate: record?.termClosingDate || undefined,
                 recruiter: record?.recruiter || undefined,
-                internshipDate: record?.internshipDate || undefined,
+                internship_date: record?.internshipDate || undefined,
                 comments: record?.comments || undefined,
                 status: (status === "open" || status === "in_progress" || status === "found_candidates" ||
                     status === "interview" || status === "closed" || status === "cancelled") ? status : "open",
@@ -420,8 +425,9 @@ export default function VacancyForm({
                 reason: record.reason || "",
                 openDate: record.openDate || new Date().toISOString(),
                 closingDate: record.closingDate || undefined,
+                termClosingDate: record.termClosingDate || undefined,
                 recruiter: record.recruiter || undefined,
-                internshipDate: record.internshipDate || undefined,
+                internship_date: record.internshipDate || undefined,
                 comments: record.comments || undefined,
                 status: record.status || "open",
             }).forEach(([key, value]) => {
@@ -717,6 +723,44 @@ export default function VacancyForm({
                 <div className="space-y-2">
                     <Label>Дата открытия</Label>
                     <form.Field name="openDate">
+                        {(field) => (
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !field.getValue() && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.getValue() ? (
+                                            format(new Date(field.getValue() || ''), "PPP")
+                                        ) : (
+                                            <span>Выберите дату</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={field.getValue() ? new Date(field.getValue() || '') : undefined}
+                                        onSelect={(date) => {
+                                            if (date) {
+                                                field.handleChange(date.toISOString());
+                                            }
+                                        }}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
+                        )}
+                    </form.Field>
+                </div>
+
+                <div className="space-y-2">
+                    <Label>Срок закрытия</Label>
+                    <form.Field name="termClosingDate">
                         {(field) => (
                             <Popover>
                                 <PopoverTrigger asChild>
