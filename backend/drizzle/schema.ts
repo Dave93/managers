@@ -923,6 +923,7 @@ export const vacancy = pgTable("vacancy", {
   closingDate: timestamp("closing_date", { withTimezone: true, mode: "string" }),
   recruiter: uuid("recruiter").references(() => users.id),
   internshipDate: timestamp("internship_date", { withTimezone: true, mode: "string" }),
+  termClosingDate: timestamp("term_closing_date", { withTimezone: true, mode: "string" }),
   comments: text("comments"),
   status: vacancyStatusEnumV2('status').default('open'),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "string" })

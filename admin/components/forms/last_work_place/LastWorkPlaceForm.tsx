@@ -268,7 +268,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 }}
                                 captionLayout="dropdown"
                                 defaultMonth={new Date()}
-                                startMonth={new Date(1980, 6)}
+                                startMonth={new Date(1950, 1)}
                                 hideNavigation
                                 components={{
                                     DropdownNav: (props: DropdownNavProps) => {
@@ -336,7 +336,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 }}
                                 captionLayout="dropdown"
                                 defaultMonth={new Date()}
-                                startMonth={new Date(1980, 6)}
+                                startMonth={new Date(1950, 1)}
                                 hideNavigation
                                 components={{
                                     DropdownNav: (props: DropdownNavProps) => {
