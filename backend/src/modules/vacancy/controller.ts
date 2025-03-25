@@ -50,6 +50,8 @@ export const vacancyController = new Elysia({
             });
         }
 
+        
+
         let whereClause: (SQLWrapper | undefined)[] = [];
         if (filters) {
             whereClause = parseFilterFields(filters, vacancy, {
@@ -89,13 +91,28 @@ export const vacancyController = new Elysia({
             total: vacancyCount[0].count,
             data: vacancyList,
         };
-    })
+    },
+        {
+            permission: "vacancy.list",
+            query: t.Object({
+                limit: t.String(),
+                offset: t.String(), 
+                filters: t.Optional(t.String()),
+                fields: t.Optional(t.String()),
+                sort: t.Optional(t.String()),
+            }),
+        })
+  
     
 
     .post("/vacancy", async ({ body: { data }, user, set, drizzle, cacheController }) => {
         const insertData: VacancyInsert = {
             ...data,
             work_schedule_id: data.workScheduleId,
+            openDate: data.openDate ? new Date(new Date(data.openDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : new Date().toISOString(),
+            closingDate: data.closingDate ? new Date(new Date(data.closingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            termClosingDate: data.termClosingDate ? new Date(new Date(data.termClosingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            internshipDate: data.internshipDate ? new Date(new Date(data.internshipDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
             status: data.status as "open" | "in_progress" | "found_candidates" | "interview" | "closed" | "cancelled" | null | undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -142,6 +159,10 @@ export const vacancyController = new Elysia({
         const updateData = {
             ...data,
             work_schedule_id: data.workScheduleId,
+            openDate: data.openDate ? new Date(new Date(data.openDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            closingDate: data.closingDate ? new Date(new Date(data.closingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            termClosingDate: data.termClosingDate ? new Date(new Date(data.termClosingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            internshipDate: data.internshipDate ? new Date(new Date(data.internshipDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
             updatedAt: new Date().toISOString(),
         };
 
@@ -168,7 +189,7 @@ export const vacancyController = new Elysia({
                     terminalId: t.Optional(t.String()),
                     position: t.Optional(t.String()),
                     workScheduleId: t.Optional(t.String()),
-                    reason: t.Optional(t.String()), 
+                    reason: t.Optional(t.String()),
                     openDate: t.Optional(t.String()),
                     closingDate: t.Optional(t.String()),
                     recruiter: t.Optional(t.String()),

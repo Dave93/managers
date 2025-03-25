@@ -199,7 +199,8 @@ export default function CandidateForm({
         queryFn: async () => {
             const response = await apiClient.api.vacancy.get({
                 query: {
-                    limit: '100'
+                    limit: '100',
+                    offset: '0'
                 }
             });
             return response.data;

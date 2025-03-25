@@ -1,11 +1,12 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit2Icon } from "lucide-react";
+import { Edit2Icon, CheckCircle2Icon, CircleIcon, Clock3Icon, UsersIcon, UserCheckIcon, XCircleIcon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import VacancyFormSheet from "@components/forms/vacancy/sheet";
 import { Badge } from "@components/ui/badge";
 import { vacancy } from "@backend/../drizzle/schema";
 import DeleteAction from "./delete-action";
+import { cn } from "@admin/lib/utils";
 
 export const vacancyColumns: ColumnDef<any>[] = [
   {
@@ -24,7 +25,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "terminal",
-    header: "Терминал",
+    header: "Филиал",
     cell: ({ row }) => row.original.terminal || '-'
   },
   {
@@ -43,23 +44,62 @@ export const vacancyColumns: ColumnDef<any>[] = [
       }
 
       const statusMap = {
-        open: { label: "Открыта", variant: "default" as const },
-        in_progress: { label: "В процессе", variant: "secondary" as const },
-        found_candidates: { label: "Найдены кандидаты", variant: "outline" as const },
-        interview: { label: "Собеседование", variant: "secondary" as const },
-        closed: { label: "Закрыта", variant: "default" as const },
-        cancelled: { label: "Отменена", variant: "destructive" as const }
+        open: { 
+          label: "Открыта", 
+          color: "text-green-500 dark:text-green-400",
+          icon: CheckCircle2Icon 
+        },
+        in_progress: { 
+          label: "В процессе", 
+          color: "text-blue-500 dark:text-blue-400",
+          icon: Clock3Icon 
+        },
+        found_candidates: { 
+          label: "Найдены кандидаты", 
+          color: "text-yellow-500 dark:text-yellow-400",
+          icon: UsersIcon 
+        },
+        interview: { 
+          label: "Собеседование", 
+          color: "text-purple-500 dark:text-purple-400",
+          icon: UserCheckIcon 
+        },
+        closed: { 
+          label: "Закрыта", 
+          color: "text-red-500 dark:text-red-400",
+          icon: XCircleIcon 
+        },
+        cancelled: { 
+          label: "Отменена", 
+          color: "text-red-500 dark:text-red-400",
+          icon: XCircleIcon 
+        }
       } as const;
 
       type StatusType = keyof typeof statusMap;
-      const status = statusMap[record.status as StatusType] || { label: record.status, variant: "default" as const };
+      const status = statusMap[record.status as StatusType] || { 
+        label: record.status, 
+        color: "text-gray-500",
+        icon: CircleIcon 
+      };
+
+      const Icon = status.icon;
 
       return (
-        <Badge variant={status.variant}>
+        <Badge
+          variant="outline"
+          className="flex gap-1 px-1.5 text-muted-foreground [&_svg]:size-3"
+        >
+          <Icon className={status.color} />
           {status.label}
         </Badge>
       );
     },
+  },
+  {
+    accessorKey: "reason",
+    header: "Причина открытия",
+    cell: ({ row }) => row.original.reason || '-'
   },
   {
     accessorKey: "recruiter",
@@ -81,6 +121,15 @@ export const vacancyColumns: ColumnDef<any>[] = [
     }
   },
   {
+    accessorKey: "termClosingDate",
+    header: "Срок закрытия",
+    cell: ({ row }) => {
+      const date = row.original.termClosingDate;
+      if (!date) return '-';
+      return new Date(date).toLocaleDateString('ru-RU');
+    }
+  },
+  {
     accessorKey: "closingDate",
     header: "Дата закрытия",
     cell: ({ row }) => {
@@ -89,6 +138,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
       return new Date(date).toLocaleDateString('ru-RU');
     }
   },
+  
   {
     id: "actions",
     cell: ({ row }) => {

@@ -30,10 +30,13 @@ import {
   ChevronRightIcon,
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
+  LetterCaseCapitalizeIcon,
 } from "@radix-ui/react-icons";
 import { vacancy } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useVacancyFiltersStore } from "./filters";
+import dayjs from "dayjs";
 
 interface DataTableProps {
   columns: ColumnDef<any, any>[];
@@ -42,10 +45,77 @@ interface DataTableProps {
 export function DataTable({
   columns,
 }: DataTableProps) {
+
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
   });
+
+  const organizationId = useVacancyFiltersStore((state) => state.organizationId);
+  const positionId = useVacancyFiltersStore((state) => state.positionId);
+  const terminalId = useVacancyFiltersStore((state) => state.terminalId);
+  const workScheduleId = useVacancyFiltersStore((state) => state.workScheduleId);
+  const status = useVacancyFiltersStore((state) => state.status);
+  const date = useVacancyFiltersStore((state) => state.date);
+  
+  const filters = useMemo(() => {
+    let res: {
+      field: string;
+      operator: string;
+      value: string | string[];
+    }[] = [];
+
+    if (organizationId) {
+      res.push({ 
+        field: "organizationId", 
+        operator: "eq", 
+        value: organizationId 
+      });
+    }
+    if (positionId) {
+      res.push({
+        field: "position",
+        operator: "eq",
+        value: positionId
+      });
+    }
+    if (terminalId) {
+      res.push({
+        field: "terminalId",
+        operator: "eq",
+        value: terminalId
+      });
+    }
+    if (workScheduleId) {   
+      res.push({
+        field: "work_schedule_id",
+        operator: "eq",
+        value: workScheduleId
+      });
+    }
+    if (status) {
+      res.push({
+        field: "status",
+        operator: "eq",
+        value: status
+      });
+    }
+    if (date?.from) {
+      res.push({
+        field: "openDate",
+        operator: "gte",
+        value: dayjs(date.from).startOf("day").toISOString(),
+      });
+    }
+    if (date?.to) {
+      res.push({
+        field: "openDate",
+        operator: "lt",
+        value: dayjs(date.to).add(1, "day").startOf("day").toISOString(),
+      });
+    } 
+    return res;
+  }, [organizationId, positionId, terminalId, workScheduleId, status, date]);
 
   const { data, isLoading } = useQuery({
     queryKey: [
@@ -53,6 +123,7 @@ export function DataTable({
       {
         limit: pageSize,
         offset: pageIndex * pageSize,
+        filters: JSON.stringify(filters),
       },
     ],
     queryFn: async () => {
@@ -60,15 +131,16 @@ export function DataTable({
         query: {
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
+          filters: JSON.stringify(filters),
         },
       });
-      console.log('API Response:', data);
+      // console.log('API Response:', data);
       return data;
     },
     refetchOnWindowFocus: true,
   });
 
-  console.log('Table Data:', data?.data);
+  // console.log('Table Data:', data?.data);
 
   const defaultData = useMemo(() => [], []);
 

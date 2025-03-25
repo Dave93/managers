@@ -3,8 +3,8 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon, Check } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Label } from "@components/ui/label";
-import { Input } from "@components/ui/input";
+import { Label } from "@admin/components/ui/label";
+import { Input } from "@admin/components/ui/input";
 import { vacancy, work_schedules } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -14,13 +14,14 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from "@components/ui/select";
-import { Textarea } from "@components/ui/textarea";
-import { Badge } from "@components/ui/badge";
+} from "@admin/components/ui/select";
+import { Textarea } from "@admin/components/ui/textarea";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
-import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import { cn } from "@admin/lib/utils";
+import { useSession } from "next-auth/react";
+
 
 type VacancyStatus = "open" | "in_progress" | "found_candidates" | "interview" | "closed" | "cancelled";
 
@@ -144,11 +145,11 @@ export default function VacancyForm({
                     position: newVacancy.position,
                     workScheduleId: newVacancy.work_schedule_id,
                     reason: newVacancy.reason,
-                    openDate: newVacancy.openDate,
-                    closingDate: newVacancy.closingDate,
-                    termClosingDate: newVacancy.termClosingDate,
+                    openDate: new Date(newVacancy.openDate).toISOString(),
+                    closingDate: newVacancy.closingDate ? new Date(newVacancy.closingDate).toISOString() : undefined,
+                    termClosingDate: newVacancy.termClosingDate ? new Date(newVacancy.termClosingDate).toISOString() : undefined,
                     recruiter: newVacancy.recruiter,
-                    internshipDate: newVacancy.internship_date,
+                    internshipDate: newVacancy.internship_date ? new Date(newVacancy.internship_date).toISOString() : undefined,
                     comments: newVacancy.comments,
                     status: newVacancy.status || "open"
                 };
@@ -208,9 +209,11 @@ export default function VacancyForm({
                     if (recordId) {
                         const response = await apiClient.api.vacancy.get({
                             query: {
+                                limit: "1",
+                                offset: "0",
                                 filters: JSON.stringify([{
                                     field: "id",
-                                    operator: "=",
+                                    operator: "eq",
                                     value: recordId
                                 }])
                             }
@@ -747,7 +750,8 @@ export default function VacancyForm({
                                         selected={field.getValue() ? new Date(field.getValue() || '') : undefined}
                                         onSelect={(date) => {
                                             if (date) {
-                                                field.handleChange(date.toISOString());
+                                                const localDate = new Date(date.setHours(0, 0, 0, 0));
+                                                field.handleChange(localDate.toISOString());
                                             }
                                         }}
                                         initialFocus
@@ -785,7 +789,8 @@ export default function VacancyForm({
                                         selected={field.getValue() ? new Date(field.getValue() || '') : undefined}
                                         onSelect={(date) => {
                                             if (date) {
-                                                field.handleChange(date.toISOString());
+                                                const localDate = new Date(date.setHours(0, 0, 0, 0));
+                                                field.handleChange(localDate.toISOString());
                                             }
                                         }}
                                         initialFocus
@@ -823,7 +828,8 @@ export default function VacancyForm({
                                         selected={field.getValue() ? new Date(field.getValue() || '') : undefined}
                                         onSelect={(date) => {
                                             if (date) {
-                                                field.handleChange(date.toISOString());
+                                                const localDate = new Date(date.setHours(0, 0, 0, 0));
+                                                field.handleChange(localDate.toISOString());
                                             }
                                         }}
                                         initialFocus
@@ -861,7 +867,8 @@ export default function VacancyForm({
                                         selected={field.getValue() ? new Date(field.getValue() || '') : undefined}
                                         onSelect={(date) => {
                                             if (date) {
-                                                field.handleChange(date.toISOString());
+                                                const localDate = new Date(date.setHours(0, 0, 0, 0));
+                                                field.handleChange(localDate.toISOString());
                                             }
                                         }}
                                         initialFocus

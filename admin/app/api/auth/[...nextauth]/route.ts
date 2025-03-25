@@ -40,7 +40,6 @@ const handler = NextAuth({
               break;
             }
           }
-
           return {
             id: user.user.id,
             name: `${user.user.first_name} ${user.user.last_name}`,
@@ -68,10 +67,13 @@ const handler = NextAuth({
       session.sessionCookie = token.sessionCookie;
       return session;
     },
+    
+    
   },
   pages: {
     signIn: "/login",
   },
 });
+
 
 export { handler as GET, handler as POST };

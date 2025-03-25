@@ -1,13 +1,12 @@
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/buttonOrigin";
-
 import { useMemo, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
-import { Label } from "@components/ui/label";
-import { Input } from "@components/ui/input";
+import { Label } from "@admin/components/ui/label";
+import { Input } from "@admin/components/ui/input";
 import { useCallback, useState } from "react";
-import { Badge } from "@components/ui/badge";
+import { Badge } from "@admin/components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
@@ -18,7 +17,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@components/ui/select";
+} from "@admin/components/ui/select";
 import {
   Command,
   CommandEmpty,
@@ -26,15 +25,15 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from "@components/ui/command";
+} from "@admin/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@components/ui/popover";
+} from "@admin/components/ui/popover";
 import { Check, ChevronsUpDown, X } from "lucide-react";
 import { cn } from "@admin/lib/utils";
-import { ScrollArea } from "@components/ui/scroll-area";
+import { ScrollArea } from "@admin/components/ui/scroll-area";
 
 export default function UsersForm({
   setOpen,

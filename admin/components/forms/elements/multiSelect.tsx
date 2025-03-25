@@ -10,13 +10,13 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
-} from "@components/ui/command";
+  CommandList
+} from "@admin/components/ui/command";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@components/ui/popover";
-import { CommandList } from "cmdk";
+} from "@admin/components/ui/popover";
 
 interface IMiltuSelectData {
   value: string;
