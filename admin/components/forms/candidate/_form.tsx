@@ -1068,6 +1068,20 @@ export default function CandidateForm({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+                    <Label>Серия паспорта</Label>
+                    <form.Field name="passportSeries">
+                        {(field) => (
+                            <Input
+                                id={field.name}
+                                name={field.name}
+                                value={field.getValue() ?? ""}
+                                onBlur={field.handleBlur}
+                                onChange={(e) => field.handleChange(e.target.value)}
+                            />
+                        )}
+                    </form.Field>
+                </div>
                 <div className="space-y-2">
                     <Label>Номер паспорта</Label>
                     <form.Field name="passportNumber">
@@ -1082,22 +1096,7 @@ export default function CandidateForm({
                         )}
                     </form.Field>
                 </div>
-                <div className="space-y-2">
-                    <Label>Серия паспорта</Label>
-                    <form.Field name="passportSeries">
-                        {(field) => (
-                            <Input
-                                id={field.name}
-                                name={field.name}
-                                value={field.getValue() ?? ""}
-                                onBlur={field.handleBlur}
-                                onChange={(e) => field.handleChange(e.target.value)}
-                            />
-                        )}
-                    </form.Field>
-                </div>
             </div>
-
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <Label>Дата выдачи паспорта</Label>

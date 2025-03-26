@@ -297,6 +297,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 captionLayout="dropdown"
                                 defaultMonth={new Date()}
                                 startMonth={new Date(1950, 1)}
+                                endMonth={new Date(2040, 11)}
                                 hideNavigation
                                 components={{
                                     DropdownNav: (props: DropdownNavProps) => {
