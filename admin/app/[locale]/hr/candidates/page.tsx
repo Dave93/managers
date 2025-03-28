@@ -2,7 +2,7 @@
 
 import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { CalendarIcon, Plus, Download } from "lucide-react";
+import { CalendarIcon, Plus, Download, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "./data-table";
 import { candidateColumns } from "./columns";
@@ -18,9 +18,10 @@ import { SelectContent, SelectValue, SelectItem, SelectTrigger, Select } from "@
 import { Calendar } from "@admin/components/ui/calendar";
 import type { DropdownNavProps, DropdownProps } from "react-day-picker"
 import { parseZonedDateTime } from "@internationalized/date";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
+import { Badge } from "@admin/components/ui/badge";
 
 // export const metadata: Metadata = {
 //     title: "Candidates",
@@ -30,6 +31,43 @@ import { saveAs } from 'file-saver';
 export default function CandidatesListPage() {
     const searchParams = useSearchParams();
     const vacancyId = searchParams.get('vacancyId') || '';
+    const [vacancyInfo, setVacancyInfo] = useState<{
+        applicationNum?: string;
+        position?: string;
+    } | null>(null);
+
+    // Fetch vacancy information when vacancyId is provided
+    useEffect(() => {
+        const getVacancyInfo = async () => {
+            if (!vacancyId) {
+                setVacancyInfo(null);
+                return;
+            }
+
+            try {
+                const { data } = await apiClient.api.vacancy.get({
+                    query: {
+                        limit: "1",
+                        offset: "0",
+                        filters: JSON.stringify([
+                            { field: "id", operator: "eq", value: vacancyId }
+                        ])
+                    }
+                });
+
+                if (data?.data?.[0]) {
+                    setVacancyInfo({
+                        applicationNum: data.data[0].applicationNum as string,
+                        position: data.data[0].positionTitle as string,
+                    });
+                }
+            } catch (error) {
+                console.error("Error fetching vacancy info:", error);
+            }
+        };
+
+        getVacancyInfo();
+    }, [vacancyId]);
 
     const handleSubmit = async () => {
         toast.success("Список кандидатов обновлен");
@@ -112,9 +150,26 @@ export default function CandidatesListPage() {
     return (
         <div>
             <div className="flex justify-between">
-                <h1 className="text-3xl font-bold tracking-tight">
-                    Анкета
-                </h1>
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        Анкета
+                    </h1>
+                    {vacancyInfo && (
+                        <div className="mt-2 flex items-center gap-2">
+                            <Link 
+                                href="/hr/vacancy"
+                                className="text-sm text-muted-foreground flex items-center hover:text-primary"
+                            >
+                                <ArrowLeft className="h-4 w-4 mr-1" />
+                                Вернуться к вакансиям
+                            </Link>
+                            <span className="text-sm text-muted-foreground">|</span>
+                            <Badge variant="outline" className="text-sm">
+                                Вакансия: {vacancyInfo.applicationNum} - {vacancyInfo.position}
+                            </Badge>
+                        </div>
+                    )}
+                </div>
                 <div className="flex items-center space-x-2">
                     <Button
                         variant="outline"
@@ -132,7 +187,7 @@ export default function CandidatesListPage() {
                 </div>
             </div>
             <div className="py-10">
-                <DataTable columns={candidateColumns} />
+                <DataTable columns={candidateColumns} vacancyId={vacancyId} />
             </div>
         </div>
     );

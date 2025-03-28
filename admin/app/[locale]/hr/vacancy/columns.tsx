@@ -7,6 +7,7 @@ import { Badge } from "@components/ui/badge";
 import { vacancy } from "@backend/../drizzle/schema";
 import DeleteAction from "./delete-action";
 import { cn } from "@admin/lib/utils";
+import { CandidatesSheet } from "./candidates-sheet";
 
 export const vacancyColumns: ColumnDef<any>[] = [
   {
@@ -32,6 +33,21 @@ export const vacancyColumns: ColumnDef<any>[] = [
     accessorKey: "workSchedule",
     header: "График работы",
     cell: ({ row }) => row.original.workSchedule || '-'
+  },
+  {
+    accessorKey: "candidatesCount",
+    header: "Кандидаты",
+    cell: ({ row }) => {
+      const count = row.original.candidatesCount || 0;
+      const vacancyTitle = `${row.original.applicationNum} - ${row.original.positionTitle}`;
+      return (
+        <CandidatesSheet 
+          vacancyId={row.original.id}
+          vacancyTitle={vacancyTitle}
+          candidatesCount={count}
+        />
+      );
+    }
   },
   {
     accessorKey: "status",

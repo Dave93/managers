@@ -42,15 +42,25 @@ import { useQuery } from "@tanstack/react-query";
 
 interface DataTableProps<TValue> {
     columns: ColumnDef<typeof candidates.$inferSelect, TValue>[];
+    vacancyId?: string;
 }
 
 export function DataTable<TValue>({
     columns,
+    vacancyId,
 }: DataTableProps<TValue>) {
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 10,
     });
+
+    // Create filters based on vacancyId if provided
+    const filters = useMemo(() => {
+        if (!vacancyId) return undefined;
+        return JSON.stringify([
+            { field: "vacancyId", operator: "eq", value: vacancyId }
+        ]);
+    }, [vacancyId]);
 
     const { data, isLoading } = useQuery({
         queryKey: [
@@ -58,14 +68,22 @@ export function DataTable<TValue>({
             {
                 limit: pageSize,
                 offset: pageIndex * pageSize,
+                ...(filters && { filters }),
             },
         ],
         queryFn: async () => {
+            const queryParams: Record<string, string> = {
+                limit: pageSize.toString(),
+                offset: (pageIndex * pageSize).toString(),
+            };
+            
+            // Only add filters if it's defined
+            if (filters) {
+                queryParams.filters = filters;
+            }
+            
             const { data } = await apiClient.api.candidates.get({
-                query: {
-                    limit: pageSize.toString(),
-                    offset: (pageIndex * pageSize).toString(),
-                },
+                query: queryParams,
             });
             return data;
         },
@@ -86,7 +104,7 @@ export function DataTable<TValue>({
         // @ts-ignore
         columns: columns as ColumnDef<{ [x: string]: unknown; }, TValue>[],
         // @ts-ignore
-        pageCount: data?.total ? Math.ceil(data!.total! / pageSize) : -1,
+        pageCount: data?.meta?.total ? Math.ceil(data.meta.total / pageSize) : -1,
         state: {
             pagination,
         },

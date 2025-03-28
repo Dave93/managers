@@ -122,48 +122,50 @@ export const VacancyFilters = () => {
     console.log("positionId", positionId);
 
     return (
-        <div>
-            <div className="gap-4 flex">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button
-                            id="date"
-                            variant="outline"
-                            className={cn(
-                                "w-[240px] justify-start text-left font-normal",
-                                !date && "text-muted-foreground"
-                            )}
-                        >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {date?.from ? (
-                                date.to ? (
-                                    <>
-                                        {format(date.from, "dd.MM.yyyy")} -{" "}
-                                        {format(date.to, "dd.MM.yyyy")}
-                                    </>
+        <div className="w-full px-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                <div className="w-full">
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button
+                                id="date"
+                                variant="outline"
+                                className={cn(
+                                    "w-full justify-start text-left font-normal",
+                                    !date && "text-muted-foreground"
+                                )}
+                            >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {date?.from ? (
+                                    date.to ? (
+                                        <>
+                                            {format(date.from, "dd.MM.yyyy")} -{" "}
+                                            {format(date.to, "dd.MM.yyyy")}
+                                        </>
+                                    ) : (
+                                        format(date.from, "dd.MM.yyyy")
+                                    )
                                 ) : (
-                                    format(date.from, "dd.MM.yyyy")
-                                )
-                            ) : (
-                                <span>Выберите дату</span>
-                            )}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                            initialFocus
-                            mode="range"
-                            defaultMonth={date?.from}
-                            selected={date}
-                            onSelect={setDate}
-                            numberOfMonths={2}
-                        />
-                    </PopoverContent>
-                </Popover>
+                                    <span>Выберите дату</span>
+                                )}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar
+                                initialFocus
+                                mode="range"
+                                defaultMonth={date?.from}
+                                selected={date}
+                                onSelect={setDate}
+                                numberOfMonths={2}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
 
-                <div>
+                <div className="w-full">
                     <Select value={organizationId} onValueChange={handleOrganizationChange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите бренд" />
                         </SelectTrigger>
                         <SelectContent>
@@ -179,12 +181,12 @@ export const VacancyFilters = () => {
                     </Select>
                 </div>
                 
-                <div>
+                <div className="w-full">
                     <Select 
                         value={positionId} 
                         onValueChange={handlePositionChange}
                     >
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите должность" />
                         </SelectTrigger>
                         <SelectContent>
@@ -200,9 +202,9 @@ export const VacancyFilters = () => {
                     </Select>
                 </div>
 
-                <div>
+                <div className="w-full">
                     <Select value={terminalId} onValueChange={handleTerminalChange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите филиал" />
                         </SelectTrigger>
                         <SelectContent>
@@ -218,9 +220,9 @@ export const VacancyFilters = () => {
                     </Select>   
                 </div>
 
-                <div>
+                <div className="w-full">
                     <Select value={workScheduleId} onValueChange={handleWorkScheduleChange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите график работы" />
                         </SelectTrigger>
                         <SelectContent>
@@ -236,9 +238,9 @@ export const VacancyFilters = () => {
                     </Select>
                 </div>
 
-                <div>
+                <div className="w-full">
                     <Select value={status} onValueChange={handleStatusChange}>
-                        <SelectTrigger>
+                        <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите статус" />
                         </SelectTrigger>
                         <SelectContent>

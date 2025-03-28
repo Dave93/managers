@@ -1,6 +1,6 @@
 import Elysia, { t } from "elysia";
 import { ctx } from "@backend/context";
-import { organization, positions, terminals, users, vacancy, work_schedules } from "backend/drizzle/schema";
+import { organization, positions, terminals, users, vacancy, work_schedules, candidates } from "backend/drizzle/schema";
 import { and, eq, InferSelectModel, sql, SQLWrapper } from "drizzle-orm";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import { SelectedFields } from "drizzle-orm/pg-core";
@@ -38,6 +38,7 @@ export const vacancyController = new Elysia({
             status: vacancy.status,
             createdAt: vacancy.createdAt,
             updatedAt: vacancy.updatedAt,
+            candidatesCount: sql<number>`(SELECT COUNT(*) FROM candidates WHERE candidates.vacancy_id = ${vacancy.id})`,
         };
 
         if (fields) {

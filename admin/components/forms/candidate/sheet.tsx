@@ -52,10 +52,10 @@ export function CandidateSheet({
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader className="mb-5">
                     <SheetTitle>
-                        {recordId ? "Редактировать должность" : "Создать1 должность"}
+                        {recordId ? "Редактировать кандидата" : "Создать кандидата"}
                     </SheetTitle>
                     <SheetDescription>
-                        Заполните форму ниже для {recordId ? "редактирования" : "создания"} должности
+                        Заполните форму ниже для {recordId ? "редактирования" : "создания"} кандидата
                     </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6">
