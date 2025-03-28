@@ -110,10 +110,10 @@ export const vacancyController = new Elysia({
         const insertData: VacancyInsert = {
             ...data,
             work_schedule_id: data.workScheduleId,
-            openDate: data.openDate ? new Date(new Date(data.openDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : new Date().toISOString(),
-            closingDate: data.closingDate ? new Date(new Date(data.closingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
-            termClosingDate: data.termClosingDate ? new Date(new Date(data.termClosingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
-            internshipDate: data.internshipDate ? new Date(new Date(data.internshipDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            openDate: data.openDate ? new Date(data.openDate).toISOString() : new Date().toISOString(),
+            closingDate: data.closingDate ? new Date(data.closingDate).toISOString() : undefined,
+            termClosingDate: data.termClosingDate ? new Date(data.termClosingDate).toISOString() : undefined,
+            internshipDate: data.internshipDate ? new Date(data.internshipDate).toISOString() : undefined,
             status: data.status as "open" | "in_progress" | "found_candidates" | "interview" | "closed" | "cancelled" | null | undefined,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -160,10 +160,10 @@ export const vacancyController = new Elysia({
         const updateData = {
             ...data,
             work_schedule_id: data.workScheduleId,
-            openDate: data.openDate ? new Date(new Date(data.openDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
-            closingDate: data.closingDate ? new Date(new Date(data.closingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
-            termClosingDate: data.termClosingDate ? new Date(new Date(data.termClosingDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
-            internshipDate: data.internshipDate ? new Date(new Date(data.internshipDate).getTime() - 5 * 60 * 60 * 1000).toISOString() : undefined,
+            openDate: data.openDate ? new Date(data.openDate).toISOString() : undefined,
+            closingDate: data.closingDate ? new Date(data.closingDate).toISOString() : undefined,
+            termClosingDate: data.termClosingDate ? new Date(data.termClosingDate).toISOString() : undefined,
+            internshipDate: data.internshipDate ? new Date(data.internshipDate).toISOString() : undefined,
             updatedAt: new Date().toISOString(),
         };
 
