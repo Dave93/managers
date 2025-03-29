@@ -692,7 +692,7 @@ export default function VacancyForm({
                     </form.Field>
                 </div>
 
-                <div className="space-y-2">
+                {/* <div className="space-y-2">
                     <Label>Рекрутер</Label>
                     <form.Field name="recruiter">
                         {(field) => (
@@ -719,7 +719,7 @@ export default function VacancyForm({
                             </Select>
                         )}
                     </form.Field>
-                </div>
+                </div> */}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

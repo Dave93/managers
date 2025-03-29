@@ -116,10 +116,10 @@ export const VacancyFilters = () => {
 
     // Отладочные логи для отслеживания состояния
     useEffect(() => {
-        console.log("Current positionId:", positionId);
+        // console.log("Current positionId:", positionId);
     }, [positionId]);
 
-    console.log("positionId", positionId);
+    // console.log("positionId", positionId);
 
     return (
         <div className="w-full px-4">
@@ -134,8 +134,9 @@ export const VacancyFilters = () => {
                                     "w-full justify-start text-left font-normal",
                                     !date && "text-muted-foreground"
                                 )}
+                                size="sx"
                             >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="h-4 w-4" />
                                 {date?.from ? (
                                     date.to ? (
                                         <>
@@ -164,7 +165,7 @@ export const VacancyFilters = () => {
                 </div>
 
                 <div className="w-full">
-                    <Select value={organizationId} onValueChange={handleOrganizationChange}>
+                    <Select  value={organizationId} onValueChange={handleOrganizationChange}>
                         <SelectTrigger className="w-full">
                             <SelectValue placeholder="Выберите бренд" />
                         </SelectTrigger>
