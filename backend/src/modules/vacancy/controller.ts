@@ -51,7 +51,6 @@ export const vacancyController = new Elysia({
             });
         }
 
-        
 
         let whereClause: (SQLWrapper | undefined)[] = [];
         if (filters) {
@@ -121,7 +120,7 @@ export const vacancyController = new Elysia({
 
         const vacancys = await drizzle
             .insert(vacancy)
-            .values(insertData)
+            .values({ ...insertData, recruiter: user?.user.id })
             .execute();
 
         await cacheController.cachePermissions();
@@ -141,7 +140,7 @@ export const vacancyController = new Elysia({
                     reason: t.String(),
                     openDate: t.String(),
                     closingDate: t.Optional(t.String()),
-                    recruiter: t.Optional(t.String()),
+                    // recruiter: t.Optional(t.String()),
                     termClosingDate: t.Optional(t.String()),
                     internshipDate: t.Optional(t.String()),
                     comments: t.Optional(t.String()),
