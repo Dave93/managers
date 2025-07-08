@@ -49,7 +49,7 @@ export const usersController = new Elysia({
       set,
       cacheController,
       drizzle,
-      cookie: { sessionId, refreshToken },
+      cookie,
     }) => {
       const userPasswords = (
         await drizzle
@@ -104,14 +104,22 @@ export const usersController = new Elysia({
         ...result
       } = res;
 
-      sessionId.value = generatedSessionId;
-      sessionId.expires = dayjs()
-        .add(+process.env.SESSION_EXPIRES_IN!, "seconds")
-        .toDate();
-      refreshToken.value = generatedRefreshToken;
-      refreshToken.expires = dayjs()
-        .add(+process.env.REFRESH_TOKEN_EXPIRES_IN!, "seconds")
-        .toDate();
+      cookie.sessionId.value = generatedSessionId;
+      cookie.refreshToken.value = generatedRefreshToken;
+
+      if (process.env.ENV == "development") {
+        cookie.sessionId.domain = "localhost";
+        cookie.refreshToken.domain = "localhost";
+        cookie.sessionId.sameSite = "lax"; // или "none" с secure: true
+        cookie.refreshToken.sameSite = "lax";
+    } else {
+        // Use .arryt.uz as the domain to make cookies work across all subdomains
+        cookie.sessionId.domain = "lesailes.uz";
+        cookie.refreshToken.domain = "lesailes.uz";
+        cookie.sessionId.sameSite = "lax"; // или "none" с secure: true
+        cookie.refreshToken.sameSite = "lax";
+    }
+
       return result;
     },
     {
@@ -348,7 +356,23 @@ export const usersController = new Elysia({
       }),
     }
   )
-  .get("/users/my_permissions", async ({ user, set, cacheController }) => {
+  .get("/users/me", async ({
+    user,
+    role,
+    status
+  }) => {
+    if (!user) {
+      return status(401, "Unauthorized");
+    }
+
+    return {
+      user,
+      role,
+    };
+  }, {
+    userAuth: true
+  })
+  .get("/users/my_permissions", async ({ user, role, set, cacheController }) => {
     if (!user) {
       set.status = 401;
       return {
@@ -357,11 +381,42 @@ export const usersController = new Elysia({
     }
 
     const permissions = await cacheController.getPermissionsByRoleId(
-      user.role.id
+      role.id
     );
 
     return { permissions };
-  })
+  },
+  {
+    userAuth: true
+  }
+).post("/users/logout", async ({
+  cookie,
+  cacheController,
+  error
+}) => {
+
+  if (cookie.sessionId.value && cookie.refreshToken.value) {
+      await cacheController.deleteUserDataByToken(cookie.sessionId.value);
+      await cacheController.deleteUserDataByToken(cookie.refreshToken.value);
+  }
+
+  delete cookie.sessionId.value;
+  delete cookie.refreshToken.value;
+  
+  if (process.env.ENV === "development") {
+      cookie.sessionId.domain = "localhost";
+      cookie.refreshToken.domain = "localhost";
+  } else {
+      cookie.sessionId.domain = "arryt.uz";
+      cookie.refreshToken.domain = "arryt.uz";
+  }
+
+  return {
+      message: "Logged out successfully"
+  };
+}, {
+  userAuth: true
+})
   .get(
     "/users/:id",
     async ({
@@ -394,9 +449,9 @@ export const usersController = new Elysia({
     const usersList = await cacheController.getCachedUsers({});
     return usersList;
   },
-  {
-    permission: "users.list",
-  })
+    {
+      permission: "users.list",
+    })
   .post(
     "/users",
     //@ts-ignore

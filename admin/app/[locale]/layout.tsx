@@ -1,10 +1,6 @@
 import React from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
-import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
-import { headers } from 'next/headers';
-import LoginRedirect from "./login_redirect";
 
 type Props = {
     children: React.ReactNode;
@@ -20,7 +16,6 @@ export default async function LocaleLayout({ children, params }: Props) {
 
     return (
         <>
-            <LoginRedirect />
             <NextIntlClientProvider
                 locale={locale}
                 messages={messages}

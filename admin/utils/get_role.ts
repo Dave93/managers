@@ -1,11 +1,12 @@
 "use client";
-import { useSession } from "next-auth/react";
+import { apiClient } from "./eden";
+import { useAuth } from "../components/useAuth";
 
 export const useGetRole = (): string | null | undefined => {
-  const { data: session } = useSession();
+  const { user } = useAuth();
 
-  if (session) {
-    const role = session.role;
+  if (user) {
+    const role = user.role;
 
     if (role) {
       return role.code;

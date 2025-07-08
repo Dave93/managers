@@ -4,9 +4,9 @@ import React, { StrictMode } from "react";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import MainLayout from "@admin/components/layout/main-layout";
-import SessionLocalProvider from "@admin/store/session-provider";
 import { NextUIProviders } from "@admin/components/layout/providers";
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { Providers } from "@admin/store/provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,11 +25,11 @@ export default function RootLayout({ children }: Props) {
       <body className={inter.className}>
         <StrictMode>
           <NextUIProviders>
-            <SessionLocalProvider>
-              <NuqsAdapter>
+            <NuqsAdapter>
+              <Providers>
                 <MainLayout>{children}</MainLayout>
-              </NuqsAdapter>
-            </SessionLocalProvider>
+              </Providers>
+            </NuqsAdapter>
           </NextUIProviders>
         </StrictMode>
       </body>

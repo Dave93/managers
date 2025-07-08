@@ -29,45 +29,53 @@ export const ctx = new Elysia({
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     })
   )
-  .derive(async ({ redis, cookie: { sessionId } }) => {
-    const sessionIdValue = sessionId.value;
-    console.log("sessionIdValue", sessionIdValue);
-    if (!sessionIdValue) {
-      return {
-        user: null,
-      };
-    }
+  // .derive(async ({ redis, cookie: { sessionId } }) => {
+  //   const sessionIdValue = sessionId.value;
+  //   console.log("sessionIdValue", sessionIdValue);
+  //   if (!sessionIdValue) {
+  //     return {
+  //       user: null,
+  //     };
+  //   }
 
-    try {
-      let cachedUser = await redis.get(
-        `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
-      );
-      return {
-        user: cachedUser
-          ? (JSON.parse(cachedUser) as {
-            user: typeof users.$inferSelect;
-            role: {
-              id: string;
-              name: string;
-              code: string;
-            };
-            terminals: string[];
-          })
-          : null,
-      };
-    } catch (error) {
-      console.log("error", error);
-      return {
-        user: null,
-      };
-    }
-  })
-  .macro(({ onBeforeHandle }) => ({
+  //   try {
+  //     let cachedUser = await redis.get(
+  //       `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+  //     );
+  //     return {
+  //       user: cachedUser
+  //         ? (JSON.parse(cachedUser) as {
+  //           user: typeof users.$inferSelect;
+  //           role: {
+  //             id: string;
+  //             name: string;
+  //             code: string;
+  //           };
+  //           terminals: string[];
+  //         })
+  //         : null,
+  //     };
+  //   } catch (error) {
+  //     console.log("error", error);
+  //     return {
+  //       user: null,
+  //     };
+  //   }
+  // })
+  .macro({
+
     permission(permission: string) {
-      if (!permission) return;
-      onBeforeHandle(
-        async ({
-          user,
+      if (!permission) {
+
+        return {
+          resolve: () => ({
+            user: null
+          })
+        };
+      }
+
+      return {
+        beforeHandle: async ({
           redis,
           error,
           cacheController,
@@ -142,8 +150,83 @@ export const ctx = new Elysia({
               message: "You don't have permissions",
             });
           }
-        }
-      );
+        },
+        resolve: async ({
+          redis,
+          cookie: { sessionId, refreshToken },
+        }) => {
+          const sessionIdValue = sessionId.value;
+          const refreshTokenValue = refreshToken.value;
+          if (!sessionId.value) {
+            return { user: null };
+          }
+
+          let cachedUser = await redis.get(
+            `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+          );
+
+          if (!cachedUser) {
+            return { user: null };
+          }
+
+          const { user: localUser } = JSON.parse(cachedUser!) as {
+            user: typeof users.$inferSelect;
+            role: {
+              id: string;
+              name: string;
+              code: string;
+            };
+            terminals: string[];
+          };
+
+          return { user: localUser };
+        },
+      }
     },
-  }))
+    userAuth(enabled: boolean) {
+      if (!enabled) {
+        return {
+          resolve: () => ({
+            user: null,
+            role: null,
+            terminals: [],
+          }),
+        };
+      }
+
+      return {
+        resolve: async ({
+          redis,
+          cookie: { sessionId, refreshToken },
+        }) => {
+
+          const sessionIdValue = sessionId.value;
+          const refreshTokenValue = refreshToken.value;
+          if (!sessionId.value) {
+            return { user: null, role: null, terminals: [] };
+          }
+
+          let cachedUser = await redis.get(
+            `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
+          );
+
+          if (!cachedUser) {
+            return { user: null, role: null, terminals: [] };
+          }
+
+          const { user: localUser, role, terminals } = JSON.parse(cachedUser!) as {
+            user: typeof users.$inferSelect;
+            role: {
+              id: string;
+              name: string;
+              code: string;
+            };
+            terminals: string[];
+          };
+
+          return { user: localUser, role, terminals };
+        }
+      };
+    },
+  })
   .as("global");

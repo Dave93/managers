@@ -1,5 +1,5 @@
 import { treaty, edenFetch } from "@elysiajs/eden";
-import type { App } from "@backend/app";
+import type { App } from "../../backend/src/app";
 
 console.log("process.env.APP_API_URL", process.env.TRPC_API_URL);
 //@ts-ignore

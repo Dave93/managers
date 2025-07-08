@@ -13,8 +13,8 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const roleCode = useGetRole();
+  console.log("roleCode", roleCode);
   return (
-    <Providers>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
         {roleCode && roleCode !== "manager" && (
           <AdminLayout>{children}</AdminLayout>
@@ -33,6 +33,5 @@ export default function MainLayout({
         )}
         <Toaster />
       </ThemeProvider>
-    </Providers>
   );
 }

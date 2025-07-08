@@ -5,17 +5,18 @@ import { redirect } from "next/navigation";
 import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@admin/components/useAuth";
 
 export default function Home() {
   const roleCode = useGetRole();
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    if (!session && !pathname.includes('/login')) {
+    if (!user && !loading && !pathname.includes('/login')) {
       return redirect('/login');
     }
-  }, [session, pathname]);
+  }, [user, loading, pathname]);
   return (
     <>
       {["manager"].includes(roleCode!) && (

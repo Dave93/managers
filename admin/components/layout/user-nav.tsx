@@ -11,10 +11,10 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "@components/ui/dropdown-menu";
-import { useSession, signIn, signOut } from "next-auth/react";
+import { useAuth } from "../useAuth";
 
 export function UserNav() {
-  const { data: session } = useSession();
+  const { user, signOut } = useAuth();
   return (
     <DropdownMenu>
       <DropdownMenuTrigger className="relative h-8 w-8 rounded-full">
@@ -27,7 +27,7 @@ export function UserNav() {
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             {/*@ts-ignore*/}
-            <p className="text-sm font-medium leading-none">{session?.login}</p>
+            <p className="text-sm font-medium leading-none">{user?.login}</p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -47,9 +47,7 @@ export function UserNav() {
           <DropdownMenuItem>New Team</DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => signOut({
-          callbackUrl: '/login'
-        })}>Log out</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => signOut()}>Log out</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
