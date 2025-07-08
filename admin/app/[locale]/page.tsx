@@ -13,7 +13,9 @@ export default function Home() {
   const { user, loading } = useAuth();
 
   useEffect(() => {
+    console.log("Home page auth state:", { user, loading, pathname });
     if (!user && !loading && !pathname.includes('/login')) {
+      console.log("Redirecting to login from home page");
       return redirect('/login');
     }
   }, [user, loading, pathname]);

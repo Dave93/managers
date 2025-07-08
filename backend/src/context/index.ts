@@ -35,9 +35,7 @@ export const ctx = new Elysia({
   .decorate("drizzle", drizzleDb)
   .decorate("cacheController", cacheControlService)
   .use(
-    cors({
-      methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    })
+    cors()
   )
   // .derive(async ({ redis, cookie: { sessionId } }) => {
   //   const sessionIdValue = sessionId.value;

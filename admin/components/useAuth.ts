@@ -28,9 +28,16 @@ export function useAuth() {
     const loginMutation = useMutation({
         mutationFn: ({ username, password }: { username: string; password: string }) =>
             login(username, password),
-        onSuccess: (data) => {
+        onSuccess: async (data) => {
             if (data) {
-                queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+                // Set the user data directly in the cache
+                queryClient.setQueryData(["currentUser"], data);
+                // Also invalidate to ensure fresh data
+                await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
+                // Clear any permission caches that might exist
+                queryClient.invalidateQueries({ queryKey: ["my_permissions"] });
+                // Redirect to home page
+                router.push("/");
             }
         },
     });
@@ -45,7 +52,7 @@ export function useAuth() {
     });
 
     const signIn = (username: string, password: string) =>
-        loginMutation.mutate({ username, password });
+        loginMutation.mutateAsync({ username, password });
 
     const signOut = () => logoutMutation.mutate();
 

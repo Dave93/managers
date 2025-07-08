@@ -25,7 +25,7 @@ export function DateRangeFilter() {
   return (
     <div className="grid gap-2">
       <Popover>
-        <PopoverTrigger>
+        <PopoverTrigger asChild>
           <Button
             id="date"
             variant={"outline"}

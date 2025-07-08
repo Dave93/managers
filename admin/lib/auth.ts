@@ -2,25 +2,36 @@ import { apiClient } from "../utils/eden";
 
 
 export async function login(username: string, password: string) {
-    const { data, status } = await apiClient.api.users.login.post({
-        login: username,
-        password
-    });
+    try {
+        const { data, status } = await apiClient.api.users.login.post({
+            login: username,
+            password
+        });
 
-    if (data && 'user' in data) {
-        return data.user;
-    } else {
-        return null;
+        if (status === 200 && data && 'user' in data) {
+            return data.user;
+        } else {
+            throw new Error("Invalid credentials");
+        }
+    } catch (error) {
+        console.error("Login error:", error);
+        throw new Error("Login failed");
     }
 }
 
 export async function getCurrentUser() {
-    const { data, status } = await apiClient.api.users.me.get();
-    console.log("data", data);
-    if (status !== 200) {
+    try {
+        const { data, status } = await apiClient.api.users.me.get();
+        console.log("getCurrentUser - status:", status, "data:", data);
+        if (status !== 200) {
+            console.log("getCurrentUser - non-200 status:", status);
+            return null;
+        }
+        return data;
+    } catch (error) {
+        console.error("getCurrentUser error:", error);
         return null;
     }
-    return data;
 }
 
 export async function logout() {

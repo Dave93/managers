@@ -50,11 +50,11 @@ export default function LoginPage() {
     // Form submission handler
     const onSubmit = async (data: LoginFormValues) => {
         try {
-            signIn(data.login, data.password);
-            toast.success("Login successful");
-            // The redirect will happen automatically when user state updates
+            await signIn(data.login, data.password);
+            // The redirect will happen automatically in the useAuth hook
         } catch (error) {
-            toast.error("Login failed");
+            console.error("Login submission error:", error);
+            toast.error(error instanceof Error ? error.message : "Login failed");
         }
     };
 
