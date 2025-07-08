@@ -381,7 +381,7 @@ export const usersController = new Elysia({
     }
 
     const permissions = await cacheController.getPermissionsByRoleId(
-      role.id
+      role!.id
     );
 
     return { permissions };

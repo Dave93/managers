@@ -16,6 +16,16 @@ const client = new Redis({
   //   maxRetriesPerRequest: null,
 });
 
+type UserContext = {
+  user: typeof users.$inferSelect | null;
+  role: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
+  terminals: string[];
+};
+
 const cacheControlService = new CacheControlService(drizzleDb, client);
 
 export const ctx = new Elysia({
@@ -68,8 +78,10 @@ export const ctx = new Elysia({
       if (!permission) {
 
         return {
-          resolve: () => ({
-            user: null
+          resolve: (): UserContext => ({
+            user: null,
+            role: null,
+            terminals: [],
           })
         };
       }
@@ -158,7 +170,7 @@ export const ctx = new Elysia({
           const sessionIdValue = sessionId.value;
           const refreshTokenValue = refreshToken.value;
           if (!sessionId.value) {
-            return { user: null };
+            return { user: null, role: null, terminals: [] } as UserContext;
           }
 
           let cachedUser = await redis.get(
@@ -166,10 +178,10 @@ export const ctx = new Elysia({
           );
 
           if (!cachedUser) {
-            return { user: null };
+            return { user: null, role: null, terminals: [] } as UserContext;
           }
 
-          const { user: localUser } = JSON.parse(cachedUser!) as {
+          const { user: localUser, role, terminals } = JSON.parse(cachedUser!) as {
             user: typeof users.$inferSelect;
             role: {
               id: string;
@@ -179,14 +191,14 @@ export const ctx = new Elysia({
             terminals: string[];
           };
 
-          return { user: localUser };
+          return { user: localUser, role, terminals };
         },
       }
     },
     userAuth(enabled: boolean) {
       if (!enabled) {
         return {
-          resolve: () => ({
+          resolve: (): UserContext => ({
             user: null,
             role: null,
             terminals: [],
@@ -203,7 +215,7 @@ export const ctx = new Elysia({
           const sessionIdValue = sessionId.value;
           const refreshTokenValue = refreshToken.value;
           if (!sessionId.value) {
-            return { user: null, role: null, terminals: [] };
+            return { user: null, role: null, terminals: [] } as UserContext;
           }
 
           let cachedUser = await redis.get(
@@ -211,7 +223,7 @@ export const ctx = new Elysia({
           );
 
           if (!cachedUser) {
-            return { user: null, role: null, terminals: [] };
+            return { user: null, role: null, terminals: [] } as UserContext;
           }
 
           const { user: localUser, role, terminals } = JSON.parse(cachedUser!) as {

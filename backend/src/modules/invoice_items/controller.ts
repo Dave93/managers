@@ -26,6 +26,7 @@ export const invoiceItemsController = new Elysia({
       user,
       drizzle,
       cacheController,
+      role
     }) => {
       let selectFields: SelectedFields = {};
       if (fields) {
@@ -45,7 +46,7 @@ export const invoiceItemsController = new Elysia({
         });
       }
       const permissions = await cacheController.getPermissionsByRoleId(
-        user!.role.id
+        role!.id
       );
 
       const hasFranchisePermission = permissions.includes(

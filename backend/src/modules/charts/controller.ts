@@ -110,7 +110,8 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
         const apiStartTime = performance.now()
 
@@ -118,8 +119,8 @@ export const chartsController = new Elysia({
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
 
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -216,14 +217,15 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
             const apiStartTime = performance.now();
 
             const cachedTerminals = await cacheController.getCachedTerminals({});
             let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-            if (user?.terminals && user.terminals.length > 0) {
-                currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+            if (userTerminals && userTerminals.length > 0) {
+                currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
             }
             const terminalList = currentTerminals.map(terminal => {
                 const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
@@ -319,7 +321,8 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
             const apiStartTime = performance.now();
 
@@ -329,8 +332,8 @@ export const chartsController = new Elysia({
             const cachedTerminals = await cacheController.getCachedTerminals({});
 
             let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-            if (user?.terminals && user.terminals.length > 0) {
-                currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+            if (userTerminals && userTerminals.length > 0) {
+                currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
             }
 
             const terminalList = currentTerminals.map(terminal => {
@@ -432,15 +435,16 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -572,15 +576,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -676,15 +681,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -766,15 +772,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -858,7 +865,8 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
         console.time('api')
         const apiStartTime = performance.now()
@@ -866,8 +874,8 @@ export const chartsController = new Elysia({
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -980,7 +988,8 @@ export const chartsController = new Elysia({
             user,
             set,
             drizzle,
-            cacheController
+            cacheController,
+            terminals: userTerminals
         }) => {
         console.time('api')
         const apiStartTime = performance.now()
@@ -988,8 +997,8 @@ export const chartsController = new Elysia({
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -1100,15 +1109,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
 
         const terminalList = currentTerminals.map(terminal => {
@@ -1234,15 +1244,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
         const terminalList = currentTerminals.map(terminal => {
             const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
@@ -1319,15 +1330,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
         const terminalList = currentTerminals.map(terminal => {
             const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
@@ -1407,15 +1419,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
         const terminalList = currentTerminals.map(terminal => {
             const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
@@ -1518,15 +1531,16 @@ export const chartsController = new Elysia({
         user,
         set,
         drizzle,
-        cacheController
+        cacheController,
+        terminals: userTerminals
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
         let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (user?.terminals && user.terminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => user.terminals.includes(terminal.id));
+        if (userTerminals && userTerminals.length > 0) {
+            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
         }
         const terminalList = currentTerminals.map(terminal => {
             const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');

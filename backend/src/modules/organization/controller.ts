@@ -89,7 +89,7 @@ export const organizationController = new Elysia({
   )
   .post(
     "/organization",
-    async ({ body: { data }, user, set, drizzle, cacheController }) => {
+    async ({ body: { data }, set, drizzle, cacheController }) => {
       const organizationItem = await drizzle
         .insert(organization)
         .values(data)

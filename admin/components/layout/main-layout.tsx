@@ -6,6 +6,7 @@ import AdminLayout from "./admin-layout";
 import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
 import { Toaster } from "@admin/components/ui/sonner"
+import CanAccess from "../can-access";
 
 export default function MainLayout({
   children,
@@ -15,23 +16,24 @@ export default function MainLayout({
   const roleCode = useGetRole();
   console.log("roleCode", roleCode);
   return (
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        {roleCode && roleCode !== "manager" && (
-          <AdminLayout>{children}</AdminLayout>
-        )}
-        {roleCode && roleCode === "manager" && (
-          <ManagerLayout>{children}</ManagerLayout>
-        )}
-        {/* {roleCode === "franchise_manager" && (
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <CanAccess permission="admin_layout">
+
+        <AdminLayout>{children}</AdminLayout>
+      </CanAccess>
+      <CanAccess permission="manager_layout">
+        <ManagerLayout>{children}</ManagerLayout>
+      </CanAccess>
+      {/* {roleCode === "franchise_manager" && (
             <ManagerLayout>{children}</ManagerLayout>
           )} */}
-        {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
-        {roleCode == undefined && (
-          <div className="h-[100dvh] flex items-center justify-center">
-            {children}
-          </div>
-        )}
-        <Toaster />
-      </ThemeProvider>
+      {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}
+      {roleCode == undefined && (
+        <div className="h-[100dvh] flex items-center justify-center">
+          {children}
+        </div>
+      )}
+      <Toaster richColors />
+    </ThemeProvider>
   );
 }

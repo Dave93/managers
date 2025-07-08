@@ -1,7 +1,9 @@
 import { Elysia } from "elysia";
 import { apiController } from "./controllers";
+import { cors } from '@elysiajs/cors'
 
 const app = new Elysia()
+  .use(cors())
   .get("/", () => ({ hello: "world" }))
   .use(apiController);
 

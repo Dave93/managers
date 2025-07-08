@@ -35,6 +35,7 @@ import { chartsController } from "./modules/charts/controller";
 import { educationController } from "./modules/education/controller";
 import { lastWorkPlaceController } from "./modules/last_work_place/controller";
 import { familyListController } from "./modules/family_list/controller";
+import { hangingOrdersController } from "./modules/hanging_orders/controller";
 
 
 export const apiController = new Elysia({
@@ -76,4 +77,5 @@ export const apiController = new Elysia({
   .use(chartsController)
   .use(educationController)
   .use(lastWorkPlaceController)
-  .use(familyListController);
+  .use(familyListController)
+  .use(hangingOrdersController);

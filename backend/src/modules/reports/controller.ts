@@ -26,6 +26,7 @@ export const reportsController = new Elysia({
       user,
       set,
       drizzle,
+      terminals: userTerminals
     }) => {
 
       let selectFields: SelectedFields = {};
@@ -44,8 +45,8 @@ export const reportsController = new Elysia({
           users,
         });
       }
-      if (user?.terminals && user.terminals.length > 0) {
-        whereClause.push(inArray(reports.terminal_id, user.terminals));
+      if (userTerminals && userTerminals.length > 0) {
+        whereClause.push(inArray(reports.terminal_id, userTerminals));
       }
       const reportsCount = await drizzle
         .select({ count: sql<number>`count(*)` })
@@ -88,9 +89,10 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
       error,
+      terminals: userTerminals
     }) => {
 
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -150,9 +152,10 @@ export const reportsController = new Elysia({
       cacheController,
       error,
       drizzle,
+      terminals: userTerminals
     }) => {
 
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -203,8 +206,9 @@ export const reportsController = new Elysia({
       cacheController,
       drizzle,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -299,8 +303,9 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -443,9 +448,10 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
       error,
+      terminals: userTerminals
     }) => {
 
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -531,8 +537,9 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -652,8 +659,9 @@ export const reportsController = new Elysia({
       cacheController,
       drizzle,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -762,8 +770,9 @@ export const reportsController = new Elysia({
       cacheController,
       drizzle,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -871,8 +880,9 @@ export const reportsController = new Elysia({
       cacheController,
       drizzle,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -966,8 +976,9 @@ export const reportsController = new Elysia({
       drizzle,
       cacheController,
       error,
+      terminals: userTerminals
     }) => {
-      if (!user?.terminals || !user?.terminals.includes(terminal_id)) {
+      if (!userTerminals || !userTerminals.includes(terminal_id)) {
         return error(401, "You don't have permissions");
       }
 
@@ -1298,7 +1309,7 @@ export const reportsController = new Elysia({
                 : dayjs(date).hour(0).minute(0).second(0).toISOString(),
             terminal_id: terminal_id,
             status_id: sentReportStatus?.id ?? "",
-            user_id: user!.user.id,
+            user_id: user!.id,
             cash_ids: iikoCachierData,
             total_amount: iikoCachierReport ? iikoCachierReport : 0,
             total_manager_price: totalManagerPrice,

@@ -216,6 +216,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="hanging_orders.list">
+          <NavigationMenuItem>
+            <Link href={`/${locale}/hanging_orders`} legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Висячие заказы
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
         <NavigationMenuItem>
           <DropdownMenu>
             <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">

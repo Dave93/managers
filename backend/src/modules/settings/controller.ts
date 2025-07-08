@@ -154,6 +154,7 @@ export const settingsController = new Elysia({
       };
     },
     {
+      permission: "settings.edit",
       params: t.Object({
         key: t.String(),
       }),

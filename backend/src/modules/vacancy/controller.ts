@@ -120,7 +120,7 @@ export const vacancyController = new Elysia({
 
         const vacancys = await drizzle
             .insert(vacancy)
-            .values({ ...insertData, recruiter: user?.user.id })
+            .values({ ...insertData, recruiter: user!.id })
             .execute();
 
         await cacheController.cachePermissions();
