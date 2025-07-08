@@ -1288,3 +1288,37 @@ export const basketAdditionalSales = pgTable('basket_additional_sales', {
   index('idx_basket_additional_sales_source').on(table.source),
   index('idx_basket_additional_sales_operator').on(table.operator),
 ]);
+
+
+
+export const hangingOrders = pgTable(
+    "managers_hanging_orders",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        brand: varchar("brand", { length: 50 }).notNull(), // 'chopar' or 'les_ailes'
+        date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD format
+        terminalId: text("terminal_id"),
+        orderId: text("order_id"),
+        externalOrderNumber: text("external_order_number"),
+        timestamp: timestamp("timestamp"),
+        conception: text("conception"),
+        orderType: text("order_type"),
+        paymentType: text("payment_type"),
+        receiptNumber: text("receipt_number"),
+        orderStatus: text("order_status"),
+        comments: text("comments"),
+        problem: text("problem"),
+        phoneNumber: text("phone_number"),
+        amount: decimal("amount", { precision: 10, scale: 2 }),
+        composition: text("composition"),
+        status: text("status"), // Manual tracking status
+        comment: text("comment"), // Manual comment
+        createdAt: timestamp("created_at").defaultNow(),
+        updatedAt: timestamp("updated_at").defaultNow(),
+    },
+    (table) => ({
+        brandDateIdx: index(`managers_brand_date_idx`).on(table.brand, table.date),
+        orderIdIdx: index(`managers_order_id_idx`).on(table.orderId),
+        timestampIdx: index(`managers_timestamp_idx`).on(table.timestamp),
+    })
+);
