@@ -23,12 +23,12 @@ interface StatusDropdownProps {
 }
 
 const statusOptions = [
-    { 
-        value: "pending", 
-        label: "В ожидании", 
-        variant: "secondary" as const,
-        color: "bg-gray-100 text-gray-800 border-gray-200"
-    },
+{
+    value: "pending",
+    label: "В ожидании",
+    variant: "secondary" as const,
+    color: "bg-gray-100 text-gray-800 border-gray-200"
+},
     { 
         value: "in_progress", 
         label: "В работе", 
@@ -36,16 +36,22 @@ const statusOptions = [
         color: "bg-blue-100 text-blue-800 border-blue-200"
     },
     { 
-        value: "resolved", 
-        label: "Решено", 
+        value: "truth", 
+        label: "Правда", 
         variant: "default" as const,
         color: "bg-green-100 text-green-800 border-green-200"
     },
     { 
-        value: "cancelled", 
-        label: "Отменено", 
+        value: "lie", 
+        label: "Ложь", 
         variant: "destructive" as const,
         color: "bg-red-100 text-red-800 border-red-200"
+    },
+    { 
+        value: "no_info", 
+        label: "Нет информации", 
+        variant: "default" as const,
+        color: "bg-gray-100 text-gray-800 border-gray-200"
     },
 ];
 

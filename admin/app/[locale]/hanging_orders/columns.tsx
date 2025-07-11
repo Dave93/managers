@@ -8,6 +8,11 @@ import dayjs from "dayjs";
 import { StatusUpdateSheet } from "./status-update-sheet";
 import { CommentEditor } from "./comment-editor";
 import { StatusDropdown } from "./status-dropdown";
+import {
+    HoverCard,
+    HoverCardContent,
+    HoverCardTrigger,
+} from "@admin/components/ui/hover-card";
 
 const ordersStatusText = {
     "Unconfirmed": "Не подтвержден",
@@ -27,36 +32,6 @@ const getBrandBadgeVariant = (brand: string) => {
             return "secondary";
         default:
             return "outline";
-    }
-};
-
-const getStatusBadgeVariant = (status: string) => {
-    switch (status) {
-        case "pending":
-            return "secondary";
-        case "in_progress":
-            return "default";
-        case "resolved":
-            return "default";
-        case "cancelled":
-            return "destructive";
-        default:
-            return "outline";
-    }
-};
-
-const getStatusText = (status: string) => {
-    switch (status) {
-        case "pending":
-            return "В ожидании";
-        case "in_progress":
-            return "В работе";
-        case "resolved":
-            return "Решено";
-        case "cancelled":
-            return "Отменено";
-        default:
-            return status || "Не указан";
     }
 };
 
@@ -133,6 +108,30 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         },
     },
     {
+        accessorKey: "comments",
+        header: "Комментарии филиала",
+        cell: ({ row }) => {
+            const comment = row.getValue("comments") as string;
+            if (!comment) return "";
+            
+            return (
+                <HoverCard>
+                    <HoverCardTrigger asChild>
+                        <div className="max-w-[200px] truncate cursor-pointer hover:underline">
+                            {comment}
+                        </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                        <div className="text-sm">
+                            <p className="font-semibold mb-2">Полный комментарий:</p>
+                            <p className="whitespace-pre-wrap break-words">{comment}</p>
+                        </div>
+                    </HoverCardContent>
+                </HoverCard>
+            );
+        },
+    },
+    {
         accessorKey: "amount",
         header: "Сумма",
         cell: ({ row }) => {
@@ -157,11 +156,23 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         header: "Проблема",
         cell: ({ row }) => {
             const problem = row.getValue("problem") as string;
-            return problem ? (
-                <div className="max-w-[200px] truncate" title={problem}>
-                    {problem}
-                </div>
-            ) : "";
+            if (!problem) return "";
+            
+            return (
+                <HoverCard>
+                    <HoverCardTrigger asChild>
+                        <div className="max-w-[200px] truncate cursor-pointer hover:underline">
+                            {problem}
+                        </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-80">
+                        <div className="text-sm">
+                            <p className="font-semibold mb-2">Полная проблема:</p>
+                            <p className="whitespace-pre-wrap break-words">{problem}</p>
+                        </div>
+                    </HoverCardContent>
+                </HoverCard>
+            );
         },
     },
     {

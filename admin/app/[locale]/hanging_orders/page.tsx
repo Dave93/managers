@@ -205,8 +205,9 @@ export default function HangingOrdersPage() {
                                     <SelectItem value="all">Все статусы</SelectItem>
                                     <SelectItem value="pending">В ожидании</SelectItem>
                                     <SelectItem value="in_progress">В работе</SelectItem>
-                                    <SelectItem value="resolved">Решено</SelectItem>
-                                    <SelectItem value="cancelled">Отменено</SelectItem>
+                                    <SelectItem value="truth">Правда</SelectItem>
+                                    <SelectItem value="lie">Ложь</SelectItem>
+                                    <SelectItem value="no_info">Нет информации</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
