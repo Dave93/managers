@@ -80,7 +80,7 @@ export const usersSroresController = new Elysia({
         })
         .from(users_stores)
         //@ts-ignore
-        .where(eq(users_stores.user_id, user.user.id))
+        .where(eq(users_stores.user_id, user.id))
         .execute();
       console.log("davr", usersStoresList);
       if (usersStoresList.length > 0) {
