@@ -152,6 +152,10 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         header: "Телефон",
     },
     {
+        accessorKey: "receiptNumber",
+        header: "Номер чека",
+    },
+    {
         accessorKey: "problem",
         header: "Проблема",
         cell: ({ row }) => {
