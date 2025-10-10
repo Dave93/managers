@@ -1281,8 +1281,8 @@ export const basketAdditionalSales = pgTable('basket_additional_sales', {
   source: varchar('source', { length: 255 }).notNull(),
   organizationId: varchar('organization_id', { length: 255 }).notNull(),
   orderId: varchar('order_id', { length: 255 }),
-  createdAt: timestamp('created_at').defaultNow(),
-  updatedAt: timestamp('updated_at').defaultNow(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
 }, (table) => [
   primaryKey({ columns: [table.id, table.createdAt] }),
   index('idx_basket_additional_sales_source').on(table.source),
