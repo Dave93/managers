@@ -110,7 +110,7 @@ const PopularDishesChart = () => {
   });
 
   // Sort the data by value (sales) in descending order and take the top 10
-  const topDishes = data.data?.sort((a, b) => b.value - a.value).slice(0, 10);
+  const topDishes = data.data?.sort((a: any, b: any) => b.value - a.value).slice(0, 10);
   const currencyFormat = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'UZS', minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const formatCompactNumber = (number: number) => {
     const billion = 1_000_000_000;

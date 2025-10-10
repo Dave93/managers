@@ -126,6 +126,7 @@ export default function WorkScheduleForm({
         onError,
     });
 
+    // @ts-ignore
     const form = useForm<FormValues>({
         defaultValues: {
             name: "",

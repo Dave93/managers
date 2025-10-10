@@ -166,13 +166,13 @@ const AverageCheckChart = () => {
   }, [startTime, endTime, originalData, data]);
 
   const totalCurrentRevenue = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.current_avg_check === "number" ? item.current_avg_check : 0),
     0
   );
   const totalPreviousRevenue = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.previous_avg_check === "number"
         ? item.previous_avg_check

@@ -30,6 +30,7 @@ export default function Page() {
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<{
     login: string;
     password: string;

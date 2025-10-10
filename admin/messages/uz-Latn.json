@@ -26,7 +26,17 @@
       "title": "Filtr",
       "thisWeek": "Bu hafta",
       "thisMonth": "Bu oy",
-      "previousMonth": "Oldingi oy"
+      "previousMonth": "Oldingi oy",
+      "dateRange": {
+        "today": "Bugun",
+        "yesterday": "Kecha",
+        "last7days": "Oxirgi 7 kun",
+        "last30days": "Oxirgi 30 kun",
+        "monthToDate": "Oy boshidan",
+        "lastMonth": "Oxirgi oy",
+        "yearToDate": "Yil boshidan",
+        "lastYear": "Oxirgi yil"
+      }
     },
     "RevenueChart": {
       "title": "Tushum",

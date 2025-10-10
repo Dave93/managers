@@ -58,6 +58,7 @@ export default function OrganizationsForm({
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<typeof organization.$inferInsert>({
     defaultValues: {
       active: true,

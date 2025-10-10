@@ -88,12 +88,12 @@ export const reportsController = new Elysia({
       set,
       drizzle,
       cacheController,
-      error,
+      status,
       terminals: userTerminals
     }) => {
 
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       let selectFields: SelectedFields = {};
@@ -150,13 +150,13 @@ export const reportsController = new Elysia({
       query: { date, terminal_id },
       user,
       cacheController,
-      error,
+      status,
       drizzle,
       terminals: userTerminals
     }) => {
 
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const filterDate = dayjs
@@ -205,11 +205,11 @@ export const reportsController = new Elysia({
       user,
       cacheController,
       drizzle,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const filterDate = dayjs
@@ -263,7 +263,7 @@ export const reportsController = new Elysia({
         )?.key;
 
         if (!clickServiceIds) {
-          return error(400, "Click service ids not found");
+          return status(400, "Click service ids not found");
         }
 
         const workStartTime = (
@@ -302,11 +302,11 @@ export const reportsController = new Elysia({
       user,
       drizzle,
       cacheController,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const filterDate = dayjs
@@ -387,7 +387,7 @@ export const reportsController = new Elysia({
         )?.key;
 
         if (!clickServiceIds) {
-          return error(400, "Click service ids not found");
+          return status(400, "Click service ids not found");
         }
         const workStartTime = (
           await cacheController.getCachedSetting("main.workStartTime")
@@ -400,13 +400,13 @@ export const reportsController = new Elysia({
         const terminal = terminals.find((t) => t.id === terminal_id);
 
         if (!terminal) {
-          return error(400, "Terminal not found");
+          return status(400, "Terminal not found");
         }
 
         const iikoId = credentials.find((c) => c.type === "iiko_id")?.key;
 
         if (!iikoId) {
-          return error(400, "Iiko id not found");
+          return status(400, "Iiko id not found");
         }
 
         const organizations = await cacheController.getCachedOrganization({});
@@ -415,7 +415,7 @@ export const reportsController = new Elysia({
         );
 
         if (!organization) {
-          return error(400, "Organization not found");
+          return status(400, "Organization not found");
         }
 
         result = await cacheController.getExpressData(
@@ -447,18 +447,18 @@ export const reportsController = new Elysia({
       user,
       drizzle,
       cacheController,
-      error,
+      status,
       terminals: userTerminals
     }) => {
 
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const terminal = terminals.find((t) => t.id === terminal_id);
       if (!terminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const allCredentials = await cacheController.getCachedCredentials({});
@@ -471,7 +471,7 @@ export const reportsController = new Elysia({
       const iikoId = credentials.find((c) => c.type === "iiko_id")?.key;
 
       if (!iikoId) {
-        return error(400, "Iiko id not found");
+        return status(400, "Iiko id not found");
       }
 
       const filterDate = dayjs
@@ -536,17 +536,17 @@ export const reportsController = new Elysia({
       user,
       drizzle,
       cacheController,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const terminal = terminals.find((t) => t.id === terminal_id);
       if (!terminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const allCredentials = await cacheController.getCachedCredentials({});
@@ -569,7 +569,7 @@ export const reportsController = new Elysia({
       const iikoId = credentials.find((c) => c.type === "iiko_id")?.key;
 
       if (!iikoId) {
-        return error(400, "Iiko id not found");
+        return status(400, "Iiko id not found");
       }
 
       const workStartTime = (
@@ -658,17 +658,17 @@ export const reportsController = new Elysia({
       user,
       cacheController,
       drizzle,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const terminal = terminals.find((t) => t.id === terminal_id);
       if (!terminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const allCredentials = await cacheController.getCachedCredentials({});
@@ -682,14 +682,14 @@ export const reportsController = new Elysia({
         (c) => c.type === "payme_merchant_ids"
       )?.key;
       if (!paymeMerchantIds) {
-        return error(400, "Payme merchant ids not found");
+        return status(400, "Payme merchant ids not found");
       }
 
       const paymeBusinessId = credentials.find(
         (c) => c.type === "payme_business_id"
       )?.key;
       if (!paymeBusinessId) {
-        return error(400, "Payme business id not found");
+        return status(400, "Payme business id not found");
       }
 
       const workStartTime = (
@@ -769,17 +769,17 @@ export const reportsController = new Elysia({
       user,
       cacheController,
       drizzle,
-      error,
+        status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const terminal = terminals.find((t) => t.id === terminal_id);
       if (!terminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const filterDate = dayjs
@@ -879,17 +879,17 @@ export const reportsController = new Elysia({
       user,
       cacheController,
       drizzle,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const terminal = terminals.find((t) => t.id === terminal_id);
       if (!terminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const filterDate = dayjs
@@ -975,17 +975,17 @@ export const reportsController = new Elysia({
       set,
       drizzle,
       cacheController,
-      error,
+      status,
       terminals: userTerminals
     }) => {
       if (!userTerminals || !userTerminals.includes(terminal_id)) {
-        return error(401, "You don't have permissions");
+        return status(401, "You don't have permissions");
       }
 
       const terminals = await cacheController.getCachedTerminals({});
       const chosenTerminal = terminals.find((t) => t.id === terminal_id);
       if (!chosenTerminal) {
-        return error(400, "Terminal not found");
+        return status(400, "Terminal not found");
       }
 
       const result: {

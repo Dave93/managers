@@ -1,9 +1,19 @@
-import { Elysia } from "elysia";
+import Elysia from "elysia";
 import { apiController } from "./controllers";
-import { cors } from '@elysiajs/cors'
+import { openapi } from '@elysiajs/openapi'
+import { cors } from "@elysiajs/cors";
 
 const app = new Elysia()
-  .get("/", () => ({ hello: "world" }))
+
+.use(
+  cors()
+)
+  .get("/", () => '', {
+    detail: {
+      hide: true,
+    },
+  })
+  .use(openapi())
   .use(apiController);
 
 export default app;

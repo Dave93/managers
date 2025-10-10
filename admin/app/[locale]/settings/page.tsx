@@ -62,6 +62,7 @@ export default function ConfigsPage() {
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<{
     workStartTime: string;
     workEndTime: string;
@@ -84,10 +85,10 @@ export default function ConfigsPage() {
   useEffect(() => {
     if (settings && settings.data && Array.isArray(settings.data)) {
       let workStartTime = settings!.data.find(
-        (s) => s.key === "main.workStartTime"
+        (s: any) => s.key === "main.workStartTime"
       )?.value;
       let workEndTime = settings!.data.find(
-        (s) => s.key === "main.workEndTime"
+        (s: any) => s.key === "main.workEndTime"
       )?.value;
       form.setFieldValue("workStartTime", workStartTime ?? "");
       form.setFieldValue("workEndTime", workEndTime ?? "");

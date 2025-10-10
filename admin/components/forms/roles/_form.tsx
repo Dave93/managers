@@ -54,6 +54,7 @@ export default function RolesForm({
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<{
     active: boolean;
     name: string;

@@ -73,7 +73,7 @@ export default function PermissionsForm({
     onError,
   });
 
-  const form = useForm<typeof permissions.$inferInsert>({
+  const form = useForm({
     defaultValues: {
       active: true,
       slug: "",

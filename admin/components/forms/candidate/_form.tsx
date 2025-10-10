@@ -525,6 +525,7 @@ export default function CandidateForm({
         }
     };
 
+    // @ts-ignore
     const form = useForm<CandidateFormData>({
         defaultValues: useMemo(() => {
             const candidate = candidateQuery.data?.data?.[0];

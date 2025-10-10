@@ -30,7 +30,7 @@ export default function Arryt({ terminal_id, date }: ArrytProps) {
   useEffect(() => {
     if (data && typeof data === "object" && "withdraws" in data) {
       setWithdraws(
-        data.withdraws.map((withdraw) => ({
+        data.withdraws.map((withdraw: any) => ({
           label: `${withdraw.first_name} ${withdraw.last_name}`,
           value: withdraw.amount,
         }))
@@ -44,7 +44,7 @@ export default function Arryt({ terminal_id, date }: ArrytProps) {
         typeof data === "object" &&
         "withdraws" in data &&
         data.withdraws.length > 0 &&
-        data.withdraws.map((withdraw) => (
+        data.withdraws.map((withdraw: any) => (
           <div
             className="flex space-x-1.5 items-center "
             key={`${withdraw.first_name} ${withdraw.last_name}`}

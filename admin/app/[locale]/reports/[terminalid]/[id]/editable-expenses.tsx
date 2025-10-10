@@ -51,14 +51,14 @@ export default function EditableExpenses({
   useEffect(() => {
     if (data) {
       clearExpenses();
-      const readonlyExpenses = data.filter((item) => item.readonly);
+      const readonlyExpenses = data.filter((item: any) => item.readonly);
       if (readonlyExpenses.length > 0) {
         setReadOnlyExpenses(readonlyExpenses);
       }
 
-      const editableExpenses = data.filter((item) => !item.readonly);
+      const editableExpenses = data.filter((item: any) => !item.readonly);
       if (editableExpenses.length > 0) {
-        editableExpenses.forEach((expense) => {
+        editableExpenses.forEach((expense: any) => {
           addExpensesItem(expense);
         });
       }

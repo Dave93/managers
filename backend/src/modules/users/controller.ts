@@ -1,4 +1,4 @@
-import Elysia, { error, t } from "elysia";
+import Elysia, { t } from "elysia";
 import { users, users_terminals } from "@backend/../drizzle/schema";
 import { createHash, createHmac } from "crypto";
 import {
@@ -392,12 +392,12 @@ export const usersController = new Elysia({
 ).post("/users/logout", async ({
   cookie,
   cacheController,
-  error
+  status
 }) => {
 
   if (cookie.sessionId.value && cookie.refreshToken.value) {
-      await cacheController.deleteUserDataByToken(cookie.sessionId.value);
-      await cacheController.deleteUserDataByToken(cookie.refreshToken.value);
+      await cacheController.deleteUserDataByToken(cookie.sessionId.value as string);
+      await cacheController.deleteUserDataByToken(cookie.refreshToken.value as string);
   }
 
   delete cookie.sessionId.value;

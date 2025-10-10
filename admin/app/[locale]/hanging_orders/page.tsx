@@ -10,7 +10,7 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { toast } from "sonner";
-import { useState, useCallback } from "react";
+import { useState, useCallback, Suspense } from "react";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Input } from "@admin/components/ui/input";
@@ -20,7 +20,7 @@ import { DateRangeFilter } from "@admin/components/filters/date-range-filter/dat
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { cn } from "@admin/lib/utils";
 
-export default function HangingOrdersPage() {
+function HangingOrdersContent() {
     const [searchTerm, setSearchTerm] = useState("");
     const [brandFilter, setBrandFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -111,7 +111,7 @@ export default function HangingOrdersPage() {
             
             const csvContent = BOM + [
                 headers.map(escapeCSV).join(';'),
-                ...rows.map(row => row.map(escapeCSV).join(';'))
+                ...rows.map((row: any) => row.map(escapeCSV).join(';'))
             ].join('\r\n');
             
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -230,5 +230,13 @@ export default function HangingOrdersPage() {
                 />
             </div>
         </div>
+    );
+}
+
+export default function HangingOrdersPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <HangingOrdersContent />
+        </Suspense>
     );
 }

@@ -159,7 +159,7 @@ export function InvoiceItemsTable<TData, TValue>({
 
   const totalSum = useMemo(() => {
     let totals = 0;
-    data?.data?.forEach((item) => {
+    data?.data?.forEach((item: any) => {
       totals += item.sum;
     });
 

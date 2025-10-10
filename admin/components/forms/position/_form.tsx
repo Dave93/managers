@@ -107,6 +107,7 @@ export default function PositionsForm({
         onError,
     });
 
+    // @ts-ignore
     const form = useForm<FormValues>({
         defaultValues: {
             title: "",

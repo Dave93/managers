@@ -262,6 +262,7 @@ export default function VacancyForm({
         ],
     });
 
+    // @ts-ignore
     const form = useForm<VacancyFormData>({
         defaultValues: useMemo(() => {
             const status = record?.status;

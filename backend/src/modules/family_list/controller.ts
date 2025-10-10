@@ -1,4 +1,4 @@
-// src/modules/family_List/controller.ts
+// src/modules/family_list/controller.ts
 
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";

@@ -4,15 +4,11 @@ import { Switch } from "@components/ui/switch";
 
 import { useMemo, useEffect } from "react";
 import { Loader2 } from "lucide-react";
-import * as z from "zod";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
-import { Textarea } from "@admin/components/ui/textarea";
-import { terminals } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { InferInsertModel } from "drizzle-orm";
 
 export default function TerminalsForm({
   setOpen,
@@ -74,6 +70,7 @@ export default function TerminalsForm({
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<{
     name: string;
     active?: boolean;

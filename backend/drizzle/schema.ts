@@ -1322,3 +1322,14 @@ export const hangingOrders = pgTable(
         timestampIdx: index(`managers_timestamp_idx`).on(table.timestamp),
     })
 );
+
+export const externalPartners = pgTable("external_partners", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  name: varchar("name", { length: 255 }),
+  email: varchar("email", { length: 255 }),
+  password: varchar("password", { length: 255 }),
+  is_active: boolean("is_active").default(true),
+  is_deleted: boolean("is_deleted").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});

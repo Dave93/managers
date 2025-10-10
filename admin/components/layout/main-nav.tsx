@@ -105,6 +105,10 @@ export function NavigationMenuDemo() {
       title: "Группы продуктов",
       href: `/${locale}/system/product_groups`,
     },
+    {
+      title: "Внешние партнёры",
+      href: `/${locale}/system/external-partners`,
+    },
   ];
 
   const storeMenu: { title: string; href: string }[] = [

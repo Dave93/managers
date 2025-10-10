@@ -46,7 +46,7 @@ export default function TerminalsFilter() {
   const terminals = useMemo(() => data?.data || [], [data]);
 
   const filteredTerminals = useMemo(() => {
-    return terminals.filter((terminal) =>
+    return terminals.filter((terminal: any) =>
       terminal.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [terminals, searchQuery]);
@@ -59,7 +59,7 @@ export default function TerminalsFilter() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className="border flex items-center justify-between px-3 relative rounded-md w-[300px]">
         {selectedTerminal
-          ? terminals.find((t) => t.id === selectedTerminal)?.name
+          ? terminals.find((t: any) => t.id === selectedTerminal)?.name
           : "Все терминалы"}
         <div className="flex items-center">
           {selectedTerminal && (
@@ -88,7 +88,7 @@ export default function TerminalsFilter() {
               <CommandEmpty>No terminal found.</CommandEmpty>
             ) : (
               <CommandGroup>
-                {filteredTerminals.map((terminal) => (
+                {filteredTerminals.map((terminal: any) => (
                   <CommandItem
                     key={terminal.id}
                     value={terminal.id}

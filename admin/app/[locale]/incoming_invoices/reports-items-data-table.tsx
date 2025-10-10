@@ -88,7 +88,7 @@ export function DataTable<TData, TValue>({
   const incomeTotal = useMemo(() => {
     let total = 0;
     if (data && data.data && Array.isArray(data.data)) {
-      data.data.forEach((item) => {
+      data.data.forEach((item: ReportsItemsWithRelation) => {
         if (item.type === "income") {
           // @ts-ignore
           total += item.amount;
@@ -102,7 +102,7 @@ export function DataTable<TData, TValue>({
     let total = 0;
 
     if (data && data.data && Array.isArray(data.data)) {
-      data.data.forEach((item) => {
+      data.data.forEach((item: ReportsItemsWithRelation) => {
         if (item.type === "outcome") {
           // @ts-ignore
           total += item.amount;
@@ -116,7 +116,7 @@ export function DataTable<TData, TValue>({
     let total = 0;
 
     if (data && data.data && Array.isArray(data.data)) {
-      data.data.forEach((item) => {
+      data.data.forEach((item: ReportsItemsWithRelation) => {
         // @ts-ignore
         total += item.amount;
       });

@@ -1,20 +1,10 @@
-import Elysia, { Context, error } from "elysia";
+import Elysia from "elysia";
 import { drizzleDb } from "@backend/lib/db";
-import { cors } from "@elysiajs/cors";
-import jwt from "@backend/jwt";
-import { bearer } from "@elysiajs/bearer";
-import { verifyJwt } from "@backend/lib/bcrypt";
 import { users } from "backend/drizzle/schema";
-import { eq } from "drizzle-orm";
-import Redis from "ioredis";
-import { CacheControlService } from "@backend/modules/cache_control/service";
-import { Queue } from "bullmq";
+import { getCacheControlService, getRedisClient } from "@backend/lib/shared-instances";
 
-const client = new Redis({
-  port: 6379, // Redis port
-  host: process.env.REDIS_HOST, // Redis host
-  //   maxRetriesPerRequest: null,
-});
+const client = getRedisClient();
+
 
 type UserContext = {
   user: typeof users.$inferSelect | null;
@@ -26,7 +16,7 @@ type UserContext = {
   terminals: string[];
 };
 
-const cacheControlService = new CacheControlService(drizzleDb, client);
+const cacheControlService = getCacheControlService();
 
 export const ctx = new Elysia({
   name: "@app/ctx",
@@ -34,9 +24,6 @@ export const ctx = new Elysia({
   .decorate("redis", client)
   .decorate("drizzle", drizzleDb)
   .decorate("cacheController", cacheControlService)
-  .use(
-    cors()
-  )
   // .derive(async ({ redis, cookie: { sessionId } }) => {
   //   const sessionIdValue = sessionId.value;
   //   console.log("sessionIdValue", sessionIdValue);
@@ -87,14 +74,14 @@ export const ctx = new Elysia({
       return {
         beforeHandle: async ({
           redis,
-          error,
+          status,
           cacheController,
           cookie: { sessionId, refreshToken },
         }) => {
           const sessionIdValue = sessionId.value;
           const refreshTokenValue = refreshToken.value;
           if (!sessionId.value) {
-            return error(401, {
+            return status(401, {
               message: "User not found",
             });
           }
@@ -109,7 +96,7 @@ export const ctx = new Elysia({
                 `${process.env.PROJECT_PREFIX}refresh_token:${refreshTokenValue}`
               );
               if (!cachedRefreshToken) {
-                return error(401, {
+                return status(401, {
                   message: "User not found",
                 });
               } else {
@@ -125,7 +112,7 @@ export const ctx = new Elysia({
                 );
               }
             } else {
-              return error(401, {
+              return status(401, {
                 message: "User not found",
               });
             }
@@ -156,7 +143,7 @@ export const ctx = new Elysia({
           );
 
           if (!permissions.includes(permission)) {
-            return error(403, {
+            return status(403, {
               message: "You don't have permissions",
             });
           }

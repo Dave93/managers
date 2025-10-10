@@ -3,12 +3,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiClient } from "./utils/eden";
 import { routing } from "./i18n/routing";
 import createMiddleware from "next-intl/middleware";
-import { LocalePrefixMode } from "next-intl/dist/types/src/routing/types";
+
 // Create the i18n middleware
-const i18nMiddleware = createMiddleware({
-    ...routing,
-    localePrefix: "always" as LocalePrefixMode
-  });
+const i18nMiddleware = createMiddleware(routing);
 
 // Combined middleware
 export async function middleware(request: NextRequest) {
@@ -67,17 +64,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: [
-        /*
-         * Match all request paths except for:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * Include internationalized paths
-         */
-        '/((?!api|_next/static|_next/image|favicon\\.ico).*)',
-        '/',
-        '/(en|ru|uz-Latn|uz-Cyrl)/:path*'
-    ],
+    // Match all pathnames except for
+    // - … if they start with `/api`, `/_next` or `/_vercel`
+    // - … the ones containing a dot (e.g. `favicon.ico`)
+    matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
 };

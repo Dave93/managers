@@ -18,7 +18,7 @@ import { SelectContent, SelectValue, SelectItem, SelectTrigger, Select } from "@
 import { Calendar } from "@admin/components/ui/calendar";
 import type { DropdownNavProps, DropdownProps } from "react-day-picker"
 import { parseZonedDateTime } from "@internationalized/date";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Badge } from "@admin/components/ui/badge";
@@ -28,7 +28,7 @@ import { Badge } from "@admin/components/ui/badge";
 //     description: "Manage candidates",
 // };
 
-export default function CandidatesListPage() {
+function CandidatesContent() {
     const searchParams = useSearchParams();
     const vacancyId = searchParams.get('vacancyId') || '';
     const [vacancyInfo, setVacancyInfo] = useState<{
@@ -133,7 +133,7 @@ export default function CandidatesListPage() {
             // Формируем CSV контент с BOM для Excel
             const csvContent = BOM + [
                 headers.map(escapeCSV).join(';'),  // Используем точку с запятой для Excel
-                ...rows.map(row => row.map(escapeCSV).join(';'))
+                ...rows.map((row: any) => row.map(escapeCSV).join(';'))
             ].join('\r\n');  // Используем CRLF для Windows
             
             // Создаем и скачиваем файл
@@ -190,5 +190,13 @@ export default function CandidatesListPage() {
                 <DataTable columns={candidateColumns} vacancyId={vacancyId} />
             </div>
         </div>
+    );
+}
+
+export default function CandidatesListPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <CandidatesContent />
+        </Suspense>
     );
 }

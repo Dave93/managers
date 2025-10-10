@@ -174,7 +174,7 @@ export default function RolePermissionsForm({
 
   useEffect(() => {
     if (selectedPermissions) {
-      const selectedRows = selectedPermissions?.data?.reduce((acc, item) => {
+      const selectedRows = selectedPermissions?.data?.reduce((acc: { [key: string]: boolean }, item: any) => {
         acc[item.permission_id] = true;
         return acc;
       }, {} as { [key: string]: boolean });

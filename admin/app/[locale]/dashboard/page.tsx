@@ -1,8 +1,9 @@
 "use client";
+import { Suspense } from "react";
 import FilterPanel from "./filter-panel";
 import ChartsPageClient from "./page.client";
 
-export default function Dashboard() {
+function DashboardContent() {
     return (
         <div className="p-4 space-y-6">
             <div className="sticky top-0 z-50">
@@ -12,5 +13,13 @@ export default function Dashboard() {
                 <ChartsPageClient />
             </div>
         </div>
+    );
+}
+
+export default function Dashboard() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <DashboardContent />
+        </Suspense>
     );
 }

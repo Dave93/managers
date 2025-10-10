@@ -171,13 +171,13 @@ const RevenueChart = () => {
       : originalData.slice(0, 2);
   }, [startTime, endTime, originalData, data]);
   const totalCurrentRevenue = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.current_revenue === "number" ? item.current_revenue : 0),
     0
   );
   const totalPreviousRevenue = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.previous_revenue === "number" ? item.previous_revenue : 0),
     0

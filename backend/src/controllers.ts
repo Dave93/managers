@@ -36,12 +36,20 @@ import { educationController } from "./modules/education/controller";
 import { lastWorkPlaceController } from "./modules/last_work_place/controller";
 import { familyListController } from "./modules/family_list/controller";
 import { hangingOrdersController } from "./modules/hanging_orders/controller";
+import { externalPartnersController } from "./modules/external_partners/controller";
+import { partnersController } from "./modules/partners/v1/controllers";
 
 
 export const apiController = new Elysia({
   name: "@api",
   prefix: "/api",
 })
+  .use(partnersController)
+  .guard({
+    detail: {
+      hide: true,
+    }
+  })
   .use(ApiTokensController)
   .use(usersController)
   .use(credentialsController)
@@ -78,4 +86,5 @@ export const apiController = new Elysia({
   .use(educationController)
   .use(lastWorkPlaceController)
   .use(familyListController)
-  .use(hangingOrdersController);
+  .use(hangingOrdersController)
+  .use(externalPartnersController);

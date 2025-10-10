@@ -60,6 +60,7 @@ export default function CredentialsAddForm({
     onError,
   });
 
+  // @ts-ignore
   const form = useForm<typeof credentials.$inferInsert>({
     defaultValues: {
       model: "",

@@ -150,7 +150,7 @@ export function DataTable<TData, TValue>({
 
   const totalAmount = useMemo(() => {
     if (data && data.data && Array.isArray(data.data)) {
-      return data.data.reduce((acc, row) => {
+      return data.data.reduce((acc: number, row: ReportsWithRelations) => {
         return acc + Number(row.total_amount);
       }, 0);
     } else {
@@ -160,7 +160,7 @@ export function DataTable<TData, TValue>({
 
   const totalManager = useMemo(() => {
     if (data && data.data && Array.isArray(data.data)) {
-      return data.data.reduce((acc, row) => {
+      return data.data.reduce((acc: number, row: ReportsWithRelations) => {
         return acc + Number(row.total_manager_price);
       }, 0);
     } else {
@@ -170,7 +170,7 @@ export function DataTable<TData, TValue>({
 
   const totalDifference = useMemo(() => {
     if (data && data.data && Array.isArray(data.data)) {
-      return data.data.reduce((acc, row) => {
+      return data.data.reduce((acc: number, row: ReportsWithRelations) => {
         return acc + Number(row.difference);
       }, 0);
     } else {
@@ -180,7 +180,7 @@ export function DataTable<TData, TValue>({
 
   const totalArrytIncome = useMemo(() => {
     if (data && data.data && Array.isArray(data.data)) {
-      return data.data.reduce((acc, row) => {
+      return data.data.reduce((acc: number, row: ReportsWithRelations) => {
         return acc + Number(row.arryt_income);
       }, 0);
     } else {

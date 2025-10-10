@@ -22,7 +22,7 @@ import {
   gte,
 } from "drizzle-orm";
 import { SelectedFields, doublePrecision } from "drizzle-orm/pg-core";
-import { Elysia, t } from "elysia";
+import Elysia, { t } from "elysia";
 
 export const reportOlapController = new Elysia({
   name: "@api/report_olap",

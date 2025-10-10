@@ -87,7 +87,7 @@ const OrderAmountHourlyHeatmapChart = () => {
         return days.map(day => ({
             id: day,
             data: Array.from({ length: 24 }, (_, hour) => {
-                const hourData = data.data!.find(d => d.dayOfWeek === days.indexOf(day) && d.hour === hour);
+                const hourData = data.data!.find((d: any) => d.dayOfWeek === days.indexOf(day) && d.hour === hour);
                 return {
                     x: hour.toString(),
                     y: hourData ? hourData.averageRevenue : 0

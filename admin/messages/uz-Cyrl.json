@@ -26,7 +26,17 @@
       "title": "Фильтр",
       "thisWeek": "Бу ҳафта",
       "thisMonth": "Бу ой",
-      "previousMonth": "Олдинги ой"
+      "previousMonth": "Олдинги ой",
+      "dateRange": {
+        "today": "Бугун",
+        "yesterday": "Кеча",
+        "last7days": "Охирги 7 кун",
+        "last30days": "Охирги 30 кун",
+        "monthToDate": "Ой бошидан",
+        "lastMonth": "Охирги ой",
+        "yearToDate": "Йил бошидан",
+        "lastYear": "Охирги йил"
+      }
     },
     "RevenueChart": {
       "title": "Тушум",

@@ -8,7 +8,6 @@ import { Input } from "@admin/components/ui/input";
 import { useCallback, useState } from "react";
 import { Badge } from "@admin/components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
-import { InferInsertModel, InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
@@ -217,6 +216,7 @@ export default function UsersForm({
     ],
   });
 
+  // @ts-ignore
   const form = useForm<typeof users.$inferInsert>({
     defaultValues: {
       status: record?.data?.status || "active",
@@ -309,7 +309,7 @@ export default function UsersForm({
       Array.isArray(userTerminalsData.data)
     ) {
       setChangedTerminalId(
-        userTerminalsData.data.map((item) => item.terminal_id)
+        userTerminalsData.data.map((item: any) => item.terminal_id)
       );
     }
 
@@ -319,7 +319,7 @@ export default function UsersForm({
       Array.isArray(userStoresData.data)
     ) {
       setChangedStoreId(
-        userStoresData.data.map((item) => item.corporation_store_id!)
+        userStoresData.data.map((item: any) => item.corporation_store_id!)
       );
     }
   }, [userTerminalsData, userStoresData]);

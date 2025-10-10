@@ -5,7 +5,7 @@ import { Card, CardContent } from "@admin/components/ui/card";
 
 const LoadingAnimation = () => {
   // Варианты анимации для пульсации
-  const pulseVariants = {
+  const pulseVariants: any = {
     initial: { opacity: 0.6, scale: 0.95 },
     animate: {
       opacity: [0.6, 0.8, 0.6],
@@ -13,25 +13,27 @@ const LoadingAnimation = () => {
       transition: {
         duration: 3,
         repeat: Infinity,
+        repeatType: "loop" as const,
         ease: "easeInOut",
       }
     }
   };
 
   // Варианты анимации для вращения
-  const rotateVariants = {
+  const rotateVariants: any = {
     animate: {
       rotate: 360,
       transition: {
         duration: 8,
         repeat: Infinity,
+        repeatType: "loop" as const,
         ease: "linear",
       }
     }
   };
 
   // Варианты анимации для графика
-  const chartLineVariants = {
+  const chartLineVariants: any = {
     initial: { pathLength: 0, opacity: 0 },
     animate: {
       pathLength: 1,
@@ -49,7 +51,7 @@ const LoadingAnimation = () => {
   };
 
   // Варианты анимации для точек данных
-  const dataPointVariants = {
+  const dataPointVariants: any = {
     initial: { y: 0, opacity: 0 },
     animate: (custom: number) => ({
       y: [0, -8, 0],
@@ -82,7 +84,7 @@ const LoadingAnimation = () => {
   };
 
   // Варианты анимации для плавающих элементов
-  const floatingVariants = {
+  const floatingVariants: any = {
     animate: (custom: number) => ({
       y: [0, custom % 2 === 0 ? -10 : 10, 0],
       x: [0, custom * 3, 0],
@@ -92,21 +94,25 @@ const LoadingAnimation = () => {
         y: {
           duration: 3 + Math.abs(custom % 3),
           repeat: Infinity,
+          repeatType: "loop" as const,
           ease: "easeInOut",
         },
         x: {
           duration: 4 + Math.abs(custom % 2),
           repeat: Infinity,
+          repeatType: "loop" as const,
           ease: "easeInOut",
         },
         rotate: {
           duration: 4 + Math.abs(custom % 2),
           repeat: Infinity,
+          repeatType: "loop" as const,
           ease: "easeInOut",
         },
         opacity: {
           duration: 2 + Math.abs(custom % 2),
           repeat: Infinity,
+          repeatType: "loop" as const,
           ease: "easeInOut",
         }
       }

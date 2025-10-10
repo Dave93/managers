@@ -1,9 +1,10 @@
 "use client";
+import { Suspense } from "react";
 import { DataTable } from "./data-table";
 import { reportsColumns } from "./columns";
 import ReportsFilterPanel from "./filter-panel";
 
-export default function ReportsListPage() {
+function ReportsContent() {
   return (
     <div>
       <div className="flex justify-between pb-4">
@@ -16,5 +17,13 @@ export default function ReportsListPage() {
         <DataTable columns={reportsColumns} />
       </div>
     </div>
+  );
+}
+
+export default function ReportsListPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ReportsContent />
+    </Suspense>
   );
 }

@@ -36,7 +36,7 @@ const handler = NextAuth({
           for (const cookie of sessionCookie) {
             if (cookie.startsWith("sessionId=")) {
               let sessionCookie = parse(cookie);
-              expires = new Date(sessionCookie.Expires);
+              expires = sessionCookie.Expires ? new Date(sessionCookie.Expires) : new Date();
               break;
             }
           }

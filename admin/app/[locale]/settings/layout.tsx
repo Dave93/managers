@@ -17,18 +17,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <NavigationMenu orientation="vertical">
             <NavigationMenuList className="flex-col">
               <NavigationMenuItem>
-                <Link href="/settings" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                <NavigationMenuLink asChild>
+                  <Link href="/settings" className={navigationMenuTriggerStyle()}>
                     Основные
-                  </NavigationMenuLink>
-                </Link>
+                  </Link>
+                </NavigationMenuLink>
               </NavigationMenuItem>
               <NavigationMenuItem>
-                <Link href="/settings/iiko" legacyBehavior passHref>
-                  <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                <NavigationMenuLink asChild>
+                  <Link href="/settings/iiko" className={navigationMenuTriggerStyle()}>
                     Iiko
-                  </NavigationMenuLink>
-                </Link>
+                  </Link>
+                </NavigationMenuLink>
               </NavigationMenuItem>
             </NavigationMenuList>
           </NavigationMenu>

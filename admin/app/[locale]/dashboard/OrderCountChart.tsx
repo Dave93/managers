@@ -161,7 +161,7 @@ const OrderCountChart = () => {
   }, [startTime, endTime, originalData, data]);
 
   const totalCurrentOrderCount = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.current_order_count === "number"
         ? item.current_order_count
@@ -169,7 +169,7 @@ const OrderCountChart = () => {
     0
   );
   const totalPreviousOrderCount = zoomedData.reduce(
-    (sum, item) =>
+    (sum: number, item: any) =>
       sum +
       (typeof item.previous_order_count === "number"
         ? item.previous_order_count

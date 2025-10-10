@@ -30,7 +30,7 @@ export default function EditableIncomes({
   } = useReportDataStore();
 
   const incomesList = editableIncomes();
-  const readonlyIncomesList = readonlyIncomes().filter((income) =>
+  const readonlyIncomesList = readonlyIncomes().filter((income: any) =>
     Object.keys(labels).includes(income.key)
   );
 
@@ -47,14 +47,14 @@ export default function EditableIncomes({
 
   useEffect(() => {
     if (data) {
-      const readonlyIncomes = data.filter((item) => item.readonly);
+      const readonlyIncomes = data.filter((item: any) => item.readonly);
       if (readonlyIncomes.length > 0) {
         setReadOnlyIncomes(readonlyIncomes);
       }
 
-      const editableIncomes = data.filter((item) => !item.readonly);
+      const editableIncomes = data.filter((item: any) => !item.readonly);
       if (editableIncomes.length > 0) {
-        editableIncomes.forEach((income) => {
+        editableIncomes.forEach((income: any) => {
           setIncomesItem(income);
         });
       }
@@ -84,7 +84,7 @@ export default function EditableIncomes({
         </div>
       ))}
       {readonlyIncomesList.length > 0 &&
-        readonlyIncomesList.map((income) => (
+        readonlyIncomesList.map((income: any) => (
           <div className="flex space-x-1.5 items-center " key={income.key}>
             <Label className="w-2/3 text-xl">
               {labels[income.key as keyof typeof labels]}
