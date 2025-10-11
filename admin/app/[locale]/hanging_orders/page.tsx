@@ -60,28 +60,39 @@ function HangingOrdersContent() {
         enabled: false,
     });
 
+    const getStatusLabel = (status: string) => {
+        const statusLabels: Record<string, string> = {
+            "pending": "В ожидании",
+            "in_progress": "В работе",
+            "truth": "Правда",
+            "lie": "Ложь",
+            "no_info": "Нет информации"
+        };
+        return statusLabels[status] || status;
+    };
+
     const exportToCSV = useCallback(async () => {
         toast.loading("Загрузка данных...");
         const { data: freshData } = await refetch();
         toast.dismiss();
-        
+
         if (!freshData?.data || freshData.data.length === 0) {
             toast.error("Нет данных для экспорта");
             return;
         }
-        
+
         try {
             const BOM = "\uFEFF";
             const headers = [
-                "Бренд", "Дата", "ID заказа", "Концепция", "Время", "Тип заказа", 
-                "Тип оплаты", "Номер чека", "Статус заказа", "Комментарии", 
-                "Проблема", "Номер телефона", "Сумма", "Состав", 
+                "Бренд", "Дата", "ID заказа", "Концепция", "Время", "Тип заказа",
+                "Тип оплаты", "Номер чека", "Статус заказа", "Комментарии",
+                "Проблема", "Номер телефона", "Сумма", "Состав",
                 "Статус обработки", "Комментарий обработки"
             ];
-            
+
             const rows = freshData.data.map((order: any) => [
                 order.brand || "",
-                order.date || "",
+                order.date ? dayjs(order.date).format('DD.MM.YYYY') : "",
                 order.orderId || "",
                 order.conception || "",
                 order.timestamp ? dayjs(order.timestamp).format('HH:mm:ss') : "",
@@ -91,13 +102,13 @@ function HangingOrdersContent() {
                 order.orderStatus || "",
                 order.comments || "",
                 order.problem || "",
-                order.phoneNumber || "",
+                order.phoneNumber ? `'${order.phoneNumber}` : "",
                 order.amount ? `${Number(order.amount).toLocaleString('ru-RU', {
                     minimumFractionDigits: 0,
                     maximumFractionDigits: 2
                 }).replace(/,/g, ' ')} сум` : "",
                 order.composition || "",
-                order.status || "",
+                getStatusLabel(order.status || ""),
                 order.comment || ""
             ]);
             
