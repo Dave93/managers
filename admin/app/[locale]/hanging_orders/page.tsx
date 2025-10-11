@@ -113,8 +113,9 @@ function HangingOrdersContent() {
             ]);
             
             const escapeCSV = (value: any) => {
-                const str = String(value);
-                if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+                // Заменяем переносы строк на пробелы для компактного вида в Excel
+                const str = String(value).replace(/\r?\n/g, ' ').trim();
+                if (str.includes(',') || str.includes('"')) {
                     return `"${str.replace(/"/g, '""')}"`;
                 }
                 return str;
