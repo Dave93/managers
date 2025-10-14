@@ -1,6 +1,8 @@
 import { partnersAuthController } from "@backend/modules/partners/v1/auth/controller";
 import { partnersOrganizationsController } from "@backend/modules/partners/v1/organizations/controller";
 import { partnersTerminalsController } from "@backend/modules/partners/v1/terminals/controller";
+import { partnersNomenclatureElementController } from "@backend/modules/partners/v1/nomenclature_element/controller";
+import { partnersNomenclatureGroupController } from "@backend/modules/partners/v1/nomenclature_group/controller";
 import Elysia from "elysia";
 import { ctx } from "@backend/context";
 import { getCachedPartnerByAccessToken } from "@backend/modules/external_partners/utils";
@@ -27,4 +29,6 @@ export const partnersController = new Elysia({
     }
   }, (app) => app
     .use(partnersOrganizationsController)
-    .use(partnersTerminalsController)))
+    .use(partnersTerminalsController)
+    .use(partnersNomenclatureElementController)
+    .use(partnersNomenclatureGroupController)))
