@@ -1757,7 +1757,7 @@ export class IikoDictionariesService {
               tax_category_id: nomenclatureGroup.taxCategory,
               category_id: nomenclatureGroup.category,
               accounting_category_id: nomenclatureGroup.accountingCategory,
-              parent_id: nomenclatureGroup.parentId,
+              parent_id: nomenclatureGroup.parent,
             })
             .execute();
         } catch (e) {
@@ -1773,7 +1773,7 @@ export class IikoDictionariesService {
               tax_category_id: nomenclatureGroup.taxCategory,
               category_id: nomenclatureGroup.category,
               accounting_category_id: nomenclatureGroup.accountingCategory,
-              parent_id: nomenclatureGroup.parentId,
+              parent_id: nomenclatureGroup.parent,
             })
             .where(eq(nomenclature_group.id, nomenclatureGroup.id))
             .execute();
