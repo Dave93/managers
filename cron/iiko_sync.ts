@@ -1722,7 +1722,6 @@ export class IikoDictionariesService {
   }
 
   async getNomenclatureGroups(token: string) {
-    // console.log("davr");
     const response = await fetch(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/group/list?key=${token}&includeDeleted=true`,
       {
@@ -1731,21 +1730,36 @@ export class IikoDictionariesService {
     );
 
     const nomenclatureGroups = await response.json();
-    // console.log("nomenclatureGroups", nomenclatureGroups);
+
     const existingNomenclatureGroups = await drizzleDb
       .select()
       .from(nomenclature_group)
       .execute();
 
-    // console.log("nomenclatureGroups", nomenclatureGroups);
     console.log("started NomenclatureGroups db inserting");
     console.time("NomenclatureGroups_db_inserting");
 
-    for (const nomenclatureGroup of nomenclatureGroups) {
-      const existingNomenclatureGroup = existingNomenclatureGroups.find(
-        (existingNomenclatureGroup) =>
-          existingNomenclatureGroup.id === nomenclatureGroup.id
-      );
+    // Create a Map for quick lookup of existing groups
+    const existingGroupsMap = new Map(
+      existingNomenclatureGroups.map(group => [group.id, group])
+    );
+
+    // Separate groups into those without parents (roots) and those with parents
+    const rootGroups: any[] = [];
+    const childGroups: any[] = [];
+
+    for (const group of nomenclatureGroups) {
+      if (!group.parent) {
+        rootGroups.push(group);
+      } else {
+        childGroups.push(group);
+      }
+    }
+
+    // Helper function to upsert a single group
+    const upsertGroup = async (nomenclatureGroup: any) => {
+      const existingNomenclatureGroup = existingGroupsMap.get(nomenclatureGroup.id);
+
       if (!existingNomenclatureGroup) {
         try {
           await drizzleDb
@@ -1761,7 +1775,7 @@ export class IikoDictionariesService {
             })
             .execute();
         } catch (e) {
-          console.log(e);
+          console.log(`Error inserting group ${nomenclatureGroup.id}:`, e);
         }
       } else {
         try {
@@ -1778,10 +1792,52 @@ export class IikoDictionariesService {
             .where(eq(nomenclature_group.id, nomenclatureGroup.id))
             .execute();
         } catch (e) {
-          console.log(e);
+          console.log(`Error updating group ${nomenclatureGroup.id}:`, e);
         }
       }
+    };
+
+    // Process root groups first
+    for (const group of rootGroups) {
+      await upsertGroup(group);
     }
+
+    // Process child groups in waves until all are processed
+    const processedIds = new Set(rootGroups.map(g => g.id));
+    let remainingGroups = [...childGroups];
+
+    while (remainingGroups.length > 0) {
+      const currentWave: any[] = [];
+      const nextWave: any[] = [];
+
+      // Separate groups that can be processed now from those that need to wait
+      for (const group of remainingGroups) {
+        // Check if parent exists in DB (either was there before or just inserted)
+        if (!group.parent || processedIds.has(group.parent) || existingGroupsMap.has(group.parent)) {
+          currentWave.push(group);
+        } else {
+          nextWave.push(group);
+        }
+      }
+
+      // If no groups can be processed in this wave, break to avoid infinite loop
+      if (currentWave.length === 0) {
+        console.log(`Warning: ${nextWave.length} groups have missing parents and cannot be inserted`);
+        for (const group of nextWave) {
+          console.log(`Group ${group.id} references missing parent ${group.parent}`);
+        }
+        break;
+      }
+
+      // Process current wave
+      for (const group of currentWave) {
+        await upsertGroup(group);
+        processedIds.add(group.id);
+      }
+
+      remainingGroups = nextWave;
+    }
+
     console.timeEnd("NomenclatureGroups_db_inserting");
     console.log("finished NomenclatureGroups db inserting");
   }

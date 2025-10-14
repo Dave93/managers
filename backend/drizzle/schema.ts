@@ -292,7 +292,7 @@ export const nomenclature_group = pgTable("nomenclature_group", {
   tax_category_id: uuid("tax_category_id"),
   category_id: uuid("category_id"),
   accounting_category_id: uuid("accounting_category_id"),
-  parent_id: uuid("parent_id").defaultRandom().notNull(),
+  parent_id: uuid("parent_id"),
 });
 
 export const order_type = pgTable("order_type", {
