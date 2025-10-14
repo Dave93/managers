@@ -272,6 +272,7 @@ export const nomenclature_element = pgTable("nomenclature_element", {
   type: varchar("type", { length: 255 }),
   unitWeight: numeric("unitWeight", { precision: 10, scale: 4 }),
   unitCapacity: numeric("unitCapacity", { precision: 10, scale: 4 }),
+  parent_id: uuid("parent_id"),
 });
 
 export const nomenclature_element_group = pgTable(

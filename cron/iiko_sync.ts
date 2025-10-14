@@ -1936,6 +1936,7 @@ export class IikoDictionariesService {
               type: nomenclatureElement.type,
               unitWeight: this.parseInteger(nomenclatureElement.unitWeight),
               unitCapacity: this.parseInteger(nomenclatureElement.unitCapacity),
+              parent_id: nomenclatureElement.parent,
             })
             .execute();
         } else {
@@ -1957,6 +1958,7 @@ export class IikoDictionariesService {
               unitCapacity: this.parseInteger(
                 nomenclatureElement.unitCapacity
               )?.toString(),
+              parent_id: nomenclatureElement.parent,
             })
             .where(eq(nomenclature_element.id, nomenclatureElement.id))
             .execute();
