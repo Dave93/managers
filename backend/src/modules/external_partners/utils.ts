@@ -11,13 +11,13 @@ const CACHE_TTL = 60 * 60 * 24; // 24 hours
 // Helper functions for cache management
 async function cachePartner(redis: any, partner: InferSelectModel<typeof externalPartners>) {
     const key = `${CACHE_PREFIX}:${partner.id}`;
-    await redis.setex(key, CACHE_TTL, JSON.stringify(partner));
+    await redis.set(key, JSON.stringify(partner));
     await redis.sadd(CACHE_SET_KEY, partner.id);
 
     // Also cache by email if it exists
     if (partner.email) {
         const emailKey = `${CACHE_EMAIL_PREFIX}:${partner.email}`;
-        await redis.setex(emailKey, CACHE_TTL, JSON.stringify(partner));
+        await redis.set(emailKey, JSON.stringify(partner));
     }
 }
 
