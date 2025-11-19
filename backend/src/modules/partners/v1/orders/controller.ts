@@ -1,6 +1,6 @@
 import Elysia, { t } from "elysia";
 import { ctx } from "@backend/context";
-import { orders, order_items } from "@backend/drizzle/schema";
+import { orders, order_items } from "backend/drizzle/schema";
 import { and, eq, gt, gte, lte, sql, SQLWrapper } from "drizzle-orm";
 
 export const partnersOrdersController = new Elysia({
