@@ -120,7 +120,7 @@ export const partnersOrdersController = new Elysia({
             // Get order IDs to fetch items
             const orderIds = ordersList.map(order => order.id);
             const orderDates = ordersList.map(order => order.openDateTyped);
-
+            console.log('[Partners Orders] orderIds length', orderIds.length);
             // Fetch order items for these orders
             let orderItemsList: any[] = [];
             if (orderIds.length > 0) {
@@ -156,8 +156,9 @@ export const partnersOrdersController = new Elysia({
                         departmentId: order_items.departmentId,
                     })
                     .from(order_items)
-                    .where(sql`(${order_items.uniqOrderId}, ${order_items.openDateTyped}) IN ${sql.raw(`(${orderIds.map((id, idx) => `('${id}', '${orderDates[idx]}')`).join(', ')})`)}`)
+                    .where(sql`(${order_items.uniqOrderId}}) IN ${sql.raw(`(${orderIds.map((id) => `('${id}')`).join(', ')})`)}`)
                     .execute();
+                console.log('[Partners Orders] orderItemsList length', orderItemsList.length);
             }
 
             // Combine orders with their items
