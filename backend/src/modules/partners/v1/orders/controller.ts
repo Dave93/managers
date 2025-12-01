@@ -217,16 +217,16 @@ export const partnersOrdersController = new Elysia({
                     description: "Filter orders by department ID (terminal/branch)",
                     examples: ["DEPT001", "TERMINAL123"]
                 })),
-                from_date: t.Optional(t.String({
+                from_date: t.String({
                     format: "date-time",
-                    description: "Filter orders from this date (ISO 8601 format)",
+                    description: "Filter orders from this date (ISO 8601 format) - REQUIRED",
                     examples: ["2024-01-01T00:00:00Z", "2024-01-15T10:30:00"]
-                })),
-                to_date: t.Optional(t.String({
+                }),
+                to_date: t.String({
                     format: "date-time",
-                    description: "Filter orders until this date (ISO 8601 format)",
+                    description: "Filter orders until this date (ISO 8601 format) - REQUIRED",
                     examples: ["2024-12-31T23:59:59Z", "2024-01-31T23:59:59"]
-                })),
+                }),
                 pagination_type: t.Optional(
                     t.Union([t.Literal("offset"), t.Literal("cursor")], {
                         default: "offset",
@@ -435,10 +435,13 @@ export const partnersOrdersController = new Elysia({
 - Best for: Infinite scroll, real-time data, large datasets
 - Example: \`?limit=20&cursor=2024-01-15T10:30:00|550e8400-e29b-41d4-a716-446655440000&pagination_type=cursor\`
 
-**Filtering**:
+**Required Filters**:
+- \`from_date\` and \`to_date\` are **required** to prevent loading all orders
+- Returns 400 error if date range is not provided
+
+**Optional Filters**:
 - Filter by organization using \`organization_id\` parameter
 - Filter by department/terminal using \`department_id\` parameter
-- Filter by date range using \`from_date\` and \`to_date\` parameters
 - All filters work with both pagination types
 
 **Response**:
