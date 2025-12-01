@@ -115,6 +115,8 @@ export const partnersOrdersController = new Elysia({
                 query_builder = query_builder.offset(Number(offset)) as any;
             }
 
+            console.log('[Partners Orders] query_builder', query_builder.toSQL());
+
             const ordersList = await query_builder.execute();
 
             // Get order IDs to fetch items
@@ -156,7 +158,7 @@ export const partnersOrdersController = new Elysia({
                         departmentId: order_items.departmentId,
                     })
                     .from(order_items)
-                    .where(sql`(${order_items.uniqOrderId}}) IN ${sql.raw(`(${orderIds.map((id) => `('${id}')`).join(', ')})`)}`)
+                    .where(sql`${order_items.uniqOrderId} IN ${sql.raw(`(${orderIds.map((id) => `'${id}'`).join(', ')})`)}`)
                     .execute();
                 console.log('[Partners Orders] orderItemsList length', orderItemsList.length);
             }
