@@ -249,7 +249,7 @@ export const partnersOrdersController = new Elysia({
                                 description: "Cash register number"
                             })),
                             openTime: t.Nullable(t.String({
-                                format: "date-time",
+                                format: "date",
                                 description: "Order open time"
                             })),
                             closeTime: t.Nullable(t.String({
