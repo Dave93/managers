@@ -116,9 +116,9 @@ export const partnersOrdersController = new Elysia({
             }
 
             console.log('[Partners Orders] query_builder', query_builder.toSQL());
-
+            console.time('[Partners Orders] query_builder');
             const ordersList = await query_builder.execute();
-
+            console.timeEnd('[Partners Orders] query_builder');
             // Get order IDs to fetch items
             const orderIds = ordersList.map(order => order.id);
             const orderDates = ordersList.map(order => order.openDateTyped);
@@ -138,7 +138,7 @@ export const partnersOrdersController = new Elysia({
                         )!
                     );
                 }
-
+                console.time('[Partners Orders] orderItemsList');
                 orderItemsList = await drizzle
                     .select({
                         id: order_items.id,
@@ -161,6 +161,7 @@ export const partnersOrdersController = new Elysia({
                     .where(sql`${order_items.uniqOrderId} IN ${sql.raw(`(${orderIds.map((id) => `'${id}'`).join(', ')})`)}`)
                     .execute();
                 console.log('[Partners Orders] orderItemsList length', orderItemsList.length);
+                console.timeEnd('[Partners Orders] orderItemsList');
             }
 
             // Combine orders with their items
@@ -252,27 +253,27 @@ export const partnersOrdersController = new Elysia({
                                 description: "Cash register number"
                             })),
                             openTime: t.Nullable(t.String({
-                                format: "date",
+                                // format: "date",
                                 description: "Order open time"
                             })),
                             closeTime: t.Nullable(t.String({
-                                format: "date-time",
+                                // format: "date-time",
                                 description: "Order close time"
                             })),
                             openDateTyped: t.String({
-                                format: "date-time",
+                                // format: "date-time",
                                 description: "Order open date (typed)"
                             }),
                             deliveryActualTime: t.Nullable(t.String({
-                                format: "date-time",
+                                // format: "date-time",
                                 description: "Actual delivery time"
                             })),
                             deliveryBillTime: t.Nullable(t.String({
-                                format: "date-time",
+                                // format: "date-time",
                                 description: "Delivery bill time"
                             })),
                             deliveryCloseTime: t.Nullable(t.String({
-                                format: "date-time",
+                                // format: "date-time",
                                 description: "Delivery close time"
                             })),
                             deliveryCustomerPhone: t.Nullable(t.String({
@@ -388,7 +389,7 @@ export const partnersOrdersController = new Elysia({
                                         description: "Order type ID"
                                     })),
                                     openDateTyped: t.String({
-                                        format: "date-time",
+                                        // format: "date-time",
                                         description: "Order open date"
                                     }),
                                     deliveryPhone: t.Nullable(t.String({
