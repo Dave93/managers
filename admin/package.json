@@ -72,7 +72,7 @@
     "framer-motion": "^12.23.22",
     "lucide-react": "^0.545.0",
     "million": "^3.1.11",
-    "next": "^15.6.0-canary.52",
+    "next": "15.6.0-canary.58",
     "next-auth": "^4.24.11",
     "next-intl": "^4.3.11",
     "next-superjson-plugin": "^0.6.3",
