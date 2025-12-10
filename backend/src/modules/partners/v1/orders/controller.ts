@@ -10,7 +10,7 @@ export const partnersOrdersController = new Elysia({
     .use(ctx)
     .get(
         "/orders",
-        async ({ query, drizzle }) => {
+        async ({ query, drizzle, cacheController, status }) => {
             const {
                 limit = "50",
                 offset,
@@ -27,7 +27,19 @@ export const partnersOrdersController = new Elysia({
 
             // Add organization_id filter if provided
             if (organization_id) {
-                whereConditions.push(eq(orders.restaurantGroupId, organization_id));
+                const org = await cacheController.getCachedOrganizationById(organization_id);
+                if (!org) {
+                    return status(400, {
+                        message: "Organization not found",
+                    });
+                }
+                const orgCredentials = org.credentials.find((credential) => credential.type === 'department_id');
+                if (!orgCredentials) {
+                    return status(400, {
+                        message: "Organization credentials not found",
+                    });
+                }
+                whereConditions.push(eq(orders.departmentId, orgCredentials.key));
             }
 
             // Add department_id (terminal) filter if provided
@@ -422,6 +434,11 @@ export const partnersOrdersController = new Elysia({
                         description: "Whether there are more orders to fetch (only for cursor pagination)"
                     })),
                 }),
+                400: t.Object({
+                    message: t.String({
+                        description: "Error message"
+                    })
+                })
             },
             detail: {
                 summary: "Get Orders with Items",
