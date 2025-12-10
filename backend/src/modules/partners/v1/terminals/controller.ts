@@ -16,20 +16,20 @@ export const partnersTerminalsController = new Elysia({
                 limit = "50",
                 offset,
                 cursor,
-                organization_id,
-                pagination_type = "offset",
+                organizationId,
+                paginationType = "offset",
             } = query;
 
             // Build where clause
             const whereConditions: SQLWrapper[] = [];
 
             // Add organization_id filter if provided
-            if (organization_id) {
-                whereConditions.push(eq(terminals.organization_id, organization_id));
+            if (organizationId) {
+                whereConditions.push(eq(terminals.organization_id, organizationId));
             }
 
             // Cursor-based pagination
-            if (pagination_type === "cursor" && cursor) {
+            if (paginationType === "cursor" && cursor) {
                 whereConditions.push(gt(terminals.id, cursor));
             }
 
@@ -37,7 +37,7 @@ export const partnersTerminalsController = new Elysia({
 
             // Get total count for offset pagination or when no cursor is provided
             let total: number | undefined;
-            if (pagination_type === "offset" || !cursor) {
+            if (paginationType === "offset" || !cursor) {
                 const countResult = await drizzle
                     .select({ count: sql<number>`count(*)` })
                     .from(terminals)
@@ -55,7 +55,7 @@ export const partnersTerminalsController = new Elysia({
                 .limit(Number(limit));
 
             // Add offset for offset-based pagination
-            if (pagination_type === "offset" && offset) {
+            if (paginationType === "offset" && offset) {
                 query_builder = query_builder.offset(Number(offset)) as any;
             }
 
@@ -63,21 +63,45 @@ export const partnersTerminalsController = new Elysia({
 
             // Prepare response
             const response: {
-                data: typeof terminalList;
+                data: {
+                    id: string;
+                    name: string;
+                    active: boolean;
+                    phone: string | null;
+                    address: string | null;
+                    latitude: number;
+                    longitude: number;
+                    organizationId: string;
+                    managerName: string | null;
+                    createdAt: string;
+                    updatedAt: string;
+                }[];
                 total?: number;
-                next_cursor?: string | null;
-                has_more?: boolean;
+                nextCursor?: string | null;
+                hasMore?: boolean;
             } = {
-                data: terminalList,
+                data: terminalList.map(terminal => ({
+                    id: terminal.id,
+                    name: terminal.name,
+                    active: terminal.active,
+                    phone: terminal.phone,
+                    address: terminal.address,
+                    latitude: terminal.latitude,
+                    longitude: terminal.longitude,
+                    organizationId: terminal.organization_id,
+                    managerName: terminal.manager_name,
+                    createdAt: terminal.created_at,
+                    updatedAt: terminal.updated_at,
+                })),
             };
 
             // Add pagination metadata based on type
-            if (pagination_type === "cursor") {
-                response.next_cursor =
+            if (paginationType === "cursor") {
+                response.nextCursor =
                     terminalList.length === Number(limit)
                         ? terminalList[terminalList.length - 1].id
                         : null;
-                response.has_more = terminalList.length === Number(limit);
+                response.hasMore = terminalList.length === Number(limit);
             } else {
                 response.total = parseInt(total?.toString() || "0");
             }
@@ -99,12 +123,12 @@ export const partnersTerminalsController = new Elysia({
                     description: "Cursor for pagination (ID of last terminal from previous page, only for cursor-based pagination)",
                     examples: ["550e8400-e29b-41d4-a716-446655440000"]
                 })),
-                organization_id: t.Optional(t.String({
+                organizationId: t.Optional(t.String({
                     format: "uuid",
                     description: "Filter terminals by organization ID",
                     examples: ["550e8400-e29b-41d4-a716-446655440000"]
                 })),
-                pagination_type: t.Optional(
+                paginationType: t.Optional(
                     t.Union([t.Literal("offset"), t.Literal("cursor")], {
                         default: "offset",
                         description: "Type of pagination to use"
@@ -137,18 +161,18 @@ export const partnersTerminalsController = new Elysia({
                             longitude: t.Number({
                                 description: "Terminal longitude coordinate"
                             }),
-                            organization_id: t.String({
+                            organizationId: t.String({
                                 format: "uuid",
                                 description: "ID of organization this terminal belongs to"
                             }),
-                            manager_name: t.Nullable(t.String({
+                            managerName: t.Nullable(t.String({
                                 description: "Name of terminal manager"
                             })),
-                            created_at: t.String({
+                            createdAt: t.String({
                                 format: "date-time",
                                 description: "Terminal creation timestamp"
                             }),
-                            updated_at: t.String({
+                            updatedAt: t.String({
                                 format: "date-time",
                                 description: "Terminal last update timestamp"
                             }),
@@ -157,11 +181,11 @@ export const partnersTerminalsController = new Elysia({
                     total: t.Optional(t.Number({
                         description: "Total number of terminals (only for offset pagination)"
                     })),
-                    next_cursor: t.Optional(t.Nullable(t.String({
+                    nextCursor: t.Optional(t.Nullable(t.String({
                         format: "uuid",
                         description: "Cursor for next page (only for cursor pagination)"
                     }))),
-                    has_more: t.Optional(t.Boolean({
+                    hasMore: t.Optional(t.Boolean({
                         description: "Whether there are more terminals to fetch (only for cursor pagination)"
                     })),
                 }),
@@ -177,13 +201,13 @@ export const partnersTerminalsController = new Elysia({
 - Example: \`?limit=20&offset=40\` (page 3 of 20 items per page)
 
 **Cursor Pagination**:
-- Use \`limit\` and \`cursor\` parameters with \`pagination_type=cursor\`
-- Returns \`next_cursor\` and \`has_more\` in response
+- Use \`limit\` and \`cursor\` parameters with \`paginationType=cursor\`
+- Returns \`nextCursor\` and \`hasMore\` in response
 - Best for: Infinite scroll, real-time data, large datasets
-- Example: \`?limit=20&cursor=<id>&pagination_type=cursor\`
+- Example: \`?limit=20&cursor=<id>&paginationType=cursor\`
 
 **Filtering**:
-- Filter by organization using \`organization_id\` parameter
+- Filter by organization using \`organizationId\` parameter
 - Works with both pagination types
 
 All endpoints require partner authentication via Bearer token.`,
