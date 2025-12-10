@@ -36,6 +36,9 @@ export const partnersOrdersController = new Elysia({
                 }
             }
 
+            console.log('[Partners Orders] organizationIdByDepartmentId', organizationIdByDepartmentId);
+            console.log('[Partners Orders] organizations', organizations);
+
             // Add organization_id filter if provided
             if (organization_id) {
                 const org = await cacheController.getCachedOrganizationById(organization_id);
