@@ -25,6 +25,17 @@ export const partnersOrdersController = new Elysia({
             // Build where clause
             const whereConditions: SQLWrapper[] = [];
 
+            let organizationIdByDepartmentId: Record<string, string> = {};
+
+            const organizations = await cacheController.getCachedOrganization({});
+            for (const org of organizations) {
+                for (const credential of org.credentials) {
+                    if (credential.type === 'department_id') {
+                        organizationIdByDepartmentId[credential.key] = org.id;
+                    }
+                }
+            }
+
             // Add organization_id filter if provided
             if (organization_id) {
                 const org = await cacheController.getCachedOrganizationById(organization_id);
@@ -179,6 +190,7 @@ export const partnersOrdersController = new Elysia({
             // Combine orders with their items
             const ordersWithItems = ordersList.map(order => ({
                 ...order,
+                organizationId: organizationIdByDepartmentId[order.departmentId!] || order.departmentId,
                 items: orderItemsList.filter(item =>
                     item.uniqOrderId === order.id &&
                     item.openDateTyped === order.openDateTyped
