@@ -37,7 +37,7 @@ export const partnersOrdersController = new Elysia({
             }
 
             console.log('[Partners Orders] organizationIdByDepartmentId', organizationIdByDepartmentId);
-            console.log('[Partners Orders] organizations', organizations);
+            console.log('[Partners Orders] organizations', JSON.stringify(organizations, null, 2));
 
             // Add organization_id filter if provided
             if (organization_id) {
@@ -143,7 +143,11 @@ export const partnersOrdersController = new Elysia({
 
             console.log('[Partners Orders] query_builder', query_builder.toSQL());
             console.time('[Partners Orders] query_builder');
-            const ordersList = await query_builder.execute();
+            let ordersList = await query_builder.execute();
+            ordersList = ordersList.map(order => ({
+                ...order,
+                organizationId: organizationIdByDepartmentId[order.departmentId!] || order.departmentId,
+            }));
             console.timeEnd('[Partners Orders] query_builder');
             // Get order IDs to fetch items
             const orderIds = ordersList.map(order => order.id);
@@ -193,7 +197,6 @@ export const partnersOrdersController = new Elysia({
             // Combine orders with their items
             const ordersWithItems = ordersList.map(order => ({
                 ...order,
-                organizationId: organizationIdByDepartmentId[order.departmentId!] || order.departmentId,
                 items: orderItemsList.filter(item =>
                     item.uniqOrderId === order.id &&
                     item.openDateTyped === order.openDateTyped
