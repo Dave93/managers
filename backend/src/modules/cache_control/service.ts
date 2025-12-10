@@ -131,6 +131,14 @@ export class CacheControlService {
     return res;
   }
 
+  async getCachedOrganizationById(id: string) {
+    const organization = await this.redis.get(
+      `${process.env.PROJECT_PREFIX}organization`
+    );
+    let res = JSON.parse(organization ?? "[]") as organizationWithCredentials[];
+    return res.find((org) => org.id === id);
+  }
+
   async cachePositions() {
     const positions = await this.drizzle.query.positions.findMany();
 
