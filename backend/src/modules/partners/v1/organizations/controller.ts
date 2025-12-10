@@ -11,7 +11,19 @@ export const partnersOrganizationsController = new Elysia({
   .get("/organizations", async ({ drizzle }) => {
     const organizations = await drizzle.select().from(organization).execute();
     return {
-        data: organizations,
+        data: organizations.map(org => ({
+          id: org.id,
+          name: org.name,
+          active: org.active,
+          phone: org.phone,
+          description: org.description,
+          iconUrl: org.icon_url,
+          code: org.code,
+          createdAt: org.created_at,
+          updatedAt: org.updated_at,
+          createdBy: org.created_by,
+          updatedBy: org.updated_by,
+        })),
     };
   }, {
     response: {
@@ -34,25 +46,25 @@ export const partnersOrganizationsController = new Elysia({
             description: t.Nullable(t.String({
               description: "Organization description"
             })),
-            icon_url: t.Nullable(t.String({
+            iconUrl: t.Nullable(t.String({
               description: "URL to organization icon/logo"
             })),
             code: t.Nullable(t.String({
               description: "Organization code"
             })),
-            created_at: t.String({
+            createdAt: t.String({
               format: "date-time",
               description: "Organization creation timestamp"
             }),
-            updated_at: t.String({
+            updatedAt: t.String({
               format: "date-time",
               description: "Organization last update timestamp"
             }),
-            created_by: t.Nullable(t.String({
+            createdBy: t.Nullable(t.String({
               format: "uuid",
               description: "ID of user who created the organization"
             })),
-            updated_by: t.Nullable(t.String({
+            updatedBy: t.Nullable(t.String({
               format: "uuid",
               description: "ID of user who last updated the organization"
             })),
