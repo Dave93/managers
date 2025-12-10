@@ -15,11 +15,11 @@ export const partnersOrdersController = new Elysia({
                 limit = "50",
                 offset,
                 cursor,
-                organization_id,
-                department_id,
-                from_date,
-                to_date,
-                pagination_type = "offset",
+                organizationId,
+                departmentId,
+                fromDate,
+                toDate,
+                paginationType = "offset",
             } = query;
 
             // Build where clause
@@ -40,8 +40,8 @@ export const partnersOrdersController = new Elysia({
             console.log('[Partners Orders] organizations', JSON.stringify(organizations, null, 2));
 
             // Add organization_id filter if provided
-            if (organization_id) {
-                const org = await cacheController.getCachedOrganizationById(organization_id);
+            if (organizationId) {
+                const org = await cacheController.getCachedOrganizationById(organizationId);
                 if (!org) {
                     return status(400, {
                         message: "Organization not found",
@@ -57,21 +57,21 @@ export const partnersOrdersController = new Elysia({
             }
 
             // Add department_id (terminal) filter if provided
-            if (department_id) {
-                whereConditions.push(eq(orders.departmentId, department_id));
+            if (departmentId) {
+                whereConditions.push(eq(orders.departmentId, departmentId));
             }
 
             // Add date range filters
-            if (from_date) {
-                whereConditions.push(gte(orders.openDateTyped, from_date));
+            if (fromDate) {
+                whereConditions.push(gte(orders.openDateTyped, fromDate));
             }
 
-            if (to_date) {
-                whereConditions.push(lte(orders.openDateTyped, to_date));
+            if (toDate) {
+                whereConditions.push(lte(orders.openDateTyped, toDate));
             }
 
             // Cursor-based pagination
-            if (pagination_type === "cursor" && cursor) {
+            if (paginationType === "cursor" && cursor) {
                 // For cursor pagination, we use openDateTyped + id composite
                 const [cursorDate, cursorId] = cursor.split('|');
                 whereConditions.push(
@@ -83,7 +83,7 @@ export const partnersOrdersController = new Elysia({
 
             // Get total count for offset pagination or when no cursor is provided
             let total: number | undefined;
-            if (pagination_type === "offset" || !cursor) {
+            if (paginationType === "offset" || !cursor) {
                 const countResult = await drizzle
                     .select({ count: sql<number>`count(*)` })
                     .from(orders)
@@ -137,17 +137,13 @@ export const partnersOrdersController = new Elysia({
                 .limit(Number(limit));
 
             // Add offset for offset-based pagination
-            if (pagination_type === "offset" && offset) {
+            if (paginationType === "offset" && offset) {
                 query_builder = query_builder.offset(Number(offset)) as any;
             }
 
             console.log('[Partners Orders] query_builder', query_builder.toSQL());
             console.time('[Partners Orders] query_builder');
             let ordersList = await query_builder.execute();
-            ordersList = ordersList.map(order => ({
-                ...order,
-                organizationId: organizationIdByDepartmentId[order.departmentId!] || order.departmentId,
-            }));
             console.timeEnd('[Partners Orders] query_builder');
             // Get order IDs to fetch items
             const orderIds = ordersList.map(order => order.id);
@@ -197,6 +193,7 @@ export const partnersOrdersController = new Elysia({
             // Combine orders with their items
             const ordersWithItems = ordersList.map(order => ({
                 ...order,
+                organizationId: organizationIdByDepartmentId[order.departmentId!] || order.departmentId,
                 items: orderItemsList.filter(item =>
                     item.uniqOrderId === order.id &&
                     item.openDateTyped === order.openDateTyped
@@ -207,20 +204,20 @@ export const partnersOrdersController = new Elysia({
             const response: {
                 data: typeof ordersWithItems;
                 total?: number;
-                next_cursor?: string | null;
-                has_more?: boolean;
+                nextCursor?: string | null;
+                hasMore?: boolean;
             } = {
                 data: ordersWithItems,
             };
 
             // Add pagination metadata based on type
-            if (pagination_type === "cursor") {
+            if (paginationType === "cursor") {
                 const lastOrder = ordersList[ordersList.length - 1];
-                response.next_cursor =
+                response.nextCursor =
                     ordersList.length === Number(limit) && lastOrder
                         ? `${lastOrder.openDateTyped}|${lastOrder.id}`
                         : null;
-                response.has_more = ordersList.length === Number(limit);
+                response.hasMore = ordersList.length === Number(limit);
             } else {
                 response.total = parseInt(total?.toString() || "0");
             }
@@ -242,26 +239,26 @@ export const partnersOrdersController = new Elysia({
                     description: "Cursor for pagination (format: 'date|uuid', only for cursor-based pagination)",
                     examples: ["2024-01-15T10:30:00|550e8400-e29b-41d4-a716-446655440000"]
                 })),
-                organization_id: t.Optional(t.String({
+                organizationId: t.Optional(t.String({
                     format: "uuid",
                     description: "Filter orders by organization ID (restaurant group)",
                     examples: ["550e8400-e29b-41d4-a716-446655440000"]
                 })),
-                department_id: t.Optional(t.String({
+                departmentId: t.Optional(t.String({
                     description: "Filter orders by department ID (terminal/branch)",
                     examples: ["DEPT001", "TERMINAL123"]
                 })),
-                from_date: t.String({
+                fromDate: t.String({
                     format: "date-time",
                     description: "Filter orders from this date (ISO 8601 format) - REQUIRED",
                     examples: ["2024-01-01T00:00:00Z", "2024-01-15T10:30:00"]
                 }),
-                to_date: t.String({
+                toDate: t.String({
                     format: "date-time",
                     description: "Filter orders until this date (ISO 8601 format) - REQUIRED",
                     examples: ["2024-12-31T23:59:59Z", "2024-01-31T23:59:59"]
                 }),
-                pagination_type: t.Optional(
+                paginationType: t.Optional(
                     t.Union([t.Literal("offset"), t.Literal("cursor")], {
                         default: "offset",
                         description: "Type of pagination to use"
@@ -449,10 +446,10 @@ export const partnersOrdersController = new Elysia({
                     total: t.Optional(t.Number({
                         description: "Total number of orders (only for offset pagination)"
                     })),
-                    next_cursor: t.Optional(t.Nullable(t.String({
+                    nextCursor: t.Optional(t.Nullable(t.String({
                         description: "Cursor for next page (only for cursor pagination)"
                     }))),
-                    has_more: t.Optional(t.Boolean({
+                    hasMore: t.Optional(t.Boolean({
                         description: "Whether there are more orders to fetch (only for cursor pagination)"
                     })),
                 }),
@@ -473,18 +470,18 @@ export const partnersOrdersController = new Elysia({
 - Example: \`?limit=20&offset=40\` (page 3 of 20 items per page)
 
 **Cursor Pagination**:
-- Use \`limit\` and \`cursor\` parameters with \`pagination_type=cursor\`
-- Returns \`next_cursor\` and \`has_more\` in response
+- Use \`limit\` and \`cursor\` parameters with \`paginationType=cursor\`
+- Returns \`nextCursor\` and \`hasMore\` in response
 - Best for: Infinite scroll, real-time data, large datasets
-- Example: \`?limit=20&cursor=2024-01-15T10:30:00|550e8400-e29b-41d4-a716-446655440000&pagination_type=cursor\`
+- Example: \`?limit=20&cursor=2024-01-15T10:30:00|550e8400-e29b-41d4-a716-446655440000&paginationType=cursor\`
 
 **Required Filters**:
-- \`from_date\` and \`to_date\` are **required** to prevent loading all orders
+- \`fromDate\` and \`toDate\` are **required** to prevent loading all orders
 - Returns 400 error if date range is not provided
 
 **Optional Filters**:
-- Filter by organization using \`organization_id\` parameter
-- Filter by department/terminal using \`department_id\` parameter
+- Filter by organization using \`organizationId\` parameter
+- Filter by department/terminal using \`departmentId\` parameter
 - All filters work with both pagination types
 
 **Response**:
