@@ -386,6 +386,10 @@ export const partnersOrdersController = new Elysia({
                             storned: t.Nullable(t.String({
                                 description: "Is order cancelled/storned"
                             })),
+                            organizationId: t.Nullable(t.String({
+                                format: "uuid",
+                                description: "Organization ID"
+                            })),
                             items: t.Array(
                                 t.Object({
                                     id: t.String({
