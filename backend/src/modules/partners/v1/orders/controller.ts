@@ -152,18 +152,9 @@ export const partnersOrdersController = new Elysia({
             // Fetch order items for these orders
             let orderItemsList: any[] = [];
             if (orderIds.length > 0) {
-                // Build conditions for order items
-                const itemsConditions: SQLWrapper[] = [];
+                // Get unique dates for chunk pruning (TimescaleDB optimization)
+                const uniqueDates = [...new Set(orderDates)] as string[];
 
-                // Match orders by id and openDateTyped pairs
-                for (let i = 0; i < orderIds.length; i++) {
-                    itemsConditions.push(
-                        and(
-                            eq(order_items.uniqOrderId, orderIds[i]),
-                            eq(order_items.openDateTyped, orderDates[i] as string)
-                        )!
-                    );
-                }
                 console.time('[Partners Orders] orderItemsList');
                 orderItemsList = await drizzle
                     .select({
@@ -184,7 +175,12 @@ export const partnersOrdersController = new Elysia({
                         departmentId: order_items.departmentId,
                     })
                     .from(order_items)
-                    .where(sql`${order_items.uniqOrderId} IN ${sql.raw(`(${orderIds.map((id) => `'${id}'`).join(', ')})`)}`)
+                    .where(and(
+                        sql`${order_items.uniqOrderId} IN ${sql.raw(`(${orderIds.map((id) => `'${id}'`).join(', ')})`)}`,
+                        // Add date range filter for TimescaleDB chunk pruning
+                        gte(order_items.openDateTyped, fromDate),
+                        lte(order_items.openDateTyped, toDate)
+                    ))
                     .execute();
                 console.log('[Partners Orders] orderItemsList length', orderItemsList.length);
                 console.timeEnd('[Partners Orders] orderItemsList');
