@@ -132,7 +132,7 @@ export const partnersInvoicesController = new Elysia({
                         num: invoice_items.num,
                         productArticle: invoice_items.productArticle,
                         amount: invoice_items.amount,
-                        priceWithoutVat: invoice_items.priceWithoutVat,
+                        // priceWithoutVat: invoice_items.priceWithoutVat,
                         supplierProduct: invoice_items.supplierProduct,
                         supplierProductArticle: invoice_items.supplierProductArticle,
                         storeId: invoice_items.storeId,
@@ -332,9 +332,9 @@ export const partnersInvoicesController = new Elysia({
                                     amount: t.Nullable(t.String({
                                         description: "Amount"
                                     })),
-                                    priceWithoutVat: t.Nullable(t.Number({
-                                        description: "Price without VAT"
-                                    })),
+                                    // priceWithoutVat: t.Nullable(t.Number({
+                                    //     description: "Price without VAT"
+                                    // })),
                                     supplierProduct: t.Nullable(t.String({
                                         description: "Supplier product"
                                     })),
