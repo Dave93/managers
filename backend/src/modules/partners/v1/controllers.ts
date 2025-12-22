@@ -4,6 +4,8 @@ import { partnersTerminalsController } from "@backend/modules/partners/v1/termin
 import { partnersNomenclatureElementController } from "@backend/modules/partners/v1/nomenclature_element/controller";
 import { partnersNomenclatureGroupController } from "@backend/modules/partners/v1/nomenclature_group/controller";
 import { partnersOrdersController } from "@backend/modules/partners/v1/orders/controller";
+import { partnersSuppliersController } from "@backend/modules/partners/v1/suppliers/controller";
+import { partnersInvoicesController } from "@backend/modules/partners/v1/invoices/controller";
 import Elysia from "elysia";
 import { ctx } from "@backend/context";
 import { getCachedPartnerByAccessToken } from "@backend/modules/external_partners/utils";
@@ -33,4 +35,6 @@ export const partnersController = new Elysia({
     .use(partnersTerminalsController)
     .use(partnersNomenclatureElementController)
     .use(partnersNomenclatureGroupController)
-    .use(partnersOrdersController)))
+    .use(partnersOrdersController)
+    .use(partnersSuppliersController)
+    .use(partnersInvoicesController)))
