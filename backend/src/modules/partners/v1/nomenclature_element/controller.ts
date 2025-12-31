@@ -18,10 +18,16 @@ export const partnersNomenclatureElementController = new Elysia({
                 cursor,
                 organization_id,
                 pagination_type = "offset",
+                id,
             } = query;
 
             // Build where clause
             const whereConditions: SQLWrapper[] = [];
+
+            // Add id filter if provided
+            if (id) {
+                whereConditions.push(eq(nomenclature_element.id, id));
+            }
 
             // Add organization_id filter if provided - using JOIN with nomenclature_element_organization
             if (organization_id) {
@@ -138,6 +144,11 @@ export const partnersNomenclatureElementController = new Elysia({
                 organization_id: t.Optional(t.String({
                     format: "uuid",
                     description: "Filter nomenclature elements by organization ID",
+                    examples: ["550e8400-e29b-41d4-a716-446655440000"]
+                })),
+                id: t.Optional(t.String({
+                    format: "uuid",
+                    description: "Filter by nomenclature element ID",
                     examples: ["550e8400-e29b-41d4-a716-446655440000"]
                 })),
                 pagination_type: t.Optional(

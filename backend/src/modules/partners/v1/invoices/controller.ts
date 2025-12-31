@@ -24,6 +24,7 @@ export const partnersInvoicesController = new Elysia({
                 type = "incoming",
                 status,
                 supplierId,
+                productId,
             } = query;
 
             // Build where clause
@@ -117,6 +118,17 @@ export const partnersInvoicesController = new Elysia({
             // Fetch invoice items
             let invoiceItemsList: any[] = [];
             if (invoiceIds.length > 0) {
+                const itemsWhereConditions: SQLWrapper[] = [
+                    sql`${invoice_items.invoice_id} IN ${sql.raw(`(${invoiceIds.map((id) => `'${id}'`).join(', ')})`)}`,
+                    gte(invoice_items.invoiceincomingdate, fromDate),
+                    lte(invoice_items.invoiceincomingdate, toDate)
+                ];
+
+                // Add productId filter to items
+                if (productId) {
+                    itemsWhereConditions.push(eq(invoice_items.productId, productId));
+                }
+
                 invoiceItemsList = await drizzle
                     .select({
                         id: invoice_items.id,
@@ -141,22 +153,23 @@ export const partnersInvoicesController = new Elysia({
                         invoiceincomingdate: invoice_items.invoiceincomingdate,
                     })
                     .from(invoice_items)
-                    .where(and(
-                        sql`${invoice_items.invoice_id} IN ${sql.raw(`(${invoiceIds.map((id) => `'${id}'`).join(', ')})`)}`,
-                        gte(invoice_items.invoiceincomingdate, fromDate),
-                        lte(invoice_items.invoiceincomingdate, toDate)
-                    ))
+                    .where(and(...itemsWhereConditions))
                     .execute();
             }
 
             // Combine invoices with their items
-            const invoicesWithItems = invoicesList.map(invoice => ({
+            let invoicesWithItems = invoicesList.map(invoice => ({
                 ...invoice,
                 items: invoiceItemsList.filter(item =>
                     item.invoice_id === invoice.id &&
                     item.invoiceincomingdate === invoice.incomingDate
                 ),
             }));
+
+            // Filter out invoices without items when productId is specified
+            if (productId) {
+                invoicesWithItems = invoicesWithItems.filter(invoice => invoice.items.length > 0);
+            }
 
             // Prepare response
             const response: {
@@ -225,6 +238,11 @@ export const partnersInvoicesController = new Elysia({
                 supplierId: t.Optional(t.String({
                     format: "uuid",
                     description: "Filter by supplier ID",
+                    examples: ["550e8400-e29b-41d4-a716-446655440000"]
+                })),
+                productId: t.Optional(t.String({
+                    format: "uuid",
+                    description: "Filter invoices by product ID (returns invoices containing this product)",
                     examples: ["550e8400-e29b-41d4-a716-446655440000"]
                 })),
             }),
