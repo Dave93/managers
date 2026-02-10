@@ -25,6 +25,7 @@ import {
   suppliers
 } from "backend/drizzle/schema";
 import path from "path";
+import https from "node:https";
 const fs = require("fs");
 const xml2js = require("xml2js");
 import { Redis } from "ioredis";
@@ -43,8 +44,76 @@ dayjs.extend(timezone);
 export class IikoDictionariesService {
   constructor(private readonly redis: Redis) { }
 
+  async fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 5): Promise<Response> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 600000);
+        console.log(`[fetchWithRetry] Attempt ${attempt}/${maxRetries} for ${url.split("?")[0]}`);
+        const response = await fetch(url, { method: options.method || "GET", headers: options.headers, body: options.body, signal: controller.signal });
+        clearTimeout(timeoutId);
+        console.log(`[fetchWithRetry] Success for ${url.split("?")[0]}, status: ${response.status}`);
+        return response;
+      } catch (e) {
+        console.error(`[fetchWithRetry] Attempt ${attempt}/${maxRetries} failed for ${url.split("?")[0]}: ${(e as Error).name} - ${(e as Error).message}`);
+        if (attempt === maxRetries) throw e;
+        const delay = 10000 * attempt;
+        console.log(`[fetchWithRetry] Waiting ${delay / 1000}s before retry...`);
+        await new Promise(r => setTimeout(r, delay));
+      }
+    }
+    throw new Error("Unreachable");
+  }
+
+  httpsGet(url: string): Promise<string> {
+    const { execSync } = require("child_process");
+    const crypto = require("crypto");
+    const tmpFile = `/tmp/iiko_fetch_${crypto.randomBytes(8).toString("hex")}.tmp`;
+    try {
+      execSync(`wget -q --timeout=900 --tries=3 --wait=10 -O "${tmpFile}" "${url}"`, { timeout: 1800000 });
+    } catch (e: any) {
+      // curl may exit with error but still write data
+      console.log(`[httpsGet] curl exited with error, checking if data was saved...`);
+    }
+    try {
+      const data = require("fs").readFileSync(tmpFile, "utf-8");
+      require("fs").unlinkSync(tmpFile);
+      if (!data || data.length === 0) throw new Error("Empty response from curl");
+      console.log(`[httpsGet] read ${data.length} chars from curl output`);
+      return data;
+    } catch (readErr) {
+      try { require("fs").unlinkSync(tmpFile); } catch {}
+      throw readErr;
+    }
+  }
+
+  async readResponseBody(response: Response): Promise<string> {
+    const reader = response.body?.getReader();
+    if (!reader) return await response.text();
+    const chunks: Uint8Array[] = [];
+    let totalSize = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      totalSize += value.length;
+    }
+    const result = new Uint8Array(totalSize);
+    let offset = 0;
+    for (const chunk of chunks) {
+      result.set(chunk, offset);
+      offset += chunk.length;
+    }
+    return new TextDecoder().decode(result);
+  }
+
+  async readResponseJson(response: Response): Promise<any> {
+    const text = await this.readResponseBody(response);
+    return JSON.parse(text);
+  }
+
   async getIikoDictionariesFromIiko() {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/auth?login=${process.env.IIKO_LOGIN}&pass=${process.env.IIKO_PASSWORD}`,
       {
         method: "GET",
@@ -55,26 +124,26 @@ export class IikoDictionariesService {
 
     // console.log("token", token);
 
-    await this.getTaxCategories(token);
-    await this.getPaymentTypes(token);
-    await this.getOrderTypes(token);
-    await this.getMeasureUnit(token);
-    await this.getDiscountTypes(token);
-    await this.getConceptions(token);
-    await this.getAccountingCategorys(token);
-    await this.getNomenclatureGroups(token);
-    await this.getNomenclatureCatergorys(token);
-    await this.getNomenclatureElements(token);
-    await this.getIncomingInvoice(token);
-    await this.getOutgoingInvoice(token);
-    await this.getInternalTransfer(token);
-    await this.getWriteOff(token);
-    await this.getCorporatinStore(token);
-    await this.getCorporationDepartments(token);
-    await this.getCorporationGroups(token);
+    try { await this.getTaxCategories(token); } catch (e) { console.error("Error in getTaxCategories:", e); }
+    try { await this.getPaymentTypes(token); } catch (e) { console.error("Error in getPaymentTypes:", e); }
+    try { await this.getOrderTypes(token); } catch (e) { console.error("Error in getOrderTypes:", e); }
+    try { await this.getMeasureUnit(token); } catch (e) { console.error("Error in getMeasureUnit:", e); }
+    try { await this.getDiscountTypes(token); } catch (e) { console.error("Error in getDiscountTypes:", e); }
+    try { await this.getConceptions(token); } catch (e) { console.error("Error in getConceptions:", e); }
+    try { await this.getAccountingCategorys(token); } catch (e) { console.error("Error in getAccountingCategorys:", e); }
+    try { await this.getNomenclatureGroups(token); } catch (e) { console.error("Error in getNomenclatureGroups:", e); }
+    try { await this.getNomenclatureCatergorys(token); } catch (e) { console.error("Error in getNomenclatureCatergorys:", e); }
+    try { await this.getNomenclatureElements(token); } catch (e) { console.error("Error in getNomenclatureElements:", e); }
+    try { await this.getIncomingInvoice(token); } catch (e) { console.error("Error in getIncomingInvoice:", e); }
+    try { await this.getOutgoingInvoice(token); } catch (e) { console.error("Error in getOutgoingInvoice:", e); }
+    try { await this.getInternalTransfer(token); } catch (e) { console.error("Error in getInternalTransfer:", e); }
+    try { await this.getWriteOff(token); } catch (e) { console.error("Error in getWriteOff:", e); }
+    try { await this.getCorporatinStore(token); } catch (e) { console.error("Error in getCorporatinStore:", e); }
+    try { await this.getCorporationDepartments(token); } catch (e) { console.error("Error in getCorporationDepartments:", e); }
+    try { await this.getCorporationGroups(token); } catch (e) { console.error("Error in getCorporationGroups:", e); }
     // await this.getBalanceStores(token);
-    await this.getReportOlap(token);
-    await this.getSupplers(token);
+    try { await this.getReportOlap(token); } catch (e) { console.error("Error in getReportOlap:", e); }
+    try { await this.getSupplers(token); } catch (e) { console.error("Error in getSupplers:", e); }
   }
 
   checkForNullString = (value: string) => {
@@ -108,7 +177,7 @@ export class IikoDictionariesService {
       .from(corporation_store);
 
     for (const store of storeId) {
-      const response = await fetch(
+      const response = await this.fetchWithRetry(
         `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/balance/stores?key=${token}&timestamp=${date}&store=${store.id}`,
         {
           method: "GET",
@@ -207,7 +276,7 @@ export class IikoDictionariesService {
 
 
   async getCorporationDepartments(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/corporation/departments?includeDeleted=true&key=${token}`,
       {
         method: "GET",
@@ -280,7 +349,7 @@ export class IikoDictionariesService {
   }
 
   async getCorporationGroups(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/corporation/groups?key=${token}`,
       {
         method: "GET",
@@ -366,7 +435,7 @@ export class IikoDictionariesService {
     // const toDate = "2024-08-07";
     console.log("fromDate", fromDate);
     console.log("toDate", toDate);
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/olap?key=${token}`,
       {
         method: "POST",
@@ -479,7 +548,7 @@ export class IikoDictionariesService {
     const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
     // console.log("token", token);
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/documents/writeoff?key=${token}&dateFrom=${fromDate}&dateTo=${toDate}`,
       {
         method: "GET",
@@ -598,7 +667,7 @@ export class IikoDictionariesService {
 
   async getCorporatinStore(token: string) {
     try {
-      const response = await fetch(
+      const response = await this.fetchWithRetry(
         `https://les-ailes-co-co.iiko.it/resto/api/corporation/stores?key=${token}`,
         {
           method: "GET",
@@ -682,7 +751,7 @@ export class IikoDictionariesService {
   async getInternalTransfer(token: string) {
     const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/documents/internalTransfer?key=${token}&dateFrom=${fromDate}&dateTo=${toDate}`,
       {
         method: "GET",
@@ -807,9 +876,9 @@ export class IikoDictionariesService {
   }
 
   async getOutgoingInvoice(token: string, type: string = "outgoing") {
-    const fromDate = dayjs().subtract(50, "day").format("YYYY-MM-DD");
+    const fromDate = dayjs().subtract(35, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
       {
         method: "GET",
@@ -1064,20 +1133,11 @@ export class IikoDictionariesService {
   }
 
   async getIncomingInvoice(token: string, type: string = "incoming") {
-    const fromDate = dayjs().subtract(50, "day").format("YYYY-MM-DD");
+    const fromDate = dayjs().subtract(35, "day").format("YYYY-MM-DD");
     const toDate = dayjs().format("YYYY-MM-DD");
-    const response = await fetch(
-      `https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`,
-      {
-        method: "GET",
-      }
-    );
-
-    // console.log("response", response);
-    // console.log("body", await response.text());
-
-    const receiptInvoice = await response.text();
-    // console.log("receiptInvoice", receiptInvoice);
+    console.log("[getIncomingInvoice] fetching via node:https...");
+    const receiptInvoice = await this.httpsGet(`https://les-ailes-co-co.iiko.it/resto/api/documents/export/${type}Invoice?key=${token}&from=${fromDate}&to=${toDate}&includeDeleted=false`);
+    console.log(`[getIncomingInvoice] received ${receiptInvoice.length} chars of XML`);
 
     let incomeDoc = [];
 
@@ -1386,7 +1446,7 @@ export class IikoDictionariesService {
   }
 
   async getTaxCategories(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=TaxCategory&key=${token}`,
       {
         method: "GET",
@@ -1434,7 +1494,7 @@ export class IikoDictionariesService {
   }
 
   async getPaymentTypes(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=PaymentType&key=${token}`,
       {
         method: "GET",
@@ -1481,7 +1541,7 @@ export class IikoDictionariesService {
   }
 
   async getOrderTypes(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=OrderType&key=${token}`,
       {
         method: "GET",
@@ -1527,7 +1587,7 @@ export class IikoDictionariesService {
   }
 
   async getMeasureUnit(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=MeasureUnit&key=${token}`,
       {
         method: "GET",
@@ -1580,7 +1640,7 @@ export class IikoDictionariesService {
   }
 
   async getDiscountTypes(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=DiscountType&key=${token}`,
       {
         method: "GET",
@@ -1627,7 +1687,7 @@ export class IikoDictionariesService {
   }
 
   async getConceptions(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=Conception&key=${token}`,
       {
         method: "GET",
@@ -1674,7 +1734,7 @@ export class IikoDictionariesService {
   }
 
   async getAccountingCategorys(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/list?rootType=AccountingCategory&key=${token}`,
       {
         method: "GET",
@@ -1722,20 +1782,18 @@ export class IikoDictionariesService {
   }
 
   async getNomenclatureGroups(token: string) {
-    const response = await fetch(
-      `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/group/list?key=${token}&includeDeleted=true`,
-      {
-        method: "GET",
-      }
-    );
-
-    const nomenclatureGroups = await response.json();
+    console.log("[getNomenclatureGroups] fetching via node:https...");
+    const rawBody = await this.httpsGet(`https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/group/list?key=${token}&includeDeleted=true`);
+    console.log(`[getNomenclatureGroups] received ${rawBody.length} chars, parsing JSON...`);
+    const nomenclatureGroups = JSON.parse(rawBody);
+    console.log(`[getNomenclatureGroups] parsed ${nomenclatureGroups.length} groups, querying existing from DB...`);
 
     const existingNomenclatureGroups = await drizzleDb
       .select()
       .from(nomenclature_group)
       .execute();
 
+    console.log(`[getNomenclatureGroups] found ${existingNomenclatureGroups.length} existing groups in DB`);
     console.log("started NomenclatureGroups db inserting");
     console.time("NomenclatureGroups_db_inserting");
 
@@ -1843,7 +1901,7 @@ export class IikoDictionariesService {
   }
 
   async getNomenclatureCatergorys(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/category/list?key=${token}&includeDeleted=true`,
 
       {
@@ -1897,20 +1955,17 @@ export class IikoDictionariesService {
   }
 
   async getNomenclatureElements(token: string) {
-    const response = await fetch(
-      `https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/list?key=${token}&includeDeleted=true`,
-      {
-        method: "GET",
-      }
-    );
-    const nomenclatureElements = await response.json();
-    // console.log("nomenclatureElements", nomenclatureElements.length);
+    console.log("[getNomenclatureElements] fetching via node:https...");
+    const rawBody = await this.httpsGet(`https://les-ailes-co-co.iiko.it/resto/api/v2/entities/products/list?key=${token}&includeDeleted=true`);
+    console.log(`[getNomenclatureElements] received ${rawBody.length} chars, parsing JSON...`);
+    const nomenclatureElements = JSON.parse(rawBody);
+    console.log(`[getNomenclatureElements] parsed ${nomenclatureElements.length} elements, querying existing from DB...`);
 
     const existingNomenclatureElements = await drizzleDb
       .select()
       .from(nomenclature_element)
       .execute();
-    // console.log("nomenclatureElements", nomenclatureElements);
+    console.log(`[getNomenclatureElements] found ${existingNomenclatureElements.length} existing in DB`);
     for (const nomenclatureElement of nomenclatureElements) {
       const existingNomenclatureElement = existingNomenclatureElements.find(
         (existingNomenclatureElement) =>
@@ -1972,7 +2027,7 @@ export class IikoDictionariesService {
   }
 
   async getSupplers(token: string) {
-    const response = await fetch(
+    const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/suppliers?key=${token}`,
       {
         method: "GET",
@@ -2088,7 +2143,7 @@ export class IikoDictionariesService {
                 client: suppliersItems.client,
                 representsStore: suppliersItems.representsStore,
                 representedStoreId:
-                  suppliersItems.representedStoreId!.toString(),
+                  suppliersItems.representedStoreId?.toString(),
               })
               .execute();
           } catch (e) {
