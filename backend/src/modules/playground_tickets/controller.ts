@@ -13,19 +13,22 @@ export const playgroundTicketsController = new Elysia({
     "/playground_tickets/generate",
     async ({
       // @ts-ignore
-      bearer,
+      headers,
       body: { terminal_id, order_number, order_amount },
       set,
       drizzle,
       cacheController,
     }) => {
-      if (!bearer) {
+
+      const accessToken = headers["authorization"]?.split(" ")[1];
+      if (!accessToken) {
         set.status = 401;
         return { message: "Token not found" };
       }
 
       const apiTokens = await cacheController.getCachedApiTokens({});
-      const token = apiTokens.find((item: any) => item.token === bearer);
+      console.log("apiTokens", apiTokens);
+      const token = apiTokens.find((item: any) => item.token === accessToken);
 
       if (!token) {
         set.status = 401;
