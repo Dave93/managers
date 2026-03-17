@@ -70,6 +70,7 @@
     "export-to-csv": "1.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.22",
+    "html5-qrcode": "^2.3.8",
     "lucide-react": "^0.545.0",
     "million": "^3.1.11",
     "next": "15.6.0-canary.60",
