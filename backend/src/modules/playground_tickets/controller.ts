@@ -97,10 +97,10 @@ export const playgroundTicketsController = new Elysia({
       }),
     }
   )
-  // Validate ticket — session auth + permission
+  // Validate ticket — session auth + permission, scoped by user's terminals
   .post(
     "/playground_tickets/validate",
-    async ({ body: { qr_data }, user, set, drizzle }) => {
+    async ({ body: { qr_data }, user, set, drizzle, terminals: userTerminals }) => {
       const prefix = "PLAYGROUND:";
       if (!qr_data.startsWith(prefix)) {
         set.status = 400;
@@ -108,6 +108,17 @@ export const playgroundTicketsController = new Elysia({
       }
 
       const ticket_id = qr_data.substring(prefix.length);
+
+      // Build WHERE with terminal scoping for multi-tenant isolation
+      const whereConditions: SQLWrapper[] = [eq(playground_tickets.id, ticket_id)];
+      if (userTerminals && userTerminals.length > 0) {
+        whereConditions.push(
+          sql`${playground_tickets.terminal_id} IN (${sql.join(
+            userTerminals.map((tid: string) => sql`${tid}::uuid`),
+            sql`, `
+          )})`
+        );
+      }
 
       const results = await drizzle
         .select({
@@ -124,7 +135,7 @@ export const playgroundTicketsController = new Elysia({
         })
         .from(playground_tickets)
         .leftJoin(terminals, eq(playground_tickets.terminal_id, terminals.id))
-        .where(eq(playground_tickets.id, ticket_id))
+        .where(and(...whereConditions))
         .execute();
 
       if (results.length === 0) {
@@ -139,28 +150,26 @@ export const playgroundTicketsController = new Elysia({
         return { message: "Ticket already used", used_at: ticket.used_at };
       }
 
-      // Check if ticket was created today (Asia/Tashkent = UTC+5)
-      const now = new Date();
-      const tashkentOffset = 5 * 60 * 60 * 1000;
-      const tashkentNow = new Date(now.getTime() + tashkentOffset);
-      const createdAt = new Date(ticket.created_at!);
-      const tashkentCreated = new Date(createdAt.getTime() + tashkentOffset);
+      // Check if ticket was created today in Asia/Tashkent timezone using SQL
+      const expiryCheck = await drizzle
+        .select({ is_today: sql<boolean>`(${playground_tickets.created_at} AT TIME ZONE 'Asia/Tashkent')::date = (now() AT TIME ZONE 'Asia/Tashkent')::date` })
+        .from(playground_tickets)
+        .where(eq(playground_tickets.id, ticket_id))
+        .execute();
 
-      const todayStr = tashkentNow.toISOString().split("T")[0];
-      const createdStr = tashkentCreated.toISOString().split("T")[0];
-
-      if (todayStr !== createdStr) {
+      if (!expiryCheck[0]?.is_today) {
         set.status = 400;
         return { message: "Ticket expired" };
       }
 
       // Mark as used
+      const now = new Date().toISOString();
       await drizzle
         .update(playground_tickets)
         .set({
           is_used: true,
-          used_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+          used_at: now,
+          updated_at: now,
         })
         .where(eq(playground_tickets.id, ticket_id))
         .execute();
@@ -198,14 +207,16 @@ export const playgroundTicketsController = new Elysia({
       }
 
       // Scope by user's assigned terminals for multi-tenant isolation
-      if (userTerminals && userTerminals.length > 0) {
-        whereClause.push(
-          sql`${playground_tickets.terminal_id} IN (${sql.join(
-            userTerminals.map((tid: string) => sql`${tid}::uuid`),
-            sql`, `
-          )})`
-        );
+      // If user has no terminals, return empty result
+      if (!userTerminals || userTerminals.length === 0) {
+        return { total: 0, data: [] };
       }
+      whereClause.push(
+        sql`${playground_tickets.terminal_id} IN (${sql.join(
+          userTerminals.map((tid: string) => sql`${tid}::uuid`),
+          sql`, `
+        )})`
+      );
 
       const countResult = await drizzle
         .select({ count: sql`count(*)` })
