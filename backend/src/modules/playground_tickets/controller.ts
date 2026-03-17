@@ -211,15 +211,15 @@ export const playgroundTicketsController = new Elysia({
 
       // Scope by user's assigned terminals for multi-tenant isolation
       // If user has no terminals, return empty result
-      if (!userTerminals || userTerminals.length === 0) {
-        return { total: 0, data: [] };
-      }
-      whereClause.push(
-        sql`${playground_tickets.terminal_id} IN (${sql.join(
-          userTerminals.map((tid: string) => sql`${tid}::uuid`),
-          sql`, `
-        )})`
-      );
+      // if (!userTerminals || userTerminals.length === 0) {
+      //   return { total: 0, data: [] };
+      // }
+      // whereClause.push(
+      //   sql`${playground_tickets.terminal_id} IN (${sql.join(
+      //     userTerminals.map((tid: string) => sql`${tid}::uuid`),
+      //     sql`, `
+      //   )})`
+      // );
 
       const countResult = await drizzle
         .select({ count: sql`count(*)` })
