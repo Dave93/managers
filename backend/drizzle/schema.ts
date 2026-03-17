@@ -1333,3 +1333,36 @@ export const externalPartners = pgTable("external_partners", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
+
+export const playground_tickets = pgTable(
+  "playground_tickets",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    order_number: varchar("order_number", { length: 255 }).notNull(),
+    order_amount: integer("order_amount").notNull(),
+    children_count: integer("children_count").notNull(),
+    is_used: boolean("is_used").default(false).notNull(),
+    used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      terminal_order_unique: uniqueIndex("playground_tickets_terminal_order_key").on(
+        table.terminal_id,
+        table.order_number
+      ),
+      terminal_id_idx: index("idx_playground_tickets_terminal_id").on(table.terminal_id),
+      created_at_idx: index("idx_playground_tickets_created_at").on(table.created_at),
+      organization_id_idx: index("idx_playground_tickets_organization_id").on(
+        table.organization_id
+      ),
+    };
+  }
+);
