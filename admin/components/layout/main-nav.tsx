@@ -193,6 +193,24 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="playground_tickets.list">
+          <NavigationMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+                Детская площадка
+                <ChevronDown size={18} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[240px]">
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/admin/playground/scan`}>Сканирование</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/admin/playground/list`}>Список билетов</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="stoplist.list">
           <NavigationMenuItem>
             <Link href={`/${locale}/admin/stoplist`} legacyBehavior passHref>
