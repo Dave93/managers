@@ -5,6 +5,7 @@ import { useGetRole } from "@admin/utils/get_role";
 import AdminLayout from "./admin-layout";
 import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
+import PlaygroundLayout from "./playground-layout";
 import { Toaster } from "@admin/components/ui/sonner"
 import CanAccess from "../can-access";
 
@@ -23,6 +24,9 @@ export default function MainLayout({
       </CanAccess>
       <CanAccess permission="manager_layout">
         <ManagerLayout>{children}</ManagerLayout>
+      </CanAccess>
+      <CanAccess permission="playground_layout">
+        <PlaygroundLayout>{children}</PlaygroundLayout>
       </CanAccess>
       {/* {roleCode === "franchise_manager" && (
             <ManagerLayout>{children}</ManagerLayout>
