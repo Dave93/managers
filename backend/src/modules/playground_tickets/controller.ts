@@ -107,6 +107,7 @@ export const playgroundTicketsController = new Elysia({
       const prefix = "PLAYGROUND:";
       if (!qr_data.startsWith(prefix)) {
         set.status = 400;
+        console.log('[PLAYGROUND_TICKETS] Not a playground ticket');
         return { message: "Not a playground ticket" };
       }
 
@@ -143,6 +144,7 @@ export const playgroundTicketsController = new Elysia({
 
       if (results.length === 0) {
         set.status = 404;
+        console.log('[PLAYGROUND_TICKETS] Ticket not found');
         return { message: "Ticket not found" };
       }
 
@@ -150,6 +152,7 @@ export const playgroundTicketsController = new Elysia({
 
       if (ticket.is_used) {
         set.status = 400;
+        console.log('[PLAYGROUND_TICKETS] Ticket already used');
         return { message: "Ticket already used", used_at: ticket.used_at };
       }
 
@@ -162,6 +165,7 @@ export const playgroundTicketsController = new Elysia({
 
       if (!expiryCheck[0]?.is_today) {
         set.status = 400;
+        console.log('[PLAYGROUND_TICKETS] Ticket expired');
         return { message: "Ticket expired" };
       }
 
@@ -177,6 +181,7 @@ export const playgroundTicketsController = new Elysia({
         .where(eq(playground_tickets.id, ticket_id))
         .execute();
 
+      console.log('[PLAYGROUND_TICKETS] Ticket used');
       return {
         ticket_id: ticket.id,
         children_count: ticket.children_count,
