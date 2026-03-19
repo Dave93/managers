@@ -1,7 +1,6 @@
 "use client";
 import { Suspense } from "react";
 import { DataTable } from "./data-table";
-import { playgroundTicketsColumns } from "./columns";
 
 function PlaygroundTicketsContent() {
   return (
@@ -11,9 +10,7 @@ function PlaygroundTicketsContent() {
           Билеты детской площадки
         </h2>
       </div>
-      <div className="py-10">
-        <DataTable columns={playgroundTicketsColumns} />
-      </div>
+      <DataTable />
     </div>
   );
 }
