@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/button";
-import { Input } from "@admin/components/ui/input";
 
 type ValidationResult = {
   type: "success" | "error" | "warning";
@@ -15,7 +14,6 @@ type ValidationResult = {
 export default function PlaygroundScanPage() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [manualInput, setManualInput] = useState("");
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const scannerContainerId = "qr-reader";
 
@@ -34,7 +32,7 @@ export default function PlaygroundScanPage() {
     }
 
     try {
-      const { data, status } = await apiClient.api.playground_tickets.validate.post({
+      const { data, error, status } = await apiClient.api.playground_tickets.validate.post({
         qr_data: qrData,
       });
 
@@ -50,24 +48,23 @@ export default function PlaygroundScanPage() {
           ],
         });
       } else {
-        const errorData = data as any;
-        let title = "Ошибка валидации";
-        if (errorData?.message === "Ticket already used") {
-          title = "Билет уже использован";
+        const errorData = (error as any)?.value ?? data as any;
+        const message = errorData?.message;
+        if (message === "Ticket already used") {
           const usedAt = errorData.used_at
             ? new Date(errorData.used_at).toLocaleString("ru-RU")
             : "";
           setResult({
             type: "error",
-            title,
+            title: "Билет уже использован",
             details: usedAt ? [`Использован: ${usedAt}`] : undefined,
           });
-        } else if (errorData?.message === "Ticket expired") {
+        } else if (message === "Ticket expired") {
           setResult({ type: "error", title: "Билет просрочен" });
-        } else if (errorData?.message === "Ticket not found") {
+        } else if (message === "Ticket not found") {
           setResult({ type: "error", title: "Билет не найден" });
         } else {
-          setResult({ type: "error", title: errorData?.message || title });
+          setResult({ type: "error", title: message || "Ошибка валидации" });
         }
       }
     } catch (err) {
@@ -95,7 +92,7 @@ export default function PlaygroundScanPage() {
       console.error("Camera error:", err);
       setResult({
         type: "warning",
-        title: "Не удалось запустить камеру. Используйте ручной ввод.",
+        title: "Не удалось запустить камеру. Проверьте разрешения.",
       });
     }
   }, [handleQrData]);
@@ -107,15 +104,6 @@ export default function PlaygroundScanPage() {
       }
     };
   }, []);
-
-  const handleManualSubmit = () => {
-    if (manualInput.trim()) {
-      const qrData = manualInput.trim().startsWith("PLAYGROUND:")
-        ? manualInput.trim()
-        : `PLAYGROUND:${manualInput.trim()}`;
-      handleQrData(qrData);
-    }
-  };
 
   const bgColor =
     result?.type === "success"
@@ -140,18 +128,6 @@ export default function PlaygroundScanPage() {
         </Button>
       )}
 
-      <div className="flex gap-2 mb-4">
-        <Input
-          placeholder="Или введите ID билета вручную"
-          value={manualInput}
-          onChange={(e) => setManualInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleManualSubmit()}
-        />
-        <Button variant="outline" onClick={handleManualSubmit}>
-          Проверить
-        </Button>
-      </div>
-
       {result && (
         <div className={`border-2 rounded-lg p-6 ${bgColor}`}>
           <h3 className="text-xl font-bold mb-2">{result.title}</h3>
@@ -169,7 +145,6 @@ export default function PlaygroundScanPage() {
         <Button
           onClick={() => {
             setResult(null);
-            setManualInput("");
             startScanner();
           }}
           className="w-full mt-4"

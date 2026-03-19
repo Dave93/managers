@@ -181,7 +181,6 @@ export const playgroundTicketsController = new Elysia({
         .where(eq(playground_tickets.id, ticket_id))
         .execute();
 
-      console.log('[PLAYGROUND_TICKETS] Ticket used');
       return {
         ticket_id: ticket.id,
         children_count: ticket.children_count,
