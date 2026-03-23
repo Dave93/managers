@@ -15,6 +15,13 @@
       "when": 1773741718669,
       "tag": "0001_solid_matthew_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1774254610518,
+      "tag": "0002_polite_silver_surfer",
+      "breakpoints": true
     }
   ]
 }
