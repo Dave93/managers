@@ -48,7 +48,6 @@ export const playgroundTicketsController = new Elysia({
         return { message: "Order amount too low for playground ticket" };
       }
 
-      // Idempotent insert — ON CONFLICT DO NOTHING to handle HttpHelper retries
       const inserted = await drizzle
         .insert(playground_tickets)
         .values({
@@ -58,31 +57,8 @@ export const playgroundTicketsController = new Elysia({
           order_amount,
           children_count,
         })
-        .onConflictDoNothing({
-          target: [playground_tickets.terminal_id, playground_tickets.order_number],
-        })
         .returning()
         .execute();
-
-      // If conflict (retry), return existing ticket
-      if (inserted.length === 0) {
-        const existing = await drizzle
-          .select()
-          .from(playground_tickets)
-          .where(
-            and(
-              eq(playground_tickets.terminal_id, terminal_id),
-              eq(playground_tickets.order_number, order_number)
-            )
-          )
-          .execute();
-        const ticket = existing[0];
-        return {
-          ticket_id: ticket.id,
-          children_count: ticket.children_count,
-          qr_data: `PLAYGROUND:${ticket.id}`,
-        };
-      }
 
       const ticket = inserted[0];
 

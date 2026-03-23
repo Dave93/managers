@@ -1355,10 +1355,6 @@ export const playground_tickets = pgTable(
   },
   (table) => {
     return {
-      terminal_order_unique: uniqueIndex("playground_tickets_terminal_order_key").on(
-        table.terminal_id,
-        table.order_number
-      ),
       terminal_id_idx: index("idx_playground_tickets_terminal_id").on(table.terminal_id),
       created_at_idx: index("idx_playground_tickets_created_at").on(table.created_at),
       organization_id_idx: index("idx_playground_tickets_organization_id").on(
