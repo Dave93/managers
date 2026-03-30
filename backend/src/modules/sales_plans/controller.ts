@@ -126,6 +126,118 @@ export const salesPlansController = new Elysia({
     }
   )
 
+  // ─── Tauri App: Get daily plan for terminal (Bearer token auth) ───
+  .get(
+    "/sales_plans/daily/:terminal_id",
+    async ({
+      // @ts-ignore
+      headers,
+      params: { terminal_id },
+      set,
+      drizzle,
+      cacheController,
+    }) => {
+      const accessToken = headers["authorization"]?.split(" ")[1];
+      if (!accessToken) {
+        set.status = 401;
+        return { message: "Token not found" };
+      }
+
+      const apiTokens = await cacheController.getCachedApiTokens({});
+      const token = apiTokens.find((item: any) => item.token === accessToken);
+
+      if (!token || !token.active) {
+        set.status = 401;
+        return { message: "Token not found or not active" };
+      }
+
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const daysInMonth = new Date(year, month, 0).getDate();
+      const currentDay = now.getDate();
+      const daysRemaining = daysInMonth - currentDay + 1; // including today
+
+      const planResults = await drizzle
+        .select()
+        .from(sales_plans)
+        .where(
+          and(
+            eq(sales_plans.terminal_id, terminal_id),
+            eq(sales_plans.year, year),
+            eq(sales_plans.month, month)
+          )
+        )
+        .execute();
+
+      if (planResults.length === 0) {
+        set.status = 404;
+        return { message: "No plan for this terminal and month" };
+      }
+
+      const plan = planResults[0];
+
+      const items = await drizzle
+        .select()
+        .from(sales_plan_items)
+        .where(eq(sales_plan_items.plan_id, plan.id))
+        .execute();
+
+      // Get sold quantities for this month
+      const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
+      const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+
+      const statsResults = await drizzle
+        .select({
+          plan_item_id: sales_plan_stats.plan_item_id,
+          total_sold: sql<number>`coalesce(sum(${sales_plan_stats.sold_qty}), 0)`,
+        })
+        .from(sales_plan_stats)
+        .where(
+          and(
+            eq(sales_plan_stats.plan_id, plan.id),
+            eq(sales_plan_stats.terminal_id, terminal_id),
+            sql`${sales_plan_stats.date} >= ${monthStart}`,
+            sql`${sales_plan_stats.date} <= ${monthEnd}`
+          )
+        )
+        .groupBy(sales_plan_stats.plan_item_id)
+        .execute();
+
+      const soldMap: Record<string, number> = {};
+      for (const s of statsResults) {
+        soldMap[s.plan_item_id] = Number(s.total_sold);
+      }
+
+      const responseItems = items.map((item) => {
+        const soldThisMonth = soldMap[item.id] || 0;
+        const remaining = item.planned_qty - soldThisMonth;
+        const dailyTarget = daysRemaining > 0 ? Math.ceil(Math.max(remaining, 0) / daysRemaining) : 0;
+
+        return {
+          item_id: item.id,
+          product_id: item.product_id,
+          product_name: item.product_name,
+          monthly_target: item.planned_qty,
+          sold_this_month: soldThisMonth,
+          daily_target: dailyTarget,
+        };
+      });
+
+      return {
+        plan_id: plan.id,
+        year,
+        month,
+        days_in_month: daysInMonth,
+        days_remaining: daysRemaining,
+        items: responseItems,
+      };
+    },
+    {
+      params: t.Object({ terminal_id: t.String() }),
+    }
+  )
+
   // ─── CRUD: Get single plan with items ───
   .get(
     "/sales_plans/:id",
@@ -256,7 +368,12 @@ export const salesPlansController = new Elysia({
         return { message: "Plan not found" };
       }
 
-      // Delete old items and insert new ones
+      // Delete old stats and items, then insert new ones
+      await drizzle
+        .delete(sales_plan_stats)
+        .where(eq(sales_plan_stats.plan_id, id))
+        .execute();
+
       await drizzle
         .delete(sales_plan_items)
         .where(eq(sales_plan_items.plan_id, id))
@@ -345,118 +462,6 @@ export const salesPlansController = new Elysia({
     }
   )
 
-  // ─── Tauri App: Get daily plan for terminal (Bearer token auth) ───
-  .get(
-    "/sales_plans/daily/:terminal_id",
-    async ({
-      // @ts-ignore
-      headers,
-      params: { terminal_id },
-      set,
-      drizzle,
-      cacheController,
-    }) => {
-      const accessToken = headers["authorization"]?.split(" ")[1];
-      if (!accessToken) {
-        set.status = 401;
-        return { message: "Token not found" };
-      }
-
-      const apiTokens = await cacheController.getCachedApiTokens({});
-      const token = apiTokens.find((item: any) => item.token === accessToken);
-
-      if (!token || !token.active) {
-        set.status = 401;
-        return { message: "Token not found or not active" };
-      }
-
-      const now = new Date();
-      const year = now.getFullYear();
-      const month = now.getMonth() + 1;
-      const daysInMonth = new Date(year, month, 0).getDate();
-      const currentDay = now.getDate();
-      const daysRemaining = daysInMonth - currentDay + 1; // including today
-
-      const planResults = await drizzle
-        .select()
-        .from(sales_plans)
-        .where(
-          and(
-            eq(sales_plans.terminal_id, terminal_id),
-            eq(sales_plans.year, year),
-            eq(sales_plans.month, month)
-          )
-        )
-        .execute();
-
-      if (planResults.length === 0) {
-        set.status = 404;
-        return { message: "No plan for this terminal and month" };
-      }
-
-      const plan = planResults[0];
-
-      const items = await drizzle
-        .select()
-        .from(sales_plan_items)
-        .where(eq(sales_plan_items.plan_id, plan.id))
-        .execute();
-
-      // Get sold quantities for this month
-      const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
-      const monthEnd = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
-
-      const statsResults = await drizzle
-        .select({
-          plan_item_id: sales_plan_stats.plan_item_id,
-          total_sold: sql<number>`coalesce(sum(${sales_plan_stats.sold_qty}), 0)`,
-        })
-        .from(sales_plan_stats)
-        .where(
-          and(
-            eq(sales_plan_stats.plan_id, plan.id),
-            eq(sales_plan_stats.terminal_id, terminal_id),
-            sql`${sales_plan_stats.date} >= ${monthStart}`,
-            sql`${sales_plan_stats.date} <= ${monthEnd}`
-          )
-        )
-        .groupBy(sales_plan_stats.plan_item_id)
-        .execute();
-
-      const soldMap: Record<string, number> = {};
-      for (const s of statsResults) {
-        soldMap[s.plan_item_id] = Number(s.total_sold);
-      }
-
-      const responseItems = items.map((item) => {
-        const soldThisMonth = soldMap[item.id] || 0;
-        const remaining = item.planned_qty - soldThisMonth;
-        const dailyTarget = daysRemaining > 0 ? Math.ceil(Math.max(remaining, 0) / daysRemaining) : 0;
-
-        return {
-          item_id: item.id,
-          product_id: item.product_id,
-          product_name: item.product_name,
-          monthly_target: item.planned_qty,
-          sold_this_month: soldThisMonth,
-          daily_target: dailyTarget,
-        };
-      });
-
-      return {
-        plan_id: plan.id,
-        year,
-        month,
-        days_in_month: daysInMonth,
-        days_remaining: daysRemaining,
-        items: responseItems,
-      };
-    },
-    {
-      params: t.Object({ terminal_id: t.String() }),
-    }
-  )
-
   // ─── Tauri App: Bulk upsert stats (Bearer token auth) ───
   .post(
     "/sales_plan_stats/bulk",
@@ -484,30 +489,32 @@ export const salesPlansController = new Elysia({
 
       const now = new Date().toISOString();
 
-      for (const item of body.items) {
-        await drizzle
-          .insert(sales_plan_stats)
-          .values({
-            plan_id: body.plan_id,
-            plan_item_id: item.plan_item_id,
-            terminal_id: body.terminal_id,
-            date: body.date,
-            sold_qty: item.sold_qty,
-            updated_at: now,
-          })
-          .onConflictDoUpdate({
-            target: [
-              sales_plan_stats.plan_item_id,
-              sales_plan_stats.terminal_id,
-              sales_plan_stats.date,
-            ],
-            set: {
-              sold_qty: sql`${item.sold_qty}`,
+      await drizzle.transaction(async (tx) => {
+        for (const item of body.items) {
+          await tx
+            .insert(sales_plan_stats)
+            .values({
+              plan_id: body.plan_id,
+              plan_item_id: item.plan_item_id,
+              terminal_id: body.terminal_id,
+              date: body.date,
+              sold_qty: item.sold_qty,
               updated_at: now,
-            },
-          })
-          .execute();
-      }
+            })
+            .onConflictDoUpdate({
+              target: [
+                sales_plan_stats.plan_item_id,
+                sales_plan_stats.terminal_id,
+                sales_plan_stats.date,
+              ],
+              set: {
+                sold_qty: sql`${item.sold_qty}`,
+                updated_at: now,
+              },
+            })
+            .execute();
+        }
+      });
 
       return { success: true, count: body.items.length };
     },
