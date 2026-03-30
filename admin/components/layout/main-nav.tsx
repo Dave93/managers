@@ -211,6 +211,24 @@ export function NavigationMenuDemo() {
             </DropdownMenu>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="sales_plans.list">
+          <NavigationMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+                План продаж
+                <ChevronDown size={18} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[240px]">
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/admin/sales-plans/list`}>Планы</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/admin/sales-plans/dashboard`}>Дашборд</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="stoplist.list">
           <NavigationMenuItem>
             <Link href={`/${locale}/admin/stoplist`} legacyBehavior passHref>
