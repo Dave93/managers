@@ -22,6 +22,13 @@
       "when": 1774254610518,
       "tag": "0002_polite_silver_surfer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1774872067401,
+      "tag": "0003_serious_genesis",
+      "breakpoints": true
     }
   ]
 }
