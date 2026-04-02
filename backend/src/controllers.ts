@@ -27,6 +27,7 @@ import { internalTransferOffController } from "./modules/internal_transfer/contr
 import { internalTransferItemsController } from "./modules/internal_transfer_items/controller";
 import { productGroupsController } from "./modules/product_groups/controller";
 import { nomenclatureElementOrganizationController } from "./modules/nomenclature_element_organization/controller";
+import { nomenclatureElementController } from "./modules/nomenclature_element/controller";
 import { reportOlapController } from "./modules/report_olap/controller";
 import { positionsController } from "./modules/positions/controller";
 import { vacancyController } from "./modules/vacancy/controller";
@@ -38,6 +39,7 @@ import { familyListController } from "./modules/family_list/controller";
 import { hangingOrdersController } from "./modules/hanging_orders/controller";
 import { externalPartnersController } from "./modules/external_partners/controller";
 import { playgroundTicketsController } from "./modules/playground_tickets/controller";
+import { salesPlansController } from "./modules/sales_plans/controller";
 import { partnersController } from "./modules/partners/v1/controllers";
 
 
@@ -79,6 +81,7 @@ export const apiController = new Elysia({
   .use(internalTransferItemsController)
   .use(productGroupsController)
   .use(nomenclatureElementOrganizationController)
+  .use(nomenclatureElementController)
   .use(reportOlapController)
   .use(positionsController)
   .use(vacancyController)
@@ -89,4 +92,5 @@ export const apiController = new Elysia({
   .use(familyListController)
   .use(hangingOrdersController)
   .use(externalPartnersController)
-  .use(playgroundTicketsController);
+  .use(playgroundTicketsController)
+  .use(salesPlansController);

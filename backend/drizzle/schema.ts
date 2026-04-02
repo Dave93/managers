@@ -1363,3 +1363,77 @@ export const playground_tickets = pgTable(
     };
   }
 );
+
+export const sales_plans = pgTable(
+  "sales_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    year: integer("year").notNull(),
+    month: integer("month").notNull(),
+    created_by: uuid("created_by"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      terminal_month_unique: uniqueIndex("sales_plans_terminal_year_month_key").on(
+        table.terminal_id,
+        table.year,
+        table.month
+      ),
+      terminal_id_idx: index("idx_sales_plans_terminal_id").on(table.terminal_id),
+      organization_id_idx: index("idx_sales_plans_organization_id").on(table.organization_id),
+    };
+  }
+);
+
+export const sales_plan_items = pgTable(
+  "sales_plan_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    plan_id: uuid("plan_id").notNull(),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    planned_qty: integer("planned_qty").notNull(),
+  },
+  (table) => {
+    return {
+      plan_id_idx: index("idx_sales_plan_items_plan_id").on(table.plan_id),
+    };
+  }
+);
+
+export const sales_plan_stats = pgTable(
+  "sales_plan_stats",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    plan_id: uuid("plan_id").notNull(),
+    plan_item_id: uuid("plan_item_id").notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD format
+    sold_qty: integer("sold_qty").notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      item_terminal_date_unique: uniqueIndex("sales_plan_stats_item_terminal_date_key").on(
+        table.plan_item_id,
+        table.terminal_id,
+        table.date
+      ),
+      terminal_date_idx: index("idx_sales_plan_stats_terminal_date").on(
+        table.terminal_id,
+        table.date
+      ),
+      plan_id_idx: index("idx_sales_plan_stats_plan_id").on(table.plan_id),
+    };
+  }
+);
