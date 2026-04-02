@@ -1,7 +1,7 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
-import { nomenclature_element_organization } from "backend/drizzle/schema";
+import { nomenclature_element_organization } from "@backend/../drizzle/schema";
 import { SQLWrapper, and, eq, sql } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
