@@ -49,7 +49,7 @@ export default function EditSalesPlanPage() {
     queryKey: ["nomenclature_search", productSearch],
     queryFn: async () => {
       if (productSearch.length < 2) return [];
-      const { data } = await apiClient.api.nomenclature_element_organization.get({
+      const { data } = await apiClient.api.nomenclature_element.get({
         query: {
           limit: "20",
           offset: "0",
