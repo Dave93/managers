@@ -18,7 +18,7 @@ export const nomenclatureElementController = new Elysia({
       set,
       drizzle,
     }) => {
-      let selectFields: SelectedFields = {};
+      let selectFields: SelectedFields | undefined;
       if (fields) {
         selectFields = parseSelectFields(
           fields,
@@ -40,7 +40,7 @@ export const nomenclatureElementController = new Elysia({
         .where(and(...whereClause))
         .execute();
       const nomenclatureElementList = await drizzle
-        .select(selectFields)
+        .select(selectFields ?? undefined)
         .from(nomenclature_element)
         .where(and(...whereClause))
         .limit(+limit)
