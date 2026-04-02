@@ -5,6 +5,7 @@ import {
   sales_plan_items,
   sales_plan_stats,
   terminals,
+  credentials,
 } from "backend/drizzle/schema";
 import { SQLWrapper, sql, and, eq, inArray } from "drizzle-orm";
 import Elysia, { t } from "elysia";
@@ -151,6 +152,26 @@ export const salesPlansController = new Elysia({
         return { message: "Token not found or not active" };
       }
 
+      // Resolve iiko_id to internal terminal_id
+      const credentialResult = await drizzle
+        .select({ model_id: credentials.model_id })
+        .from(credentials)
+        .where(
+          and(
+            eq(credentials.model, "terminals"),
+            eq(credentials.type, "iiko_id"),
+            eq(credentials.key, terminal_id)
+          )
+        )
+        .execute();
+
+      if (credentialResult.length === 0) {
+        set.status = 404;
+        return { message: "Terminal not found by iiko_id" };
+      }
+
+      const realTerminalId = credentialResult[0].model_id;
+
       const now = new Date();
       const year = now.getFullYear();
       const month = now.getMonth() + 1;
@@ -163,7 +184,7 @@ export const salesPlansController = new Elysia({
         .from(sales_plans)
         .where(
           and(
-            eq(sales_plans.terminal_id, terminal_id),
+            eq(sales_plans.terminal_id, realTerminalId),
             eq(sales_plans.year, year),
             eq(sales_plans.month, month)
           )
@@ -196,7 +217,7 @@ export const salesPlansController = new Elysia({
         .where(
           and(
             eq(sales_plan_stats.plan_id, plan.id),
-            eq(sales_plan_stats.terminal_id, terminal_id),
+            eq(sales_plan_stats.terminal_id, realTerminalId),
             sql`${sales_plan_stats.date} >= ${monthStart}`,
             sql`${sales_plan_stats.date} <= ${monthEnd}`
           )
@@ -487,6 +508,26 @@ export const salesPlansController = new Elysia({
         return { message: "Token not found or not active" };
       }
 
+      // Resolve iiko_id to internal terminal_id
+      const credentialResult = await drizzle
+        .select({ model_id: credentials.model_id })
+        .from(credentials)
+        .where(
+          and(
+            eq(credentials.model, "terminals"),
+            eq(credentials.type, "iiko_id"),
+            eq(credentials.key, body.terminal_id)
+          )
+        )
+        .execute();
+
+      if (credentialResult.length === 0) {
+        set.status = 404;
+        return { message: "Terminal not found by iiko_id" };
+      }
+
+      const realTerminalId = credentialResult[0].model_id;
+
       const now = new Date().toISOString();
 
       await drizzle.transaction(async (tx) => {
@@ -496,7 +537,7 @@ export const salesPlansController = new Elysia({
             .values({
               plan_id: body.plan_id,
               plan_item_id: item.plan_item_id,
-              terminal_id: body.terminal_id,
+              terminal_id: realTerminalId,
               date: body.date,
               sold_qty: item.sold_qty,
               updated_at: now,
