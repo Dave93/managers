@@ -13,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
-import { Badge } from "@admin/components/ui/badge";
 import dayjs from "dayjs";
 
 type SalesPlan = {
@@ -44,6 +43,12 @@ function getProgressBg(pct: number) {
   if (pct >= 70) return "bg-green-500";
   if (pct >= 40) return "bg-orange-500";
   return "bg-red-500";
+}
+
+function getProgressTrack(pct: number) {
+  if (pct >= 70) return "bg-green-100";
+  if (pct >= 40) return "bg-orange-100";
+  return "bg-red-100";
 }
 
 export function DataTable() {
@@ -83,9 +88,9 @@ export function DataTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2">
         <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPageIndex(0); }}>
-          <SelectTrigger className="w-[120px]">
+          <SelectTrigger className="flex-1">
             <SelectValue placeholder="Год" />
           </SelectTrigger>
           <SelectContent>
@@ -96,7 +101,7 @@ export function DataTable() {
         </Select>
 
         <Select value={monthFilter} onValueChange={(v) => { setMonthFilter(v); setPageIndex(0); }}>
-          <SelectTrigger className="w-[160px]">
+          <SelectTrigger className="flex-1">
             <SelectValue placeholder="Месяц" />
           </SelectTrigger>
           <SelectContent>
@@ -105,12 +110,6 @@ export function DataTable() {
             ))}
           </SelectContent>
         </Select>
-
-        <div className="ml-auto">
-          <Link href={`/${locale}/admin/sales-plans/create`}>
-            <Button>Создать план</Button>
-          </Link>
-        </div>
       </div>
 
       {isLoading ? (
@@ -118,49 +117,41 @@ export function DataTable() {
       ) : plans.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">Нет планов</div>
       ) : (
-        <div className="rounded-md border">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b bg-muted/50">
-                <th className="p-3 text-left font-medium">Терминал</th>
-                <th className="p-3 text-left font-medium">Период</th>
-                <th className="p-3 text-center font-medium">Продуктов</th>
-                <th className="p-3 text-center font-medium">Прогресс</th>
-                <th className="p-3 text-right font-medium">Дата создания</th>
-                <th className="p-3 text-right font-medium"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {plans.map((plan) => (
-                <tr key={plan.id} className="border-b">
-                  <td className="p-3">{plan.terminal_name || plan.terminal_id.substring(0, 8)}</td>
-                  <td className="p-3">{MONTHS[plan.month - 1]} {plan.year}</td>
-                  <td className="p-3 text-center">{plan.items_count}</td>
-                  <td className="p-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${getProgressBg(plan.progress_pct)}`}
-                          style={{ width: `${Math.min(plan.progress_pct, 100)}%` }}
-                        />
-                      </div>
-                      <span className={`text-sm font-semibold ${getProgressColor(plan.progress_pct)}`}>
-                        {plan.progress_pct}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="p-3 text-right text-muted-foreground">
-                    {dayjs(plan.created_at).format("DD.MM.YYYY")}
-                  </td>
-                  <td className="p-3 text-right">
-                    <Link href={`/${locale}/admin/sales-plans/${plan.id}/edit`}>
-                      <Button variant="outline" size="sm">Редактировать</Button>
-                    </Link>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          {plans.map((plan) => (
+            <Link
+              key={plan.id}
+              href={`/${locale}/admin/sales-plans/${plan.id}/edit`}
+              className="block"
+            >
+              <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3 active:bg-muted/50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold">
+                    {plan.terminal_name || plan.terminal_id.substring(0, 8)}
+                  </span>
+                  <span className={`text-xl font-bold ${getProgressColor(plan.progress_pct)}`}>
+                    {plan.progress_pct}%
+                  </span>
+                </div>
+
+                <div className={`rounded-full h-2 ${getProgressTrack(plan.progress_pct)}`}>
+                  <div
+                    className={`h-full rounded-full ${getProgressBg(plan.progress_pct)}`}
+                    style={{ width: `${Math.min(plan.progress_pct, 100)}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>{MONTHS[plan.month - 1]} {plan.year}</span>
+                  <span>{plan.items_count} продуктов</span>
+                </div>
+
+                <div className="text-xs text-muted-foreground">
+                  Создан: {dayjs(plan.created_at).format("DD.MM.YYYY")}
+                </div>
+              </div>
+            </Link>
+          ))}
         </div>
       )}
 
