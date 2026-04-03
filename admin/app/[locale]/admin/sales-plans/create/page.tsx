@@ -125,8 +125,8 @@ export default function CreateSalesPlanPage() {
       <h2 className="text-3xl font-bold tracking-tight pb-4">Создать план продаж</h2>
 
       <div className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
+        <div className="flex flex-wrap gap-4">
+          <div className="flex-1 min-w-[180px]">
             <label className="text-sm font-medium mb-1 block">Терминал</label>
             <Select value={terminalId} onValueChange={setTerminalId}>
               <SelectTrigger><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
