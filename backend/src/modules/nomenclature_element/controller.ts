@@ -39,8 +39,10 @@ export const nomenclatureElementController = new Elysia({
         .from(nomenclature_element)
         .where(and(...whereClause))
         .execute();
-      const nomenclatureElementList = await drizzle
-        .select(selectFields ?? undefined)
+      const query = selectFields
+        ? drizzle.select(selectFields)
+        : drizzle.select();
+      const nomenclatureElementList = await query
         .from(nomenclature_element)
         .where(and(...whereClause))
         .limit(+limit)
