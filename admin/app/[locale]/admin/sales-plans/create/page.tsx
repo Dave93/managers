@@ -125,11 +125,11 @@ export default function CreateSalesPlanPage() {
       <h2 className="text-3xl font-bold tracking-tight pb-4">Создать план продаж</h2>
 
       <div className="space-y-6">
-        <div className="grid grid-cols-3 gap-4">
+        <div className="space-y-4">
           <div>
             <label className="text-sm font-medium mb-1 block">Терминал</label>
             <Select value={terminalId} onValueChange={setTerminalId}>
-              <SelectTrigger><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
               <SelectContent>
                 {terminals.map((t: any) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -137,27 +137,29 @@ export default function CreateSalesPlanPage() {
               </SelectContent>
             </Select>
           </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Год</label>
-            <Select value={year} onValueChange={setYear}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-                <SelectItem value="2027">2027</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label className="text-sm font-medium mb-1 block">Месяц</label>
-            <Select value={month} onValueChange={setMonth}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {MONTHS.map((name, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-sm font-medium mb-1 block">Год</label>
+              <Select value={year} onValueChange={setYear}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="2025">2025</SelectItem>
+                  <SelectItem value="2026">2026</SelectItem>
+                  <SelectItem value="2027">2027</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="text-sm font-medium mb-1 block">Месяц</label>
+              <Select value={month} onValueChange={setMonth}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {MONTHS.map((name, i) => (
+                    <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
 
@@ -184,35 +186,25 @@ export default function CreateSalesPlanPage() {
         </div>
 
         {items.length > 0 && (
-          <div className="rounded-md border">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/50">
-                  <th className="p-3 text-left font-medium">Продукт</th>
-                  <th className="p-3 text-center font-medium w-40">План на месяц</th>
-                  <th className="p-3 text-right font-medium w-20"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.product_id} className="border-b">
-                    <td className="p-3">{item.product_name}</td>
-                    <td className="p-3">
-                      <Input
-                        type="number"
-                        min={0}
-                        value={item.planned_qty || ""}
-                        onChange={(e) => updateQty(item.product_id, Number(e.target.value))}
-                        className="text-center"
-                      />
-                    </td>
-                    <td className="p-3 text-right">
-                      <Button variant="ghost" size="sm" onClick={() => removeProduct(item.product_id)}>✕</Button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            {items.map((item) => (
+              <div key={item.product_id} className="rounded-xl border bg-card p-3 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium flex-1 mr-2">{item.product_name}</span>
+                  <Button variant="ghost" size="sm" onClick={() => removeProduct(item.product_id)}>✕</Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">План/мес:</label>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={item.planned_qty || ""}
+                    onChange={(e) => updateQty(item.product_id, Number(e.target.value))}
+                    className="text-center"
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
