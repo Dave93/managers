@@ -85,9 +85,9 @@ export default function SalesPlanDashboardPage() {
         <h2 className="text-3xl font-bold tracking-tight">Дашборд — План продаж</h2>
       </div>
 
-      <div className="flex items-center gap-4 mb-6">
+      <div className="flex items-center gap-2 mb-6">
         <Select value={year} onValueChange={setYear}>
-          <SelectTrigger className="w-[120px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value="2025">2025</SelectItem>
             <SelectItem value="2026">2026</SelectItem>
@@ -95,7 +95,7 @@ export default function SalesPlanDashboardPage() {
           </SelectContent>
         </Select>
         <Select value={month} onValueChange={setMonth}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
           <SelectContent>
             {MONTHS.map((name, i) => (
               <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
@@ -144,56 +144,54 @@ export default function SalesPlanDashboardPage() {
             ))}
           </div>
 
-          {/* Expanded detail table */}
+          {/* Expanded detail */}
           {expandedTerminal && (() => {
             const terminal = terminals.find((t) => t.terminal_id === expandedTerminal);
             if (!terminal) return null;
             return (
-              <div className="rounded-xl border bg-card shadow-sm overflow-hidden">
-                <div className="px-4 py-3 border-b bg-muted/50 flex justify-between items-center">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
                   <span className="font-semibold">
-                    Детализация — {terminal.terminal_name}
+                    {terminal.terminal_name}
                   </span>
                   <span className="text-sm text-muted-foreground">
                     {MONTHS[Number(month) - 1]} {year}
                   </span>
                 </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b bg-muted/30 text-xs uppercase text-muted-foreground">
-                      <th className="p-3 text-left">Продукт</th>
-                      <th className="p-3 text-center">План/мес</th>
-                      <th className="p-3 text-center">План/день</th>
-                      <th className="p-3 text-center">Сегодня</th>
-                      <th className="p-3 text-center">За месяц</th>
-                      <th className="p-3 text-center">Прогресс</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {terminal.products.map((p) => (
-                      <tr key={p.item_id} className="border-b">
-                        <td className="p-3">{p.product_name}</td>
-                        <td className="p-3 text-center">{p.monthly_target}</td>
-                        <td className="p-3 text-center">{p.daily_target}</td>
-                        <td className="p-3 text-center font-semibold">{p.sold_today}</td>
-                        <td className="p-3 text-center">{p.sold_month}</td>
-                        <td className="p-3">
-                          <div className="flex items-center justify-center gap-2">
-                            <div className={`w-16 h-1.5 rounded-full ${getProgressTrack(p.progress_pct)}`}>
-                              <div
-                                className={`h-full rounded-full ${getProgressBg(p.progress_pct)}`}
-                                style={{ width: `${Math.min(p.progress_pct, 100)}%` }}
-                              />
-                            </div>
-                            <span className={`text-xs font-semibold ${getProgressColor(p.progress_pct)}`}>
-                              {p.progress_pct}%
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {terminal.products.map((p) => (
+                  <div key={p.item_id} className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium text-sm">{p.product_name}</span>
+                      <span className={`text-lg font-bold ${getProgressColor(p.progress_pct)}`}>
+                        {p.progress_pct}%
+                      </span>
+                    </div>
+                    <div className={`rounded-full h-2 ${getProgressTrack(p.progress_pct)}`}>
+                      <div
+                        className={`h-full rounded-full ${getProgressBg(p.progress_pct)}`}
+                        style={{ width: `${Math.min(p.progress_pct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">План/мес</span>
+                        <span className="font-medium">{p.monthly_target}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">План/день</span>
+                        <span className="font-medium">{p.daily_target}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Сегодня</span>
+                        <span className="font-semibold">{p.sold_today}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">За месяц</span>
+                        <span className="font-medium">{p.sold_month}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             );
           })()}
