@@ -138,6 +138,8 @@ export const salesPlansController = new Elysia({
       drizzle,
       cacheController,
     }) => {
+      console.log(`[sales_plans/daily] Request for terminal_id (iiko_id): ${terminal_id}`);
+
       const accessToken = headers["authorization"]?.split(" ")[1];
       if (!accessToken) {
         set.status = 401;
@@ -165,12 +167,16 @@ export const salesPlansController = new Elysia({
         )
         .execute();
 
+      console.log(`[sales_plans/daily] Credential lookup result:`, JSON.stringify(credentialResult));
+
       if (credentialResult.length === 0) {
+        console.log(`[sales_plans/daily] Terminal not found by iiko_id: ${terminal_id}`);
         set.status = 404;
         return { message: "Terminal not found by iiko_id" };
       }
 
       const realTerminalId = credentialResult[0].model_id;
+      console.log(`[sales_plans/daily] Resolved realTerminalId: ${realTerminalId}`);
 
       const now = new Date();
       const year = now.getFullYear();
@@ -191,18 +197,24 @@ export const salesPlansController = new Elysia({
         )
         .execute();
 
+      console.log(`[sales_plans/daily] Plan query for terminal=${realTerminalId}, year=${year}, month=${month}, found=${planResults.length}`);
+
       if (planResults.length === 0) {
+        console.log(`[sales_plans/daily] No plan found for terminal=${realTerminalId}, year=${year}, month=${month}`);
         set.status = 404;
         return { message: "No plan for this terminal and month" };
       }
 
       const plan = planResults[0];
+      console.log(`[sales_plans/daily] Found plan id=${plan.id}`);
 
       const items = await drizzle
         .select()
         .from(sales_plan_items)
         .where(eq(sales_plan_items.plan_id, plan.id))
         .execute();
+
+      console.log(`[sales_plans/daily] Plan items count: ${items.length}`, JSON.stringify(items.map(i => ({ id: i.id, product_id: i.product_id, product_name: i.product_name, planned_qty: i.planned_qty }))));
 
       // Get sold quantities for this month
       const monthStart = `${year}-${String(month).padStart(2, "0")}-01`;
@@ -225,6 +237,8 @@ export const salesPlansController = new Elysia({
         .groupBy(sales_plan_stats.plan_item_id)
         .execute();
 
+      console.log(`[sales_plans/daily] Stats results count: ${statsResults.length}`, JSON.stringify(statsResults));
+
       const soldMap: Record<string, number> = {};
       for (const s of statsResults) {
         soldMap[s.plan_item_id] = Number(s.total_sold);
@@ -244,6 +258,8 @@ export const salesPlansController = new Elysia({
           daily_target: dailyTarget,
         };
       });
+
+      console.log(`[sales_plans/daily] Response items count: ${responseItems.length}`);
 
       return {
         plan_id: plan.id,
