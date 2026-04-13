@@ -2,7 +2,7 @@ import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import { nomenclature_element } from "@backend/../drizzle/schema";
-import { SQLWrapper, and, sql } from "drizzle-orm";
+import { SQLWrapper, and, eq, sql } from "drizzle-orm";
 import { SelectedFields } from "drizzle-orm/pg-core";
 import Elysia, { t } from "elysia";
 
@@ -26,7 +26,10 @@ export const nomenclatureElementController = new Elysia({
           {}
         );
       }
-      let whereClause: (SQLWrapper | undefined)[] = [];
+      let whereClause: (SQLWrapper | undefined)[] = [
+        eq(nomenclature_element.deleted, false),
+        eq(nomenclature_element.type, 'DISH')
+      ];
       if (filters) {
         whereClause = parseFilterFields(
           filters,
