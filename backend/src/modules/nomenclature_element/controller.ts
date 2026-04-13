@@ -28,13 +28,15 @@ export const nomenclatureElementController = new Elysia({
       }
       let whereClause: (SQLWrapper | undefined)[] = [
         eq(nomenclature_element.deleted, false),
-        eq(nomenclature_element.type, 'DISH')
+        eq(nomenclature_element.type, 'DISH'),
       ];
       if (filters) {
-        whereClause = parseFilterFields(
-          filters,
-          nomenclature_element,
-          {}
+        whereClause.push(
+          ...parseFilterFields(
+            filters,
+            nomenclature_element,
+            {}
+          )
         );
       }
       const nomenclatureElementCount = await drizzle
