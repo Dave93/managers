@@ -63,88 +63,91 @@ async function getToken(): Promise<string> {
   return token;
 }
 
-async function fetchOlapForDay(token: string, date: string) {
+async function fetchOlapForRange(token: string, fromDate: string, toDate: string) {
+  const body = {
+    reportType: "TRANSACTIONS",
+    buildSummary: "true",
+    groupByRowFields: [],
+    groupByColFields: [
+      "DateTime.DateTyped",
+      "Session.Group",
+      "TransactionType",
+      "Product.Type",
+      "Product.Name",
+      "Product.Id",
+      "Product.Num",
+      "Product.MeasureUnit",
+      "Store",
+    ],
+    aggregateFields: ["Amount.Out"],
+    filters: {
+      "DateTime.DateTyped": {
+        filterType: "DateRange",
+        from: fromDate,
+        to: toDate,
+        includeLow: true,
+        includeHigh: true,
+      },
+      TransactionType: {
+        filterType: "IncludeValues",
+        values: ["SESSION_WRITEOFF"],
+      },
+      "Product.Type": {
+        filterType: "IncludeValues",
+        values: ["GOODS", "PREPARED", "DISH"],
+      },
+    },
+  };
+
+  console.log(`[API] Requesting ${fromDate} to ${toDate}...`);
+
   const res = await fetch(`${IIKO_BASE}/v2/reports/olap?key=${token}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      reportType: "TRANSACTIONS",
-      buildSummary: "true",
-      groupByRowFields: [],
-      groupByColFields: [
-        "DateTime.DateTyped",
-        "Session.Group",
-        "TransactionType",
-        "Product.Type",
-        "Product.Name",
-        "Product.Id",
-        "Product.Num",
-        "Product.MeasureUnit",
-        "Store",
-      ],
-      aggregateFields: ["Amount.Out"],
-      filters: {
-        "DateTime.DateTyped": {
-          filterType: "DateRange",
-          from: date,
-          to: date,
-          includeLow: true,
-          includeHigh: true,
-        },
-        TransactionType: {
-          filterType: "IncludeValues",
-          values: ["SESSION_WRITEOFF"],
-        },
-        "Product.Type": {
-          filterType: "IncludeValues",
-          values: ["GOODS", "PREPARED", "DISH"],
-        },
-      },
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
-    throw new Error(`iiko API error ${res.status}: ${await res.text()}`);
+    const text = await res.text();
+    throw new Error(`iiko API error ${res.status}: ${text.substring(0, 300)}`);
   }
 
   return res.json();
 }
 
-async function processDay(token: string, date: dayjs.Dayjs): Promise<void> {
-  const dateStr = date.format("YYYY-MM-DD");
-  console.log(`\n[${dateStr}] Fetching from iiko...`);
+async function processRange(token: string, from: dayjs.Dayjs, to: dayjs.Dayjs): Promise<number> {
+  const fromStr = from.format("YYYY-MM-DD");
+  const toStr = to.format("YYYY-MM-DD");
 
-  const reportOlap = await fetchOlapForDay(token, dateStr);
+  const reportOlap = await fetchOlapForRange(token, fromStr, toStr);
 
   // Debug: log response structure on first call
-  if (!(processDay as any)._logged) {
-    (processDay as any)._logged = true;
+  if (!(processRange as any)._logged) {
+    (processRange as any)._logged = true;
     const keys = Object.keys(reportOlap);
     console.log(`[DEBUG] Response keys: ${JSON.stringify(keys)}`);
-    if (Array.isArray(reportOlap)) {
-      console.log(`[DEBUG] Response is array, length: ${reportOlap.length}`);
-      if (reportOlap.length > 0) console.log(`[DEBUG] First item keys: ${JSON.stringify(Object.keys(reportOlap[0]))}`);
-    } else if (reportOlap.data) {
-      console.log(`[DEBUG] reportOlap.data length: ${reportOlap.data.length}`);
-      if (reportOlap.data.length > 0) console.log(`[DEBUG] First item: ${JSON.stringify(reportOlap.data[0])}`);
-    } else {
-      console.log(`[DEBUG] Full response (first 500 chars): ${JSON.stringify(reportOlap).substring(0, 500)}`);
+    const rows = reportOlap.data ?? [];
+    console.log(`[DEBUG] data length: ${rows.length}`);
+    if (rows.length > 0) {
+      console.log(`[DEBUG] First item keys: ${JSON.stringify(Object.keys(rows[0]))}`);
+      console.log(`[DEBUG] First item: ${JSON.stringify(rows[0])}`);
     }
   }
 
-  const rows = Array.isArray(reportOlap) ? reportOlap : (reportOlap.data ?? []);
-  const count = rows.length;
-  console.log(`[${dateStr}] Got ${count} records`);
+  const rows = reportOlap.data ?? [];
+  console.log(`[${fromStr} → ${toStr}] Got ${rows.length} records`);
 
-  if (count === 0) return;
+  if (rows.length === 0) return 0;
 
-  // Delete existing records for this day
-  const dayStart = date.startOf("day").toISOString();
-  const dayEnd = date.endOf("day").toISOString();
-
+  // Delete existing records for this range
   await drizzleDb
     .delete(report_olap)
-    .where(and(gte(report_olap.dateTime, dayStart), lte(report_olap.dateTime, dayEnd)))
+    .where(
+      and(
+        gte(report_olap.dateTime, new Date(fromStr).toISOString()),
+        lte(report_olap.dateTime, new Date(toStr + "T23:59:59").toISOString())
+      )
+    )
     .execute();
 
   // Insert new records
@@ -167,8 +170,11 @@ async function processDay(token: string, date: dayjs.Dayjs): Promise<void> {
     await drizzleDb.insert(report_olap).values(batch).execute();
   }
 
-  console.log(`[${dateStr}] Inserted ${count} records`);
+  console.log(`[${fromStr} → ${toStr}] Inserted ${rows.length} records`);
+  return rows.length;
 }
+
+const CHUNK_DAYS = 7; // Process 7 days at a time
 
 async function main() {
   const { fromDate, toDate } = parseArgs();
@@ -176,41 +182,52 @@ async function main() {
 
   console.log(`=== Backfill report_olap ===`);
   console.log(`Period: ${fromDate.format("YYYY-MM-DD")} to ${toDate.format("YYYY-MM-DD")} (${totalDays} days)`);
-  console.log(`Delay between days: ${DELAY_BETWEEN_DAYS_MS / 1000}s`);
+  console.log(`Chunk size: ${CHUNK_DAYS} days, delay between chunks: ${DELAY_BETWEEN_DAYS_MS / 1000}s`);
   console.log(`Product types: GOODS, PREPARED, DISH\n`);
 
-  const token = await getToken();
-  console.log("Token obtained");
+  let token = await getToken();
+  console.log("Token obtained\n");
 
-  let processed = 0;
-  for (let d = fromDate; !d.isAfter(toDate); d = d.add(1, "day")) {
+  let totalInserted = 0;
+  let chunkNum = 0;
+
+  for (let chunkStart = fromDate; !chunkStart.isAfter(toDate); chunkStart = chunkStart.add(CHUNK_DAYS, "day")) {
+    let chunkEnd = chunkStart.add(CHUNK_DAYS - 1, "day");
+    if (chunkEnd.isAfter(toDate)) chunkEnd = toDate;
+
+    chunkNum++;
+
+    // Refresh token every 10 chunks
+    if (chunkNum > 1 && chunkNum % 10 === 0) {
+      console.log("\nRefreshing token...");
+      token = await getToken();
+      console.log("New token obtained\n");
+    }
+
     try {
-      await processDay(token, d);
-    } catch (e) {
-      console.error(`[${d.format("YYYY-MM-DD")}] ERROR:`, e);
-      // Try to get a new token in case it expired
-      if (processed > 0 && processed % 30 === 0) {
-        console.log("Refreshing token...");
-        try {
-          const newToken = await getToken();
-          console.log("New token obtained");
-          // Retry with new token
-          await processDay(newToken, d);
-        } catch (retryErr) {
-          console.error(`[${d.format("YYYY-MM-DD")}] Retry failed:`, retryErr);
-        }
+      const inserted = await processRange(token, chunkStart, chunkEnd);
+      totalInserted += inserted;
+    } catch (e: any) {
+      console.error(`\nERROR for ${chunkStart.format("YYYY-MM-DD")} → ${chunkEnd.format("YYYY-MM-DD")}:`, e.message);
+      // Try with fresh token
+      try {
+        console.log("Retrying with fresh token...");
+        token = await getToken();
+        const inserted = await processRange(token, chunkStart, chunkEnd);
+        totalInserted += inserted;
+      } catch (retryErr: any) {
+        console.error(`Retry failed: ${retryErr.message}`);
       }
     }
 
-    processed++;
-    const remaining = totalDays - processed;
-    if (remaining > 0) {
-      console.log(`Progress: ${processed}/${totalDays} days (${remaining} remaining). Waiting ${DELAY_BETWEEN_DAYS_MS / 1000}s...`);
+    if (!chunkEnd.isSame(toDate)) {
+      const daysProcessed = chunkEnd.diff(fromDate, "day") + 1;
+      console.log(`Progress: ${daysProcessed}/${totalDays} days. Total inserted: ${totalInserted}. Waiting ${DELAY_BETWEEN_DAYS_MS / 1000}s...\n`);
       await new Promise((r) => setTimeout(r, DELAY_BETWEEN_DAYS_MS));
     }
   }
 
-  console.log(`\n=== Done! Processed ${processed}/${totalDays} days ===`);
+  console.log(`\n=== Done! Total inserted: ${totalInserted} records over ${totalDays} days ===`);
   process.exit(0);
 }
 
