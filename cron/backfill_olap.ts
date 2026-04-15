@@ -110,12 +110,30 @@ async function fetchOlapForDay(token: string, date: string) {
   return res.json();
 }
 
-async function processDay(token: string, date: dayjs.Dayjs) {
+async function processDay(token: string, date: dayjs.Dayjs): Promise<void> {
   const dateStr = date.format("YYYY-MM-DD");
   console.log(`\n[${dateStr}] Fetching from iiko...`);
 
   const reportOlap = await fetchOlapForDay(token, dateStr);
-  const count = reportOlap.data?.length ?? 0;
+
+  // Debug: log response structure on first call
+  if (!(processDay as any)._logged) {
+    (processDay as any)._logged = true;
+    const keys = Object.keys(reportOlap);
+    console.log(`[DEBUG] Response keys: ${JSON.stringify(keys)}`);
+    if (Array.isArray(reportOlap)) {
+      console.log(`[DEBUG] Response is array, length: ${reportOlap.length}`);
+      if (reportOlap.length > 0) console.log(`[DEBUG] First item keys: ${JSON.stringify(Object.keys(reportOlap[0]))}`);
+    } else if (reportOlap.data) {
+      console.log(`[DEBUG] reportOlap.data length: ${reportOlap.data.length}`);
+      if (reportOlap.data.length > 0) console.log(`[DEBUG] First item: ${JSON.stringify(reportOlap.data[0])}`);
+    } else {
+      console.log(`[DEBUG] Full response (first 500 chars): ${JSON.stringify(reportOlap).substring(0, 500)}`);
+    }
+  }
+
+  const rows = Array.isArray(reportOlap) ? reportOlap : (reportOlap.data ?? []);
+  const count = rows.length;
   console.log(`[${dateStr}] Got ${count} records`);
 
   if (count === 0) return;
@@ -130,7 +148,7 @@ async function processDay(token: string, date: dayjs.Dayjs) {
     .execute();
 
   // Insert new records
-  const insertItems = reportOlap.data.map((row: any) => ({
+  const insertItems = rows.map((row: any) => ({
     id: row.id,
     dateTime: row["DateTime.DateTyped"],
     productId: row["Product.Id"],
