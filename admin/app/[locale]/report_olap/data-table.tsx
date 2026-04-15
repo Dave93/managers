@@ -65,6 +65,8 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     position: isPinned ? "sticky" : "relative",
     width: column.getSize(),
+    minWidth: isPinned ? column.getSize() : undefined,
+    maxWidth: isPinned ? column.getSize() : undefined,
     zIndex: isPinned ? 1 : 0,
   };
 };
@@ -151,6 +153,7 @@ export function DataTable<TData, TValue>() {
         accessorKey: "name",
         header: "Название",
         enablePinning: true,
+        size: 120,
       },
       {
         accessorKey: "supplierProductArticle",
