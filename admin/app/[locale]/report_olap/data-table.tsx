@@ -270,122 +270,232 @@ export function DataTable<TData, TValue>() {
     });
   }, [table]);
 
+  // Get date keys for card view
+  const dateKeys = useMemo(() => {
+    if (!date?.from || !date?.to) return [];
+    const keys: { key: string; label: string }[] = [];
+    let from = dayjs(date.from);
+    let to = dayjs(date.to).add(1, "day");
+    for (let m = from; m.isBefore(to); m = m.add(1, "day")) {
+      keys.push({
+        key: m.format("YYYY_MM_DD") + "_act",
+        label: m.format("DD.MM"),
+      });
+    }
+    return keys;
+  }, [date]);
+
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+
+  const toggleCard = (index: number) => {
+    setExpandedCards((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  // Filter data for card view
+  const filteredData = useMemo(() => {
+    const rows = data?.data ?? [];
+    if (!globalFilter) return rows;
+    return rows.filter((row: any) =>
+      String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
+    );
+  }, [data, globalFilter]);
+
+  const renderMobileCards = () => {
+    if (isLoading) {
+      return (
+        <div className="flex justify-center py-8">
+          <svg
+            aria-hidden="true"
+            className="w-8 h-8 text-gray-200 animate-spin fill-blue-600"
+            viewBox="0 0 100 101"
+            fill="none"
+          >
+            <path d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z" fill="currentColor" />
+            <path d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z" fill="currentFill" />
+          </svg>
+        </div>
+      );
+    }
+
+    if (!filteredData.length) {
+      return <p className="text-center text-muted-foreground py-8">Нет данных</p>;
+    }
+
+    return (
+      <div className="space-y-2">
+        {filteredData.map((row: any, index: number) => {
+          const total = Object.keys(row).reduce((sum, key) => {
+            if (key.indexOf("_act") > -1) sum += +row[key];
+            return sum;
+          }, 0);
+          const isExpanded = expandedCards.has(index);
+
+          return (
+            <div
+              key={index}
+              className="rounded-lg border bg-white dark:bg-slate-950 shadow-sm"
+            >
+              <button
+                onClick={() => toggleCard(index)}
+                className="w-full flex items-center justify-between p-3 text-left"
+              >
+                <div className="flex-1 min-w-0 mr-3">
+                  <p className="font-medium text-sm text-slate-900 dark:text-zinc-100 truncate">
+                    {row.name}
+                  </p>
+                  {row.unit && (
+                    <p className="text-xs text-muted-foreground">{row.unit}</p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-base font-bold text-red-600">
+                    {Intl.NumberFormat("ru-RU").format(total)}
+                  </span>
+                  <ChevronRightIcon
+                    className={`h-4 w-4 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                  />
+                </div>
+              </button>
+              {isExpanded && dateKeys.length > 0 && (
+                <div className="border-t px-3 pb-3 pt-2">
+                  <div className="grid grid-cols-3 gap-x-4 gap-y-1">
+                    {dateKeys.map(({ key, label }) => {
+                      const val = row[key];
+                      if (!val && val !== 0) return null;
+                      return (
+                        <div key={key} className="flex justify-between text-xs py-0.5">
+                          <span className="text-muted-foreground">{label}</span>
+                          <span className="font-medium tabular-nums">{val}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
-        <input
-          type="text"
-          placeholder="Поиск по названию..."
-          value={globalFilter}
-          onChange={(e) => setGlobalFilter(e.target.value)}
-          className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-        />
-        {isMobile && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDetails(!showDetails)}
-            className="text-xs whitespace-nowrap"
-          >
-            {showDetails ? "Скрыть" : "Детали"}
-          </Button>
-        )}
-      </div>
-      <div className="rounded-md border relative overflow-x-auto -mx-4 sm:mx-0">
-        <Table className={showDetails ? "min-w-[600px]" : "min-w-[400px]"}>
-          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  const { column } = header;
-                  return (
-                    <TableHead
-                      key={header.id}
-                      colSpan={header.colSpan}
-                      className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
-                      style={{ ...getCommonPinningStyles(column) }}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                    </TableHead>
-                  );
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center relative "
-                >
-                  <div
-                    role="status"
-                    className="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2"
-                  >
-                    <svg
-                      aria-hidden="true"
-                      className="w-8 h-8 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
-                      viewBox="0 0 100 101"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
-                        fill="currentColor"
-                      />
-                      <path
-                        d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
-                        fill="currentFill"
-                      />
-                    </svg>
-                    <span className="sr-only">Loading...</span>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  data-state={row.getIsSelected() && "selected"}
-                  className="text-black"
-                >
-                  {row.getVisibleCells().map((cell) => {
-                    const { column } = cell;
+      <input
+        type="text"
+        placeholder="Поиск по названию..."
+        value={globalFilter}
+        onChange={(e) => setGlobalFilter(e.target.value)}
+        className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      />
+
+      {/* Mobile: Card view */}
+      {isMobile ? (
+        renderMobileCards()
+      ) : (
+        /* Desktop: Table view */
+        <div className="rounded-md border relative overflow-x-auto">
+          <Table className="min-w-[600px]">
+            <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow key={headerGroup.id}>
+                  {headerGroup.headers.map((header) => {
+                    const { column } = header;
                     return (
-                      <TableCell
-                        key={cell.id}
-                        className="border border-r-2 border-slate-400 text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                      <TableHead
+                        key={header.id}
+                        colSpan={header.colSpan}
+                        className="text-center border border-r-2 border-slate-400 bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
                         style={{ ...getCommonPinningStyles(column) }}
                       >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                      </TableHead>
                     );
                   })}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  No results.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
-      {/* <div className="h-2" /> */}
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center relative"
+                  >
+                    <div
+                      role="status"
+                      className="absolute -translate-x-1/2 -translate-y-1/2 top-2/4 left-1/2"
+                    >
+                      <svg
+                        aria-hidden="true"
+                        className="w-8 h-8 mr-2 text-gray-200 animate-spin dark:text-gray-600 fill-blue-600"
+                        viewBox="0 0 100 101"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path
+                          d="M100 50.5908C100 78.2051 77.6142 100.591 50 100.591C22.3858 100.591 0 78.2051 0 50.5908C0 22.9766 22.3858 0.59082 50 0.59082C77.6142 0.59082 100 22.9766 100 50.5908ZM9.08144 50.5908C9.08144 73.1895 27.4013 91.5094 50 91.5094C72.5987 91.5094 90.9186 73.1895 90.9186 50.5908C90.9186 27.9921 72.5987 9.67226 50 9.67226C27.4013 9.67226 9.08144 27.9921 9.08144 50.5908Z"
+                          fill="currentColor"
+                        />
+                        <path
+                          d="M93.9676 39.0409C96.393 38.4038 97.8624 35.9116 97.0079 33.5539C95.2932 28.8227 92.871 24.3692 89.8167 20.348C85.8452 15.1192 80.8826 10.7238 75.2124 7.41289C69.5422 4.10194 63.2754 1.94025 56.7698 1.05124C51.7666 0.367541 46.6976 0.446843 41.7345 1.27873C39.2613 1.69328 37.813 4.19778 38.4501 6.62326C39.0873 9.04874 41.5694 10.4717 44.0505 10.1071C47.8511 9.54855 51.7191 9.52689 55.5402 10.0491C60.8642 10.7766 65.9928 12.5457 70.6331 15.2552C75.2735 17.9648 79.3347 21.5619 82.5849 25.841C84.9175 28.9121 86.7997 32.2913 88.1811 35.8758C89.083 38.2158 91.5421 39.6781 93.9676 39.0409Z"
+                          fill="currentFill"
+                        />
+                      </svg>
+                      <span className="sr-only">Loading...</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : table.getRowModel().rows?.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    data-state={row.getIsSelected() && "selected"}
+                    className="text-black"
+                  >
+                    {row.getVisibleCells().map((cell) => {
+                      const { column } = cell;
+                      return (
+                        <TableCell
+                          key={cell.id}
+                          className="border border-r-2 border-slate-400 text-center bg-white text-slate-900 dark:text-zinc-100 dark:bg-slate-950"
+                          style={{ ...getCommonPinningStyles(column) }}
+                        >
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-24 text-center"
+                  >
+                    No results.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Pagination */}
       <div className="flex flex-wrap gap-3 items-center justify-between pb-4 px-2 py-4">
         <div className="flex items-center gap-2">
           <div className="flex items-center space-x-2">
