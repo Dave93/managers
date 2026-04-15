@@ -165,7 +165,7 @@ export function DataTable<TData, TValue>() {
         size: isMobile ? 140 : 150,
       },
       ...(!isMobile
-        ? [
+        ? ([
             {
               accessorKey: "supplierProductArticle",
               header: "Артикул",
@@ -174,8 +174,8 @@ export function DataTable<TData, TValue>() {
               accessorKey: "unit",
               header: "Единица измерения",
             },
-          ]
-        : []) as ColumnDef<Stoplist, TValue>[],
+          ] as ColumnDef<Stoplist, TValue>[])
+        : []),
       // @ts-ignore
       columnHelper.group({
         id: "group",
