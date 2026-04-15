@@ -457,7 +457,7 @@ export class IikoDictionariesService {
             "Product.MeasureUnit",
             "Store",
           ],
-          aggregateFields: ["Amount.Out", "Amount.Amount"],
+          aggregateFields: ["Amount.Out", "Amount"],
           filters: {
             "DateTime.DateTyped": {
               filterType: "DateRange",
@@ -509,7 +509,7 @@ export class IikoDictionariesService {
     for (const reportOlaps of reportOlap.data) {
       // For DISH use DishAmountInt.Amount, for GOODS/PREPARED use Amount.Out
       const amount = reportOlaps["Product.Type"] === "DISH"
-        ? reportOlaps["Amount.Amount"]
+        ? reportOlaps["Amount"]
         : reportOlaps["Amount.Out"];
       insertItems.push({
         id: reportOlaps.id,

@@ -79,7 +79,7 @@ async function fetchOlapForRange(token: string, fromDate: string, toDate: string
       "Product.MeasureUnit",
       "Store",
     ],
-    aggregateFields: ["Amount.Out", "Amount.Amount"],
+    aggregateFields: ["Amount.Out", "Amount"],
     filters: {
       "DateTime.DateTyped": {
         filterType: "DateRange",
@@ -159,7 +159,7 @@ async function processRange(token: string, from: dayjs.Dayjs, to: dayjs.Dayjs): 
     productType: row["Product.Type"],
     sessionGroup: row["Session.Group"],
     transactionType: row["TransactionType"],
-    amauntOut: row["Product.Type"] === "DISH" ? row["Amount.Amount"] : row["Amount.Out"],
+    amauntOut: row["Product.Type"] === "DISH" ? row["Amount"] : row["Amount.Out"],
     productNum: row["Product.Num"],
     productUnit: row["Product.MeasureUnit"],
     store: row["Store"],
