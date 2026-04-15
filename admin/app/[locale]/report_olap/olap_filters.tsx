@@ -185,11 +185,9 @@ export const OlapFilters = () => {
         <SelectContent>
           <SelectGroup>
             <SelectItem value="all">Все типы</SelectItem>
-            <SelectItem value="Goods">Товары</SelectItem>
-            <SelectItem value="Dish">Блюда</SelectItem>
-            <SelectItem value="Modifier">Модификаторы</SelectItem>
-            <SelectItem value="Outer">Внешние</SelectItem>
-            <SelectItem value="PreparedDish">Заготовки</SelectItem>
+            <SelectItem value="GOODS">Товары</SelectItem>
+            <SelectItem value="DISH">Блюда</SelectItem>
+            <SelectItem value="PREPARED">Заготовки</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>
