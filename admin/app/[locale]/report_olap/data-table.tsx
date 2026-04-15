@@ -23,7 +23,7 @@ import {
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -145,6 +145,15 @@ export function DataTable<TData, TValue>() {
     [pageIndex, pageSize]
   );
 
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   const columnHelper = createColumnHelper();
 
   const columns = useMemo(() => {
@@ -153,16 +162,20 @@ export function DataTable<TData, TValue>() {
         accessorKey: "name",
         header: "Название",
         enablePinning: true,
-        size: 120,
+        size: isMobile ? 140 : 150,
       },
-      {
-        accessorKey: "supplierProductArticle",
-        header: "Артикул",
-      },
-      {
-        accessorKey: "unit",
-        header: "Единица измерения",
-      },
+      ...(!isMobile
+        ? [
+            {
+              accessorKey: "supplierProductArticle",
+              header: "Артикул",
+            },
+            {
+              accessorKey: "unit",
+              header: "Единица измерения",
+            },
+          ]
+        : []) as ColumnDef<Stoplist, TValue>[],
       // @ts-ignore
       columnHelper.group({
         id: "group",
@@ -211,7 +224,7 @@ export function DataTable<TData, TValue>() {
       }
     }
     return cols;
-  }, [date]);
+  }, [date, isMobile]);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
