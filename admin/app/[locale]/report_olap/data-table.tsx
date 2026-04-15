@@ -68,6 +68,9 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     width: column.getSize(),
     minWidth: isPinned ? column.getSize() : undefined,
     maxWidth: isPinned ? column.getSize() : undefined,
+    overflow: isPinned ? "hidden" : undefined,
+    textOverflow: isPinned ? "ellipsis" : undefined,
+    whiteSpace: isPinned ? "nowrap" : undefined,
     zIndex: isPinned ? 1 : 0,
   };
 };
