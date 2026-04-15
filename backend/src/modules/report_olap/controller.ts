@@ -97,6 +97,7 @@ export const reportOlapController = new Elysia({
           unit: report_olap.productUnit,
           actualAmount: report_olap.amauntOut,
           supplierProductArticle: report_olap.productNum,
+          productType: report_olap.productType,
         })
         .from(report_olap)
         .leftJoin(
@@ -115,6 +116,7 @@ export const reportOlapController = new Elysia({
             name: repOlapItem.productName!,
             unit: repOlapItem.unit!,
             supplierProductArticle: repOlapItem.supplierProductArticle!,
+            productType: repOlapItem.productType ?? "",
           };
 
           for (var m = fromDate; m.isBefore(toDate); m = m.add(1, "day")) {

@@ -47,6 +47,8 @@ export const OlapFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
+  const productType = useStoplistFilterStore((state) => state.productType);
+  const setProductType = useStoplistFilterStore((state) => state.setProductType);
 
   const [usersStoresData, setUsersStoresData] = useState<
     (typeof corporation_store.$inferSelect)[]
@@ -168,6 +170,26 @@ export const OlapFilters = () => {
                 {item.name}
               </SelectItem>
             ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+
+      <Select
+        onValueChange={(value) => {
+          setProductType(value === "all" ? undefined : value);
+        }}
+      >
+        <SelectTrigger className="w-full sm:max-w-xs">
+          <SelectValue placeholder="Тип продукта" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value="all">Все типы</SelectItem>
+            <SelectItem value="Goods">Товары</SelectItem>
+            <SelectItem value="Dish">Блюда</SelectItem>
+            <SelectItem value="Modifier">Модификаторы</SelectItem>
+            <SelectItem value="Outer">Внешние</SelectItem>
+            <SelectItem value="PreparedDish">Заготовки</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

@@ -4,8 +4,10 @@ import { create } from "zustand";
 interface StoplistFilterState {
   date: DateRange | undefined;
   storeId: string | undefined;
+  productType: string | undefined;
   setDate: (date: DateRange | undefined) => void;
   setStoreId: (storeId: string | undefined) => void;
+  setProductType: (productType: string | undefined) => void;
 }
 
 const date = new Date();
@@ -23,5 +25,7 @@ export const useStoplistFilterStore = create<StoplistFilterState>((set) => ({
   setStoreId(storeId) {
     set({ storeId });
   },
-
+  setProductType(productType) {
+    set({ productType });
+  },
 }));
