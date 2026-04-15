@@ -78,12 +78,20 @@ export const reportOlapController = new Elysia({
           toDate = dayjs(toDateFilter.value);
         }
 
+        const productTypeFilter = filtersArray.find(
+          (filter: any) => filter.field === "productType"
+        );
+
         whereClause = parseFilterFields(filters, report_olap, {
           invoice_items,
           measure_unit,
           nomenclature_element,
           corporation_store,
         });
+
+        if (productTypeFilter) {
+          whereClause.push(eq(report_olap.productType, productTypeFilter.value));
+        }
 
         whereClause.push(gte(report_olap.dateTime, fromDate.toISOString()));
         whereClause.push(lte(report_olap.dateTime, toDate.toISOString()));

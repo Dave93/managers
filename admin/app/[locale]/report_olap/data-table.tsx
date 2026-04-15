@@ -112,10 +112,16 @@ export function DataTable<TData, TValue>() {
         value: storeId,
       });
     }
+    if (productType) {
+      res.push({
+        field: "productType",
+        operator: "eq",
+        value: productType,
+      });
+    }
 
-    // console.log(date);
     return JSON.stringify(res);
-  }, [date, storeId]);
+  }, [date, storeId, productType]);
   // console.log("date", date);
   const { data, isLoading } = useQuery({
     enabled: !!date,
@@ -235,7 +241,7 @@ export function DataTable<TData, TValue>() {
   }, [date]);
 
   const table = useReactTable({
-    data: (productType ? (data?.data ?? []).filter((row: any) => row.productType === productType) : data?.data) ?? defaultData,
+    data: data?.data ?? defaultData,
     // @ts-ignore
     columns,
     pageCount: 1000000,
@@ -299,17 +305,12 @@ export function DataTable<TData, TValue>() {
 
   // Filter data for card view
   const filteredData = useMemo(() => {
-    let rows = data?.data ?? [];
-    if (productType) {
-      rows = rows.filter((row: any) => row.productType === productType);
-    }
-    if (globalFilter) {
-      rows = rows.filter((row: any) =>
-        String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
-      );
-    }
-    return rows;
-  }, [data, globalFilter, productType]);
+    const rows = data?.data ?? [];
+    if (!globalFilter) return rows;
+    return rows.filter((row: any) =>
+      String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
+    );
+  }, [data, globalFilter]);
 
   const renderMobileCards = () => {
     if (isLoading) {
