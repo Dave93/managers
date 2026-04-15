@@ -238,8 +238,8 @@ export function DataTable<TData, TValue>() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border relative ">
-        <Table>
+      <div className="rounded-md border relative overflow-x-auto -mx-4 sm:mx-0">
+        <Table className="min-w-[600px]">
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -333,11 +333,10 @@ export function DataTable<TData, TValue>() {
         </Table>
       </div>
       {/* <div className="h-2" /> */}
-      <div className="flex h-24 items-center justify-between pb-4 px-2">
-        <div className="flex-1 text-sm text-muted-foreground"></div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
+      <div className="flex flex-wrap gap-3 items-center justify-between pb-4 px-2 py-4">
+        <div className="flex items-center gap-2">
           <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
+            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
             <Select
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(value) => {
@@ -359,7 +358,7 @@ export function DataTable<TData, TValue>() {
             </Select>
           </div>
         </div>
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+        <div className="flex items-center justify-center text-sm font-medium whitespace-nowrap">
           Page {table.getState().pagination.pageIndex + 1} of{" "}
           {table.getPageCount()}
         </div>
