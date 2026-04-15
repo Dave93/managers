@@ -472,7 +472,7 @@ export class IikoDictionariesService {
             },
             "Product.Type": {
               filterType: "IncludeValues",
-              values: ["GOODS", "PREPARED"],
+              values: ["GOODS", "PREPARED", "DISH"],
             },
           },
         }),
