@@ -78,6 +78,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
+  const productType = useStoplistFilterStore((state) => state.productType);
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -234,7 +235,7 @@ export function DataTable<TData, TValue>() {
   }, [date]);
 
   const table = useReactTable({
-    data: data?.data ?? defaultData,
+    data: (productType ? (data?.data ?? []).filter((row: any) => row.productType === productType) : data?.data) ?? defaultData,
     // @ts-ignore
     columns,
     pageCount: 1000000,
@@ -298,12 +299,17 @@ export function DataTable<TData, TValue>() {
 
   // Filter data for card view
   const filteredData = useMemo(() => {
-    const rows = data?.data ?? [];
-    if (!globalFilter) return rows;
-    return rows.filter((row: any) =>
-      String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
-    );
-  }, [data, globalFilter]);
+    let rows = data?.data ?? [];
+    if (productType) {
+      rows = rows.filter((row: any) => row.productType === productType);
+    }
+    if (globalFilter) {
+      rows = rows.filter((row: any) =>
+        String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
+      );
+    }
+    return rows;
+  }, [data, globalFilter, productType]);
 
   const renderMobileCards = () => {
     if (isLoading) {
