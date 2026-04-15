@@ -72,7 +72,7 @@ export const OlapFilters = () => {
             id="date"
             variant={"outline"}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
+              "w-full sm:w-[300px] justify-start text-left font-normal",
               !date && "text-muted-foreground"
             )}
           >
@@ -158,7 +158,7 @@ export const OlapFilters = () => {
           setStoreId(value);
         }}
       >
-        <SelectTrigger className="max-w-xs">
+        <SelectTrigger className="w-full sm:max-w-xs">
           <SelectValue placeholder="Склады" />
         </SelectTrigger>
         <SelectContent>

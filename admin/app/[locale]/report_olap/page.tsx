@@ -6,15 +6,15 @@ import Back from "../manager_reports/Back";
 
 export default function ReportsListPage() {
   return (
-    <div>
+    <div className="w-full overflow-hidden">
       <Back />
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">
+        <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Акт Реализации
         </h2>
       </div>
       <OlapFilters />
-      <div className="py-10">
+      <div className="py-4 sm:py-10">
         <DataTable />
       </div>
     </div>
