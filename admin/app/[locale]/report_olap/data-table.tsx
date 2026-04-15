@@ -7,6 +7,7 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -23,7 +24,7 @@ import {
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 
-import { CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -156,6 +157,13 @@ export function DataTable<TData, TValue>() {
 
   const columnHelper = createColumnHelper();
 
+  const [globalFilter, setGlobalFilter] = useState("");
+  const [showDetails, setShowDetails] = useState(false);
+
+  useEffect(() => {
+    setShowDetails(!isMobile);
+  }, [isMobile]);
+
   const columns = useMemo(() => {
     let cols: ColumnDef<Stoplist, TValue>[] = [
       {
@@ -164,18 +172,14 @@ export function DataTable<TData, TValue>() {
         enablePinning: true,
         size: isMobile ? 140 : 150,
       },
-      ...(!isMobile
-        ? ([
-            {
-              accessorKey: "supplierProductArticle",
-              header: "Артикул",
-            },
-            {
-              accessorKey: "unit",
-              header: "Единица измерения",
-            },
-          ] as ColumnDef<Stoplist, TValue>[])
-        : []),
+      {
+        accessorKey: "supplierProductArticle",
+        header: "Артикул",
+      },
+      {
+        accessorKey: "unit",
+        header: "Единица измерения",
+      },
       // @ts-ignore
       columnHelper.group({
         id: "group",
@@ -224,7 +228,7 @@ export function DataTable<TData, TValue>() {
       }
     }
     return cols;
-  }, [date, isMobile]);
+  }, [date]);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
@@ -233,15 +237,26 @@ export function DataTable<TData, TValue>() {
     pageCount: 1000000,
     state: {
       pagination,
+      globalFilter,
       rowPinning: {
         top: ["name"],
+      },
+      columnVisibility: {
+        supplierProductArticle: showDetails,
+        unit: showDetails,
       },
     },
     enablePinning: true,
     enableRowPinning: true,
     enableColumnPinning: true,
     onPaginationChange: setPagination,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, columnId, filterValue) => {
+      const name = String(row.getValue("name") ?? "").toLowerCase();
+      return name.includes(filterValue.toLowerCase());
+    },
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
@@ -254,8 +269,27 @@ export function DataTable<TData, TValue>() {
 
   return (
     <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          placeholder="Поиск по названию..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        {isMobile && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowDetails(!showDetails)}
+            className="text-xs whitespace-nowrap"
+          >
+            {showDetails ? "Скрыть" : "Детали"}
+          </Button>
+        )}
+      </div>
       <div className="rounded-md border relative overflow-x-auto -mx-4 sm:mx-0">
-        <Table className="min-w-[600px]">
+        <Table className={showDetails ? "min-w-[600px]" : "min-w-[400px]"}>
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
