@@ -15,6 +15,7 @@ import {
   SelectValue,
 } from "@admin/components/ui/select";
 import { toast } from "sonner";
+import { useAuth } from "@admin/components/useAuth";
 
 type PlanItem = {
   product_id: string;
@@ -39,6 +40,8 @@ export default function CreateSalesPlanPage() {
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [items, setItems] = useState<PlanItem[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const { user } = useAuth();
+  const userOrganizationId = (user as any)?.user?.organization_id;
 
   // Fetch terminals
   const { data: terminalsData } = useQuery({
@@ -49,7 +52,12 @@ export default function CreateSalesPlanPage() {
     },
   });
 
-  const terminals = (terminalsData as any[]) ?? [];
+  const allTerminals = (terminalsData as any[]) ?? [];
+
+  // Filter terminals by user's organization if set
+  const terminals = userOrganizationId
+    ? allTerminals.filter((t: any) => t.organization_id === userOrganizationId)
+    : allTerminals;
 
   // Search products by name
   const { data: productsData } = useQuery({

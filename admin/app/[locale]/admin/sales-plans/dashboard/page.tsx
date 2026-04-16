@@ -14,6 +14,7 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/ru";
+import { useAuth } from "@admin/components/useAuth";
 
 dayjs.extend(relativeTime);
 dayjs.locale("ru");
@@ -66,12 +67,16 @@ export default function SalesPlanDashboardPage() {
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
   const [expandedTerminal, setExpandedTerminal] = useState<string | null>(null);
+  const { user } = useAuth();
+  const userOrganizationId = (user as any)?.user?.organization_id;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["sales_plan_dashboard", { year, month }],
+    queryKey: ["sales_plan_dashboard", { year, month, organization_id: userOrganizationId }],
     queryFn: async () => {
+      const query: any = { year, month };
+      if (userOrganizationId) query.organization_id = userOrganizationId;
       const { data } = await apiClient.api.sales_plan_stats.dashboard.get({
-        query: { year, month },
+        query,
       });
       return data;
     },

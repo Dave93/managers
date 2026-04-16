@@ -213,6 +213,7 @@ export const corporation_store = pgTable("corporation_store", {
   code: varchar("code", { length: 255 }),
   name: varchar("name", { length: 255 }),
   type: varchar("type", { length: 255 }),
+  organization_id: uuid("organization_id"),
 });
 
 export const corporation_terminals = pgTable("corporation_terminals", {
@@ -552,6 +553,7 @@ export const users = pgTable(
       .notNull(),
     api_token: varchar("api_token", { length: 250 }),
     tg_id: varchar("tg_id", { length: 250 }),
+    organization_id: uuid("organization_id"),
   },
   (table) => {
     return {

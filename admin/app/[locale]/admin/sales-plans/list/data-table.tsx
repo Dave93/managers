@@ -14,6 +14,7 @@ import {
   SelectValue,
 } from "@admin/components/ui/select";
 import dayjs from "dayjs";
+import { useAuth } from "@admin/components/useAuth";
 
 type SalesPlan = {
   id: string;
@@ -58,13 +59,16 @@ export function DataTable() {
   const now = new Date();
   const [yearFilter, setYearFilter] = useState(String(now.getFullYear()));
   const [monthFilter, setMonthFilter] = useState(String(now.getMonth() + 1));
+  const { user } = useAuth();
+  const userOrganizationId = (user as any)?.user?.organization_id;
 
   const filters = useMemo(() => {
     const res: any[] = [];
     if (yearFilter) res.push({ field: "year", operator: "eq", value: Number(yearFilter) });
     if (monthFilter) res.push({ field: "month", operator: "eq", value: Number(monthFilter) });
+    if (userOrganizationId) res.push({ field: "organization_id", operator: "eq", value: userOrganizationId });
     return res;
-  }, [yearFilter, monthFilter]);
+  }, [yearFilter, monthFilter, userOrganizationId]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["sales_plans", { limit: pageSize, offset: pageIndex * pageSize, filters }],
