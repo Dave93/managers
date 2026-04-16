@@ -63,7 +63,7 @@ export const OlapFilters = () => {
     if (data && Array.isArray(data)) {
       if (userOrganizationId) {
         setUsersStoresData(
-          data.filter((item: any) => item.organization_id === userOrganizationId)
+          data.filter((item: any) => !item.organization_id || item.organization_id === userOrganizationId)
         );
       } else {
         setUsersStoresData(data);
