@@ -593,7 +593,7 @@ export const salesPlansController = new Elysia({
   // ─── Dashboard: aggregated progress (session auth) ───
   .get(
     "/sales_plan_stats/dashboard",
-    async ({ query: { year, month, terminal_id }, drizzle }) => {
+    async ({ query: { year, month, terminal_id, organization_id }, drizzle }) => {
       const yr = Number(year);
       const mo = Number(month);
       const daysInMonth = new Date(yr, mo, 0).getDate();
@@ -604,6 +604,9 @@ export const salesPlansController = new Elysia({
       ];
       if (terminal_id) {
         planWhere.push(eq(sales_plans.terminal_id, terminal_id));
+      }
+      if (organization_id) {
+        planWhere.push(eq(sales_plans.organization_id, organization_id));
       }
 
       const plans = await drizzle
@@ -723,6 +726,7 @@ export const salesPlansController = new Elysia({
         year: t.String(),
         month: t.String(),
         terminal_id: t.Optional(t.String()),
+        organization_id: t.Optional(t.String()),
       }),
     }
   );

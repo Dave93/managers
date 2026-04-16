@@ -46,6 +46,7 @@ export default function UsersForm({
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
   const [changedTerminalId, setChangedTerminalId] = useState<string[]>([]);
   const [changedStoreId, setChangedStoreId] = useState<string[]>([]);
+  const [changedOrganizationId, setChangedOrganizationId] = useState<string | null>(null);
   const closeForm = () => {
     form.reset();
     setOpen(false);
@@ -71,6 +72,7 @@ export default function UsersForm({
           "password",
           "first_name",
           "last_name",
+          "organization_id",
         ],
       });
     },
@@ -92,6 +94,7 @@ export default function UsersForm({
           "password",
           "first_name",
           "last_name",
+          "organization_id",
         ],
       });
     },
@@ -126,6 +129,7 @@ export default function UsersForm({
     { data: userTerminalsData, isLoading: isUserTerminalsLoading },
     { data: storesData, isLoading: isStoresLoading },
     { data: userStoresData, isLoading: isUserStoresLoading },
+    { data: organizationsData, isLoading: isOrganizationsLoading },
   ] = useQueries({
     queries: [
       {
@@ -213,6 +217,13 @@ export default function UsersForm({
           }
         },
       },
+      {
+        queryKey: ["organizations_cached"],
+        queryFn: async () => {
+          const { data } = await apiClient.api.organization.cached.get({});
+          return data;
+        },
+      },
     ],
   });
 
@@ -225,6 +236,7 @@ export default function UsersForm({
       first_name: record?.data?.first_name || "",
       last_name: record?.data?.last_name || "",
       role_id: record?.data?.role_id || "",
+      organization_id: record?.data?.organization_id || "",
     },
     onSubmit: async ({ value }) => {
       if (recordId) {
@@ -431,6 +443,41 @@ export default function UsersForm({
                 <SelectContent>
                   {Array.isArray(rolesData) ? (
                     rolesData?.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    <SelectItem value="0">
+                      Загрузка...
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            );
+          }}
+        </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Организация</Label>
+        </div>
+        <form.Field name="organization_id">
+          {(field) => {
+            return (
+              <Select
+                value={field.getValue() || ""}
+                onValueChange={(value) => {
+                  field.setValue(value === "none" ? "" : value);
+                }}
+              >
+                <SelectTrigger className="w-full max-w-xs">
+                  <SelectValue placeholder="Выберите организацию" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Не указана</SelectItem>
+                  {Array.isArray(organizationsData) ? (
+                    organizationsData?.map((item: any) => (
                       <SelectItem key={item.id} value={item.id}>
                         {item.name}
                       </SelectItem>

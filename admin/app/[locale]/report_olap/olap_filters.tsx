@@ -42,6 +42,7 @@ import {
   terminalsWithCredentials,
 } from "@backend/modules/cache_control/dto/cache.dto";
 import React from "react";
+import { useAuth } from "@admin/components/useAuth";
 
 export const OlapFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
@@ -49,6 +50,8 @@ export const OlapFilters = () => {
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
   const productType = useStoplistFilterStore((state) => state.productType);
   const setProductType = useStoplistFilterStore((state) => state.setProductType);
+  const { user } = useAuth();
+  const userOrganizationId = (user as any)?.user?.organization_id;
 
   const [usersStoresData, setUsersStoresData] = useState<
     (typeof corporation_store.$inferSelect)[]
@@ -58,13 +61,19 @@ export const OlapFilters = () => {
     const { data } = await apiClient.api.users_stores.cached.get({});
 
     if (data && Array.isArray(data)) {
-      setUsersStoresData(data);
+      if (userOrganizationId) {
+        setUsersStoresData(
+          data.filter((item: any) => item.organization_id === userOrganizationId)
+        );
+      } else {
+        setUsersStoresData(data);
+      }
     }
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [userOrganizationId]);
 
   return (
     <div className="flex flex-col gap-4 py-4 lg:flex-row lg:space-x-3">
