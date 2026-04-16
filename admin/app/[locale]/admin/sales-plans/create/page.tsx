@@ -56,7 +56,7 @@ export default function CreateSalesPlanPage() {
 
   // Filter terminals by user's organization if set
   const terminals = userOrganizationId
-    ? allTerminals.filter((t: any) => t.organization_id === userOrganizationId)
+    ? allTerminals.filter((t: any) => !t.organization_id || t.organization_id === userOrganizationId)
     : allTerminals;
 
   // Search products by name
