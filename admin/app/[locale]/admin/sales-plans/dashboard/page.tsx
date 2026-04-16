@@ -11,6 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+} from "@admin/components/ui/drawer";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/ru";
@@ -66,7 +73,7 @@ export default function SalesPlanDashboardPage() {
   const now = new Date();
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
-  const [expandedTerminal, setExpandedTerminal] = useState<string | null>(null);
+  const [selectedTerminal, setSelectedTerminal] = useState<TerminalDashboard | null>(null);
   const { user } = useAuth();
   const userOrganizationId = (user as any)?.user?.organization_id;
 
@@ -114,56 +121,48 @@ export default function SalesPlanDashboardPage() {
       ) : terminals.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">Нет данных за этот период</div>
       ) : (
-        <div className="space-y-6">
-          {/* Terminal cards grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {terminals.map((t) => (
-              <button
-                key={t.terminal_id}
-                className={`rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:border-primary ${
-                  expandedTerminal === t.terminal_id ? "border-primary ring-1 ring-primary" : ""
-                }`}
-                onClick={() =>
-                  setExpandedTerminal(expandedTerminal === t.terminal_id ? null : t.terminal_id)
-                }
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-sm">{t.terminal_name || "Terminal"}</span>
-                  <span className={`text-xl font-bold ${getProgressColor(t.progress_pct)}`}>
-                    {t.progress_pct}%
-                  </span>
-                </div>
-                <div className={`rounded-full h-2 ${getProgressTrack(t.progress_pct)}`}>
-                  <div
-                    className={`h-full rounded-full ${getProgressBg(t.progress_pct)}`}
-                    style={{ width: `${Math.min(t.progress_pct, 100)}%` }}
-                  />
-                </div>
-                <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                  <span>{t.items_count} продуктов</span>
-                  <span>
-                    {t.last_sync ? `Синхр: ${dayjs(t.last_sync).fromNow()}` : "Нет данных"}
-                  </span>
-                </div>
-              </button>
-            ))}
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {terminals.map((t) => (
+            <button
+              key={t.terminal_id}
+              className="rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:border-primary"
+              onClick={() => setSelectedTerminal(t)}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-semibold text-sm">{t.terminal_name || "Terminal"}</span>
+                <span className={`text-xl font-bold ${getProgressColor(t.progress_pct)}`}>
+                  {t.progress_pct}%
+                </span>
+              </div>
+              <div className={`rounded-full h-2 ${getProgressTrack(t.progress_pct)}`}>
+                <div
+                  className={`h-full rounded-full ${getProgressBg(t.progress_pct)}`}
+                  style={{ width: `${Math.min(t.progress_pct, 100)}%` }}
+                />
+              </div>
+              <div className="flex justify-between mt-2 text-xs text-muted-foreground">
+                <span>{t.items_count} продуктов</span>
+                <span>
+                  {t.last_sync ? `Синхр: ${dayjs(t.last_sync).fromNow()}` : "Нет данных"}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
 
-          {/* Expanded detail */}
-          {expandedTerminal && (() => {
-            const terminal = terminals.find((t) => t.terminal_id === expandedTerminal);
-            if (!terminal) return null;
-            return (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold">
-                    {terminal.terminal_name}
-                  </span>
-                  <span className="text-sm text-muted-foreground">
-                    {MONTHS[Number(month) - 1]} {year}
-                  </span>
-                </div>
-                {terminal.products.map((p) => (
+      <Drawer open={!!selectedTerminal} onOpenChange={(open) => { if (!open) setSelectedTerminal(null); }}>
+        <DrawerContent>
+          {selectedTerminal && (
+            <>
+              <DrawerHeader>
+                <DrawerTitle>{selectedTerminal.terminal_name}</DrawerTitle>
+                <DrawerDescription>
+                  {MONTHS[Number(month) - 1]} {year} — {selectedTerminal.items_count} продуктов, прогресс {selectedTerminal.progress_pct}%
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="overflow-y-auto px-4 pb-6 space-y-3">
+                {selectedTerminal.products.map((p) => (
                   <div key={p.item_id} className="rounded-xl border bg-card p-4 shadow-sm space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="font-medium text-sm">{p.product_name}</span>
@@ -198,10 +197,10 @@ export default function SalesPlanDashboardPage() {
                   </div>
                 ))}
               </div>
-            );
-          })()}
-        </div>
-      )}
+            </>
+          )}
+        </DrawerContent>
+      </Drawer>
     </div>
   );
 }
