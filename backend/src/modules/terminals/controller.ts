@@ -79,6 +79,7 @@ export const terminalsController = new Elysia({
           longitude: t.Number(),
           organization_id: t.String(),
           manager_name: t.Optional(t.String()),
+          playground_enabled: t.Optional(t.Boolean()),
         }),
       }),
     }
@@ -171,6 +172,7 @@ export const terminalsController = new Elysia({
           longitude: t.Number(),
           organization_id: t.String(),
           manager_name: t.Optional(t.String()),
+          playground_enabled: t.Optional(t.Boolean()),
         }),
       }),
     }
