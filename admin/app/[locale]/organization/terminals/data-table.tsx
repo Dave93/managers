@@ -20,7 +20,7 @@ import {
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -28,13 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select";
+import { Input } from "@admin/components/ui/input";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { terminals } from "@backend/../drizzle/schema";
+import { organization, terminals } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
@@ -51,6 +52,37 @@ export function DataTable<TData, TValue>({
     pageSize: 10,
   });
 
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [orgId, setOrgId] = useState<string>("all");
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      setSearch(searchInput.trim());
+      setPagination((p) => ({ ...p, pageIndex: 0 }));
+    }, 300);
+    return () => clearTimeout(id);
+  }, [searchInput]);
+
+  const { data: organizations } = useQuery({
+    queryKey: ["organizations_cached"],
+    queryFn: async () => {
+      const { data } = await apiClient.api.organization.cached.get({});
+      return (data ?? []) as (typeof organization.$inferSelect)[];
+    },
+  });
+
+  const filters = useMemo(() => {
+    const res: { field: string; operator: string; value: unknown }[] = [];
+    if (search) {
+      res.push({ field: "name", operator: "contains", value: search });
+    }
+    if (orgId !== "all") {
+      res.push({ field: "organization_id", operator: "eq", value: orgId });
+    }
+    return res;
+  }, [search, orgId]);
+
   const { data, isLoading } = useQuery({
     queryKey: [
       "terminals",
@@ -58,6 +90,7 @@ export function DataTable<TData, TValue>({
         limit: pageSize,
         offset: pageIndex * pageSize,
         fields: "id,active,name",
+        filters,
       },
     ],
     queryFn: async () => {
@@ -66,6 +99,7 @@ export function DataTable<TData, TValue>({
           limit: pageSize.toString(),
           offset: (pageIndex * pageSize).toString(),
           fields: "id,active,name",
+          ...(filters.length ? { filters: JSON.stringify(filters) } : {}),
         },
       });
       return data;
@@ -97,6 +131,33 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Input
+          placeholder="Поиск по названию..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="sm:max-w-sm"
+        />
+        <Select
+          value={orgId}
+          onValueChange={(v) => {
+            setOrgId(v);
+            setPagination((p) => ({ ...p, pageIndex: 0 }));
+          }}
+        >
+          <SelectTrigger className="sm:w-[260px]">
+            <SelectValue placeholder="Все организации" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Все организации</SelectItem>
+            {(organizations ?? []).map((org) => (
+              <SelectItem key={org.id} value={org.id}>
+                {org.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>

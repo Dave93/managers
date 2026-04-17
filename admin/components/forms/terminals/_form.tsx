@@ -39,6 +39,7 @@ export default function TerminalsForm({
       longitude: number;
       organization_id: string;
       manager_name?: string;
+      playground_enabled?: boolean;
     }) => {
       return apiClient.api.terminals.post({
         data: newTodo,
@@ -59,6 +60,7 @@ export default function TerminalsForm({
         longitude: number;
         organization_id: string;
         manager_name?: string;
+        playground_enabled?: boolean;
       };
       id: string;
     }) => {
@@ -80,6 +82,7 @@ export default function TerminalsForm({
     longitude: number;
     organization_id: string;
     manager_name?: string;
+    playground_enabled?: boolean;
   }>({
     defaultValues: {
       active: true,
@@ -88,6 +91,7 @@ export default function TerminalsForm({
       latitude: 0,
       longitude: 0,
       organization_id: "",
+      playground_enabled: false,
     },
     onSubmit: async ({ value }) => {
       if (recordId) {
@@ -118,8 +122,16 @@ export default function TerminalsForm({
     if (record?.data && "id" in record.data) {
       form.setFieldValue("active", record.data.active);
       form.setFieldValue("name", record.data.name);
-      //   form.setFieldValue("description", record.description);
       form.setFieldValue("phone", record.data.phone ?? "");
+      form.setFieldValue("address", record.data.address ?? "");
+      form.setFieldValue("latitude", record.data.latitude);
+      form.setFieldValue("longitude", record.data.longitude);
+      form.setFieldValue("organization_id", record.data.organization_id);
+      form.setFieldValue("manager_name", record.data.manager_name ?? "");
+      form.setFieldValue(
+        "playground_enabled",
+        record.data.playground_enabled ?? false
+      );
     }
   }, [record, form]);
 
@@ -194,6 +206,28 @@ export default function TerminalsForm({
             );
           }}
         </form.Field>
+      </div>
+      <div className="space-y-2">
+        <div>
+          <Label>Детская площадка</Label>
+        </div>
+        <form.Field name="playground_enabled">
+          {(field) => {
+            return (
+              <>
+                <Switch
+                  checked={field.getValue() ?? false}
+                  onCheckedChange={field.setValue}
+                />
+              </>
+            );
+          }}
+        </form.Field>
+        <p className="text-sm text-muted-foreground">
+          Если включено — при оплате заказа на сумму от установленного минимума
+          на чеке дополнительно печатается QR-билет для детской площадки.
+          Выключите, если в этом филиале нет детской площадки.
+        </p>
       </div>
       {/* <div className="space-y-2">
           <div>

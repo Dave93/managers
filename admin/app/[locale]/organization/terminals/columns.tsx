@@ -5,7 +5,7 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { Switch } from "@components/ui/switch";
 import DeleteAction from "./delete-action";
-import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";
+import TerminalsFormSheet from "@admin/components/forms/terminals/sheet";
 import CanAccess from "@admin/components/can-access";
 import CredentialsFormSheet from "@admin/components/forms/credentials/list_sheet";
 import { terminals } from "@backend/../drizzle/schema";
@@ -29,11 +29,11 @@ export const terminalsColumns: ColumnDef<typeof terminals.$inferSelect>[] =
         return (
           <div className="flex items-center space-x-2">
             <CanAccess permission="terminals.edit">
-              <OrganizationsFormSheet recordId={record.id}>
+              <TerminalsFormSheet recordId={record.id}>
                 <Button variant="outline" size="sm">
                   <Edit2Icon className="h-4 w-4" />
                 </Button>
-              </OrganizationsFormSheet>
+              </TerminalsFormSheet>
             </CanAccess>
             {/* <CanAccess permission="terminals.delete">
             <DeleteAction recordId={record.id} />
