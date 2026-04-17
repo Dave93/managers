@@ -29,6 +29,13 @@
       "when": 1774872067401,
       "tag": "0003_serious_genesis",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776432732973,
+      "tag": "0004_graceful_victor_mancha",
+      "breakpoints": true
     }
   ]
 }
