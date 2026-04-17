@@ -86,10 +86,13 @@ Changes:
    - Swap `OrganizationsFormSheet` → `TerminalsFormSheet` (import from `@admin/components/forms/terminals/sheet`).
 
 2. `admin/components/forms/terminals/_form.tsx`
-   - Add `playground_enabled: boolean` to the form value type.
+   - Add `playground_enabled?: boolean` to the form value type and to the mutation payload TS types (create and update).
    - Add `playground_enabled: false` to `defaultValues`.
-   - Add `playground_enabled: form.state.values.playground_enabled` (via `<form.Field>`) in both `createMutation` and `updateMutation` payload types.
-   - Add a `<Switch>` block with label "Детская площадка" alongside the existing "Активность" switch.
+   - Add a `<form.Field name="playground_enabled">` block rendering a `<Switch>` with label "Детская площадка" alongside the existing "Активность" switch.
+   - Under the switch label, render a `<p className="text-sm text-muted-foreground">` hint so any user understands the toggle:
+
+     > Если включено — при оплате заказа на сумму от установленного минимума на чеке дополнительно печатается QR-билет для детской площадки. Выключите, если в этом филиале нет детской площадки.
+
    - In the `useEffect` that hydrates from `record.data`, add `form.setFieldValue("playground_enabled", record.data.playground_enabled)`.
 
 3. `backend/src/modules/terminals/controller.ts`
