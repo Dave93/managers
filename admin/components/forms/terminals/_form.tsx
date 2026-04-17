@@ -122,8 +122,12 @@ export default function TerminalsForm({
     if (record?.data && "id" in record.data) {
       form.setFieldValue("active", record.data.active);
       form.setFieldValue("name", record.data.name);
-      //   form.setFieldValue("description", record.description);
       form.setFieldValue("phone", record.data.phone ?? "");
+      form.setFieldValue("address", record.data.address ?? "");
+      form.setFieldValue("latitude", record.data.latitude);
+      form.setFieldValue("longitude", record.data.longitude);
+      form.setFieldValue("organization_id", record.data.organization_id);
+      form.setFieldValue("manager_name", record.data.manager_name ?? "");
       form.setFieldValue(
         "playground_enabled",
         record.data.playground_enabled ?? false
