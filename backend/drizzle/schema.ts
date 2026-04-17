@@ -504,6 +504,7 @@ export const terminals = pgTable("terminals", {
   longitude: doublePrecision("longitude").notNull(),
   organization_id: uuid("organization_id").notNull(),
   manager_name: text("manager_name"),
+  playground_enabled: boolean("playground_enabled").default(false).notNull(),
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
