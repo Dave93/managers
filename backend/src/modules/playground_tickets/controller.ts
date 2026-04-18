@@ -1,6 +1,6 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
-import { playground_tickets, terminals } from "backend/drizzle/schema";
+import { playground_tickets, terminals, credentials } from "backend/drizzle/schema";
 import { SQLWrapper, sql, and, eq, or, desc } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 
@@ -40,6 +40,9 @@ export const playgroundTicketsController = new Elysia({
         return { message: "Token not active" };
       }
 
+      // Resolve terminal: plugin may send either the managers-side terminals.id
+      // or iiko's GetHostTerminalsGroup().Id (stored in credentials with
+      // model='terminals', type='iiko_id'). Match both paths in one query.
       const terminalRow = await drizzle
         .select({
           id: terminals.id,
@@ -47,9 +50,21 @@ export const playgroundTicketsController = new Elysia({
           playground_enabled: terminals.playground_enabled,
         })
         .from(terminals)
-        .where(
-          or(eq(terminals.id, terminal_id), eq(terminals.iiko_id, terminal_id))
+        .leftJoin(
+          credentials,
+          and(
+            eq(credentials.model, "terminals"),
+            eq(credentials.type, "iiko_id"),
+            eq(credentials.model_id, sql`${terminals.id}::text`)
+          )
         )
+        .where(
+          or(
+            eq(sql`${terminals.id}::text`, terminal_id),
+            eq(credentials.key, terminal_id)
+          )
+        )
+        .limit(1)
         .execute();
 
       if (terminalRow.length === 0) {
