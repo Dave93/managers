@@ -40,11 +40,8 @@ export const playgroundTicketsController = new Elysia({
         return { message: "Token not active" };
       }
 
-      const organization_id = token.organization_id;
-
       const terminalRow = await drizzle
         .select({
-          id: terminals.id,
           organization_id: terminals.organization_id,
           playground_enabled: terminals.playground_enabled,
         })
@@ -52,18 +49,13 @@ export const playgroundTicketsController = new Elysia({
         .where(eq(terminals.id, terminal_id))
         .execute();
 
-      if (
-        terminalRow.length === 0 ||
-        terminalRow[0].organization_id !== organization_id
-      ) {
-        set.status = 404;
-        return { message: "Terminal not found" };
-      }
-
-      if (!terminalRow[0].playground_enabled) {
+      if (terminalRow.length > 0 && !terminalRow[0].playground_enabled) {
         set.status = 403;
         return { message: "Playground tickets disabled for this terminal" };
       }
+
+      const organization_id =
+        terminalRow[0]?.organization_id ?? token.organization_id;
 
       const children_count = Math.floor(order_amount / 50000);
 
