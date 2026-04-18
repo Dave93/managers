@@ -15,9 +15,13 @@ export default function PlaygroundScanPage() {
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const isProcessingRef = useRef(false);
   const scannerContainerId = "qr-reader";
 
   const handleQrData = useCallback(async (qrData: string) => {
+    if (isProcessingRef.current) return;
+    isProcessingRef.current = true;
+
     if (scannerRef.current?.isScanning) {
       await scannerRef.current.stop();
       setIsScanning(false);
@@ -77,6 +81,7 @@ export default function PlaygroundScanPage() {
 
   const startScanner = useCallback(async () => {
     setResult(null);
+    isProcessingRef.current = false;
     try {
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(scannerContainerId);
