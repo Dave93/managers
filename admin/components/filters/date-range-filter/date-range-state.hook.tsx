@@ -44,12 +44,12 @@ const lastYear = {
   to: endOfYear(subYears(today, 1)),
 };
 
-export function useDateRangeState() {
+export function useDateRangeState(defaultRange?: DateRange) {
 
   const [dateRange, setDateRange] = useQueryState<DateRange | undefined>(
     "date",
     {
-      defaultValue: last30Days,
+      defaultValue: defaultRange ?? last30Days,
       parse: (value) => {
         const [from, to] = value.split(",");
         return { from: new Date(from), to: new Date(to) };

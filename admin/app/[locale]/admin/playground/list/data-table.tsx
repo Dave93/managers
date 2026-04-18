@@ -16,6 +16,11 @@ import dayjs from "dayjs";
 import { DateRangeFilter } from "@admin/components/filters/date-range-filter/date-range-filter";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 
+const todayRange = (() => {
+  const now = new Date();
+  return { from: now, to: now };
+})();
+
 type PlaygroundTicket = {
   id: string;
   terminal_name: string | null;
@@ -31,7 +36,7 @@ export function DataTable() {
   const [pageIndex, setPageIndex] = useState(0);
   const pageSize = 20;
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const { dateRange } = useDateRangeState();
+  const { dateRange } = useDateRangeState(todayRange);
 
   const filters = useMemo(() => {
     const res: any[] = [];
