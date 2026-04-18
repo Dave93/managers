@@ -13,6 +13,8 @@ import {
 } from "@admin/components/ui/select";
 import { Badge } from "@admin/components/ui/badge";
 import dayjs from "dayjs";
+import { DateRangeFilter } from "@admin/components/filters/date-range-filter/date-range-filter";
+import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 
 type PlaygroundTicket = {
   id: string;
@@ -29,6 +31,7 @@ export function DataTable() {
   const [pageIndex, setPageIndex] = useState(0);
   const pageSize = 20;
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const { dateRange } = useDateRangeState();
 
   const filters = useMemo(() => {
     const res: any[] = [];
@@ -37,8 +40,22 @@ export function DataTable() {
     } else if (statusFilter === "active") {
       res.push({ field: "is_used", operator: "eq", value: false });
     }
+    if (dateRange?.from) {
+      res.push({
+        field: "created_at",
+        operator: "gte",
+        value: dayjs(dateRange.from).startOf("day").toISOString(),
+      });
+    }
+    if (dateRange?.to) {
+      res.push({
+        field: "created_at",
+        operator: "lte",
+        value: dayjs(dateRange.to).endOf("day").toISOString(),
+      });
+    }
     return res;
-  }, [statusFilter]);
+  }, [statusFilter, dateRange]);
 
   const { data, isLoading } = useQuery({
     queryKey: [
@@ -65,9 +82,16 @@ export function DataTable() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-4">
-        <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPageIndex(0); }}>
-          <SelectTrigger className="w-full">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <DateRangeFilter />
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => {
+            setStatusFilter(v);
+            setPageIndex(0);
+          }}
+        >
+          <SelectTrigger className="sm:w-[200px]">
             <SelectValue placeholder="Статус" />
           </SelectTrigger>
           <SelectContent>
@@ -87,42 +111,38 @@ export function DataTable() {
           Нет данных
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="divide-y rounded-xl border bg-card">
           {tickets.map((ticket) => (
             <div
               key={ticket.id}
-              className="rounded-xl border bg-card p-4 shadow-sm space-y-3"
+              className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent/30 transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">
-                  {dayjs(ticket.created_at).format("DD.MM.YYYY HH:mm")}
-                </span>
-                <Badge variant={ticket.is_used ? "destructive" : "default"}>
-                  {ticket.is_used ? "Использован" : "Активен"}
-                </Badge>
-              </div>
-
-              <div className="flex items-baseline justify-between">
-                <span className="text-lg font-semibold">
-                  Заказ #{ticket.order_number}
-                </span>
-                <span className="text-lg font-semibold">
-                  {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} сум
-                </span>
-              </div>
-
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Детей: {ticket.children_count}</span>
-                {ticket.terminal_name && (
-                  <span>{ticket.terminal_name}</span>
-                )}
-              </div>
-
+              <span className="text-xs text-muted-foreground tabular-nums w-28 shrink-0">
+                {dayjs(ticket.created_at).format("DD.MM.YY HH:mm")}
+              </span>
+              <span className="font-semibold w-20 shrink-0">
+                #{ticket.order_number}
+              </span>
+              <span className="font-semibold tabular-nums w-32 shrink-0 text-right">
+                {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} сум
+              </span>
+              <span className="text-muted-foreground w-20 shrink-0 text-xs">
+                Детей: {ticket.children_count}
+              </span>
+              <span className="text-muted-foreground truncate min-w-0 flex-1 text-xs">
+                {ticket.terminal_name ?? ""}
+              </span>
               {ticket.is_used && ticket.used_at && (
-                <div className="text-xs text-muted-foreground border-t pt-2">
-                  Использован: {dayjs(ticket.used_at).format("DD.MM.YYYY HH:mm")}
-                </div>
+                <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">
+                  исп. {dayjs(ticket.used_at).format("DD.MM HH:mm")}
+                </span>
               )}
+              <Badge
+                variant={ticket.is_used ? "destructive" : "default"}
+                className="shrink-0"
+              >
+                {ticket.is_used ? "Использован" : "Активен"}
+              </Badge>
             </div>
           ))}
         </div>
@@ -131,7 +151,8 @@ export function DataTable() {
       {total > 0 && (
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-muted-foreground">
-            {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, total)} из {total}
+            {pageIndex * pageSize + 1}–
+            {Math.min((pageIndex + 1) * pageSize, total)} из {total}
           </span>
           <div className="flex gap-2">
             <Button
