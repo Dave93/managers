@@ -505,6 +505,7 @@ export const terminals = pgTable("terminals", {
   organization_id: uuid("organization_id").notNull(),
   manager_name: text("manager_name"),
   playground_enabled: boolean("playground_enabled").default(false).notNull(),
+  iiko_id: uuid("iiko_id"),
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
