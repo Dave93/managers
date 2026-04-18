@@ -1,7 +1,7 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { playground_tickets, terminals } from "backend/drizzle/schema";
-import { SQLWrapper, sql, and, eq } from "drizzle-orm";
+import { SQLWrapper, sql, and, eq, or } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 
 export const playgroundTicketsController = new Elysia({
@@ -42,11 +42,14 @@ export const playgroundTicketsController = new Elysia({
 
       const terminalRow = await drizzle
         .select({
+          id: terminals.id,
           organization_id: terminals.organization_id,
           playground_enabled: terminals.playground_enabled,
         })
         .from(terminals)
-        .where(eq(terminals.id, terminal_id))
+        .where(
+          or(eq(terminals.id, terminal_id), eq(terminals.iiko_id, terminal_id))
+        )
         .execute();
 
       if (terminalRow.length === 0) {
@@ -65,6 +68,7 @@ export const playgroundTicketsController = new Elysia({
         return { message: "Playground tickets disabled for this terminal" };
       }
 
+      const resolved_terminal_id = terminalRow[0].id;
       const organization_id = terminalRow[0].organization_id;
 
       const children_count = Math.floor(order_amount / 50000);
@@ -77,7 +81,7 @@ export const playgroundTicketsController = new Elysia({
       const inserted = await drizzle
         .insert(playground_tickets)
         .values({
-          terminal_id,
+          terminal_id: resolved_terminal_id,
           organization_id,
           order_number,
           order_amount,
