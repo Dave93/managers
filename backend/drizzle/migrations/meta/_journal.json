@@ -43,6 +43,13 @@
       "when": 1776500000000,
       "tag": "0005_terminals_iiko_id",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1776600000000,
+      "tag": "0006_drop_terminals_iiko_id",
+      "breakpoints": true
     }
   ]
 }
