@@ -1,7 +1,7 @@
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { playground_tickets, terminals } from "backend/drizzle/schema";
-import { SQLWrapper, sql, and, eq, or } from "drizzle-orm";
+import { SQLWrapper, sql, and, eq, or, desc } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 
 export const playgroundTicketsController = new Elysia({
@@ -254,6 +254,7 @@ export const playgroundTicketsController = new Elysia({
         .from(playground_tickets)
         .leftJoin(terminals, eq(playground_tickets.terminal_id, terminals.id))
         .where(and(...whereClause))
+        .orderBy(desc(playground_tickets.created_at))
         .limit(+limit)
         .offset(+offset)
         .execute();
