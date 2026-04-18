@@ -115,28 +115,34 @@ export function DataTable() {
           {tickets.map((ticket) => (
             <div
               key={ticket.id}
-              className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-accent/30 transition-colors"
+              className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-accent/30 transition-colors"
             >
-              <span className="text-xs text-muted-foreground tabular-nums w-28 shrink-0">
-                {dayjs(ticket.created_at).format("DD.MM.YY HH:mm")}
-              </span>
-              <span className="font-semibold w-20 shrink-0">
-                #{ticket.order_number}
-              </span>
-              <span className="font-semibold tabular-nums w-32 shrink-0 text-right">
-                {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} сум
-              </span>
-              <span className="text-muted-foreground w-20 shrink-0 text-xs">
-                Детей: {ticket.children_count}
-              </span>
-              <span className="text-muted-foreground truncate min-w-0 flex-1 text-xs">
-                {ticket.terminal_name ?? ""}
-              </span>
-              {ticket.is_used && ticket.used_at && (
-                <span className="text-xs text-muted-foreground whitespace-nowrap hidden md:inline">
-                  исп. {dayjs(ticket.used_at).format("DD.MM HH:mm")}
-                </span>
-              )}
+              <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                <div className="flex items-center gap-2 sm:w-52 sm:shrink-0">
+                  <span className="font-semibold shrink-0">
+                    #{ticket.order_number}
+                  </span>
+                  <span className="text-xs text-muted-foreground tabular-nums">
+                    {dayjs(ticket.created_at).format("DD.MM.YY HH:mm")}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 min-w-0 sm:gap-3 sm:flex-1">
+                  <span className="font-semibold tabular-nums shrink-0 sm:w-32 sm:text-right">
+                    {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} сум
+                  </span>
+                  <span className="text-xs text-muted-foreground shrink-0">
+                    Детей: {ticket.children_count}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate min-w-0 hidden md:inline md:flex-1">
+                    {ticket.terminal_name ?? ""}
+                  </span>
+                  {ticket.is_used && ticket.used_at && (
+                    <span className="text-xs text-muted-foreground whitespace-nowrap hidden lg:inline">
+                      исп. {dayjs(ticket.used_at).format("DD.MM HH:mm")}
+                    </span>
+                  )}
+                </div>
+              </div>
               <Badge
                 variant={ticket.is_used ? "destructive" : "default"}
                 className="shrink-0"

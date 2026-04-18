@@ -71,11 +71,11 @@ export default function PlaygroundLayout({
         </div>
       </header>
 
-      <main className="flex-1 px-4 py-4 pb-20">
+      <main className="flex-1 px-4 py-4 pb-24">
         {children}
       </main>
 
-      <nav className="fixed bottom-0 left-0 z-50 w-full border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <nav className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 pb-[env(safe-area-inset-bottom)]">
         <div className="grid h-16 max-w-lg mx-auto" style={{ gridTemplateColumns: `repeat(${navItems.length}, 1fr)` }}>
           {navItems.map((item) => {
             const active = isActive(item.href);
