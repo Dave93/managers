@@ -215,7 +215,7 @@ export function DataTable() {
                         onChange={() => toggleSelected(plan.id)}
                         onClick={(e) => e.stopPropagation()}
                         className="size-4 accent-primary"
-                        aria-label={`Выбрать ${plan.terminal_name ?? plan.terminal_id}`}
+                        aria-label={`Выбрать ${plan.terminal_name || plan.terminal_id}`}
                       />
                     )}
                     <span className="font-semibold">
@@ -282,7 +282,7 @@ export function DataTable() {
       )}
 
       {selectMode && selectedIds.size > 0 && (
-        <div className="sticky bottom-4 z-10 flex items-center justify-between gap-3 rounded-xl border bg-card/95 backdrop-blur p-3 shadow-lg">
+        <div className="sticky bottom-20 z-40 flex items-center justify-between gap-3 rounded-xl border bg-card/95 backdrop-blur p-3 shadow-lg">
           <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
           <Button
             onClick={() => {
