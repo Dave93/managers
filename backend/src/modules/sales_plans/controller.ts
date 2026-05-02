@@ -393,7 +393,7 @@ export const salesPlansController = new Elysia({
   // ─── CRUD: Copy plans to another month ───
   .post(
     "/sales_plans/copy",
-    async ({ body, drizzle, user, set }) => {
+    async ({ body, drizzle, user }) => {
       const { source_plan_ids, target_year, target_month } = body;
 
       // 1. Load source plans
@@ -517,7 +517,7 @@ export const salesPlansController = new Elysia({
     {
       permission: "sales_plans.add",
       body: t.Object({
-        source_plan_ids: t.Array(t.String(), { minItems: 1 }),
+        source_plan_ids: t.Array(t.String({ format: "uuid" }), { minItems: 1 }),
         target_year: t.Integer({ minimum: 2020, maximum: 2100 }),
         target_month: t.Integer({ minimum: 1, maximum: 12 }),
       }),
