@@ -4,7 +4,15 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import Link from "next/link";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@admin/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+import { CopyPlanDialog } from "./copy-plan-dialog";
 import { Button } from "@admin/components/ui/button";
 import {
   Select,
@@ -59,6 +67,14 @@ export function DataTable() {
   const now = new Date();
   const [yearFilter, setYearFilter] = useState(String(now.getFullYear()));
   const [monthFilter, setMonthFilter] = useState(String(now.getMonth() + 1));
+  const router = useRouter();
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copySourceIds, setCopySourceIds] = useState<string[]>([]);
+  const [copySourceLabel, setCopySourceLabel] = useState("");
+  const [copySourceYear, setCopySourceYear] = useState(now.getFullYear());
+  const [copySourceMonth, setCopySourceMonth] = useState(now.getMonth() + 1);
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const { user } = useAuth();
   const userOrganizationId = (user as any)?.user?.organization_id;
 
@@ -90,10 +106,37 @@ export function DataTable() {
   const canPrev = pageIndex > 0;
   const canNext = pageIndex < pageCount - 1;
 
+  const openSingleCopy = (plan: SalesPlan) => {
+    setCopySourceIds([plan.id]);
+    setCopySourceLabel(
+      `${plan.terminal_name || plan.terminal_id.substring(0, 8)} · ${MONTHS[plan.month - 1]} ${plan.year}`
+    );
+    setCopySourceYear(plan.year);
+    setCopySourceMonth(plan.month);
+    setCopyDialogOpen(true);
+  };
+
+  const toggleSelected = (planId: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(planId)) next.delete(planId);
+      else next.add(planId);
+      return next;
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <Select value={yearFilter} onValueChange={(v) => { setYearFilter(v); setPageIndex(0); }}>
+        <Select
+          value={yearFilter}
+          onValueChange={(v) => {
+            setYearFilter(v);
+            setPageIndex(0);
+            setSelectMode(false);
+            setSelectedIds(new Set());
+          }}
+        >
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Год" />
           </SelectTrigger>
@@ -104,7 +147,15 @@ export function DataTable() {
           </SelectContent>
         </Select>
 
-        <Select value={monthFilter} onValueChange={(v) => { setMonthFilter(v); setPageIndex(0); }}>
+        <Select
+          value={monthFilter}
+          onValueChange={(v) => {
+            setMonthFilter(v);
+            setPageIndex(0);
+            setSelectMode(false);
+            setSelectedIds(new Set());
+          }}
+        >
           <SelectTrigger className="flex-1">
             <SelectValue placeholder="Месяц" />
           </SelectTrigger>
@@ -114,6 +165,19 @@ export function DataTable() {
             ))}
           </SelectContent>
         </Select>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (selectMode) {
+              setSelectedIds(new Set());
+            }
+            setSelectMode((v) => !v);
+          }}
+        >
+          {selectMode ? "Отмена" : "Выбрать"}
+        </Button>
       </div>
 
       {isLoading ? (
@@ -122,20 +186,66 @@ export function DataTable() {
         <div className="flex items-center justify-center py-12 text-muted-foreground">Нет планов</div>
       ) : (
         <div className="space-y-3">
-          {plans.map((plan) => (
-            <Link
-              key={plan.id}
-              href={`/${locale}/admin/sales-plans/${plan.id}/edit`}
-              className="block"
-            >
-              <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3 active:bg-muted/50 transition-colors">
+          {plans.map((plan) => {
+            const isSelected = selectedIds.has(plan.id);
+            return (
+              <div
+                key={plan.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  if (selectMode) toggleSelected(plan.id);
+                  else router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    if (selectMode) toggleSelected(plan.id);
+                    else router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`);
+                  }
+                }}
+                className={`rounded-xl border bg-card p-4 shadow-sm space-y-3 active:bg-muted/50 transition-colors cursor-pointer ${isSelected ? "ring-2 ring-primary" : ""}`}
+              >
                 <div className="flex items-center justify-between">
-                  <span className="font-semibold">
-                    {plan.terminal_name || plan.terminal_id.substring(0, 8)}
-                  </span>
-                  <span className={`text-xl font-bold ${getProgressColor(plan.progress_pct)}`}>
-                    {plan.progress_pct}%
-                  </span>
+                  <div className="flex items-center gap-3">
+                    {selectMode && (
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelected(plan.id)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="size-4 accent-primary"
+                        aria-label={`Выбрать ${plan.terminal_name || plan.terminal_id}`}
+                      />
+                    )}
+                    <span className="font-semibold">
+                      {plan.terminal_name || plan.terminal_id.substring(0, 8)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xl font-bold ${getProgressColor(plan.progress_pct)}`}>
+                      {plan.progress_pct}%
+                    </span>
+                    {!selectMode && (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <button className="p-1 rounded hover:bg-muted" aria-label="Действия">
+                            <MoreVertical className="size-4 text-muted-foreground" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenuItem
+                            onSelect={() => router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`)}
+                          >
+                            Редактировать
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onSelect={() => openSingleCopy(plan)}>
+                            Копировать
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    )}
+                  </div>
                 </div>
 
                 <div className={`rounded-full h-2 ${getProgressTrack(plan.progress_pct)}`}>
@@ -154,8 +264,8 @@ export function DataTable() {
                   Создан: {dayjs(plan.created_at).format("DD.MM.YYYY")}
                 </div>
               </div>
-            </Link>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -170,6 +280,42 @@ export function DataTable() {
           </div>
         </div>
       )}
+
+      {selectMode && selectedIds.size > 0 && (
+        <div className="sticky bottom-20 z-40 flex items-center justify-between gap-3 rounded-xl border bg-card/95 backdrop-blur p-3 shadow-lg">
+          <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
+          <Button
+            onClick={() => {
+              setCopySourceIds([...selectedIds]);
+              setCopySourceLabel("");
+              setCopySourceYear(Number(yearFilter));
+              setCopySourceMonth(Number(monthFilter));
+              setCopyDialogOpen(true);
+            }}
+          >
+            Копировать
+          </Button>
+        </div>
+      )}
+
+      <CopyPlanDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        sourcePlanIds={copySourceIds}
+        sourceLabel={
+          copySourceIds.length > 1
+            ? `${copySourceIds.length} планов · ${MONTHS[copySourceMonth - 1]} ${copySourceYear}`
+            : copySourceLabel
+        }
+        sourceYear={copySourceYear}
+        sourceMonth={copySourceMonth}
+        onSuccess={() => {
+          setCopySourceIds([]);
+          setCopySourceLabel("");
+          setSelectMode(false);
+          setSelectedIds(new Set());
+        }}
+      />
     </div>
   );
 }
