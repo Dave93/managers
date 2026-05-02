@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -54,12 +55,14 @@ export function CopyPlanDialog({
   const [targetYear, setTargetYear] = useState(String(sourceYear));
   const [targetMonth, setTargetMonth] = useState(String(sourceMonth));
 
+  const prevOpen = useRef(false);
   useEffect(() => {
-    if (open) {
+    if (open && !prevOpen.current) {
       const { year, month } = nextMonth(sourceYear, sourceMonth);
       setTargetYear(String(year));
       setTargetMonth(String(month));
     }
+    prevOpen.current = open;
   }, [open, sourceYear, sourceMonth]);
 
   const mutation = useMutation({
@@ -103,9 +106,9 @@ export function CopyPlanDialog({
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground">
+        <DialogDescription>
           {sourceLabel} будет скопирован в выбранный месяц
-        </p>
+        </DialogDescription>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div>
@@ -113,9 +116,9 @@ export function CopyPlanDialog({
             <Select value={targetYear} onValueChange={setTargetYear}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-                <SelectItem value="2027">2027</SelectItem>
+                {[sourceYear - 1, sourceYear, sourceYear + 1, sourceYear + 2].map((y) => (
+                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
