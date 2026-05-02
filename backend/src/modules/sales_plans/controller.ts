@@ -390,6 +390,140 @@ export const salesPlansController = new Elysia({
     }
   )
 
+  // ─── CRUD: Copy plans to another month ───
+  .post(
+    "/sales_plans/copy",
+    async ({ body, drizzle, user, set }) => {
+      const { source_plan_ids, target_year, target_month } = body;
+
+      // 1. Load source plans
+      const sources = await drizzle
+        .select({
+          id: sales_plans.id,
+          terminal_id: sales_plans.terminal_id,
+          organization_id: sales_plans.organization_id,
+        })
+        .from(sales_plans)
+        .where(inArray(sales_plans.id, source_plan_ids))
+        .execute();
+
+      const foundIds = new Set(sources.map((s) => s.id));
+      const skipped: {
+        source_plan_id: string;
+        terminal_id: string | null;
+        reason: "exists" | "source_not_found";
+      }[] = [];
+
+      // 2. Not found
+      for (const id of source_plan_ids) {
+        if (!foundIds.has(id)) {
+          skipped.push({ source_plan_id: id, terminal_id: null, reason: "source_not_found" });
+        }
+      }
+
+      if (sources.length === 0) {
+        return { created: [], skipped };
+      }
+
+      // 3. Conflicts: existing pairs (terminal_id, target_year, target_month)
+      const sourceTerminalIds = sources.map((s) => s.terminal_id);
+      const existing = await drizzle
+        .select({ terminal_id: sales_plans.terminal_id })
+        .from(sales_plans)
+        .where(
+          and(
+            inArray(sales_plans.terminal_id, sourceTerminalIds),
+            eq(sales_plans.year, target_year),
+            eq(sales_plans.month, target_month)
+          )
+        )
+        .execute();
+
+      const conflictingTerminals = new Set(existing.map((e) => e.terminal_id));
+
+      // 4. Within-request dedup (multiple source ids with same terminal_id)
+      const seenTerminals = new Set<string>();
+      const toCreate: typeof sources = [];
+      for (const s of sources) {
+        if (conflictingTerminals.has(s.terminal_id) || seenTerminals.has(s.terminal_id)) {
+          skipped.push({
+            source_plan_id: s.id,
+            terminal_id: s.terminal_id,
+            reason: "exists",
+          });
+          continue;
+        }
+        seenTerminals.add(s.terminal_id);
+        toCreate.push(s);
+      }
+
+      if (toCreate.length === 0) {
+        return { created: [], skipped };
+      }
+
+      // 5. Load items for all source plans being created — single query
+      const sourceIdsToCreate = toCreate.map((s) => s.id);
+      const sourceItems = await drizzle
+        .select()
+        .from(sales_plan_items)
+        .where(inArray(sales_plan_items.plan_id, sourceIdsToCreate))
+        .execute();
+
+      const itemsBySource: Record<string, typeof sourceItems> = {};
+      for (const item of sourceItems) {
+        if (!itemsBySource[item.plan_id]) itemsBySource[item.plan_id] = [];
+        itemsBySource[item.plan_id].push(item);
+      }
+
+      // 6. Transaction: insert plans + items
+      const created: { id: string; terminal_id: string }[] = [];
+
+      await drizzle.transaction(async (tx) => {
+        for (const src of toCreate) {
+          const inserted = await tx
+            .insert(sales_plans)
+            .values({
+              terminal_id: src.terminal_id,
+              organization_id: src.organization_id,
+              year: target_year,
+              month: target_month,
+              created_by: user?.id,
+            })
+            .returning({ id: sales_plans.id })
+            .execute();
+
+          const newPlanId = inserted[0].id;
+          created.push({ id: newPlanId, terminal_id: src.terminal_id });
+
+          const items = itemsBySource[src.id] ?? [];
+          if (items.length > 0) {
+            await tx
+              .insert(sales_plan_items)
+              .values(
+                items.map((it) => ({
+                  plan_id: newPlanId,
+                  product_id: it.product_id,
+                  product_name: it.product_name,
+                  planned_qty: it.planned_qty,
+                }))
+              )
+              .execute();
+          }
+        }
+      });
+
+      return { created, skipped };
+    },
+    {
+      permission: "sales_plans.add",
+      body: t.Object({
+        source_plan_ids: t.Array(t.String(), { minItems: 1 }),
+        target_year: t.Integer({ minimum: 2020, maximum: 2100 }),
+        target_month: t.Integer({ minimum: 1, maximum: 12 }),
+      }),
+    }
+  )
+
   // ─── CRUD: Update plan items ───
   .patch(
     "/sales_plans/:id",
