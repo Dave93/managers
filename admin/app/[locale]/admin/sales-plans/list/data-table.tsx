@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@admin/components/ui/dropdown-menu";
 import { useRouter } from "next/navigation";
-// import { CopyPlanDialog } from "./copy-plan-dialog"; // will be enabled in Task 3
+import { CopyPlanDialog } from "./copy-plan-dialog";
 import { Button } from "@admin/components/ui/button";
 import {
   Select,
@@ -216,6 +216,23 @@ export function DataTable() {
           </div>
         </div>
       )}
+
+      <CopyPlanDialog
+        open={copyDialogOpen}
+        onOpenChange={setCopyDialogOpen}
+        sourcePlanIds={copySourceIds}
+        sourceLabel={
+          copySourceIds.length > 1
+            ? `${copySourceIds.length} планов · ${MONTHS[copySourceMonth - 1]} ${copySourceYear}`
+            : copySourceLabel
+        }
+        sourceYear={copySourceYear}
+        sourceMonth={copySourceMonth}
+        onSuccess={() => {
+          setCopySourceIds([]);
+          setCopySourceLabel("");
+        }}
+      />
     </div>
   );
 }
