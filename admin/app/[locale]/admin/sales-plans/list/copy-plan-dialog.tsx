@@ -91,7 +91,9 @@ export function CopyPlanDialog({
 
       queryClient.invalidateQueries({ queryKey: ["sales_plans"] });
       onOpenChange(false);
-      onSuccess();
+      if (createdN > 0) {
+        onSuccess();
+      }
     },
     onError: (e: Error) => toast.error(e.message),
   });
