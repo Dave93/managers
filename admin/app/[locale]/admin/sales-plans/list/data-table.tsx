@@ -4,7 +4,15 @@ import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import Link from "next/link";
+import { MoreVertical } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@admin/components/ui/dropdown-menu";
+import { useRouter } from "next/navigation";
+// import { CopyPlanDialog } from "./copy-plan-dialog"; // will be enabled in Task 3
 import { Button } from "@admin/components/ui/button";
 import {
   Select,
@@ -59,6 +67,12 @@ export function DataTable() {
   const now = new Date();
   const [yearFilter, setYearFilter] = useState(String(now.getFullYear()));
   const [monthFilter, setMonthFilter] = useState(String(now.getMonth() + 1));
+  const router = useRouter();
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copySourceIds, setCopySourceIds] = useState<string[]>([]);
+  const [copySourceLabel, setCopySourceLabel] = useState("");
+  const [copySourceYear, setCopySourceYear] = useState(now.getFullYear());
+  const [copySourceMonth, setCopySourceMonth] = useState(now.getMonth() + 1);
   const { user } = useAuth();
   const userOrganizationId = (user as any)?.user?.organization_id;
 
@@ -89,6 +103,16 @@ export function DataTable() {
   const pageCount = Math.ceil(total / pageSize);
   const canPrev = pageIndex > 0;
   const canNext = pageIndex < pageCount - 1;
+
+  const openSingleCopy = (plan: SalesPlan) => {
+    setCopySourceIds([plan.id]);
+    setCopySourceLabel(
+      `${plan.terminal_name || plan.terminal_id.substring(0, 8)} · ${MONTHS[plan.month - 1]} ${plan.year}`
+    );
+    setCopySourceYear(plan.year);
+    setCopySourceMonth(plan.month);
+    setCopyDialogOpen(true);
+  };
 
   return (
     <div className="space-y-4">
@@ -123,38 +147,60 @@ export function DataTable() {
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => (
-            <Link
+            <div
               key={plan.id}
-              href={`/${locale}/admin/sales-plans/${plan.id}/edit`}
-              className="block"
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`);
+              }}
+              className="rounded-xl border bg-card p-4 shadow-sm space-y-3 active:bg-muted/50 transition-colors cursor-pointer"
             >
-              <div className="rounded-xl border bg-card p-4 shadow-sm space-y-3 active:bg-muted/50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold">
-                    {plan.terminal_name || plan.terminal_id.substring(0, 8)}
-                  </span>
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">
+                  {plan.terminal_name || plan.terminal_id.substring(0, 8)}
+                </span>
+                <div className="flex items-center gap-2">
                   <span className={`text-xl font-bold ${getProgressColor(plan.progress_pct)}`}>
                     {plan.progress_pct}%
                   </span>
-                </div>
-
-                <div className={`rounded-full h-2 ${getProgressTrack(plan.progress_pct)}`}>
-                  <div
-                    className={`h-full rounded-full ${getProgressBg(plan.progress_pct)}`}
-                    style={{ width: `${Math.min(plan.progress_pct, 100)}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{MONTHS[plan.month - 1]} {plan.year}</span>
-                  <span>{plan.items_count} продуктов</span>
-                </div>
-
-                <div className="text-xs text-muted-foreground">
-                  Создан: {dayjs(plan.created_at).format("DD.MM.YYYY")}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <button className="p-1 rounded hover:bg-muted" aria-label="Действия">
+                        <MoreVertical className="size-4 text-muted-foreground" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+                      <DropdownMenuItem
+                        onSelect={() => router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`)}
+                      >
+                        Редактировать
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => openSingleCopy(plan)}>
+                        Копировать
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
-            </Link>
+
+              <div className={`rounded-full h-2 ${getProgressTrack(plan.progress_pct)}`}>
+                <div
+                  className={`h-full rounded-full ${getProgressBg(plan.progress_pct)}`}
+                  style={{ width: `${Math.min(plan.progress_pct, 100)}%` }}
+                />
+              </div>
+
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
+                <span>{MONTHS[plan.month - 1]} {plan.year}</span>
+                <span>{plan.items_count} продуктов</span>
+              </div>
+
+              <div className="text-xs text-muted-foreground">
+                Создан: {dayjs(plan.created_at).format("DD.MM.YYYY")}
+              </div>
+            </div>
           ))}
         </div>
       )}
