@@ -138,7 +138,17 @@ export const salesPlansController = new Elysia({
       drizzle,
       cacheController,
     }) => {
-      console.log(`[sales_plans/daily] Request for terminal_id (iiko_id): ${terminal_id}`);
+      // DEBUG: log client identity to correlate with plugin-side fingerprint when
+      // diagnosing the multi-cashier overwrite issue.
+      const clientIp =
+        headers["x-forwarded-for"] ||
+        headers["x-real-ip"] ||
+        headers["cf-connecting-ip"] ||
+        "unknown";
+      const userAgent = headers["user-agent"] || "unknown";
+      console.log(
+        `[sales_plans/daily] Request for terminal_id (iiko_id): ${terminal_id} (ip=${clientIp}, ua=${userAgent})`
+      );
 
       const accessToken = headers["authorization"]?.split(" ")[1];
       if (!accessToken) {
@@ -644,6 +654,28 @@ export const salesPlansController = new Elysia({
       drizzle,
       cacheController,
     }) => {
+      // DEBUG: Investigating "two iiko in one restaurant — only one counts" bug.
+      // We need to see which station actually hits this endpoint. Both stations
+      // currently send the same body.terminal_id (= TerminalsGroup.Id), so the
+      // onConflictDoUpdate below overwrites instead of merging. Logging client
+      // identity + before/after sold_qty proves this.
+      const clientIp =
+        headers["x-forwarded-for"] ||
+        headers["x-real-ip"] ||
+        headers["cf-connecting-ip"] ||
+        "unknown";
+      const userAgent = headers["user-agent"] || "unknown";
+      const reqTag = `[bulk ip=${clientIp} ua=${userAgent}]`;
+      console.log(
+        `[sales_plan_stats/bulk] ${reqTag} body=${JSON.stringify({
+          plan_id: body.plan_id,
+          terminal_id: body.terminal_id,
+          date: body.date,
+          items_count: body.items?.length,
+          items_sample: body.items?.slice(0, 5),
+        })}`
+      );
+
       const accessToken = headers["authorization"]?.split(" ")[1];
       if (!accessToken) {
         set.status = 401;
@@ -672,11 +704,46 @@ export const salesPlansController = new Elysia({
         .execute();
 
       if (credentialResult.length === 0) {
+        console.log(
+          `[sales_plan_stats/bulk] ${reqTag} terminal not found by iiko_id=${body.terminal_id}`
+        );
         set.status = 404;
         return { message: "Terminal not found by iiko_id" };
       }
 
       const realTerminalId = credentialResult[0].model_id;
+      console.log(
+        `[sales_plan_stats/bulk] ${reqTag} resolved iiko_id=${body.terminal_id} -> realTerminalId=${realTerminalId}`
+      );
+
+      // DEBUG: snapshot existing stats BEFORE upsert. If two stations hit this with
+      // the same realTerminalId, we'll see the previous sold_qty differ from the
+      // value we are about to write — that is the overwrite that is losing data.
+      try {
+        const itemIds = body.items.map((i: any) => i.plan_item_id);
+        if (itemIds.length > 0) {
+          const before = await drizzle
+            .select({
+              plan_item_id: sales_plan_stats.plan_item_id,
+              sold_qty: sales_plan_stats.sold_qty,
+              updated_at: sales_plan_stats.updated_at,
+            })
+            .from(sales_plan_stats)
+            .where(
+              and(
+                eq(sales_plan_stats.terminal_id, realTerminalId),
+                eq(sales_plan_stats.date, body.date),
+                inArray(sales_plan_stats.plan_item_id, itemIds)
+              )
+            )
+            .execute();
+          console.log(
+            `[sales_plan_stats/bulk] ${reqTag} BEFORE upsert (terminal=${realTerminalId}, date=${body.date}): ${JSON.stringify(before)}`
+          );
+        }
+      } catch (e) {
+        console.log(`[sales_plan_stats/bulk] ${reqTag} before-snapshot failed:`, e);
+      }
 
       const now = new Date().toISOString();
 
@@ -706,6 +773,10 @@ export const salesPlansController = new Elysia({
             .execute();
         }
       });
+
+      console.log(
+        `[sales_plan_stats/bulk] ${reqTag} AFTER upsert: wrote ${body.items.length} rows for terminal=${realTerminalId}, date=${body.date}`
+      );
 
       return { success: true, count: body.items.length };
     },
