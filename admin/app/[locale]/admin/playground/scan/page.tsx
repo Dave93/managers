@@ -16,72 +16,149 @@ export default function PlaygroundScanPage() {
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const isProcessingRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
   const scannerContainerId = "qr-reader";
 
-  const handleQrData = useCallback(async (qrData: string) => {
-    if (isProcessingRef.current) return;
-    isProcessingRef.current = true;
-
-    if (scannerRef.current?.isScanning) {
-      await scannerRef.current.stop();
-      setIsScanning(false);
-    }
-
-    if (!qrData.startsWith("PLAYGROUND:")) {
-      setResult({
-        type: "warning",
-        title: "Это не билет детской площадки",
-      });
-      return;
-    }
-
+  const beep = useCallback((freq: number, durationMs: number) => {
     try {
-      const { data, error, status } = await apiClient.api.playground_tickets.validate.post({
-        qr_data: qrData,
-      });
-
-      if (status === 200 && data && "ticket_id" in data) {
-        setResult({
-          type: "success",
-          title: "Билет действителен",
-          details: [
-            `Кол-во детей: ${(data as any).children_count}`,
-            `Номер заказа: ${(data as any).order_number}`,
-            `Сумма: ${Intl.NumberFormat("ru-RU").format((data as any).order_amount)} сум`,
-            `Терминал: ${(data as any).terminal_name}`,
-          ],
-        });
-      } else {
-        const errorData = (error as any)?.value ?? data as any;
-        const message = errorData?.message;
-        if (message === "Ticket already used") {
-          const usedAt = errorData.used_at
-            ? new Date(errorData.used_at).toLocaleString("ru-RU")
-            : "";
-          setResult({
-            type: "error",
-            title: "Билет уже использован",
-            details: usedAt ? [`Использован: ${usedAt}`] : undefined,
-          });
-        } else if (message === "Ticket expired") {
-          setResult({ type: "error", title: "Билет просрочен" });
-        } else if (message === "Ticket not found") {
-          setResult({ type: "error", title: "Билет не найден" });
-        } else {
-          setResult({ type: "error", title: message || "Ошибка валидации" });
-        }
+      if (!audioCtxRef.current) {
+        const Ctx = (window.AudioContext ||
+          (window as any).webkitAudioContext) as typeof AudioContext;
+        audioCtxRef.current = new Ctx();
       }
-    } catch (err) {
-      setResult({
-        type: "error",
-        title: "Ошибка сети. Попробуйте ещё раз.",
-      });
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq;
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.25, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + durationMs / 1000);
+      osc.start(now);
+      osc.stop(now + durationMs / 1000);
+    } catch {
+      // ignore — audio is best-effort
     }
   }, []);
+
+  const feedback = useCallback(
+    (type: ValidationResult["type"]) => {
+      const vibrate = (pattern: number | number[]) => {
+        if (typeof navigator !== "undefined" && navigator.vibrate) {
+          navigator.vibrate(pattern);
+        }
+      };
+      if (type === "success") {
+        vibrate(180);
+        beep(880, 120);
+        setTimeout(() => beep(1320, 140), 130);
+      } else if (type === "error") {
+        vibrate([90, 70, 90, 70, 120]);
+        beep(220, 320);
+      } else {
+        vibrate([60, 40, 60]);
+        beep(440, 160);
+      }
+    },
+    [beep]
+  );
+
+  const showResult = useCallback(
+    (r: ValidationResult) => {
+      setResult(r);
+      feedback(r.type);
+    },
+    [feedback]
+  );
+
+  const handleQrData = useCallback(
+    async (qrData: string) => {
+      if (isProcessingRef.current) return;
+      isProcessingRef.current = true;
+
+      if (scannerRef.current?.isScanning) {
+        await scannerRef.current.stop();
+        setIsScanning(false);
+      }
+
+      if (!qrData.startsWith("PLAYGROUND:")) {
+        showResult({
+          type: "warning",
+          title: "Это не билет детской площадки",
+        });
+        return;
+      }
+
+      try {
+        const { data, error, status } =
+          await apiClient.api.playground_tickets.validate.post({
+            qr_data: qrData,
+          });
+
+        if (status === 200 && data && "ticket_id" in data) {
+          showResult({
+            type: "success",
+            title: "Билет действителен",
+            details: [
+              `Кол-во детей: ${(data as any).children_count}`,
+              `Номер заказа: ${(data as any).order_number}`,
+              `Сумма: ${Intl.NumberFormat("ru-RU").format((data as any).order_amount)} сум`,
+              `Терминал: ${(data as any).terminal_name}`,
+            ],
+          });
+        } else {
+          const errorData = (error as any)?.value ?? (data as any);
+          const message = errorData?.message;
+          if (message === "Ticket already used") {
+            const usedAt = errorData.used_at
+              ? new Date(errorData.used_at).toLocaleString("ru-RU")
+              : "";
+            showResult({
+              type: "error",
+              title: "Билет уже использован",
+              details: usedAt ? [`Использован: ${usedAt}`] : undefined,
+            });
+          } else if (message === "Ticket expired") {
+            showResult({ type: "error", title: "Билет просрочен" });
+          } else if (message === "Ticket not found") {
+            showResult({ type: "error", title: "Билет не найден" });
+          } else {
+            showResult({
+              type: "error",
+              title: message || "Ошибка валидации",
+            });
+          }
+        }
+      } catch (err) {
+        showResult({
+          type: "error",
+          title: "Ошибка сети. Попробуйте ещё раз.",
+        });
+      }
+    },
+    [showResult]
+  );
 
   const startScanner = useCallback(async () => {
     setResult(null);
     isProcessingRef.current = false;
+    // Prime AudioContext inside the user-gesture handler — iOS Safari blocks
+    // creating/resuming it later from async callbacks otherwise.
+    try {
+      if (!audioCtxRef.current) {
+        const Ctx = (window.AudioContext ||
+          (window as any).webkitAudioContext) as typeof AudioContext;
+        audioCtxRef.current = new Ctx();
+      }
+      if (audioCtxRef.current.state === "suspended") {
+        await audioCtxRef.current.resume();
+      }
+    } catch {
+      // ignore — audio is best-effort
+    }
     try {
       if (!scannerRef.current) {
         scannerRef.current = new Html5Qrcode(scannerContainerId);
