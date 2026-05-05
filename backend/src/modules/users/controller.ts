@@ -108,8 +108,8 @@ export const usersController = new Elysia({
       cookie.refreshToken.value = generatedRefreshToken;
 
       if (process.env.ENV == "development") {
-        cookie.sessionId.domain = "localhost";
-        cookie.refreshToken.domain = "localhost";
+        // Host-only cookie (no explicit domain) so it works for localhost
+        // and any tunnel host (ngrok, etc.) without code changes.
         cookie.sessionId.sameSite = "lax"; // или "none" с secure: true
         cookie.refreshToken.sameSite = "lax";
     } else {
@@ -404,8 +404,7 @@ export const usersController = new Elysia({
   delete cookie.refreshToken.value;
   
   if (process.env.ENV === "development") {
-      cookie.sessionId.domain = "localhost";
-      cookie.refreshToken.domain = "localhost";
+      // Host-only cookie clear; works for localhost and tunnel hosts.
   } else {
       cookie.sessionId.domain = "arryt.uz";
       cookie.refreshToken.domain = "arryt.uz";

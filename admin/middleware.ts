@@ -1,6 +1,5 @@
 // frontend/middleware.ts
 import { NextRequest, NextResponse } from "next/server";
-import { apiClient } from "./utils/eden";
 import { routing } from "./i18n/routing";
 import createMiddleware from "next-intl/middleware";
 
@@ -32,13 +31,23 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL(`${locale}/login`, request.url));
     }
 
-    
-    // Verify session with backend
-    const { status } = await apiClient.api.users.me.get({
-        headers: {
-            Cookie: `sessionId=${sessionKey}; refreshToken=${refreshToken}`,
-        },
-    });
+
+    // Verify session with backend directly. Middleware runs on Node runtime
+    // (see config.runtime + experimental.nodeMiddleware), so plain fetch to
+    // 127.0.0.1 works without Edge self-loop / IPv6 issues.
+    let status = 0;
+    try {
+        const apiUrl = process.env.TRPC_API_URL || "http://127.0.0.1:6761";
+        const verifyRes = await fetch(`${apiUrl}/api/users/me`, {
+            headers: {
+                Cookie: `sessionId=${sessionKey}; refreshToken=${refreshToken}`,
+            },
+            redirect: "manual",
+        });
+        status = verifyRes.status;
+    } catch (err) {
+        console.error("middleware verify failed:", err);
+    }
 
     console.log("status", status);
 
@@ -67,5 +76,6 @@ export const config = {
     // Match all pathnames except for
     // - … if they start with `/api`, `/_next` or `/_vercel`
     // - … the ones containing a dot (e.g. `favicon.ico`)
-    matcher: ['/((?!api|_next|_vercel|.*\\..*).*)']
+    matcher: ['/((?!api|_next|_vercel|.*\\..*).*)'],
+    runtime: 'nodejs',
 };
