@@ -1440,3 +1440,26 @@ export const sales_plan_stats = pgTable(
     };
   }
 );
+
+export const asrabox_stock_history = pgTable(
+  "asrabox_stock_history",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    iiko_id: text("iiko_id").notNull(),
+    composition_id: text("composition_id").notNull(),
+    quantity: integer("quantity").notNull(),
+    set_by: uuid("set_by").notNull(),
+    set_at: timestamp("set_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    laravel_response: jsonb("laravel_response"),
+  },
+  (table) => {
+    return {
+      terminal_composition_set_at_idx: index(
+        "idx_asrabox_stock_history_terminal_composition_set_at"
+      ).on(table.terminal_id, table.composition_id, table.set_at),
+    };
+  }
+);
