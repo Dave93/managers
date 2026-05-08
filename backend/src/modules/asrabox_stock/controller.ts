@@ -2,6 +2,8 @@ import { ctx } from "@backend/context";
 import {
   asrabox_stock_history,
   credentials,
+  terminals,
+  users_terminals,
 } from "backend/drizzle/schema";
 import { and, eq, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
@@ -25,6 +27,36 @@ export const asraboxStockController = new Elysia({
   name: "@api/asrabox_stock",
 })
   .use(ctx)
+  .get(
+    "/asrabox/stock/my_terminals",
+    async ({ user, drizzle, set }) => {
+      const userId = (user as any)?.user?.id;
+      if (!userId) {
+        set.status = 401;
+        return { error: "unauthenticated" };
+      }
+      const rows = await drizzle
+        .select({
+          terminal_id: users_terminals.terminal_id,
+          name: terminals.name,
+          organization_id: terminals.organization_id,
+        })
+        .from(users_terminals)
+        .leftJoin(terminals, eq(terminals.id, users_terminals.terminal_id))
+        .where(eq(users_terminals.user_id, userId))
+        .execute();
+      return rows
+        .filter((r) => !!r.terminal_id && !!r.name)
+        .map((r) => ({
+          id: r.terminal_id,
+          name: r.name,
+          organization_id: r.organization_id,
+        }));
+    },
+    {
+      permission: "asrabox_stock.list",
+    }
+  )
   .get(
     "/asrabox/stock/compositions",
     async ({ query: { terminal_id }, drizzle, set }) => {
