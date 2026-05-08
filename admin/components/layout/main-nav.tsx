@@ -238,6 +238,15 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="asrabox_stock.list">
+          <NavigationMenuItem>
+            <Link href={`/${locale}/admin/asrabox-stock`} legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Asrabox / Сток
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="settings.list">
           <NavigationMenuItem>
             <Link href={`/${locale}/settings`} legacyBehavior passHref>
