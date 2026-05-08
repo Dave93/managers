@@ -115,7 +115,7 @@ export const asraboxStockController = new Elysia({
       };
       let intents: IntentRow[] = [];
       if (compIds.length > 0) {
-        intents = (await drizzle.execute(
+        const result = await drizzle.execute(
           sql`SELECT DISTINCT ON (composition_id)
                 composition_id, quantity, set_at, set_by
               FROM asrabox_stock_history
@@ -125,7 +125,9 @@ export const asraboxStockController = new Elysia({
                   sql`, `
                 )})
               ORDER BY composition_id, set_at DESC`
-        )) as unknown as IntentRow[];
+        );
+        const rows = (result as any)?.rows ?? result ?? [];
+        intents = Array.isArray(rows) ? (rows as IntentRow[]) : [];
       }
       const intentMap: Record<string, IntentRow> = {};
       for (const r of intents) intentMap[r.composition_id] = r;
