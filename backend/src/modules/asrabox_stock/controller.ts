@@ -29,25 +29,13 @@ export const asraboxStockController = new Elysia({
   .use(ctx)
   .get(
     "/asrabox/stock/my_terminals",
-    async ({ user, drizzle, set, cookie: { sessionId, refreshToken } }) => {
-      const userObj = (user as any) ?? {};
-      const userId = userObj?.user?.id;
-      console.log("[asrabox/stock/my_terminals] handler start", {
-        hasSession: !!sessionId?.value,
-        hasRefresh: !!refreshToken?.value,
-        sessionPrefix: sessionId?.value ? sessionId.value.slice(0, 8) : null,
-        userKeys: Object.keys(userObj),
-        userInner: userObj?.user
-          ? { id: userObj.user.id, login: userObj.user.login }
-          : null,
-        role: userObj?.role?.code ?? null,
-        terminalsCount: Array.isArray(userObj?.terminals)
-          ? userObj.terminals.length
-          : null,
-      });
+    async ({ user, drizzle, set }) => {
+      // Elysia macro resolve returns {user, role, terminals} which gets
+      // spread into context — so `user` here IS the user record itself
+      // (id, phone, login, ...), not a {user, role, terminals} wrapper.
+      const userId = (user as any)?.id;
       if (!userId) {
         set.status = 401;
-        console.log("[asrabox/stock/my_terminals] user not resolved -> 401");
         return { error: "unauthenticated" };
       }
       const rows = await drizzle

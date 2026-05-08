@@ -130,6 +130,13 @@ export const usersSroresController = new Elysia({
   .get(
     "/users_stores/my_stores",
     async ({ user, set, drizzle }) => {
+      // Elysia macro resolve returns {user, role, terminals} which is spread
+      // into context — `user` here is the user record itself, not a wrapper.
+      const userId = (user as any)?.id;
+      if (!userId) {
+        set.status = 401;
+        return { error: "unauthenticated" };
+      }
       const users_storesList = (await drizzle
         .select({
           ...getTableColumns(users_stores),
@@ -138,8 +145,7 @@ export const usersSroresController = new Elysia({
           },
         })
         .from(users_stores)
-        //@ts-ignore
-        .where(eq(users_stores.user_id, user.user.id))
+        .where(eq(users_stores.user_id, userId))
         .leftJoin(
           corporation_store,
           eq(users_stores.corporation_store_id, corporation_store.id)
