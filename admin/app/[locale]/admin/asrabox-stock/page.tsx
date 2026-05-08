@@ -13,7 +13,6 @@ import {
   SelectValue,
 } from "@admin/components/ui/select";
 import { toast } from "sonner";
-import { useAuth } from "@admin/components/useAuth";
 
 type Composition = {
   composition_id: string;
@@ -29,23 +28,28 @@ function AsraboxStockContent() {
   const [terminalId, setTerminalId] = useState<string>("");
   const [drafts, setDrafts] = useState<Record<string, number>>({});
 
-  const { user } = useAuth();
-  const userOrganizationId = (user as any)?.user?.organization_id;
-
-  // Terminals (cached, filtered by user's organization)
-  const { data: terminalsData } = useQuery({
-    queryKey: ["terminals_cached"],
+  // Terminals assigned to current user via users_terminals.
+  // (apiClient.api.users_terminals.my_terminals.get returns rows of shape
+  // { terminal_id, terminals: { id, name, ... } } — same endpoint used by
+  // managerReportPage.)
+  const { data: myTerminalsData } = useQuery({
+    queryKey: ["users_terminals_my"],
     queryFn: async () => {
-      const { data } = await apiClient.api.terminals.cached.get();
+      const { data } = await apiClient.api.users_terminals.my_terminals.get();
       return data;
     },
   });
-  const allTerminals = (terminalsData as any[]) ?? [];
-  const terminals = userOrganizationId
-    ? allTerminals.filter(
-        (t: any) => !t.organization_id || t.organization_id === userOrganizationId
-      )
-    : allTerminals;
+
+  const terminals = useMemo(() => {
+    const rows = (myTerminalsData as any)?.data ?? myTerminalsData ?? [];
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((r: any) => ({
+        id: r.terminal_id ?? r.terminals?.id,
+        name: r.terminals?.name ?? "",
+      }))
+      .filter((t) => !!t.id && !!t.name);
+  }, [myTerminalsData]);
 
   // Compositions for the selected terminal
   const compositionsQuery = useQuery({
