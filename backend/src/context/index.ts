@@ -162,21 +162,44 @@ export const ctx = new Elysia({
             `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
           );
 
+          // If user_data cache is gone (TTL evicted between beforeHandle and
+          // resolve, or resolve runs before beforeHandle in macro ordering),
+          // try the same recovery path beforeHandle uses — fall back to the
+          // refresh-token-keyed cache.
+          if (!cachedUser && refreshTokenValue) {
+            const cachedRefreshToken = await redis.get(
+              `${process.env.PROJECT_PREFIX}refresh_token:${refreshTokenValue}`
+            );
+            if (cachedRefreshToken) {
+              await redis.set(
+                `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`,
+                cachedRefreshToken,
+                "EX",
+                parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
+              );
+              cachedUser = cachedRefreshToken;
+            }
+          }
+
           if (!cachedUser) {
             return { user: null, role: null, terminals: [] } as UserContext;
           }
 
-          const { user: localUser, role, terminals } = JSON.parse(cachedUser!) as {
-            user: typeof users.$inferSelect;
-            role: {
+          const parsed = JSON.parse(cachedUser!) as {
+            user?: typeof users.$inferSelect;
+            role?: {
               id: string;
               name: string;
               code: string;
             };
-            terminals: string[];
+            terminals?: string[];
           };
 
-          return { user: localUser, role, terminals };
+          return {
+            user: parsed.user ?? null,
+            role: parsed.role ?? null,
+            terminals: parsed.terminals ?? [],
+          };
         },
       }
     },
