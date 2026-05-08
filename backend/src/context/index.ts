@@ -77,10 +77,19 @@ export const ctx = new Elysia({
           status,
           cacheController,
           cookie: { sessionId, refreshToken },
+          path,
         }) => {
           const sessionIdValue = sessionId.value;
           const refreshTokenValue = refreshToken.value;
+          const dbg = (msg: string, extra?: any) =>
+            console.log(`[ctx beforeHandle] ${path} permission=${permission}: ${msg}`, extra ?? "");
+          dbg("entered", {
+            hasSession: !!sessionIdValue,
+            hasRefresh: !!refreshTokenValue,
+            sessionPrefix: sessionIdValue ? sessionIdValue.slice(0, 8) : null,
+          });
           if (!sessionId.value) {
+            dbg("no sessionId cookie -> 401");
             return status(401, {
               message: "User not found",
             });
@@ -89,13 +98,16 @@ export const ctx = new Elysia({
           let cachedUser = await redis.get(
             `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
           );
+          dbg("user_data cache lookup", { hit: !!cachedUser });
 
           if (!cachedUser) {
             if (refreshTokenValue) {
               const cachedRefreshToken = await redis.get(
                 `${process.env.PROJECT_PREFIX}refresh_token:${refreshTokenValue}`
               );
+              dbg("refresh_token cache lookup", { hit: !!cachedRefreshToken });
               if (!cachedRefreshToken) {
+                dbg("no refresh_token cache -> 401");
                 return status(401, {
                   message: "User not found",
                 });
@@ -110,8 +122,14 @@ export const ctx = new Elysia({
                 cachedUser = await redis.get(
                   `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
                 );
+                dbg("recovered user_data from refresh_token", {
+                  hasUser: !!user,
+                  userId: user?.id ?? null,
+                  hasTerminals: false, // beforeHandle recovery skips terminals
+                });
               }
             } else {
+              dbg("no refresh cookie -> 401");
               return status(401, {
                 message: "User not found",
               });
@@ -151,16 +169,26 @@ export const ctx = new Elysia({
         resolve: async ({
           redis,
           cookie: { sessionId, refreshToken },
+          path,
         }) => {
           const sessionIdValue = sessionId.value;
           const refreshTokenValue = refreshToken.value;
+          const dbg = (msg: string, extra?: any) =>
+            console.log(`[ctx resolve] ${path} permission=${permission}: ${msg}`, extra ?? "");
+          dbg("entered", {
+            hasSession: !!sessionIdValue,
+            hasRefresh: !!refreshTokenValue,
+            sessionPrefix: sessionIdValue ? sessionIdValue.slice(0, 8) : null,
+          });
           if (!sessionId.value) {
+            dbg("no sessionId -> user=null");
             return { user: null, role: null, terminals: [] } as UserContext;
           }
 
           let cachedUser = await redis.get(
             `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`
           );
+          dbg("user_data cache lookup", { hit: !!cachedUser });
 
           // If user_data cache is gone (TTL evicted between beforeHandle and
           // resolve, or resolve runs before beforeHandle in macro ordering),
@@ -170,6 +198,7 @@ export const ctx = new Elysia({
             const cachedRefreshToken = await redis.get(
               `${process.env.PROJECT_PREFIX}refresh_token:${refreshTokenValue}`
             );
+            dbg("refresh_token cache lookup", { hit: !!cachedRefreshToken });
             if (cachedRefreshToken) {
               await redis.set(
                 `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`,
@@ -178,28 +207,36 @@ export const ctx = new Elysia({
                 parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
               );
               cachedUser = cachedRefreshToken;
+              dbg("recovered user_data from refresh_token");
             }
           }
 
           if (!cachedUser) {
+            dbg("no cache after recovery -> user=null");
             return { user: null, role: null, terminals: [] } as UserContext;
           }
 
-          const parsed = JSON.parse(cachedUser!) as {
-            user?: typeof users.$inferSelect;
-            role?: {
-              id: string;
-              name: string;
-              code: string;
-            };
-            terminals?: string[];
-          };
+          let parsed: any;
+          try {
+            parsed = JSON.parse(cachedUser!);
+          } catch (e) {
+            dbg("JSON.parse failed, returning user=null", { error: String(e) });
+            return { user: null, role: null, terminals: [] } as UserContext;
+          }
 
-          return {
-            user: parsed.user ?? null,
-            role: parsed.role ?? null,
-            terminals: parsed.terminals ?? [],
+          const result = {
+            user: parsed?.user ?? null,
+            role: parsed?.role ?? null,
+            terminals: parsed?.terminals ?? [],
           };
+          dbg("resolved", {
+            hasUser: !!result.user,
+            userId: result.user?.id ?? null,
+            hasRole: !!result.role,
+            terminalsCount: Array.isArray(result.terminals) ? result.terminals.length : 0,
+            cachedKeys: Object.keys(parsed ?? {}),
+          });
+          return result;
         },
       }
     },
