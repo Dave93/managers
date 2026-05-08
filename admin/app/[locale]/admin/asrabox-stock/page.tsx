@@ -29,24 +29,23 @@ function AsraboxStockContent() {
   const [drafts, setDrafts] = useState<Record<string, number>>({});
 
   // Terminals assigned to current user via users_terminals.
-  // (apiClient.api.users_terminals.my_terminals.get returns rows of shape
-  // { terminal_id, terminals: { id, name, ... } } — same endpoint used by
-  // managerReportPage.)
+  // Backend endpoint /asrabox/stock/my_terminals owns its own permission
+  // (asrabox_stock.list) so it doesn't depend on users_terminals.list.
   const { data: myTerminalsData } = useQuery({
-    queryKey: ["users_terminals_my"],
+    queryKey: ["asrabox_stock_my_terminals"],
     queryFn: async () => {
-      const { data } = await apiClient.api.users_terminals.my_terminals.get();
+      const { data } = await apiClient.api.asrabox.stock.my_terminals.get();
       return data;
     },
   });
 
   const terminals = useMemo(() => {
-    const rows = (myTerminalsData as any)?.data ?? myTerminalsData ?? [];
+    const rows = (myTerminalsData as any) ?? [];
     if (!Array.isArray(rows)) return [];
     return rows
       .map((r: any) => ({
-        id: r.terminal_id ?? r.terminals?.id,
-        name: r.terminals?.name ?? "",
+        id: r.id,
+        name: r.name ?? "",
       }))
       .filter((t) => !!t.id && !!t.name);
   }, [myTerminalsData]);
