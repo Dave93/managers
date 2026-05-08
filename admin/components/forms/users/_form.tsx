@@ -239,15 +239,24 @@ export default function UsersForm({
       organization_id: record?.data?.organization_id || "",
     },
     onSubmit: async ({ value }) => {
+      // Empty string for nullable UUID columns (organization_id, role_id)
+      // fails TypeBox validation ("uuid | null"). Send null instead.
+      const normalizeUuid = (v: any) => (v === "" ? null : v);
+      const normalized: any = {
+        ...(value as any),
+        organization_id: normalizeUuid((value as any).organization_id),
+        role_id: normalizeUuid((value as any).role_id),
+      };
+
       if (recordId) {
         // Strip empty password so we never overwrite the stored hash with "".
         // (Editing a user without typing a new password should leave the
         // current password intact.)
-        const { password, ...rest } = value as any;
+        const { password, ...rest } = normalized;
         const data: any = password ? { ...rest, password } : rest;
         updateMutation.mutate({ data, id: recordId });
       } else {
-        createMutation.mutate(value);
+        createMutation.mutate(normalized);
       }
     },
   });
