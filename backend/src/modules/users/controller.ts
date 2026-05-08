@@ -505,9 +505,20 @@ export const usersController = new Elysia({
         if (typeof password != "string") {
           password = password.set!;
         }
-        const { hash, salt } = await hashPassword(password);
-        data.password = hash;
-        data.salt = salt;
+        if (typeof password === "string" && password.length > 0) {
+          const { hash, salt } = await hashPassword(password);
+          data.password = hash;
+          data.salt = salt;
+        } else {
+          // Empty password came through — treat as "no change", do not overwrite
+          // the stored hash with an empty string (which would lock the user out).
+          delete data.password;
+          delete data.salt;
+        }
+      } else {
+        // password key absent or falsy — don't touch stored credentials.
+        delete data.password;
+        delete data.salt;
       }
 
       const result = await drizzle
