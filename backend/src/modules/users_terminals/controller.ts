@@ -97,7 +97,9 @@ export const usersTerminalsController = new Elysia({
   .get(
     "/users_terminals/my_terminals",
     async ({ user, set, drizzle }) => {
-      const userId = (user as any)?.user?.id;
+      // Elysia macro resolve returns {user, role, terminals} which is spread
+      // into context — `user` here is the user record itself, not a wrapper.
+      const userId = (user as any)?.id;
       if (!userId) {
         set.status = 401;
         return { error: "unauthenticated" };
