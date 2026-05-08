@@ -9,7 +9,8 @@ import { and, eq, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 
 const LARAVEL_URL = process.env.LARAVEL_API_URL || "https://api.lesailes.uz";
-const INTERNAL_KEY = process.env.LARAVEL_INTERNAL_API_KEY || "";
+const INTERNAL_KEY =
+  process.env.LARAVEL_INTERNAL_API_KEY || process.env.INTERNAL_API_KEY || "";
 
 interface LaravelComposition {
   composition_id: string;
