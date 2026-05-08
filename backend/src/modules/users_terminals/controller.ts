@@ -97,6 +97,11 @@ export const usersTerminalsController = new Elysia({
   .get(
     "/users_terminals/my_terminals",
     async ({ user, set, drizzle }) => {
+      const userId = (user as any)?.user?.id;
+      if (!userId) {
+        set.status = 401;
+        return { error: "unauthenticated" };
+      }
       const users_terminalsList = (await drizzle
         .select({
           ...getTableColumns(users_terminals),
@@ -105,8 +110,7 @@ export const usersTerminalsController = new Elysia({
           },
         })
         .from(users_terminals)
-        //@ts-ignore
-        .where(eq(users_terminals.user_id, user.user.id))
+        .where(eq(users_terminals.user_id, userId))
         .leftJoin(terminals, eq(users_terminals.terminal_id, terminals.id))
         .execute()) as UsersTerminalsWithRelation[];
 
