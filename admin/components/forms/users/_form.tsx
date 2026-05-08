@@ -240,7 +240,12 @@ export default function UsersForm({
     },
     onSubmit: async ({ value }) => {
       if (recordId) {
-        updateMutation.mutate({ data: value, id: recordId });
+        // Strip empty password so we never overwrite the stored hash with "".
+        // (Editing a user without typing a new password should leave the
+        // current password intact.)
+        const { password, ...rest } = value as any;
+        const data: any = password ? { ...rest, password } : rest;
+        updateMutation.mutate({ data, id: recordId });
       } else {
         createMutation.mutate(value);
       }
