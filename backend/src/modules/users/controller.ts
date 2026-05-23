@@ -243,16 +243,21 @@ export const usersController = new Elysia({
   // )
   .post(
     "/users/assign_terminal",
-    async ({ body: { user_id, terminal_id }, user, set, drizzle }) => {
+    async ({ body: { user_id, terminal_id }, user, set, drizzle, cacheController }) => {
 
       await drizzle
         .delete(users_terminals)
         .where(eq(users_terminals.user_id, user_id))
         .execute();
-      await drizzle
-        .insert(users_terminals)
-        .values(terminal_id.map((item) => ({ user_id, terminal_id: item })))
-        .execute();
+      if (terminal_id.length) {
+        await drizzle
+          .insert(users_terminals)
+          .values(terminal_id.map((item) => ({ user_id, terminal_id: item })))
+          .execute();
+      }
+      // Propagate the new scoping to the user's live sessions so they see the
+      // change without re-logging in.
+      await cacheController.syncUserTerminalCaches(user_id, terminal_id);
       return {
         data: {
           user_id,
