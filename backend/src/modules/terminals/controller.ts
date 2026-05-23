@@ -84,6 +84,16 @@ export const terminalsController = new Elysia({
       }),
     }
   )
+  .post(
+    "/terminals/sync_iiko",
+    async ({ cacheController }) => {
+      const result = await cacheController.syncTerminalsFromIiko();
+      return result;
+    },
+    {
+      permission: "terminals.add",
+    }
+  )
   .get('/terminals/my_terminals', async ({ user, set, cacheController, status, terminals: userTerminals }) => {
     if (!user) {
       return status(401, "User not found");
