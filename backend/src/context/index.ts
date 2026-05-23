@@ -100,10 +100,10 @@ export const ctx = new Elysia({
                   message: "User not found",
                 });
               } else {
-                const { user, role } = JSON.parse(cachedRefreshToken);
+                const { user, role, terminals } = JSON.parse(cachedRefreshToken);
                 await redis.set(
                   `${process.env.PROJECT_PREFIX}user_data:${sessionIdValue}`,
-                  JSON.stringify({ user, role }),
+                  JSON.stringify({ user, role, terminals }),
                   "EX",
                   parseInt(process.env.SESSION_EXPIRES_IN ?? "0")
                 );
