@@ -83,6 +83,14 @@ async function syncTerminals() {
       const tokenBody = await tokenResponse.json();
       const { token } = tokenBody;
 
+      if (!token) {
+        console.error(
+          `[terminals sync] org ${organization.id}: iiko auth failed -`,
+          tokenBody?.errorDescription ?? tokenBody
+        );
+        continue;
+      }
+
       const terminalsResponse = await fetch(`${iikoUrl}terminal_groups`, {
         method: "POST",
         headers: {
@@ -93,8 +101,17 @@ async function syncTerminals() {
       });
 
       const terminalsBody = await terminalsResponse.json();
-      const { terminalGroups } = terminalsBody;
-      const iikoTerminals = terminalGroups[0].items;
+      const terminalGroups = terminalsBody?.terminalGroups;
+      if (!Array.isArray(terminalGroups) || terminalGroups.length === 0) {
+        console.error(
+          `[terminals sync] org ${organization.id}: no terminalGroups in iiko response`,
+          terminalsBody
+        );
+        continue;
+      }
+      const iikoTerminals = terminalGroups.flatMap(
+        (group: any) => group.items ?? []
+      );
 
       let created = 0;
       for (const iikoTerminal of iikoTerminals) {

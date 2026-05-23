@@ -7,7 +7,14 @@ import {
   workSchedulesWithRelations,
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
-import { InferSelectModel, eq, getTableColumns, sql } from "drizzle-orm";
+import {
+  InferSelectModel,
+  and,
+  eq,
+  getTableColumns,
+  inArray,
+  sql,
+} from "drizzle-orm";
 import {
   api_tokens,
   corporation_store,
@@ -20,6 +27,7 @@ import {
   roles_permissions,
   scheduled_reports,
   settings,
+  terminals,
   users,
   users_stores,
   users_terminals,
@@ -370,6 +378,139 @@ export class CacheControlService {
       `${process.env.PROJECT_PREFIX}terminals`,
       JSON.stringify(newTerminals)
     );
+  }
+
+  // Pulls terminals from iiko for every organization, inserts the ones that
+  // aren't mapped yet (by iiko_id credential), then rebuilds the terminals
+  // cache. Reads creds straight from the DB so freshly-updated logins apply
+  // without waiting for the org cache to refresh.
+  async syncTerminalsFromIiko() {
+    const orgs = await this.drizzle.query.organization.findMany();
+    const orgCreds = await this.drizzle.query.credentials.findMany({
+      where: eq(credentials.model, "organization"),
+    });
+    const credsByOrg = orgCreds.reduce((acc, c) => {
+      (acc[c.model_id] ||= []).push(c);
+      return acc;
+    }, {} as Record<string, InferSelectModel<typeof credentials>[]>);
+
+    const iikoUrl = "https://api-ru.iiko.services/api/1/";
+    const result = {
+      created: 0,
+      perOrg: [] as { org: string; iikoTotal: number; created: number }[],
+      errors: [] as string[],
+    };
+
+    for (const org of orgs) {
+      const creds = credsByOrg[org.id] ?? [];
+      const login = creds.find((c) => c.type === "iiko_login")?.key;
+      const iikoId = creds.find((c) => c.type === "iiko_id")?.key;
+      if (!login || !iikoId) {
+        result.errors.push(`${org.name}: нет iiko-кредов (login/id)`);
+        continue;
+      }
+
+      const existing = await this.drizzle
+        .select({ id: terminals.id })
+        .from(terminals)
+        .where(eq(terminals.organization_id, org.id))
+        .execute();
+      const termIds = existing.map((t) => t.id);
+      const mappedIikoIds = new Set<string>();
+      if (termIds.length) {
+        const tc = await this.drizzle
+          .select()
+          .from(credentials)
+          .where(
+            and(
+              eq(credentials.model, "terminals"),
+              inArray(credentials.model_id, termIds)
+            )
+          )
+          .execute();
+        tc.filter((c) => c.type === "iiko_id").forEach((c) =>
+          mappedIikoIds.add(c.key)
+        );
+      }
+
+      let token: string | undefined;
+      try {
+        const tokenBody = await (
+          await fetch(`${iikoUrl}access_token`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ apiLogin: login }),
+          })
+        ).json();
+        token = tokenBody?.token;
+        if (!token) {
+          result.errors.push(
+            `${org.name}: iiko авторизация не прошла — ${
+              tokenBody?.errorDescription ?? "нет токена"
+            }`
+          );
+          continue;
+        }
+      } catch (e: any) {
+        result.errors.push(`${org.name}: ошибка iiko access_token — ${e.message}`);
+        continue;
+      }
+
+      let iikoTerminals: { id: string; name: string }[] = [];
+      try {
+        const groupsBody = await (
+          await fetch(`${iikoUrl}terminal_groups`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ organizationIds: [iikoId] }),
+          })
+        ).json();
+        for (const group of groupsBody?.terminalGroups ?? []) {
+          iikoTerminals.push(...(group.items ?? []));
+        }
+      } catch (e: any) {
+        result.errors.push(`${org.name}: ошибка iiko terminal_groups — ${e.message}`);
+        continue;
+      }
+
+      let created = 0;
+      for (const iikoTerminal of iikoTerminals) {
+        if (mappedIikoIds.has(iikoTerminal.id)) continue;
+        const inserted = await this.drizzle
+          .insert(terminals)
+          .values({
+            name: iikoTerminal.name,
+            organization_id: org.id,
+            latitude: 0,
+            longitude: 0,
+          })
+          .returning({ id: terminals.id })
+          .execute();
+        await this.drizzle
+          .insert(credentials)
+          .values({
+            model: "terminals",
+            model_id: inserted[0].id,
+            type: "iiko_id",
+            key: iikoTerminal.id,
+          })
+          .execute();
+        created++;
+      }
+
+      result.created += created;
+      result.perOrg.push({
+        org: org.name,
+        iikoTotal: iikoTerminals.length,
+        created,
+      });
+    }
+
+    await this.cacheTerminals();
+    return result;
   }
 
   async getCachedTerminals({ take }: { take?: number }) {
