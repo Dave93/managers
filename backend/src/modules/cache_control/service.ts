@@ -877,6 +877,56 @@ export class CacheControlService {
     }
   }
 
+  // Refresh one user's terminal scoping everywhere it's cached: the
+  // userId-keyed list, plus the terminals baked into that user's active
+  // session and refresh-token entries — so reassigning terminals takes effect
+  // immediately, without forcing the user to log out and back in.
+  async syncUserTerminalCaches(userId: string, terminalIds: string[]) {
+    const prefix = process.env.PROJECT_PREFIX;
+    await this.redis.del(`${prefix}user_terminals:${userId}`);
+    if (terminalIds.length) {
+      await this.redis.rpush(
+        `${prefix}user_terminals:${userId}`,
+        ...terminalIds
+      );
+    }
+
+    for (const pattern of [
+      `${prefix}user_data:*`,
+      `${prefix}refresh_token:*`,
+    ]) {
+      let cursor = "0";
+      do {
+        const [next, keys] = await this.redis.scan(
+          cursor,
+          "MATCH",
+          pattern,
+          "COUNT",
+          200
+        );
+        cursor = next;
+        for (const key of keys) {
+          const raw = await this.redis.get(key);
+          if (!raw) continue;
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed?.user?.id === userId) {
+              parsed.terminals = terminalIds;
+              const ttl = await this.redis.ttl(key);
+              if (ttl > 0) {
+                await this.redis.set(key, JSON.stringify(parsed), "EX", ttl);
+              } else {
+                await this.redis.set(key, JSON.stringify(parsed));
+              }
+            }
+          } catch {
+            // skip non-JSON / unrelated keys
+          }
+        }
+      } while (cursor !== "0");
+    }
+  }
+
   async hasUserTerminal(userId: string, terminalId: string) {
     const userTerminals = await this.redis.lrange(
       `${process.env.PROJECT_PREFIX}user_terminals:${userId}`,
