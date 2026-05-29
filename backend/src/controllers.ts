@@ -18,7 +18,6 @@ import { usersTerminalsController } from "./modules/users_terminals/controller";
 import { usersWorkSchedulesController } from "./modules/users_work_schedules/controller";
 import { workScheduleEntriesController } from "./modules/work_schedule_entries/controller";
 import { workSchedulesController } from "./modules/work_schedules/controller";
-import { stopListController } from "./modules/stoplist/controller";
 import { usersSroresController } from "./modules/users_stores/controller";
 import { invoicesController } from "./modules/invoices/controller";
 import { invoiceItemsController } from "./modules/invoice_items/controller";
@@ -73,7 +72,6 @@ export const apiController = new Elysia({
   .use(usersWorkSchedulesController)
   .use(workScheduleEntriesController)
   .use(workSchedulesController)
-  .use(stopListController)
   .use(usersSroresController)
   .use(invoicesController)
   .use(invoiceItemsController)
