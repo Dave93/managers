@@ -779,6 +779,14 @@ export class CacheControlService {
     } catch (e) { }
   }
 
+  async deleteRefreshTokenData(refreshToken: string) {
+    try {
+      await this.redis.del(
+        `${process.env.PROJECT_PREFIX}refresh_token:${refreshToken}`
+      );
+    } catch (e) { }
+  }
+
   async getCachedUserDataByToken(accessToken: string): Promise<{
     user: InferSelectModel<typeof users>;
     accessToken: string;
