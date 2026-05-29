@@ -55,10 +55,16 @@ export const credentialsController = new Elysia({
       }),
     }
   )
-  .get("/credentials/cached", async ({ redis }) => {
-    const res = await redis.get(`${process.env.PROJECT_PREFIX}_credentials`);
-    return JSON.parse(res || "[]") as InferSelectModel<typeof credentials>[];
-  })
+  .get(
+    "/credentials/cached",
+    async ({ redis }) => {
+      const res = await redis.get(`${process.env.PROJECT_PREFIX}_credentials`);
+      return JSON.parse(res || "[]") as InferSelectModel<typeof credentials>[];
+    },
+    {
+      permission: "credentials.list",
+    }
+  )
   .get(
     "/credentials/:id",
     async ({ params: { id }, drizzle, set, user }) => {
