@@ -4,12 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Multi-service monorepo for a restaurant/franchise management system (Les Ailes / Chopar). Five independent services share types via TypeScript path aliases at the repo root:
+Multi-service monorepo for a restaurant/franchise management system (Les Ailes / Chopar). Four independent services share types via TypeScript path aliases at the repo root:
 
 - `admin/` — Next.js 15 + React 19 admin dashboard (Bun runtime, port 6762)
 - `backend/` — Elysia API on Bun, PostgreSQL via Drizzle, Redis-backed sessions (default port 3000 via `PORT` env)
 - `cron/` — Bun + node-cron scheduler for iiko sync, OLAP backfill, role assignment (port 8080)
-- `duck_api/` — Hono + DuckDB data-warehouse sync service (Node, built via `tsc`)
 - `merchants_api/` — Elysia service that scrapes payment-gateway reports (Payme, Click, Yandex, Express, iiko cashier) via Puppeteer
 
 The admin frontend imports the backend's `App` type for end-to-end typed Eden client calls. Cross-service imports use the path aliases below — `admin/` and `backend/` are intentionally NOT separate npm workspaces.
@@ -32,9 +31,6 @@ cd backend && bun run --watch src/index.ts
 # cron (port 8080)
 cd cron && bun run --watch src/index.ts -p 8080
 
-# duck_api (Node + tsx in dev; tsc-built dist/index.js in prod)
-cd duck_api && npm run dev   # build: npm run build
-
 # merchants_api
 cd merchants_api && bun run --watch src/index.ts
 ```
@@ -52,7 +48,7 @@ drizzle-kit migrate          # apply pending migrations
 - Lint is admin-only: `cd admin && bun lint` (ESLint + `eslint-config-next`).
 
 ### Production (PM2)
-Each service ships a `pm2.config.js`. Process names: `office_api` (backend), `office_cron`, `office_duck`, `office_merchant_api`. Admin uses an env-driven name via `process.env.PM2_APP_NAME`.
+Each service ships a `pm2.config.js`. Process names: `office_api` (backend), `office_cron`, `office_merchant_api`. Admin uses an env-driven name via `process.env.PM2_APP_NAME`.
 
 ## Architecture
 
@@ -112,7 +108,6 @@ The admin's `middleware.ts` calls `apiClient.api.users.me.get()` server-side on 
 
 - Backend: `DATABASE_URL`, `REDIS_HOST`, `REDIS_PORT`, `JWT_EXPIRES_IN`, `JWT_REFRESH_EXPIRES_IN`, `SESSION_EXPIRES_IN`, `PROJECT_PREFIX` (Redis key namespace), `PORT`, `MERCHANT_TRPC_API_URL`, `ENV` (`development` toggles localhost cookie domain).
 - Admin: `TRPC_API_URL` (points at backend, exposed at build time via `next.config.js`), `COOKIE_DOMAIN`.
-- Duck API: `DUCK_PATH` (DuckDB file).
 
 ## Design docs
 
