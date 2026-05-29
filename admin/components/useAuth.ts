@@ -46,8 +46,11 @@ export function useAuth() {
     const logoutMutation = useMutation({
         mutationFn: logout,
         onSuccess: () => {
-            queryClient.setQueryData(["currentUser"], null);
-            router.push("/");
+            // Wipe all cached server state. Without this, the cached
+            // ["my_permissions"] query keeps CanAccess rendering the
+            // authenticated layout/header on the login page after logout.
+            queryClient.clear();
+            router.push("/login");
         },
     });
 
