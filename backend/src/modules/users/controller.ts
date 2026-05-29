@@ -400,19 +400,26 @@ export const usersController = new Elysia({
   status
 }) => {
 
-  if (cookie.sessionId.value && cookie.refreshToken.value) {
+  if (cookie.sessionId.value) {
       await cacheController.deleteUserDataByToken(cookie.sessionId.value as string);
-      await cacheController.deleteUserDataByToken(cookie.refreshToken.value as string);
+  }
+  if (cookie.refreshToken.value) {
+      // refresh_token cache is keyed by the refresh token, not user_data:<token>.
+      // Deleting it stops the permission-macro recovery from resurrecting the
+      // session after logout (root cause of "logout needs several clicks").
+      await cacheController.deleteRefreshTokenData(cookie.refreshToken.value as string);
   }
 
   delete cookie.sessionId.value;
   delete cookie.refreshToken.value;
-  
+
   if (process.env.ENV === "development") {
       // Host-only cookie clear; works for localhost and tunnel hosts.
   } else {
-      cookie.sessionId.domain = "arryt.uz";
-      cookie.refreshToken.domain = "arryt.uz";
+      // Must match the domain login sets the cookies on, otherwise the browser
+      // keeps the session cookies and logout does not take effect.
+      cookie.sessionId.domain = "lesailes.uz";
+      cookie.refreshToken.domain = "lesailes.uz";
   }
 
   return {
