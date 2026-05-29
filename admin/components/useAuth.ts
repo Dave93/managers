@@ -2,7 +2,6 @@
 
 import { getCurrentUser, login, logout } from "../lib/auth";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
 
 // Define a basic user type
 interface AuthUser {
@@ -13,7 +12,6 @@ interface AuthUser {
 
 export function useAuth() {
     const queryClient = useQueryClient();
-    const router = useRouter();
     // Query to fetch current user
     const { data: user, isLoading: loading } = useQuery({
         queryKey: ["currentUser"],
@@ -28,16 +26,16 @@ export function useAuth() {
     const loginMutation = useMutation({
         mutationFn: ({ username, password }: { username: string; password: string }) =>
             login(username, password),
-        onSuccess: async (data) => {
+        onSuccess: (data) => {
             if (data) {
-                // Set the user data directly in the cache
-                queryClient.setQueryData(["currentUser"], data);
-                // Also invalidate to ensure fresh data
-                await queryClient.invalidateQueries({ queryKey: ["currentUser"] });
-                // Clear any permission caches that might exist
-                queryClient.invalidateQueries({ queryKey: ["my_permissions"] });
-                // Redirect to home page
-                router.push("/");
+                // Full document load (not client-side router.push) so the home
+                // page goes through the stable server-render path. A client-side
+                // redirect right after login races the freshly-set session
+                // cookie: the rapid currentUser/my_permissions fetches flap
+                // 200/401, the layout never settles, and the header stays hidden
+                // until a manual refresh. A hard navigation makes login behave
+                // exactly like that refresh.
+                window.location.href = "/";
             }
         },
     });
@@ -46,11 +44,12 @@ export function useAuth() {
     const logoutMutation = useMutation({
         mutationFn: logout,
         onSuccess: () => {
-            // Wipe all cached server state. Without this, the cached
-            // ["my_permissions"] query keeps CanAccess rendering the
-            // authenticated layout/header on the login page after logout.
+            // Wipe all cached server state, then do a full document load to the
+            // login page. The hard navigation (not router.push) guarantees the
+            // authenticated layout/header is gone and avoids the same post-auth
+            // client-side race that affected login.
             queryClient.clear();
-            router.push("/login");
+            window.location.href = "/login";
         },
     });
 
