@@ -479,7 +479,15 @@ export class IikoDictionariesService {
       }
     );
 
+    if (!response.ok) {
+      throw new Error(`Error fetching report olap: ${response.status} ${response.statusText}`);
+    }
+
     const reportOlap = await response.json();
+
+    if (!Array.isArray(reportOlap?.data)) {
+      throw new Error(`Unexpected report olap response shape: ${JSON.stringify(reportOlap).slice(0, 500)}`);
+    }
 
     // console.log("reportOlap", reportOlap);
 
@@ -625,7 +633,9 @@ export class IikoDictionariesService {
 
             .update(writeoff)
             .set({
-              dateIncoming: write_off.dateIncoming,
+              // dateIncoming intentionally excluded: it's the hypertable
+              // partition column, updating it violates the chunk's check
+              // constraint (row would need to move to a different chunk).
               documentNumber: write_off.documentNumber,
               status: write_off.status,
               conceptionId: write_off.conceptionId,

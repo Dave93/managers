@@ -138,7 +138,7 @@
       "all": "Все"
     },
     "basketAdditionalSalesBySourceGroup": {
-      "title": "Доп. продажи по источникам",
+      "title": "Сводка доп. продаж по источникам",
       "total": "Всего",
       "searchPlaceholder": "Поиск продуктов...",
       "sortHint": "Нажмите на заголовки столбцов для сортировки",

@@ -7,6 +7,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@admin/components/ui/card";
+import ChartCard from "./_tremor/ChartCard";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
     Line,
@@ -347,70 +348,31 @@ const BasketAdditionalSalesTrendChart = () => {
     };
 
     return (
-        <Card className="h-full">
-            <CardHeader className="flex flex-col items-stretch space-y-0 border-b pb-2 sm:flex-row">
-                <div className="flex flex-1 flex-col justify-center px-6 py-2">
-                    <CardTitle className="text-sm font-medium">
-                        {t("charts.basketAdditionalSalesTrend.title")}
-                    </CardTitle>
-                </div>
-                {!terminals && (
-                    <div className="flex mt-2 sm:mt-0">
-                        <button
-                            data-active={!organization || organization.length == 0}
-                            className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                            onClick={() => setOrganization("")}
-                        >
-                            <span className="text-sm font-bold leading-none">{t('charts.basketAdditionalSalesTrend.all')}</span>
-                        </button>
-                        {organizations.map((org) => {
-                            return (
-                                <button
-                                    key={org.id}
-                                    data-active={organization === org.id}
-                                    className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                                    onClick={() => setOrganization(org.id)}
-                                >
-                                    <span className="text-sm font-bold leading-none">
-                                        {org.label}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-                <div className="flex items-center space-x-2 mt-2 sm:mt-0 justify-end px-6 py-2">
-                    <Tabs
-                        defaultValue={interval}
-                        onValueChange={setInterval}
-                        className="h-8"
-                    >
+        <ChartCard
+            title={t("charts.basketAdditionalSalesTrend.title")}
+            organization={organization}
+            orgOptions={!terminals ? organizations : undefined}
+            onOrganizationChange={setOrganization}
+            headerRight={
+                <>
+                    <Tabs defaultValue={interval} onValueChange={setInterval} className="h-8">
                         <TabsList className="h-8">
                             {intervals(t).map((i) => (
-                                <TabsTrigger
-                                    key={i.value}
-                                    value={i.value}
-                                    className="text-xs h-8"
-                                >
+                                <TabsTrigger key={i.value} value={i.value} className="text-xs h-8">
                                     {i.label}
                                 </TabsTrigger>
                             ))}
                         </TabsList>
                     </Tabs>
                     {(startTime || endTime) && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleReset}
-                            className="h-8"
-                        >
+                        <Button variant="outline" size="sm" onClick={handleReset} className="h-8">
                             <ZoomOut className="h-4 w-4 mr-1" />
                             {t("charts.basketAdditionalSalesTrend.resetZoom")}
                         </Button>
                     )}
-                </div>
-            </CardHeader>
-            <CardContent className="h-[calc(100%-60px)]">
+                </>
+            }
+        >
                 <div
                     ref={chartRef}
                     className="h-full w-full"
@@ -465,8 +427,7 @@ const BasketAdditionalSalesTrendChart = () => {
                         </LineChart>
                     </ResponsiveContainer>
                 </div>
-            </CardContent>
-        </Card>
+        </ChartCard>
     );
 };
 

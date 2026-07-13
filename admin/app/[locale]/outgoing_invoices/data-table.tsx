@@ -44,6 +44,9 @@ import { InferSelectModel } from "drizzle-orm";
 import { InvoiceItemsTable } from "./invoice_items";
 import dayjs from "dayjs";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { MobileReportCards } from "@admin/components/mobile/MobileReportCards";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<typeof invoices.$inferSelect, TValue>[];
 }
@@ -78,6 +81,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 100,
   });
+  const isMobileHook = useIsMobile();
+
 
   const filters = useMemo(() => {
     let res: {
@@ -174,6 +179,26 @@ export function DataTable<TData, TValue>({
       left: ["name"],
     });
   }, [table]);
+
+  if (isMobileHook) {
+    const mobileRows = (data?.data ?? []) as any[];
+    return (
+      <MobileReportCards
+        rows={mobileRows}
+        isLoading={isLoading}
+        render={(r: any) => ({
+          primary: r.documentNumber ?? "—",
+          secondary: r.incomingDate ? dayjs(r.incomingDate).format("DD.MM.YYYY HH:mm") : "",
+          details: <InvoiceItemsTable invoiceId={r.id as string} invoiceDate={r.incomingDate as string} />,
+        })}
+        onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+        onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+        canPrev={pageIndex > 0}
+        canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+        page={pageIndex}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

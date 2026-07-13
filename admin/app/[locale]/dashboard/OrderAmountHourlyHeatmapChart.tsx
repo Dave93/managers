@@ -9,11 +9,11 @@ import {
     parseAsString,
     useQueryState,
 } from "nuqs";
-import { Card, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
-import { DebugInfo } from "@admin/components/charts/DebugInfo";
 import { useTranslations } from "next-intl";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { HeatmapChartClient } from "./HeatmapChartClient";
+import ChartCard from "./_tremor/ChartCard";
+import { useIsMobile } from "@admin/utils/use-is-mobile";
 
 const fetchHourlyAmountHeatmapData = async (
     startDate: string,
@@ -51,6 +51,7 @@ const fetchHourlyAmountHeatmapData = async (
 
 const OrderAmountHourlyHeatmapChart = () => {
     const t = useTranslations();
+    const isMobile = useIsMobile();
 
     // Move 'now' inside a useMemo to avoid recreating it on every render
     const now = React.useMemo(() => new Date(), []);
@@ -99,16 +100,13 @@ const OrderAmountHourlyHeatmapChart = () => {
     const maxValue = Math.max(...formattedData.flatMap(d => d.data.map(h => h.y)));
 
     return (
-        <Card className="h-full flex flex-col">
-            <CardHeader className="pb-0">
-                <CardTitle>{t('charts.OrderAmountHourlyHeatmapChart.title')}</CardTitle>
-            </CardHeader>
-            <CardContent className="p-6 pt-0 grow flex flex-col">
+        <ChartCard title={t('charts.OrderAmountHourlyHeatmapChart.title')}>
                 <HeatmapChartClient
                     data={formattedData}
+                    enableLabels={!isMobile}
                     margin={{ top: 5, right: 0, bottom: 40, left: 50 }}
                     valueFormat=" >-.2s"
-                    forceSquare={true}
+                    forceSquare={!isMobile}
                     axisRight={null}
                     axisBottom={null}
                     axisLeft={{
@@ -171,13 +169,7 @@ const OrderAmountHourlyHeatmapChart = () => {
                         );
                     }}
                 />
-                {data && 'debug' in data && data.debug && (
-                    <div className="flex justify-end">
-                        <DebugInfo sqlQueryTime={data.debug.sqlQueryTime} apiTime={data.debug.apiTime} />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+        </ChartCard>
     );
 };
 

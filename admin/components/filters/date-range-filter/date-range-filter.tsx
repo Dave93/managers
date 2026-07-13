@@ -20,7 +20,7 @@ export function DateRangeFilter() {
       ? dateLocales.enUS
       : dateLocales[locale as keyof typeof dateLocales] || dateLocales.enUS;
 
-  const { dateRange, setDateRange, today, yesterday, last7Days, last30Days, monthToDate, lastMonth, yearToDate, lastYear } = useDateRangeState();
+  const { dateRange, setDateRange, today, todayRange, yesterday, last7Days, last30Days, monthToDate, lastMonth, yearToDate, lastYear } = useDateRangeState();
   const [month, setMonth] = useState(today);
   return (
     <div className="grid gap-2">
@@ -29,7 +29,7 @@ export function DateRangeFilter() {
           <Button
             id="date"
             variant={"outline"}
-            className={`w-[300px] justify-start text-left font-normal ${!dateRange && "text-muted-foreground"
+            className={`w-full sm:w-[300px] justify-start text-left font-normal overflow-hidden text-ellipsis whitespace-nowrap ${!dateRange && "text-muted-foreground"
               }`}
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
@@ -80,10 +80,7 @@ export function DateRangeFilter() {
                       size="sm"
                       className="w-full justify-start"
                       onClick={() => {
-                        setDateRange({
-                          from: today,
-                          to: today,
-                        });
+                        setDateRange(todayRange);
                         setMonth(today);
                       }}
                     >

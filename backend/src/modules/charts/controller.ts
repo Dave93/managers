@@ -1612,3 +1612,32 @@ export const chartsController = new Elysia({
             organization: t.Optional(t.String()),
         }),
     })
+    .get('/charts/orders-by-source', async ({ query: { startDate, endDate, organization, terminals }, set, drizzle, cacheController, terminals: userTerminals }) => {
+        const orgCondition = organization ? sql`AND organization_id = ${organization}` : sql``;
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+        let currentTerminals = cachedTerminals.filter((tm) => terminals ? terminals.includes(tm.id) : true);
+        if (userTerminals && userTerminals.length > 0) currentTerminals = currentTerminals.filter((tm) => userTerminals.includes(tm.id));
+        const iikoKeys = currentTerminals.map((tm) => tm.credentials?.find((c) => c.type === 'iiko_id')?.key).filter((k) => !!k);
+        const restrict = !!terminals || (Array.isArray(userTerminals) && userTerminals.length > 0);
+        const terminalCondition = restrict && iikoKeys.length > 0 ? sql`AND terminal_id IN (${sql.raw(iikoKeys.map((k) => `'${k}'`).join(','))})` : (restrict ? sql`AND false` : sql``);
+        const sqlQuery = sql`
+            SELECT source AS name, SUM(order_count)::int AS order_count, SUM(total_revenue)::numeric AS total_revenue
+            FROM orders_by_source
+            WHERE date >= ${startDate}::date AND date <= ${endDate}::date
+            ${orgCondition}
+            ${terminalCondition}
+            GROUP BY source ORDER BY total_revenue DESC
+        `;
+        try {
+            const result = await drizzle.execute(sqlQuery);
+            if (!Array.isArray(result.rows)) throw new Error('Unexpected data format');
+            return { data: result.rows.map((row) => ({ name: String(row.name), orderCount: Number(row.order_count) || 0, totalRevenue: Number(row.total_revenue) || 0 })) };
+        } catch (error) {
+            console.error('Error fetching orders by source:', error);
+            set.status = 500;
+            return { message: 'Error fetching orders by source', error: String(error) };
+        }
+    }, {
+        permission: 'charts.list',
+        query: t.Object({ startDate: t.String(), endDate: t.String(), organization: t.Optional(t.String()), terminals: t.Optional(t.String()) }),
+    })

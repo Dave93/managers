@@ -16,7 +16,7 @@ const FilterPanel = () => {
       <CardHeader>
         <CardTitle>{t("title")}</CardTitle>
       </CardHeader>
-      <CardContent className="flex space-x-4">
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:gap-4 sm:space-x-0">
         <DateRangeFilter />
         <TerminalsFilter />
       </CardContent>

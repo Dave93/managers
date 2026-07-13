@@ -48,6 +48,7 @@ export const OlapFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
+  const storeId = useStoplistFilterStore((state) => state.storeId);
   const productType = useStoplistFilterStore((state) => state.productType);
   const setProductType = useStoplistFilterStore((state) => state.setProductType);
   const { user } = useAuth();
@@ -67,6 +68,9 @@ export const OlapFilters = () => {
         );
       } else {
         setUsersStoresData(data);
+      if (data.length > 0 && !useStoplistFilterStore.getState().storeId) {
+        setStoreId(data[0].id);
+      }
       }
     }
   };
@@ -168,6 +172,7 @@ export const OlapFilters = () => {
         onValueChange={(value) => {
           setStoreId(value);
         }}
+        value={storeId}
       >
         <SelectTrigger className="w-full sm:max-w-xs">
           <SelectValue placeholder="Склады" />

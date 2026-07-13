@@ -17,7 +17,8 @@ import {
   jsonb,
   pgView,
   decimal,
-  pgMaterializedView
+  pgMaterializedView,
+  date,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -1463,3 +1464,15 @@ export const asrabox_stock_history = pgTable(
     };
   }
 );
+
+export const ordersBySource = pgTable('orders_by_source', {
+  date: date('date').notNull(),
+  terminalId: varchar('terminal_id', { length: 255 }).notNull(),
+  organizationId: varchar('organization_id', { length: 255 }).notNull(),
+  source: varchar('source', { length: 255 }).notNull(),
+  orderCount: integer('order_count').notNull().default(0),
+  totalRevenue: numeric('total_revenue').notNull().default('0'),
+}, (table) => [
+  primaryKey({ columns: [table.date, table.terminalId, table.organizationId, table.source] }),
+  index('idx_orders_by_source_date').on(table.date),
+]);

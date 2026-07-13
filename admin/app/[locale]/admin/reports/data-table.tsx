@@ -45,6 +45,9 @@ import { useTerminalsFilter } from "@admin/components/filters/terminals/terminal
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useReportsStatusesFilter } from "@admin/components/filters/reports-statuses/reports-statuses.hook";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<ReportsWithRelations, TValue>[];
 }
@@ -69,6 +72,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 10,
   });
+  const isMobileHook = useIsMobile();
+
 
   const filters = useMemo(() => {
     let res = [];
@@ -187,6 +192,22 @@ export function DataTable<TData, TValue>({
       return 0;
     }
   }, [data]);
+
+  if (isMobileHook) {
+    const mobileRows = (data?.data ?? []) as any[];
+    return (
+      <AutoMobileCards
+        rows={mobileRows}
+        columns={columns as any[]}
+        isLoading={isLoading}
+        onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+        onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+        canPrev={pageIndex > 0}
+        canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+        page={pageIndex}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -4,10 +4,13 @@ import { reportsColumns } from "./columns";
 import { InvoiceFilters } from "./incoming_filter";
 import Back from "../manager_reports/Back";
 
+import { ReportSwitcher } from "../manager_reports/ReportSwitcher";
+
 export default function ReportsListPage() {
   return (
     <div>
       <Back />
+      <ReportSwitcher />
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
           Приходная накладная (Детально)

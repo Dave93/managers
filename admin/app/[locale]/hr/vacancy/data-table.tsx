@@ -38,6 +38,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useVacancyFiltersStore } from "./filters";
 import dayjs from "dayjs";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+
 interface DataTableProps {
   columns: ColumnDef<any, any>[];
 }
@@ -50,6 +53,8 @@ export function DataTable({
     pageIndex: 0,
     pageSize: 10,
   });
+  const isMobileHook = useIsMobile();
+
 
   const organizationId = useVacancyFiltersStore((state) => state.organizationId);
   const positionId = useVacancyFiltersStore((state) => state.positionId);
@@ -165,6 +170,22 @@ export function DataTable({
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  if (isMobileHook) {
+    const mobileRows = (data?.data ?? []) as any[];
+    return (
+      <AutoMobileCards
+        rows={mobileRows}
+        columns={columns as any[]}
+        isLoading={isLoading}
+        onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+        onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+        canPrev={pageIndex > 0}
+        canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+        page={pageIndex}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

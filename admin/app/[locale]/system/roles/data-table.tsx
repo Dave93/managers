@@ -41,6 +41,9 @@ import { InferSelectModel } from "drizzle-orm";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<typeof roles.$inferSelect, TValue>[];
 }
@@ -55,6 +58,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 10,
   });
+  const isMobileHook = useIsMobile();
+
 
   const { data, isLoading } = useQuery({
     queryKey: [
@@ -103,6 +108,22 @@ export function DataTable<TData, TValue>({
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
+
+  if (isMobileHook) {
+    const mobileRows = (data?.data ?? []) as any[];
+    return (
+      <AutoMobileCards
+        rows={mobileRows}
+        columns={columns as any[]}
+        isLoading={isLoading}
+        onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+        onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+        canPrev={pageIndex > 0}
+        canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+        page={pageIndex}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

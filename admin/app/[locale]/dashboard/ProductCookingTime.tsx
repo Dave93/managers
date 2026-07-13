@@ -10,6 +10,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@admin/components/ui/card";
+import ChartCard from "./_tremor/ChartCard";
 import { organizations } from "@admin/lib/organizations";
 import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
@@ -522,43 +523,14 @@ const ProductCookingTime = () => {
     }, [modalSearchQuery]);
 
     return (
-        <Card className="h-[600px] flex flex-col">
-            <CardHeader className="flex flex-col items-stretch space-y-0 border-b p-0 mb-2 sm:flex-row">
-                <div className="flex flex-1 flex-col justify-center gap-1 px-6 py-5 sm:py-6">
-                    <CardTitle>{t('charts.ProductCookingTime.title')}</CardTitle>
-                    {selectedTerminal && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                            {terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name}
-                        </p>
-                    )}
-                </div>
-                {!terminals && (
-                    <div className="flex">
-                        <button
-                            data-active={!organization || organization.length == 0}
-                            className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                            onClick={() => setOrganization("")}
-                        >
-                            <span className="text-lg font-bold leading-none">{t('charts.all')}</span>
-                        </button>
-                        {organizations.map((org) => {
-                            return (
-                                <button
-                                    key={org.id}
-                                    data-active={organization === org.id}
-                                    className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-4 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                                    onClick={() => setOrganization(org.id)}
-                                >
-                                    <span className="text-lg font-bold leading-none">
-                                        {org.label}
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                )}
-            </CardHeader>
-            <CardContent className="flex-1 overflow-hidden">
+        <ChartCard
+            title={t('charts.ProductCookingTime.title')}
+            subtitle={selectedTerminal ? terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name : undefined}
+            organization={organization}
+            orgOptions={!terminals ? organizations : undefined}
+            onOrganizationChange={setOrganization}
+            bodyClassName="flex flex-col overflow-hidden"
+        >
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <SearchInput
@@ -680,8 +652,7 @@ const ProductCookingTime = () => {
                         />
                     </DialogContent>
                 </Dialog>
-            </CardContent>
-        </Card>
+        </ChartCard>
     )
 }
 export default React.memo(ProductCookingTime);

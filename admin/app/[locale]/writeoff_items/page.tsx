@@ -5,10 +5,13 @@ import { reportsColumns } from "./columns";
 import { WriteoffFilters } from "./writeoff_filter";
 import Back from "../manager_reports/Back";
 
+import { ReportSwitcher } from "../manager_reports/ReportSwitcher";
+
 export default function OutgoingListPage() {
   return (
     <div>
       <Back />
+      <ReportSwitcher />
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Акт Списания</h2>
       </div>
