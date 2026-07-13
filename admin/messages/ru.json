@@ -164,5 +164,91 @@
       "all": "Все",
       "resetZoom": "Сбросить масштаб"
     }
+  },
+  "attestation": {
+    "nav": {
+      "tests": "Тесты",
+      "employees": "Сотрудники",
+      "analytics": "Аналитика",
+      "kiosk": "Пройти тест"
+    },
+    "tests": {
+      "title": "Тесты аттестации",
+      "new": "Новый тест",
+      "edit": "Редактировать тест",
+      "add": "Новый тест",
+      "name": "Название",
+      "description": "Описание",
+      "passingScore": "Проходной балл (%)",
+      "timeLimit": "Лимит времени (мин)",
+      "questionsPerAttempt": "Вопросов за попытку",
+      "validMonths": "Срок действия (мес)",
+      "shuffleQuestions": "Перемешивать вопросы",
+      "shuffleOptions": "Перемешивать ответы",
+      "active": "Активен",
+      "passingShort": "Проходной %",
+      "added": "Тест добавлен",
+      "updated": "Тест обновлён",
+      "manageQuestions": "Вопросы"
+    },
+    "questions": {
+      "title": "Вопросы теста",
+      "newQuestion": "Текст нового вопроса",
+      "addQuestion": "Вопрос",
+      "single": "Один ответ",
+      "multi": "Несколько",
+      "addOption": "Вариант",
+      "optionDefault": "Новый вариант"
+    },
+    "employees": {
+      "title": "Сотрудники",
+      "new": "Новый сотрудник",
+      "edit": "Редактировать",
+      "add": "Новый сотрудник",
+      "firstName": "Имя",
+      "lastName": "Фамилия",
+      "position": "Должность",
+      "terminal": "Филиал",
+      "pin": "PIN",
+      "pinHint": "PIN (оставьте пустым чтобы не менять)",
+      "active": "Активен",
+      "added": "Сотрудник добавлен",
+      "updated": "Сотрудник обновлён",
+      "selectTerminal": "Выберите филиал"
+    },
+    "kiosk": {
+      "pickTest": "Выберите тест",
+      "pickEmployee": "Выберите себя",
+      "enterPin": "Введите свой PIN",
+      "start": "Начать",
+      "cancel": "Отмена",
+      "finish": "Завершить",
+      "test": "Тест",
+      "passed": "Сдано",
+      "failed": "Не сдано",
+      "score": "Балл",
+      "timeExpired": "Время истекло",
+      "done": "Готово",
+      "startError": "Ошибка старта",
+      "submitError": "Ошибка отправки"
+    },
+    "analytics": {
+      "title": "Аналитика аттестации",
+      "total": "Всего",
+      "passed": "Сдали",
+      "failed": "Не сдали",
+      "passRate": "Pass rate",
+      "expiringSoon": "Истекают (30д)",
+      "all": "Все",
+      "employee": "Сотрудник",
+      "test": "Тест",
+      "score": "Балл",
+      "status": "Статус",
+      "expires": "Истекает",
+      "reset": "Сбросить"
+    },
+    "common": {
+      "submit": "Сохранить"
+    }
   }
 }

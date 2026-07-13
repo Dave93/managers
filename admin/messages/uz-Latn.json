@@ -97,5 +97,91 @@
     "ProductCookingTime": {
       "title": "Tayyorlash vaqti"
     }
+  },
+  "attestation": {
+    "nav": {
+      "tests": "Testlar",
+      "employees": "Xodimlar",
+      "analytics": "Tahlil",
+      "kiosk": "Test topshirish"
+    },
+    "tests": {
+      "title": "Attestatsiya testlari",
+      "new": "Yangi test",
+      "edit": "Testni tahrirlash",
+      "add": "Yangi test",
+      "name": "Nomi",
+      "description": "Tavsif",
+      "passingScore": "O'tish bali (%)",
+      "timeLimit": "Vaqt chegarasi (min)",
+      "questionsPerAttempt": "Urinishga savollar",
+      "validMonths": "Amal muddati (oy)",
+      "shuffleQuestions": "Savollarni aralashtirish",
+      "shuffleOptions": "Javoblarni aralashtirish",
+      "active": "Faol",
+      "passingShort": "O'tish %",
+      "added": "Test qo'shildi",
+      "updated": "Test yangilandi",
+      "manageQuestions": "Savollar"
+    },
+    "questions": {
+      "title": "Test savollari",
+      "newQuestion": "Yangi savol matni",
+      "addQuestion": "Savol",
+      "single": "Bitta javob",
+      "multi": "Bir nechta",
+      "addOption": "Variant",
+      "optionDefault": "Yangi variant"
+    },
+    "employees": {
+      "title": "Xodimlar",
+      "new": "Yangi xodim",
+      "edit": "Tahrirlash",
+      "add": "Yangi xodim",
+      "firstName": "Ism",
+      "lastName": "Familiya",
+      "position": "Lavozim",
+      "terminal": "Filial",
+      "pin": "PIN",
+      "pinHint": "PIN (o'zgartirmaslik uchun bo'sh qoldiring)",
+      "active": "Faol",
+      "added": "Xodim qo'shildi",
+      "updated": "Xodim yangilandi",
+      "selectTerminal": "Filialni tanlang"
+    },
+    "kiosk": {
+      "pickTest": "Testni tanlang",
+      "pickEmployee": "O'zingizni tanlang",
+      "enterPin": "PIN kiriting",
+      "start": "Boshlash",
+      "cancel": "Bekor qilish",
+      "finish": "Yakunlash",
+      "test": "Test",
+      "passed": "O'tdi",
+      "failed": "O'tmadi",
+      "score": "Ball",
+      "timeExpired": "Vaqt tugadi",
+      "done": "Tayyor",
+      "startError": "Boshlash xatosi",
+      "submitError": "Yuborish xatosi"
+    },
+    "analytics": {
+      "title": "Attestatsiya tahlili",
+      "total": "Jami",
+      "passed": "O'tdi",
+      "failed": "O'tmadi",
+      "passRate": "O'tish darajasi",
+      "expiringSoon": "Tugaydi (30k)",
+      "all": "Hammasi",
+      "employee": "Xodim",
+      "test": "Test",
+      "score": "Ball",
+      "status": "Holat",
+      "expires": "Tugaydi",
+      "reset": "Qayta tiklash"
+    },
+    "common": {
+      "submit": "Saqlash"
+    }
   }
 }

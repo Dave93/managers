@@ -50,6 +50,20 @@
       "when": 1776600000000,
       "tag": "0006_drop_terminals_iiko_id",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783944975005,
+      "tag": "0007_preexisting_drift_asrabox_org",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1783945007737,
+      "tag": "0008_attestation_tables",
+      "breakpoints": true
     }
   ]
 }

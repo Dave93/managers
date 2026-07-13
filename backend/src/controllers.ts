@@ -41,6 +41,7 @@ import { playgroundTicketsController } from "./modules/playground_tickets/contro
 import { salesPlansController } from "./modules/sales_plans/controller";
 import { partnersController } from "./modules/partners/v1/controllers";
 import { asraboxStockController } from "./modules/asrabox_stock/controller";
+import { attestationController } from "./modules/attestation/controller";
 
 
 export const apiController = new Elysia({
@@ -93,4 +94,5 @@ export const apiController = new Elysia({
   .use(externalPartnersController)
   .use(playgroundTicketsController)
   .use(salesPlansController)
-  .use(asraboxStockController);
+  .use(asraboxStockController)
+  .use(attestationController);
