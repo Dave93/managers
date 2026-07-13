@@ -7,6 +7,7 @@ import NoRoleLayout from "./noRole-layout";
 import ManagerLayout from "./manager-layout";
 import PlaygroundLayout from "./playground-layout";
 import SalesPlanLayout from "./sales-plan-layout";
+import AttestationLayout from "./attestation-layout";
 import { Toaster } from "@admin/components/ui/sonner"
 import CanAccess from "../can-access";
 
@@ -31,6 +32,9 @@ export default function MainLayout({
       </CanAccess>
       <CanAccess permission="sales_plan_layout">
         <SalesPlanLayout>{children}</SalesPlanLayout>
+      </CanAccess>
+      <CanAccess permission="attestation_layout">
+        <AttestationLayout>{children}</AttestationLayout>
       </CanAccess>
       {/* {roleCode === "franchise_manager" && (
             <ManagerLayout>{children}</ManagerLayout>
