@@ -51,30 +51,30 @@ export default function QuestionsEditorPage() {
   });
   const addOption = useMutation({
     mutationFn: (question_id: string) =>
-      apiClient.api.attestation.options.post({
+      apiClient.api.attestation.answer_options.post({
         data: { question_id, text: t("questions.optionDefault"), is_correct: false },
       }),
     onSuccess: invalidate,
   });
   const toggleCorrect = useMutation({
     mutationFn: (p: { id: string; is_correct: boolean }) =>
-      apiClient.api.attestation.options({ id: p.id }).put({
+      apiClient.api.attestation.answer_options({ id: p.id }).put({
         data: { is_correct: p.is_correct },
       }),
     onSuccess: invalidate,
   });
   const editOptionText = useMutation({
     mutationFn: (p: { id: string; text: string }) =>
-      apiClient.api.attestation.options({ id: p.id }).put({ data: { text: p.text } }),
+      apiClient.api.attestation.answer_options({ id: p.id }).put({ data: { text: p.text } }),
     onSuccess: invalidate,
   });
   const delOption = useMutation({
     mutationFn: (id: string) =>
-      apiClient.api.attestation.options({ id }).delete({}),
+      apiClient.api.attestation.answer_options({ id }).delete({}),
     onSuccess: invalidate,
   });
 
-  const questions = (data as any)?.data ?? [];
+  const questions = (data as any)?.data?.data ?? [];
 
   return (
     <div className="space-y-6">

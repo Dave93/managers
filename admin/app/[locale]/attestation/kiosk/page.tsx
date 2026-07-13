@@ -121,8 +121,10 @@ export default function KioskPage() {
     setResult(undefined);
   };
 
-  const activeTests = ((tests as any)?.data ?? []).filter((x: any) => x.active);
-  const roster = (employees as any)?.data ?? [];
+  const activeTests = ((tests as any)?.data?.data ?? []).filter(
+    (x: any) => x.active
+  );
+  const roster = (employees as any)?.data?.data ?? [];
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center p-8 overflow-auto">

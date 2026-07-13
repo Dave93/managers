@@ -254,7 +254,7 @@ export const attestationController = new Elysia({
     { permission: "tests.edit", params: t.Object({ id: t.String() }) }
   )
   .post(
-    "/attestation/options",
+    "/attestation/answer_options",
     async ({ body: { data }, drizzle }) => {
       const inserted = await drizzle
         .insert(attestation_test_question_options)
@@ -276,7 +276,7 @@ export const attestationController = new Elysia({
     }
   )
   .put(
-    "/attestation/options/:id",
+    "/attestation/answer_options/:id",
     async ({ params: { id }, body: { data }, drizzle }) => {
       const updated = await drizzle
         .update(attestation_test_question_options)
@@ -299,7 +299,7 @@ export const attestationController = new Elysia({
     }
   )
   .delete(
-    "/attestation/options/:id",
+    "/attestation/answer_options/:id",
     async ({ params: { id }, drizzle }) => {
       const deleted = await drizzle
         .delete(attestation_test_question_options)

@@ -32,7 +32,7 @@ export default function AnalyticsPage() {
   });
 
   const s = ((summary as any)?.data ?? summary) as any;
-  const rows = (attempts as any)?.data ?? [];
+  const rows = (attempts as any)?.data?.data ?? [];
 
   const Tile = ({ label, value }: { label: string; value: any }) => (
     <div className="border rounded-md p-4">

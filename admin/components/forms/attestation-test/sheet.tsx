@@ -22,8 +22,8 @@ export default function AttestationTestFormSheet({
   return (
     <Sheet onOpenChange={setOpen} open={open}>
       <SheetTrigger asChild>{children}</SheetTrigger>
-      <SheetContent className="overflow-y-auto">
-        <SheetHeader>
+      <SheetContent className="w-full sm:max-w-xl overflow-y-auto px-6 pb-8">
+        <SheetHeader className="px-0 pt-6">
           <SheetTitle>{recordId ? t("tests.edit") : t("tests.add")}</SheetTitle>
         </SheetHeader>
         {open && <AttestationTestForm setOpen={setOpen} recordId={recordId} />}
