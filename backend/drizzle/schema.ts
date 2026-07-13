@@ -74,6 +74,16 @@ export const interviewResultEnum = pgEnum('interview_result', [
   'neutral',
 ]);
 
+export const attestation_question_type = pgEnum("attestation_question_type", [
+  "single",
+  "multi",
+]);
+export const attestation_attempt_status = pgEnum("attestation_attempt_status", [
+  "in_progress",
+  "submitted",
+  "expired",
+]);
+
 export const invoices = pgTable(
   "invoices",
   {
@@ -1461,5 +1471,94 @@ export const asrabox_stock_history = pgTable(
         "idx_asrabox_stock_history_terminal_composition_set_at"
       ).on(table.terminal_id, table.composition_id, table.set_at),
     };
+  }
+);
+
+export const employees = pgTable("employees", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  first_name: varchar("first_name", { length: 100 }).notNull(),
+  last_name: varchar("last_name", { length: 100 }).notNull(),
+  position: varchar("position", { length: 150 }),
+  terminal_id: uuid("terminal_id").notNull(),
+  pin_hash: text("pin_hash"),
+  external_id: varchar("external_id", { length: 100 }),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const attestation_tests = pgTable("attestation_tests", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  title: varchar("title", { length: 255 }).notNull(),
+  description: text("description"),
+  passing_score: integer("passing_score").default(80).notNull(),
+  time_limit_minutes: integer("time_limit_minutes"),
+  questions_per_attempt: integer("questions_per_attempt"),
+  shuffle_questions: boolean("shuffle_questions").default(true).notNull(),
+  shuffle_options: boolean("shuffle_options").default(true).notNull(),
+  valid_months: integer("valid_months"),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const attestation_test_questions = pgTable("attestation_test_questions", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  test_id: uuid("test_id").notNull(),
+  text: text("text").notNull(),
+  type: attestation_question_type("type").default("single").notNull(),
+  explanation: text("explanation"),
+  sort: integer("sort").default(0).notNull(),
+  active: boolean("active").default(true).notNull(),
+});
+
+export const attestation_test_question_options = pgTable(
+  "attestation_test_question_options",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    question_id: uuid("question_id").notNull(),
+    text: text("text").notNull(),
+    is_correct: boolean("is_correct").default(false).notNull(),
+    sort: integer("sort").default(0).notNull(),
+  }
+);
+
+export const attestation_test_attempts = pgTable("attestation_test_attempts", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  test_id: uuid("test_id").notNull(),
+  employee_id: uuid("employee_id").notNull(),
+  terminal_id: uuid("terminal_id").notNull(),
+  launched_by_user_id: uuid("launched_by_user_id").notNull(),
+  started_at: timestamp("started_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
+  status: attestation_attempt_status("status").default("in_progress").notNull(),
+  score: integer("score"),
+  passed: boolean("passed"),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }),
+  question_ids: jsonb("question_ids").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const attestation_test_attempt_answers = pgTable(
+  "attestation_test_attempt_answers",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    attempt_id: uuid("attempt_id").notNull(),
+    question_id: uuid("question_id").notNull(),
+    question_text: text("question_text").notNull(),
+    selected_option_ids: jsonb("selected_option_ids").notNull(),
+    is_correct: boolean("is_correct").default(false).notNull(),
   }
 );
