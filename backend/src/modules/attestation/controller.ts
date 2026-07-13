@@ -186,7 +186,7 @@ export const attestationController = new Elysia({
         })),
       };
     },
-    { permission: "tests.edit", params: t.Object({ testId: t.String() }) }
+    { permission: "tests.edit", params: t.Object({ id: t.String() }) }
   )
   .post(
     "/attestation/questions",
