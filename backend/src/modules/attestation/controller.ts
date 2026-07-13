@@ -162,8 +162,8 @@ export const attestationController = new Elysia({
   )
   // ---- authoring: questions with options ----
   .get(
-    "/attestation/tests/:testId/questions",
-    async ({ params: { testId }, drizzle }) => {
+    "/attestation/tests/:id/questions",
+    async ({ params: { id: testId }, drizzle }) => {
       const questions = await drizzle
         .select()
         .from(attestation_test_questions)
@@ -365,7 +365,12 @@ export const attestationController = new Elysia({
   )
   .post(
     "/attestation/employees",
-    async ({ body: { data }, drizzle }) => {
+    async ({ body: { data }, user, terminals, set, drizzle }) => {
+      const isHQ = user?.is_super_user === true;
+      if (!isHQ && !terminals.includes(data.terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
       const { pin, ...rest } = data;
       const pin_hash = pin ? await Bun.password.hash(pin) : null;
       const inserted = await drizzle
@@ -392,7 +397,30 @@ export const attestationController = new Elysia({
   )
   .put(
     "/attestation/employees/:id",
-    async ({ params: { id }, body: { data }, drizzle }) => {
+    async ({ params: { id }, body: { data }, user, terminals, set, drizzle }) => {
+      const current = await drizzle
+        .select()
+        .from(employees)
+        .where(eq(employees.id, id))
+        .execute();
+      if (!current.length) {
+        set.status = 404;
+        return { message: "Employee not found" };
+      }
+      const isHQ = user?.is_super_user === true;
+      if (!isHQ && !terminals.includes(current[0].terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
+      // Moving an employee to another terminal is a cross-tenant transfer — HQ only.
+      if (
+        !isHQ &&
+        data.terminal_id != null &&
+        data.terminal_id !== current[0].terminal_id
+      ) {
+        set.status = 403;
+        return { message: "Cross-terminal transfer requires HQ" };
+      }
       const { pin, ...rest } = data;
       const patch: Record<string, unknown> = {
         ...rest,
@@ -425,7 +453,21 @@ export const attestationController = new Elysia({
   )
   .delete(
     "/attestation/employees/:id",
-    async ({ params: { id }, drizzle }) => {
+    async ({ params: { id }, user, terminals, set, drizzle }) => {
+      const current = await drizzle
+        .select()
+        .from(employees)
+        .where(eq(employees.id, id))
+        .execute();
+      if (!current.length) {
+        set.status = 404;
+        return { message: "Employee not found" };
+      }
+      const isHQ = user?.is_super_user === true;
+      if (!isHQ && !terminals.includes(current[0].terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
       const deleted = await drizzle
         .delete(employees)
         .where(eq(employees.id, id))
@@ -439,7 +481,7 @@ export const attestationController = new Elysia({
   .post(
     "/attestation/attempts/start",
     async ({ body: { data }, user, terminals, set, redis, drizzle }) => {
-      const { test_id, employee_id, terminal_id, pin } = data;
+      const { test_id, employee_id, pin } = data;
 
       // employee must exist, be active, and be in the manager's scope
       const empRows = await drizzle
@@ -563,7 +605,7 @@ export const attestationController = new Elysia({
         .values({
           test_id,
           employee_id,
-          terminal_id,
+          terminal_id: emp.terminal_id, // server-derived, never client-supplied
           launched_by_user_id: user!.id,
           status: "in_progress",
           question_ids: orderedIds,
@@ -601,7 +643,6 @@ export const attestationController = new Elysia({
         data: t.Object({
           test_id: t.String(),
           employee_id: t.String(),
-          terminal_id: t.String(),
           pin: t.String(),
         }),
       }),
@@ -610,7 +651,7 @@ export const attestationController = new Elysia({
   // ---- take test: submit ----
   .post(
     "/attestation/attempts/:id/submit",
-    async ({ params: { id }, body: { data }, set, drizzle }) => {
+    async ({ params: { id }, body: { data }, user, terminals, set, drizzle }) => {
       const attemptRows = await drizzle
         .select()
         .from(attestation_test_attempts)
@@ -621,6 +662,11 @@ export const attestationController = new Elysia({
         return { message: "Attempt not found" };
       }
       const attempt = attemptRows[0];
+      const isHQ = user?.is_super_user === true;
+      if (!isHQ && !terminals.includes(attempt.terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
       if (attempt.status !== "in_progress") {
         set.status = 409;
         return { message: "Attempt already finalized" };
@@ -732,7 +778,21 @@ export const attestationController = new Elysia({
   // ---- HQ retake reset ----
   .post(
     "/attestation/attempts/:id/reset",
-    async ({ params: { id }, drizzle }) => {
+    async ({ params: { id }, user, terminals, set, drizzle }) => {
+      const rows = await drizzle
+        .select({ terminal_id: attestation_test_attempts.terminal_id })
+        .from(attestation_test_attempts)
+        .where(eq(attestation_test_attempts.id, id))
+        .execute();
+      if (!rows.length) {
+        set.status = 404;
+        return { message: "Attempt not found" };
+      }
+      const isHQ = user?.is_super_user === true;
+      if (!isHQ && !terminals.includes(rows[0].terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
       const updated = await drizzle
         .update(attestation_test_attempts)
         .set({ status: "expired" })
