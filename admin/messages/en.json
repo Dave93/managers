@@ -134,5 +134,91 @@
       "exportToCSV": "Export to CSV",
       "fullScreen": "Full Screen"
     }
+  },
+  "attestation": {
+    "nav": {
+      "tests": "Tests",
+      "employees": "Employees",
+      "analytics": "Analytics",
+      "kiosk": "Take test"
+    },
+    "tests": {
+      "title": "Attestation tests",
+      "new": "New test",
+      "edit": "Edit test",
+      "add": "New test",
+      "name": "Title",
+      "description": "Description",
+      "passingScore": "Passing score (%)",
+      "timeLimit": "Time limit (min)",
+      "questionsPerAttempt": "Questions per attempt",
+      "validMonths": "Validity (months)",
+      "shuffleQuestions": "Shuffle questions",
+      "shuffleOptions": "Shuffle options",
+      "active": "Active",
+      "passingShort": "Passing %",
+      "added": "Test added",
+      "updated": "Test updated",
+      "manageQuestions": "Questions"
+    },
+    "questions": {
+      "title": "Test questions",
+      "newQuestion": "New question text",
+      "addQuestion": "Question",
+      "single": "Single answer",
+      "multi": "Multiple",
+      "addOption": "Option",
+      "optionDefault": "New option"
+    },
+    "employees": {
+      "title": "Employees",
+      "new": "New employee",
+      "edit": "Edit",
+      "add": "New employee",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "position": "Position",
+      "terminal": "Branch",
+      "pin": "PIN",
+      "pinHint": "PIN (leave empty to keep)",
+      "active": "Active",
+      "added": "Employee added",
+      "updated": "Employee updated",
+      "selectTerminal": "Select branch"
+    },
+    "kiosk": {
+      "pickTest": "Choose a test",
+      "pickEmployee": "Select yourself",
+      "enterPin": "Enter your PIN",
+      "start": "Start",
+      "cancel": "Cancel",
+      "finish": "Finish",
+      "test": "Test",
+      "passed": "Passed",
+      "failed": "Failed",
+      "score": "Score",
+      "timeExpired": "Time expired",
+      "done": "Done",
+      "startError": "Start error",
+      "submitError": "Submit error"
+    },
+    "analytics": {
+      "title": "Attestation analytics",
+      "total": "Total",
+      "passed": "Passed",
+      "failed": "Failed",
+      "passRate": "Pass rate",
+      "expiringSoon": "Expiring (30d)",
+      "all": "All",
+      "employee": "Employee",
+      "test": "Test",
+      "score": "Score",
+      "status": "Status",
+      "expires": "Expires",
+      "reset": "Reset"
+    },
+    "common": {
+      "submit": "Submit"
+    }
   }
 }

@@ -109,5 +109,91 @@
       "noResults": "Сизнинг сўровингизга мос таомлар топилмади",
       "sortHint": "Саралаш учун устун сарлавҳаларини босинг"
     }
+  },
+  "attestation": {
+    "nav": {
+      "tests": "Тестлар",
+      "employees": "Ходимлар",
+      "analytics": "Таҳлил",
+      "kiosk": "Тест топшириш"
+    },
+    "tests": {
+      "title": "Аттестация тестлари",
+      "new": "Янги тест",
+      "edit": "Тестни таҳрирлаш",
+      "add": "Янги тест",
+      "name": "Номи",
+      "description": "Тавсиф",
+      "passingScore": "Ўтиш бали (%)",
+      "timeLimit": "Вақт чегараси (мин)",
+      "questionsPerAttempt": "Уринишга саволлар",
+      "validMonths": "Амал муддати (ой)",
+      "shuffleQuestions": "Саволларни аралаштириш",
+      "shuffleOptions": "Жавобларни аралаштириш",
+      "active": "Фаол",
+      "passingShort": "Ўтиш %",
+      "added": "Тест қўшилди",
+      "updated": "Тест янгиланди",
+      "manageQuestions": "Саволлар"
+    },
+    "questions": {
+      "title": "Тест саволлари",
+      "newQuestion": "Янги савол матни",
+      "addQuestion": "Савол",
+      "single": "Битта жавоб",
+      "multi": "Бир нечта",
+      "addOption": "Вариант",
+      "optionDefault": "Янги вариант"
+    },
+    "employees": {
+      "title": "Ходимлар",
+      "new": "Янги ходим",
+      "edit": "Таҳрирлаш",
+      "add": "Янги ходим",
+      "firstName": "Исм",
+      "lastName": "Фамилия",
+      "position": "Лавозим",
+      "terminal": "Филиал",
+      "pin": "PIN",
+      "pinHint": "PIN (ўзгартирмаслик учун бўш қолдиринг)",
+      "active": "Фаол",
+      "added": "Ходим қўшилди",
+      "updated": "Ходим янгиланди",
+      "selectTerminal": "Филиални танланг"
+    },
+    "kiosk": {
+      "pickTest": "Тестни танланг",
+      "pickEmployee": "Ўзингизни танланг",
+      "enterPin": "PIN киритинг",
+      "start": "Бошлаш",
+      "cancel": "Бекор қилиш",
+      "finish": "Якунлаш",
+      "test": "Тест",
+      "passed": "Ўтди",
+      "failed": "Ўтмади",
+      "score": "Балл",
+      "timeExpired": "Вақт тугади",
+      "done": "Тайёр",
+      "startError": "Бошлаш хатоси",
+      "submitError": "Юбориш хатоси"
+    },
+    "analytics": {
+      "title": "Аттестация таҳлили",
+      "total": "Жами",
+      "passed": "Ўтди",
+      "failed": "Ўтмади",
+      "passRate": "Ўтиш даражаси",
+      "expiringSoon": "Тугайди (30к)",
+      "all": "Ҳаммаси",
+      "employee": "Ходим",
+      "test": "Тест",
+      "score": "Балл",
+      "status": "Ҳолат",
+      "expires": "Тугайди",
+      "reset": "Қайта тиклаш"
+    },
+    "common": {
+      "submit": "Сақлаш"
+    }
   }
 }
