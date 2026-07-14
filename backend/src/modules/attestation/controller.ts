@@ -316,7 +316,9 @@ export const attestationController = new Elysia({
   .get(
     "/attestation/employees",
     async ({ query: { limit, offset }, user, terminals, drizzle }) => {
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       const scope = isHQ ? [] : [inArray(employees.terminal_id, terminals)];
       const count = await drizzle
         .select({ count: sql<number>`count(*)` })
@@ -356,7 +358,9 @@ export const attestationController = new Elysia({
         return { message: "Employee not found" };
       }
       const emp = rows[0];
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(emp.terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -368,7 +372,9 @@ export const attestationController = new Elysia({
   .post(
     "/attestation/employees",
     async ({ body: { data }, user, terminals, set, drizzle }) => {
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(data.terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -406,7 +412,9 @@ export const attestationController = new Elysia({
         set.status = 404;
         return { message: "Employee not found" };
       }
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(current[0].terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -455,7 +463,9 @@ export const attestationController = new Elysia({
         set.status = 404;
         return { message: "Employee not found" };
       }
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(current[0].terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -527,7 +537,9 @@ export const attestationController = new Elysia({
         return { message: "Employee not found" };
       }
       const emp = empRows[0];
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(emp.terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -705,7 +717,9 @@ export const attestationController = new Elysia({
         return { message: "Attempt not found" };
       }
       const attempt = attemptRows[0];
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(attempt.terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -831,7 +845,9 @@ export const attestationController = new Elysia({
         set.status = 404;
         return { message: "Attempt not found" };
       }
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       if (!isHQ && !terminals.includes(rows[0].terminal_id)) {
         set.status = 403;
         return { message: "Out of scope" };
@@ -850,7 +866,9 @@ export const attestationController = new Elysia({
   .get(
     "/attestation/analytics/attempts",
     async ({ query, user, terminals, drizzle }) => {
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       const where: (SQLWrapper | undefined)[] = [];
       if (!isHQ)
         where.push(inArray(attestation_test_attempts.terminal_id, terminals));
@@ -901,7 +919,9 @@ export const attestationController = new Elysia({
   .get(
     "/attestation/analytics/summary",
     async ({ user, terminals, drizzle }) => {
-      const isHQ = user?.is_super_user === true;
+      // Central/HQ access: super-user, or an account not tied to any branch
+      // (no users_terminals). Branch-assigned accounts stay scoped to their terminals.
+      const isHQ = user?.is_super_user === true || terminals.length === 0;
       const scope = isHQ
         ? []
         : [inArray(attestation_test_attempts.terminal_id, terminals)];
