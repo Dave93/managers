@@ -8,6 +8,7 @@ import {
   attestation_test_attempts,
   attestation_test_attempt_answers,
   employees,
+  users,
 } from "backend/drizzle/schema";
 import {
   gradeAttempt,
@@ -33,11 +34,12 @@ function stripPin<T extends { pin_hash?: unknown }>(row: T): Omit<T, "pin_hash">
   return rest;
 }
 
-// PIN brute-force lockout: N failures within the window blocks further tries.
+// Manager-PIN brute-force lockout: N failures within the window blocks further
+// tries. Keyed by the manager (branch account) id.
 const PIN_MAX_FAILS = 5;
 const PIN_LOCK_WINDOW_SEC = 15 * 60;
-const pinFailKey = (employeeId: string) =>
-  `${process.env.PROJECT_PREFIX}attestation_pin_fail:${employeeId}`;
+const pinFailKey = (accountId: string) =>
+  `${process.env.PROJECT_PREFIX}attestation_pin_fail:${accountId}`;
 
 export const attestationController = new Elysia({
   name: "@api/attestation",
@@ -371,11 +373,9 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Out of scope" };
       }
-      const { pin, ...rest } = data;
-      const pin_hash = pin ? await Bun.password.hash(pin) : null;
       const inserted = await drizzle
         .insert(employees)
-        .values({ ...rest, pin_hash })
+        .values(data)
         .returning({ id: employees.id })
         .execute();
       return { data: inserted[0] };
@@ -390,7 +390,6 @@ export const attestationController = new Elysia({
           terminal_id: t.String(),
           external_id: t.Optional(t.Nullable(t.String())),
           active: t.Optional(t.Boolean()),
-          pin: t.Optional(t.String()),
         }),
       }),
     }
@@ -421,15 +420,9 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Cross-terminal transfer requires HQ" };
       }
-      const { pin, ...rest } = data;
-      const patch: Record<string, unknown> = {
-        ...rest,
-        updated_at: new Date().toISOString(),
-      };
-      if (pin) patch.pin_hash = await Bun.password.hash(pin);
       const updated = await drizzle
         .update(employees)
-        .set(patch)
+        .set({ ...data, updated_at: new Date().toISOString() })
         .where(eq(employees.id, id))
         .returning({ id: employees.id })
         .execute();
@@ -446,7 +439,6 @@ export const attestationController = new Elysia({
           terminal_id: t.Optional(t.String()),
           external_id: t.Optional(t.Nullable(t.String())),
           active: t.Optional(t.Boolean()),
-          pin: t.Optional(t.String()),
         }),
       }),
     }
@@ -477,6 +469,39 @@ export const attestationController = new Elysia({
     },
     { permission: "employees.delete", params: t.Object({ id: t.String() }) }
   )
+  // ---- manager PIN (self-service; the branch account sets its own) ----
+  .get(
+    "/attestation/manager-pin/status",
+    async ({ user, drizzle }) => {
+      const rows = await drizzle
+        .select({ pin_hash: users.attestation_pin_hash })
+        .from(users)
+        .where(eq(users.id, user!.id))
+        .execute();
+      return { has_pin: !!rows[0]?.pin_hash };
+    },
+    { userAuth: true }
+  )
+  .post(
+    "/attestation/manager-pin",
+    async ({ body: { data }, user, set, drizzle }) => {
+      if (!/^\d{4,6}$/.test(data.pin)) {
+        set.status = 400;
+        return { message: "PIN must be 4-6 digits" };
+      }
+      const pin_hash = await Bun.password.hash(data.pin);
+      await drizzle
+        .update(users)
+        .set({ attestation_pin_hash: pin_hash })
+        .where(eq(users.id, user!.id))
+        .execute();
+      return { ok: true };
+    },
+    {
+      userAuth: true,
+      body: t.Object({ data: t.Object({ pin: t.String() }) }),
+    }
+  )
   // ---- take test: start ----
   .post(
     "/attestation/attempts/start",
@@ -499,20 +524,30 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Out of scope" };
       }
-      if (!emp.pin_hash) {
+
+      // Manager PIN: the branch account (logged-in `user`) authorizes the launch
+      // with their own PIN. Fetched fresh from DB (not the cached session user)
+      // so a newly-set PIN takes effect without re-login.
+      const mgrRows = await drizzle
+        .select({ pin_hash: users.attestation_pin_hash })
+        .from(users)
+        .where(eq(users.id, user!.id))
+        .execute();
+      const mgrPinHash = mgrRows[0]?.pin_hash;
+      if (!mgrPinHash) {
         set.status = 400;
-        return { message: "Employee has no PIN set" };
+        return { message: "Manager PIN not set" };
       }
 
-      // brute-force lockout check
-      const failKey = pinFailKey(employee_id);
+      // brute-force lockout keyed by the manager account
+      const failKey = pinFailKey(user!.id);
       const fails = parseInt((await redis.get(failKey)) ?? "0");
       if (fails >= PIN_MAX_FAILS) {
         set.status = 429;
         return { message: "Too many failed PIN attempts. Try again later." };
       }
 
-      const pinOk = await Bun.password.verify(pin, emp.pin_hash);
+      const pinOk = await Bun.password.verify(pin, mgrPinHash);
       if (!pinOk) {
         const next = await redis.incr(failKey);
         if (next === 1) await redis.expire(failKey, PIN_LOCK_WINDOW_SEC);

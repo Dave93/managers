@@ -103,7 +103,8 @@
       "tests": "Testlar",
       "employees": "Xodimlar",
       "analytics": "Tahlil",
-      "kiosk": "Test topshirish"
+      "kiosk": "Test topshirish",
+      "pin": "Mening PINim"
     },
     "tests": {
       "title": "Attestatsiya testlari",
@@ -152,7 +153,7 @@
     "kiosk": {
       "pickTest": "Testni tanlang",
       "pickEmployee": "O'zingizni tanlang",
-      "enterPin": "PIN kiriting",
+      "enterPin": "Menejer PINini kiriting",
       "start": "Boshlash",
       "cancel": "Bekor qilish",
       "finish": "Yakunlash",
@@ -182,6 +183,16 @@
     },
     "common": {
       "submit": "Saqlash"
+    },
+    "pin": {
+      "title": "Menejer PINi",
+      "desc": "Planshetda xodimlarga test boshlash uchun PIN kerak",
+      "isSet": "PIN o'rnatilgan",
+      "notSet": "PIN hali o'rnatilmagan",
+      "newPin": "Yangi PIN (4-6 raqam)",
+      "save": "PINni saqlash",
+      "saved": "PIN saqlandi",
+      "invalid": "PIN 4-6 raqam bo'lishi kerak"
     }
   }
 }
