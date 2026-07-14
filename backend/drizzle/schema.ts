@@ -565,6 +565,7 @@ export const users = pgTable(
     api_token: varchar("api_token", { length: 250 }),
     tg_id: varchar("tg_id", { length: 250 }),
     organization_id: uuid("organization_id"),
+    attestation_pin_hash: varchar("attestation_pin_hash", { length: 255 }),
   },
   (table) => {
     return {

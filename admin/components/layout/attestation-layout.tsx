@@ -2,7 +2,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
-import { GraduationCap, Users, BarChart3, MonitorPlay } from "lucide-react";
+import { GraduationCap, Users, BarChart3, MonitorPlay, KeyRound } from "lucide-react";
 
 export default function AttestationLayout({
   children,
@@ -16,6 +16,7 @@ export default function AttestationLayout({
     { href: "/attestation/employees", label: t("employees"), icon: Users },
     { href: "/attestation/analytics", label: t("analytics"), icon: BarChart3 },
     { href: "/attestation/kiosk", label: t("kiosk"), icon: MonitorPlay },
+    { href: "/attestation/pin", label: t("pin"), icon: KeyRound },
   ];
 
   return (

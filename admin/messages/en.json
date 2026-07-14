@@ -140,7 +140,8 @@
       "tests": "Tests",
       "employees": "Employees",
       "analytics": "Analytics",
-      "kiosk": "Take test"
+      "kiosk": "Take test",
+      "pin": "My PIN"
     },
     "tests": {
       "title": "Attestation tests",
@@ -189,7 +190,7 @@
     "kiosk": {
       "pickTest": "Choose a test",
       "pickEmployee": "Select yourself",
-      "enterPin": "Enter your PIN",
+      "enterPin": "Enter manager PIN",
       "start": "Start",
       "cancel": "Cancel",
       "finish": "Finish",
@@ -219,6 +220,16 @@
     },
     "common": {
       "submit": "Submit"
+    },
+    "pin": {
+      "title": "Manager PIN",
+      "desc": "PIN is required to launch tests for employees on the tablet",
+      "isSet": "PIN is set",
+      "notSet": "PIN not set yet",
+      "newPin": "New PIN (4-6 digits)",
+      "save": "Save PIN",
+      "saved": "PIN saved",
+      "invalid": "PIN must be 4-6 digits"
     }
   }
 }

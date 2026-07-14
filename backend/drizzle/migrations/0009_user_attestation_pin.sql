@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "attestation_pin_hash" varchar(255);

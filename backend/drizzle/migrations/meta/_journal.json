@@ -64,6 +64,13 @@
       "when": 1783945007737,
       "tag": "0008_attestation_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1784028113514,
+      "tag": "0009_user_attestation_pin",
+      "breakpoints": true
     }
   ]
 }

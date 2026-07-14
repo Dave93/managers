@@ -58,13 +58,10 @@ export default function AttestationEmployeeForm({
       position: "",
       terminal_id: "",
       active: true,
-      pin: "",
     },
     onSubmit: async ({ value }) => {
-      const payload: any = { ...value };
-      if (!payload.pin) delete payload.pin;
-      if (recordId) updateMutation.mutate({ data: payload, id: recordId });
-      else createMutation.mutate(payload);
+      if (recordId) updateMutation.mutate({ data: value, id: recordId });
+      else createMutation.mutate(value);
     },
   });
 
@@ -85,7 +82,6 @@ export default function AttestationEmployeeForm({
       form.setFieldValue("position", r.position ?? "");
       form.setFieldValue("terminal_id", r.terminal_id ?? "");
       form.setFieldValue("active", r.active ?? true);
-      form.setFieldValue("pin", "");
     }
   }, [record]);
 
@@ -139,21 +135,6 @@ export default function AttestationEmployeeForm({
                 ))}
               </SelectContent>
             </Select>
-          )}
-        </form.Field>
-      </div>
-
-      <div className="space-y-2">
-        <Label>{t("employees.pin")}</Label>
-        <form.Field name="pin">
-          {(field) => (
-            <Input
-              type="password"
-              inputMode="numeric"
-              placeholder={t("employees.pinHint")}
-              value={field.state.value}
-              onChange={(e) => field.handleChange(e.target.value)}
-            />
           )}
         </form.Field>
       </div>
