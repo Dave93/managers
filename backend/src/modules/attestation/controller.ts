@@ -472,11 +472,15 @@ export const attestationController = new Elysia({
   // ---- manager PIN (self-service; the branch account sets its own) ----
   .get(
     "/attestation/manager-pin/status",
-    async ({ user, drizzle }) => {
+    async ({ user, set, drizzle }) => {
+      if (!user) {
+        set.status = 401;
+        return { message: "Unauthorized" };
+      }
       const rows = await drizzle
         .select({ pin_hash: users.attestation_pin_hash })
         .from(users)
-        .where(eq(users.id, user!.id))
+        .where(eq(users.id, user.id))
         .execute();
       return { has_pin: !!rows[0]?.pin_hash };
     },
@@ -485,6 +489,10 @@ export const attestationController = new Elysia({
   .post(
     "/attestation/manager-pin",
     async ({ body: { data }, user, set, drizzle }) => {
+      if (!user) {
+        set.status = 401;
+        return { message: "Unauthorized" };
+      }
       if (!/^\d{4,6}$/.test(data.pin)) {
         set.status = 400;
         return { message: "PIN must be 4-6 digits" };
@@ -493,7 +501,7 @@ export const attestationController = new Elysia({
       await drizzle
         .update(users)
         .set({ attestation_pin_hash: pin_hash })
-        .where(eq(users.id, user!.id))
+        .where(eq(users.id, user.id))
         .execute();
       return { ok: true };
     },
