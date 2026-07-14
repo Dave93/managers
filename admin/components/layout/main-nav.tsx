@@ -193,6 +193,33 @@ export function NavigationMenuDemo() {
             </Link>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="attestation_layout">
+          <NavigationMenuItem>
+            <DropdownMenu>
+              <DropdownMenuTrigger className="flex items-center gap-2 h-9 px-4 py-2 hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground rounded-md text-sm">
+                Аттестация
+                <ChevronDown size={18} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-[240px]">
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/attestation/tests`}>Тесты</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/attestation/employees`}>Сотрудники</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/attestation/analytics`}>Аналитика</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/attestation/kiosk`}>Пройти тест</Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href={`/${locale}/attestation/pin`}>Мой PIN</Link>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="playground_tickets.list">
           <NavigationMenuItem>
             <DropdownMenu>
