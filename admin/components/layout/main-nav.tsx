@@ -220,6 +220,15 @@ export function NavigationMenuDemo() {
             </DropdownMenu>
           </NavigationMenuItem>
         </CanAccess>
+        <CanAccess permission="medical_layout">
+          <NavigationMenuItem>
+            <Link href={`/${locale}/medical`} legacyBehavior passHref>
+              <NavigationMenuLink className={navigationMenuTriggerStyle()}>
+                Медосмотр
+              </NavigationMenuLink>
+            </Link>
+          </NavigationMenuItem>
+        </CanAccess>
         <CanAccess permission="playground_tickets.list">
           <NavigationMenuItem>
             <DropdownMenu>
