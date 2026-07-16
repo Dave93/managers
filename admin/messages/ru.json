@@ -270,7 +270,8 @@
       "all": "Все",
       "activeYes": "Активные",
       "activeNo": "Неактивные",
-      "reset": "Сброс"
+      "reset": "Сброс",
+      "test": "Тест"
     },
     "managerPins": {
       "title": "PIN менеджеров",

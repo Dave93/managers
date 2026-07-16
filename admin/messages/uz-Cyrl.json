@@ -215,7 +215,8 @@
       "all": "Ҳаммаси",
       "activeYes": "Фаол",
       "activeNo": "Нофаол",
-      "reset": "Тозалаш"
+      "reset": "Тозалаш",
+      "test": "Тест"
     },
     "managerPins": {
       "title": "Менежер PINлари",

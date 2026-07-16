@@ -240,7 +240,8 @@
       "all": "All",
       "activeYes": "Active",
       "activeNo": "Inactive",
-      "reset": "Reset"
+      "reset": "Reset",
+      "test": "Test"
     },
     "managerPins": {
       "title": "Manager PINs",

@@ -1003,6 +1003,13 @@ export const attestationController = new Elysia({
         where.push(eq(attestation_test_attempts.test_id, query.test_id));
       if (query.passed != null)
         where.push(eq(attestation_test_attempts.passed, query.passed === "true"));
+      if (query.search)
+        where.push(
+          or(
+            ilike(employees.first_name, `%${query.search}%`),
+            ilike(employees.last_name, `%${query.search}%`)
+          )
+        );
       const rows = await drizzle
         .select({
           id: attestation_test_attempts.id,
@@ -1038,6 +1045,7 @@ export const attestationController = new Elysia({
         terminal_id: t.Optional(t.String()),
         test_id: t.Optional(t.String()),
         passed: t.Optional(t.String()),
+        search: t.Optional(t.String()),
       }),
     }
   )

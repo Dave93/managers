@@ -203,7 +203,8 @@
       "all": "Hammasi",
       "activeYes": "Faol",
       "activeNo": "Nofaol",
-      "reset": "Tozalash"
+      "reset": "Tozalash",
+      "test": "Test"
     },
     "managerPins": {
       "title": "Menejer PINlari",
