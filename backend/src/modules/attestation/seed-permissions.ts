@@ -17,6 +17,7 @@ const SLUGS: { slug: string; description: string }[] = [
   { slug: "attestation.reset", description: "Attestation: reset an attempt (HQ)" },
   { slug: "attestation.analytics", description: "Attestation: view analytics" },
   { slug: "attestation.hq", description: "Attestation: HQ / cross-branch access" },
+  { slug: "attestation.manage_pins", description: "Attestation: set/reset manager PINs" },
   { slug: "attestation_layout", description: "Attestation: top-level admin layout" },
 ];
 
