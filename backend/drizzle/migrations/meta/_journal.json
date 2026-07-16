@@ -71,6 +71,13 @@
       "when": 1784028113514,
       "tag": "0009_user_attestation_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1784205955386,
+      "tag": "0010_complete_sister_grimm",
+      "breakpoints": true
     }
   ]
 }
