@@ -2,7 +2,7 @@
 import React from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
-import { GraduationCap, Users, BarChart3, MonitorPlay, KeyRound } from "lucide-react";
+import { GraduationCap, Users, BarChart3, MonitorPlay, KeyRound, ShieldCheck } from "lucide-react";
 import CanAccess from "@admin/components/can-access";
 
 export default function AttestationLayout({
@@ -18,6 +18,7 @@ export default function AttestationLayout({
     { href: "/attestation/analytics", label: t("analytics"), icon: BarChart3, permission: "attestation.analytics" },
     { href: "/attestation/kiosk", label: t("kiosk"), icon: MonitorPlay, permission: "attestation.run" },
     { href: "/attestation/pin", label: t("pin"), icon: KeyRound, permission: "attestation_layout" },
+    { href: "/attestation/manager-pins", label: t("managerPins"), icon: ShieldCheck, permission: "attestation.manage_pins" },
   ];
 
   return (
