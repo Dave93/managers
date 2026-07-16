@@ -20,7 +20,9 @@ import {
   and,
   asc,
   eq,
+  ilike,
   inArray,
+  or,
   sql,
   SQLWrapper,
   InferSelectModel,
@@ -330,18 +332,31 @@ export const attestationController = new Elysia({
   // ---- employees roster ----
   .get(
     "/attestation/employees",
-    async ({ query: { limit, offset }, user, role, terminals, cacheController, drizzle }) => {
+    async ({ query, user, role, terminals, cacheController, drizzle }) => {
+      const { limit, offset, search, terminal_id, position, active } = query;
       const isHQ = await resolveIsHq({ user, role, cacheController });
-      const scope = isHQ ? [] : [inArray(employees.terminal_id, terminals)];
+      const where: (SQLWrapper | undefined)[] = [];
+      if (!isHQ) where.push(inArray(employees.terminal_id, terminals));
+      if (search)
+        where.push(
+          or(
+            ilike(employees.first_name, `%${search}%`),
+            ilike(employees.last_name, `%${search}%`)
+          )
+        );
+      if (terminal_id) where.push(eq(employees.terminal_id, terminal_id));
+      if (position) where.push(ilike(employees.position, `%${position}%`));
+      if (active === "true" || active === "false")
+        where.push(eq(employees.active, active === "true"));
       const count = await drizzle
         .select({ count: sql<number>`count(*)` })
         .from(employees)
-        .where(and(...scope))
+        .where(and(...where))
         .execute();
       const rows = await drizzle
         .select()
         .from(employees)
-        .where(and(...scope))
+        .where(and(...where))
         .limit(+limit)
         .offset(+offset)
         .execute();
@@ -352,9 +367,10 @@ export const attestationController = new Elysia({
       query: t.Object({
         limit: t.String(),
         offset: t.String(),
-        sort: t.Optional(t.String()),
-        filters: t.Optional(t.String()),
-        fields: t.Optional(t.String()),
+        search: t.Optional(t.String()),
+        terminal_id: t.Optional(t.String()),
+        position: t.Optional(t.String()),
+        active: t.Optional(t.String()),
       }),
     }
   )

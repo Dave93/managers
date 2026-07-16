@@ -230,6 +230,16 @@
       "save": "Save PIN",
       "saved": "PIN saved",
       "invalid": "PIN must be 4-6 digits"
+    },
+    "filters": {
+      "search": "Search (name)",
+      "branch": "Branch",
+      "position": "Position",
+      "active": "Status",
+      "all": "All",
+      "activeYes": "Active",
+      "activeNo": "Inactive",
+      "reset": "Reset"
     }
   }
 }

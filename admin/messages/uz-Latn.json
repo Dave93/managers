@@ -193,6 +193,16 @@
       "save": "PINni saqlash",
       "saved": "PIN saqlandi",
       "invalid": "PIN 4-6 raqam bo'lishi kerak"
+    },
+    "filters": {
+      "search": "Qidiruv (F.I.Sh.)",
+      "branch": "Filial",
+      "position": "Lavozim",
+      "active": "Holati",
+      "all": "Hammasi",
+      "activeYes": "Faol",
+      "activeNo": "Nofaol",
+      "reset": "Tozalash"
     }
   }
 }
