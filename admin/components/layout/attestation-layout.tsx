@@ -3,6 +3,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
 import { GraduationCap, Users, BarChart3, MonitorPlay, KeyRound } from "lucide-react";
+import CanAccess from "@admin/components/can-access";
 
 export default function AttestationLayout({
   children,
@@ -12,11 +13,11 @@ export default function AttestationLayout({
   const t = useTranslations("attestation.nav");
 
   const navItems = [
-    { href: "/attestation/tests", label: t("tests"), icon: GraduationCap },
-    { href: "/attestation/employees", label: t("employees"), icon: Users },
-    { href: "/attestation/analytics", label: t("analytics"), icon: BarChart3 },
-    { href: "/attestation/kiosk", label: t("kiosk"), icon: MonitorPlay },
-    { href: "/attestation/pin", label: t("pin"), icon: KeyRound },
+    { href: "/attestation/tests", label: t("tests"), icon: GraduationCap, permission: "tests.list" },
+    { href: "/attestation/employees", label: t("employees"), icon: Users, permission: "employees.list" },
+    { href: "/attestation/analytics", label: t("analytics"), icon: BarChart3, permission: "attestation.analytics" },
+    { href: "/attestation/kiosk", label: t("kiosk"), icon: MonitorPlay, permission: "attestation.run" },
+    { href: "/attestation/pin", label: t("pin"), icon: KeyRound, permission: "attestation_layout" },
   ];
 
   return (
@@ -25,14 +26,15 @@ export default function AttestationLayout({
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </Link>
+            <CanAccess key={item.href} permission={item.permission}>
+              <Link
+                href={item.href}
+                className="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </Link>
+            </CanAccess>
           );
         })}
       </nav>
