@@ -2,7 +2,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { useState } from "react";
+import { Input } from "@components/ui/input";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CanAccess from "@admin/components/can-access";
 
@@ -10,6 +11,32 @@ export default function AnalyticsPage() {
   const t = useTranslations("attestation");
   const qc = useQueryClient();
   const [passed, setPassed] = useState<string>("");
+  const [testId, setTestId] = useState<string>("");
+  const [terminalId, setTerminalId] = useState<string>("");
+  const [search, setSearch] = useState<string>("");
+  const [debSearch, setDebSearch] = useState<string>("");
+
+  useEffect(() => {
+    const id = setTimeout(() => setDebSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search]);
+
+  const { data: testsData } = useQuery({
+    queryKey: ["attestation_tests_all"],
+    queryFn: () =>
+      apiClient.api.attestation.tests.get({
+        query: { limit: "200", offset: "0", fields: "id,title" },
+      }),
+  });
+  const testList = (testsData as any)?.data?.data ?? [];
+
+  const { data: terminalsData } = useQuery({
+    queryKey: ["terminals_cached"],
+    queryFn: () => apiClient.api.terminals.cached.get(),
+  });
+  const terminalList = [
+    ...((terminalsData as any)?.data ?? terminalsData ?? []),
+  ].sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), "ru"));
 
   const { data: summary } = useQuery({
     queryKey: ["attestation_summary"],
@@ -17,12 +44,26 @@ export default function AnalyticsPage() {
   });
 
   const { data: attempts } = useQuery({
-    queryKey: ["attestation_attempts", passed],
+    queryKey: ["attestation_attempts", passed, testId, terminalId, debSearch],
     queryFn: () =>
       apiClient.api.attestation.analytics.attempts.get({
-        query: { limit: "100", offset: "0", ...(passed ? { passed } : {}) },
+        query: {
+          limit: "100",
+          offset: "0",
+          ...(passed ? { passed } : {}),
+          ...(testId ? { test_id: testId } : {}),
+          ...(terminalId ? { terminal_id: terminalId } : {}),
+          ...(debSearch ? { search: debSearch } : {}),
+        },
       }),
   });
+
+  const resetFilters = () => {
+    setPassed("");
+    setTestId("");
+    setTerminalId("");
+    setSearch("");
+  };
 
   const resetMutation = useMutation({
     mutationFn: (id: string) =>
@@ -52,7 +93,37 @@ export default function AnalyticsPage() {
         <Tile label={t("analytics.expiringSoon")} value={s?.expiring_soon ?? 0} />
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          placeholder={t("filters.search")}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="h-9 w-[200px]"
+        />
+        <select
+          className="border rounded h-9 px-2 bg-background"
+          value={testId}
+          onChange={(e) => setTestId(e.target.value)}
+        >
+          <option value="">{t("filters.test")}: {t("filters.all")}</option>
+          {testList.map((x: any) => (
+            <option key={x.id} value={x.id}>
+              {x.title}
+            </option>
+          ))}
+        </select>
+        <select
+          className="border rounded h-9 px-2 bg-background"
+          value={terminalId}
+          onChange={(e) => setTerminalId(e.target.value)}
+        >
+          <option value="">{t("filters.branch")}: {t("filters.all")}</option>
+          {terminalList.map((term: any) => (
+            <option key={term.id} value={term.id}>
+              {term.name}
+            </option>
+          ))}
+        </select>
         <select
           className="border rounded h-9 px-2 bg-background"
           value={passed}
@@ -62,6 +133,9 @@ export default function AnalyticsPage() {
           <option value="true">{t("analytics.passed")}</option>
           <option value="false">{t("analytics.failed")}</option>
         </select>
+        <Button variant="outline" className="h-9" onClick={resetFilters}>
+          {t("filters.reset")}
+        </Button>
       </div>
 
       <div className="rounded-md border overflow-auto">
