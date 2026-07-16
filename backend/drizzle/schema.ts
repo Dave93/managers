@@ -1575,3 +1575,40 @@ export const attestation_test_attempt_answers = pgTable(
     is_correct: boolean("is_correct").default(false).notNull(),
   }
 );
+
+export const medical_exam_result = pgEnum("medical_exam_result", [
+  "fit",
+  "fit_restricted",
+  "unfit",
+]);
+
+export const medical_exam_schedules = pgTable("medical_exam_schedules", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  employee_id: uuid("employee_id").notNull().unique(),
+  start_date: date("start_date").notNull(),
+  interval_months: integer("interval_months").default(6).notNull(),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const medical_exams = pgTable("medical_exams", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  schedule_id: uuid("schedule_id").notNull(),
+  employee_id: uuid("employee_id").notNull(),
+  planned_due_date: date("planned_due_date").notNull(),
+  completed_date: date("completed_date"),
+  result: medical_exam_result("result"),
+  notes: text("notes"),
+  recorded_by: uuid("recorded_by"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});

@@ -258,5 +258,77 @@
       "search": "Search (login/name)",
       "confirmReset": "Reset this manager's PIN?"
     }
+  },
+  "medical": {
+    "title": "Medical exams",
+    "nav": "Medical exams",
+    "tiles": {
+      "overdue": "Overdue",
+      "dueSoon": "Due soon",
+      "ok": "OK",
+      "none": "No schedule"
+    },
+    "table": {
+      "employee": "Employee",
+      "branch": "Branch",
+      "position": "Position",
+      "lastExam": "Last exam",
+      "nextExam": "Next",
+      "status": "Status",
+      "due": "Due"
+    },
+    "status": {
+      "unfit": "Unfit",
+      "overdue": "Overdue",
+      "due_soon": "Due soon",
+      "ok": "OK",
+      "none": "No schedule"
+    },
+    "rel": {
+      "inDays": "in {n} d",
+      "overdueDays": "{n} d overdue",
+      "today": "today"
+    },
+    "actions": {
+      "complete": "Mark done",
+      "schedule": "Schedule"
+    },
+    "sheet": {
+      "history": "History",
+      "next": "Next",
+      "upcoming": "Upcoming dates",
+      "noSchedule": "No schedule set",
+      "recordedBy": "Recorded by"
+    },
+    "completeDialog": {
+      "title": "Mark medical exam",
+      "date": "Exam date",
+      "result": "Result",
+      "notes": "Notes",
+      "nextInfo": "Next exam: {date}",
+      "save": "Save",
+      "fit": "Fit",
+      "fit_restricted": "Fit with restrictions",
+      "unfit": "Unfit"
+    },
+    "scheduleDialog": {
+      "title": "Medical exam schedule",
+      "startDate": "First exam date",
+      "interval": "Interval (months)",
+      "save": "Save"
+    },
+    "employeeForm": {
+      "medicalStartDate": "First medical exam date"
+    },
+    "toasts": {
+      "completed": "Exam recorded",
+      "scheduleSaved": "Schedule saved"
+    },
+    "filters": {
+      "search": "Search by name",
+      "branch": "Branch",
+      "all": "All",
+      "reset": "Reset"
+    }
   }
 }

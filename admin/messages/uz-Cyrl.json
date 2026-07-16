@@ -233,5 +233,77 @@
       "search": "Қидирув (логин/Ф.И.Ш.)",
       "confirmReset": "Бу менежер PINини тозалансинми?"
     }
+  },
+  "medical": {
+    "title": "Тиббий кўрик",
+    "nav": "Тиббий кўрик",
+    "tiles": {
+      "overdue": "Муддати ўтган",
+      "dueSoon": "Яқин орада",
+      "ok": "Меъёрда",
+      "none": "Жадвал йўқ"
+    },
+    "table": {
+      "employee": "Ходим",
+      "branch": "Филиал",
+      "position": "Лавозим",
+      "lastExam": "Охирги кўрик",
+      "nextExam": "Кейинги",
+      "status": "Ҳолат",
+      "due": "Муддат"
+    },
+    "status": {
+      "unfit": "Яроқсиз",
+      "overdue": "Муддати ўтган",
+      "due_soon": "Яқин орада",
+      "ok": "Меъёрда",
+      "none": "Жадвал йўқ"
+    },
+    "rel": {
+      "inDays": "{n} кундан кейин",
+      "overdueDays": "{n} кун кечиккан",
+      "today": "бугун"
+    },
+    "actions": {
+      "complete": "Белгилаш",
+      "schedule": "Жадвал"
+    },
+    "sheet": {
+      "history": "Тарих",
+      "next": "Кейинги",
+      "upcoming": "Келгуси саналар",
+      "noSchedule": "Жадвал белгиланмаган",
+      "recordedBy": "Ким белгилади"
+    },
+    "completeDialog": {
+      "title": "Тиббий кўрикни белгилаш",
+      "date": "Кўрик санаси",
+      "result": "Натижа",
+      "notes": "Изоҳ",
+      "nextInfo": "Кейинги кўрик: {date}",
+      "save": "Сақлаш",
+      "fit": "Яроқли",
+      "fit_restricted": "Чекловлар билан яроқли",
+      "unfit": "Яроқсиз"
+    },
+    "scheduleDialog": {
+      "title": "Тиббий кўрик жадвали",
+      "startDate": "Биринчи кўрик санаси",
+      "interval": "Интервал (ой)",
+      "save": "Сақлаш"
+    },
+    "employeeForm": {
+      "medicalStartDate": "Биринчи тиббий кўрик санаси"
+    },
+    "toasts": {
+      "completed": "Кўрик белгиланди",
+      "scheduleSaved": "Жадвал сақланди"
+    },
+    "filters": {
+      "search": "Ф.И.Ш бўйича қидириш",
+      "branch": "Филиал",
+      "all": "Барчаси",
+      "reset": "Тозалаш"
+    }
   }
 }

@@ -25,6 +25,7 @@ export default function AttestationEmployeeForm({
   recordId?: string;
 }) {
   const t = useTranslations("attestation");
+  const tMedical = useTranslations("medical");
   const queryClient = useQueryClient();
 
   const onDone = (msg: string) => {
@@ -58,10 +59,18 @@ export default function AttestationEmployeeForm({
       position: "",
       terminal_id: "",
       active: true,
+      medical_start_date: "",
     },
     onSubmit: async ({ value }) => {
-      if (recordId) updateMutation.mutate({ data: value, id: recordId });
-      else createMutation.mutate(value);
+      if (recordId) {
+        const { medical_start_date, ...data } = value as any;
+        updateMutation.mutate({ data, id: recordId });
+      } else {
+        const { medical_start_date, ...rest } = value as any;
+        createMutation.mutate(
+          medical_start_date ? { ...rest, medical_start_date } : rest
+        );
+      }
     },
   });
 
@@ -138,6 +147,21 @@ export default function AttestationEmployeeForm({
           )}
         </form.Field>
       </div>
+
+      {!recordId && (
+        <div className="space-y-2">
+          <Label>{tMedical("employeeForm.medicalStartDate")}</Label>
+          <form.Field name={"medical_start_date" as any}>
+            {(field: any) => (
+              <Input
+                type="date"
+                value={field.state.value}
+                onChange={(e) => field.handleChange(e.target.value)}
+              />
+            )}
+          </form.Field>
+        </div>
+      )}
 
       <div className="space-y-2">
         <Label>{t("employees.active")}</Label>

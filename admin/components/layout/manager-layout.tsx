@@ -12,7 +12,7 @@ export default function ManagerLayout({
     <div className="md:container">
       {children}
       <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600">
-        <div className="grid h-full max-w-lg grid-cols-6 mx-auto font-medium">
+        <div className="grid h-full max-w-lg grid-cols-7 mx-auto font-medium">
           <Link
             href="/"
             type="button"
@@ -133,6 +133,32 @@ export default function ManagerLayout({
               </svg>
               <span className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
                 Аттестация
+              </span>
+            </Link>
+          </CanAccess>
+          <CanAccess permission="medical.list">
+            <Link
+              href="/medical"
+              type="button"
+              className="inline-flex flex-col items-center justify-center px-5 hover:bg-gray-50 dark:hover:bg-gray-800 group"
+            >
+              <svg
+                className="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
+                aria-hidden="true"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={1.8}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4.5 3.75a.75.75 0 00-.75.75v4.5a5.25 5.25 0 0010.5 0V4.5a.75.75 0 00-.75-.75h-1.5m-6 0h-1.5m9.75 9.75v1.5a5.25 5.25 0 01-5.25 5.25v0a5.25 5.25 0 01-5.25-5.25M18.75 13.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zm0 0v3a5.25 5.25 0 01-5.25 5.25"
+                />
+              </svg>
+              <span className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
+                Медосмотр
               </span>
             </Link>
           </CanAccess>

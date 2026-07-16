@@ -288,5 +288,77 @@
       "search": "Поиск (логин/ФИО)",
       "confirmReset": "Сбросить PIN этого менеджера?"
     }
+  },
+  "medical": {
+    "title": "Медосмотр",
+    "nav": "Медосмотр",
+    "tiles": {
+      "overdue": "Просрочено",
+      "dueSoon": "Скоро",
+      "ok": "В норме",
+      "none": "Без графика"
+    },
+    "table": {
+      "employee": "Сотрудник",
+      "branch": "Филиал",
+      "position": "Должность",
+      "lastExam": "Последний осмотр",
+      "nextExam": "Следующий",
+      "status": "Статус",
+      "due": "Срок"
+    },
+    "status": {
+      "unfit": "Не годен",
+      "overdue": "Просрочен",
+      "due_soon": "Скоро",
+      "ok": "В норме",
+      "none": "Нет графика"
+    },
+    "rel": {
+      "inDays": "через {n} дн",
+      "overdueDays": "просрочен {n} дн",
+      "today": "сегодня"
+    },
+    "actions": {
+      "complete": "Отметить",
+      "schedule": "График"
+    },
+    "sheet": {
+      "history": "История",
+      "next": "Следующий",
+      "upcoming": "Будущие даты",
+      "noSchedule": "График не задан",
+      "recordedBy": "Отметил"
+    },
+    "completeDialog": {
+      "title": "Отметить медосмотр",
+      "date": "Дата осмотра",
+      "result": "Результат",
+      "notes": "Комментарий",
+      "nextInfo": "Следующий осмотр: {date}",
+      "save": "Сохранить",
+      "fit": "Годен",
+      "fit_restricted": "Годен с ограничениями",
+      "unfit": "Не годен"
+    },
+    "scheduleDialog": {
+      "title": "График медосмотра",
+      "startDate": "Дата первого осмотра",
+      "interval": "Интервал (месяцев)",
+      "save": "Сохранить"
+    },
+    "employeeForm": {
+      "medicalStartDate": "Дата первого медосмотра"
+    },
+    "toasts": {
+      "completed": "Медосмотр отмечен",
+      "scheduleSaved": "График сохранён"
+    },
+    "filters": {
+      "search": "Поиск по ФИО",
+      "branch": "Филиал",
+      "all": "Все",
+      "reset": "Сброс"
+    }
   }
 }

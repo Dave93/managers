@@ -221,5 +221,77 @@
       "search": "Qidiruv (login/F.I.Sh.)",
       "confirmReset": "Bu menejer PINini tozalansinmi?"
     }
+  },
+  "medical": {
+    "title": "Tibbiy ko'rik",
+    "nav": "Tibbiy ko'rik",
+    "tiles": {
+      "overdue": "Muddati o'tgan",
+      "dueSoon": "Yaqin orada",
+      "ok": "Me'yorda",
+      "none": "Jadval yo'q"
+    },
+    "table": {
+      "employee": "Xodim",
+      "branch": "Filial",
+      "position": "Lavozim",
+      "lastExam": "Oxirgi ko'rik",
+      "nextExam": "Keyingi",
+      "status": "Holat",
+      "due": "Muddat"
+    },
+    "status": {
+      "unfit": "Yaroqsiz",
+      "overdue": "Muddati o'tgan",
+      "due_soon": "Yaqin orada",
+      "ok": "Me'yorda",
+      "none": "Jadval yo'q"
+    },
+    "rel": {
+      "inDays": "{n} kundan keyin",
+      "overdueDays": "{n} kun kechikkan",
+      "today": "bugun"
+    },
+    "actions": {
+      "complete": "Belgilash",
+      "schedule": "Jadval"
+    },
+    "sheet": {
+      "history": "Tarix",
+      "next": "Keyingi",
+      "upcoming": "Kelgusi sanalar",
+      "noSchedule": "Jadval belgilanmagan",
+      "recordedBy": "Kim belgiladi"
+    },
+    "completeDialog": {
+      "title": "Tibbiy ko'rikni belgilash",
+      "date": "Ko'rik sanasi",
+      "result": "Natija",
+      "notes": "Izoh",
+      "nextInfo": "Keyingi ko'rik: {date}",
+      "save": "Saqlash",
+      "fit": "Yaroqli",
+      "fit_restricted": "Cheklovlar bilan yaroqli",
+      "unfit": "Yaroqsiz"
+    },
+    "scheduleDialog": {
+      "title": "Tibbiy ko'rik jadvali",
+      "startDate": "Birinchi ko'rik sanasi",
+      "interval": "Interval (oy)",
+      "save": "Saqlash"
+    },
+    "employeeForm": {
+      "medicalStartDate": "Birinchi tibbiy ko'rik sanasi"
+    },
+    "toasts": {
+      "completed": "Ko'rik belgilandi",
+      "scheduleSaved": "Jadval saqlandi"
+    },
+    "filters": {
+      "search": "F.I.Sh bo'yicha qidirish",
+      "branch": "Filial",
+      "all": "Barchasi",
+      "reset": "Tozalash"
+    }
   }
 }

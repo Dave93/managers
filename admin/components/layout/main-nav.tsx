@@ -70,6 +70,7 @@ function buildNav(locale: string): NavEntry[] {
         { title: "Мой PIN", href: p("/attestation/pin"), permission: "attestation_layout" },
       ],
     },
+    { kind: "link", title: "Медосмотр", href: p("/medical"), permission: "medical_layout" },
     {
       kind: "group",
       title: "Детская площадка",
