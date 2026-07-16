@@ -6,6 +6,9 @@ const withNextIntl = createNextIntlPlugin('./i18n/request.ts');
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // TEMP: production browser source maps for debugging a client error.
+  // Disable again after diagnosis (exposes source + enlarges build).
+  productionBrowserSourceMaps: true,
   // Allow Next.js dev server to accept requests from tunnel hosts (ngrok, etc.)
   // Without this, Next 15+ returns "NOT_FOUND" plain text for non-localhost
   // origins. Add specific subdomains via NEXT_DEV_ALLOWED_ORIGINS or extend
