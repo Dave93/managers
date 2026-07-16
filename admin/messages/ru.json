@@ -171,7 +171,8 @@
       "employees": "Сотрудники",
       "analytics": "Аналитика",
       "kiosk": "Пройти тест",
-      "pin": "Мой PIN"
+      "pin": "Мой PIN",
+      "managerPins": "PIN менеджеров"
     },
     "tests": {
       "title": "Тесты аттестации",
@@ -270,6 +271,21 @@
       "activeYes": "Активные",
       "activeNo": "Неактивные",
       "reset": "Сброс"
+    },
+    "managerPins": {
+      "title": "PIN менеджеров",
+      "login": "Логин",
+      "name": "ФИО",
+      "pinSet": "PIN задан",
+      "pinNotSet": "Нет PIN",
+      "setPin": "Задать PIN",
+      "resetPin": "Сбросить",
+      "newPin": "Новый PIN (4-6 цифр)",
+      "saved": "PIN сохранён",
+      "cleared": "PIN сброшен",
+      "invalid": "PIN должен быть 4-6 цифр",
+      "search": "Поиск (логин/ФИО)",
+      "confirmReset": "Сбросить PIN этого менеджера?"
     }
   }
 }

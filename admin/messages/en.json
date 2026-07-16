@@ -141,7 +141,8 @@
       "employees": "Employees",
       "analytics": "Analytics",
       "kiosk": "Take test",
-      "pin": "My PIN"
+      "pin": "My PIN",
+      "managerPins": "Manager PINs"
     },
     "tests": {
       "title": "Attestation tests",
@@ -240,6 +241,21 @@
       "activeYes": "Active",
       "activeNo": "Inactive",
       "reset": "Reset"
+    },
+    "managerPins": {
+      "title": "Manager PINs",
+      "login": "Login",
+      "name": "Name",
+      "pinSet": "PIN set",
+      "pinNotSet": "No PIN",
+      "setPin": "Set PIN",
+      "resetPin": "Reset",
+      "newPin": "New PIN (4-6 digits)",
+      "saved": "PIN saved",
+      "cleared": "PIN cleared",
+      "invalid": "PIN must be 4-6 digits",
+      "search": "Search (login/name)",
+      "confirmReset": "Reset this manager's PIN?"
     }
   }
 }

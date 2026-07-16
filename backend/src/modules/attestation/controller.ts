@@ -9,6 +9,8 @@ import {
   attestation_test_attempt_answers,
   employees,
   users,
+  roles_permissions,
+  permissions,
 } from "backend/drizzle/schema";
 import {
   gradeAttempt,
@@ -56,6 +58,20 @@ async function resolveIsHq(args: {
   if (!args.role) return false;
   const perms = await args.cacheController.getPermissionsByRoleId(args.role.id);
   return perms.includes("attestation.hq");
+}
+
+// Role ids whose role holds attestation.run — i.e. branch-manager launcher
+// accounts. Used by the admin manager-PIN management endpoints.
+async function attestationRunRoleIds(drizzle: any): Promise<string[]> {
+  const rows = await drizzle
+    .select({ role_id: roles_permissions.role_id })
+    .from(roles_permissions)
+    .innerJoin(permissions, eq(permissions.id, roles_permissions.permission_id))
+    .where(eq(permissions.slug, "attestation.run"))
+    .execute();
+  return [
+    ...new Set(rows.map((r: any) => r.role_id).filter(Boolean) as string[]),
+  ];
 }
 
 export const attestationController = new Elysia({
@@ -534,6 +550,107 @@ export const attestationController = new Elysia({
     {
       userAuth: true,
       body: t.Object({ data: t.Object({ pin: t.String() }) }),
+    }
+  )
+  // ---- admin: manage manager PINs (accounts holding attestation.run) ----
+  .get(
+    "/attestation/manager-pins",
+    async ({ query: { limit, offset, search }, drizzle }) => {
+      const roleIds = await attestationRunRoleIds(drizzle);
+      if (!roleIds.length) return { total: 0, data: [] };
+      const where: (SQLWrapper | undefined)[] = [
+        inArray(users.role_id, roleIds),
+      ];
+      if (search)
+        where.push(
+          or(
+            ilike(users.login, `%${search}%`),
+            ilike(users.first_name, `%${search}%`),
+            ilike(users.last_name, `%${search}%`)
+          )
+        );
+      const count = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(users)
+        .where(and(...where))
+        .execute();
+      const rows = await drizzle
+        .select({
+          id: users.id,
+          login: users.login,
+          first_name: users.first_name,
+          last_name: users.last_name,
+          has_pin: sql<boolean>`${users.attestation_pin_hash} is not null`,
+        })
+        .from(users)
+        .where(and(...where))
+        .limit(+limit)
+        .offset(+offset)
+        .execute();
+      return { total: count[0].count, data: rows };
+    },
+    {
+      permission: "attestation.manage_pins",
+      query: t.Object({
+        limit: t.String(),
+        offset: t.String(),
+        search: t.Optional(t.String()),
+      }),
+    }
+  )
+  .post(
+    "/attestation/manager-pins/:userId",
+    async ({ params: { userId }, body: { data }, set, drizzle }) => {
+      if (!/^\d{4,6}$/.test(data.pin)) {
+        set.status = 400;
+        return { message: "PIN must be 4-6 digits" };
+      }
+      const roleIds = await attestationRunRoleIds(drizzle);
+      const u = await drizzle
+        .select({ id: users.id, role_id: users.role_id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .execute();
+      if (!u.length || !u[0].role_id || !roleIds.includes(u[0].role_id)) {
+        set.status = 404;
+        return { message: "Manager account not found" };
+      }
+      await drizzle
+        .update(users)
+        .set({ attestation_pin_hash: await Bun.password.hash(data.pin) })
+        .where(eq(users.id, userId))
+        .execute();
+      return { ok: true };
+    },
+    {
+      permission: "attestation.manage_pins",
+      params: t.Object({ userId: t.String() }),
+      body: t.Object({ data: t.Object({ pin: t.String() }) }),
+    }
+  )
+  .delete(
+    "/attestation/manager-pins/:userId",
+    async ({ params: { userId }, set, drizzle }) => {
+      const roleIds = await attestationRunRoleIds(drizzle);
+      const u = await drizzle
+        .select({ id: users.id, role_id: users.role_id })
+        .from(users)
+        .where(eq(users.id, userId))
+        .execute();
+      if (!u.length || !u[0].role_id || !roleIds.includes(u[0].role_id)) {
+        set.status = 404;
+        return { message: "Manager account not found" };
+      }
+      await drizzle
+        .update(users)
+        .set({ attestation_pin_hash: null })
+        .where(eq(users.id, userId))
+        .execute();
+      return { ok: true };
+    },
+    {
+      permission: "attestation.manage_pins",
+      params: t.Object({ userId: t.String() }),
     }
   )
   // ---- take test: start ----
