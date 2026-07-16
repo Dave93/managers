@@ -75,7 +75,9 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
     queryKey: ["terminals_cached"],
     queryFn: () => apiClient.api.terminals.cached.get(),
   });
-  const terminalList = (terminalsData as any)?.data ?? terminalsData ?? [];
+  const terminalList = [
+    ...((terminalsData as any)?.data ?? terminalsData ?? []),
+  ].sort((a: any, b: any) => String(a.name).localeCompare(String(b.name), "ru"));
 
   const { data, isLoading } = useQuery({
     queryKey: [
