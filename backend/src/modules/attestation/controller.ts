@@ -12,6 +12,8 @@ import {
   users,
   roles_permissions,
   permissions,
+  medical_exam_schedules,
+  medical_exams,
 } from "backend/drizzle/schema";
 import {
   gradeAttempt,
@@ -406,11 +408,34 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Out of scope" };
       }
-      const inserted = await drizzle
-        .insert(employees)
-        .values(data)
-        .returning({ id: employees.id })
-        .execute();
+      const { medical_start_date, ...empData } = data;
+      if (medical_start_date && !/^\d{4}-\d{2}-\d{2}$/.test(medical_start_date)) {
+        set.status = 422;
+        return { message: "medical_start_date must be YYYY-MM-DD" };
+      }
+      const inserted = await drizzle.transaction(async (tx) => {
+        const emp = await tx
+          .insert(employees)
+          .values(empData)
+          .returning({ id: employees.id })
+          .execute();
+        if (medical_start_date) {
+          const sched = await tx
+            .insert(medical_exam_schedules)
+            .values({ employee_id: emp[0].id, start_date: medical_start_date })
+            .returning({ id: medical_exam_schedules.id })
+            .execute();
+          await tx
+            .insert(medical_exams)
+            .values({
+              schedule_id: sched[0].id,
+              employee_id: emp[0].id,
+              planned_due_date: medical_start_date,
+            })
+            .execute();
+        }
+        return emp;
+      });
       return { data: inserted[0] };
     },
     {
@@ -423,6 +448,7 @@ export const attestationController = new Elysia({
           terminal_id: t.String(),
           external_id: t.Optional(t.Nullable(t.String())),
           active: t.Optional(t.Boolean()),
+          medical_start_date: t.Optional(t.Nullable(t.String())),
         }),
       }),
     }
