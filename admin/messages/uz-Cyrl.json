@@ -116,7 +116,8 @@
       "employees": "Ходимлар",
       "analytics": "Таҳлил",
       "kiosk": "Тест топшириш",
-      "pin": "Менинг PINим"
+      "pin": "Менинг PINим",
+      "managerPins": "Менежер PINлари"
     },
     "tests": {
       "title": "Аттестация тестлари",
@@ -215,6 +216,21 @@
       "activeYes": "Фаол",
       "activeNo": "Нофаол",
       "reset": "Тозалаш"
+    },
+    "managerPins": {
+      "title": "Менежер PINлари",
+      "login": "Логин",
+      "name": "Ф.И.Ш.",
+      "pinSet": "PIN ўрнатилган",
+      "pinNotSet": "PIN йўқ",
+      "setPin": "PIN ўрнатиш",
+      "resetPin": "Тозалаш",
+      "newPin": "Янги PIN (4-6 рақам)",
+      "saved": "PIN сақланди",
+      "cleared": "PIN тозаланди",
+      "invalid": "PIN 4-6 рақам бўлиши керак",
+      "search": "Қидирув (логин/Ф.И.Ш.)",
+      "confirmReset": "Бу менежер PINини тозалансинми?"
     }
   }
 }

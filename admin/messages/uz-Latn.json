@@ -104,7 +104,8 @@
       "employees": "Xodimlar",
       "analytics": "Tahlil",
       "kiosk": "Test topshirish",
-      "pin": "Mening PINim"
+      "pin": "Mening PINim",
+      "managerPins": "Menejer PINlari"
     },
     "tests": {
       "title": "Attestatsiya testlari",
@@ -203,6 +204,21 @@
       "activeYes": "Faol",
       "activeNo": "Nofaol",
       "reset": "Tozalash"
+    },
+    "managerPins": {
+      "title": "Menejer PINlari",
+      "login": "Login",
+      "name": "F.I.Sh.",
+      "pinSet": "PIN o'rnatilgan",
+      "pinNotSet": "PIN yo'q",
+      "setPin": "PIN o'rnatish",
+      "resetPin": "Tozalash",
+      "newPin": "Yangi PIN (4-6 raqam)",
+      "saved": "PIN saqlandi",
+      "cleared": "PIN tozalandi",
+      "invalid": "PIN 4-6 raqam bo'lishi kerak",
+      "search": "Qidiruv (login/F.I.Sh.)",
+      "confirmReset": "Bu menejer PINini tozalansinmi?"
     }
   }
 }
