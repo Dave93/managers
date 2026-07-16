@@ -1,4 +1,5 @@
 import { ctx } from "@backend/context";
+import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
@@ -44,21 +45,6 @@ const PIN_MAX_FAILS = 5;
 const PIN_LOCK_WINDOW_SEC = 15 * 60;
 const pinFailKey = (accountId: string) =>
   `${process.env.PROJECT_PREFIX}attestation_pin_fail:${accountId}`;
-
-// Explicit HQ marker — super-user, or the caller's role holds attestation.hq.
-// Never inferred from empty terminal scope (that would be fail-open).
-async function resolveIsHq(args: {
-  user: { is_super_user?: boolean | null } | null;
-  role: { id: string } | null;
-  cacheController: {
-    getPermissionsByRoleId: (roleId: string) => Promise<string[]>;
-  };
-}): Promise<boolean> {
-  if (args.user?.is_super_user === true) return true;
-  if (!args.role) return false;
-  const perms = await args.cacheController.getPermissionsByRoleId(args.role.id);
-  return perms.includes("attestation.hq");
-}
 
 // Role ids whose role holds attestation.run — i.e. branch-manager launcher
 // accounts. Used by the admin manager-PIN management endpoints.
