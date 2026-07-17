@@ -241,6 +241,7 @@ export default function MedicalPage() {
                           onClick={() =>
                             setScheduleFor({
                               employeeId: r.employee_id,
+                              startDate: r.start_date,
                               intervalMonths: r.interval_months,
                             })
                           }
