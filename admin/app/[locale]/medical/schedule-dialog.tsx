@@ -11,6 +11,7 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
+import { DatePickerField } from "@admin/components/ui/date-picker-field";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -93,11 +94,7 @@ export function ScheduleDialog({
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>{t("scheduleDialog.startDate")}</Label>
-            <Input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-            />
+            <DatePickerField value={startDate} onChange={setStartDate} />
           </div>
           <div className="space-y-2">
             <Label>{t("scheduleDialog.interval")}</Label>
