@@ -177,7 +177,8 @@
       "timeExpired": "Вақт тугади",
       "done": "Тайёр",
       "startError": "Бошлаш хатоси",
-      "submitError": "Юбориш хатоси"
+      "submitError": "Юбориш хатоси",
+      "back": "Орқага"
     },
     "analytics": {
       "title": "Аттестация таҳлили",

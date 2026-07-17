@@ -202,7 +202,8 @@
       "timeExpired": "Time expired",
       "done": "Done",
       "startError": "Start error",
-      "submitError": "Submit error"
+      "submitError": "Submit error",
+      "back": "Back"
     },
     "analytics": {
       "title": "Attestation analytics",

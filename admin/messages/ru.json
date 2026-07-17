@@ -232,7 +232,8 @@
       "timeExpired": "Время истекло",
       "done": "Готово",
       "startError": "Ошибка старта",
-      "submitError": "Ошибка отправки"
+      "submitError": "Ошибка отправки",
+      "back": "Назад"
     },
     "analytics": {
       "title": "Аналитика аттестации",

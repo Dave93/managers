@@ -125,6 +125,16 @@ export default function KioskPage() {
     (x: any) => x.active
   );
   const roster = (employees as any)?.data?.data ?? [];
+  const selectedTest = activeTests.find((x: any) => x.id === testId);
+  const selectedEmployee = roster.find((e: any) => e.id === employeeId);
+  const contextLine = [
+    selectedTest?.title,
+    selectedEmployee
+      ? `${selectedEmployee.first_name} ${selectedEmployee.last_name}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <div className="fixed inset-0 bg-background flex items-center justify-center p-8 overflow-auto">
@@ -152,6 +162,9 @@ export default function KioskPage() {
         {stage === "pick_employee" && (
           <>
             <h1 className="text-2xl font-bold">{t("kiosk.pickEmployee")}</h1>
+            {contextLine && (
+              <p className="text-muted-foreground">{contextLine}</p>
+            )}
             <div className="grid gap-2 max-h-[60vh] overflow-auto">
               {roster.map((e: any) => (
                 <Button
@@ -166,12 +179,24 @@ export default function KioskPage() {
                 </Button>
               ))}
             </div>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setTestId(undefined);
+                setStage("pick_test");
+              }}
+            >
+              ← {t("kiosk.back")}
+            </Button>
           </>
         )}
 
         {stage === "pin" && (
           <>
             <h1 className="text-2xl font-bold">{t("kiosk.enterPin")}</h1>
+            {contextLine && (
+              <p className="text-muted-foreground">{contextLine}</p>
+            )}
             <Input
               type="password"
               inputMode="numeric"
@@ -180,6 +205,16 @@ export default function KioskPage() {
               className="text-center text-2xl tracking-widest"
             />
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEmployeeId(undefined);
+                  setPin("");
+                  setStage("pick_employee");
+                }}
+              >
+                ← {t("kiosk.back")}
+              </Button>
               <Button variant="outline" onClick={reset}>
                 {t("kiosk.cancel")}
               </Button>
@@ -193,7 +228,12 @@ export default function KioskPage() {
         {stage === "quiz" && (
           <>
             <div className="flex justify-between items-center">
-              <h1 className="text-2xl font-bold">{t("kiosk.test")}</h1>
+              <div>
+                <h1 className="text-2xl font-bold">{t("kiosk.test")}</h1>
+                {contextLine && (
+                  <p className="text-muted-foreground text-sm">{contextLine}</p>
+                )}
+              </div>
               {remaining != null && (
                 <span className="text-lg font-mono">
                   {Math.floor(remaining / 60)}:
