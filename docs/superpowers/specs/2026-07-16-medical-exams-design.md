@@ -55,7 +55,10 @@ medical_exams
 ```
 
 Lifecycle:
-1. Create schedule → insert first `medical_exams` row with `planned_due_date = start_date`.
+1. Create schedule → if `start_date` ≤ today, the starting exam was already passed: insert a
+   completed row (`completed_date = start_date`, result null = «стартовая отметка») plus the next
+   open row at `start_date + interval`; if `start_date` is in the future, insert one open row with
+   `planned_due_date = start_date`.
 2. Mark complete (date, result, notes) → close the open row, insert the next row with
    `planned_due_date = completed_date + interval_months`.
 3. Exactly one open (uncompleted) row per active schedule at all times.
