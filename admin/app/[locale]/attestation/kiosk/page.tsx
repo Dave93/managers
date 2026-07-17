@@ -137,8 +137,8 @@ export default function KioskPage() {
     .join(" · ");
 
   return (
-    <div className="fixed inset-0 bg-background flex items-center justify-center p-8 overflow-auto">
-      <div className="w-full max-w-2xl space-y-6">
+    <div className="fixed inset-0 bg-background flex justify-center p-8 overflow-auto">
+      <div className="w-full max-w-2xl space-y-6 my-auto">
         {stage === "pick_test" && (
           <>
             <h1 className="text-2xl font-bold">{t("kiosk.pickTest")}</h1>
