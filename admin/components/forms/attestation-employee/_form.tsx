@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { Label } from "@components/ui/label";
 import { Input } from "@components/ui/input";
+import { DatePickerField } from "@admin/components/ui/date-picker-field";
 import {
   Select,
   SelectContent,
@@ -153,10 +154,9 @@ export default function AttestationEmployeeForm({
           <Label>{tMedical("employeeForm.medicalStartDate")}</Label>
           <form.Field name={"medical_start_date" as any}>
             {(field: any) => (
-              <Input
-                type="date"
+              <DatePickerField
                 value={field.state.value}
-                onChange={(e) => field.handleChange(e.target.value)}
+                onChange={(v) => field.handleChange(v)}
               />
             )}
           </form.Field>

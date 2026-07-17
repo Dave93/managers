@@ -9,9 +9,9 @@ import {
   DialogTitle,
 } from "@components/ui/dialog";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Textarea } from "@components/ui/textarea";
+import { DatePickerField } from "@admin/components/ui/date-picker-field";
 import {
   Select,
   SelectContent,
@@ -95,12 +95,7 @@ export function CompleteDialog({
         <div className="space-y-4 py-2">
           <div className="space-y-2">
             <Label>{t("completeDialog.date")}</Label>
-            <Input
-              type="date"
-              value={date}
-              max={today}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <DatePickerField value={date} onChange={setDate} maxToday />
           </div>
           <div className="space-y-2">
             <Label>{t("completeDialog.result")}</Label>
