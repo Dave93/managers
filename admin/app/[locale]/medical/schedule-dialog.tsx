@@ -11,9 +11,21 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
+
+// Preview only — the server applies the same rule authoritatively.
+function addMonthsClamped(dateIso: string, months: number): string {
+  const [y, m, d] = dateIso.split("-").map(Number);
+  const total = y * 12 + (m - 1) + months;
+  const ty = Math.floor(total / 12);
+  const tm = total % 12;
+  const lastDay = new Date(Date.UTC(ty, tm + 1, 0)).getUTCDate();
+  return `${ty}-${String(tm + 1).padStart(2, "0")}-${String(
+    Math.min(d, lastDay)
+  ).padStart(2, "0")}`;
+}
 
 export function ScheduleDialog({
   target,
@@ -37,6 +49,19 @@ export function ScheduleDialog({
       setInterval(String(target.intervalMonths ?? 6));
     }
   }, [target]);
+
+  const preview = useMemo(() => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return null;
+    const fmt = (x: string) => new Date(x).toLocaleDateString("ru");
+    const today = new Date().toISOString().slice(0, 10);
+    const months = Number(interval) || 6;
+    return startDate <= today
+      ? t("scheduleDialog.passedInfo", {
+          date: fmt(startDate),
+          next: fmt(addMonthsClamped(startDate, months)),
+        })
+      : t("scheduleDialog.plannedInfo", { date: fmt(startDate) });
+  }, [startDate, interval, t]);
 
   const mutation = useMutation({
     mutationFn: () =>
@@ -84,6 +109,9 @@ export function ScheduleDialog({
               onChange={(e) => setInterval(e.target.value)}
             />
           </div>
+          {preview && (
+            <p className="text-sm text-muted-foreground">{preview}</p>
+          )}
         </div>
         <DialogFooter>
           <Button

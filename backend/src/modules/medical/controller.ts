@@ -304,6 +304,10 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
         set.status = 403;
         return { message: "Out of scope" };
       }
+      // start_date in the past (or today) means the employee already passed
+      // that exam — record it as completed and open the next cycle. A future
+      // start_date schedules the first upcoming exam.
+      const startIsPassed = body.start_date <= todayIso();
       return await drizzle.transaction(async (tx: any) => {
         const existing = await tx
           .select()
@@ -320,14 +324,35 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
             })
             .returning()
             .execute();
-          await tx
-            .insert(medical_exams)
-            .values({
-              schedule_id: inserted[0].id,
-              employee_id: body.employee_id,
-              planned_due_date: body.start_date,
-            })
-            .execute();
+          if (startIsPassed) {
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: inserted[0].id,
+                employee_id: body.employee_id,
+                planned_due_date: body.start_date,
+                completed_date: body.start_date,
+                recorded_by: user?.id ?? null,
+              })
+              .execute();
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: inserted[0].id,
+                employee_id: body.employee_id,
+                planned_due_date: addMonthsClamped(body.start_date, interval),
+              })
+              .execute();
+          } else {
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: inserted[0].id,
+                employee_id: body.employee_id,
+                planned_due_date: body.start_date,
+              })
+              .execute();
+          }
           return { data: inserted[0] };
         }
         const schedule = existing[0];
@@ -364,28 +389,78 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
           )
           .execute();
         if (open.length && !done.length) {
-          // No completions yet — the open row simply follows the new start date.
-          await tx
-            .update(medical_exams)
-            .set({
-              planned_due_date: body.start_date,
-              updated_at: new Date().toISOString(),
-            })
-            .where(eq(medical_exams.id, open[0].id))
-            .execute();
+          if (startIsPassed) {
+            // No completions yet and the date is in the past — the open row
+            // becomes the passed starting exam; open the next cycle.
+            await tx
+              .update(medical_exams)
+              .set({
+                planned_due_date: body.start_date,
+                completed_date: body.start_date,
+                recorded_by: user?.id ?? null,
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(medical_exams.id, open[0].id))
+              .execute();
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: schedule.id,
+                employee_id: body.employee_id,
+                planned_due_date: addMonthsClamped(body.start_date, interval),
+              })
+              .execute();
+          } else {
+            // No completions yet — the open row simply follows the new start date.
+            await tx
+              .update(medical_exams)
+              .set({
+                planned_due_date: body.start_date,
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(medical_exams.id, open[0].id))
+              .execute();
+          }
         } else if (!open.length) {
-          // Schedule was reactivated: open the next cycle from the last completion.
-          const from = done.length ? done[0].completed_date : body.start_date;
-          await tx
-            .insert(medical_exams)
-            .values({
-              schedule_id: schedule.id,
-              employee_id: body.employee_id,
-              planned_due_date: done.length
-                ? addMonthsClamped(from, interval)
-                : body.start_date,
-            })
-            .execute();
+          // Schedule was reactivated: open the next cycle from the last
+          // completion; with no history a passed start date is recorded as
+          // the completed starting exam first.
+          if (done.length) {
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: schedule.id,
+                employee_id: body.employee_id,
+                planned_due_date: addMonthsClamped(
+                  done[0].completed_date,
+                  interval
+                ),
+              })
+              .execute();
+          } else {
+            if (startIsPassed) {
+              await tx
+                .insert(medical_exams)
+                .values({
+                  schedule_id: schedule.id,
+                  employee_id: body.employee_id,
+                  planned_due_date: body.start_date,
+                  completed_date: body.start_date,
+                  recorded_by: user?.id ?? null,
+                })
+                .execute();
+            }
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: schedule.id,
+                employee_id: body.employee_id,
+                planned_due_date: startIsPassed
+                  ? addMonthsClamped(body.start_date, interval)
+                  : body.start_date,
+              })
+              .execute();
+          }
         }
         return { data: updated[0] };
       });

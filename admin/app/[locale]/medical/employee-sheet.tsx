@@ -89,7 +89,9 @@ export function EmployeeSheet({
                             status={h.result === "unfit" ? "unfit" : "ok"}
                           />
                           <span className="text-xs text-muted-foreground">
-                            {t(`completeDialog.${h.result}` as any)}
+                            {h.result
+                              ? t(`completeDialog.${h.result}` as any)
+                              : t("sheet.startingMark")}
                           </span>
                         </div>
                         {h.notes && (

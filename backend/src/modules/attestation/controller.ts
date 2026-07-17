@@ -1,5 +1,6 @@
 import { ctx } from "@backend/context";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
+import { addMonthsClamped } from "@backend/modules/medical/status";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import {
@@ -425,14 +426,38 @@ export const attestationController = new Elysia({
             .values({ employee_id: emp[0].id, start_date: medical_start_date })
             .returning({ id: medical_exam_schedules.id })
             .execute();
-          await tx
-            .insert(medical_exams)
-            .values({
-              schedule_id: sched[0].id,
-              employee_id: emp[0].id,
-              planned_due_date: medical_start_date,
-            })
-            .execute();
+          // Past/today = the exam was already passed on that date: record it
+          // as completed and open the next cycle. Future = first upcoming exam.
+          const today = new Date().toISOString().slice(0, 10);
+          if (medical_start_date <= today) {
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: sched[0].id,
+                employee_id: emp[0].id,
+                planned_due_date: medical_start_date,
+                completed_date: medical_start_date,
+                recorded_by: user?.id ?? null,
+              })
+              .execute();
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: sched[0].id,
+                employee_id: emp[0].id,
+                planned_due_date: addMonthsClamped(medical_start_date, 6),
+              })
+              .execute();
+          } else {
+            await tx
+              .insert(medical_exams)
+              .values({
+                schedule_id: sched[0].id,
+                employee_id: emp[0].id,
+                planned_due_date: medical_start_date,
+              })
+              .execute();
+          }
         }
         return emp;
       });
