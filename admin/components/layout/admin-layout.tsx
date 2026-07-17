@@ -1,9 +1,13 @@
-import { useGetRole } from "@admin/utils/get_role";
-import { NavigationMenuDemo } from "@components/layout/main-nav";
-import { Search } from "lucide-react";
-import { UserNav } from "@components/layout/user-nav";
+import { AppSidebar } from "@components/layout/app-sidebar";
+import { AdminBreadcrumbs } from "@components/layout/admin-breadcrumbs";
 import { ModeToggle } from "@components/layout/mode-toggle";
 import LanguageSwitcher from "@admin/components/ui/language-switcher";
+import { Separator } from "@components/ui/separator";
+import {
+  SidebarInset,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@components/ui/sidebar";
 
 export default function AdminLayout({
   children,
@@ -11,19 +15,22 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex-col">
-      <div className="border-b sticky top-0 bg-white z-10">
-        <div className="flex h-16 items-center px-4 bg-background">
-          <NavigationMenuDemo />
-          <div className="ml-auto flex items-center space-x-4">
-            <Search />
-            <LanguageSwitcher />
-            <UserNav />
-            <ModeToggle />
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2">
+          <div className="flex w-full items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <AdminBreadcrumbs />
+            <div className="ml-auto flex items-center gap-2">
+              <LanguageSwitcher />
+              <ModeToggle />
+            </div>
           </div>
-        </div>
-      </div>
-      <div className="mx-4 mt-10 mb-4">{children}</div>
-    </div>
+        </header>
+        <div className="flex flex-1 flex-col p-4 pt-0">{children}</div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
