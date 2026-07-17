@@ -20,7 +20,8 @@ import { useAuth } from "@admin/components/useAuth";
 export function NavUser() {
   const { user, signOut } = useAuth();
   const { isMobile } = useSidebar();
-  const u = user as any;
+  // /api/users/me returns { user, role }; unwrap either shape.
+  const u = ((user as any)?.user ?? user) as any;
   const name =
     [u?.first_name, u?.last_name].filter(Boolean).join(" ") || u?.login || "";
   const initials =
@@ -55,7 +56,7 @@ export function NavUser() {
             </SidebarMenuButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent
-            className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+            className="w-[var(--radix-dropdown-menu-trigger-width)] min-w-56 rounded-lg"
             side={isMobile ? "bottom" : "right"}
             align="end"
             sideOffset={4}
