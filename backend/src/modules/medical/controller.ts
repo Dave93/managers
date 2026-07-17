@@ -120,6 +120,7 @@ async function buildMedicalRows(args: {
       position: e.position,
       terminal_id: e.terminal_id,
       interval_months: sched?.interval_months ?? null,
+      start_date: sched?.start_date ?? null,
       last_completed_date: last?.completed_date ?? null,
       last_result: last?.result ?? null,
       open_exam_id: open?.id ?? null,
@@ -368,7 +369,11 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
           .returning()
           .execute();
         const done = await tx
-          .select({ completed_date: medical_exams.completed_date })
+          .select({
+            id: medical_exams.id,
+            completed_date: medical_exams.completed_date,
+            result: medical_exams.result,
+          })
           .from(medical_exams)
           .where(
             and(
@@ -388,7 +393,49 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
             )
           )
           .execute();
-        if (open.length && !done.length) {
+        // The starting mark (a completion with no result, created by this
+        // endpoint) is movable: as long as it is the only completion, saving
+        // the schedule again corrects the starting date. Real exam results
+        // are never touched.
+        const onlyStartingMark =
+          done.length === 1 && done[0].result == null && open.length > 0;
+        if (onlyStartingMark) {
+          if (startIsPassed) {
+            await tx
+              .update(medical_exams)
+              .set({
+                planned_due_date: body.start_date,
+                completed_date: body.start_date,
+                recorded_by: user?.id ?? null,
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(medical_exams.id, done[0].id))
+              .execute();
+            await tx
+              .update(medical_exams)
+              .set({
+                planned_due_date: addMonthsClamped(body.start_date, interval),
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(medical_exams.id, open[0].id))
+              .execute();
+          } else {
+            // Switching to a future first exam: drop the starting mark and
+            // plan the open cycle on the new date.
+            await tx
+              .delete(medical_exams)
+              .where(eq(medical_exams.id, done[0].id))
+              .execute();
+            await tx
+              .update(medical_exams)
+              .set({
+                planned_due_date: body.start_date,
+                updated_at: new Date().toISOString(),
+              })
+              .where(eq(medical_exams.id, open[0].id))
+              .execute();
+          }
+        } else if (open.length && !done.length) {
           if (startIsPassed) {
             // No completions yet and the date is in the past — the open row
             // becomes the passed starting exam; open the next cycle.
