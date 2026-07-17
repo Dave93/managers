@@ -273,7 +273,8 @@
       "next": "Кейинги",
       "upcoming": "Келгуси саналар",
       "noSchedule": "Жадвал белгиланмаган",
-      "recordedBy": "Ким белгилади"
+      "recordedBy": "Ким белгилади",
+      "startingMark": "Бошланғич белги"
     },
     "completeDialog": {
       "title": "Тиббий кўрикни белгилаш",
@@ -288,12 +289,14 @@
     },
     "scheduleDialog": {
       "title": "Тиббий кўрик жадвали",
-      "startDate": "Биринчи кўрик санаси",
+      "startDate": "Бошланғич кўрик санаси",
       "interval": "Интервал (ой)",
-      "save": "Сақлаш"
+      "save": "Сақлаш",
+      "passedInfo": "{date} кўриги ўтилган деб белгиланади, кейингиси — {next}",
+      "plannedInfo": "Биринчи кўрик {date} санасига белгиланади"
     },
     "employeeForm": {
-      "medicalStartDate": "Биринчи тиббий кўрик санаси"
+      "medicalStartDate": "Бошланғич тиббий кўрик санаси"
     },
     "toasts": {
       "completed": "Кўрик белгиланди",

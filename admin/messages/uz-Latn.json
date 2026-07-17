@@ -261,7 +261,8 @@
       "next": "Keyingi",
       "upcoming": "Kelgusi sanalar",
       "noSchedule": "Jadval belgilanmagan",
-      "recordedBy": "Kim belgiladi"
+      "recordedBy": "Kim belgiladi",
+      "startingMark": "Boshlang'ich belgi"
     },
     "completeDialog": {
       "title": "Tibbiy ko'rikni belgilash",
@@ -276,12 +277,14 @@
     },
     "scheduleDialog": {
       "title": "Tibbiy ko'rik jadvali",
-      "startDate": "Birinchi ko'rik sanasi",
+      "startDate": "Boshlang'ich ko'rik sanasi",
       "interval": "Interval (oy)",
-      "save": "Saqlash"
+      "save": "Saqlash",
+      "passedInfo": "{date} ko'rigi o'tilgan deb belgilanadi, keyingisi — {next}",
+      "plannedInfo": "Birinchi ko'rik {date} sanasiga belgilanadi"
     },
     "employeeForm": {
-      "medicalStartDate": "Birinchi tibbiy ko'rik sanasi"
+      "medicalStartDate": "Boshlang'ich tibbiy ko'rik sanasi"
     },
     "toasts": {
       "completed": "Ko'rik belgilandi",

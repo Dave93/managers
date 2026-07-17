@@ -328,7 +328,8 @@
       "next": "Следующий",
       "upcoming": "Будущие даты",
       "noSchedule": "График не задан",
-      "recordedBy": "Отметил"
+      "recordedBy": "Отметил",
+      "startingMark": "Стартовая отметка"
     },
     "completeDialog": {
       "title": "Отметить медосмотр",
@@ -343,12 +344,14 @@
     },
     "scheduleDialog": {
       "title": "График медосмотра",
-      "startDate": "Дата первого осмотра",
+      "startDate": "Дата стартового осмотра",
       "interval": "Интервал (месяцев)",
-      "save": "Сохранить"
+      "save": "Сохранить",
+      "passedInfo": "Осмотр от {date} будет отмечен как пройденный, следующий — {next}",
+      "plannedInfo": "Первый осмотр будет назначен на {date}"
     },
     "employeeForm": {
-      "medicalStartDate": "Дата первого медосмотра"
+      "medicalStartDate": "Дата стартового медосмотра"
     },
     "toasts": {
       "completed": "Медосмотр отмечен",

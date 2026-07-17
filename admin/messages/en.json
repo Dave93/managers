@@ -298,7 +298,8 @@
       "next": "Next",
       "upcoming": "Upcoming dates",
       "noSchedule": "No schedule set",
-      "recordedBy": "Recorded by"
+      "recordedBy": "Recorded by",
+      "startingMark": "Starting mark"
     },
     "completeDialog": {
       "title": "Mark medical exam",
@@ -313,12 +314,14 @@
     },
     "scheduleDialog": {
       "title": "Medical exam schedule",
-      "startDate": "First exam date",
+      "startDate": "Starting exam date",
       "interval": "Interval (months)",
-      "save": "Save"
+      "save": "Save",
+      "passedInfo": "The {date} exam will be recorded as passed, next due {next}",
+      "plannedInfo": "First exam will be scheduled for {date}"
     },
     "employeeForm": {
-      "medicalStartDate": "First medical exam date"
+      "medicalStartDate": "Starting medical exam date"
     },
     "toasts": {
       "completed": "Exam recorded",
