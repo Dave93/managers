@@ -165,7 +165,8 @@
       "timeExpired": "Vaqt tugadi",
       "done": "Tayyor",
       "startError": "Boshlash xatosi",
-      "submitError": "Yuborish xatosi"
+      "submitError": "Yuborish xatosi",
+      "back": "Orqaga"
     },
     "analytics": {
       "title": "Attestatsiya tahlili",
