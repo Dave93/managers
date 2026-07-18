@@ -1026,6 +1026,39 @@ export const attestationController = new Elysia({
     },
     { permission: "attestation.reset", params: t.Object({ id: t.String() }) }
   )
+  // ---- HQ full delete (test runs recorded by mistake / dry runs) ----
+  .delete(
+    "/attestation/attempts/:id",
+    async ({ params: { id }, user, role, terminals, cacheController, set, drizzle }) => {
+      const rows = await drizzle
+        .select({ terminal_id: attestation_test_attempts.terminal_id })
+        .from(attestation_test_attempts)
+        .where(eq(attestation_test_attempts.id, id))
+        .execute();
+      if (!rows.length) {
+        set.status = 404;
+        return { message: "Attempt not found" };
+      }
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      if (!isHQ && !terminals.includes(rows[0].terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
+      return await drizzle.transaction(async (tx) => {
+        await tx
+          .delete(attestation_test_attempt_answers)
+          .where(eq(attestation_test_attempt_answers.attempt_id, id))
+          .execute();
+        const deleted = await tx
+          .delete(attestation_test_attempts)
+          .where(eq(attestation_test_attempts.id, id))
+          .returning({ id: attestation_test_attempts.id })
+          .execute();
+        return deleted[0];
+      });
+    },
+    { permission: "attestation.reset", params: t.Object({ id: t.String() }) }
+  )
   // ---- analytics ----
   .get(
     "/attestation/analytics/attempts",

@@ -6,6 +6,7 @@ import { Input } from "@components/ui/input";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import CanAccess from "@admin/components/can-access";
+import { DeleteButton } from "@components/ui/delete-button";
 
 export default function AnalyticsPage() {
   const t = useTranslations("attestation");
@@ -70,6 +71,15 @@ export default function AnalyticsPage() {
       apiClient.api.attestation.attempts({ id }).reset.post({}),
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["attestation_attempts"] }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) =>
+      apiClient.api.attestation.attempts({ id }).delete({}),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attestation_attempts"] });
+      qc.invalidateQueries({ queryKey: ["attestation_summary"] });
+    },
   });
 
   const s = ((summary as any)?.data ?? summary) as any;
@@ -168,13 +178,19 @@ export default function AnalyticsPage() {
                 </td>
                 <td className="p-2">
                   <CanAccess permission="attestation.reset">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => resetMutation.mutate(r.id)}
-                    >
-                      {t("analytics.reset")}
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => resetMutation.mutate(r.id)}
+                      >
+                        {t("analytics.reset")}
+                      </Button>
+                      <DeleteButton
+                        recordId={r.id}
+                        deleteRecord={() => deleteMutation.mutate(r.id)}
+                      />
+                    </div>
                   </CanAccess>
                 </td>
               </tr>
