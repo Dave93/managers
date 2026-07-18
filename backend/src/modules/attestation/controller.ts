@@ -1026,10 +1026,13 @@ export const attestationController = new Elysia({
     },
     { permission: "attestation.reset", params: t.Object({ id: t.String() }) }
   )
-  // ---- HQ full delete (test runs recorded by mistake / dry runs) ----
+  // ---- HQ full delete (test runs recorded by mistake / dry runs).
+  // Unlike reset (a reversible status flip, branch-scoped), hard delete is
+  // HQ-only: destructive removal of scored history must not follow from a
+  // branch-level reset grant. ----
   .delete(
     "/attestation/attempts/:id",
-    async ({ params: { id }, user, role, terminals, cacheController, set, drizzle }) => {
+    async ({ params: { id }, user, role, cacheController, set, drizzle }) => {
       const rows = await drizzle
         .select({ terminal_id: attestation_test_attempts.terminal_id })
         .from(attestation_test_attempts)
@@ -1040,9 +1043,9 @@ export const attestationController = new Elysia({
         return { message: "Attempt not found" };
       }
       const isHQ = await resolveIsHq({ user, role, cacheController });
-      if (!isHQ && !terminals.includes(rows[0].terminal_id)) {
+      if (!isHQ) {
         set.status = 403;
-        return { message: "Out of scope" };
+        return { message: "HQ only" };
       }
       return await drizzle.transaction(async (tx) => {
         await tx
