@@ -380,7 +380,7 @@ export function DataTable<TData, TValue>() {
 
       <div className="rounded-md border relative overflow-x-auto">
         <Table className="min-w-[600px]">
-          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-50 sticky top-0">
+          <TableHeader className="bg-slate-600 dark:bg-slate-100 z-20 sticky top-16">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
