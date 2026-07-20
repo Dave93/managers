@@ -9,10 +9,12 @@ import {
     parseAsString,
     useQueryState,
 } from "nuqs";
-import { Card, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
+import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
 import { DebugInfo } from "@admin/components/charts/DebugInfo";
 import { useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
+import { ChartExportButton, useChartExport } from "@admin/components/charts/chart-export";
 import { HeatmapChartClient } from "./HeatmapChartClient";
 
 const fetchHourlyHeatmapData = async (
@@ -98,10 +100,22 @@ const OrderHourlyHeatmapChart = () => {
 
     const maxValue = Math.max(...formattedData.flatMap(d => d.data.map(h => h.y)));
 
+    const { ref: exportRef, exportPng, exporting } = useChartExport();
+
     return (
-        <Card className="h-full flex flex-col">
+        <Card ref={exportRef} className="h-full flex flex-col">
             <CardHeader className="pb-0">
                 <CardTitle>{t('charts.OrderHourlyHeatmapChart.title')}</CardTitle>
+                <CardAction>
+                    <ChartExportButton
+                        exporting={exporting}
+                        onExport={() =>
+                            exportPng(
+                                `orders-hourly-heatmap_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}`
+                            )
+                        }
+                    />
+                </CardAction>
             </CardHeader>
             <CardContent className="p-6 pt-0 grow flex flex-col">
                 <HeatmapChartClient
@@ -162,7 +176,7 @@ const OrderHourlyHeatmapChart = () => {
                     )}
                 />
                 {data && 'debug' in data && data.debug && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end" data-export-ignore>
                         <DebugInfo sqlQueryTime={data.debug.sqlQueryTime} apiTime={data.debug.apiTime} />
                     </div>
                 )}

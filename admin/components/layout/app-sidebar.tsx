@@ -10,6 +10,11 @@ import {
   CollapsibleTrigger,
 } from "@components/ui/collapsible";
 import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@components/ui/hover-card";
+import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
@@ -21,6 +26,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
+  useSidebar,
 } from "@components/ui/sidebar";
 import { useFilteredNav } from "./nav-config";
 import { NavUser } from "./nav-user";
@@ -29,6 +35,8 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const locale = useLocale();
   const nav = useFilteredNav();
+  const { state, isMobile } = useSidebar();
+  const showFlyout = state === "collapsed" && !isMobile;
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
 
@@ -68,6 +76,45 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
+              ) : showFlyout ? (
+                <HoverCard key={e.title} openDelay={100} closeDelay={150}>
+                  <SidebarMenuItem>
+                    <HoverCardTrigger asChild>
+                      <SidebarMenuButton
+                        isActive={e.items.some((it) => isActive(it.href))}
+                      >
+                        <e.icon />
+                        <span>{e.title}</span>
+                        <ChevronRight className="ml-auto" />
+                      </SidebarMenuButton>
+                    </HoverCardTrigger>
+                    <HoverCardContent
+                      side="right"
+                      align="start"
+                      sideOffset={8}
+                      className="w-72 p-1"
+                    >
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                        {e.title}
+                      </div>
+                      <SidebarMenu>
+                        {e.items.map((it) => (
+                          <SidebarMenuItem key={it.href}>
+                            <SidebarMenuButton
+                              asChild
+                              isActive={isActive(it.href)}
+                              className="h-auto [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
+                            >
+                              <Link href={it.href}>
+                                <span>{it.title}</span>
+                              </Link>
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ))}
+                      </SidebarMenu>
+                    </HoverCardContent>
+                  </SidebarMenuItem>
+                </HoverCard>
               ) : (
                 <Collapsible
                   key={e.title}
