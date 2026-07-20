@@ -548,9 +548,9 @@ export class IikoDictionariesService {
     console.log("Finished report olap db inserting");
   }
 
-  async getWriteOff(token: string) {
-    const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
-    const toDate = dayjs().format("YYYY-MM-DD");
+  async getWriteOff(token: string, fromDate?: string, toDate?: string) {
+    fromDate = fromDate ?? dayjs().subtract(40, "day").format("YYYY-MM-DD");
+    toDate = toDate ?? dayjs().format("YYYY-MM-DD");
     // console.log("token", token);
     const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/documents/writeoff?key=${token}&dateFrom=${fromDate}&dateTo=${toDate}`,
@@ -752,9 +752,9 @@ export class IikoDictionariesService {
     console.log("finished Cor_stores db inserting");
   }
 
-  async getInternalTransfer(token: string) {
-    const fromDate = dayjs().subtract(40, "day").format("YYYY-MM-DD");
-    const toDate = dayjs().format("YYYY-MM-DD");
+  async getInternalTransfer(token: string, fromDate?: string, toDate?: string) {
+    fromDate = fromDate ?? dayjs().subtract(40, "day").format("YYYY-MM-DD");
+    toDate = toDate ?? dayjs().format("YYYY-MM-DD");
     const response = await this.fetchWithRetry(
       `https://les-ailes-co-co.iiko.it/resto/api/v2/documents/internalTransfer?key=${token}&dateFrom=${fromDate}&dateTo=${toDate}`,
       {
@@ -2193,4 +2193,6 @@ async function runIikoSync() {
   console.log('after start ' + dayjs().format('YYYY-MM-DD HH:mm:ss'))
   process.exit(0);
 }
-runIikoSync();
+if (import.meta.main) {
+  runIikoSync();
+}
