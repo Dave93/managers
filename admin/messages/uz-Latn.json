@@ -96,7 +96,8 @@
     },
     "ProductCookingTime": {
       "title": "Tayyorlash vaqti"
-    }
+    },
+    "exportPng": "PNG yuklab olish"
   },
   "attestation": {
     "nav": {

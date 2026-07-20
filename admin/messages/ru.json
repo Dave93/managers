@@ -163,7 +163,8 @@
       "fullScreen": "Полноэкранный режим",
       "all": "Все",
       "resetZoom": "Сбросить масштаб"
-    }
+    },
+    "exportPng": "Скачать PNG"
   },
   "attestation": {
     "nav": {

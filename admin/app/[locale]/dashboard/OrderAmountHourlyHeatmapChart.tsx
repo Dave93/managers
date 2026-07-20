@@ -10,7 +10,9 @@ import {
     useQueryState,
 } from "nuqs";
 import { useTranslations } from "next-intl";
+import { format } from "date-fns";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
+import { ChartExportButton, useChartExport } from "@admin/components/charts/chart-export";
 import { HeatmapChartClient } from "./HeatmapChartClient";
 import ChartCard from "./_tremor/ChartCard";
 import { useIsMobile } from "@admin/utils/use-is-mobile";
@@ -99,8 +101,23 @@ const OrderAmountHourlyHeatmapChart = () => {
 
     const maxValue = Math.max(...formattedData.flatMap(d => d.data.map(h => h.y)));
 
+    const { ref: exportRef, exportPng, exporting } = useChartExport();
+
     return (
-        <ChartCard title={t('charts.OrderAmountHourlyHeatmapChart.title')}>
+        <ChartCard
+            title={t('charts.OrderAmountHourlyHeatmapChart.title')}
+            cardRef={exportRef}
+            headerRight={
+                <ChartExportButton
+                    exporting={exporting}
+                    onExport={() =>
+                        exportPng(
+                            `orders-amount-hourly-heatmap_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}`
+                        )
+                    }
+                />
+            }
+        >
                 <HeatmapChartClient
                     data={formattedData}
                     enableLabels={!isMobile}

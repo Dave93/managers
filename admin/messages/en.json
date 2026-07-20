@@ -133,7 +133,8 @@
       "noResults": "No sources found matching your search",
       "exportToCSV": "Export to CSV",
       "fullScreen": "Full Screen"
-    }
+    },
+    "exportPng": "Download PNG"
   },
   "attestation": {
     "nav": {

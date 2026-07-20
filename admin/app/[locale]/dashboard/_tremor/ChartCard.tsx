@@ -56,6 +56,8 @@ type Props = {
   className?: string;
   /** Apply to the chart body wrapper. */
   bodyClassName?: string;
+  /** Ref to the outer card element, e.g. for image export. */
+  cardRef?: React.Ref<HTMLDivElement>;
 };
 
 // Generic Tremor-style card shell: clean header (title + org toggle) and a
@@ -72,9 +74,10 @@ export default function ChartCard({
   footer,
   className,
   bodyClassName,
+  cardRef,
 }: Props) {
   return (
-    <Card className={cn("flex h-full flex-col", className)}>
+    <Card ref={cardRef} className={cn("flex h-full flex-col", className)}>
       <CardContent className="flex min-h-0 grow flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
