@@ -365,7 +365,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
         })}
       >
         <Table>
-          <TableHeader className="z-50 sticky top-0 ">
+          <TableHeader className="z-20 sticky top-16 ">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="">
                 {headerGroup.headers.map((header) => {
@@ -467,7 +467,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
         })}
       >
         <Table>
-          <TableHeader className="z-50 sticky top-0 bg-white dark:bg-slate-950">
+          <TableHeader className="z-20 sticky top-16 bg-white dark:bg-slate-950">
             {tableWithActual.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id} className="">
                 {headerGroup.headers.map((header) => {

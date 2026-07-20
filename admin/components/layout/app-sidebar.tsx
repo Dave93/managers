@@ -35,7 +35,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   const pathname = usePathname();
   const locale = useLocale();
   const nav = useFilteredNav();
-  const { state, isMobile } = useSidebar();
+  const { state, isMobile, toggleSidebar } = useSidebar();
   const showFlyout = state === "collapsed" && !isMobile;
   const isActive = (href: string) =>
     pathname === href || pathname.startsWith(href + "/");
@@ -82,6 +82,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                     <HoverCardTrigger asChild>
                       <SidebarMenuButton
                         isActive={e.items.some((it) => isActive(it.href))}
+                        onClick={toggleSidebar}
                       >
                         <e.icon />
                         <span>{e.title}</span>
