@@ -54,13 +54,21 @@ const worker = new Worker(
   {
     // BullMQ требует отдельного соединения с maxRetriesPerRequest: null —
     // клиент из ./src/redis не подходит
-    connection: { host: "localhost", port: 6379, maxRetriesPerRequest: null },
+    connection: {
+      host: process.env.REDIS_HOST || "localhost",
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      maxRetriesPerRequest: null,
+    },
     concurrency: 1,
   }
 );
 
 worker.on("failed", (job, err) => {
   console.error(`[worker] job ${job?.id} failed: ${err.message}`);
+});
+
+worker.on("error", (err) => {
+  console.error(`[worker] error: ${err.message}`);
 });
 
 console.log("[worker] iiko_document_sync worker started");

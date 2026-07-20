@@ -13,5 +13,7 @@ describe("buildSyncJob", () => {
     expect(job.opts.delay).toBe(30_000);
     expect(job.opts.attempts).toBe(5);
     expect(job.opts.backoff).toEqual({ type: "exponential", delay: 60_000 });
+    expect(job.opts.removeOnComplete).toBe(true);
+    expect(job.opts.removeOnFail).toEqual({ age: 3600 });
   });
 });

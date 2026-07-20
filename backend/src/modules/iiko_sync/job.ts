@@ -10,8 +10,8 @@ export function buildSyncJob(type: SyncDocumentType, date: string) {
       delay: 30_000,
       attempts: 5,
       backoff: { type: "exponential" as const, delay: 60_000 },
-      removeOnComplete: 100,
-      removeOnFail: 100,
+      removeOnComplete: true,
+      removeOnFail: { age: 3600 },
     },
   };
 }
