@@ -652,7 +652,10 @@ export const writeoff = pgTable(
       withTimezone: true,
       mode: "string",
     }).notNull(),
-    documnentNumber: varchar("documnentNumber", { length: 255 }),
+    // Колонка в БД так и называется с опечаткой — "documnentNumber"; переименование
+    // потребовало бы миграции timescaledb-гипертаблицы. TS-свойство исправлено, чтобы
+    // upsert в cron/iiko_sync.ts (ключ documentNumber) перестал молча отбрасываться.
+    documentNumber: varchar("documnentNumber", { length: 255 }),
     status: varchar("status", { length: 255 }),
     conceptionId: uuid("conceptionId"),
     comment: varchar("comment", { length: 255 }),
