@@ -16,11 +16,12 @@ const app = new Elysia()
     },
   })
   .use(openapi())
+  // Widened-type controller goes first: after apiController the accumulated
+  // route type is near TS's instantiation-depth limit and any extra .use()
+  // beyond medicalController overflows it (TS2589).
+  .use(iikoSyncController)
   .use(apiController)
-  .use(medicalController)
-  // Cast: the endpoint is called by external services over plain HTTP (no
-  // Eden client), and one more typed .use() overflows TS instantiation depth.
-  .use(iikoSyncController as any);
+  .use(medicalController);
 
 export default app;
 export type App = typeof app;
