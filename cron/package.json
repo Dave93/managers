@@ -8,6 +8,7 @@
   },
   "dependencies": {
     "@elysiajs/cron": "^0.6.0",
+    "bullmq": "^5.80.9",
     "dayjs": "^1.11.13",
     "drizzle-orm": "^0.33.0",
     "elysia": "latest",
