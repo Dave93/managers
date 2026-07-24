@@ -207,14 +207,26 @@ export const medicalController = new Elysia({ name: "@api/medical", prefix: "/ap
   )
   .get(
     "/medical/summary",
-    async ({ user, role, terminals, cacheController, drizzle }) => {
+    async ({ query, user, role, terminals, cacheController, drizzle }) => {
       const isHQ = await resolveIsHq({ user, role, cacheController });
-      const rows = await buildMedicalRows({ drizzle, isHQ, terminals });
+      const rows = await buildMedicalRows({
+        drizzle,
+        isHQ,
+        terminals,
+        search: query.search,
+        terminal_id: query.terminal_id,
+      });
       const counts = { unfit: 0, overdue: 0, due_soon: 0, ok: 0, none: 0 };
       for (const r of rows) counts[r.status as MedicalStatus]++;
       return counts;
     },
-    { permission: "medical.list" }
+    {
+      permission: "medical.list",
+      query: t.Object({
+        search: t.Optional(t.String()),
+        terminal_id: t.Optional(t.String()),
+      }),
+    }
   )
   .get(
     "/medical/employees/:id",

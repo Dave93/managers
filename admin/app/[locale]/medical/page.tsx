@@ -65,8 +65,14 @@ export default function MedicalPage() {
   }, [debSearch, terminalId, status]);
 
   const { data: summaryRes } = useQuery({
-    queryKey: ["medical_summary"],
-    queryFn: () => apiClient.api.medical.summary.get(),
+    queryKey: ["medical_summary", terminalId, debSearch],
+    queryFn: () =>
+      apiClient.api.medical.summary.get({
+        query: {
+          ...(terminalId ? { terminal_id: terminalId } : {}),
+          ...(debSearch ? { search: debSearch } : {}),
+        },
+      }),
   });
   const summary = ((summaryRes as any)?.data ?? {}) as Record<string, number>;
   const tileCount = (key: string) =>
