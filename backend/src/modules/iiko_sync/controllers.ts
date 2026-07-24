@@ -11,14 +11,20 @@ const IIKO_DOCUMENT_SYNC_QUEUE = "iiko_document_sync";
 
 const iikoDocumentSyncQueue = new Queue(IIKO_DOCUMENT_SYNC_QUEUE, {
   connection: {
-    host: process.env.REDIS_HOST || "localhost",
+    host: process.env.REDIS_HOST,
     port: parseInt(process.env.REDIS_PORT || "6379"),
     maxRetriesPerRequest: null,
   },
 });
 
-export const iikoSyncController = new Elysia({
+// Registered on the app root (src/app.ts) — the apiController .use() chain
+// hits TypeScript's instantiation-depth limit (TS2589) past 42 controllers,
+// hence the explicit /api prefix here (same as medicalController).
+// Widened type: keeps the app root .use() chain from overflowing
+// TS instantiation depth; routes are HTTP-only (no Eden consumers).
+const iikoSyncControllerImpl = new Elysia({
   name: "@api/iiko_sync",
+  prefix: "/api",
 })
   .use(ctx)
   .post(
@@ -59,3 +65,7 @@ export const iikoSyncController = new Elysia({
       }),
     }
   );
+
+// Widened export: keeps the app root .use() chain from overflowing TS
+// instantiation depth; routes are HTTP-only (no Eden consumers).
+export const iikoSyncController = iikoSyncControllerImpl as unknown as Elysia;
