@@ -3,7 +3,7 @@ import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { getCreditDb } from "../credit/db";
 import { applyAdjustment, applyPayment, canonPhone, dayKey, ensureAccount, invalidateCreditCompanyCache, monthKey } from "../credit/service";
-import { and, desc, eq, gte, inArray, lte, SQLWrapper, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, lte, SQLWrapper, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import fs from "fs";
 import { randomUUID } from "crypto";
@@ -232,12 +232,44 @@ export async function adjustCompany(companyId: string, data: any, userId?: strin
 }
 
 export async function listPayments(db: any, companyId: string) {
+  // Explicit column list, matching the documents/companies list routes above.
   const data = await db
-    .select()
+    .select({
+      id: credit_payments.id,
+      company_id: credit_payments.company_id,
+      amount: credit_payments.amount,
+      doc_number: credit_payments.doc_number,
+      doc_date: credit_payments.doc_date,
+      note: credit_payments.note,
+      created_by: credit_payments.created_by,
+      created_at: credit_payments.created_at,
+    })
     .from(credit_payments)
     .where(eq(credit_payments.company_id, companyId))
     .orderBy(desc(credit_payments.created_at));
   return { data };
+}
+
+// Exported (not just used inline by the export route) so it's directly
+// testable at the same level as the rest of this module's helpers.
+export async function companyExists(db: any, companyId: string): Promise<boolean> {
+  const [row] = await db.select({ id: credit_companies.id }).from(credit_companies).where(eq(credit_companies.id, companyId));
+  return !!row;
+}
+
+// Bare `YYYY-MM-DD` query params (what a date-only <input type=date> sends)
+// must be interpreted in Tashkent local time, matching dayKey/monthKey — NOT
+// `new Date("YYYY-MM-DD")`, which JS parses as UTC midnight (Tashkent is
+// UTC+5). Left as UTC midnight, `to=2026-07-30` would cut off at 05:00
+// Tashkent instead of end-of-day, silently dropping the last ~19 hours of
+// that day's entries; `from=2026-07-30` would likewise drop entries made
+// between 00:00-05:00 Tashkent (whose UTC timestamp is still the previous
+// UTC day). A full ISO timestamp (already carrying its own offset/zone) is
+// passed through untouched.
+const BARE_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+function parseStatementBound(value: string, endOfDay: boolean): Date {
+  if (BARE_DATE_RE.test(value)) return new Date(`${value}T${endOfDay ? "23:59:59.999" : "00:00:00"}+05:00`);
+  return new Date(value);
 }
 
 // Shared by the statement route and its xlsx export so the two can never drift
@@ -252,13 +284,29 @@ async function queryStatementEntries(
   offset: number
 ) {
   const whereClause: SQLWrapper[] = [eq(credit_entries.company_id, companyId)];
-  if (filters.from) whereClause.push(gte(credit_entries.created_at, new Date(filters.from)));
-  if (filters.to) whereClause.push(lte(credit_entries.created_at, new Date(filters.to)));
+  if (filters.from) whereClause.push(gte(credit_entries.created_at, parseStatementBound(filters.from, false)));
+  if (filters.to) whereClause.push(lte(credit_entries.created_at, parseStatementBound(filters.to, true)));
   if (filters.brand) whereClause.push(eq(credit_entries.brand, filters.brand));
 
   const [cnt] = await db.select({ count: sql<number>`count(*)` }).from(credit_entries).where(and(...whereClause));
+  // Explicit column list, matching the documents/companies list routes above.
   const data = await db
-    .select()
+    .select({
+      id: credit_entries.id,
+      company_id: credit_entries.company_id,
+      hold_id: credit_entries.hold_id,
+      brand: credit_entries.brand,
+      order_id: credit_entries.order_id,
+      order_number: credit_entries.order_number,
+      entry_type: credit_entries.entry_type,
+      amount: credit_entries.amount,
+      balance_after: credit_entries.balance_after,
+      period_day_key: credit_entries.period_day_key,
+      period_month_key: credit_entries.period_month_key,
+      meta: credit_entries.meta,
+      created_by: credit_entries.created_by,
+      created_at: credit_entries.created_at,
+    })
     .from(credit_entries)
     .where(and(...whereClause))
     .orderBy(desc(credit_entries.created_at), desc(credit_entries.id))
@@ -270,12 +318,16 @@ async function queryStatementEntries(
 // posted/reserved from credit_accounts, day/month spend from credit_periods
 // keyed on TODAY's dayKey/monthKey (not the statement's from/to filter — "how
 // much room is left right now" is always relative to today, independent of
-// what date range the admin happens to be browsing).
+// what date range the admin happens to be browsing). Returns null when the
+// company itself doesn't exist, so callers can 404 instead of silently
+// answering an all-zero summary for a bad id.
 export async function getStatementSummary(db: any, companyId: string) {
   const [company] = await db
     .select({ limit_total: credit_companies.limit_total, limit_daily: credit_companies.limit_daily, limit_monthly: credit_companies.limit_monthly })
     .from(credit_companies)
     .where(eq(credit_companies.id, companyId));
+  if (!company) return null;
+
   const [account] = await db
     .select({ posted: credit_accounts.posted, reserved: credit_accounts.reserved })
     .from(credit_accounts)
@@ -293,9 +345,9 @@ export async function getStatementSummary(db: any, companyId: string) {
   const reserved = account?.reserved ?? 0;
   const day_spent = periods.find((p: any) => p.period_key === dk)?.spent ?? 0;
   const month_spent = periods.find((p: any) => p.period_key === mk)?.spent ?? 0;
-  const limit_total = company?.limit_total ?? 0;
-  const limit_daily = company?.limit_daily ?? 0;
-  const limit_monthly = company?.limit_monthly ?? 0;
+  const limit_total = company.limit_total ?? 0;
+  const limit_daily = company.limit_daily ?? 0;
+  const limit_monthly = company.limit_monthly ?? 0;
 
   const available = Math.max(
     0,
@@ -310,18 +362,21 @@ const STATEMENT_EXPORT_CAP = 10_000;
 
 export async function getStatement(db: any, companyId: string, query: any) {
   const summary = await getStatementSummary(db, companyId);
+  if (!summary) return { error: "not_found" };
   const limit = query.limit ? Math.min(+query.limit, STATEMENT_EXPORT_CAP) : STATEMENT_DEFAULT_LIMIT;
   const offset = query.offset ? +query.offset : 0;
   const { total, data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, limit, offset);
   return { summary, total, data };
 }
 
+// Extracted so the truncation-marker branch is unit-testable without seeding
+// 10,000+ real rows: callers can hand it a fabricated `total`.
+//
 // The xlsx is a human-facing document handed to accountants — everywhere else
 // in this module (and in the JSON /statement route above) money stays in raw
 // integer tiyins. This conversion to сумы (÷100) happens ONLY here.
-export async function exportStatementXlsx(db: any, companyId: string, query: any) {
-  const { data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, STATEMENT_EXPORT_CAP, 0);
-  const rows = data.map((e: any) => ({
+export function buildStatementRows(entries: any[], total: number) {
+  const rows = entries.map((e: any) => ({
     date: e.created_at,
     type: e.entry_type,
     brand: e.brand ?? "",
@@ -330,6 +385,28 @@ export async function exportStatementXlsx(db: any, companyId: string, query: any
     balance_after: e.balance_after / 100,
     doc: e.meta ? JSON.stringify(e.meta) : "",
   }));
+  // A silent 10k cut mid-period is worse than an ugly row: without this, an
+  // accountant reading the file has no signal that the statement they're
+  // holding is incomplete. Keeps the same column keys as the data rows above
+  // (not e.g. Cyrillic-cased keys) so json_to_sheet doesn't fork off extra
+  // sparse columns for a row that only fills two of them.
+  if (total > STATEMENT_EXPORT_CAP) {
+    rows.push({
+      date: "ВНИМАНИЕ",
+      type: `выгружено ${STATEMENT_EXPORT_CAP} из ${total} — сузьте период`,
+      brand: "",
+      order_number: "",
+      amount: "" as any,
+      balance_after: "" as any,
+      doc: "",
+    });
+  }
+  return rows;
+}
+
+export async function exportStatementXlsx(db: any, companyId: string, query: any) {
+  const { total, data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, STATEMENT_EXPORT_CAP, 0);
+  const rows = buildStatementRows(data, total);
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.json_to_sheet(rows);
   XLSX.utils.book_append_sheet(wb, ws, "Statement");
@@ -339,10 +416,13 @@ export async function exportStatementXlsx(db: any, companyId: string, query: any
 export async function getCreditSummary(db: any) {
   const [totalRow] = await db.select({ total_debt: sql<number>`coalesce(sum(${credit_accounts.posted}), 0)` }).from(credit_accounts);
 
+  // posted > 0: a company that has never carried debt (or has since settled
+  // to exactly 0) is not a "debtor" and must not clutter the top-5.
   const top_debtors = await db
     .select({ id: credit_companies.id, name: credit_companies.name, posted: credit_accounts.posted })
     .from(credit_accounts)
     .innerJoin(credit_companies, eq(credit_companies.id, credit_accounts.company_id))
+    .where(gt(credit_accounts.posted, 0))
     .orderBy(desc(credit_accounts.posted))
     .limit(5);
 
@@ -621,8 +701,10 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
   )
   .get(
     "/credit/companies/:id/payments",
+    // credit.list, not credit.pay: this is a read of the same rows already
+    // visible through the /statement route, which credit.list holders can see.
     async ({ params: { id }, drizzle }) => listPayments(drizzle, id),
-    { permission: "credit.pay", params: t.Object({ id: t.String({ format: "uuid" }) }) }
+    { permission: "credit.list", params: t.Object({ id: t.String({ format: "uuid" }) }) }
   )
   .post(
     "/credit/companies/:id/adjustments",
@@ -645,7 +727,11 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
   )
   .get(
     "/credit/companies/:id/statement",
-    async ({ params: { id }, query, drizzle }) => getStatement(drizzle, id, query),
+    async ({ params: { id }, query, drizzle, set }) => {
+      const r = await getStatement(drizzle, id, query);
+      if ("error" in r) set.status = 404;
+      return r;
+    },
     {
       permission: "credit.list",
       params: t.Object({ id: t.String({ format: "uuid" }) }),
@@ -661,6 +747,13 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
   .get(
     "/credit/companies/:id/statement/export",
     async ({ params: { id }, query, drizzle, set }) => {
+      // exportStatementXlsx has no natural place to signal "no such company"
+      // (it just runs the entries query, which returns empty either way) —
+      // check up front so a bad id 404s instead of downloading an empty file.
+      if (!(await companyExists(drizzle, id))) {
+        set.status = 404;
+        return { error: "not_found" };
+      }
       const buf = await exportStatementXlsx(drizzle, id, query);
       set.headers["content-disposition"] = `attachment; filename="statement-${id}.xlsx"`;
       set.headers["content-type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
