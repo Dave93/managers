@@ -89,7 +89,7 @@ for scheduled orders, or the hold reaper will expire it before the order runs.)
 | `{approved:false, reason:"limit_total"}` | total ceiling |
 | `{approved:false, reason:"limit_daily"}` | today's ceiling |
 | `{approved:false, reason:"limit_monthly"}` | this month's ceiling |
-| `{approved:false, reason:"amount_mismatch"}` | **this order already has a hold for a DIFFERENT amount — call `/amend`** |
+| `{approved:false, reason:"amount_mismatch"}` | **this order already has a hold for a DIFFERENT amount — call `/amend`.** Only while that hold is still `held`: if it has already been captured, `/amend` answers `wrong_state` and the correct action is `/refund` |
 | `{approved:false, reason:"service_error"}` | see below |
 
 500 body: `{approved:false, reason:"service_error"}`.

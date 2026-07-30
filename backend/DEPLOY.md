@@ -113,6 +113,15 @@ ls -ld /home/davr/managers/run /home/davr/managers/run/credit-internal.sock
 # the maintenance jobs registered (bullmq job schedulers, keyed by id — a
 # re-register updates the schedule rather than orphaning the old one)
 pm2 logs office_api --lines 100 --nostream | grep -i credit
+
+# ...and that the registered set is EXACTLY the two we expect. Must list
+# credit-reconcile and credit-hold-reaper, nothing else:
+redis-cli ZRANGE bull:credit-maintenance:repeat 0 -1
+# A member that is a long hex HASH rather than a readable job name is a stale
+# legacy repeatable from the pre-upsertJobScheduler `add(..., {repeat})` API.
+# Those still fire on their old schedule alongside the new ones — i.e. the job
+# runs twice — and they are invisible in the logs because both spellings print
+# the same job name. Remove with queue.removeRepeatableByKey(<member>).
 ```
 
 In production `index.ts` starts the credit socket, the bullmq jobs and the

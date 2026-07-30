@@ -3,7 +3,7 @@
 // done by the time they call here — an alert failure must not fail the job.
 export async function creditAlert(text: string) {
   const token = process.env.CREDIT_ALERT_BOT_TOKEN;
-  const chat = process.env.CREDIT_ALERT_CHAT_ID; // monitoring supergroup -1003355511626
+  const chat = process.env.CREDIT_ALERT_CHAT_ID; // chat id comes from env — do not hardcode or document a specific group here
   if (!token || !chat) { console.warn("credit alert (no bot configured):", text); return; }
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
