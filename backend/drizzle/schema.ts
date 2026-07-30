@@ -1731,8 +1731,17 @@ export const credit_entries = pgTable("credit_entries", {
   // The whitelist form (instead of excluding the new value) is what lets this
   // index be created in the SAME transaction that adds 'amend' to the enum —
   // postgres refuses to use a newly added enum value in the transaction that
-  // created it. CAVEAT: it is a closed set, so a 7th entry_type added later
-  // escapes the gate silently unless it is added here too.
+  // created it.
+  //
+  // TWO THINGS MUST BE KEPT IN SYNC WITH THIS PREDICATE:
+  // 1. Any FUTURE credit_entry_type value is a conscious decision — add it here
+  //    to keep it under the uniqueness gate, or deliberately leave it out. Doing
+  //    nothing means it silently escapes the gate, i.e. that operation loses its
+  //    "replay = ok, no second debit" guarantee with no error anywhere.
+  // 2. service.ts's ENTRY_OP_CONFLICT_TARGET, which repeats this predicate
+  //    character-for-character. Postgres will not infer a PARTIAL index as an
+  //    ON CONFLICT arbiter unless the statement restates its predicate; a
+  //    mismatch raises 42P10 at plan time and every capture/void/refund fails.
   credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type)
     .where(sql`entry_type IN ('authorize','capture','void','refund','payment','adjustment')`),
 }));

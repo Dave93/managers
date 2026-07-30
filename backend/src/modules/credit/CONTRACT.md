@@ -207,6 +207,16 @@ land in the same transaction or reconciliation starts alerting.
   be non-empty; both are rejected as `bad_amount` / `bad_reason`. Unknown company
   → `{ok:false, reason:"not_found"}`.
 
+**If you ever write `credit_entries` with `ON CONFLICT`, repeat the index
+predicate.** `credit_entries_op_uniq` is a *partial* unique index (it excludes
+`amend`, since an order may legally be amended many times). Postgres refuses to
+infer a partial index as an ON CONFLICT arbiter unless the statement restates its
+predicate, and it raises `42P10` at **plan time** — inside your transaction,
+where a `catch` will flatten it into a generic failure with no clue what broke.
+`service.ts` keeps the fragment in one place (`ENTRY_OP_CONFLICT_TARGET`); use
+that, do not retype it. The same applies to `credit_payments`'
+`credit_payment_doc_uniq` (`WHERE doc_number IS NOT NULL`).
+
 **Invalidate the phone cache on every company write.** Call
 `invalidateCreditCompanyCache(redis, phones)` after any change to
 `credit_companies` (status, limits) or `credit_company_phones` (add, deactivate,

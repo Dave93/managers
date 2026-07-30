@@ -139,6 +139,18 @@ export async function ensureAccount(db: DrizzleDb, company_id: string) {
     ON CONFLICT (company_id) DO NOTHING`);
 }
 
+// credit_entries_op_uniq is a PARTIAL unique index (migration 0012 excluded
+// 'amend' entries from it, because an order may legally be amended many times).
+// Postgres infers the arbiter index for ON CONFLICT from the conflict target,
+// and a partial index only matches if the statement REPEATS its predicate
+// verbatim — otherwise it raises 42P10 "there is no unique or exclusion
+// constraint matching the ON CONFLICT specification". That error is raised at
+// plan time, inside the transaction, where each operation's catch block
+// flattens it into a bare `service_error`: i.e. omitting this makes capture,
+// void and refund fail 100% of the time with no hint as to why. It must stay
+// character-for-character identical to the index predicate in schema.ts.
+const ENTRY_OP_CONFLICT_TARGET = sql`(brand, order_id, entry_type) WHERE entry_type IN ('authorize','capture','void','refund','payment','adjustment')`;
+
 // The ON CONFLICT ... WHERE guard only applies to the UPDATE branch; a brand-new
 // period row bypasses it entirely, so a fresh INSERT can land over limit. The
 // post-check below catches that case and throws with the caller-supplied reason
@@ -270,7 +282,7 @@ export async function capture(db: DrizzleDb, brand: string, order_id: string): P
       await tx.execute(sql`
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'capture', 0, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
-        ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
+        ON CONFLICT ${ENTRY_OP_CONFLICT_TARGET} DO NOTHING`);
       result = { ok: true };
     });
     return result;
@@ -312,7 +324,7 @@ export async function voidHold(db: DrizzleDb, brand: string, order_id: string, o
       await tx.execute(sql`
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'void', ${-hold.amount}, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
-        ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
+        ON CONFLICT ${ENTRY_OP_CONFLICT_TARGET} DO NOTHING`);
       result = { ok: true };
     });
     return result;
@@ -445,7 +457,7 @@ export async function refund(db: DrizzleDb, brand: string, order_id: string, amo
       const ent = await tx.execute(sql`
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'refund', ${-amt}, 0, ${hold.period_day_key}, ${hold.period_month_key})
-        ON CONFLICT (brand, order_id, entry_type) DO NOTHING
+        ON CONFLICT ${ENTRY_OP_CONFLICT_TARGET} DO NOTHING
         RETURNING id`);
       if (ent.length === 0) {
         // conflict: a refund entry already exists. Only a same-amount replay is a
