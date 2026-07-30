@@ -49,18 +49,24 @@ async function bumpPeriod(tx: DrizzleDb, company_id: string, period_key: string,
 
 export async function authorize(db: DrizzleDb, input: AuthorizeInput): Promise<AuthorizeResult> {
   if (!(input.amount > 0)) return { approved: false, reason: "service_error" };
-  const company = await resolveCompanyByPhone(db, input.phone);
-  if (!company) return { approved: false, reason: "unknown_phone" };
-  if (company.status !== "active") return { approved: false, reason: "suspended" };
-  await ensureAccount(db, company.id);
-
-  const now = new Date();
-  const dk = dayKey(now), mk = monthKey(now);
-  const expires = input.expires_at ?? new Date(now.getTime() + 24 * 3600 * 1000);
 
   let decline: DeclineReason | null = null;
   let holdId: string | null = null;
+
   try {
+    // resolveCompanyByPhone/ensureAccount are inside the try now: a DB failure here
+    // must surface as service_error, not as a rejected promise escaping authorize().
+    const company = await resolveCompanyByPhone(db, input.phone);
+    if (!company) return { approved: false, reason: "unknown_phone" };
+    if (company.status !== "active") return { approved: false, reason: "suspended" };
+    await ensureAccount(db, company.id);
+
+    const now = new Date();
+    const dk = dayKey(now), mk = monthKey(now);
+    const expires = input.expires_at ?? new Date(now.getTime() + 24 * 3600 * 1000);
+
+    let resultCompanyId: string | null = null;
+
     await db.transaction(async (tx: DrizzleDb) => {
       // 1. idempotency gate: try to insert hold first
       const ins = await tx.execute(sql`
@@ -73,13 +79,21 @@ export async function authorize(db: DrizzleDb, input: AuthorizeInput): Promise<A
         const ex = await tx.execute(sql`
           SELECT id, state, company_id FROM credit_holds WHERE brand = ${input.brand} AND order_id = ${input.order_id}`);
         if (ex.length && ex[0].state !== "voided" && ex[0].state !== "expired") {
+          if (ex[0].company_id !== company.id) {
+            // this phone resolves to a different company than the one that already
+            // owns the hold — never approve under a company that doesn't own it
+            decline = "service_error";
+            throw new Error("rollback");
+          }
           holdId = ex[0].id;
+          resultCompanyId = ex[0].company_id;
           return; // idempotent success, no balance change
         }
         decline = "service_error"; // re-authorize of voided order is a caller bug (must use new order_id)
         throw new Error("rollback");
       }
       holdId = ins[0].id;
+      resultCompanyId = company.id;
 
       // 2. total ceiling — conditional update, lock order: accounts -> day -> month
       const acc = await tx.execute(sql`
@@ -100,11 +114,12 @@ export async function authorize(db: DrizzleDb, input: AuthorizeInput): Promise<A
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${company.id}, ${holdId}, ${input.brand}, ${input.order_id}, ${input.order_number ?? null}, 'authorize', ${input.amount}, ${acc[0].balance_after}, ${dk}, ${mk})`);
     });
+
+    return { approved: true, hold_id: holdId!, company_id: resultCompanyId! };
   } catch (e: any) {
     if (e?.fresh_over) decline = e.fresh_over as DeclineReason;
     if (decline) return { approved: false, reason: decline };
     console.error("credit.authorize error", e);
     return { approved: false, reason: "service_error" };
   }
-  return { approved: true, hold_id: holdId!, company_id: company.id };
 }
