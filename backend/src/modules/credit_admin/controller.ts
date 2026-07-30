@@ -1,12 +1,13 @@
-import { credit_accounts, credit_companies, credit_company_documents, credit_company_phones } from "backend/drizzle/schema";
+import { credit_accounts, credit_companies, credit_company_documents, credit_company_phones, credit_entries, credit_payments, credit_periods } from "backend/drizzle/schema";
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { getCreditDb } from "../credit/db";
-import { canonPhone, ensureAccount, invalidateCreditCompanyCache } from "../credit/service";
-import { and, desc, eq, SQLWrapper, sql } from "drizzle-orm";
+import { applyAdjustment, applyPayment, canonPhone, dayKey, ensureAccount, invalidateCreditCompanyCache, monthKey } from "../credit/service";
+import { and, desc, eq, gte, inArray, lte, SQLWrapper, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import fs from "fs";
 import { randomUUID } from "crypto";
+import * as XLSX from "xlsx";
 
 // db/redis are typed `any` here on purpose: the route passes ctx's node-postgres
 // `drizzle` + ioredis `redis`, tests pass a drizzle-orm/postgres-js handle + a
@@ -207,6 +208,163 @@ export async function deleteDocument(db: any, id: string) {
   }
   await db.delete(credit_company_documents).where(eq(credit_company_documents.id, id));
   return { ok: true };
+}
+
+// Money moves through applyPayment/applyAdjustment only, per CONTRACT.md — both
+// ALWAYS go through getCreditDb(), never a caller-supplied `db` (unlike every
+// other helper above, which takes ctx's drizzle for plain reads/writes on
+// non-money tables). Passing the wrong handle here doesn't throw a clear
+// error, it silently turns money operations into `service_error` (see
+// modules/credit/db.ts). The route returns the OpResult verbatim, including
+// the `{ok:true, reason:"duplicate_doc"}` replay shape — that IS success, not
+// a case to special-case into an error.
+export async function payCompany(companyId: string, data: any, userId?: string) {
+  return applyPayment(getCreditDb(), companyId, data.amount, {
+    doc_number: data.doc_number,
+    doc_date: data.doc_date ? new Date(data.doc_date) : undefined,
+    note: data.note,
+    created_by: userId,
+  });
+}
+
+export async function adjustCompany(companyId: string, data: any, userId?: string) {
+  return applyAdjustment(getCreditDb(), companyId, data.amount, { reason: data.reason, created_by: userId });
+}
+
+export async function listPayments(db: any, companyId: string) {
+  const data = await db
+    .select()
+    .from(credit_payments)
+    .where(eq(credit_payments.company_id, companyId))
+    .orderBy(desc(credit_payments.created_at));
+  return { data };
+}
+
+// Shared by the statement route and its xlsx export so the two can never drift
+// apart on filtering/ordering. Callers pass `limit`/`offset` explicitly: the
+// export path always calls with (STATEMENT_EXPORT_CAP, 0); the paginated JSON
+// route calls with whatever the caller asked for, clamped to that same cap.
+async function queryStatementEntries(
+  db: any,
+  companyId: string,
+  filters: { from?: string; to?: string; brand?: string },
+  limit: number,
+  offset: number
+) {
+  const whereClause: SQLWrapper[] = [eq(credit_entries.company_id, companyId)];
+  if (filters.from) whereClause.push(gte(credit_entries.created_at, new Date(filters.from)));
+  if (filters.to) whereClause.push(lte(credit_entries.created_at, new Date(filters.to)));
+  if (filters.brand) whereClause.push(eq(credit_entries.brand, filters.brand));
+
+  const [cnt] = await db.select({ count: sql<number>`count(*)` }).from(credit_entries).where(and(...whereClause));
+  const data = await db
+    .select()
+    .from(credit_entries)
+    .where(and(...whereClause))
+    .orderBy(desc(credit_entries.created_at), desc(credit_entries.id))
+    .limit(limit)
+    .offset(offset);
+  return { total: Number(cnt.count), data };
+}
+
+// posted/reserved from credit_accounts, day/month spend from credit_periods
+// keyed on TODAY's dayKey/monthKey (not the statement's from/to filter — "how
+// much room is left right now" is always relative to today, independent of
+// what date range the admin happens to be browsing).
+export async function getStatementSummary(db: any, companyId: string) {
+  const [company] = await db
+    .select({ limit_total: credit_companies.limit_total, limit_daily: credit_companies.limit_daily, limit_monthly: credit_companies.limit_monthly })
+    .from(credit_companies)
+    .where(eq(credit_companies.id, companyId));
+  const [account] = await db
+    .select({ posted: credit_accounts.posted, reserved: credit_accounts.reserved })
+    .from(credit_accounts)
+    .where(eq(credit_accounts.company_id, companyId));
+
+  const now = new Date();
+  const dk = dayKey(now);
+  const mk = monthKey(now);
+  const periods = await db
+    .select({ period_key: credit_periods.period_key, spent: credit_periods.spent })
+    .from(credit_periods)
+    .where(and(eq(credit_periods.company_id, companyId), inArray(credit_periods.period_key, [dk, mk])));
+
+  const posted = account?.posted ?? 0;
+  const reserved = account?.reserved ?? 0;
+  const day_spent = periods.find((p: any) => p.period_key === dk)?.spent ?? 0;
+  const month_spent = periods.find((p: any) => p.period_key === mk)?.spent ?? 0;
+  const limit_total = company?.limit_total ?? 0;
+  const limit_daily = company?.limit_daily ?? 0;
+  const limit_monthly = company?.limit_monthly ?? 0;
+
+  const available = Math.max(
+    0,
+    Math.min(limit_total - posted - reserved, limit_daily - day_spent, limit_monthly - month_spent)
+  );
+
+  return { posted, reserved, available, day_spent, month_spent, limit_total, limit_daily, limit_monthly };
+}
+
+const STATEMENT_DEFAULT_LIMIT = 50;
+const STATEMENT_EXPORT_CAP = 10_000;
+
+export async function getStatement(db: any, companyId: string, query: any) {
+  const summary = await getStatementSummary(db, companyId);
+  const limit = query.limit ? Math.min(+query.limit, STATEMENT_EXPORT_CAP) : STATEMENT_DEFAULT_LIMIT;
+  const offset = query.offset ? +query.offset : 0;
+  const { total, data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, limit, offset);
+  return { summary, total, data };
+}
+
+// The xlsx is a human-facing document handed to accountants — everywhere else
+// in this module (and in the JSON /statement route above) money stays in raw
+// integer tiyins. This conversion to сумы (÷100) happens ONLY here.
+export async function exportStatementXlsx(db: any, companyId: string, query: any) {
+  const { data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, STATEMENT_EXPORT_CAP, 0);
+  const rows = data.map((e: any) => ({
+    date: e.created_at,
+    type: e.entry_type,
+    brand: e.brand ?? "",
+    order_number: e.order_number ?? "",
+    amount: e.amount / 100,
+    balance_after: e.balance_after / 100,
+    doc: e.meta ? JSON.stringify(e.meta) : "",
+  }));
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, "Statement");
+  return XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
+}
+
+export async function getCreditSummary(db: any) {
+  const [totalRow] = await db.select({ total_debt: sql<number>`coalesce(sum(${credit_accounts.posted}), 0)` }).from(credit_accounts);
+
+  const top_debtors = await db
+    .select({ id: credit_companies.id, name: credit_companies.name, posted: credit_accounts.posted })
+    .from(credit_accounts)
+    .innerJoin(credit_companies, eq(credit_companies.id, credit_accounts.company_id))
+    .orderBy(desc(credit_accounts.posted))
+    .limit(5);
+
+  const mk = monthKey(new Date());
+  const companies_over_80_monthly = await db
+    .select({
+      id: credit_companies.id,
+      name: credit_companies.name,
+      month_spent: credit_periods.spent,
+      limit_monthly: credit_companies.limit_monthly,
+    })
+    .from(credit_periods)
+    .innerJoin(credit_companies, eq(credit_companies.id, credit_periods.company_id))
+    .where(
+      and(
+        eq(credit_periods.period_key, mk),
+        sql`${credit_companies.limit_monthly} > 0`,
+        sql`${credit_periods.spent} > 0.8 * ${credit_companies.limit_monthly}`
+      )
+    );
+
+  return { total_debt: Number(totalRow.total_debt), companies_over_80_monthly, top_debtors };
 }
 
 export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
@@ -436,4 +594,90 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
       return r;
     },
     { permission: "credit.edit", params: t.Object({ id: t.String({ format: "uuid" }) }) }
+  )
+  .post(
+    "/credit/companies/:id/payments",
+    async ({ params: { id }, body: { data }, set, user }) => {
+      const r = await payCompany(id, data, user!.id);
+      if (!r.ok) set.status = 400;
+      return r;
+    },
+    {
+      permission: "credit.pay",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      body: t.Object({
+        data: t.Object({
+          amount: t.Integer({ minimum: 1 }),
+          // REQUIRED (not Optional) at the schema level: doc_number is the
+          // idempotency key applyPayment gates its replay-protection on. A
+          // null doc_number is only for legacy/manual entries per
+          // CONTRACT.md — the admin UI must always send one.
+          doc_number: t.String({ minLength: 1 }),
+          doc_date: t.Optional(t.String({ format: "date" })),
+          note: t.Optional(t.String()),
+        }),
+      }),
+    }
+  )
+  .get(
+    "/credit/companies/:id/payments",
+    async ({ params: { id }, drizzle }) => listPayments(drizzle, id),
+    { permission: "credit.pay", params: t.Object({ id: t.String({ format: "uuid" }) }) }
+  )
+  .post(
+    "/credit/companies/:id/adjustments",
+    async ({ params: { id }, body: { data }, set, user }) => {
+      const r = await adjustCompany(id, data, user!.id);
+      if (!r.ok) set.status = 400;
+      return r;
+    },
+    {
+      permission: "credit.pay",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      body: t.Object({
+        // Sign convention (matches applyAdjustment/applyPayment): positive
+        // reduces debt, negative increases it. Zero is schema-legal here
+        // (TypeBox has no "non-zero integer" constraint) and rejected as
+        // `bad_amount` by the service itself.
+        data: t.Object({ amount: t.Integer(), reason: t.String({ minLength: 1 }) }),
+      }),
+    }
+  )
+  .get(
+    "/credit/companies/:id/statement",
+    async ({ params: { id }, query, drizzle }) => getStatement(drizzle, id, query),
+    {
+      permission: "credit.list",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      query: t.Object({
+        from: t.Optional(t.String()),
+        to: t.Optional(t.String()),
+        brand: t.Optional(t.String()),
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get(
+    "/credit/companies/:id/statement/export",
+    async ({ params: { id }, query, drizzle, set }) => {
+      const buf = await exportStatementXlsx(drizzle, id, query);
+      set.headers["content-disposition"] = `attachment; filename="statement-${id}.xlsx"`;
+      set.headers["content-type"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      return buf;
+    },
+    {
+      permission: "credit.list",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      query: t.Object({
+        from: t.Optional(t.String()),
+        to: t.Optional(t.String()),
+        brand: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get(
+    "/credit/summary",
+    async ({ drizzle }) => getCreditSummary(drizzle),
+    { permission: "credit.list" }
   );
