@@ -3,7 +3,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql, eq } from "drizzle-orm";
 import fs from "fs";
-import { addPhone, deactivatePhone, saveDocument, deleteDocument } from "../../src/modules/credit_admin/controller";
+import path from "path";
+import { addPhone, deactivatePhone, saveDocument, deleteDocument, sanitizeFilenamePart } from "../../src/modules/credit_admin/controller";
 import * as s from "../../drizzle/schema";
 
 // Same convention as admin_companies.test.ts: DB-level helper tests against a
@@ -56,6 +57,11 @@ function makeRedisStub() {
   return { calls, del: async (...keys: string[]) => { calls.push(keys); return keys.length; } };
 }
 const CACHE_KEY = (phone: string) => `credit:company_by_phone:${phone}`;
+
+async function documentCountFor(id: string) {
+  const [row] = await db.select({ count: sql<number>`count(*)` }).from(s.credit_company_documents).where(eq(s.credit_company_documents.company_id, id));
+  return Number(row.count);
+}
 
 beforeAll(async () => {
   await purgeCompanyByName(NAME);
@@ -123,6 +129,10 @@ describe("admin phone helpers", () => {
 });
 
 describe("admin document helpers", () => {
+  // These two run before any successful saveDocument call in this suite, so
+  // the company's upload dir does not exist yet — asserting its absence here
+  // is meaningful proof that the reject happened before any disk touch, not
+  // just before a specific file was written.
   test("saveDocument rejects files over 20MB without touching disk", async () => {
     const file: any = {
       name: "big.pdf",
@@ -132,12 +142,53 @@ describe("admin document helpers", () => {
     };
     const result = await saveDocument(db, companyId, file, { type: "contract" });
     expect(result).toEqual({ error: "too_large" });
+    expect(fs.existsSync(`${UPLOAD_DIR}/${companyId}`)).toBe(false);
+    expect(await documentCountFor(companyId)).toBe(0);
   });
 
   test("saveDocument rejects disallowed extensions", async () => {
     const file = new File(["x"], "malware.exe", { type: "application/octet-stream" });
     const result = await saveDocument(db, companyId, file, { type: "other" });
     expect(result).toEqual({ error: "bad_type" });
+    expect(fs.existsSync(`${UPLOAD_DIR}/${companyId}`)).toBe(false);
+    expect(await documentCountFor(companyId)).toBe(0);
+  });
+
+  test("saveDocument rejects a traversal-shaped companyId before any disk write", async () => {
+    // ".." is not a valid uuid, so the company-existence lookup throws and is
+    // folded into company_not_found — this must happen before mkdirSync, or
+    // `${base}/..` resolves to the parent of UPLOAD_DIR and escapes it.
+    const parent = path.dirname(UPLOAD_DIR);
+    const before = fs.readdirSync(parent);
+
+    const file = new File(["x"], "evil.pdf", { type: "application/pdf" });
+    const result = await saveDocument(db, "..", file, { type: "contract" });
+    expect(result).toEqual({ error: "company_not_found" });
+
+    const after = fs.readdirSync(parent);
+    expect(after).toEqual(before); // nothing new landed in UPLOAD_DIR's parent
+  });
+
+  test("saveDocument returns company_not_found for a well-formed but nonexistent company id", async () => {
+    const fakeId = "00000000-0000-0000-0000-000000000000";
+    const file = new File(["x"], "evil.pdf", { type: "application/pdf" });
+    const result = await saveDocument(db, fakeId, file, { type: "contract" });
+    expect(result).toEqual({ error: "company_not_found" });
+    expect(fs.existsSync(`${UPLOAD_DIR}/${fakeId}`)).toBe(false);
+  });
+
+  test("saveDocument rejects an invalid doc_date and writes nothing", async () => {
+    const dirPath = `${UPLOAD_DIR}/${companyId}`;
+    const filesBefore = fs.existsSync(dirPath) ? fs.readdirSync(dirPath) : [];
+    const countBefore = await documentCountFor(companyId);
+
+    const file = new File(["x"], "contract-bad-date.pdf", { type: "application/pdf" });
+    const result = await saveDocument(db, companyId, file, { type: "contract", doc_date: "not-a-date" });
+    expect(result).toEqual({ error: "bad_date" });
+
+    const filesAfter = fs.existsSync(dirPath) ? fs.readdirSync(dirPath) : [];
+    expect(filesAfter).toEqual(filesBefore);
+    expect(await documentCountFor(companyId)).toBe(countBefore);
   });
 
   test("saveDocument writes the file under CREDIT_UPLOADS_DIR/<companyId>/<uuid>.<ext> and inserts a row", async () => {
@@ -180,5 +231,22 @@ describe("admin document helpers", () => {
 
     const [row] = await db.select().from(s.credit_company_documents).where(eq(s.credit_company_documents.id, doc.id));
     expect(row).toBeUndefined();
+  });
+});
+
+describe("sanitizeFilenamePart (Content-Disposition header safety)", () => {
+  test("strips quotes, path separators, semicolons, and whitespace", () => {
+    expect(sanitizeFilenamePart('Acme "Corp"; DROP')).toBe("AcmeCorpDROP");
+    expect(sanitizeFilenamePart("a/b\\c\r\n")).toBe("abc");
+  });
+
+  test("keeps letters, digits, dot, underscore, hyphen untouched", () => {
+    expect(sanitizeFilenamePart("D-1_2026.07")).toBe("D-1_2026.07");
+  });
+
+  test("empty or fully-stripped input yields an empty string (caller falls back to doc.id)", () => {
+    expect(sanitizeFilenamePart("")).toBe("");
+    expect(sanitizeFilenamePart("\"\"\";;;")).toBe("");
+    expect(sanitizeFilenamePart(undefined as any)).toBe("");
   });
 });

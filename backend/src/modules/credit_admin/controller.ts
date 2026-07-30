@@ -73,17 +73,28 @@ export async function updateCompany(db: any, redis: any, id: string, input: any,
 // merely a stale approve.
 export async function addPhone(db: any, redis: any, companyId: string, input: any) {
   const phone = canonPhone(input.phone);
+  let row: any;
   try {
-    const [row] = await db
+    [row] = await db
       .insert(credit_company_phones)
       .values({ company_id: companyId, phone, employee_name: input.employee_name ?? null })
       .returning();
-    await invalidateCreditCompanyCache(redis, [phone]);
-    return row;
   } catch (e: any) {
     if (e?.code === "23505" || e?.cause?.code === "23505") return { error: "phone_taken" };
     throw e;
   }
+  // Invalidation lives OUTSIDE the insert's try/catch and in its own: the
+  // insert already succeeded by this point, so a redis failure here must
+  // never surface as a 500 on a row that is already committed, and it must
+  // never be mistaken for the unrelated 23505 case above (which would answer
+  // `phone_taken` for a phone that in fact was just added). Best-effort per
+  // CONTRACT.md — the cache TTL is the real backstop.
+  try {
+    await invalidateCreditCompanyCache(redis, [phone]);
+  } catch (e) {
+    console.error("addPhone: cache invalidation failed", e);
+  }
+  return row;
 }
 
 export async function deactivatePhone(db: any, redis: any, id: string, active: boolean) {
@@ -110,12 +121,37 @@ function extOf(filename: string) {
   return i === -1 ? "" : filename.slice(i).toLowerCase();
 }
 
+// Content-Disposition header value: doc_number is admin-entered free text and
+// must never be interpolated raw into a header — a value containing quotes or
+// CRLF could break out of the quoted filename token or inject additional
+// header fields. Keep only characters that are unambiguously safe there;
+// callers fall back to doc.id (always a UUID) when the result is empty.
+export function sanitizeFilenamePart(raw: string): string {
+  return String(raw ?? "").replace(/[^A-Za-z0-9._-]/g, "");
+}
+
 // Ext allowlist + size cap are checked BEFORE anything touches the filesystem
 // or DB, so a rejected upload never leaves a partial file or an orphan row.
 export async function saveDocument(db: any, companyId: string, file: any, meta: any) {
   if (file.size > MAX_UPLOAD_BYTES) return { error: "too_large" };
   const ext = extOf(file.name ?? "");
   if (!UPLOAD_EXTS.includes(ext)) return { error: "bad_type" };
+
+  // companyId flows straight into a filesystem path below (`${base}/${companyId}`).
+  // Verifying the company exists BEFORE any disk touch also kills path
+  // traversal (`id=".."`) for free: comparing a non-UUID string against a
+  // `uuid` column makes postgres throw "invalid input syntax for type uuid",
+  // caught here and folded into the same company_not_found result instead of
+  // a raw 500. Route-level t.String({format:"uuid"}) params catch the common
+  // case earlier (422); this is the belt-and-braces layer for the helper
+  // itself, since anything can call saveDocument directly.
+  let company;
+  try {
+    [company] = await db.select({ id: credit_companies.id }).from(credit_companies).where(eq(credit_companies.id, companyId));
+  } catch {
+    return { error: "company_not_found" };
+  }
+  if (!company) return { error: "company_not_found" };
 
   // drizzle's `timestamp` column builder calls `.toISOString()` on the value
   // it's given (unlike the raw-sql path elsewhere in this module, which takes
@@ -133,18 +169,28 @@ export async function saveDocument(db: any, companyId: string, file: any, meta: 
   const filePath = `${dir}/${randomUUID()}${ext}`;
   await Bun.write(filePath, file);
 
-  const [row] = await db
-    .insert(credit_company_documents)
-    .values({
-      company_id: companyId,
-      type: meta.type,
-      file_path: filePath,
-      doc_number: meta.doc_number ?? null,
-      doc_date,
-      uploaded_by: meta.uploaded_by ?? null,
-    })
-    .returning();
-  return row;
+  try {
+    const [row] = await db
+      .insert(credit_company_documents)
+      .values({
+        company_id: companyId,
+        type: meta.type,
+        file_path: filePath,
+        doc_number: meta.doc_number ?? null,
+        doc_date,
+        uploaded_by: meta.uploaded_by ?? null,
+      })
+      .returning();
+    return row;
+  } catch (e) {
+    // the file already landed on disk before this insert; on failure it must
+    // not become an orphan with no DB row ever pointing to it.
+    try {
+      fs.unlinkSync(filePath);
+    } catch {}
+    console.error("saveDocument: insert failed, cleaned up orphan file", e);
+    return { error: "save_failed" };
+  }
 }
 
 export async function deleteDocument(db: any, id: string) {
@@ -269,13 +315,13 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
     },
     {
       permission: "credit.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({ data: t.Object({ phone: t.String(), employee_name: t.Optional(t.String()) }) }),
     }
   )
   .put(
     "/credit/phones/:id",
-    async ({ params: { id }, body: { data }, drizzle, redis }) => {
+    async ({ params: { id }, body: { data }, drizzle, redis, set }) => {
       // employee_name is a plain admin-facing label, not part of routing —
       // updating it alone must not invalidate any cache key. `active` is the
       // only field that gates checkout eligibility, so only it goes through
@@ -283,13 +329,24 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
       if (data.employee_name !== undefined) {
         await drizzle.update(credit_company_phones).set({ employee_name: data.employee_name }).where(eq(credit_company_phones.id, id));
       }
-      if (data.active !== undefined) return deactivatePhone(drizzle, redis, id, data.active);
+      if (data.active !== undefined) {
+        const row = await deactivatePhone(drizzle, redis, id, data.active);
+        if (!row) {
+          set.status = 404;
+          return { error: "not_found" };
+        }
+        return row;
+      }
       const [row] = await drizzle.select().from(credit_company_phones).where(eq(credit_company_phones.id, id));
+      if (!row) {
+        set.status = 404;
+        return { error: "not_found" };
+      }
       return row;
     },
     {
       permission: "credit.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({ data: t.Object({ employee_name: t.Optional(t.String()), active: t.Optional(t.Boolean()) }) }),
     }
   )
@@ -307,9 +364,12 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
     },
     {
       permission: "credit.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
-        file: t.File(),
+        // Schema-level cap (first line of defense, rejected as 422 before the
+        // body is even fully read) backed by saveDocument's own byte check
+        // (second line, in case a caller bypasses the schema).
+        file: t.File({ maxSize: "20m" }),
         type: t.Union([
           t.Literal("contract"),
           t.Literal("inn_cert"),
@@ -324,10 +384,23 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
   .get(
     "/credit/companies/:id/documents",
     async ({ params: { id }, drizzle }) => {
-      const data = await drizzle.select().from(credit_company_documents).where(eq(credit_company_documents.company_id, id));
+      // Explicit column list — file_path is an absolute server path and must
+      // never reach the client; downloads go through the permission-gated
+      // /credit/documents/:id/download route instead.
+      const data = await drizzle
+        .select({
+          id: credit_company_documents.id,
+          type: credit_company_documents.type,
+          doc_number: credit_company_documents.doc_number,
+          doc_date: credit_company_documents.doc_date,
+          uploaded_by: credit_company_documents.uploaded_by,
+          created_at: credit_company_documents.created_at,
+        })
+        .from(credit_company_documents)
+        .where(eq(credit_company_documents.company_id, id));
       return { data };
     },
-    { permission: "credit.list", params: t.Object({ id: t.String() }) }
+    { permission: "credit.list", params: t.Object({ id: t.String({ format: "uuid" }) }) }
   )
   .get(
     "/credit/documents/:id/download",
@@ -342,13 +415,21 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
         set.status = 410;
         return { error: "file_missing" };
       }
-      set.headers["content-disposition"] = `attachment; filename="${doc.type}-${doc.doc_number ?? doc.id}${extOf(doc.file_path)}"`;
+      // doc_number is admin-entered free text — sanitize before it lands in a
+      // header value (see sanitizeFilenamePart); fall back to the always-safe
+      // UUID id when sanitizing strips it down to nothing.
+      const safeNumber = sanitizeFilenamePart(doc.doc_number ?? "") || doc.id;
+      set.headers["content-disposition"] = `attachment; filename="${doc.type}-${safeNumber}${extOf(doc.file_path)}"`;
       return f;
     },
-    { permission: "credit.list", params: t.Object({ id: t.String() }) }
+    { permission: "credit.list", params: t.Object({ id: t.String({ format: "uuid" }) }) }
   )
   .delete(
     "/credit/documents/:id",
-    async ({ params: { id }, drizzle }) => deleteDocument(drizzle, id),
-    { permission: "credit.edit", params: t.Object({ id: t.String() }) }
+    async ({ params: { id }, drizzle, set }) => {
+      const r = await deleteDocument(drizzle, id);
+      if (r && "error" in r) set.status = 400;
+      return r;
+    },
+    { permission: "credit.edit", params: t.Object({ id: t.String({ format: "uuid" }) }) }
   );
