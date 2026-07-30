@@ -316,8 +316,22 @@ export function adjustCompany(companyId: string, data: CreditAdjustmentInput): E
   return creditApi.companies({ id: companyId }).adjustments.post({ data });
 }
 
+// Omits undefined/empty optional keys instead of passing them through as-is
+// (same rule uploadDocument follows for its FormData body): Eden's query
+// serialization doesn't skip `undefined` values, it stringifies them to the
+// literal "undefined" — which for `from`/`to` would corrupt the *default*,
+// filter-less statement view (`new Date("undefined")` server-side) rather
+// than only breaking once a filter is actually applied. Centralized here so
+// callers can keep passing a plain `{from, to, brand}` object with optional
+// fields left unset.
 export function getStatement(companyId: string, query: CreditStatementQuery): EdenResult<CreditStatementResponse> {
-  return creditApi.companies({ id: companyId }).statement.get({ query });
+  const q: Record<string, string> = {};
+  if (query.from) q.from = query.from;
+  if (query.to) q.to = query.to;
+  if (query.brand) q.brand = query.brand;
+  if (query.limit) q.limit = query.limit;
+  if (query.offset) q.offset = query.offset;
+  return creditApi.companies({ id: companyId }).statement.get({ query: q });
 }
 
 // Not an Eden call — the export route streams an xlsx binary, which the app
