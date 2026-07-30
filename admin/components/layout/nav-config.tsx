@@ -53,6 +53,7 @@ export function buildNav(locale: string): NavEntry[] {
         { title: "Статус", href: p("/system/reports_status"), permission: "reports_status.list" },
         { title: "Группы продуктов", href: p("/system/product_groups"), permission: "product_groups.list" },
         { title: "Внешние партнёры", href: p("/system/external-partners"), permission: "external_partners.list" },
+        { title: "Кредитные компании", href: p("/system/credit-companies"), permission: "credit.list" },
       ],
     },
     { kind: "link", title: "Организации", href: p("/organization/organizations"), icon: Building2, permission: "organizations.list" },
