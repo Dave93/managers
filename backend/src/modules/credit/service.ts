@@ -1,6 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import * as s from "../../../drizzle/schema";
-import type { AuthorizeInput, AuthorizeResult, DeclineReason } from "./types";
+import type { AuthorizeInput, AuthorizeResult, DeclineReason, OpResult } from "./types";
 
 export type DrizzleDb = any; // matches ctx drizzle instance type used across modules
 
@@ -122,4 +122,118 @@ export async function authorize(db: DrizzleDb, input: AuthorizeInput): Promise<A
     console.error("credit.authorize error", e);
     return { approved: false, reason: "service_error" };
   }
+}
+
+export async function capture(db: DrizzleDb, brand: string, order_id: string): Promise<OpResult> {
+  try {
+    let ok = false;
+    await db.transaction(async (tx: DrizzleDb) => {
+      const h = await tx.execute(sql`
+        UPDATE credit_holds SET state='captured', updated_at=now()
+        WHERE brand=${brand} AND order_id=${order_id} AND state='held'
+        RETURNING id, company_id, amount, order_number, period_day_key, period_month_key`);
+      if (h.length === 0) {
+        const ex = await tx.execute(sql`SELECT state FROM credit_holds WHERE brand=${brand} AND order_id=${order_id}`);
+        ok = ex.length > 0 && ex[0].state === "captured"; // replay ok; missing/voided -> false
+        return;
+      }
+      const hold = h[0];
+      const acc = await tx.execute(sql`
+        UPDATE credit_accounts SET reserved = reserved - ${hold.amount}, posted = posted + ${hold.amount}, version = version + 1, updated_at = now()
+        WHERE company_id = ${hold.company_id}
+        RETURNING posted + reserved AS balance_after`);
+      await tx.execute(sql`
+        INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
+        VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'capture', 0, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
+        ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
+      ok = true;
+    });
+    return { ok };
+  } catch (e) { console.error("credit.capture", e); return { ok: false, reason: "service_error" }; }
+}
+
+async function reversePeriods(tx: DrizzleDb, company_id: string, dk: string, mk: string, amount: number) {
+  // floor at 0 per spec
+  await tx.execute(sql`UPDATE credit_periods SET spent = GREATEST(0, spent - ${amount}) WHERE company_id=${company_id} AND period_key IN (${dk}, ${mk})`);
+}
+
+export async function voidHold(db: DrizzleDb, brand: string, order_id: string, opts?: { as?: "voided" | "expired" }): Promise<OpResult> {
+  const target = opts?.as ?? "voided";
+  try {
+    let ok = false;
+    await db.transaction(async (tx: DrizzleDb) => {
+      const h = await tx.execute(sql`
+        UPDATE credit_holds SET state=${target}::credit_hold_state, updated_at=now()
+        WHERE brand=${brand} AND order_id=${order_id} AND state='held'
+        RETURNING id, company_id, amount, order_number, period_day_key, period_month_key`);
+      if (h.length === 0) {
+        const ex = await tx.execute(sql`SELECT state FROM credit_holds WHERE brand=${brand} AND order_id=${order_id}`);
+        ok = ex.length > 0 && (ex[0].state === "voided" || ex[0].state === "expired"); // replay
+        return;
+      }
+      const hold = h[0];
+      const acc = await tx.execute(sql`
+        UPDATE credit_accounts SET reserved = reserved - ${hold.amount}, version = version + 1, updated_at = now()
+        WHERE company_id = ${hold.company_id}
+        RETURNING posted + reserved AS balance_after`);
+      await reversePeriods(tx, hold.company_id, hold.period_day_key, hold.period_month_key, hold.amount);
+      await tx.execute(sql`
+        INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
+        VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'void', ${-hold.amount}, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
+        ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
+      ok = true;
+    });
+    return { ok };
+  } catch (e) { console.error("credit.void", e); return { ok: false, reason: "service_error" }; }
+}
+
+export async function refund(db: DrizzleDb, brand: string, order_id: string, amount?: number): Promise<OpResult> {
+  try {
+    let ok = false;
+    await db.transaction(async (tx: DrizzleDb) => {
+      const h = await tx.execute(sql`
+        SELECT id, company_id, amount, order_number, period_day_key, period_month_key
+        FROM credit_holds WHERE brand=${brand} AND order_id=${order_id} AND state='captured'`);
+      if (h.length === 0) { ok = false; return; }
+      const hold = h[0];
+      const amt = Math.min(amount ?? Number(hold.amount), Number(hold.amount));
+      // idempotency: unique (brand, order_id, 'refund') entry is the gate
+      const ent = await tx.execute(sql`
+        INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
+        VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'refund', ${-amt}, 0, ${hold.period_day_key}, ${hold.period_month_key})
+        ON CONFLICT (brand, order_id, entry_type) DO NOTHING
+        RETURNING id`);
+      if (ent.length === 0) { ok = true; return; } // already refunded — replay ok
+      const acc = await tx.execute(sql`
+        UPDATE credit_accounts SET posted = posted - ${amt}, version = version + 1, updated_at = now()
+        WHERE company_id = ${hold.company_id}
+        RETURNING posted + reserved AS balance_after`);
+      await tx.execute(sql`UPDATE credit_entries SET balance_after = ${acc[0].balance_after} WHERE id = ${ent[0].id}`);
+      await reversePeriods(tx, hold.company_id, hold.period_day_key, hold.period_month_key, amt);
+      ok = true;
+    });
+    return { ok };
+  } catch (e) { console.error("credit.refund", e); return { ok: false, reason: "service_error" }; }
+}
+
+export async function applyPayment(db: DrizzleDb, company_id: string, amount: number, meta: { doc_number?: string; doc_date?: Date; note?: string; created_by?: string }): Promise<OpResult> {
+  if (!(amount > 0)) return { ok: false, reason: "bad_amount" };
+  try {
+    await db.transaction(async (tx: DrizzleDb) => {
+      // GOTCHA: postgres.js cannot bind a raw JS Date through drizzle's sql`` template
+      // (throws in bytes.js) — always convert to an ISO string, or pass null.
+      const docDate = meta.doc_date ? meta.doc_date.toISOString() : null;
+      await tx.execute(sql`
+        INSERT INTO credit_payments (company_id, amount, doc_number, doc_date, note, created_by)
+        VALUES (${company_id}, ${amount}, ${meta.doc_number ?? null}, ${docDate}, ${meta.note ?? null}, ${meta.created_by ?? null})`);
+      const acc = await tx.execute(sql`
+        UPDATE credit_accounts SET posted = posted - ${amount}, version = version + 1, updated_at = now()
+        WHERE company_id = ${company_id}
+        RETURNING posted + reserved AS balance_after`);
+      await tx.execute(sql`
+        INSERT INTO credit_entries (company_id, entry_type, amount, balance_after, created_by)
+        VALUES (${company_id}, 'payment', ${-amount}, ${acc[0].balance_after}, ${meta.created_by ?? null})`);
+    });
+    return { ok: true };
+  } catch (e) { console.error("credit.payment", e); return { ok: false, reason: "service_error" }; }
 }
