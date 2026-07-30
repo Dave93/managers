@@ -36,11 +36,11 @@ import {
   DoubleArrowLeftIcon,
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
-import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 
 import { useIsMobile } from "@admin/utils/use-is-mobile";
 import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+import { listCompanies } from "@admin/lib/credit-api";
 import type { CreditCompanyRow } from "./columns";
 
 interface DataTableProps<TValue> {
@@ -65,11 +65,9 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
       },
     ],
     queryFn: async () => {
-      const { data } = await apiClient.api.credit.companies.get({
-        query: {
-          limit: pageSize.toString(),
-          offset: (pageIndex * pageSize).toString(),
-        },
+      const { data } = await listCompanies({
+        limit: pageSize.toString(),
+        offset: (pageIndex * pageSize).toString(),
       });
       return data;
     },

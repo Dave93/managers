@@ -286,7 +286,11 @@ async function queryStatementEntries(
   const whereClause: SQLWrapper[] = [eq(credit_entries.company_id, companyId)];
   if (filters.from) whereClause.push(gte(credit_entries.created_at, parseStatementBound(filters.from, false)));
   if (filters.to) whereClause.push(lte(credit_entries.created_at, parseStatementBound(filters.to, true)));
-  if (filters.brand) whereClause.push(eq(credit_entries.brand, filters.brand));
+  // credit_entries.brand is a Postgres enum ("chopar" | "les"); the query
+  // param itself is validated no further than t.String() at the route, so
+  // this cast doesn't change runtime behavior — an out-of-enum value still
+  // fails at the DB the same way it did before this was a type error.
+  if (filters.brand) whereClause.push(eq(credit_entries.brand, filters.brand as "chopar" | "les"));
 
   const [cnt] = await db.select({ count: sql<number>`count(*)` }).from(credit_entries).where(and(...whereClause));
   // Explicit column list, matching the documents/companies list routes above.
@@ -447,7 +451,17 @@ export async function getCreditSummary(db: any) {
   return { total_debt: Number(totalRow.total_debt), companies_over_80_monthly, top_debtors };
 }
 
-export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
+// Registered on the app root (src/app.ts), not inside apiController's .use()
+// chain: apiController was already at TypeScript's instantiation-depth limit
+// (TS2589) with 44 controllers (see commit 6202a0c, the iiko_sync precedent),
+// and this was the 45th — it silently overflowed tsc/next build (bun build's
+// bundler doesn't typecheck, so Task 1 never caught it). Explicit /api prefix
+// here (same as iikoSyncController/medicalController) since it no longer
+// inherits apiController's prefix.
+const creditAdminControllerImpl = new Elysia({
+  name: "@api/credit_admin",
+  prefix: "/api",
+})
   .use(ctx)
   .get(
     "/credit/companies",
@@ -774,3 +788,9 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
     async ({ drizzle }) => getCreditSummary(drizzle),
     { permission: "credit.list" }
   );
+
+// Widened export: keeps the app root .use() chain from overflowing TS
+// instantiation depth (see comment above creditAdminControllerImpl). The
+// admin frontend can't get Eden typing off this and instead goes through
+// admin/lib/credit-api.ts's hand-typed wrapper.
+export const creditAdminController = creditAdminControllerImpl as unknown as Elysia;

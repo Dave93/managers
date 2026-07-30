@@ -4,24 +4,12 @@ import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { cn } from "@admin/lib/utils";
 import CreditCompaniesFormSheet from "@admin/components/forms/credit_companies/sheet";
+import type { CreditCompanyRow } from "@admin/lib/credit-api";
 
-// Hand-written projection type: the list route (`GET /credit/companies`)
-// left-joins credit_accounts, so this is NOT `typeof credit_companies.$inferSelect`
-// — posted/reserved are nullable (no account row yet) and there's no full company row.
-export type CreditCompanyRow = {
-  id: string;
-  name: string;
-  inn: string | null;
-  phone: string | null;
-  status: "active" | "suspended" | "pending_verification";
-  overdue: boolean;
-  limit_total: number;
-  limit_daily: number;
-  limit_monthly: number;
-  verified_at: string | Date | null;
-  posted: number | null;
-  reserved: number | null;
-};
+// Re-exported so existing `import type { CreditCompanyRow } from "./columns"`
+// call sites (data-table.tsx) don't need to know the type actually lives in
+// the credit-api wrapper.
+export type { CreditCompanyRow };
 
 const STATUS_STYLES: Record<CreditCompanyRow["status"], string> = {
   active: "bg-green-100 text-green-700 border-green-200",

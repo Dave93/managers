@@ -2,6 +2,7 @@ import Elysia from "elysia";
 import { apiController } from "./controllers";
 import { medicalController } from "./modules/medical/controller";
 import { iikoSyncController } from "./modules/iiko_sync/controllers";
+import { creditAdminController } from "./modules/credit_admin/controller";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
 
@@ -16,10 +17,13 @@ const app = new Elysia()
     },
   })
   .use(openapi())
-  // Widened-type controller goes first: after apiController the accumulated
+  // Widened-type controllers go first: after apiController the accumulated
   // route type is near TS's instantiation-depth limit and any extra .use()
-  // beyond medicalController overflows it (TS2589).
+  // beyond medicalController overflows it (TS2589). creditAdminController
+  // moved here from apiController's chain for the same reason (see comment
+  // above creditAdminControllerImpl in modules/credit_admin/controller.ts).
   .use(iikoSyncController)
+  .use(creditAdminController)
   .use(apiController)
   .use(medicalController);
 

@@ -14,9 +14,12 @@ import {
   SelectValue,
 } from "@components/ui/select";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@admin/utils/eden";
-
-type CreditCompanyStatus = "active" | "suspended" | "pending_verification";
+import {
+  createCompany as createCompanyApi,
+  updateCompany as updateCompanyApi,
+  getCompany as getCompanyApi,
+  type CreditCompanyStatus,
+} from "@admin/lib/credit-api";
 
 type CreditCompanyFormValues = {
   name: string;
@@ -66,16 +69,14 @@ export default function CreditCompaniesForm({
   // reject `verified` on .post().
   const createMutation = useMutation({
     mutationFn: (value: CreditCompanyFormValues) => {
-      return apiClient.api.credit.companies.post({
-        data: {
-          name: value.name,
-          inn: value.inn || undefined,
-          phone: value.phone || undefined,
-          status: value.status,
-          limit_total: Math.round(value.limit_total * 100),
-          limit_daily: Math.round(value.limit_daily * 100),
-          limit_monthly: Math.round(value.limit_monthly * 100),
-        },
+      return createCompanyApi({
+        name: value.name,
+        inn: value.inn || undefined,
+        phone: value.phone || undefined,
+        status: value.status,
+        limit_total: Math.round(value.limit_total * 100),
+        limit_daily: Math.round(value.limit_daily * 100),
+        limit_monthly: Math.round(value.limit_monthly * 100),
       });
     },
     onSuccess: () => onAddSuccess("добавлена"),
@@ -84,17 +85,15 @@ export default function CreditCompaniesForm({
 
   const updateMutation = useMutation({
     mutationFn: (data: { value: CreditCompanyFormValues; id: string }) => {
-      return apiClient.api.credit.companies({ id: data.id }).put({
-        data: {
-          name: data.value.name,
-          inn: data.value.inn || undefined,
-          phone: data.value.phone || undefined,
-          status: data.value.status,
-          limit_total: Math.round(data.value.limit_total * 100),
-          limit_daily: Math.round(data.value.limit_daily * 100),
-          limit_monthly: Math.round(data.value.limit_monthly * 100),
-          verified: data.value.verified || undefined,
-        },
+      return updateCompanyApi(data.id, {
+        name: data.value.name,
+        inn: data.value.inn || undefined,
+        phone: data.value.phone || undefined,
+        status: data.value.status,
+        limit_total: Math.round(data.value.limit_total * 100),
+        limit_daily: Math.round(data.value.limit_daily * 100),
+        limit_monthly: Math.round(data.value.limit_monthly * 100),
+        verified: data.value.verified || undefined,
       });
     },
     onSuccess: () => onAddSuccess("обновлена"),
@@ -109,7 +108,7 @@ export default function CreditCompaniesForm({
     queryKey: ["one_credit_company", recordId],
     queryFn: () => {
       if (recordId) {
-        return apiClient.api.credit.companies({ id: recordId }).get({});
+        return getCompanyApi(recordId);
       } else {
         return null;
       }
