@@ -94,6 +94,21 @@ describe("admin companies CRUD helpers", () => {
     expect(invalidated).toContain(CACHE_KEY(PHONE)); // credit_companies.phone itself
   });
 
+  test("updateCompany primary phone change invalidates both old and new keys", async () => {
+    const newPhone = "+998900000008";
+    const redis = makeRedisStub();
+    const row = await updateCompany(db, redis, companyId, { phone: "998900000008" }, USER_ID);
+    expect(row.phone).toBe(newPhone);
+
+    const invalidated = redis.calls.flat();
+    expect(invalidated).toContain(CACHE_KEY(PHONE)); // old primary phone (A->B: A must still be dropped)
+    expect(invalidated).toContain(CACHE_KEY(newPhone)); // new primary phone
+
+    // restore PHONE as the primary contact so the later tests' assumptions
+    // (createCompany's PHONE-based assertion, cache-key checks) stay valid.
+    await updateCompany(db, redis, companyId, { phone: "998900000005" }, USER_ID);
+  });
+
   test("verified flag stamps verified_by/verified_at", async () => {
     const [before] = await db.select().from(s.credit_companies).where(eq(s.credit_companies.id, companyId));
     expect(before.verified_by).toBeNull();
@@ -110,5 +125,20 @@ describe("admin companies CRUD helpers", () => {
     const row2 = await updateCompany(db, redis, companyId, { name: NAME }, USER_ID);
     expect(row2.verified_by).toBe(verifierId);
     expect(row2.verified_at).toEqual(row.verified_at);
+  });
+
+  test("verified stamp is once-only: a second verified:true does not overwrite the original verifier/timestamp", async () => {
+    // companyId is already verified by verifierId from the previous test.
+    const [before] = await db.select().from(s.credit_companies).where(eq(s.credit_companies.id, companyId));
+    expect(before.verified_by).toBe("00000000-0000-0000-0000-0000000000b2");
+    expect(before.verified_at).toBeTruthy();
+
+    const redis = makeRedisStub();
+    const differentUserId = "00000000-0000-0000-0000-0000000000c3";
+    const row = await updateCompany(db, redis, companyId, { verified: true }, differentUserId);
+
+    // no error, but the audit trail is preserved — NOT re-stamped to differentUserId
+    expect(row.verified_by).toBe(before.verified_by);
+    expect(row.verified_at).toEqual(before.verified_at);
   });
 });

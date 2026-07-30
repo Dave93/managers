@@ -21,9 +21,23 @@ export async function createCompany(db: any, redis: any, input: any, userId: str
 }
 
 export async function updateCompany(db: any, redis: any, id: string, input: any, userId: string) {
+  // Read the pre-update row: the primary `phone` field can change in this same
+  // call, and the OLD value must be invalidated too, or a changed A->B primary
+  // phone leaves key A wrongly resolvable for up to the 60s cache TTL. Also
+  // read verified_at here (not after the update) so the once-only guard below
+  // checks the state that existed BEFORE this call, not a value this same
+  // UPDATE is about to set.
+  const [existing] = await db
+    .select({ phone: credit_companies.phone, verified_at: credit_companies.verified_at })
+    .from(credit_companies)
+    .where(eq(credit_companies.id, id));
+
   const patch: any = { ...input, updated_at: new Date() };
   if (input.phone) patch.phone = canonPhone(input.phone);
-  if (input.verified === true) {
+  // verified_by/verified_at stamp once: a second `verified:true` on an already-
+  // verified company must not overwrite the original verifier/timestamp — it's
+  // an audit trail, not a toggle. No-op (not an error) when already verified.
+  if (input.verified === true && !existing?.verified_at) {
     patch.verified_by = userId;
     patch.verified_at = new Date();
   }
@@ -31,14 +45,17 @@ export async function updateCompany(db: any, redis: any, id: string, input: any,
   const [row] = await db.update(credit_companies).set(patch).where(eq(credit_companies.id, id)).returning();
 
   // Invalidate every phone the change could affect: every row in
-  // credit_company_phones for this company, plus credit_companies.phone itself
-  // (a separate, single "primary contact" field) — a status/limit change can
-  // gate checkout for any of them.
+  // credit_company_phones for this company, credit_companies.phone's NEW value
+  // (a separate, single "primary contact" field), and its OLD value if it just
+  // changed — a status/limit change can gate checkout for any of them, and a
+  // changed primary phone must drop both the stale and the new cache entry.
   const phones = await db
     .select({ phone: credit_company_phones.phone })
     .from(credit_company_phones)
     .where(eq(credit_company_phones.company_id, id));
-  const allPhones = phones.map((p: any) => p.phone).concat(row.phone ? [row.phone] : []);
+  const allPhones = phones.map((p: any) => p.phone)
+    .concat(row.phone ? [row.phone] : [])
+    .concat(existing?.phone && existing.phone !== row.phone ? [existing.phone] : []);
   if (allPhones.length) await invalidateCreditCompanyCache(redis, allPhones);
 
   return row;
