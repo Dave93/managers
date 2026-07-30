@@ -1,5 +1,6 @@
 import {
   pgTable,
+  bigint,
   pgEnum,
   uuid,
   varchar,
@@ -1614,4 +1615,121 @@ export const medical_exams = pgTable("medical_exams", {
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
+});
+
+// ==== B2B credit (spec docs/superpowers/specs/2026-07-30-b2b-credit-design.md) ====
+export const credit_company_status = pgEnum("credit_company_status", [
+  "active", "suspended", "pending_verification",
+]);
+export const credit_brand = pgEnum("credit_brand", ["chopar", "les"]);
+export const credit_hold_state = pgEnum("credit_hold_state", [
+  "held", "captured", "voided", "expired",
+]);
+export const credit_entry_type = pgEnum("credit_entry_type", [
+  "authorize", "capture", "void", "refund", "payment", "adjustment",
+]);
+export const credit_document_type = pgEnum("credit_document_type", [
+  "contract", "inn_cert", "guarantee_letter", "other",
+]);
+
+export const credit_companies = pgTable("credit_companies", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  name: text("name").notNull(),
+  inn: text("inn"),
+  phone: text("phone"),
+  status: credit_company_status("status").default("pending_verification").notNull(),
+  limit_total: bigint("limit_total", { mode: "number" }).default(0).notNull(),
+  limit_daily: bigint("limit_daily", { mode: "number" }).default(0).notNull(),
+  limit_monthly: bigint("limit_monthly", { mode: "number" }).default(0).notNull(),
+  overdue: boolean("overdue").default(false).notNull(),
+  verified_by: uuid("verified_by"),
+  verified_at: timestamp("verified_at", { precision: 5, withTimezone: true }),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_company_documents = pgTable("credit_company_documents", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  type: credit_document_type("type").default("other").notNull(),
+  file_path: text("file_path").notNull(),
+  doc_number: text("doc_number"),
+  doc_date: timestamp("doc_date", { precision: 5, withTimezone: true }),
+  uploaded_by: uuid("uploaded_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_company_phones = pgTable("credit_company_phones", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  phone: text("phone").notNull(),
+  employee_name: text("employee_name"),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_phone_uniq: uniqueIndex("credit_phone_uniq").on(t.phone),
+}));
+
+export const credit_accounts = pgTable("credit_accounts", {
+  company_id: uuid("company_id").primaryKey().notNull().references(() => credit_companies.id),
+  posted: bigint("posted", { mode: "number" }).default(0).notNull(),
+  reserved: bigint("reserved", { mode: "number" }).default(0).notNull(),
+  version: integer("version").default(0).notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_periods = pgTable("credit_periods", {
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  period_key: text("period_key").notNull(), // 'YYYY-MM-DD' day | 'YYYY-MM' month
+  spent: bigint("spent", { mode: "number" }).default(0).notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.company_id, t.period_key] }),
+}));
+
+export const credit_holds = pgTable("credit_holds", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  brand: credit_brand("brand").notNull(),
+  order_id: text("order_id").notNull(),
+  order_number: text("order_number"),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  state: credit_hold_state("state").default("held").notNull(),
+  period_day_key: text("period_day_key").notNull(),
+  period_month_key: text("period_month_key").notNull(),
+  expires_at: timestamp("expires_at", { precision: 5, withTimezone: true }).notNull(),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_hold_order_uniq: uniqueIndex("credit_hold_order_uniq").on(t.brand, t.order_id),
+}));
+
+export const credit_entries = pgTable("credit_entries", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  hold_id: uuid("hold_id"),
+  brand: credit_brand("brand"),
+  order_id: text("order_id"),
+  order_number: text("order_number"),
+  entry_type: credit_entry_type("entry_type").notNull(),
+  amount: bigint("amount", { mode: "number" }).notNull(), // signed
+  balance_after: bigint("balance_after", { mode: "number" }).notNull(), // posted+reserved after op
+  period_day_key: text("period_day_key"),
+  period_month_key: text("period_month_key"),
+  meta: jsonb("meta"),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_entries_company_created: index("credit_entries_company_created").on(t.company_id, t.created_at),
+  credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type),
+}));
+
+export const credit_payments = pgTable("credit_payments", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  doc_number: text("doc_number"),
+  doc_date: timestamp("doc_date", { precision: 5, withTimezone: true }),
+  note: text("note"),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
 });

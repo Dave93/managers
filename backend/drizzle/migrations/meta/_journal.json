@@ -71,6 +71,13 @@
       "when": 1784028113514,
       "tag": "0009_user_attestation_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785410971315,
+      "tag": "0010_shocking_songbird",
+      "breakpoints": true
     }
   ]
 }
