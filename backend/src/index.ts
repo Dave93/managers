@@ -3,6 +3,7 @@ import { cpus } from "node:os";
 import process from "node:process";
 import app from "./app";
 import { startInternalCreditApp } from "./modules/credit/internal-app";
+import { startCreditJobs } from "./modules/credit/jobs";
 import { getCreditDb } from "./modules/credit/db";
 
 // Start the credit internal unix-socket API exactly once regardless of how many
@@ -28,12 +29,31 @@ function startCreditSocket() {
   }
 }
 
+// Same one-shot-per-process reasoning as startCreditSocket: BullMQ's repeatable
+// jobs are registered by jobId, so a second startCreditJobs() call from a forked
+// HTTP worker would just re-add the same repeatables (harmless) but would also
+// spin up a redundant Worker consuming the same queue — never call this from the
+// forked worker branch. A failure here (Redis down, bad connection config) must
+// never stop the public API from booting, hence the try/catch.
+function startCreditJobsSafe() {
+  try {
+    startCreditJobs(getCreditDb(), {
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      maxRetriesPerRequest: null,
+    });
+  } catch (e) {
+    console.error("credit jobs failed to start; public API continues without them", e);
+  }
+}
+
 if (process.env.NODE_ENV === "development") {
   app.listen(process.env.PORT || 3000);
   console.log(
     `🦊 Elysia is running at ${app.server?.hostname}:${app.server?.port}`
   );
   startCreditSocket();
+  startCreditJobsSafe();
 } else {
   if (cluster.isPrimary) {
     console.log(`Primary ${process.pid} is running`);
@@ -48,6 +68,7 @@ if (process.env.NODE_ENV === "development") {
     });
 
     startCreditSocket();
+    startCreditJobsSafe();
   } else {
     app.listen(process.env.PORT || 3000);
 
