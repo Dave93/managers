@@ -1,10 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { sql } from "drizzle-orm";
 import fs from "node:fs";
+import path from "node:path";
 import { buildInternalCreditApp, startInternalCreditApp } from "../../src/modules/credit/internal-app";
-import { creditDb as db } from "../../src/modules/credit/db";
+import { getCreditDb } from "../../src/modules/credit/db";
 import * as s from "../../drizzle/schema";
 
+const db = getCreditDb();
 const PHONE = "+998900000003";
 const SOCK = `/tmp/credit-test-${process.pid}.sock`;
 let companyId: string;
@@ -90,24 +92,56 @@ test("capture on nonexistent order returns not_found over socket", async () => {
 });
 
 test("history returns entries for the company, newest first", async () => {
-  const r = await call("/internal/credit/history", { company_id: companyId, limit: 50 });
+  // authorize then capture on the same order produces two ledger entries at
+  // distinct instants (sequential awaited calls) — history must return the more
+  // recent one (capture) before the older one (authorize), proving the
+  // ORDER BY created_at DESC, id DESC actually orders by recency and not just
+  // insertion-id or an unspecified default.
+  await call("/internal/credit/authorize", { brand: "chopar", order_id: "s-hist", phone: PHONE, amount: 15_000 });
+  await call("/internal/credit/capture", { brand: "chopar", order_id: "s-hist" });
+
+  const r = await call("/internal/credit/history", { company_id: companyId, order_id: "s-hist" });
   expect(Array.isArray(r.data)).toBe(true);
-  expect(r.data.length).toBeGreaterThan(0);
-  expect(r.data.every((e: any) => e.company_id === companyId)).toBe(true);
+  expect(r.data.length).toBe(2);
+  expect(r.data[0].entry_type).toBe("capture");
+  expect(r.data[1].entry_type).toBe("authorize");
+});
+
+test("invalid brand and non-numeric amount are rejected by schema, never reach service.ts", async () => {
+  const res = await fetch("http://localhost/internal/credit/authorize", {
+    unix: SOCK,
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ brand: "not-a-brand", order_id: "s-bad", phone: PHONE, amount: "100000" }),
+  } as any);
+  expect(res.status).toBe(422);
+  const holds = await db.execute(sql`SELECT id FROM credit_holds WHERE order_id = 's-bad'`);
+  expect(holds.length).toBe(0);
 });
 
 describe("startInternalCreditApp", () => {
-  const STARTED_SOCK = `/tmp/credit-test-started-${process.pid}.sock`;
+  const STARTED_DIR = `/tmp/credit-test-dir-${process.pid}`;
+  const STARTED_SOCK = `${STARTED_DIR}/nested/credit.sock`;
   let startedServer: any;
 
   afterAll(() => {
     startedServer?.stop();
-    try { fs.unlinkSync(STARTED_SOCK); } catch {}
+    fs.rmSync(STARTED_DIR, { recursive: true, force: true });
   });
 
-  test("creates run dir, unlinks stale socket, and chmods 0660", async () => {
+  test("chmods an existing run dir to 0750, unlinks a stale socket file, and chmods the socket 0660", async () => {
+    const dir = path.dirname(STARTED_SOCK);
+    // pre-create the dir at a permissive default mode so the assertion below can
+    // only pass if startInternalCreditApp's explicit chmodSync actually ran —
+    // mkdirSync's own `mode` option is a no-op on a dir that already exists.
+    fs.mkdirSync(dir, { recursive: true });
+    // pre-create a stale (non-socket) file at the target path, simulating a
+    // crashed prior run — listen() on an existing path fails unless unlinked first.
+    fs.writeFileSync(STARTED_SOCK, "");
+
     startedServer = startInternalCreditApp(db, STARTED_SOCK);
-    const mode = fs.statSync(STARTED_SOCK).mode & 0o777;
-    expect(mode).toBe(0o660);
+
+    expect(fs.statSync(dir).mode & 0o777).toBe(0o750);
+    expect(fs.statSync(STARTED_SOCK).mode & 0o777).toBe(0o660);
   });
 });

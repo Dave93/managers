@@ -13,8 +13,21 @@ const orderRef = t.Object({ brand: brandT, order_id: t.String() });
 
 export function buildInternalCreditApp(db: DrizzleDb) {
   return new Elysia({ name: "credit-internal" })
-    .onError(({ error }) => {
-      console.error("credit-internal", error);
+    // Error-response contract (Plan 3's CreditClient branches on both HTTP status
+    // and body shape): a schema-validation failure (code "VALIDATION") is left to
+    // Elysia's default handling (422, its own body) — untouched here — since that's
+    // a client bug (bad request), not a service failure. Anything else (an
+    // uncaught throw from service.ts, a bug in this file, etc.) is a genuine
+    // service failure: explicit 500, and a body shaped to match what the endpoint
+    // would have returned on success, so the client can keep using the same
+    // discriminant field (`approved` / `allowed` / `ok`) regardless of whether the
+    // call failed at the HTTP layer or inside the transaction.
+    .onError(({ code, error, path: reqPath, set }) => {
+      if (code === "VALIDATION") return;
+      console.error("credit-internal", reqPath, error);
+      set.status = 500;
+      if (reqPath === "/internal/credit/authorize") return { approved: false, reason: "service_error" };
+      if (reqPath === "/internal/credit/check") return { allowed: false, reason: "service_error" };
       return { ok: false, reason: "service_error" };
     })
     .post("/internal/credit/check", async ({ body }) => {
@@ -38,32 +51,64 @@ export function buildInternalCreditApp(db: DrizzleDb) {
         limit_daily_left: Math.max(0, company.limit_daily - (spentBy[dayKey(now)] ?? 0)),
         limit_monthly_left: Math.max(0, company.limit_monthly - (spentBy[monthKey(now)] ?? 0)),
       };
-    }, { body: t.Object({ phone: t.String(), amount: t.Optional(t.Number()) }) })
+    }, { body: t.Object({ phone: t.String(), amount: t.Optional(t.Integer({ minimum: 1 })) }) })
     .post("/internal/credit/authorize", async ({ body }) => {
+      // Destructured explicitly (not `...body`) so the shape reaching service.ts's
+      // AuthorizeInput is exactly the 6 fields it's typed for — a spread would
+      // silently forward any extra properties a client sends.
+      const { brand, order_id, order_number, phone, amount, expires_at } = body;
       const started = Date.now();
-      const r = await authorize(db, { ...body, expires_at: body.expires_at ? new Date(body.expires_at) : undefined });
-      console.log(JSON.stringify({ evt: "credit.authorize", brand: body.brand, order_id: body.order_id, amount: body.amount, result: r, ms: Date.now() - started }));
+      const r = await authorize(db, { brand, order_id, order_number, phone, amount, expires_at: expires_at ? new Date(expires_at) : undefined });
+      console.log(JSON.stringify({ evt: "credit.authorize", brand, order_id, amount, result: r, ms: Date.now() - started }));
       return r;
-    }, { body: t.Object({ brand: brandT, order_id: t.String(), order_number: t.Optional(t.String()), phone: t.String(), amount: t.Number(), expires_at: t.Optional(t.String()) }) })
+    }, { body: t.Object({
+      brand: brandT, order_id: t.String(), order_number: t.Optional(t.String()), phone: t.String(),
+      amount: t.Integer({ minimum: 1 }),
+      expires_at: t.Optional(t.String({ format: "date-time" })),
+    }) })
     .post("/internal/credit/capture", ({ body }) => capture(db, body.brand, body.order_id), { body: orderRef })
     .post("/internal/credit/void", ({ body }) => voidHold(db, body.brand, body.order_id), { body: orderRef })
-    .post("/internal/credit/refund", ({ body }) => refund(db, body.brand, body.order_id, body.amount), { body: t.Object({ brand: brandT, order_id: t.String(), amount: t.Optional(t.Number()) }) })
+    .post("/internal/credit/refund", ({ body }) => refund(db, body.brand, body.order_id, body.amount), {
+      body: t.Object({ brand: brandT, order_id: t.String(), amount: t.Optional(t.Integer({ minimum: 1 })) }),
+    })
     .post("/internal/credit/history", async ({ body }) => {
-      const limit = Math.min(body.limit ?? 100, 1000);
+      const limit = body.limit ?? 100;
       const rows = await db.execute(sql`
         SELECT * FROM credit_entries
         WHERE (${body.company_id ?? null}::uuid IS NULL OR company_id = ${body.company_id ?? null})
           AND (${body.brand ?? null}::credit_brand IS NULL OR brand = ${body.brand ?? null})
           AND (${body.order_id ?? null}::text IS NULL OR order_id = ${body.order_id ?? null})
-        ORDER BY created_at DESC LIMIT ${limit} OFFSET ${body.offset ?? 0}`);
+        ORDER BY created_at DESC, id DESC LIMIT ${limit} OFFSET ${body.offset ?? 0}`);
       return { data: rows };
-    }, { body: t.Object({ company_id: t.Optional(t.String()), brand: t.Optional(brandT), order_id: t.Optional(t.String()), limit: t.Optional(t.Number()), offset: t.Optional(t.Number()) }) });
+    }, { body: t.Object({
+      company_id: t.Optional(t.String()), brand: t.Optional(brandT), order_id: t.Optional(t.String()),
+      limit: t.Optional(t.Integer({ minimum: 1, maximum: 1000 })),
+      offset: t.Optional(t.Integer({ minimum: 0 })),
+    }) });
 }
 
 export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
-  fs.mkdirSync(path.dirname(socketPath), { recursive: true });
+  const dir = path.dirname(socketPath);
+  // mkdirSync's `mode` only applies to directories it actually creates — it does
+  // NOT chmod an already-existing dir, so the explicit chmodSync below is not
+  // redundant: unix filesystem permissions are the entire auth boundary for this
+  // socket (no app-level secret), so the run/ dir must never be left wider than
+  // 0750 from a previous deploy or manual `mkdir`.
+  fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+  fs.chmodSync(dir, 0o750);
   try { fs.unlinkSync(socketPath); } catch {}
-  const app = buildInternalCreditApp(db).listen({ unix: socketPath });
+  // Narrow the listen()->chmod() window so the socket is never briefly
+  // world-or-group-writable at creation: 0o117 makes the OS create it at exactly
+  // 0660 (owner+group rw, no execute bit needed on a socket, no `other` access) —
+  // the chmod afterward is then a belt-and-suspenders confirmation, not the thing
+  // doing the restricting.
+  const prevUmask = process.umask(0o117);
+  let app;
+  try {
+    app = buildInternalCreditApp(db).listen({ unix: socketPath });
+  } finally {
+    process.umask(prevUmask);
+  }
   fs.chmodSync(socketPath, 0o660);
   console.log(`credit internal API on unix:${socketPath}`);
   return app;

@@ -23,15 +23,21 @@ import * as schema from "../../../drizzle/schema";
 // against postgres-js) valid evidence for production behavior. Any code calling
 // into modules/credit/service.ts MUST go through this handle, not lib/db.ts's
 // drizzleDb.
+//
+// getCreditDb() is lazy and NOT called at module scope: importing this file must
+// never throw or open a connection by itself. In production only the cluster
+// primary calls it (via startInternalCreditApp), so the 2 forked HTTP workers —
+// which import index.ts and transitively this module, but never call
+// getCreditDb() — never open a pool for a socket they don't serve.
 let clientInstance: ReturnType<typeof postgres> | null = null;
 let dbInstance: ReturnType<typeof drizzle<typeof schema>> | null = null;
 
 export function getCreditDb() {
   if (!dbInstance) {
-    clientInstance = postgres(process.env.DATABASE_URL!, { max: 5 });
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set (required by modules/credit/db)");
+    clientInstance = postgres(url, { max: 5 });
     dbInstance = drizzle(clientInstance, { schema });
   }
   return dbInstance;
 }
-
-export const creditDb = getCreditDb();
