@@ -40,13 +40,20 @@ export async function reapExpiredHolds(db: any) {
 }
 
 export async function sweepOrphans(db: any) {
-  // REPORT-ONLY (orphan-resolver lesson 2026-06-19). Laravel-side cross-check lands in Plan 3;
-  // until then report holds captured >48h ago with no refund/void as "aging".
+  // REPORT-ONLY stub (orphan-resolver lesson 2026-06-19: never auto-act on an
+  // unverified cross-check). The predicate below ("held" holds older than 2h)
+  // cannot distinguish a genuinely orphaned hold from a normal in-flight one —
+  // authorize()'s default expires_at is +24h, and scheduled orders run longer
+  // still, so most rows this returns are healthy orders mid-flight, not
+  // orphans. Real orphan detection needs Plan 3's Laravel-side order-status
+  // cross-check; until that lands this just aggregates "aging held holds" for
+  // whoever calls it directly. NOT wired to creditAlert (see startCreditJobs) —
+  // paging the shared alert channel on data this noisy would just train
+  // operators to mute the channel that carries the real reconcile/reaper signal.
   const rows = await db.execute(sql`
     SELECT brand, order_id, amount, created_at FROM credit_holds
     WHERE state = 'held' AND created_at < now() - interval '2 hours' LIMIT 50`);
   const report = rows.map((r: any) => `held>2h: ${r.brand}/${r.order_id} ${r.amount}`);
-  if (report.length) await creditAlert(`orphan-sweep (report-only):\n${report.join("\n").slice(0, 3500)}`);
   return { report };
 }
 
@@ -60,11 +67,24 @@ export function startCreditJobs(db: any, redisConnection: any) {
   const onAddFail = (name: string) => (e: unknown) => console.error(`credit jobs: ${name} registration failed`, e);
   queue.add("credit-hold-reaper", {}, { repeat: { pattern: "*/15 * * * *" }, jobId: "credit-hold-reaper" }).catch(onAddFail("credit-hold-reaper"));
   queue.add("credit-reconcile", {}, { repeat: { pattern: "30 3 * * *" }, jobId: "credit-reconcile" }).catch(onAddFail("credit-reconcile"));
-  queue.add("credit-orphan-sweep", {}, { repeat: { pattern: "0 4 * * *" }, jobId: "credit-orphan-sweep" }).catch(onAddFail("credit-orphan-sweep"));
+  // credit-orphan-sweep stays unregistered by default: its predicate (any "held"
+  // hold older than 2h) matches ordinary in-flight orders, not just orphans, so
+  // registering it unconditionally would page the shared alert channel with
+  // false positives from day one. Flip CREDIT_ORPHAN_SWEEP_ENABLED=1 once Plan 3's
+  // Laravel cross-check makes the predicate trustworthy.
+  if (process.env.CREDIT_ORPHAN_SWEEP_ENABLED === "1") {
+    queue.add("credit-orphan-sweep", {}, { repeat: { pattern: "0 4 * * *" }, jobId: "credit-orphan-sweep" }).catch(onAddFail("credit-orphan-sweep"));
+  } else {
+    console.warn("credit jobs: orphan-sweep disabled until Plan 3 cross-check (set CREDIT_ORPHAN_SWEEP_ENABLED=1 to enable)");
+  }
   const worker = new Worker("credit-maintenance", async (job) => {
     if (job.name === "credit-hold-reaper") return reapExpiredHolds(db);
     if (job.name === "credit-reconcile") return reconcileAccounts(db);
-    if (job.name === "credit-orphan-sweep") return sweepOrphans(db);
+    if (job.name === "credit-orphan-sweep") {
+      const result = await sweepOrphans(db);
+      if (result.report.length) console.log("orphan-sweep (report-only):\n" + result.report.join("\n"));
+      return result;
+    }
   }, { connection: redisConnection });
   worker.on("error", (e) => console.error("credit-maintenance worker error", e));
   worker.on("failed", (job, e) => console.error("credit job failed", job?.name, e));
