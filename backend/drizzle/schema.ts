@@ -1719,7 +1719,7 @@ export const credit_entries = pgTable("credit_entries", {
   created_by: uuid("created_by"),
   created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
-  credit_entries_company_created: index("credit_entries_company_created").on(t.company_id, t.created_at),
+  credit_entries_company_created: index("credit_entries_company_created").on(t.company_id, t.created_at.desc()),
   credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type),
 }));
 
