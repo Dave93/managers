@@ -91,6 +91,18 @@ test("capture on nonexistent order returns not_found over socket", async () => {
   expect(await call("/internal/credit/capture", { brand: "chopar", order_id: "no-such-s" })).toEqual({ ok: false, reason: "not_found" });
 });
 
+test("amend over the socket restates the hold, and authorize then reports amount_mismatch", async () => {
+  await call("/internal/credit/authorize", { brand: "chopar", order_id: "s-am", phone: PHONE, amount: 30_000 });
+  expect(await call("/internal/credit/amend", { brand: "chopar", order_id: "s-am", amount: 45_000 })).toEqual({ ok: true });
+  const [h] = await db.execute(sql`SELECT amount FROM credit_holds WHERE brand='chopar' AND order_id='s-am'`);
+  expect(Number(h.amount)).toBe(45_000);
+
+  // the other half of the contract: a stale authorize for the SAME order now
+  // tells Laravel to use /amend instead of silently returning the old hold
+  expect(await call("/internal/credit/authorize", { brand: "chopar", order_id: "s-am", phone: PHONE, amount: 30_000 }))
+    .toEqual({ approved: false, reason: "amount_mismatch" });
+});
+
 test("history returns entries for the company, newest first", async () => {
   // authorize then capture on the same order produces two ledger entries at
   // distinct instants (sequential awaited calls) — history must return the more

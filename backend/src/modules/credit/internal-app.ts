@@ -3,13 +3,24 @@ import { sql } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
 import {
-  authorize, capture, voidHold, refund,
+  authorize, capture, voidHold, refund, amendHold,
   resolveCompanyByPhone, ensureAccount, dayKey, monthKey,
   type DrizzleDb,
 } from "./service";
 
 const brandT = t.Union([t.Literal("chopar"), t.Literal("les")]);
 const orderRef = t.Object({ brand: brandT, order_id: t.String() });
+
+// One structured JSON line per money-moving call. These are the only record of
+// what the socket was asked to do — pm2's log is where an "order X was double
+// charged" question gets answered — so every mutating endpoint emits one,
+// including the ones whose result is just {ok:true}.
+async function logged<T>(evt: string, fields: Record<string, unknown>, run: () => Promise<T>): Promise<T> {
+  const started = Date.now();
+  const result = await run();
+  console.log(JSON.stringify({ evt, ...fields, result, ms: Date.now() - started }));
+  return result;
+}
 
 export function buildInternalCreditApp(db: DrizzleDb) {
   return new Elysia({ name: "credit-internal" })
@@ -57,18 +68,27 @@ export function buildInternalCreditApp(db: DrizzleDb) {
       // AuthorizeInput is exactly the 6 fields it's typed for — a spread would
       // silently forward any extra properties a client sends.
       const { brand, order_id, order_number, phone, amount, expires_at } = body;
-      const started = Date.now();
-      const r = await authorize(db, { brand, order_id, order_number, phone, amount, expires_at: expires_at ? new Date(expires_at) : undefined });
-      console.log(JSON.stringify({ evt: "credit.authorize", brand, order_id, amount, result: r, ms: Date.now() - started }));
-      return r;
+      return logged("credit.authorize", { brand, order_id, amount }, () =>
+        authorize(db, { brand, order_id, order_number, phone, amount, expires_at: expires_at ? new Date(expires_at) : undefined }));
     }, { body: t.Object({
       brand: brandT, order_id: t.String(), order_number: t.Optional(t.String()), phone: t.String(),
       amount: t.Integer({ minimum: 1 }),
       expires_at: t.Optional(t.String({ format: "date-time" })),
     }) })
-    .post("/internal/credit/capture", ({ body }) => capture(db, body.brand, body.order_id), { body: orderRef })
-    .post("/internal/credit/void", ({ body }) => voidHold(db, body.brand, body.order_id), { body: orderRef })
-    .post("/internal/credit/refund", ({ body }) => refund(db, body.brand, body.order_id, body.amount), {
+    // Same order_id, new total (Laravel's resend-composition flow). NOT
+    // void+re-authorize: re-authorizing a voided order id is rejected by design,
+    // and a plain /authorize replay with a changed amount now returns
+    // amount_mismatch pointing here.
+    .post("/internal/credit/amend", async ({ body }) => {
+      const { brand, order_id, amount } = body;
+      return logged("credit.amend", { brand, order_id, amount }, () => amendHold(db, brand, order_id, amount));
+    }, { body: t.Object({ brand: brandT, order_id: t.String(), amount: t.Integer({ minimum: 1 }) }) })
+    .post("/internal/credit/capture", ({ body }) =>
+      logged("credit.capture", { brand: body.brand, order_id: body.order_id }, () => capture(db, body.brand, body.order_id)), { body: orderRef })
+    .post("/internal/credit/void", ({ body }) =>
+      logged("credit.void", { brand: body.brand, order_id: body.order_id }, () => voidHold(db, body.brand, body.order_id)), { body: orderRef })
+    .post("/internal/credit/refund", ({ body }) =>
+      logged("credit.refund", { brand: body.brand, order_id: body.order_id, amount: body.amount ?? null }, () => refund(db, body.brand, body.order_id, body.amount)), {
       body: t.Object({ brand: brandT, order_id: t.String(), amount: t.Optional(t.Integer({ minimum: 1 })) }),
     })
     .post("/internal/credit/history", async ({ body }) => {

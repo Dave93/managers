@@ -1626,7 +1626,10 @@ export const credit_hold_state = pgEnum("credit_hold_state", [
   "held", "captured", "voided", "expired",
 ]);
 export const credit_entry_type = pgEnum("credit_entry_type", [
-  "authorize", "capture", "void", "refund", "payment", "adjustment",
+  // 'amend' = a change to a still-held hold's amount (entry amount = the delta).
+  // Distinct from 'adjustment' (a manual change to posted debt) because
+  // reconciliation sums adjustment into expected_posted and must not see amends.
+  "authorize", "capture", "void", "refund", "payment", "adjustment", "amend",
 ]);
 export const credit_document_type = pgEnum("credit_document_type", [
   "contract", "inn_cert", "guarantee_letter", "other",
@@ -1720,7 +1723,18 @@ export const credit_entries = pgTable("credit_entries", {
   created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({
   credit_entries_company_created: index("credit_entries_company_created").on(t.company_id, t.created_at.desc()),
-  credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type),
+  // One entry per (order, operation) — the idempotency gate behind every
+  // "replay = ok, no second debit" path in service.ts.
+  //
+  // PARTIAL, and written as an explicit whitelist rather than `<> 'amend'`: an
+  // order may legally be amended many times, so amend entries must not be gated.
+  // The whitelist form (instead of excluding the new value) is what lets this
+  // index be created in the SAME transaction that adds 'amend' to the enum —
+  // postgres refuses to use a newly added enum value in the transaction that
+  // created it. CAVEAT: it is a closed set, so a 7th entry_type added later
+  // escapes the gate silently unless it is added here too.
+  credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type)
+    .where(sql`entry_type IN ('authorize','capture','void','refund','payment','adjustment')`),
 }));
 
 export const credit_payments = pgTable("credit_payments", {
@@ -1732,4 +1746,12 @@ export const credit_payments = pgTable("credit_payments", {
   note: text("note"),
   created_by: uuid("created_by"),
   created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
-});
+}, (t) => ({
+  // The payment document is the only natural key a bank transfer has: this is
+  // what makes applyPayment replay-safe against a double-submitted admin form.
+  // Partial because doc_number stays nullable (legacy/manual entries) — and a
+  // NULL doc_number therefore has NO replay protection, which is why the admin
+  // UI must always send one.
+  credit_payment_doc_uniq: uniqueIndex("credit_payment_doc_uniq").on(t.company_id, t.doc_number)
+    .where(sql`doc_number IS NOT NULL`),
+}));

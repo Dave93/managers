@@ -41,3 +41,9 @@ export function getCreditDb() {
   }
   return dbInstance;
 }
+
+// The one db type the credit module is actually written against (drizzle-orm/
+// postgres-js, whose `.execute()` resolves to an array). Callers outside this
+// module MUST obtain their handle from getCreditDb() — see the note above about
+// lib/db.ts's node-postgres handle returning a non-array result shape.
+export type CreditDb = ReturnType<typeof getCreditDb>;

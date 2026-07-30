@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
-import { authorize, capture, voidHold, refund, applyPayment, ensureAccount, dayKey } from "../../src/modules/credit/service";
+import { authorize, capture, voidHold, refund, applyPayment, amendHold, ensureAccount, dayKey } from "../../src/modules/credit/service";
 import * as s from "../../drizzle/schema";
 
 const db = drizzle(postgres(process.env.DATABASE_URL!), { schema: s });
@@ -150,4 +150,131 @@ test("second partial refund with a different amount is rejected, first refund pr
   expect(afterSecondAttempt.posted).toBe(afterFirstRefund.posted); // untouched by the rejected attempt
   const [entry] = await db.execute(sql`SELECT amount FROM credit_entries WHERE brand='chopar' AND order_id='lc-9' AND entry_type='refund'`);
   expect(Number(entry.amount)).toBe(-40_000); // original refund entry unchanged
+});
+
+test("payment with a repeated doc_number does not debit twice", async () => {
+  const DOC = "LC-DOC-1";
+  const [before] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+
+  expect(await applyPayment(db, companyId, 25_000, { doc_number: DOC })).toEqual({ ok: true });
+  const [afterFirst] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(afterFirst.posted).toBe(before.posted - 25_000);
+
+  // replay (double-submitted admin form): reported, but no second debit
+  expect(await applyPayment(db, companyId, 25_000, { doc_number: DOC })).toEqual({ ok: true, reason: "duplicate_doc" });
+  const [afterSecond] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(afterSecond.posted).toBe(afterFirst.posted);
+
+  const payments = await db.execute(sql`SELECT id FROM credit_payments WHERE company_id=${companyId} AND doc_number=${DOC}`);
+  expect(payments.length).toBe(1);
+});
+
+// ---- amend: Laravel's resend-composition flow (same order id, new total) ----
+// Every assertion below is relative to a freshly-read account row: this file's
+// earlier tests assert absolute balances in file order, so this block must stay
+// at the END and must never assume a starting balance of its own.
+
+const daySpent = async () => {
+  const [row] = await db.execute(sql`SELECT spent FROM credit_periods WHERE company_id=${companyId} AND period_key=${dayKey(new Date())}`);
+  return Number(row?.spent ?? 0);
+};
+const accountRow = async () => (await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`))[0];
+
+test("amend up reserves the delta, updates the hold and writes an 'amend' entry", async () => {
+  await authorize(db, { brand: "chopar", order_id: "lc-am", phone: PHONE, amount: 60_000 });
+  const before = await accountRow();
+  const dayBefore = await daySpent();
+
+  expect(await amendHold(db, "chopar", "lc-am", 90_000)).toEqual({ ok: true });
+
+  expect((await accountRow()).reserved).toBe(before.reserved + 30_000);
+  expect(await daySpent()).toBe(dayBefore + 30_000);
+  const [hold] = await db.execute(sql`SELECT amount FROM credit_holds WHERE brand='chopar' AND order_id='lc-am'`);
+  expect(Number(hold.amount)).toBe(90_000);
+  const [entry] = await db.execute(sql`SELECT amount, meta FROM credit_entries WHERE brand='chopar' AND order_id='lc-am' AND entry_type='amend'`);
+  expect(Number(entry.amount)).toBe(30_000); // the delta, not the new total
+  expect(entry.meta).toMatchObject({ prev_amount: 60_000, new_amount: 90_000 });
+});
+
+test("amend to the same amount is a replay no-op", async () => {
+  const before = await accountRow();
+  const dayBefore = await daySpent();
+  expect(await amendHold(db, "chopar", "lc-am", 90_000)).toEqual({ ok: true });
+  expect((await accountRow()).reserved).toBe(before.reserved);
+  expect(await daySpent()).toBe(dayBefore);
+  // no second entry written for a no-op
+  const entries = await db.execute(sql`SELECT id FROM credit_entries WHERE brand='chopar' AND order_id='lc-am' AND entry_type='amend'`);
+  expect(entries.length).toBe(1);
+});
+
+test("amend down releases the delta from reserve and from the period", async () => {
+  const before = await accountRow();
+  const dayBefore = await daySpent();
+
+  expect(await amendHold(db, "chopar", "lc-am", 40_000)).toEqual({ ok: true });
+
+  expect((await accountRow()).reserved).toBe(before.reserved - 50_000);
+  expect(await daySpent()).toBe(dayBefore - 50_000);
+  const [entry] = await db.execute(sql`SELECT amount FROM credit_entries WHERE brand='chopar' AND order_id='lc-am' AND entry_type='amend' ORDER BY created_at DESC, id DESC`);
+  expect(Number(entry.amount)).toBe(-50_000);
+  // repeated amends are legal — the unique (brand, order_id, entry_type) gate is
+  // partial and must NOT have blocked this second 'amend' entry
+  const entries = await db.execute(sql`SELECT id FROM credit_entries WHERE brand='chopar' AND order_id='lc-am' AND entry_type='amend'`);
+  expect(entries.length).toBe(2);
+});
+
+test("amend beyond the daily limit declines with the exact reason and rolls back completely", async () => {
+  const before = await accountRow();
+  const dayBefore = await daySpent();
+  // temporary tight daily limit, restored in finally so later tests are unaffected
+  await db.execute(sql`UPDATE credit_companies SET limit_daily = ${dayBefore + 10_000} WHERE id = ${companyId}`);
+  try {
+    expect(await amendHold(db, "chopar", "lc-am", 90_000)).toEqual({ ok: false, reason: "limit_daily" });
+  } finally {
+    await db.execute(sql`UPDATE credit_companies SET limit_daily = 1000000 WHERE id = ${companyId}`);
+  }
+
+  expect((await accountRow()).reserved).toBe(before.reserved); // reserve untouched
+  expect(await daySpent()).toBe(dayBefore);                    // period untouched
+  const [hold] = await db.execute(sql`SELECT amount FROM credit_holds WHERE brand='chopar' AND order_id='lc-am'`);
+  expect(Number(hold.amount)).toBe(40_000);                    // hold amount untouched
+  const entries = await db.execute(sql`SELECT id FROM credit_entries WHERE brand='chopar' AND order_id='lc-am' AND entry_type='amend'`);
+  expect(entries.length).toBe(2);                              // no entry from the declined amend
+});
+
+test("amend of a captured order returns wrong_state, amend of an unknown order not_found", async () => {
+  // lc-1 was captured earlier in this file — a captured order is corrected with
+  // refund, not amend.
+  expect(await amendHold(db, "chopar", "lc-1", 5_000)).toEqual({ ok: false, state: "captured", reason: "wrong_state" });
+  expect(await amendHold(db, "chopar", "lc-never-authorized", 5_000)).toEqual({ ok: false, reason: "not_found" });
+});
+
+test("amend rejects a non-positive or fractional amount before touching the DB", async () => {
+  const before = await accountRow();
+  expect(await amendHold(db, "chopar", "lc-am", 0)).toEqual({ ok: false, reason: "bad_amount" });
+  expect(await amendHold(db, "chopar", "lc-am", -1)).toEqual({ ok: false, reason: "bad_amount" });
+  expect(await amendHold(db, "chopar", "lc-am", 1.5)).toEqual({ ok: false, reason: "bad_amount" });
+  expect((await accountRow()).reserved).toBe(before.reserved);
+});
+
+// The other half of the amend contract: a plain authorize replay carrying a
+// changed amount must SAY so (so Laravel knows to call /amend) instead of
+// silently returning the stale hold.
+test("authorize replay with a different amount returns amount_mismatch, same amount still replays", async () => {
+  const before = await accountRow();
+  const mismatched = await authorize(db, { brand: "chopar", order_id: "lc-am", phone: PHONE, amount: 12_345 });
+  expect(mismatched).toEqual({ approved: false, reason: "amount_mismatch" });
+  expect((await accountRow()).reserved).toBe(before.reserved);
+
+  const replay = await authorize(db, { brand: "chopar", order_id: "lc-am", phone: PHONE, amount: 40_000 });
+  expect(replay.approved).toBe(true);
+  expect((await accountRow()).reserved).toBe(before.reserved); // idempotent, no double reserve
+});
+
+// Phone canonicalization: the stored form is E.164-with-plus, and a caller
+// sending the same number without the '+' (or with spaces) must resolve to the
+// same company rather than being hard-declined as unknown_phone.
+test("phone is canonicalized on the read path", async () => {
+  const r = await authorize(db, { brand: "les", order_id: "lc-canon", phone: PHONE.replace("+", ""), amount: 1_000 });
+  expect(r.approved).toBe(true);
 });

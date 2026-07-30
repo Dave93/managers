@@ -85,6 +85,13 @@
       "when": 1785412757410,
       "tag": "0011_strong_namora",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785427250389,
+      "tag": "0012_nasty_war_machine",
+      "breakpoints": true
     }
   ]
 }
