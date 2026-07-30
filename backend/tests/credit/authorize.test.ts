@@ -174,6 +174,7 @@ describe("redis config cache", () => {
       port: parseInt(process.env.REDIS_PORT || "6379"),
       maxRetriesPerRequest: 1,
     });
+    redis.on("error", (e) => console.error("test redis client error", e));
     setCreditRedis(redis);
   });
 

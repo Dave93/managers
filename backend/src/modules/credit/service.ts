@@ -19,18 +19,46 @@ let creditRedis: any = null;
 export const setCreditRedis = (r: any) => { creditRedis = r; };
 const CACHE_KEY = (phone: string) => `credit:company_by_phone:${phone}`;
 const CACHE_TTL = 60; // seconds — backstop only; writes must invalidate
+const INVALIDATE_TIMEOUT_MS = 250;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`timed out after ${ms}ms`)), ms);
+    p.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
 
 // Contract for callers (Plan 2's admin CRUD): ANY write to credit_companies
 // (status/limits) or credit_company_phones (add/deactivate/renumber) MUST call
-// this with every phone affected by the change. A failed `del` is swallowed
-// (logged, not thrown) — the 60s TTL is the backstop, so a caller must not
-// treat a resolved promise here as proof the stale key is actually gone.
+// this with every phone affected by the change — including a newly ADDED
+// phone. "Invalidate on suspend/limit-change" is the intuitive case; the one
+// Plan 2 will likely forget is invalidate-on-ADD: resolveCompanyByPhone caches
+// negative lookups too (see below), so a phone that was queried even once
+// before being added to credit_company_phones stays cached as "no company" for
+// up to 60s — the newly-added customer gets hard-declined (unknown_phone) at
+// checkout despite being active in Postgres, not just a stale-approve risk.
+//
+// Invalidation itself is best-effort and bounded, NOT a synchronous guarantee:
+// `redis.del` is raced against a ~250ms timeout so a slow/degraded (not fully
+// down) redis can never hang the calling admin request — this module has no
+// control over what shape of redis client Plan 2 passes in (it may default
+// enableOfflineQueue:true with no commandTimeout, which queues indefinitely on
+// an outage rather than rejecting; the credit module's own cache client uses a
+// fail-fast shape internally, but invalidateCreditCompanyCache's `redis` param
+// comes from the caller, so this timeout is the only guard this function can
+// provide). Both a timeout and a delete failure are swallowed (logged, not
+// thrown) — a caller must never treat a resolved promise here as proof the
+// stale key is actually gone; the 60s TTL is the real backstop for both a
+// dropped invalidation and this timeout.
 export async function invalidateCreditCompanyCache(redis: any, phones: string[]) {
   if (!phones.length) return;
   try {
-    await redis.del(...phones.map(CACHE_KEY));
+    await withTimeout(redis.del(...phones.map(CACHE_KEY)), INVALIDATE_TIMEOUT_MS);
   } catch (e) {
-    console.error("credit cache invalidation failed (TTL will still expire it)", e);
+    console.error(`credit cache invalidation failed or timed out after ${INVALIDATE_TIMEOUT_MS}ms (TTL will still expire it)`, e);
   }
 }
 
