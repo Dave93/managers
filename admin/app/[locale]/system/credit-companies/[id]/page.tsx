@@ -13,6 +13,8 @@ import { getCompany } from "@admin/lib/credit-api";
 import { STATUS_LABELS, STATUS_STYLES, formatSum } from "../columns";
 import PhonesTab from "./phones-tab";
 import DocumentsTab from "./documents-tab";
+import PaymentsTab from "./payments-tab";
+import StatementTab from "./statement-tab";
 
 export default function CreditCompanyDetailPage() {
   const params = useParams();
@@ -94,9 +96,12 @@ export default function CreditCompanyDetailPage() {
             <TabsContent value="documents">
               <DocumentsTab companyId={id} />
             </TabsContent>
-            {/* Filled by Task 6. */}
-            <TabsContent value="payments">{null}</TabsContent>
-            <TabsContent value="statement">{null}</TabsContent>
+            <TabsContent value="payments">
+              <PaymentsTab companyId={id} />
+            </TabsContent>
+            <TabsContent value="statement">
+              <StatementTab companyId={id} />
+            </TabsContent>
           </Tabs>
         </>
       )}

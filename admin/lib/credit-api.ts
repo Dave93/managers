@@ -218,3 +218,117 @@ export function deleteDocument(id: string): EdenResult<{ ok: boolean }> {
 export function documentDownloadUrl(id: string): string {
   return `/api/credit/documents/${id}/download`;
 }
+
+// Matches GET /credit/companies/:id/payments' explicit column list.
+export interface CreditPayment {
+  id: string;
+  company_id: string;
+  amount: number;
+  doc_number: string | null;
+  doc_date: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CreditPaymentListResponse {
+  data: CreditPayment[];
+}
+
+export interface CreditPaymentInput {
+  amount: number; // tiyins, > 0
+  doc_number: string; // idempotency key — required
+  doc_date?: string;
+  note?: string;
+}
+
+export interface CreditAdjustmentInput {
+  amount: number; // tiyins, signed, != 0 — positive reduces debt
+  reason: string;
+}
+
+// The route returns this verbatim (see backend/src/modules/credit/service.ts
+// applyPayment/applyAdjustment) — {ok:true, reason:"duplicate_doc"} is a
+// successful replay, not an error, and must be surfaced as its own toast
+// rather than folded into the generic error path.
+export interface CreditOpResult {
+  ok: boolean;
+  state?: string;
+  reason?: string;
+}
+
+export type CreditEntryType = "authorize" | "capture" | "void" | "refund" | "amend" | "payment" | "adjustment";
+
+export interface CreditStatementSummary {
+  posted: number;
+  reserved: number;
+  available: number;
+  day_spent: number;
+  month_spent: number;
+  limit_total: number;
+  limit_daily: number;
+  limit_monthly: number;
+}
+
+// Matches GET /credit/companies/:id/statement's explicit column list — all
+// amounts are raw tiyins (÷100 happens in the UI only, same rule as
+// formatSum in ../columns).
+export interface CreditStatementEntry {
+  id: string;
+  company_id: string;
+  hold_id: string | null;
+  brand: string | null;
+  order_id: string | null;
+  order_number: string | null;
+  entry_type: CreditEntryType;
+  amount: number;
+  balance_after: number;
+  period_day_key: string | null;
+  period_month_key: string | null;
+  meta: unknown;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface CreditStatementResponse {
+  summary: CreditStatementSummary;
+  total: number;
+  data: CreditStatementEntry[];
+}
+
+export interface CreditStatementQuery {
+  from?: string;
+  to?: string;
+  brand?: string;
+  limit?: string;
+  offset?: string;
+}
+
+export function listPayments(companyId: string): EdenResult<CreditPaymentListResponse> {
+  return creditApi.companies({ id: companyId }).payments.get({});
+}
+
+export function payCompany(companyId: string, data: CreditPaymentInput): EdenResult<CreditOpResult> {
+  return creditApi.companies({ id: companyId }).payments.post({ data });
+}
+
+export function adjustCompany(companyId: string, data: CreditAdjustmentInput): EdenResult<CreditOpResult> {
+  return creditApi.companies({ id: companyId }).adjustments.post({ data });
+}
+
+export function getStatement(companyId: string, query: CreditStatementQuery): EdenResult<CreditStatementResponse> {
+  return creditApi.companies({ id: companyId }).statement.get({ query });
+}
+
+// Not an Eden call — the export route streams an xlsx binary, which the app
+// opens directly in a new tab/download rather than fetching through the
+// treaty client. Same query params as getStatement (minus limit/offset: the
+// backend caps the export at STATEMENT_EXPORT_CAP rows itself).
+export function statementExportUrl(companyId: string, query: { from?: string; to?: string; brand?: string }): string {
+  const params = new URLSearchParams();
+  if (query.from) params.set("from", query.from);
+  if (query.to) params.set("to", query.to);
+  if (query.brand) params.set("brand", query.brand);
+  const qs = params.toString();
+  return `/api/credit/companies/${companyId}/statement/export${qs ? `?${qs}` : ""}`;
+}
