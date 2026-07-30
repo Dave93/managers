@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useLocale } from "next-intl";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon, Edit2Icon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 import { Button } from "@admin/components/ui/buttonOrigin";
@@ -18,6 +18,7 @@ export default function CreditCompanyDetailPage() {
   const params = useParams();
   const locale = useLocale();
   const id = params.id as string;
+  const queryClient = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["credit_company", id],
@@ -70,7 +71,10 @@ export default function CreditCompanyDetailPage() {
                 <div>Лимит в месяц: {formatSum(company.limit_monthly)}</div>
               </div>
             </div>
-            <CreditCompaniesFormSheet recordId={id}>
+            <CreditCompaniesFormSheet
+              recordId={id}
+              onSaved={() => queryClient.invalidateQueries({ queryKey: ["credit_company", id] })}
+            >
               <Button variant="outline">
                 <Edit2Icon className="mr-2 h-4 w-4" /> Редактировать
               </Button>

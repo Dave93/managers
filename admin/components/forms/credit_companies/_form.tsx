@@ -47,15 +47,18 @@ const DEFAULT_VALUES: CreditCompanyFormValues = {
 export default function CreditCompaniesForm({
   setOpen,
   recordId,
+  onSaved,
 }: {
   setOpen: (open: boolean) => void;
   recordId?: string;
+  onSaved?: () => void;
 }) {
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
     toast.success(`Кредитная компания ${actionText}`);
     queryClient.invalidateQueries({ queryKey: ["credit_companies"] });
+    onSaved?.();
     setOpen(false);
   };
 
