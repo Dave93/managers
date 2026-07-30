@@ -1,10 +1,12 @@
-import { credit_accounts, credit_companies, credit_company_phones } from "backend/drizzle/schema";
+import { credit_accounts, credit_companies, credit_company_documents, credit_company_phones } from "backend/drizzle/schema";
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { getCreditDb } from "../credit/db";
 import { canonPhone, ensureAccount, invalidateCreditCompanyCache } from "../credit/service";
 import { and, desc, eq, SQLWrapper, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
+import fs from "fs";
+import { randomUUID } from "crypto";
 
 // db/redis are typed `any` here on purpose: the route passes ctx's node-postgres
 // `drizzle` + ioredis `redis`, tests pass a drizzle-orm/postgres-js handle + a
@@ -59,6 +61,102 @@ export async function updateCompany(db: any, redis: any, id: string, input: any,
   if (allPhones.length) await invalidateCreditCompanyCache(redis, allPhones);
 
   return row;
+}
+
+// `credit_phone_uniq` is a GLOBAL unique index across all companies. A
+// duplicate insert throws a postgres unique-violation (23505), not a business
+// `{approved:false}`-shaped result — caught here and turned into
+// `{error:"phone_taken"}` so the route answers 400, not a 500. Only the newly
+// ADDED phone is invalidated: per CONTRACT.md, negative lookups are cached too,
+// so a phone queried once before being added stays cached as "no company" for
+// up to the 60s TTL — a false DECLINE at checkout for the new number, not
+// merely a stale approve.
+export async function addPhone(db: any, redis: any, companyId: string, input: any) {
+  const phone = canonPhone(input.phone);
+  try {
+    const [row] = await db
+      .insert(credit_company_phones)
+      .values({ company_id: companyId, phone, employee_name: input.employee_name ?? null })
+      .returning();
+    await invalidateCreditCompanyCache(redis, [phone]);
+    return row;
+  } catch (e: any) {
+    if (e?.code === "23505" || e?.cause?.code === "23505") return { error: "phone_taken" };
+    throw e;
+  }
+}
+
+export async function deactivatePhone(db: any, redis: any, id: string, active: boolean) {
+  const [row] = await db
+    .update(credit_company_phones)
+    .set({ active })
+    .where(eq(credit_company_phones.id, id))
+    .returning();
+  if (row) await invalidateCreditCompanyCache(redis, [row.phone]);
+  return row;
+}
+
+const UPLOAD_EXTS = [".pdf", ".jpg", ".jpeg", ".png", ".webp", ".docx"];
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+
+// Read at call time (not module load) so tests can point CREDIT_UPLOADS_DIR at
+// a temp dir via process.env before calling saveDocument/deleteDocument.
+function uploadsBase() {
+  return process.env.CREDIT_UPLOADS_DIR ?? "/home/davr/managers/uploads/credit";
+}
+
+function extOf(filename: string) {
+  const i = filename.lastIndexOf(".");
+  return i === -1 ? "" : filename.slice(i).toLowerCase();
+}
+
+// Ext allowlist + size cap are checked BEFORE anything touches the filesystem
+// or DB, so a rejected upload never leaves a partial file or an orphan row.
+export async function saveDocument(db: any, companyId: string, file: any, meta: any) {
+  if (file.size > MAX_UPLOAD_BYTES) return { error: "too_large" };
+  const ext = extOf(file.name ?? "");
+  if (!UPLOAD_EXTS.includes(ext)) return { error: "bad_type" };
+
+  // drizzle's `timestamp` column builder calls `.toISOString()` on the value
+  // it's given (unlike the raw-sql path elsewhere in this module, which takes
+  // ISO strings directly) — a plain string here throws a TypeError deep inside
+  // pg-core, not a validation error. Convert and validate before anything
+  // touches disk, so a bad date never leaves an orphan file behind.
+  let doc_date: Date | null = null;
+  if (meta.doc_date) {
+    doc_date = new Date(meta.doc_date);
+    if (isNaN(doc_date.getTime())) return { error: "bad_date" };
+  }
+
+  const dir = `${uploadsBase()}/${companyId}`;
+  fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+  const filePath = `${dir}/${randomUUID()}${ext}`;
+  await Bun.write(filePath, file);
+
+  const [row] = await db
+    .insert(credit_company_documents)
+    .values({
+      company_id: companyId,
+      type: meta.type,
+      file_path: filePath,
+      doc_number: meta.doc_number ?? null,
+      doc_date,
+      uploaded_by: meta.uploaded_by ?? null,
+    })
+    .returning();
+  return row;
+}
+
+export async function deleteDocument(db: any, id: string) {
+  const [doc] = await db.select().from(credit_company_documents).where(eq(credit_company_documents.id, id));
+  if (!doc) return { error: "not_found" };
+  try {
+    fs.unlinkSync(doc.file_path);
+  } catch (e: any) {
+    if (e.code !== "ENOENT") throw e; // tolerate a file that already vanished out-of-band
+  }
+  await db.delete(credit_company_documents).where(eq(credit_company_documents.id, id));
+  return { ok: true };
 }
 
 export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
@@ -161,4 +259,96 @@ export const creditAdminController = new Elysia({ name: "@api/credit_admin" })
         }),
       }),
     }
+  )
+  .post(
+    "/credit/companies/:id/phones",
+    async ({ params: { id }, body: { data }, drizzle, redis, set }) => {
+      const r = await addPhone(drizzle, redis, id, data);
+      if (r && "error" in r) set.status = 400;
+      return r;
+    },
+    {
+      permission: "credit.edit",
+      params: t.Object({ id: t.String() }),
+      body: t.Object({ data: t.Object({ phone: t.String(), employee_name: t.Optional(t.String()) }) }),
+    }
+  )
+  .put(
+    "/credit/phones/:id",
+    async ({ params: { id }, body: { data }, drizzle, redis }) => {
+      // employee_name is a plain admin-facing label, not part of routing —
+      // updating it alone must not invalidate any cache key. `active` is the
+      // only field that gates checkout eligibility, so only it goes through
+      // deactivatePhone (which invalidates).
+      if (data.employee_name !== undefined) {
+        await drizzle.update(credit_company_phones).set({ employee_name: data.employee_name }).where(eq(credit_company_phones.id, id));
+      }
+      if (data.active !== undefined) return deactivatePhone(drizzle, redis, id, data.active);
+      const [row] = await drizzle.select().from(credit_company_phones).where(eq(credit_company_phones.id, id));
+      return row;
+    },
+    {
+      permission: "credit.edit",
+      params: t.Object({ id: t.String() }),
+      body: t.Object({ data: t.Object({ employee_name: t.Optional(t.String()), active: t.Optional(t.Boolean()) }) }),
+    }
+  )
+  .post(
+    "/credit/companies/:id/documents",
+    async ({ params: { id }, body, drizzle, set, user }) => {
+      const r = await saveDocument(drizzle, id, body.file, {
+        type: body.type,
+        doc_number: body.doc_number,
+        doc_date: body.doc_date,
+        uploaded_by: user!.id,
+      });
+      if ("error" in r) set.status = 400;
+      return r;
+    },
+    {
+      permission: "credit.edit",
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        file: t.File(),
+        type: t.Union([
+          t.Literal("contract"),
+          t.Literal("inn_cert"),
+          t.Literal("guarantee_letter"),
+          t.Literal("other"),
+        ]),
+        doc_number: t.Optional(t.String()),
+        doc_date: t.Optional(t.String({ format: "date" })),
+      }),
+    }
+  )
+  .get(
+    "/credit/companies/:id/documents",
+    async ({ params: { id }, drizzle }) => {
+      const data = await drizzle.select().from(credit_company_documents).where(eq(credit_company_documents.company_id, id));
+      return { data };
+    },
+    { permission: "credit.list", params: t.Object({ id: t.String() }) }
+  )
+  .get(
+    "/credit/documents/:id/download",
+    async ({ params: { id }, drizzle, set }) => {
+      const [doc] = await drizzle.select().from(credit_company_documents).where(eq(credit_company_documents.id, id));
+      if (!doc) {
+        set.status = 404;
+        return { error: "not_found" };
+      }
+      const f = Bun.file(doc.file_path);
+      if (!(await f.exists())) {
+        set.status = 410;
+        return { error: "file_missing" };
+      }
+      set.headers["content-disposition"] = `attachment; filename="${doc.type}-${doc.doc_number ?? doc.id}${extOf(doc.file_path)}"`;
+      return f;
+    },
+    { permission: "credit.list", params: t.Object({ id: t.String() }) }
+  )
+  .delete(
+    "/credit/documents/:id",
+    async ({ params: { id }, drizzle }) => deleteDocument(drizzle, id),
+    { permission: "credit.edit", params: t.Object({ id: t.String() }) }
   );
