@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
-import { authorize, applyAdjustment, dayKey } from "../../src/modules/credit/service";
+import { authorize, applyAdjustment, amendHold, dayKey } from "../../src/modules/credit/service";
 import { reconcileAccounts, reapExpiredHolds } from "../../src/modules/credit/jobs";
 import * as s from "../../drizzle/schema";
 
@@ -119,4 +119,29 @@ test("adjustment rejects zero, fractional and unexplained input", async () => {
   expect(await applyAdjustment(db, companyId, 1_000, { reason: "   " })).toEqual({ ok: false, reason: "bad_reason" });
   const [after] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
   expect(after.posted).toBe(before.posted);
+});
+
+// The mechanical proof behind amend's period attribution. amendHold books its
+// delta against the HOLD's own period keys rather than today's, and the argument
+// for that (over charging the current date) is precisely that it keeps the
+// period re-derivation exact: reconcileAccounts derives expected spend from the
+// already-amended hold amount sitting on the hold's own keys. If amend ever
+// charges a period the derivation does not attribute the hold to, this test goes
+// red — which is the whole point of asserting it here rather than trusting the
+// balance-only assertions in lifecycle.test.ts.
+//
+// Placed last on purpose: it introduces a live hold, and the reaper test above
+// asserts an exact `reserved` for this fixture.
+test("reconciliation stays clean across an amend up and an amend down", async () => {
+  await authorize(db, { brand: "chopar", order_id: "rc-amend", phone: PHONE, amount: 40_000 });
+  expect(await amendHold(db, "chopar", "rc-amend", 75_000)).toEqual({ ok: true });
+  expect(await amendHold(db, "chopar", "rc-amend", 25_000)).toEqual({ ok: true });
+
+  // reserved, posted AND every period counter must all re-derive
+  expect((await reconcileAccounts(db, companyId)).mismatches).toEqual([]);
+
+  const [acc] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(acc.reserved).toBe(125_000); // rc-1's 100k + this hold's final 25k
+  const [day] = await db.execute(sql`SELECT spent FROM credit_periods WHERE company_id=${companyId} AND period_key=${dayKey(new Date())}`);
+  expect(Number(day.spent)).toBe(125_000);
 });

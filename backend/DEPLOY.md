@@ -22,6 +22,14 @@ cp app app.bak_$(date +%s)
 /root/.bun/bin/bun build --compile src/index.ts --outfile app.new
 
 # 3. Smoke-test the new binary before it becomes `app`.
+#    !! KEEP THIS WINDOW SHORT — a few seconds, just the two curls below. !!
+#    The dev-mode boot also calls startCreditJobs(), which registers the job
+#    schedulers and starts a SECOND credit-maintenance worker against the
+#    PRODUCTION Redis. That worker is not read-only: if the reaper fires while
+#    the smoke instance is up, it really voids expired holds and really posts to
+#    the alert channel. There is no isolation knob for the queue (startCreditJobs
+#    takes only host/port), which is why the fix is "don't leave it running",
+#    not a flag.
 #    - NODE_ENV=development so it boots single-process (no cluster fork) and
 #      still starts the credit socket + jobs, which is what we want to exercise.
 #    - a THROWAWAY port and a THROWAWAY socket path: the real socket at
