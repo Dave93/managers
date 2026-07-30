@@ -3,10 +3,17 @@ import { sql } from "drizzle-orm";
 import { voidHold } from "./service";
 import { creditAlert } from "./alert";
 
-export async function reconcileAccounts(db: any) {
+// company_id is an optional narrowing filter. Production workers call these with
+// no filter (sweep everything); tests pass their own fixture's id so that a
+// suite asserting "no mismatches" can never be reported red by unrelated rows
+// left behind in a shared database by another suite or by real traffic.
+export async function reconcileAccounts(db: any, company_id?: string) {
+  const cid = company_id ?? null;
   // reserved must equal sum of amounts of live holds; posted must equal signed sum of capture-affecting entries.
   // posted = sum over captured holds of (amount) + sum(payment/refund/adjustment entry amounts)
   //   capture entries carry amount 0 (they move reserve->posted), so derive posted from holds+entries:
+  //   'amend' entries are deliberately NOT summed here — they move reserve only,
+  //   and the hold amount they adjusted is already counted via credit_holds.
   const rows = await db.execute(sql`
     SELECT a.company_id,
            a.reserved AS actual_reserved,
@@ -16,7 +23,8 @@ export async function reconcileAccounts(db: any) {
     FROM credit_accounts a
     LEFT JOIN (SELECT company_id, SUM(amount) live_reserved FROM credit_holds WHERE state = 'held' GROUP BY company_id) h USING (company_id)
     LEFT JOIN (SELECT company_id, SUM(amount) captured_sum FROM credit_holds WHERE state = 'captured' GROUP BY company_id) cap USING (company_id)
-    LEFT JOIN (SELECT company_id, SUM(amount) neg_sum FROM credit_entries WHERE entry_type IN ('payment','refund','adjustment') GROUP BY company_id) neg USING (company_id)`);
+    LEFT JOIN (SELECT company_id, SUM(amount) neg_sum FROM credit_entries WHERE entry_type IN ('payment','refund','adjustment') GROUP BY company_id) neg USING (company_id)
+    WHERE (${cid}::uuid IS NULL OR a.company_id = ${cid})`);
   const mismatches: any[] = [];
   for (const r of rows) {
     if (Number(r.actual_reserved) !== Number(r.expected_reserved))
@@ -24,12 +32,56 @@ export async function reconcileAccounts(db: any) {
     if (Number(r.actual_posted) !== Number(r.expected_posted))
       mismatches.push({ company_id: r.company_id, field: "posted", expected: Number(r.expected_posted), actual: Number(r.actual_posted) });
   }
+
+  // Period spend is re-derived independently of the balances above: it is what
+  // enforces the daily/monthly ceilings, so drift here silently either blocks a
+  // customer who has headroom or lets one past their limit.
+  //
+  // expected_spent(company, key) = SUM(amount) of held|captured holds carrying
+  // that key (as their day key or their month key — a key is one or the other,
+  // never both) MINUS the refunded part booked against it. Amends need no term:
+  // they update the hold's amount in place, on the hold's own period keys.
+  // Voided/expired holds are excluded because their spend was reversed.
+  //
+  // ONE-SIDED on purpose: reversePeriods floors at 0, so a legitimate sequence
+  // (reverse more than the counter currently holds) leaves actual BELOW derived
+  // forever. Only actual > expected is reported — that is the direction where a
+  // customer is being blocked by spend that no longer exists.
+  const periodRows = await db.execute(sql`
+    WITH contrib AS (
+      SELECT company_id, period_day_key AS period_key, amount FROM credit_holds WHERE state IN ('held','captured')
+      UNION ALL
+      SELECT company_id, period_month_key, amount FROM credit_holds WHERE state IN ('held','captured')
+      UNION ALL
+      SELECT company_id, period_day_key, amount FROM credit_entries WHERE entry_type = 'refund' AND period_day_key IS NOT NULL
+      UNION ALL
+      SELECT company_id, period_month_key, amount FROM credit_entries WHERE entry_type = 'refund' AND period_month_key IS NOT NULL
+    )
+    SELECT p.company_id, p.period_key, p.spent AS actual_spent,
+           GREATEST(0, COALESCE(SUM(c.amount), 0)) AS expected_spent
+    FROM credit_periods p
+    LEFT JOIN contrib c ON c.company_id = p.company_id AND c.period_key = p.period_key
+    WHERE (${cid}::uuid IS NULL OR p.company_id = ${cid})
+    GROUP BY p.company_id, p.period_key, p.spent`);
+  for (const r of periodRows) {
+    // refund entries store a NEGATIVE amount, so the SUM above already subtracts them.
+    if (Number(r.actual_spent) > Number(r.expected_spent))
+      mismatches.push({
+        company_id: r.company_id, field: "period_spent", period_key: r.period_key,
+        expected: Number(r.expected_spent), actual: Number(r.actual_spent),
+      });
+  }
+
   if (mismatches.length) await creditAlert(`RECONCILE MISMATCH (no auto-fix): ${JSON.stringify(mismatches).slice(0, 3500)}`);
   return { mismatches };
 }
 
-export async function reapExpiredHolds(db: any) {
-  const stale = await db.execute(sql`SELECT brand, order_id FROM credit_holds WHERE state = 'held' AND expires_at < now()`);
+export async function reapExpiredHolds(db: any, company_id?: string) {
+  const cid = company_id ?? null;
+  const stale = await db.execute(sql`
+    SELECT brand, order_id FROM credit_holds
+    WHERE state = 'held' AND expires_at < now()
+      AND (${cid}::uuid IS NULL OR company_id = ${cid})`);
   let reaped = 0;
   for (const h of stale) {
     const r = await voidHold(db, h.brand, h.order_id, { as: "expired" });
@@ -65,16 +117,24 @@ export function startCreditJobs(db: any, redisConnection: any) {
   // event or a rejected floating promise, so both must be handled here.
   queue.on("error", (e) => console.error("credit-maintenance queue error", e));
   const onAddFail = (name: string) => (e: unknown) => console.error(`credit jobs: ${name} registration failed`, e);
-  queue.add("credit-hold-reaper", {}, { repeat: { pattern: "*/15 * * * *" }, jobId: "credit-hold-reaper" }).catch(onAddFail("credit-hold-reaper"));
-  queue.add("credit-reconcile", {}, { repeat: { pattern: "30 3 * * *" }, jobId: "credit-reconcile" }).catch(onAddFail("credit-reconcile"));
+  // upsertJobScheduler (bullmq >= 5.30) replaces `add(..., {repeat})`: it is keyed
+  // on the scheduler id, so re-registering on every boot UPDATES the existing
+  // schedule instead of leaving an orphaned repeatable behind whenever the cron
+  // pattern changes — which with the old API meant the job silently ran on BOTH
+  // the old and the new schedule until someone found and removed the stale key.
+  // The explicit template `name` matters: the worker below branches on job.name.
+  queue.upsertJobScheduler("credit-hold-reaper", { pattern: "*/15 * * * *" }, { name: "credit-hold-reaper" }).catch(onAddFail("credit-hold-reaper"));
+  queue.upsertJobScheduler("credit-reconcile", { pattern: "30 3 * * *" }, { name: "credit-reconcile" }).catch(onAddFail("credit-reconcile"));
   // credit-orphan-sweep stays unregistered by default: its predicate (any "held"
   // hold older than 2h) matches ordinary in-flight orders, not just orphans, so
   // registering it unconditionally would page the shared alert channel with
   // false positives from day one. Flip CREDIT_ORPHAN_SWEEP_ENABLED=1 once Plan 3's
   // Laravel cross-check makes the predicate trustworthy.
   if (process.env.CREDIT_ORPHAN_SWEEP_ENABLED === "1") {
-    queue.add("credit-orphan-sweep", {}, { repeat: { pattern: "0 4 * * *" }, jobId: "credit-orphan-sweep" }).catch(onAddFail("credit-orphan-sweep"));
+    queue.upsertJobScheduler("credit-orphan-sweep", { pattern: "0 4 * * *" }, { name: "credit-orphan-sweep" }).catch(onAddFail("credit-orphan-sweep"));
   } else {
+    // NOTE: flipping the flag back off does not unregister an already-created
+    // scheduler — call queue.removeJobScheduler("credit-orphan-sweep") for that.
     console.warn("credit jobs: orphan-sweep disabled until Plan 3 cross-check (set CREDIT_ORPHAN_SWEEP_ENABLED=1 to enable)");
   }
   const worker = new Worker("credit-maintenance", async (job) => {
