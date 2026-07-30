@@ -121,6 +121,41 @@ export interface CreditSummaryResponse {
   companies_over_80_monthly: CreditSummaryOverLimit[];
 }
 
+export interface CreditPhoneInput {
+  phone: string;
+  employee_name?: string;
+}
+
+export interface CreditPhoneUpdateInput {
+  employee_name?: string;
+  active?: boolean;
+}
+
+export type CreditDocumentType = "contract" | "inn_cert" | "guarantee_letter" | "other";
+
+// Matches GET /credit/companies/:id/documents' explicit column list — the
+// route deliberately omits file_path (an absolute server path); downloads go
+// through documentDownloadUrl()/the /credit/documents/:id/download route.
+export interface CreditCompanyDocument {
+  id: string;
+  type: CreditDocumentType;
+  doc_number: string | null;
+  doc_date: string | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
+export interface CreditDocumentListResponse {
+  data: CreditCompanyDocument[];
+}
+
+export interface CreditDocumentUploadInput {
+  file: File;
+  type: CreditDocumentType;
+  doc_number?: string;
+  doc_date?: string;
+}
+
 // Matches the Eden treaty response envelope every generated call returns —
 // keeps call sites' `const { data } = await listCompanies(...)` destructuring
 // identical to what they'd get from a typed Eden call.
@@ -144,4 +179,42 @@ export function updateCompany(id: string, data: CreditCompanyUpdateInput): EdenR
 
 export function getSummary(): EdenResult<CreditSummaryResponse> {
   return creditApi.summary.get();
+}
+
+export function addPhone(companyId: string, data: CreditPhoneInput): EdenResult<CreditCompanyPhone> {
+  return creditApi.companies({ id: companyId }).phones.post({ data });
+}
+
+export function updatePhone(id: string, data: CreditPhoneUpdateInput): EdenResult<CreditCompanyPhone> {
+  return creditApi.phones({ id }).put({ data });
+}
+
+export function listDocuments(companyId: string): EdenResult<CreditDocumentListResponse> {
+  return creditApi.companies({ id: companyId }).documents.get({});
+}
+
+// The route's body schema is flat (`t.Object({file, type, doc_number,
+// doc_date})`, no `data` wrapper like the JSON routes above) — Eden treaty
+// auto-switches this call to multipart/FormData because `file` is a File
+// instance (see @elysiajs/eden/dist/treaty2.js: it detects any File/Blob
+// value in the body object and builds a FormData from Object.entries
+// instead of JSON.stringify-ing). That FormData build does NOT skip
+// undefined values — `FormData.append(k, undefined)` stringifies to the
+// literal `"undefined"`, which would fail the route's
+// `t.Optional(t.String({format:"date"}))` check on doc_date. Omit optional
+// keys entirely here instead of passing them as `undefined`, so this is the
+// one place that has to know that, not every call site.
+export function uploadDocument(companyId: string, input: CreditDocumentUploadInput): EdenResult<CreditCompanyDocument> {
+  const body: Record<string, unknown> = { file: input.file, type: input.type };
+  if (input.doc_number) body.doc_number = input.doc_number;
+  if (input.doc_date) body.doc_date = input.doc_date;
+  return creditApi.companies({ id: companyId }).documents.post(body);
+}
+
+export function deleteDocument(id: string): EdenResult<{ ok: boolean }> {
+  return creditApi.documents({ id }).delete();
+}
+
+export function documentDownloadUrl(id: string): string {
+  return `/api/credit/documents/${id}/download`;
 }

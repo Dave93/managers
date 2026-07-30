@@ -11,19 +11,21 @@ import type { CreditCompanyRow } from "@admin/lib/credit-api";
 // the credit-api wrapper.
 export type { CreditCompanyRow };
 
-const STATUS_STYLES: Record<CreditCompanyRow["status"], string> = {
+// Exported so the company detail page's header (Task 5) reuses the same
+// status colors/labels/money formatting instead of duplicating them.
+export const STATUS_STYLES: Record<CreditCompanyRow["status"], string> = {
   active: "bg-green-100 text-green-700 border-green-200",
   suspended: "bg-red-100 text-red-700 border-red-200",
   pending_verification: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
-const STATUS_LABELS: Record<CreditCompanyRow["status"], string> = {
+export const STATUS_LABELS: Record<CreditCompanyRow["status"], string> = {
   active: "Активна",
   suspended: "Приостановлена",
   pending_verification: "На проверке",
 };
 
-function formatSum(tiyins: number | null | undefined) {
+export function formatSum(tiyins: number | null | undefined) {
   const sum = (tiyins ?? 0) / 100;
   return `${new Intl.NumberFormat("ru-RU").format(sum)} сум`;
 }
