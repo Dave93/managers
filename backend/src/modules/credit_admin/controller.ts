@@ -140,16 +140,20 @@ export async function saveDocument(db: any, companyId: string, file: any, meta: 
   // companyId flows straight into a filesystem path below (`${base}/${companyId}`).
   // Verifying the company exists BEFORE any disk touch also kills path
   // traversal (`id=".."`) for free: comparing a non-UUID string against a
-  // `uuid` column makes postgres throw "invalid input syntax for type uuid",
+  // `uuid` column makes postgres throw 22P02 (invalid_text_representation),
   // caught here and folded into the same company_not_found result instead of
-  // a raw 500. Route-level t.String({format:"uuid"}) params catch the common
-  // case earlier (422); this is the belt-and-braces layer for the helper
-  // itself, since anything can call saveDocument directly.
+  // a raw 500. The catch is narrowed to that specific code (not a bare catch)
+  // so a genuine DB error — connection drop, timeout — surfaces as a 500
+  // instead of silently misreporting as "company doesn't exist". Route-level
+  // t.String({format:"uuid"}) params catch the common case earlier (422);
+  // this is the belt-and-braces layer for the helper itself, since anything
+  // can call saveDocument directly.
   let company;
   try {
     [company] = await db.select({ id: credit_companies.id }).from(credit_companies).where(eq(credit_companies.id, companyId));
-  } catch {
-    return { error: "company_not_found" };
+  } catch (e: any) {
+    if (e?.code === "22P02" || e?.cause?.code === "22P02") return { error: "company_not_found" };
+    throw e;
   }
   if (!company) return { error: "company_not_found" };
 
