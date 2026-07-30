@@ -9,7 +9,43 @@ export const dayKey = (d: Date) =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(d); // sv-SE => YYYY-MM-DD
 export const monthKey = (d: Date) => dayKey(d).slice(0, 7);
 
+// Config cache for the hot-path phone->company lookup. Never a correctness
+// dependency: creditRedis defaults to null (cache bypass, direct SELECT — same
+// behavior as before this cache existed), and any redis error on get/setex is
+// caught and falls through to the DB. Only company config (id/name/status/
+// limit_*) is cached here — balances (posted/reserved) are never touched by
+// this cache and are always read fresh inside authorize()'s transaction.
+let creditRedis: any = null;
+export const setCreditRedis = (r: any) => { creditRedis = r; };
+const CACHE_KEY = (phone: string) => `credit:company_by_phone:${phone}`;
+const CACHE_TTL = 60; // seconds — backstop only; writes must invalidate
+
+// Contract for callers (Plan 2's admin CRUD): ANY write to credit_companies
+// (status/limits) or credit_company_phones (add/deactivate/renumber) MUST call
+// this with every phone affected by the change. A failed `del` is swallowed
+// (logged, not thrown) — the 60s TTL is the backstop, so a caller must not
+// treat a resolved promise here as proof the stale key is actually gone.
+export async function invalidateCreditCompanyCache(redis: any, phones: string[]) {
+  if (!phones.length) return;
+  try {
+    await redis.del(...phones.map(CACHE_KEY));
+  } catch (e) {
+    console.error("credit cache invalidation failed (TTL will still expire it)", e);
+  }
+}
+
 export async function resolveCompanyByPhone(db: DrizzleDb, phone: string) {
+  const key = CACHE_KEY(phone);
+
+  if (creditRedis) {
+    try {
+      const cached = await creditRedis.get(key);
+      if (cached !== null && cached !== undefined) return JSON.parse(cached);
+    } catch (e) {
+      console.error("credit cache read failed, falling back to DB", e);
+    }
+  }
+
   const rows = await db
     .select({
       id: s.credit_companies.id, name: s.credit_companies.name,
@@ -22,7 +58,22 @@ export async function resolveCompanyByPhone(db: DrizzleDb, phone: string) {
     .innerJoin(s.credit_companies, eq(s.credit_company_phones.company_id, s.credit_companies.id))
     .where(and(eq(s.credit_company_phones.phone, phone), eq(s.credit_company_phones.active, true)))
     .limit(1);
-  return rows[0] ?? null;
+  const row = rows[0] ?? null;
+
+  if (creditRedis) {
+    try {
+      // Negative results are cached as the literal 4-char string "null" (a valid
+      // JSON null literal), NOT JSON.stringify of the string "null" — the latter
+      // would round-trip through JSON.parse as the truthy string "null" instead
+      // of the falsy `null`, making an unknown phone look like a company with
+      // status === undefined. This is what makes unknown-phone spam cheap.
+      await creditRedis.setex(key, CACHE_TTL, row ? JSON.stringify(row) : "null");
+    } catch (e) {
+      console.error("credit cache write failed", e);
+    }
+  }
+
+  return row;
 }
 
 export async function ensureAccount(db: DrizzleDb, company_id: string) {

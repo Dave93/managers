@@ -1,8 +1,12 @@
 import { describe, test, expect, beforeAll, afterAll } from "bun:test";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import Redis from "ioredis";
 import { sql } from "drizzle-orm";
-import { authorize, ensureAccount, dayKey, monthKey } from "../../src/modules/credit/service";
+import {
+  authorize, ensureAccount, dayKey, monthKey,
+  resolveCompanyByPhone, setCreditRedis, invalidateCreditCompanyCache,
+} from "../../src/modules/credit/service";
 import * as s from "../../drizzle/schema";
 
 const db = drizzle(postgres(process.env.DATABASE_URL!), { schema: s });
@@ -151,4 +155,72 @@ test("concurrency: 10 parallel authorizes, only what fits approves", async () =>
   expect(approved).toBe(3); // 350k daily headroom / 100k = 3
   const [acc] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
   expect(acc.reserved).toBe(150_000 + approved * 100_000);
+});
+
+// Scoped to its own describe so the real redis client (and setCreditRedis's
+// global singleton state) only exists for the duration of these two tests —
+// every test above this point runs with creditRedis still null (cache bypass),
+// which is what keeps their direct-status-toggle assertions (e.g. "declines:
+// unknown phone / suspended / each limit") valid: those tests flip
+// credit_companies.status back and forth without calling
+// invalidateCreditCompanyCache, which would be a stale read if the cache were
+// live during their run.
+describe("redis config cache", () => {
+  let redis: Redis;
+
+  beforeAll(() => {
+    redis = new Redis({
+      host: process.env.REDIS_HOST,
+      port: parseInt(process.env.REDIS_PORT || "6379"),
+      maxRetriesPerRequest: 1,
+    });
+    setCreditRedis(redis);
+  });
+
+  afterAll(async () => {
+    // Reset the module-level singleton back to null before this file's process
+    // hands off to any other suite that also imports service.ts — otherwise a
+    // live redis handle (and a stale cache) could leak into tests that never
+    // expected caching to be active.
+    setCreditRedis(null);
+    await redis.quit();
+  });
+
+  test("cache invalidation: suspend takes effect immediately", async () => {
+    // Warm the cache directly (no balance side effects) so the next assertion
+    // can prove the cache is actually in the read path, not just that a fresh
+    // SELECT sees the new status.
+    const warm = await resolveCompanyByPhone(db, PHONE);
+    expect(warm?.status).toBe("active");
+
+    await db.execute(sql`UPDATE credit_companies SET status='suspended' WHERE id=${companyId}`);
+    try {
+      // No invalidation yet: this must still read the cached (pre-suspend) row.
+      // If it declined here, the cache isn't actually being read.
+      const stale = await authorize(db, { brand: "chopar", order_id: "t-cache-stale", phone: PHONE, amount: 1 });
+      expect(stale.approved).toBe(true);
+
+      await invalidateCreditCompanyCache(redis, [PHONE]);
+      const declined = await authorize(db, { brand: "chopar", order_id: "t-cache-1", phone: PHONE, amount: 1 });
+      expect(declined).toEqual({ approved: false, reason: "suspended" });
+    } finally {
+      await db.execute(sql`UPDATE credit_companies SET status='active' WHERE id=${companyId}`);
+      await invalidateCreditCompanyCache(redis, [PHONE]);
+    }
+  });
+
+  test("redis down: authorize still authorizes via DB fallback", async () => {
+    const brokenRedis = {
+      get: async () => { throw new Error("redis unreachable"); },
+      setex: async () => { throw new Error("redis unreachable"); },
+      del: async () => { throw new Error("redis unreachable"); },
+    };
+    setCreditRedis(brokenRedis);
+    try {
+      const r = await authorize(db, { brand: "chopar", order_id: "t-cache-down", phone: PHONE, amount: 1 });
+      expect(r.approved).toBe(true);
+    } finally {
+      setCreditRedis(redis); // restore the real client for this describe's afterAll to quit()
+    }
+  });
 });
