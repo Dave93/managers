@@ -126,7 +126,7 @@ export async function authorize(db: DrizzleDb, input: AuthorizeInput): Promise<A
 
 export async function capture(db: DrizzleDb, brand: string, order_id: string): Promise<OpResult> {
   try {
-    let ok = false;
+    let result: OpResult = { ok: false };
     await db.transaction(async (tx: DrizzleDb) => {
       const h = await tx.execute(sql`
         UPDATE credit_holds SET state='captured', updated_at=now()
@@ -134,7 +134,9 @@ export async function capture(db: DrizzleDb, brand: string, order_id: string): P
         RETURNING id, company_id, amount, order_number, period_day_key, period_month_key`);
       if (h.length === 0) {
         const ex = await tx.execute(sql`SELECT state FROM credit_holds WHERE brand=${brand} AND order_id=${order_id}`);
-        ok = ex.length > 0 && ex[0].state === "captured"; // replay ok; missing/voided -> false
+        if (ex.length === 0) { result = { ok: false, reason: "not_found" }; return; }
+        if (ex[0].state === "captured") { result = { ok: true }; return; } // replay
+        result = { ok: false, state: ex[0].state, reason: "wrong_state" }; // voided/expired
         return;
       }
       const hold = h[0];
@@ -146,9 +148,9 @@ export async function capture(db: DrizzleDb, brand: string, order_id: string): P
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'capture', 0, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
         ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
-      ok = true;
+      result = { ok: true };
     });
-    return { ok };
+    return result;
   } catch (e) { console.error("credit.capture", e); return { ok: false, reason: "service_error" }; }
 }
 
@@ -160,7 +162,7 @@ async function reversePeriods(tx: DrizzleDb, company_id: string, dk: string, mk:
 export async function voidHold(db: DrizzleDb, brand: string, order_id: string, opts?: { as?: "voided" | "expired" }): Promise<OpResult> {
   const target = opts?.as ?? "voided";
   try {
-    let ok = false;
+    let result: OpResult = { ok: false };
     await db.transaction(async (tx: DrizzleDb) => {
       const h = await tx.execute(sql`
         UPDATE credit_holds SET state=${target}::credit_hold_state, updated_at=now()
@@ -168,7 +170,9 @@ export async function voidHold(db: DrizzleDb, brand: string, order_id: string, o
         RETURNING id, company_id, amount, order_number, period_day_key, period_month_key`);
       if (h.length === 0) {
         const ex = await tx.execute(sql`SELECT state FROM credit_holds WHERE brand=${brand} AND order_id=${order_id}`);
-        ok = ex.length > 0 && (ex[0].state === "voided" || ex[0].state === "expired"); // replay
+        if (ex.length === 0) { result = { ok: false, reason: "not_found" }; return; }
+        if (ex[0].state === "voided" || ex[0].state === "expired") { result = { ok: true }; return; } // replay
+        result = { ok: false, state: ex[0].state, reason: "wrong_state" }; // e.g. captured: void no longer applies, use refund
         return;
       }
       const hold = h[0];
@@ -181,21 +185,28 @@ export async function voidHold(db: DrizzleDb, brand: string, order_id: string, o
         INSERT INTO credit_entries (company_id, hold_id, brand, order_id, order_number, entry_type, amount, balance_after, period_day_key, period_month_key)
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'void', ${-hold.amount}, ${acc[0].balance_after}, ${hold.period_day_key}, ${hold.period_month_key})
         ON CONFLICT (brand, order_id, entry_type) DO NOTHING`);
-      ok = true;
+      result = { ok: true };
     });
-    return { ok };
+    return result;
   } catch (e) { console.error("credit.void", e); return { ok: false, reason: "service_error" }; }
 }
 
 export async function refund(db: DrizzleDb, brand: string, order_id: string, amount?: number): Promise<OpResult> {
+  // CRITICAL: reject before touching the DB. A negative amount would increase
+  // `posted` and inflate periods via GREATEST(0, spent - (-amt)) undetected by
+  // reconciliation; a zero amount would insert a 0-amount 'refund' entry that
+  // permanently occupies the (brand, order_id, 'refund') unique slot, silently
+  // no-opping every real refund attempt made after it.
+  if (amount !== undefined && !(amount > 0 && Number.isInteger(amount))) return { ok: false, reason: "bad_amount" };
   try {
-    let ok = false;
+    let result: OpResult = { ok: false };
     await db.transaction(async (tx: DrizzleDb) => {
       const h = await tx.execute(sql`
-        SELECT id, company_id, amount, order_number, period_day_key, period_month_key
-        FROM credit_holds WHERE brand=${brand} AND order_id=${order_id} AND state='captured'`);
-      if (h.length === 0) { ok = false; return; }
+        SELECT id, company_id, amount, order_number, period_day_key, period_month_key, state
+        FROM credit_holds WHERE brand=${brand} AND order_id=${order_id}`);
+      if (h.length === 0) { result = { ok: false, reason: "not_found" }; return; }
       const hold = h[0];
+      if (hold.state !== "captured") { result = { ok: false, state: hold.state, reason: "wrong_state" }; return; }
       const amt = Math.min(amount ?? Number(hold.amount), Number(hold.amount));
       // idempotency: unique (brand, order_id, 'refund') entry is the gate
       const ent = await tx.execute(sql`
@@ -203,16 +214,26 @@ export async function refund(db: DrizzleDb, brand: string, order_id: string, amo
         VALUES (${hold.company_id}, ${hold.id}, ${brand}, ${order_id}, ${hold.order_number}, 'refund', ${-amt}, 0, ${hold.period_day_key}, ${hold.period_month_key})
         ON CONFLICT (brand, order_id, entry_type) DO NOTHING
         RETURNING id`);
-      if (ent.length === 0) { ok = true; return; } // already refunded — replay ok
+      if (ent.length === 0) {
+        // conflict: a refund entry already exists. Only a same-amount replay is a
+        // true no-op; a different amount means the caller is asking for a second,
+        // distinct partial refund that the schema (one refund entry per order) can't
+        // represent — must be reported, not silently swallowed as success.
+        const existing = await tx.execute(sql`
+          SELECT amount FROM credit_entries WHERE brand=${brand} AND order_id=${order_id} AND entry_type='refund'`);
+        if (existing.length > 0 && Number(existing[0].amount) === -amt) { result = { ok: true }; return; }
+        result = { ok: false, reason: "already_refunded_different_amount" };
+        return;
+      }
       const acc = await tx.execute(sql`
         UPDATE credit_accounts SET posted = posted - ${amt}, version = version + 1, updated_at = now()
         WHERE company_id = ${hold.company_id}
         RETURNING posted + reserved AS balance_after`);
       await tx.execute(sql`UPDATE credit_entries SET balance_after = ${acc[0].balance_after} WHERE id = ${ent[0].id}`);
       await reversePeriods(tx, hold.company_id, hold.period_day_key, hold.period_month_key, amt);
-      ok = true;
+      result = { ok: true };
     });
-    return { ok };
+    return result;
   } catch (e) { console.error("credit.refund", e); return { ok: false, reason: "service_error" }; }
 }
 

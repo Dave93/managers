@@ -99,3 +99,55 @@ test("expires_at round-trips on the stored hold", async () => {
   const diffMs = Math.abs(new Date(hold.expires_at as unknown as string).getTime() - given.getTime());
   expect(diffMs).toBeLessThan(5_000); // sane window, well under a second in practice
 });
+
+// CRITICAL fix: a zero or negative refund amount must be rejected before it ever
+// reaches the DB — a negative amount would increase `posted` and inflate periods
+// undetected by reconciliation; a zero amount would permanently poison the
+// (brand, order_id, 'refund') unique slot, silently no-opping every real refund
+// attempted afterward.
+test("refund rejects invalid amount (zero/negative), no side effects", async () => {
+  await authorize(db, { brand: "chopar", order_id: "lc-7", phone: PHONE, amount: 30_000 });
+  expect((await capture(db, "chopar", "lc-7")).ok).toBe(true);
+  const [before] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+
+  expect(await refund(db, "chopar", "lc-7", 0)).toEqual({ ok: false, reason: "bad_amount" });
+  expect(await refund(db, "chopar", "lc-7", -500)).toEqual({ ok: false, reason: "bad_amount" });
+
+  const [after] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(after.posted).toBe(before.posted); // untouched
+  const entries = await db.execute(sql`SELECT id FROM credit_entries WHERE brand='chopar' AND order_id='lc-7' AND entry_type='refund'`);
+  expect(entries.length).toBe(0); // no poisoned entry created
+});
+
+test("capture on a nonexistent order returns not_found", async () => {
+  expect(await capture(db, "chopar", "lc-never-authorized")).toEqual({ ok: false, reason: "not_found" });
+});
+
+test("refund on a held (not yet captured) order returns wrong_state", async () => {
+  await authorize(db, { brand: "chopar", order_id: "lc-8", phone: PHONE, amount: 40_000 });
+  expect(await refund(db, "chopar", "lc-8")).toEqual({ ok: false, state: "held", reason: "wrong_state" });
+});
+
+test("void on an already-captured hold returns wrong_state", async () => {
+  // lc-1 was captured (and later refunded) earlier in this file — a hold's state
+  // has no "refunded" value, so it's still 'captured' and void must not apply.
+  expect(await voidHold(db, "chopar", "lc-1")).toEqual({ ok: false, state: "captured", reason: "wrong_state" });
+});
+
+test("second partial refund with a different amount is rejected, first refund preserved", async () => {
+  await authorize(db, { brand: "chopar", order_id: "lc-9", phone: PHONE, amount: 100_000 });
+  expect((await capture(db, "chopar", "lc-9")).ok).toBe(true);
+  const [afterCapture] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+
+  expect((await refund(db, "chopar", "lc-9", 40_000)).ok).toBe(true);
+  const [afterFirstRefund] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(afterFirstRefund.posted).toBe(afterCapture.posted - 40_000);
+
+  // different amount on the same order: must be reported, not silently swallowed
+  expect(await refund(db, "chopar", "lc-9", 60_000)).toEqual({ ok: false, reason: "already_refunded_different_amount" });
+
+  const [afterSecondAttempt] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
+  expect(afterSecondAttempt.posted).toBe(afterFirstRefund.posted); // untouched by the rejected attempt
+  const [entry] = await db.execute(sql`SELECT amount FROM credit_entries WHERE brand='chopar' AND order_id='lc-9' AND entry_type='refund'`);
+  expect(Number(entry.amount)).toBe(-40_000); // original refund entry unchanged
+});

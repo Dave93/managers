@@ -7,8 +7,8 @@ import * as s from "../../drizzle/schema";
 
 const db = drizzle(postgres(process.env.DATABASE_URL!), { schema: s });
 const PHONE = "+998900000001";
-const PHONE2 = "+998900000002"; // dedicated: tight daily limit, no prior period row (fresh_over path)
-const PHONE3 = "+998900000003"; // dedicated: cross-company replay guard
+const PHONE2 = "+998900000011"; // dedicated: tight daily limit, no prior period row (fresh_over path). 002/003 reserved: credit_company_phones.phone is globally unique, and the fixture-phone plan assigns 002 to lifecycle.test.ts and 003 stays free — collide with either and a crashed run can permanently wedge both suites' beforeAll.
+const PHONE3 = "+998900000012"; // dedicated: cross-company replay guard
 let companyId: string;
 let companyId2: string;
 let companyId3: string;
