@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/t
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { cn } from "@admin/lib/utils";
 import CreditCompaniesFormSheet from "@admin/components/forms/credit_companies/sheet";
+import { useCanAccess } from "@admin/components/use-can-access";
 import { getCompany } from "@admin/lib/credit-api";
 import { STATUS_LABELS, STATUS_STYLES, formatSum } from "../columns";
 import PhonesTab from "./phones-tab";
@@ -21,6 +22,7 @@ export default function CreditCompanyDetailPage() {
   const locale = useLocale();
   const id = params.id as string;
   const queryClient = useQueryClient();
+  const canEdit = useCanAccess("credit.edit");
 
   const { data, isLoading } = useQuery({
     queryKey: ["credit_company", id],
@@ -73,14 +75,16 @@ export default function CreditCompanyDetailPage() {
                 <div>Лимит в месяц: {formatSum(company.limit_monthly)}</div>
               </div>
             </div>
-            <CreditCompaniesFormSheet
-              recordId={id}
-              onSaved={() => queryClient.invalidateQueries({ queryKey: ["credit_company", id] })}
-            >
-              <Button variant="outline">
-                <Edit2Icon className="mr-2 h-4 w-4" /> Редактировать
-              </Button>
-            </CreditCompaniesFormSheet>
+            {canEdit && (
+              <CreditCompaniesFormSheet
+                recordId={id}
+                onSaved={() => queryClient.invalidateQueries({ queryKey: ["credit_company", id] })}
+              >
+                <Button variant="outline">
+                  <Edit2Icon className="mr-2 h-4 w-4" /> Редактировать
+                </Button>
+              </CreditCompaniesFormSheet>
+            )}
           </div>
 
           <Tabs defaultValue="phones" className="mt-8">

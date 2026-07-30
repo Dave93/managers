@@ -16,6 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from "@components/ui/table";
+import { useCanAccess } from "@admin/components/use-can-access";
 import { addPhone, updatePhone, type CreditCompanyPhone } from "@admin/lib/credit-api";
 
 export default function PhonesTab({
@@ -26,6 +27,7 @@ export default function PhonesTab({
   phones: CreditCompanyPhone[];
 }) {
   const queryClient = useQueryClient();
+  const canEdit = useCanAccess("credit.edit");
   const [phone, setPhone] = useState("");
   const [employeeName, setEmployeeName] = useState("");
 
@@ -92,13 +94,19 @@ export default function PhonesTab({
                   <TableCell>{p.phone}</TableCell>
                   <TableCell>{p.employee_name ?? "—"}</TableCell>
                   <TableCell>
-                    <Switch
-                      checked={p.active}
-                      disabled={toggleMutation.isPending}
-                      onCheckedChange={(checked) =>
-                        toggleMutation.mutate({ id: p.id, active: checked })
-                      }
-                    />
+                    {canEdit ? (
+                      <Switch
+                        checked={p.active}
+                        disabled={toggleMutation.isPending}
+                        onCheckedChange={(checked) =>
+                          toggleMutation.mutate({ id: p.id, active: checked })
+                        }
+                      />
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        {p.active ? "Да" : "Нет"}
+                      </span>
+                    )}
                   </TableCell>
                 </TableRow>
               ))
@@ -113,35 +121,37 @@ export default function PhonesTab({
         </Table>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (!phone) return;
-          addMutation.mutate();
-        }}
-        className="flex items-end gap-2 flex-wrap"
-      >
-        <div className="space-y-1">
-          <Label>Телефон</Label>
-          <Input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="+998..."
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Сотрудник</Label>
-          <Input
-            value={employeeName}
-            onChange={(e) => setEmployeeName(e.target.value)}
-            placeholder="Имя (опционально)"
-          />
-        </div>
-        <Button type="submit" disabled={addMutation.isPending || !phone}>
-          {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Добавить
-        </Button>
-      </form>
+      {canEdit && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (!phone) return;
+            addMutation.mutate();
+          }}
+          className="flex items-end gap-2 flex-wrap"
+        >
+          <div className="space-y-1">
+            <Label>Телефон</Label>
+            <Input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="+998..."
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Сотрудник</Label>
+            <Input
+              value={employeeName}
+              onChange={(e) => setEmployeeName(e.target.value)}
+              placeholder="Имя (опционально)"
+            />
+          </div>
+          <Button type="submit" disabled={addMutation.isPending || !phone}>
+            {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Добавить
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

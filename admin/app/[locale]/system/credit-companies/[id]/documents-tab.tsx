@@ -33,6 +33,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@components/ui/alert-dialog";
+import { useCanAccess } from "@admin/components/use-can-access";
 import {
   deleteDocument,
   documentDownloadUrl,
@@ -64,6 +65,7 @@ const ERROR_MESSAGES: Record<string, string> = {
 
 export default function DocumentsTab({ companyId }: { companyId: string }) {
   const queryClient = useQueryClient();
+  const canEdit = useCanAccess("credit.edit");
   const [file, setFile] = useState<File | null>(null);
   // Bumped on successful upload to remount the file input — clearing `file`
   // alone leaves the native <input> still showing the old filename.
@@ -165,30 +167,32 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
                       >
                         <DownloadIcon className="h-4 w-4 mr-1" /> Скачать
                       </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button variant="destructive" size="sm">
-                            <Trash2Icon className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Это действие нельзя отменить. Файл будет удалён навсегда.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Отмена</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={() => deleteMutation.mutate(doc.id)}
-                              disabled={deleteMutation.isPending}
-                            >
-                              Удалить
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
+                      {canEdit && (
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="destructive" size="sm">
+                              <Trash2Icon className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Это действие нельзя отменить. Файл будет удалён навсегда.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => deleteMutation.mutate(doc.id)}
+                                disabled={deleteMutation.isPending}
+                              >
+                                Удалить
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
@@ -204,49 +208,51 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
         </Table>
       </div>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          uploadMutation.mutate();
-        }}
-        className="flex items-end gap-2 flex-wrap"
-      >
-        <div className="space-y-1">
-          <Label>Файл</Label>
-          <Input
-            key={fileInputKey}
-            type="file"
-            accept={ACCEPT_EXTS}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Тип</Label>
-          <Select value={type} onValueChange={(v) => setType(v as CreditDocumentType)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="contract">Договор</SelectItem>
-              <SelectItem value="inn_cert">ИНН</SelectItem>
-              <SelectItem value="guarantee_letter">Гарантийное письмо</SelectItem>
-              <SelectItem value="other">Другое</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label>№ документа</Label>
-          <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
-        </div>
-        <div className="space-y-1">
-          <Label>Дата</Label>
-          <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
-        </div>
-        <Button type="submit" disabled={uploadMutation.isPending || !file}>
-          {uploadMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Загрузить
-        </Button>
-      </form>
+      {canEdit && (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            uploadMutation.mutate();
+          }}
+          className="flex items-end gap-2 flex-wrap"
+        >
+          <div className="space-y-1">
+            <Label>Файл</Label>
+            <Input
+              key={fileInputKey}
+              type="file"
+              accept={ACCEPT_EXTS}
+              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label>Тип</Label>
+            <Select value={type} onValueChange={(v) => setType(v as CreditDocumentType)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="contract">Договор</SelectItem>
+                <SelectItem value="inn_cert">ИНН</SelectItem>
+                <SelectItem value="guarantee_letter">Гарантийное письмо</SelectItem>
+                <SelectItem value="other">Другое</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label>№ документа</Label>
+            <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
+          </div>
+          <div className="space-y-1">
+            <Label>Дата</Label>
+            <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
+          </div>
+          <Button type="submit" disabled={uploadMutation.isPending || !file}>
+            {uploadMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Загрузить
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

@@ -70,9 +70,15 @@ export default function CreditCompaniesForm({
   // all-optional plus `verified`. The two mutations build their own payload
   // from `value` rather than sharing one object — Eden's generated types
   // reject `verified` on .post().
+  //
+  // Eden resolves (never throws) on non-2xx responses — returning the call
+  // directly here would fire onSuccess on a 422/403/500 just as readily as on
+  // a real 200, reporting "добавлена"/"обновлена" on a failed limit change.
+  // Both mutationFns now check `error` and throw, so a failed write actually
+  // reaches onError instead of the success toast.
   const createMutation = useMutation({
-    mutationFn: (value: CreditCompanyFormValues) => {
-      return createCompanyApi({
+    mutationFn: async (value: CreditCompanyFormValues) => {
+      const { data, error } = await createCompanyApi({
         name: value.name,
         inn: value.inn || undefined,
         phone: value.phone || undefined,
@@ -81,14 +87,16 @@ export default function CreditCompaniesForm({
         limit_daily: Math.round(value.limit_daily * 100),
         limit_monthly: Math.round(value.limit_monthly * 100),
       });
+      if (error) throw new Error((error as any).value?.error ?? "unknown");
+      return data;
     },
     onSuccess: () => onAddSuccess("добавлена"),
     onError,
   });
 
   const updateMutation = useMutation({
-    mutationFn: (data: { value: CreditCompanyFormValues; id: string }) => {
-      return updateCompanyApi(data.id, {
+    mutationFn: async (data: { value: CreditCompanyFormValues; id: string }) => {
+      const { data: result, error } = await updateCompanyApi(data.id, {
         name: data.value.name,
         inn: data.value.inn || undefined,
         phone: data.value.phone || undefined,
@@ -98,6 +106,8 @@ export default function CreditCompaniesForm({
         limit_monthly: Math.round(data.value.limit_monthly * 100),
         verified: data.value.verified || undefined,
       });
+      if (error) throw new Error((error as any).value?.error ?? "unknown");
+      return result;
     },
     onSuccess: () => onAddSuccess("обновлена"),
     onError,

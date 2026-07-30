@@ -1,15 +1,20 @@
 "use client";
 
+import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { DataTable } from "./data-table";
-import { creditCompaniesColumns, formatSum } from "./columns";
+import { getCreditCompaniesColumns, formatSum } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Card, CardHeader, CardTitle, CardDescription } from "@admin/components/ui/card";
 import CreditCompaniesFormSheet from "@admin/components/forms/credit_companies/sheet";
+import { useCanAccess } from "@admin/components/use-can-access";
 import { getSummary } from "@admin/lib/credit-api";
 
 export default function CreditCompaniesListPage() {
+  const canEdit = useCanAccess("credit.edit");
+  const columns = useMemo(() => getCreditCompaniesColumns(canEdit), [canEdit]);
+
   const { data: summary } = useQuery({
     queryKey: ["credit_summary"],
     queryFn: async () => {
@@ -25,13 +30,15 @@ export default function CreditCompaniesListPage() {
     <div>
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">Кредитные компании</h2>
-        <div className="flex items-center space-x-2">
-          <CreditCompaniesFormSheet>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Добавить компанию
-            </Button>
-          </CreditCompaniesFormSheet>
-        </div>
+        {canEdit && (
+          <div className="flex items-center space-x-2">
+            <CreditCompaniesFormSheet>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" /> Добавить компанию
+              </Button>
+            </CreditCompaniesFormSheet>
+          </div>
+        )}
       </div>
 
       <div className="mt-6 grid gap-4 md:grid-cols-3">
@@ -82,7 +89,7 @@ export default function CreditCompaniesListPage() {
       </div>
 
       <div className="py-10">
-        <DataTable columns={creditCompaniesColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

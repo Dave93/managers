@@ -30,7 +30,13 @@ export function formatSum(tiyins: number | null | undefined) {
   return `${new Intl.NumberFormat("ru-RU").format(sum)} сум`;
 }
 
-export const creditCompaniesColumns: ColumnDef<CreditCompanyRow>[] = [
+// Not called from within a cell renderer — cell functions are invoked once
+// per row in a loop (data-table.tsx's `table.getRowModel().rows.map(...)`),
+// which would call `useCanAccess` a variable number of times per render and
+// break the Rules of Hooks. The caller (the list page) calls the hook once
+// at the top level and passes the result in here instead.
+export function getCreditCompaniesColumns(canEdit: boolean): ColumnDef<CreditCompanyRow>[] {
+  const columns: ColumnDef<CreditCompanyRow>[] = [
   {
     accessorKey: "name",
     header: "Название",
@@ -96,26 +102,32 @@ export const creditCompaniesColumns: ColumnDef<CreditCompanyRow>[] = [
       return verifiedAt ? new Date(verifiedAt).toLocaleDateString("ru-RU") : "нет";
     },
   },
-  {
-    id: "actions",
-    header: "Действия",
-    cell: ({ row }) => {
-      const record = row.original;
+  ];
 
-      return (
-        // Stops the row's own onClick (navigate to detail page) from also
-        // firing when the edit sheet trigger inside it is clicked.
-        <div
-          className="flex items-center space-x-2"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <CreditCompaniesFormSheet recordId={record.id}>
-            <Button variant="outline" size="sm">
-              <Edit2Icon className="h-4 w-4" />
-            </Button>
-          </CreditCompaniesFormSheet>
-        </div>
-      );
-    },
-  },
-];
+  if (canEdit) {
+    columns.push({
+      id: "actions",
+      header: "Действия",
+      cell: ({ row }) => {
+        const record = row.original;
+
+        return (
+          // Stops the row's own onClick (navigate to detail page) from also
+          // firing when the edit sheet trigger inside it is clicked.
+          <div
+            className="flex items-center space-x-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <CreditCompaniesFormSheet recordId={record.id}>
+              <Button variant="outline" size="sm">
+                <Edit2Icon className="h-4 w-4" />
+              </Button>
+            </CreditCompaniesFormSheet>
+          </div>
+        );
+      },
+    });
+  }
+
+  return columns;
+}

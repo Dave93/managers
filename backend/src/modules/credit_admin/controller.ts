@@ -17,7 +17,23 @@ import * as XLSX from "xlsx";
 // always goes through `getCreditDb()`, never the `db` passed in, per CONTRACT.md.
 export async function createCompany(db: any, redis: any, input: any, userId: string) {
   const phone = input.phone ? canonPhone(input.phone) : null;
-  const [row] = await db.insert(credit_companies).values({ ...input, phone }).returning();
+  // Explicit field picks (not a `{...input}` spread): the route's TypeBox
+  // schema already constrains `data` to these fields, but picking them out
+  // by name here removes the question of what an unexpected extra key on
+  // `input` would do at the DB layer entirely, rather than relying on the
+  // schema being airtight upstream.
+  const [row] = await db
+    .insert(credit_companies)
+    .values({
+      name: input.name,
+      inn: input.inn,
+      status: input.status,
+      limit_total: input.limit_total,
+      limit_daily: input.limit_daily,
+      limit_monthly: input.limit_monthly,
+      phone,
+    })
+    .returning();
   await ensureAccount(getCreditDb(), row.id);
   if (phone) await invalidateCreditCompanyCache(redis, [phone]);
   return row;
@@ -35,8 +51,19 @@ export async function updateCompany(db: any, redis: any, id: string, input: any,
     .from(credit_companies)
     .where(eq(credit_companies.id, id));
 
-  const patch: any = { ...input, updated_at: new Date() };
-  if (input.phone) patch.phone = canonPhone(input.phone);
+  // Explicit field picks (not a `{...input}` spread) — same rationale as
+  // createCompany above. Only assigns a key when the caller actually sent
+  // it, preserving PUT's partial-update semantics (an omitted field must
+  // leave the existing column value untouched, not overwrite it with
+  // undefined).
+  const patch: any = { updated_at: new Date() };
+  if (input.name !== undefined) patch.name = input.name;
+  if (input.inn !== undefined) patch.inn = input.inn;
+  if (input.phone !== undefined) patch.phone = canonPhone(input.phone);
+  if (input.status !== undefined) patch.status = input.status;
+  if (input.limit_total !== undefined) patch.limit_total = input.limit_total;
+  if (input.limit_daily !== undefined) patch.limit_daily = input.limit_daily;
+  if (input.limit_monthly !== undefined) patch.limit_monthly = input.limit_monthly;
   // verified_by/verified_at stamp once: a second `verified:true` on an already-
   // verified company must not overwrite the original verifier/timestamp — it's
   // an audit trail, not a toggle. No-op (not an error) when already verified.
@@ -44,7 +71,6 @@ export async function updateCompany(db: any, redis: any, id: string, input: any,
     patch.verified_by = userId;
     patch.verified_at = new Date();
   }
-  delete patch.verified;
   const [row] = await db.update(credit_companies).set(patch).where(eq(credit_companies.id, id)).returning();
 
   // Invalidate every phone the change could affect: every row in
@@ -201,12 +227,17 @@ export async function saveDocument(db: any, companyId: string, file: any, meta: 
 export async function deleteDocument(db: any, id: string) {
   const [doc] = await db.select().from(credit_company_documents).where(eq(credit_company_documents.id, id));
   if (!doc) return { error: "not_found" };
+  // DB row first, then unlink: if the unlink throws (anything but ENOENT),
+  // failing AFTER the row is already gone leaves a recoverable orphan file
+  // on disk (cleanable out-of-band) rather than the reverse order's failure
+  // mode — an orphan DB row whose file_path no longer resolves, which is a
+  // permanent 410 the next time someone tries to download it.
+  await db.delete(credit_company_documents).where(eq(credit_company_documents.id, id));
   try {
     fs.unlinkSync(doc.file_path);
   } catch (e: any) {
     if (e.code !== "ENOENT") throw e; // tolerate a file that already vanished out-of-band
   }
-  await db.delete(credit_company_documents).where(eq(credit_company_documents.id, id));
   return { ok: true };
 }
 
@@ -367,8 +398,13 @@ const STATEMENT_EXPORT_CAP = 10_000;
 export async function getStatement(db: any, companyId: string, query: any) {
   const summary = await getStatementSummary(db, companyId);
   if (!summary) return { error: "not_found" };
-  const limit = query.limit ? Math.min(+query.limit, STATEMENT_EXPORT_CAP) : STATEMENT_DEFAULT_LIMIT;
-  const offset = query.offset ? +query.offset : 0;
+  // A non-numeric `limit`/`offset` (e.g. a hand-crafted request, or a client
+  // bug) must fall back to the same defaults as an absent one, not propagate
+  // NaN into `.limit()`/`.offset()` — Postgres would reject that query outright.
+  const rawLimit = query.limit ? +query.limit : NaN;
+  const limit = Number.isFinite(rawLimit) ? Math.min(rawLimit, STATEMENT_EXPORT_CAP) : STATEMENT_DEFAULT_LIMIT;
+  const rawOffset = query.offset ? +query.offset : NaN;
+  const offset = Number.isFinite(rawOffset) ? rawOffset : 0;
   const { total, data } = await queryStatementEntries(db, companyId, { from: query.from, to: query.to, brand: query.brand }, limit, offset);
   return { summary, total, data };
 }
@@ -521,7 +557,7 @@ const creditAdminControllerImpl = new Elysia({
     },
     {
       permission: "credit.list",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
   .post(
@@ -547,7 +583,7 @@ const creditAdminControllerImpl = new Elysia({
     async ({ params: { id }, body: { data }, drizzle, redis, user }) => updateCompany(drizzle, redis, id, data, user!.id),
     {
       permission: "credit.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
         data: t.Object({
           name: t.Optional(t.String({ minLength: 2 })),
@@ -684,7 +720,9 @@ const creditAdminControllerImpl = new Elysia({
     "/credit/documents/:id",
     async ({ params: { id }, drizzle, set }) => {
       const r = await deleteDocument(drizzle, id);
-      if (r && "error" in r) set.status = 400;
+      // deleteDocument's only error case is `{error:"not_found"}` — a bad id
+      // is a 404, not a 400 (there's no invalid-input shape it could return).
+      if (r && "error" in r) set.status = 404;
       return r;
     },
     { permission: "credit.edit", params: t.Object({ id: t.String({ format: "uuid" }) }) }
