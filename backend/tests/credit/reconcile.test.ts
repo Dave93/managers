@@ -3,7 +3,7 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { sql } from "drizzle-orm";
 import { authorize, applyAdjustment, amendHold, dayKey } from "../../src/modules/credit/service";
-import { reconcileAccounts, reapExpiredHolds } from "../../src/modules/credit/jobs";
+import { reconcileAccounts, reapExpiredHolds, fmtSum, FIELD_RU, BRAND_RU } from "../../src/modules/credit/jobs";
 import * as s from "../../drizzle/schema";
 
 const db = drizzle(postgres(process.env.DATABASE_URL!), { schema: s });
@@ -48,11 +48,16 @@ afterAll(async () => {
 // what production runs, but in a shared database an unscoped assertion of "no
 // mismatches" is really an assertion about every other suite's leftovers (and,
 // on a live box, about real customer rows) — a guaranteed flake.
+//
+// { alert: false } on every call: these tests deliberately corrupt a fixture's
+// balance (or expire a fixture hold) to prove reconcile/the reaper catch it —
+// without this they'd page the live Telegram group with fixture noise on every
+// test run.
 test("reconcile detects manual drift", async () => {
   await authorize(db, { brand: "chopar", order_id: "rc-1", phone: PHONE, amount: 100_000 });
-  expect((await reconcileAccounts(db, companyId)).mismatches).toEqual([]);
+  expect((await reconcileAccounts(db, companyId, { alert: false })).mismatches).toEqual([]);
   await db.execute(sql`UPDATE credit_accounts SET reserved = reserved + 5 WHERE company_id = ${companyId}`);
-  const m = (await reconcileAccounts(db, companyId)).mismatches;
+  const m = (await reconcileAccounts(db, companyId, { alert: false })).mismatches;
   expect(m.length).toBe(1);
   expect(m[0].field).toBe("reserved");
   await db.execute(sql`UPDATE credit_accounts SET reserved = reserved - 5 WHERE company_id = ${companyId}`); // repair for next tests
@@ -63,7 +68,7 @@ test("reconcile detects a period counter that over-counts", async () => {
   // exists keeps blocking a customer who actually has headroom.
   await db.execute(sql`UPDATE credit_periods SET spent = spent + 7 WHERE company_id = ${companyId} AND period_key = ${dayKey(new Date())}`);
   try {
-    const m = (await reconcileAccounts(db, companyId)).mismatches;
+    const m = (await reconcileAccounts(db, companyId, { alert: false })).mismatches;
     expect(m.length).toBe(1);
     expect(m[0]).toMatchObject({ field: "period_spent", period_key: dayKey(new Date()), actual: 100_007, expected: 100_000 });
   } finally {
@@ -74,7 +79,7 @@ test("reconcile detects a period counter that over-counts", async () => {
   // legitimately sitting below the derived value is not evidence of a bug
   await db.execute(sql`UPDATE credit_periods SET spent = spent - 7 WHERE company_id = ${companyId} AND period_key = ${dayKey(new Date())}`);
   try {
-    expect((await reconcileAccounts(db, companyId)).mismatches).toEqual([]);
+    expect((await reconcileAccounts(db, companyId, { alert: false })).mismatches).toEqual([]);
   } finally {
     await db.execute(sql`UPDATE credit_periods SET spent = spent + 7 WHERE company_id = ${companyId} AND period_key = ${dayKey(new Date())}`);
   }
@@ -82,7 +87,7 @@ test("reconcile detects a period counter that over-counts", async () => {
 
 test("reaper voids expired held holds and restores limits", async () => {
   await authorize(db, { brand: "les", order_id: "rc-2", phone: PHONE, amount: 50_000, expires_at: new Date(Date.now() - 1000) });
-  const r = await reapExpiredHolds(db, companyId);
+  const r = await reapExpiredHolds(db, companyId, { alert: false });
   expect(r.reaped).toBe(1); // scoped: exactly this suite's expired hold
   const [h] = await db.execute(sql`SELECT state FROM credit_holds WHERE brand='les' AND order_id='rc-2'`);
   expect(h.state).toBe("expired");
@@ -105,7 +110,7 @@ test("adjustment moves debt in both directions and leaves reconciliation clean",
 
   // doubles as proof that the ledger entries applyAdjustment writes are exactly
   // what reconcileAccounts' expected_posted formula re-derives
-  expect((await reconcileAccounts(db, companyId)).mismatches).toEqual([]);
+  expect((await reconcileAccounts(db, companyId, { alert: false })).mismatches).toEqual([]);
 
   const entries = await db.execute(sql`SELECT amount, meta FROM credit_entries WHERE company_id=${companyId} AND entry_type='adjustment' ORDER BY created_at, id`);
   expect(entries.map((e: any) => Number(e.amount))).toEqual([-30_000, 10_000]);
@@ -138,10 +143,42 @@ test("reconciliation stays clean across an amend up and an amend down", async ()
   expect(await amendHold(db, "chopar", "rc-amend", 25_000)).toEqual({ ok: true });
 
   // reserved, posted AND every period counter must all re-derive
-  expect((await reconcileAccounts(db, companyId)).mismatches).toEqual([]);
+  expect((await reconcileAccounts(db, companyId, { alert: false })).mismatches).toEqual([]);
 
   const [acc] = await db.select().from(s.credit_accounts).where(sql`company_id = ${companyId}`);
   expect(acc.reserved).toBe(125_000); // rc-1's 100k + this hold's final 25k
   const [day] = await db.execute(sql`SELECT spent FROM credit_periods WHERE company_id=${companyId} AND period_key=${dayKey(new Date())}`);
   expect(Number(day.spent)).toBe(125_000);
+});
+
+describe("fmtSum", () => {
+  test("divides tiyins by 100, rounds, and space-groups thousands", () => {
+    expect(fmtSum(1_234_567)).toBe("12 346 сум");
+  });
+
+  test("rounds to the nearest sum rather than truncating", () => {
+    expect(fmtSum(150)).toBe("2 сум"); // 1.5 -> 2 (Math.round)
+    expect(fmtSum(149)).toBe("1 сум");
+  });
+
+  test("small amounts need no thousands separator", () => {
+    expect(fmtSum(50_000)).toBe("500 сум");
+  });
+
+  test("negative amounts (a mismatch diff going the other way) keep their sign", () => {
+    expect(fmtSum(-1_234_567)).toBe("-12 346 сум");
+  });
+});
+
+describe("field_ru / brand_ru maps", () => {
+  test("FIELD_RU covers every mismatch field reconcileAccounts can report", () => {
+    expect(FIELD_RU.reserved).toBe("Резерв по заказам");
+    expect(FIELD_RU.posted).toBe("Задолженность");
+    expect(FIELD_RU.period_spent).toBe("Расход за период {period_key}");
+  });
+
+  test("BRAND_RU covers both brands", () => {
+    expect(BRAND_RU.chopar).toBe("Chopar");
+    expect(BRAND_RU.les).toBe("Les Ailes");
+  });
 });
