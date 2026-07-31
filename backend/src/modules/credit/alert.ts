@@ -8,7 +8,7 @@ export async function creditAlert(text: string) {
   try {
     const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ chat_id: chat, text: `💳 credit: ${text}` }),
+      body: JSON.stringify({ chat_id: chat, text }),
       // Telegram can hang rather than refuse (blocked egress, DNS blackhole); the
       // nightly reconcile job would otherwise sit on an open socket indefinitely.
       signal: AbortSignal.timeout(5000),
