@@ -101,6 +101,14 @@ async function assertModuleEditable(
 // Friday, short enough that a QR left on a noticeboard stops working.
 const INVITE_TTL_MS = 7 * 86400_000;
 
+// Thrown inside /reinvite's transaction so that a refusal rolls back rather
+// than committing a half-done rotation.
+class EnrollmentNotOpenError extends Error {
+  constructor(public enrollmentStatus: string) {
+    super(`enrollment not open: ${enrollmentStatus}`);
+  }
+}
+
 // Enrollment read/write scope: HQ sees every branch, everyone else only the
 // terminals resolved onto their session. Returns the enrollment, or null after
 // setting the response status.
@@ -756,6 +764,18 @@ const passportControllerImpl = new Elysia({
       });
       if (created.conflict) {
         set.status = 409;
+        // The scope check above validated the employee's CURRENT terminal; the
+        // conflicting enrollment carries the terminal snapshotted when it was
+        // created, and for a transferred employee those differ. Naming that
+        // enrollment would disclose a record from a branch this caller cannot
+        // see — and would dead-end them, since /close and /reinvite on it both
+        // 403. In-scope conflicts keep the actionable body.
+        if (!isHQ && !terminals.includes(created.conflict.terminal_id)) {
+          return {
+            message:
+              "Employee already has an open enrollment at another branch — contact HQ",
+          };
+        }
         return {
           message: "Employee already has an open enrollment",
           enrollment_id: created.conflict.id,
@@ -949,37 +969,69 @@ const passportControllerImpl = new Elysia({
         set.status = 409;
         return { message: "Enrollment is closed", status: enr.status };
       }
-      const issued = await drizzle.transaction(async (tx) => {
-        // Revoke by BACKDATING expires_at, and leave used_at alone: used_at is
-        // the tg side's "already redeemed, re-entry is fine" signal, so burning
-        // it here would make a never-scanned QR indistinguishable from a
-        // redeemed one. Backdating (rather than expires_at = now()) closes a
-        // read-committed race: a redeem that blocked on this row lock
-        // re-evaluates `expires_at > now()` with ITS OWN transaction timestamp,
-        // which can precede ours.
-        const revoked = await tx
-          .update(passport_invites)
-          .set({ expires_at: sql`now() - interval '1 minute'` })
-          .where(
-            and(
-              eq(passport_invites.enrollment_id, params.id),
-              isNull(passport_invites.used_at),
-              sql`${passport_invites.expires_at} > now()`
+      let issued;
+      try {
+        issued = await drizzle.transaction(async (tx) => {
+          // Re-read the status INSIDE the transaction, holding the enrollment row
+          // (`for update`). The check above ran on the outer handle, so a /close
+          // committing in between would leave this transaction revoking nothing
+          // (those invites are already backdated) and then inserting a live 7-day
+          // invite against a completed/failed enrollment — and the tg redeem has
+          // no enrollment-status predicate, so that QR would still bind an
+          // account to a finished passport. /close repeats its status predicate
+          // inside its own UPDATE for the same reason; this is the other half of
+          // that pair. The row lock also orders the two: whichever commits first,
+          // the other sees the committed status.
+          const [cur] = await tx
+            .select({ status: passport_enrollments.status })
+            .from(passport_enrollments)
+            .where(eq(passport_enrollments.id, params.id))
+            .for("update")
+            .execute();
+          // Throwing rolls the transaction back, so a refusal cannot leave the
+          // old invites revoked with no replacement.
+          if (!cur) throw new EnrollmentNotOpenError("missing");
+          if (cur.status === "completed" || cur.status === "failed")
+            throw new EnrollmentNotOpenError(cur.status);
+          // Revoke by BACKDATING expires_at, and leave used_at alone: used_at is
+          // the tg side's "already redeemed, re-entry is fine" signal, so burning
+          // it here would make a never-scanned QR indistinguishable from a
+          // redeemed one. Backdating (rather than expires_at = now()) closes a
+          // read-committed race: a redeem that blocked on this row lock
+          // re-evaluates `expires_at > now()` with ITS OWN transaction timestamp,
+          // which can precede ours.
+          const revoked = await tx
+            .update(passport_invites)
+            .set({ expires_at: sql`now() - interval '1 minute'` })
+            .where(
+              and(
+                eq(passport_invites.enrollment_id, params.id),
+                isNull(passport_invites.used_at),
+                sql`${passport_invites.expires_at} > now()`
+              )
             )
-          )
-          .returning({ id: passport_invites.id })
-          .execute();
-        const [invite] = await tx
-          .insert(passport_invites)
-          .values({
-            enrollment_id: params.id,
-            created_by_user_id: user!.id,
-            expires_at: new Date(Date.now() + INVITE_TTL_MS).toISOString(),
-          })
-          .returning()
-          .execute();
-        return { revoked: revoked.length, invite };
-      });
+            .returning({ id: passport_invites.id })
+            .execute();
+          const [invite] = await tx
+            .insert(passport_invites)
+            .values({
+              enrollment_id: params.id,
+              created_by_user_id: user!.id,
+              expires_at: new Date(Date.now() + INVITE_TTL_MS).toISOString(),
+            })
+            .returning()
+            .execute();
+          return { revoked: revoked.length, invite };
+        });
+      } catch (e) {
+        if (e instanceof EnrollmentNotOpenError) {
+          set.status = e.enrollmentStatus === "missing" ? 404 : 409;
+          return e.enrollmentStatus === "missing"
+            ? { message: "Enrollment not found" }
+            : { message: "Enrollment is closed", status: e.enrollmentStatus };
+        }
+        throw e;
+      }
       return {
         invite_id: issued.invite.id,
         expires_at: issued.invite.expires_at,
