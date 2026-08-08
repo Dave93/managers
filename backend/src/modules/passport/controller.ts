@@ -6,9 +6,19 @@ import {
   passport_modules,
   passport_program_modules,
   passport_programs,
+  passport_signoffs,
+  passport_topic_progress,
   passport_topics,
 } from "backend/drizzle/schema";
 import { validateModuleForPublish } from "./publish-validation";
+import {
+  canObserve,
+  hasObservation,
+  levelAfterObserved,
+  needsPhoto,
+  observationComplete,
+  type VerificationType,
+} from "./state";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import {
   and,
@@ -133,6 +143,91 @@ async function loadEnrollmentScoped(
     return null;
   }
   return row;
+}
+
+// Refusal raised from INSIDE the sign-off transaction. Throwing (rather than
+// set.status + return) rolls the transaction back, so a refused sign-off cannot
+// leave behind the level-0 progress row the endpoint inserts before it is able
+// to read the current level. Same pattern as EnrollmentNotOpenError above.
+class SignoffRefusal extends Error {
+  constructor(
+    public httpStatus: number,
+    public payload: Record<string, unknown>
+  ) {
+    super(String(payload.code ?? "refused"));
+  }
+}
+
+// Client IP for the audit journal: the socket peer FIRST, `x-real-ip` only as a
+// fallback -- same order as the miniapp helper, and on this endpoint it is a
+// security property rather than a style choice. The nginx server block in front
+// of this service (`api.office.lesailes.uz`) does NOT `include proxy_params`, so
+// it does not overwrite `X-Real-IP`: a client-supplied one is forwarded
+// verbatim. Trusting the header first would let a mentor dictate the IP written
+// into their own sign-off row -- on the one endpoint whose whole purpose is
+// evidence. The peer is therefore the honest value even though, behind nginx, it
+// is the loopback address; making it informative is a one-line nginx change, not
+// a change here. `x-forwarded-for` is never read, for the same reason.
+function adminClientIp(
+  server:
+    | { requestIP?: (req: Request) => { address?: string } | null }
+    | null
+    | undefined,
+  request: Request,
+  headers: Record<string, string | undefined>
+): string | null {
+  const peer = server?.requestIP?.(request)?.address?.trim();
+  if (peer) return peer.slice(0, 64);
+  const fwd = headers["x-real-ip"]?.trim();
+  return fwd ? fwd.slice(0, 64) : null;
+}
+
+// Topic lookup that IS the authorization check, deliberately REPLICATED from
+// tg-controller.ts rather than imported: that file is the trainee surface and
+// exports nothing of the sort, and a shared helper would couple the mentor path
+// to a controller that is being edited in parallel. The joins require the topic
+// to be active, its module published, and that module linked to THIS
+// enrollment's program -- so a topic id copied out of another program comes back
+// null and the caller gets a 404, never a silent sign-off.
+async function loadTopicInProgram(
+  drizzle: any,
+  topicId: string,
+  programId: string
+) {
+  const [row] = await drizzle
+    .select({ topic: passport_topics })
+    .from(passport_topics)
+    .innerJoin(
+      passport_modules,
+      eq(passport_modules.id, passport_topics.module_id)
+    )
+    .innerJoin(
+      passport_program_modules,
+      and(
+        eq(passport_program_modules.module_id, passport_modules.id),
+        eq(passport_program_modules.program_id, programId)
+      )
+    )
+    .where(
+      and(
+        eq(passport_topics.id, topicId),
+        eq(passport_topics.active, true),
+        eq(passport_modules.status, "published")
+      )
+    )
+    .execute();
+  return row?.topic ?? null;
+}
+
+// observationComplete() dereferences .length on both arrays, so the checklist is
+// normalised (and refused) before it ever gets there.
+function readObservationChecklist(
+  raw: unknown
+): { items: unknown[]; questions: unknown[] } | null {
+  if (!raw || typeof raw !== "object") return null;
+  const cl = raw as { items?: unknown; questions?: unknown };
+  if (!Array.isArray(cl.items) || !Array.isArray(cl.questions)) return null;
+  return { items: cl.items, questions: cl.questions };
 }
 
 // Widened export (see creditAdminController / iikoSyncController for the same
@@ -1041,6 +1136,278 @@ const passportControllerImpl = new Elysia({
     {
       permission: "passport.enrollments.manage",
       params: t.Object({ id: t.String({ format: "uuid" }) }),
+    }
+  )
+  // ---- mentor sign-off (stage 1: no QR handshake yet) ----
+  //
+  // The anti-fraud pair: the quiz is taken by the trainee on their own phone
+  // (tg-controller), the practical observation is signed HERE by a different
+  // person holding `passport.signoff`. Faking a skill needs two people.
+  //
+  // Stage 2 adds the QR handshake (physical co-presence proof) and the dual
+  // signature; this endpoint is the plain cookie-authenticated sign-off.
+  .post(
+    "/passport/signoff",
+    async ({
+      drizzle,
+      cacheController,
+      user,
+      role,
+      terminals,
+      body,
+      set,
+      headers,
+      request,
+      server,
+    }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      // 403 for another branch's trainee, 404 for an unknown enrollment.
+      const enr = await loadEnrollmentScoped(
+        drizzle,
+        body.enrollment_id,
+        isHQ,
+        terminals,
+        set
+      );
+      if (!enr) return { message: "Enrollment is not accessible" };
+      // Fast path; the authoritative re-read happens inside the transaction.
+      if (enr.status !== "active" && enr.status !== "paused") {
+        set.status = 409;
+        return {
+          code: "enrollment_closed",
+          message: "Enrollment is closed",
+          status: enr.status,
+        };
+      }
+      const topic = await loadTopicInProgram(
+        drizzle,
+        body.topic_id,
+        enr.program_id
+      );
+      if (!topic) {
+        set.status = 404;
+        return {
+          code: "topic_not_found",
+          message: "Topic is not part of this enrollment's program",
+        };
+      }
+      const vt = topic.verification_type as VerificationType;
+      // A topic verified by quiz alone has nothing to observe, at any level.
+      // Checked before the checklist (a quiz-only topic legitimately has none)
+      // so the caller gets "this topic needs no observation" rather than a
+      // misleading "the checklist is broken".
+      if (!hasObservation(vt)) {
+        set.status = 409;
+        return {
+          code: "not_observable",
+          message: "Topic requires no observation",
+          verification_type: vt,
+        };
+      }
+      // Stage 1 accepts no photo. Signing a photo-evidence topic here would
+      // certify "does it alone" while the photo its verification_type demands
+      // was never taken, and nothing downstream would ever notice the gap.
+      // Refused in BOTH branches (decline included) so there is a single rule:
+      // this endpoint does not touch photo topics at all until upload exists.
+      if (needsPhoto(vt)) {
+        set.status = 409;
+        return {
+          code: "photo_evidence_unsupported",
+          message:
+            "Topic requires photo evidence; photo sign-off is not available yet",
+          verification_type: vt,
+        };
+      }
+      // publish-validation guarantees both arrays on a published observation
+      // topic. Re-checked because observationComplete() dereferences .length on
+      // both, so a legacy or hand-edited row would be a 500 instead of a guard.
+      const checklist = readObservationChecklist(topic.observation_checklist);
+      if (!checklist) {
+        set.status = 409;
+        return {
+          code: "checklist_malformed",
+          message: "Topic has no usable observation checklist",
+        };
+      }
+
+      const ip = adminClientIp(server, request, headers);
+      let outcome: {
+        level: number;
+        declined: boolean;
+        signoff_id: string;
+      };
+      try {
+        outcome = await drizzle.transaction(async (tx: any) => {
+          // ONE row lock, on the progress row, taken in exactly the position the
+          // trainee endpoints take it (insert-if-missing -> SELECT FOR UPDATE ->
+          // decide -> write). A mentor sign-off and a trainee quiz submit on the
+          // same topic therefore serialize on that row instead of both reading a
+          // stale level and clobbering each other's write. Deadlock is not a
+          // question here: this path takes exactly one row lock, and a
+          // single-lock transaction cannot be part of a wait cycle. (Locking the
+          // enrollment row too would NOT be free: the trainee transaction holds
+          // the progress row and then needs FOR KEY SHARE on the enrollment for
+          // its passport_signoffs FK insert, which conflicts with FOR UPDATE --
+          // that is the cycle, and it is why the status re-read below is a plain
+          // read.)
+          await tx
+            .insert(passport_topic_progress)
+            .values({ enrollment_id: enr.id, topic_id: topic.id, level: 0 })
+            .onConflictDoNothing({
+              target: [
+                passport_topic_progress.enrollment_id,
+                passport_topic_progress.topic_id,
+              ],
+            })
+            .execute();
+
+          const [row] = await tx
+            .select()
+            .from(passport_topic_progress)
+            .where(
+              and(
+                eq(passport_topic_progress.enrollment_id, enr.id),
+                eq(passport_topic_progress.topic_id, topic.id)
+              )
+            )
+            .for("update")
+            .execute();
+          if (!row)
+            throw new SignoffRefusal(409, {
+              code: "progress_unavailable",
+              message: "Could not read topic progress",
+            });
+
+          // Re-read under READ COMMITTED after the lock wait: the outer check
+          // above can be arbitrarily stale if this request queued behind a
+          // trainee transaction. Throwing rolls back the progress row inserted
+          // a few lines up, so a refusal leaves no trace.
+          const [cur] = await tx
+            .select({ status: passport_enrollments.status })
+            .from(passport_enrollments)
+            .where(eq(passport_enrollments.id, enr.id))
+            .execute();
+          if (!cur || (cur.status !== "active" && cur.status !== "paused"))
+            throw new SignoffRefusal(409, {
+              code: "enrollment_closed",
+              message: "Enrollment is closed",
+              status: cur?.status ?? "missing",
+            });
+
+          // The level comes from the LOCKED row, never from a read taken before
+          // the lock: a quiz that passed while this request was queued must be
+          // what decides whether the trainee may be observed at all.
+          const level: number = row.level;
+          if (!canObserve(level, vt))
+            throw new SignoffRefusal(409, {
+              code: "not_observable",
+              message:
+                "Trainee has not reached the level required for observation, or the topic needs none",
+              level,
+              verification_type: vt,
+            });
+
+          const journal = async (action: "observed" | "observation_declined") => {
+            const [j] = await tx
+              .insert(passport_signoffs)
+              .values({
+                enrollment_id: enr.id,
+                topic_id: topic.id,
+                module_id: topic.module_id,
+                action,
+                actor_user_id: user!.id,
+                terminal_id: enr.terminal_id,
+                ip,
+                meta: {
+                  source: "office",
+                  answers: body.answers,
+                  checklist_items: checklist.items.length,
+                  checklist_questions: checklist.questions.length,
+                },
+              })
+              .returning({ id: passport_signoffs.id })
+              .execute();
+            return j.id as string;
+          };
+
+          // A refusal to certify is evidence, not a no-op: it is journalled with
+          // the exact ticks the mentor did give, and the level is left alone.
+          if (body.declined === true) {
+            return {
+              level,
+              declined: true,
+              signoff_id: await journal("observation_declined"),
+            };
+          }
+
+          // Every item AND every verbal question must be ticked, and the array
+          // lengths must match the checklist. A partially ticked observation is
+          // not a pass.
+          if (!observationComplete(checklist, body.answers))
+            throw new SignoffRefusal(422, {
+              code: "observation_incomplete",
+              message: "Every checklist item and question must be confirmed",
+              expected: {
+                items: checklist.items.length,
+                questions: checklist.questions.length,
+              },
+              got: {
+                items: body.answers.items.length,
+                questions: body.answers.questions.length,
+              },
+              // Which boxes are still empty, so the UI can point at them
+              // instead of just saying "no".
+              unticked: {
+                items: body.answers.items
+                  .map((v, i) => (v ? -1 : i))
+                  .filter((i) => i >= 0),
+                questions: body.answers.questions
+                  .map((v, i) => (v ? -1 : i))
+                  .filter((i) => i >= 0),
+              },
+            });
+
+          const next = levelAfterObserved(level);
+          await tx
+            .update(passport_topic_progress)
+            .set({
+              level: next,
+              observed_by_user_id: user!.id,
+              observed_at: sql`now()`,
+              observation_answers: body.answers,
+              updated_at: sql`now()`,
+            })
+            .where(eq(passport_topic_progress.id, row.id))
+            .execute();
+
+          return {
+            level: next,
+            declined: false,
+            signoff_id: await journal("observed"),
+          };
+        });
+      } catch (e) {
+        if (e instanceof SignoffRefusal) {
+          set.status = e.httpStatus;
+          return e.payload;
+        }
+        throw e;
+      }
+      return outcome;
+    },
+    {
+      permission: "passport.signoff",
+      body: t.Object({
+        enrollment_id: t.String({ format: "uuid" }),
+        topic_id: t.String({ format: "uuid" }),
+        answers: t.Object({
+          // Bounded: the arrays are stored verbatim in jsonb and compared to a
+          // checklist that is never longer than a page.
+          items: t.Array(t.Boolean(), { maxItems: 200 }),
+          questions: t.Array(t.Boolean(), { maxItems: 200 }),
+        }),
+        declined: t.Optional(t.Boolean()),
+      }),
     }
   );
 
