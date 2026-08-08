@@ -31,6 +31,10 @@ export function validateModuleForPublish(
       const cl = t.observation_checklist as { items?: unknown[]; questions?: unknown[] } | null;
       if (!cl || !Array.isArray(cl.items) || cl.items.length === 0)
         errors.push(`topic ${i + 1}: observation_checklist items required`);
+      // questions may be empty, but the key MUST exist as an array: observationComplete()
+      // in state.ts dereferences checklist.questions.length unconditionally.
+      if (!cl || !Array.isArray(cl.questions))
+        errors.push(`topic ${i + 1}: observation_checklist questions must be an array`);
     }
   });
   return errors;

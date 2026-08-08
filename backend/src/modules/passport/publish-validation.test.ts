@@ -26,6 +26,16 @@ describe("publish validation", () => {
       [{ ...okTopic, verification_type: "observation", observation_checklist: null }]);
     expect(errs.some((e) => e.includes("checklist"))).toBe(true);
   });
+  test("observation checklist without questions array blocks", () => {
+    const errs = validateModuleForPublish({ title_ru: "К", title_uz: "K" },
+      [{ ...okTopic, observation_checklist: { items: [{ ru: "нож", uz: "pichoq" }] } }]);
+    expect(errs.some((e) => e.includes("questions"))).toBe(true);
+  });
+  test("topic-level uz field missing blocks", () => {
+    const errs = validateModuleForPublish({ title_ru: "К", title_uz: "K" },
+      [{ ...okTopic, key_point_uz: "   " }]);
+    expect(errs.some((e) => e.includes("key_point"))).toBe(true);
+  });
   test("module without topics blocks", () => {
     expect(validateModuleForPublish({ title_ru: "К", title_uz: "K" }, []).length).toBeGreaterThan(0);
   });
