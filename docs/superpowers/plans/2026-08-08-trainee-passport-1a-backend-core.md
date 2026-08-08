@@ -587,7 +587,6 @@ Expected: 401 (роут есть, без сессии отлуп) — не 404.
 
 ```ts
   .get("/passport/modules", async ({ drizzle, user, role, query, set }) => {
-    const where = [eq(passport_modules ? undefined as never : undefined as never, undefined as never)]; // строится ниже
     const conds = [] as any[];
     if (query.program_id) {
       const links = await drizzle.select({ module_id: passport_program_modules.module_id })
@@ -851,7 +850,7 @@ export function deadlineStatus(startedAtIso: string, deadlineDays: number | null
 
 - [ ] **Step 3: Юнит + ручной смоук**
 
-Run: `bun test src/modules/passport/` — все зелёные. Затем dev-boot: авторизация по реальному initData из тестового бота, `/me` → структура модулей; `opened` дважды → уровень 1, в журнале одна строка material_opened (идемпотентность по progress, журнал допускает повтор — приемлемо, фиксируем в коде комментарием) — решение: перед insert проверять текущий level, при level>=1 не журналировать повторно.
+Run: `bun test src/modules/passport/` — все зелёные. Затем dev-boot: авторизация по реальному initData из тестового бота, `/me` → структура модулей. Идемпотентность `opened`: перед вставкой в журнал прочитать текущий level из progress; при level >= 1 НЕ писать новую строку material_opened и не менять level. Повторный вызов `opened` обязан оставить ровно одну строку material_opened в журнале.
 Expected: quiz start → question_ids; submit с верными ответами → `{passed: true, level: 2}`.
 
 - [ ] **Step 4: Commit** — `git commit -m "feat(passport): trainee endpoints - me, material, quiz via attestation engine"`
