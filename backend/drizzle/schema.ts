@@ -1563,6 +1563,7 @@ export const attestation_test_attempts = pgTable("attestation_test_attempts", {
   passed: boolean("passed"),
   expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }),
   question_ids: jsonb("question_ids").notNull(),
+  source: varchar("source", { length: 10 }).default("kiosk").notNull(), // kiosk | miniapp
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
@@ -1764,3 +1765,174 @@ export const credit_payments = pgTable("credit_payments", {
   credit_payment_doc_uniq: uniqueIndex("credit_payment_doc_uniq").on(t.company_id, t.doc_number)
     .where(sql`doc_number IS NOT NULL`),
 }));
+
+// ===================== TRAINEE PASSPORT =====================
+export const passport_module_status = pgEnum("passport_module_status", ["draft", "review", "published"]);
+export const passport_verification_type = pgEnum("passport_verification_type", ["quiz", "observation", "quiz_observation", "quiz_observation_photo", "dual"]);
+export const passport_enrollment_status = pgEnum("passport_enrollment_status", ["active", "completed", "failed", "paused"]);
+export const passport_signoff_action = pgEnum("passport_signoff_action", ["material_opened", "quiz_passed", "quiz_failed", "observed", "observation_declined", "recheck_passed", "recheck_failed", "level_set", "level_rolled_back", "stamp_issued"]);
+export const passport_stamp_type = pgEnum("passport_stamp_type", ["module_cert", "universal_chopar", "universal_les", "probation_passed"]);
+
+export const passport_programs = pgTable("passport_programs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  position: varchar("position", { length: 100 }).notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_modules = pgTable("passport_modules", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).default("").notNull(),
+  brand: varchar("brand", { length: 20 }), // null | 'chopar' | 'les'
+  owner_department: varchar("owner_department", { length: 50 }).notNull(),
+  status: passport_module_status("status").default("draft").notNull(),
+  version: integer("version").default(1).notNull(),
+  exam_test_id: uuid("exam_test_id"), // -> attestation_tests
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_program_modules = pgTable("passport_program_modules", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  program_id: uuid("program_id").notNull().references(() => passport_programs.id),
+  module_id: uuid("module_id").notNull().references(() => passport_modules.id),
+  sort: integer("sort").default(0).notNull(),
+  required: boolean("required").default(true).notNull(),
+  deadline_days: integer("deadline_days"),
+}, (t) => [uniqueIndex("UQ_passport_prog_mod").on(t.program_id, t.module_id)]);
+
+export const passport_topics = pgTable("passport_topics", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  module_id: uuid("module_id").notNull().references(() => passport_modules.id),
+  sort: integer("sort").default(0).notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).default("").notNull(),
+  step_ru: text("step_ru").default("").notNull(),
+  step_uz: text("step_uz").default("").notNull(),
+  key_point_ru: text("key_point_ru").default("").notNull(),
+  key_point_uz: text("key_point_uz").default("").notNull(),
+  reason_ru: text("reason_ru").default("").notNull(),
+  reason_uz: text("reason_uz").default("").notNull(),
+  video_id: uuid("video_id"), // -> passport_media
+  verification_type: passport_verification_type("verification_type").default("quiz_observation").notNull(),
+  quiz_test_id: uuid("quiz_test_id"), // -> attestation_tests
+  observation_checklist: jsonb("observation_checklist"), // {items:[{ru,uz}], questions:[{ru,uz}]}
+  active: boolean("active").default(true).notNull(),
+});
+
+export const passport_enrollments = pgTable("passport_enrollments", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  employee_id: uuid("employee_id").notNull().references(() => employees.id),
+  program_id: uuid("program_id").notNull().references(() => passport_programs.id),
+  terminal_id: uuid("terminal_id").notNull(),
+  status: passport_enrollment_status("status").default("active").notNull(),
+  started_at: timestamp("started_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  probation_deadline: timestamp("probation_deadline", { withTimezone: true, mode: "string" }),
+  completed_at: timestamp("completed_at", { withTimezone: true, mode: "string" }),
+  created_by_user_id: uuid("created_by_user_id").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_invites = pgTable("passport_invites", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(), // сам токен инвайта
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  created_by_user_id: uuid("created_by_user_id").notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+  used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_tg_bindings = pgTable("passport_tg_bindings", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  telegram_id: bigint("telegram_id", { mode: "number" }).notNull(),
+  employee_id: uuid("employee_id").references(() => employees.id), // стажёр
+  user_id: uuid("user_id"), // наставник/аудитор -> users
+  first_name: varchar("first_name", { length: 255 }).default("").notNull(),
+  lang: varchar("lang", { length: 2 }).default("ru").notNull(), // ru | uz
+  banned: boolean("banned").default(false).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("UQ_passport_tg").on(t.telegram_id)]);
+
+export const passport_topic_progress = pgTable("passport_topic_progress", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  topic_id: uuid("topic_id").notNull().references(() => passport_topics.id),
+  level: integer("level").default(0).notNull(), // 0..4
+  quiz_attempt_id: uuid("quiz_attempt_id"),
+  observed_by_user_id: uuid("observed_by_user_id"),
+  observed_at: timestamp("observed_at", { withTimezone: true, mode: "string" }),
+  observation_answers: jsonb("observation_answers"),
+  photo_path: varchar("photo_path", { length: 500 }),
+  recheck_due_at: timestamp("recheck_due_at", { withTimezone: true, mode: "string" }),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("UQ_passport_progress").on(t.enrollment_id, t.topic_id)]);
+
+export const passport_signoffs = pgTable("passport_signoffs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  topic_id: uuid("topic_id"),
+  module_id: uuid("module_id"),
+  action: passport_signoff_action("action").notNull(),
+  actor_user_id: uuid("actor_user_id"),
+  actor_employee_id: uuid("actor_employee_id"),
+  terminal_id: uuid("terminal_id"),
+  ip: varchar("ip", { length: 64 }),
+  meta: jsonb("meta"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [index("IX_passport_signoffs_enr").on(t.enrollment_id, t.created_at)]);
+
+export const passport_stamps = pgTable("passport_stamps", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  employee_id: uuid("employee_id").notNull(),
+  type: passport_stamp_type("type").notNull(),
+  module_id: uuid("module_id"),
+  issued_by_user_id: uuid("issued_by_user_id"), // null = автомат
+  manual_comment: text("manual_comment"),
+  valid_until: timestamp("valid_until", { withTimezone: true, mode: "string" }),
+  issued_at: timestamp("issued_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_qr_tokens = pgTable("passport_qr_tokens", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull(),
+  topic_id: uuid("topic_id").notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+  used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+  used_by_user_id: uuid("used_by_user_id"),
+  trainee_ip: varchar("trainee_ip", { length: 64 }),
+});
+
+export const passport_rechecks = pgTable("passport_rechecks", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  topic_progress_id: uuid("topic_progress_id").notNull().references(() => passport_topic_progress.id),
+  assigned_to_user_id: uuid("assigned_to_user_id").notNull(),
+  origin: varchar("origin", { length: 10 }).default("random").notNull(), // random | manual
+  due_at: timestamp("due_at", { withTimezone: true, mode: "string" }).notNull(),
+  result: varchar("result", { length: 10 }), // null | passed | failed
+  resolved_at: timestamp("resolved_at", { withTimezone: true, mode: "string" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_flags = pgTable("passport_flags", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  subject_user_id: uuid("subject_user_id"),
+  enrollment_id: uuid("enrollment_id"),
+  meta: jsonb("meta"),
+  resolved: boolean("resolved").default(false).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_media = pgTable("passport_media", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  title: varchar("title", { length: 255 }).default("").notNull(),
+  file_path: varchar("file_path", { length: 500 }).notNull(),
+  status: varchar("status", { length: 20 }).default("ready").notNull(),
+  transcode_error: text("transcode_error"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
