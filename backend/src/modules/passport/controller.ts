@@ -1204,6 +1204,27 @@ const passportControllerImpl = new Elysia({
           verification_type: vt,
         };
       }
+      // `dual` demands a second, asynchronous expert signature on top of the
+      // mentor's ("плюс асинхронная вторая подпись эксперта"). hasObservation()
+      // is true and needsPhoto() is false for it, so without this branch it
+      // would sail through canObserve() and reach level 3 off ONE signature --
+      // the same evidence hole the photo guard below closes, and worse: no
+      // second-signature column exists on passport_signoffs or
+      // passport_topic_progress, so a singly-signed `dual` row would be
+      // permanently indistinguishable from a properly co-signed one. The type is
+      // authorable (t.Literal("dual") in the topic body schema) and publishable
+      // (publish-validation treats it as a plain quiz+observation topic), so
+      // nothing else stops HR from shipping one. Refused in BOTH branches, like
+      // photo, until the co-signature exists.
+      if (vt === "dual") {
+        set.status = 409;
+        return {
+          code: "dual_signature_unsupported",
+          message:
+            "Topic requires a second expert signature; dual sign-off is not available yet",
+          verification_type: vt,
+        };
+      }
       // Stage 1 accepts no photo. Signing a photo-evidence topic here would
       // certify "does it alone" while the photo its verification_type demands
       // was never taken, and nothing downstream would ever notice the gap.
