@@ -4,6 +4,7 @@ import { medicalController } from "./modules/medical/controller";
 import { iikoSyncController } from "./modules/iiko_sync/controllers";
 import { creditAdminController } from "./modules/credit_admin/controller";
 import { passportController } from "./modules/passport/controller";
+import { passportTgController } from "./modules/passport/tg-controller";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
 
@@ -26,6 +27,7 @@ const app = new Elysia()
   .use(iikoSyncController)
   .use(creditAdminController)
   .use(passportController)
+  .use(passportTgController)
   .use(apiController)
   .use(medicalController);
 
