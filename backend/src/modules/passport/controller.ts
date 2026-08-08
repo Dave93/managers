@@ -1,12 +1,25 @@
 import { ctx } from "@backend/context";
 import {
+  employees,
+  passport_enrollments,
+  passport_invites,
   passport_modules,
   passport_program_modules,
   passport_programs,
   passport_topics,
 } from "backend/drizzle/schema";
 import { validateModuleForPublish } from "./publish-validation";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { resolveIsHq } from "@backend/lib/resolve-is-hq";
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  sql,
+  type SQLWrapper,
+} from "drizzle-orm";
 import Elysia, { t } from "elysia";
 
 // The curriculum is authored per department (chef owns kitchen modules, finance
@@ -81,6 +94,37 @@ async function assertModuleEditable(
     return null;
   }
   return mod;
+}
+
+// An invite is a printable QR that a trainee scans once. A week is long enough
+// for a new hire who starts on Monday and gets their phone sorted out on
+// Friday, short enough that a QR left on a noticeboard stops working.
+const INVITE_TTL_MS = 7 * 86400_000;
+
+// Enrollment read/write scope: HQ sees every branch, everyone else only the
+// terminals resolved onto their session. Returns the enrollment, or null after
+// setting the response status.
+async function loadEnrollmentScoped(
+  drizzle: any,
+  enrollmentId: string,
+  isHQ: boolean,
+  terminals: string[],
+  set: any
+) {
+  const [row] = await drizzle
+    .select()
+    .from(passport_enrollments)
+    .where(eq(passport_enrollments.id, enrollmentId))
+    .execute();
+  if (!row) {
+    set.status = 404;
+    return null;
+  }
+  if (!isHQ && !terminals.includes(row.terminal_id)) {
+    set.status = 403;
+    return null;
+  }
+  return row;
 }
 
 // Widened export (see creditAdminController / iikoSyncController for the same
@@ -617,6 +661,334 @@ const passportControllerImpl = new Elysia({
         required: t.Optional(t.Boolean()),
         deadline_days: t.Optional(t.Nullable(t.Number())),
       }),
+    }
+  )
+  // ---- enrollments (HR starts a trainee's training, trainee gets a QR) ----
+  .post(
+    "/passport/enrollments",
+    async ({ drizzle, cacheController, user, role, terminals, body, set }) => {
+      const [emp] = await drizzle
+        .select()
+        .from(employees)
+        .where(eq(employees.id, body.employee_id))
+        .execute();
+      if (!emp) {
+        set.status = 404;
+        return { message: "Employee not found" };
+      }
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      // terminal_id is taken from the employee, never from the request body:
+      // it is the column the whole read side scopes on, so a caller-supplied
+      // value would let a branch HR park a trainee in someone else's branch
+      // (or hide one from their own).
+      if (!isHQ && !terminals.includes(emp.terminal_id)) {
+        set.status = 403;
+        return { message: "Out of scope" };
+      }
+      const [program] = await drizzle
+        .select({ id: passport_programs.id })
+        .from(passport_programs)
+        .where(eq(passport_programs.id, body.program_id))
+        .execute();
+      if (!program) {
+        set.status = 404;
+        return { message: "Program not found" };
+      }
+      const startedAt = new Date();
+      const created = await drizzle.transaction(async (tx) => {
+        // Serialize concurrent enrollments of the SAME employee. There is no
+        // unique index to lean on (an employee legitimately accumulates many
+        // closed enrollments over time) and the open-enrollment check below is
+        // a read, so two simultaneous POSTs would both see "none" and both
+        // insert. The advisory lock is held to end of transaction and only
+        // collides with another enrollment of the same employee.
+        await tx.execute(
+          sql`select pg_advisory_xact_lock(hashtext(${body.employee_id}))`
+        );
+        // One trainee = one live passport. Topic progress is unique per
+        // (enrollment_id, topic_id) and the trainee's telegram binding is per
+        // EMPLOYEE, so a second open enrollment would split one person's
+        // progress across two records that nothing can merge, and the miniapp
+        // could not tell which one is "the" passport. HR gets a 409 naming the
+        // existing enrollment; the intended moves are /reinvite or /close.
+        const [open] = await tx
+          .select()
+          .from(passport_enrollments)
+          .where(
+            and(
+              eq(passport_enrollments.employee_id, body.employee_id),
+              inArray(passport_enrollments.status, ["active", "paused"])
+            )
+          )
+          .execute();
+        if (open) return { conflict: open, enrollment: null, invite: null };
+        const [enrollment] = await tx
+          .insert(passport_enrollments)
+          .values({
+            employee_id: emp.id,
+            program_id: body.program_id,
+            terminal_id: emp.terminal_id,
+            // started_at is passed explicitly rather than left to defaultNow()
+            // so that probation_deadline is provably started_at + N days.
+            started_at: startedAt.toISOString(),
+            probation_deadline: new Date(
+              startedAt.getTime() + body.probation_days * 86400_000
+            ).toISOString(),
+            created_by_user_id: user!.id,
+          })
+          .returning()
+          .execute();
+        // Same transaction as the enrollment: an enrollment with no invite is
+        // a trainee who cannot open their passport, and nothing repairs that
+        // automatically — it needs a human to notice and call /reinvite.
+        const [invite] = await tx
+          .insert(passport_invites)
+          .values({
+            enrollment_id: enrollment.id,
+            created_by_user_id: user!.id,
+            expires_at: new Date(
+              startedAt.getTime() + INVITE_TTL_MS
+            ).toISOString(),
+          })
+          .returning()
+          .execute();
+        return { conflict: null, enrollment, invite };
+      });
+      if (created.conflict) {
+        set.status = 409;
+        return {
+          message: "Employee already has an open enrollment",
+          enrollment_id: created.conflict.id,
+          program_id: created.conflict.program_id,
+          status: created.conflict.status,
+        };
+      }
+      // invite_id is the QR payload:
+      // https://t.me/<PASSPORT_BOT>?startapp=inv_<invite_id>
+      return {
+        enrollment: created.enrollment,
+        invite_id: created.invite!.id,
+        invite_expires_at: created.invite!.expires_at,
+      };
+    },
+    {
+      permission: "passport.enrollments.manage",
+      body: t.Object({
+        employee_id: t.String({ format: "uuid" }),
+        program_id: t.String({ format: "uuid" }),
+        probation_days: t.Number({ minimum: 1, maximum: 365 }),
+      }),
+    }
+  )
+  .get(
+    "/passport/enrollments",
+    async ({ drizzle, cacheController, user, role, terminals, query }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      const where: (SQLWrapper | undefined)[] = [];
+      if (!isHQ) {
+        // Fail closed. The reports controller only narrows when the scope is
+        // non-empty, i.e. an unscoped non-HQ user there sees the whole company;
+        // for trainee records that default is wrong, and inArray must never be
+        // handed an empty list either.
+        if (!terminals.length) return { total: 0, data: [] };
+        where.push(inArray(passport_enrollments.terminal_id, terminals));
+      }
+      if (query.terminal_id)
+        where.push(eq(passport_enrollments.terminal_id, query.terminal_id));
+      if (query.status)
+        where.push(eq(passport_enrollments.status, query.status));
+      if (query.employee_id)
+        where.push(eq(passport_enrollments.employee_id, query.employee_id));
+      if (query.program_id)
+        where.push(eq(passport_enrollments.program_id, query.program_id));
+      const whereClause = where.length ? and(...where) : undefined;
+      const limit = Math.min(Math.max(Number(query.limit ?? 50) || 50, 1), 200);
+      const offset = Math.max(Number(query.offset ?? 0) || 0, 0);
+      // Counted on the base table with the same predicate — the joins below are
+      // display-only and must not be able to change the total.
+      const count = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(passport_enrollments)
+        .where(whereClause)
+        .execute();
+      const data = await drizzle
+        .select({
+          id: passport_enrollments.id,
+          employee_id: passport_enrollments.employee_id,
+          program_id: passport_enrollments.program_id,
+          terminal_id: passport_enrollments.terminal_id,
+          status: passport_enrollments.status,
+          started_at: passport_enrollments.started_at,
+          probation_deadline: passport_enrollments.probation_deadline,
+          completed_at: passport_enrollments.completed_at,
+          created_at: passport_enrollments.created_at,
+          first_name: employees.first_name,
+          last_name: employees.last_name,
+          position: employees.position,
+          program_title_ru: passport_programs.title_ru,
+          program_title_uz: passport_programs.title_uz,
+        })
+        .from(passport_enrollments)
+        .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          passport_programs,
+          eq(passport_programs.id, passport_enrollments.program_id)
+        )
+        .where(whereClause)
+        .orderBy(desc(passport_enrollments.created_at))
+        .limit(limit)
+        .offset(offset)
+        .execute();
+      // Number(): count(*) comes back from pg as a bigint STRING, and the
+      // empty-scope early return above yields a numeric 0 — the same endpoint
+      // must not answer "2" on one call and 0 on the next.
+      return { total: Number(count[0].count), data };
+    },
+    {
+      permission: "passport.matrix.view",
+      query: t.Object({
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+        status: t.Optional(
+          t.Union([
+            t.Literal("active"),
+            t.Literal("completed"),
+            t.Literal("failed"),
+            t.Literal("paused"),
+          ])
+        ),
+        terminal_id: t.Optional(t.String({ format: "uuid" })),
+        employee_id: t.Optional(t.String({ format: "uuid" })),
+        program_id: t.Optional(t.String({ format: "uuid" })),
+      }),
+    }
+  )
+  .post(
+    "/passport/enrollments/:id/close",
+    async ({
+      drizzle,
+      cacheController,
+      user,
+      role,
+      terminals,
+      params,
+      body,
+      set,
+    }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      const enr = await loadEnrollmentScoped(
+        drizzle,
+        params.id,
+        isHQ,
+        terminals,
+        set
+      );
+      if (!enr) return { message: "Enrollment is not accessible" };
+      if (enr.status === "completed" || enr.status === "failed") {
+        set.status = 409;
+        return { message: "Enrollment is already closed", status: enr.status };
+      }
+      const closed = await drizzle.transaction(async (tx) => {
+        // The status predicate repeats in the UPDATE so that two concurrent
+        // closes cannot both report success with different results.
+        const [updated] = await tx
+          .update(passport_enrollments)
+          .set({ status: body.result, completed_at: sql`now()` })
+          .where(
+            and(
+              eq(passport_enrollments.id, params.id),
+              inArray(passport_enrollments.status, ["active", "paused"])
+            )
+          )
+          .returning()
+          .execute();
+        if (!updated) return null;
+        // A closed passport must stop handing out sessions: a QR printed
+        // before the close would otherwise still bind a telegram account to a
+        // finished (or failed) enrollment. Revoked the same way /reinvite does.
+        await tx
+          .update(passport_invites)
+          .set({ expires_at: sql`now() - interval '1 minute'` })
+          .where(
+            and(
+              eq(passport_invites.enrollment_id, params.id),
+              isNull(passport_invites.used_at),
+              sql`${passport_invites.expires_at} > now()`
+            )
+          )
+          .execute();
+        return updated;
+      });
+      if (!closed) {
+        set.status = 409;
+        return { message: "Enrollment is already closed" };
+      }
+      return closed;
+    },
+    {
+      permission: "passport.enrollments.manage",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      body: t.Object({
+        result: t.Union([t.Literal("completed"), t.Literal("failed")]),
+      }),
+    }
+  )
+  .post(
+    "/passport/enrollments/:id/reinvite",
+    async ({ drizzle, cacheController, user, role, terminals, params, set }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      const enr = await loadEnrollmentScoped(
+        drizzle,
+        params.id,
+        isHQ,
+        terminals,
+        set
+      );
+      if (!enr) return { message: "Enrollment is not accessible" };
+      if (enr.status === "completed" || enr.status === "failed") {
+        set.status = 409;
+        return { message: "Enrollment is closed", status: enr.status };
+      }
+      const issued = await drizzle.transaction(async (tx) => {
+        // Revoke by BACKDATING expires_at, and leave used_at alone: used_at is
+        // the tg side's "already redeemed, re-entry is fine" signal, so burning
+        // it here would make a never-scanned QR indistinguishable from a
+        // redeemed one. Backdating (rather than expires_at = now()) closes a
+        // read-committed race: a redeem that blocked on this row lock
+        // re-evaluates `expires_at > now()` with ITS OWN transaction timestamp,
+        // which can precede ours.
+        const revoked = await tx
+          .update(passport_invites)
+          .set({ expires_at: sql`now() - interval '1 minute'` })
+          .where(
+            and(
+              eq(passport_invites.enrollment_id, params.id),
+              isNull(passport_invites.used_at),
+              sql`${passport_invites.expires_at} > now()`
+            )
+          )
+          .returning({ id: passport_invites.id })
+          .execute();
+        const [invite] = await tx
+          .insert(passport_invites)
+          .values({
+            enrollment_id: params.id,
+            created_by_user_id: user!.id,
+            expires_at: new Date(Date.now() + INVITE_TTL_MS).toISOString(),
+          })
+          .returning()
+          .execute();
+        return { revoked: revoked.length, invite };
+      });
+      return {
+        invite_id: issued.invite.id,
+        expires_at: issued.invite.expires_at,
+        revoked: issued.revoked,
+      };
+    },
+    {
+      permission: "passport.enrollments.manage",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   );
 
