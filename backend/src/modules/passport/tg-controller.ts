@@ -59,10 +59,28 @@ function quizCooldownKey(enrollmentId: string, topicId: string): string {
   return `${process.env.PROJECT_PREFIX}passport_quiz_cd:${enrollmentId}:${topicId}`;
 }
 
-// x-real-ip only, on purpose. The first hop of x-forwarded-for is whatever the
-// client sent, so falling back to it would let the phone dictate the IP written
-// into its own audit journal. nginx sets x-real-ip in front of this service.
-function clientIp(headers: Record<string, string | undefined>): string | null {
+// Order matters here, and it is the opposite of the usual behind-a-proxy
+// instinct: the SOCKET PEER first, headers only as a fallback. This service's
+// vhost does not set x-real-ip today — nginx forwards whatever the client sent
+// — so a header-first read gave every honest phone `ip = null` while letting a
+// malicious one write its own audit trail. A peer address cannot be forged by
+// the client.
+//
+// FOLLOW-UP owned by the deploy task (which owns the nginx half): once the
+// vhost sets x-real-ip, the peer becomes the proxy's loopback address and this
+// order must flip to "trust x-real-ip when the peer IS the local proxy".
+// Flipping it before the vhost is fixed would simply re-open the forgery, which
+// is why it is not done here.
+function clientIp(
+  server:
+    | { requestIP?: (req: Request) => { address?: string } | null }
+    | null
+    | undefined,
+  request: Request,
+  headers: Record<string, string | undefined>
+): string | null {
+  const peer = server?.requestIP?.(request)?.address?.trim();
+  if (peer) return peer.slice(0, 64);
   const ip = headers["x-real-ip"]?.trim();
   return ip ? ip.slice(0, 64) : null;
 }
@@ -494,7 +512,7 @@ const passportTgControllerImpl = new Elysia({
   // ---- material opened (idempotent) ----
   .post(
     "/passport/tg/topics/:id/opened",
-    async ({ tgSession, params: { id }, drizzle, headers, set }) => {
+    async ({ tgSession, params: { id }, drizzle, headers, server, request, set }) => {
       const guard = traineeOrForbidden(tgSession, set);
       if (!guard) return { error: "forbidden" };
 
@@ -513,7 +531,7 @@ const passportTgControllerImpl = new Elysia({
         return { error: "topic_not_found" };
       }
 
-      const ip = clientIp(headers);
+      const ip = clientIp(server, request, headers);
       // The whole read-modify-write is one transaction and the progress row is
       // locked FOR UPDATE. A double-tap on the phone fires two identical
       // requests; without the lock both would read level 0 and both would
@@ -806,7 +824,7 @@ const passportTgControllerImpl = new Elysia({
   // ---- quiz submit ----
   .post(
     "/passport/tg/quiz/:topicId/submit",
-    async ({ tgSession, params: { topicId }, body, drizzle, redis, headers, set }) => {
+    async ({ tgSession, params: { topicId }, body, drizzle, redis, headers, server, request, set }) => {
       const guard = traineeOrForbidden(tgSession, set);
       if (!guard) return { error: "forbidden" };
 
@@ -928,15 +946,36 @@ const passportTgControllerImpl = new Elysia({
           };
         });
 
-      const ip = clientIp(headers);
-      const level = await drizzle.transaction(async (tx: any) => {
-        if (snapshotRows.length) {
-          await tx
-            .insert(attestation_test_attempt_answers)
-            .values(snapshotRows)
-            .execute();
+      const ip = clientIp(server, request, headers);
+      // Submit is the one endpoint that has to survive being sent TWICE — a
+      // flaky mobile network or a double-tap makes the miniapp retry, and this
+      // is not an adversarial scenario, it is Tuesday. Before the guard below,
+      // both copies passed the status check (read outside any transaction) and
+      // both committed: two journal rows, two full sets of answer snapshots
+      // (attempt_answers has only a PK on id — nothing stops duplicates), and
+      // two redis.incr calls, turning ONE failed quiz into an instant hour-long
+      // lockout.
+      //
+      // So: lock the progress row FOR UPDATE first (same lock order as /opened
+      // and /quiz/start, so the three cannot invert on each other), then make
+      // the attempt UPDATE CONDITIONAL on it still being in_progress. Exactly
+      // one caller gets a RETURNING row; the loser writes nothing, journals
+      // nothing, and never touches Redis.
+      const outcome = await drizzle.transaction(async (tx: any) => {
+        const [locked] = await tx
+          .select()
+          .from(passport_topic_progress)
+          .where(eq(passport_topic_progress.id, progress.id))
+          .for("update")
+          .execute();
+
+        // Re-checked under the lock: a concurrent /quiz/start could have
+        // repointed the link between the pre-flight read and here.
+        if (!locked || locked.quiz_attempt_id !== attempt.id) {
+          return { raced: true as const };
         }
-        await tx
+
+        const claimed = await tx
           .update(attestation_test_attempts)
           .set({
             status: overTime ? "expired" : "submitted",
@@ -945,20 +984,42 @@ const passportTgControllerImpl = new Elysia({
             passed,
             expires_at,
           })
-          .where(eq(attestation_test_attempts.id, attempt.id))
+          .where(
+            and(
+              eq(attestation_test_attempts.id, attempt.id),
+              eq(attestation_test_attempts.status, "in_progress")
+            )
+          )
+          .returning({ id: attestation_test_attempts.id })
           .execute();
+        // Somebody else finalised it first. Everything below is skipped.
+        if (!claimed.length) return { raced: true as const };
 
-        let nextLevel: number = progress.level;
+        if (snapshotRows.length) {
+          await tx
+            .insert(attestation_test_attempt_answers)
+            .values(snapshotRows)
+            .execute();
+        }
+
+        // The level is derived from the value read UNDER the lock, never from
+        // the unlocked pre-flight read. state.ts only ever moves levels up
+        // (Math.max), but writing an absolute number computed from a stale read
+        // would still undo a concurrent raise — once mentor sign-off can move a
+        // topic to 3, a passing submit would have knocked it back to 2.
+        let nextLevel: number = locked.level;
         if (passed) {
           nextLevel = levelAfterQuizPassed(
-            progress.level,
+            locked.level,
             topic.verification_type as VerificationType
           );
-          await tx
-            .update(passport_topic_progress)
-            .set({ level: nextLevel, updated_at: sql`now()` })
-            .where(eq(passport_topic_progress.id, progress.id))
-            .execute();
+          if (nextLevel !== locked.level) {
+            await tx
+              .update(passport_topic_progress)
+              .set({ level: nextLevel, updated_at: sql`now()` })
+              .where(eq(passport_topic_progress.id, locked.id))
+              .execute();
+          }
         }
 
         await tx
@@ -980,9 +1041,18 @@ const passportTgControllerImpl = new Elysia({
           })
           .execute();
 
-        return nextLevel;
+        return { raced: false as const, level: nextLevel };
       });
 
+      if (outcome.raced) {
+        set.status = 409;
+        return { error: "attempt_already_finalized" };
+      }
+      const level = outcome.level;
+
+      // Only the winner moves the counter, for the same reason it is the only
+      // one that journals: a retried submit must cost the trainee one failure,
+      // not two.
       const cdKey = quizCooldownKey(enrollment.id, topic.id);
       if (passed) {
         await redis.del(cdKey);
