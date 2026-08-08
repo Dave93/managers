@@ -151,7 +151,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.publish",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
         position: t.Optional(t.String()),
         title_ru: t.Optional(t.String()),
@@ -197,7 +197,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      query: t.Object({ program_id: t.Optional(t.String()) }),
+      query: t.Object({ program_id: t.Optional(t.String({ format: "uuid" })) }),
     }
   )
   .post(
@@ -233,7 +233,7 @@ const passportControllerImpl = new Elysia({
         title_uz: t.Optional(t.String()),
         brand: t.Optional(t.Nullable(t.String())),
         owner_department: t.Optional(t.String()),
-        exam_test_id: t.Optional(t.Nullable(t.String())),
+        exam_test_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
       }),
     }
   )
@@ -269,13 +269,13 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
         title_ru: t.Optional(t.String()),
         title_uz: t.Optional(t.String()),
         brand: t.Optional(t.Nullable(t.String())),
         owner_department: t.Optional(t.String()),
-        exam_test_id: t.Optional(t.Nullable(t.String())),
+        exam_test_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
       }),
     }
   )
@@ -305,7 +305,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
   .post(
@@ -350,7 +350,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.publish",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
   // A published module is frozen; changing it means forking a new draft version.
@@ -375,30 +375,47 @@ const passportControllerImpl = new Elysia({
         set.status = 409;
         return { message: "Only a published module can be forked" };
       }
-      const { id, created_at, updated_at, ...rest } = mod as any;
-      const [copy] = await drizzle
-        .insert(passport_modules)
-        .values({ ...rest, status: "draft", version: mod.version + 1 })
-        .returning()
-        .execute();
-      const topics = await drizzle
-        .select()
-        .from(passport_topics)
-        .where(eq(passport_topics.module_id, params.id))
-        .orderBy(asc(passport_topics.sort))
-        .execute();
-      for (const tp of topics) {
-        const { id: _topicId, ...trest } = tp as any;
-        await drizzle
-          .insert(passport_topics)
-          .values({ ...trest, module_id: copy.id })
+      const { id, created_at, updated_at, parent_module_id, ...rest } =
+        mod as any;
+      // Lineage points at the ROOT of the version chain, never at the immediate
+      // parent: an enrollment is pinned to one curriculum version, and asking
+      // "which module family is this trainee on" must be one comparison, not a
+      // walk up a linked list.
+      const rootId = mod.parent_module_id ?? mod.id;
+      // All-or-nothing: the fork is not idempotent, so a half-copied draft left
+      // behind by a mid-loop failure could never be repaired by a retry — the
+      // retry would just create a second partial fork.
+      const copy = await drizzle.transaction(async (tx) => {
+        const [created] = await tx
+          .insert(passport_modules)
+          .values({
+            ...rest,
+            status: "draft",
+            version: mod.version + 1,
+            parent_module_id: rootId,
+          })
+          .returning()
           .execute();
-      }
+        const topics = await tx
+          .select()
+          .from(passport_topics)
+          .where(eq(passport_topics.module_id, params.id))
+          .orderBy(asc(passport_topics.sort))
+          .execute();
+        for (const tp of topics) {
+          const { id: _topicId, ...trest } = tp as any;
+          await tx
+            .insert(passport_topics)
+            .values({ ...trest, module_id: created.id })
+            .execute();
+        }
+        return created;
+      });
       return copy;
     },
     {
       permission: "passport.curriculum.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
   // ---- topics ----
@@ -418,7 +435,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
   .post(
@@ -459,7 +476,7 @@ const passportControllerImpl = new Elysia({
     {
       permission: "passport.curriculum.edit",
       body: t.Object({
-        module_id: t.String(),
+        module_id: t.String({ format: "uuid" }),
         sort: t.Optional(t.Number()),
         title_ru: t.String(),
         title_uz: t.Optional(t.String()),
@@ -469,7 +486,7 @@ const passportControllerImpl = new Elysia({
         key_point_uz: t.Optional(t.String()),
         reason_ru: t.Optional(t.String()),
         reason_uz: t.Optional(t.String()),
-        video_id: t.Optional(t.Nullable(t.String())),
+        video_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
         verification_type: t.Optional(
           t.Union([
             t.Literal("quiz"),
@@ -479,7 +496,7 @@ const passportControllerImpl = new Elysia({
             t.Literal("dual"),
           ])
         ),
-        quiz_test_id: t.Optional(t.Nullable(t.String())),
+        quiz_test_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
         observation_checklist: t.Optional(t.Any()),
         active: t.Optional(t.Boolean()),
       }),
@@ -517,7 +534,7 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      params: t.Object({ id: t.String() }),
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
       body: t.Object({
         sort: t.Optional(t.Number()),
         title_ru: t.Optional(t.String()),
@@ -528,7 +545,7 @@ const passportControllerImpl = new Elysia({
         key_point_uz: t.Optional(t.String()),
         reason_ru: t.Optional(t.String()),
         reason_uz: t.Optional(t.String()),
-        video_id: t.Optional(t.Nullable(t.String())),
+        video_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
         verification_type: t.Optional(
           t.Union([
             t.Literal("quiz"),
@@ -538,7 +555,7 @@ const passportControllerImpl = new Elysia({
             t.Literal("dual"),
           ])
         ),
-        quiz_test_id: t.Optional(t.Nullable(t.String())),
+        quiz_test_id: t.Optional(t.Nullable(t.String({ format: "uuid" }))),
         observation_checklist: t.Optional(t.Any()),
         active: t.Optional(t.Boolean()),
       }),
@@ -594,8 +611,8 @@ const passportControllerImpl = new Elysia({
     {
       permission: "passport.curriculum.publish",
       body: t.Object({
-        program_id: t.String(),
-        module_id: t.String(),
+        program_id: t.String({ format: "uuid" }),
+        module_id: t.String({ format: "uuid" }),
         sort: t.Optional(t.Number()),
         required: t.Optional(t.Boolean()),
         deadline_days: t.Optional(t.Nullable(t.Number())),

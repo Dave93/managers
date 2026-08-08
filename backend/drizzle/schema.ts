@@ -1793,6 +1793,7 @@ export const passport_modules = pgTable("passport_modules", {
   status: passport_module_status("status").default("draft").notNull(),
   version: integer("version").default(1).notNull(),
   exam_test_id: uuid("exam_test_id"), // -> attestation_tests
+  parent_module_id: uuid("parent_module_id"), // root of the version chain (new-version fork)
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
 });

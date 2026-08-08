@@ -1,0 +1,1 @@
+ALTER TABLE "passport_modules" ADD COLUMN "parent_module_id" uuid;
