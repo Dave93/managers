@@ -1,18 +1,139 @@
 import { ctx } from "@backend/context";
 import {
+  attestation_test_attempt_answers,
+  attestation_test_attempts,
+  attestation_test_question_options,
+  attestation_test_questions,
+  attestation_tests,
   passport_enrollments,
   passport_invites,
+  passport_modules,
+  passport_program_modules,
+  passport_programs,
+  passport_signoffs,
+  passport_stamps,
   passport_tg_bindings,
+  passport_topic_progress,
+  passport_topics,
 } from "backend/drizzle/schema";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { randomUUID } from "crypto";
 import { parseInviteStartParam, verifyInitData } from "./tg-auth";
 import {
   PASSPORT_TG_SESSION_TTL_SEC,
+  passportTgCtx,
   passportTgSessionKey,
   type PassportTgSession,
 } from "./tg-ctx";
+import { deadlineStatus, parseTimestamp } from "./deadline";
+import {
+  hasObservation,
+  hasQuiz,
+  levelAfterMaterialOpened,
+  levelAfterQuizPassed,
+  type VerificationType,
+} from "./state";
+import {
+  gradeAttempt,
+  pickQuestionIds,
+  shuffleWithRng,
+  type GradableQuestion,
+} from "@backend/modules/attestation/grading";
+
+// attestation_test_attempts.launched_by_user_id is NOT NULL in the database
+// (no FK, and nothing in the codebase ever reads or joins on it — only the
+// kiosk insert writes it). A miniapp attempt has no launching manager, so it
+// gets the all-zero uuid: it can never collide with a real users.id, and it
+// reads as "nobody" instead of pinning the attempt on the HR person who
+// created the enrollment. Relaxing the column to nullable is a follow-up.
+const NO_LAUNCHER_USER_ID = "00000000-0000-0000-0000-000000000000";
+
+const QUIZ_COOLDOWN_SEC = 3600;
+const QUIZ_FAIL_LIMIT = 2;
+
+// Prefixed like every other key in this codebase (see passportTgSessionKey):
+// the plan text spells the key without PROJECT_PREFIX, but an unprefixed key
+// would collide across the deployments sharing this Redis.
+function quizCooldownKey(enrollmentId: string, topicId: string): string {
+  return `${process.env.PROJECT_PREFIX}passport_quiz_cd:${enrollmentId}:${topicId}`;
+}
+
+// x-real-ip only, on purpose. The first hop of x-forwarded-for is whatever the
+// client sent, so falling back to it would let the phone dictate the IP written
+// into its own audit journal. nginx sets x-real-ip in front of this service.
+function clientIp(headers: Record<string, string | undefined>): string | null {
+  const ip = headers["x-real-ip"]?.trim();
+  return ip ? ip.slice(0, 64) : null;
+}
+
+// These routes are the TRAINEE's. `passportTgCtx` also admits mentor sessions
+// (user_id set, employee_id null); letting one through would build queries
+// around a null employee id. Fails closed if tgSession is somehow absent.
+function traineeOrForbidden(
+  tgSession: PassportTgSession | undefined,
+  set: { status?: number | string }
+): { employee_id: string } | null {
+  if (!tgSession || tgSession.role !== "trainee" || !tgSession.employee_id) {
+    set.status = 403;
+    return null;
+  }
+  return { employee_id: tgSession.employee_id };
+}
+
+// The ONE enrollment a session may touch. An employee can accumulate several
+// (re-enrolled after a failure, or moved to a second program), so this is
+// resolved in exactly one place and reused by every endpoint: /me and the quiz
+// routes can never end up disagreeing about which passport is open. Active
+// only, newest first.
+async function loadTraineeEnrollment(drizzle: any, employeeId: string) {
+  const [enrollment] = await drizzle
+    .select()
+    .from(passport_enrollments)
+    .where(
+      and(
+        eq(passport_enrollments.employee_id, employeeId),
+        eq(passport_enrollments.status, "active")
+      )
+    )
+    .orderBy(desc(passport_enrollments.started_at))
+    .limit(1)
+    .execute();
+  return enrollment ?? null;
+}
+
+// Topic lookup that IS the authorization check: the joins require the topic's
+// module to be published AND linked to this enrollment's program. A topic id
+// copied from another trainee's program comes back null -> 404, never served.
+async function loadTopicInEnrollment(
+  drizzle: any,
+  topicId: string,
+  programId: string
+) {
+  const [row] = await drizzle
+    .select({ topic: passport_topics })
+    .from(passport_topics)
+    .innerJoin(
+      passport_modules,
+      eq(passport_modules.id, passport_topics.module_id)
+    )
+    .innerJoin(
+      passport_program_modules,
+      and(
+        eq(passport_program_modules.module_id, passport_modules.id),
+        eq(passport_program_modules.program_id, programId)
+      )
+    )
+    .where(
+      and(
+        eq(passport_topics.id, topicId),
+        eq(passport_topics.active, true),
+        eq(passport_modules.status, "published")
+      )
+    )
+    .execute();
+  return row?.topic ?? null;
+}
 
 // Telegram miniapp entry point.
 //
@@ -216,6 +337,672 @@ const passportTgControllerImpl = new Elysia({
     {
       body: t.Object({
         init_data: t.String(),
+      }),
+    }
+  )
+  // ---------------------------------------------------------------------
+  // Everything below is the trainee's own phone talking. `passportTgCtx` is
+  // mounted HERE, after /passport/tg/auth: Elysia applies a plugin's hooks
+  // only to routes registered after the `.use()`, so auth stays public while
+  // every route beneath requires a Bearer session. Verified live — a request
+  // with no Authorization header to /passport/tg/me returns
+  // 401 {"error":"unauthorized"}, and /passport/tg/auth still answers
+  // {"error":"bad_init_data"} rather than "unauthorized".
+  //
+  // Nothing here trusts the client for identity, scope, level or score: the
+  // enrollment comes from the session, the topic must belong to that
+  // enrollment's program, and levels only ever move through state.ts.
+  .use(passportTgCtx)
+  .get(
+    "/passport/tg/me",
+    async ({ tgSession, drizzle, set }) => {
+      const guard = traineeOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+
+      const enrollment = await loadTraineeEnrollment(drizzle, guard.employee_id);
+      if (!enrollment) {
+        set.status = 404;
+        return { error: "no_enrollment" };
+      }
+
+      const [program] = await drizzle
+        .select()
+        .from(passport_programs)
+        .where(eq(passport_programs.id, enrollment.program_id))
+        .execute();
+
+      // Only published modules of THIS program, in the program's own order.
+      const links = await drizzle
+        .select({ link: passport_program_modules, module: passport_modules })
+        .from(passport_program_modules)
+        .innerJoin(
+          passport_modules,
+          eq(passport_modules.id, passport_program_modules.module_id)
+        )
+        .where(
+          and(
+            eq(passport_program_modules.program_id, enrollment.program_id),
+            eq(passport_modules.status, "published")
+          )
+        )
+        .orderBy(asc(passport_program_modules.sort))
+        .execute();
+
+      const moduleIds = links.map((l: any) => l.module.id);
+      const topics = moduleIds.length
+        ? await drizzle
+            .select()
+            .from(passport_topics)
+            .where(
+              and(
+                inArray(passport_topics.module_id, moduleIds),
+                eq(passport_topics.active, true)
+              )
+            )
+            .orderBy(asc(passport_topics.sort))
+            .execute()
+        : [];
+
+      const progress = await drizzle
+        .select()
+        .from(passport_topic_progress)
+        .where(eq(passport_topic_progress.enrollment_id, enrollment.id))
+        .execute();
+      const levelByTopic = new Map<string, number>(
+        progress.map((p: any) => [p.topic_id, p.level])
+      );
+
+      const stamps = await drizzle
+        .select()
+        .from(passport_stamps)
+        .where(eq(passport_stamps.enrollment_id, enrollment.id))
+        .execute();
+
+      const nowMs = Date.now();
+      return {
+        enrollment: {
+          id: enrollment.id,
+          status: enrollment.status,
+          started_at: enrollment.started_at,
+          probation_deadline: enrollment.probation_deadline,
+          terminal_id: enrollment.terminal_id,
+          program_id: enrollment.program_id,
+        },
+        program: program
+          ? {
+              id: program.id,
+              position: program.position,
+              title_ru: program.title_ru,
+              title_uz: program.title_uz,
+            }
+          : null,
+        modules: links.map((l: any) => ({
+          module: {
+            id: l.module.id,
+            title_ru: l.module.title_ru,
+            title_uz: l.module.title_uz,
+            brand: l.module.brand,
+            version: l.module.version,
+            owner_department: l.module.owner_department,
+          },
+          sort: l.link.sort,
+          required: l.link.required,
+          deadline_days: l.link.deadline_days,
+          ...deadlineStatus(
+            enrollment.started_at,
+            l.link.deadline_days,
+            nowMs
+          ),
+          topics: topics
+            .filter((tp: any) => tp.module_id === l.module.id)
+            .map((tp: any) => ({
+              topic: {
+                id: tp.id,
+                sort: tp.sort,
+                title_ru: tp.title_ru,
+                title_uz: tp.title_uz,
+                step_ru: tp.step_ru,
+                step_uz: tp.step_uz,
+                key_point_ru: tp.key_point_ru,
+                key_point_uz: tp.key_point_uz,
+                reason_ru: tp.reason_ru,
+                reason_uz: tp.reason_uz,
+                video_id: tp.video_id,
+                verification_type: tp.verification_type,
+                // The quiz test id itself stays server-side; the client only
+                // needs to know whether the button exists.
+                has_quiz:
+                  hasQuiz(tp.verification_type as VerificationType) &&
+                  tp.quiz_test_id != null,
+                has_observation: hasObservation(
+                  tp.verification_type as VerificationType
+                ),
+              },
+              level: levelByTopic.get(tp.id) ?? 0,
+            })),
+        })),
+        stamps: stamps.map((s: any) => ({
+          id: s.id,
+          type: s.type,
+          module_id: s.module_id,
+          issued_at: s.issued_at,
+          valid_until: s.valid_until,
+        })),
+      };
+    }
+  )
+  // ---- material opened (idempotent) ----
+  .post(
+    "/passport/tg/topics/:id/opened",
+    async ({ tgSession, params: { id }, drizzle, headers, set }) => {
+      const guard = traineeOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+
+      const enrollment = await loadTraineeEnrollment(drizzle, guard.employee_id);
+      if (!enrollment) {
+        set.status = 404;
+        return { error: "no_enrollment" };
+      }
+      const topic = await loadTopicInEnrollment(
+        drizzle,
+        id,
+        enrollment.program_id
+      );
+      if (!topic) {
+        set.status = 404;
+        return { error: "topic_not_found" };
+      }
+
+      const ip = clientIp(headers);
+      // The whole read-modify-write is one transaction and the progress row is
+      // locked FOR UPDATE. A double-tap on the phone fires two identical
+      // requests; without the lock both would read level 0 and both would
+      // journal `material_opened`. With it, the loser re-reads the committed
+      // level 1, sees no transition, and writes nothing.
+      const result = await drizzle.transaction(async (tx: any) => {
+        await tx
+          .insert(passport_topic_progress)
+          .values({ enrollment_id: enrollment.id, topic_id: topic.id, level: 0 })
+          .onConflictDoNothing({
+            target: [
+              passport_topic_progress.enrollment_id,
+              passport_topic_progress.topic_id,
+            ],
+          })
+          .execute();
+
+        const [row] = await tx
+          .select()
+          .from(passport_topic_progress)
+          .where(
+            and(
+              eq(passport_topic_progress.enrollment_id, enrollment.id),
+              eq(passport_topic_progress.topic_id, topic.id)
+            )
+          )
+          .for("update")
+          .execute();
+
+        const current: number = row?.level ?? 0;
+        const next = levelAfterMaterialOpened(current);
+        if (next === current) return { level: current, recorded: false };
+
+        await tx
+          .update(passport_topic_progress)
+          .set({ level: next, updated_at: sql`now()` })
+          .where(eq(passport_topic_progress.id, row.id))
+          .execute();
+
+        await tx
+          .insert(passport_signoffs)
+          .values({
+            enrollment_id: enrollment.id,
+            topic_id: topic.id,
+            module_id: topic.module_id,
+            action: "material_opened",
+            actor_employee_id: guard.employee_id,
+            terminal_id: enrollment.terminal_id,
+            ip,
+            meta: { source: "miniapp" },
+          })
+          .execute();
+
+        return { level: next, recorded: true };
+      });
+
+      return result;
+    },
+    { params: t.Object({ id: t.String({ format: "uuid" }) }) }
+  )
+  // ---- quiz start (attestation engine, source=miniapp) ----
+  .post(
+    "/passport/tg/quiz/:topicId/start",
+    async ({ tgSession, params: { topicId }, drizzle, redis, set }) => {
+      const guard = traineeOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+
+      const enrollment = await loadTraineeEnrollment(drizzle, guard.employee_id);
+      if (!enrollment) {
+        set.status = 404;
+        return { error: "no_enrollment" };
+      }
+      const topic = await loadTopicInEnrollment(
+        drizzle,
+        topicId,
+        enrollment.program_id
+      );
+      if (!topic) {
+        set.status = 404;
+        return { error: "topic_not_found" };
+      }
+      if (
+        !hasQuiz(topic.verification_type as VerificationType) ||
+        !topic.quiz_test_id
+      ) {
+        set.status = 400;
+        return { error: "no_quiz" };
+      }
+
+      const [progress] = await drizzle
+        .select()
+        .from(passport_topic_progress)
+        .where(
+          and(
+            eq(passport_topic_progress.enrollment_id, enrollment.id),
+            eq(passport_topic_progress.topic_id, topic.id)
+          )
+        )
+        .execute();
+
+      // Level >= 2 means the quiz is already behind them (a failed recheck
+      // rolls back to 2, i.e. re-observation, never back to the quiz).
+      if ((progress?.level ?? 0) >= 2) {
+        set.status = 409;
+        return { error: "already_passed", level: progress.level };
+      }
+
+      // Anti-brute-force. Two consecutive failures inside the window park the
+      // topic for an hour; the counter is cleared on a pass.
+      const cdKey = quizCooldownKey(enrollment.id, topic.id);
+      const fails = parseInt((await redis.get(cdKey)) ?? "0", 10);
+      if (fails >= QUIZ_FAIL_LIMIT) {
+        const ttl = await redis.ttl(cdKey);
+        set.status = 429;
+        return {
+          error: "cooldown",
+          retry_after_sec: ttl > 0 ? ttl : QUIZ_COOLDOWN_SEC,
+        };
+      }
+
+      const [test] = await drizzle
+        .select()
+        .from(attestation_tests)
+        .where(eq(attestation_tests.id, topic.quiz_test_id))
+        .execute();
+      if (!test || !test.active) {
+        set.status = 404;
+        return { error: "test_not_found" };
+      }
+
+      const questions = await drizzle
+        .select()
+        .from(attestation_test_questions)
+        .where(
+          and(
+            eq(attestation_test_questions.test_id, test.id),
+            eq(attestation_test_questions.active, true)
+          )
+        )
+        .execute();
+      if (!questions.length) {
+        set.status = 400;
+        return { error: "test_has_no_questions" };
+      }
+
+      const rng = Math.random;
+
+      // Sampling is a pure read of immutable rows, so it happens outside the
+      // lock; whether this sampled paper is actually used is decided inside it.
+      const pickedIds = pickQuestionIds(
+        questions.map((q: any) => q.id),
+        test.questions_per_attempt,
+        rng
+      );
+      const candidateIds = test.shuffle_questions
+        ? shuffleWithRng(pickedIds, rng)
+        : pickedIds;
+
+      // Same lock discipline as /opened, and for a sharper reason than tidy
+      // rows: the reuse branch below is what stops a trainee from re-rolling
+      // the paper to enumerate the question bank. Read-then-write would let two
+      // simultaneous taps on "start" each mint their own attempt — with
+      // questions_per_attempt set that is N freshly sampled papers for free,
+      // and the cooldown cannot catch it because it only counts SUBMITTED
+      // failures. The progress row is the lock, and it is taken first here
+      // exactly as in /opened, so the two endpoints cannot invert on each other.
+      const outcome = await drizzle.transaction(async (tx: any) => {
+        await tx
+          .insert(passport_topic_progress)
+          .values({ enrollment_id: enrollment.id, topic_id: topic.id, level: 0 })
+          .onConflictDoNothing({
+            target: [
+              passport_topic_progress.enrollment_id,
+              passport_topic_progress.topic_id,
+            ],
+          })
+          .execute();
+
+        const [row] = await tx
+          .select()
+          .from(passport_topic_progress)
+          .where(
+            and(
+              eq(passport_topic_progress.enrollment_id, enrollment.id),
+              eq(passport_topic_progress.topic_id, topic.id)
+            )
+          )
+          .for("update")
+          .execute();
+
+        // Re-checked under the lock, not just in the pre-flight above: a submit
+        // that passed while this request was in flight has to win.
+        if (row.level >= 2) return { passed_already: row.level as number };
+
+        // A reload of the miniapp must not re-roll the paper or restart the
+        // clock: an attempt already in flight for THIS topic is re-served.
+        if (row.quiz_attempt_id) {
+          const [live] = await tx
+            .select()
+            .from(attestation_test_attempts)
+            .where(eq(attestation_test_attempts.id, row.quiz_attempt_id))
+            .execute();
+          if (live && live.status === "in_progress" && live.test_id === test.id) {
+            return {
+              id: live.id as string,
+              started_at: live.started_at as string,
+              question_ids: live.question_ids as string[],
+            };
+          }
+        }
+
+        const [attempt] = await tx
+          .insert(attestation_test_attempts)
+          .values({
+            test_id: test.id,
+            employee_id: guard.employee_id,
+            // Server-derived, never client-supplied.
+            terminal_id: enrollment.terminal_id,
+            // No manager launches a miniapp attempt. The column is NOT NULL
+            // in the DB (and carries no FK), so the "nobody" sentinel stands
+            // in until it is relaxed to nullable — see the note in the task
+            // report. `source` is what actually distinguishes these rows.
+            launched_by_user_id: NO_LAUNCHER_USER_ID,
+            status: "in_progress",
+            question_ids: candidateIds,
+            source: "miniapp",
+          })
+          .returning({
+            id: attestation_test_attempts.id,
+            started_at: attestation_test_attempts.started_at,
+          })
+          .execute();
+
+        // The progress row is what binds an attempt to (enrollment, topic) —
+        // attestation attempts know nothing about the passport. Submit
+        // re-checks this link, so it is also the anti-tamper anchor.
+        await tx
+          .update(passport_topic_progress)
+          .set({ quiz_attempt_id: attempt.id, updated_at: sql`now()` })
+          .where(eq(passport_topic_progress.id, row.id))
+          .execute();
+
+        return {
+          id: attempt.id as string,
+          started_at: attempt.started_at as string,
+          question_ids: candidateIds,
+        };
+      });
+
+      if ("passed_already" in outcome) {
+        set.status = 409;
+        return { error: "already_passed", level: outcome.passed_already };
+      }
+      const attemptId: string = outcome.id;
+      const startedAt: string = outcome.started_at;
+      const orderedIds: string[] = outcome.question_ids;
+      const options = await drizzle
+        .select()
+        .from(attestation_test_question_options)
+        .where(
+          inArray(attestation_test_question_options.question_id, orderedIds)
+        )
+        .execute();
+      const qById = new Map(questions.map((q: any) => [q.id, q]));
+
+      return {
+        attempt_id: attemptId,
+        started_at: startedAt,
+        time_limit_minutes: test.time_limit_minutes,
+        passing_score: test.passing_score,
+        questions: orderedIds
+          .filter((qid) => qById.has(qid))
+          .map((qid) => {
+            const q: any = qById.get(qid);
+            const opts = options
+              .filter((o: any) => o.question_id === qid)
+              // NO is_correct ever leaves the server.
+              .map((o: any) => ({ id: o.id, text: o.text }));
+            return {
+              id: q.id,
+              text: q.text,
+              type: q.type,
+              options: test.shuffle_options ? shuffleWithRng(opts, rng) : opts,
+            };
+          }),
+      };
+    },
+    { params: t.Object({ topicId: t.String({ format: "uuid" }) }) }
+  )
+  // ---- quiz submit ----
+  .post(
+    "/passport/tg/quiz/:topicId/submit",
+    async ({ tgSession, params: { topicId }, body, drizzle, redis, headers, set }) => {
+      const guard = traineeOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+
+      const enrollment = await loadTraineeEnrollment(drizzle, guard.employee_id);
+      if (!enrollment) {
+        set.status = 404;
+        return { error: "no_enrollment" };
+      }
+      const topic = await loadTopicInEnrollment(
+        drizzle,
+        topicId,
+        enrollment.program_id
+      );
+      if (!topic) {
+        set.status = 404;
+        return { error: "topic_not_found" };
+      }
+
+      const [progress] = await drizzle
+        .select()
+        .from(passport_topic_progress)
+        .where(
+          and(
+            eq(passport_topic_progress.enrollment_id, enrollment.id),
+            eq(passport_topic_progress.topic_id, topic.id)
+          )
+        )
+        .execute();
+
+      // Four independent locks on the attempt, all server-side: it must be the
+      // one THIS enrollment started for THIS topic, it must belong to this
+      // employee, it must be this topic's test, and it must still be open.
+      // Any one of them failing means the phone is asking for somebody else's
+      // paper (or a replay of its own).
+      if (!progress || progress.quiz_attempt_id !== body.attempt_id) {
+        set.status = 404;
+        return { error: "attempt_not_found" };
+      }
+      const [attempt] = await drizzle
+        .select()
+        .from(attestation_test_attempts)
+        .where(eq(attestation_test_attempts.id, body.attempt_id))
+        .execute();
+      if (
+        !attempt ||
+        attempt.employee_id !== guard.employee_id ||
+        attempt.test_id !== topic.quiz_test_id
+      ) {
+        set.status = 404;
+        return { error: "attempt_not_found" };
+      }
+      if (attempt.status !== "in_progress") {
+        set.status = 409;
+        return { error: "attempt_already_finalized" };
+      }
+
+      const [test] = await drizzle
+        .select()
+        .from(attestation_tests)
+        .where(eq(attestation_tests.id, attempt.test_id))
+        .execute();
+
+      const nowMs = Date.now();
+      const startedMs = parseTimestamp(attempt.started_at);
+      const overTime =
+        test.time_limit_minutes != null &&
+        nowMs > startedMs + test.time_limit_minutes * 60_000;
+
+      const questionIds = attempt.question_ids as string[];
+      const questions = await drizzle
+        .select()
+        .from(attestation_test_questions)
+        .where(inArray(attestation_test_questions.id, questionIds))
+        .execute();
+      const options = await drizzle
+        .select()
+        .from(attestation_test_question_options)
+        .where(
+          inArray(attestation_test_question_options.question_id, questionIds)
+        )
+        .execute();
+
+      const gradable: GradableQuestion[] = questions.map((q: any) => ({
+        id: q.id,
+        type: q.type as "single" | "multi",
+        correctOptionIds: options
+          .filter((o: any) => o.question_id === q.id && o.is_correct)
+          .map((o: any) => o.id),
+      }));
+
+      // Score comes from the engine over the server's own question set; the
+      // body only ever contributes selections.
+      const answerMap: Record<string, string[]> = {};
+      for (const a of body.answers) answerMap[a.question_id] = a.selected_option_ids;
+      const { score } = gradeAttempt(gradable, answerMap);
+      const passed = !overTime && score >= test.passing_score;
+      const nowIso = new Date().toISOString();
+      const expires_at =
+        passed && test.valid_months != null
+          ? new Date(nowMs + test.valid_months * 30 * 86400_000).toISOString()
+          : null;
+
+      const qTextById = new Map(questions.map((q: any) => [q.id, q.text]));
+      const gradableById = new Map(gradable.map((g) => [g.id, g]));
+      const snapshotRows = questionIds
+        .filter((qid) => gradableById.has(qid))
+        .map((qid) => {
+          const selected = answerMap[qid] ?? [];
+          const g = gradableById.get(qid)!;
+          return {
+            attempt_id: attempt.id,
+            question_id: qid,
+            question_text: (qTextById.get(qid) as string) ?? "",
+            selected_option_ids: selected,
+            is_correct:
+              selected.length > 0 &&
+              selected.length === g.correctOptionIds.length &&
+              selected.every((s) => g.correctOptionIds.includes(s)),
+          };
+        });
+
+      const ip = clientIp(headers);
+      const level = await drizzle.transaction(async (tx: any) => {
+        if (snapshotRows.length) {
+          await tx
+            .insert(attestation_test_attempt_answers)
+            .values(snapshotRows)
+            .execute();
+        }
+        await tx
+          .update(attestation_test_attempts)
+          .set({
+            status: overTime ? "expired" : "submitted",
+            submitted_at: nowIso,
+            score,
+            passed,
+            expires_at,
+          })
+          .where(eq(attestation_test_attempts.id, attempt.id))
+          .execute();
+
+        let nextLevel: number = progress.level;
+        if (passed) {
+          nextLevel = levelAfterQuizPassed(
+            progress.level,
+            topic.verification_type as VerificationType
+          );
+          await tx
+            .update(passport_topic_progress)
+            .set({ level: nextLevel, updated_at: sql`now()` })
+            .where(eq(passport_topic_progress.id, progress.id))
+            .execute();
+        }
+
+        await tx
+          .insert(passport_signoffs)
+          .values({
+            enrollment_id: enrollment.id,
+            topic_id: topic.id,
+            module_id: topic.module_id,
+            action: passed ? "quiz_passed" : "quiz_failed",
+            actor_employee_id: guard.employee_id,
+            terminal_id: enrollment.terminal_id,
+            ip,
+            meta: {
+              source: "miniapp",
+              attempt_id: attempt.id,
+              score,
+              expired: overTime,
+            },
+          })
+          .execute();
+
+        return nextLevel;
+      });
+
+      const cdKey = quizCooldownKey(enrollment.id, topic.id);
+      if (passed) {
+        await redis.del(cdKey);
+      } else {
+        await redis.incr(cdKey);
+        await redis.expire(cdKey, QUIZ_COOLDOWN_SEC);
+      }
+
+      return { attempt_id: attempt.id, score, passed, expired: overTime, level };
+    },
+    {
+      params: t.Object({ topicId: t.String({ format: "uuid" }) }),
+      body: t.Object({
+        attempt_id: t.String({ format: "uuid" }),
+        answers: t.Array(
+          t.Object({
+            question_id: t.String({ format: "uuid" }),
+            selected_option_ids: t.Array(t.String({ format: "uuid" })),
+          })
+        ),
       }),
     }
   );
