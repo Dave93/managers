@@ -67,37 +67,92 @@ const passportTgControllerImpl = new Elysia({
 
       const inviteId = parseInviteStartParam(verified.startParam);
       if (inviteId) {
-        // Single-use redemption, concurrency-safe: the WHERE clause is the
-        // lock. Only the transaction whose UPDATE matches an unused, unexpired
-        // row gets a RETURNING row; a second concurrent redemption of the same
-        // invite matches nothing and falls through to the binding lookup
-        // below (403 no_access if that user has no binding of their own).
-        // Both predicates use in-DB now() rather than a JS timestamp.
-        const [redeemed] = await drizzle
-          .update(passport_invites)
-          .set({ used_at: sql`now()` })
-          .where(
-            and(
-              eq(passport_invites.id, inviteId),
-              isNull(passport_invites.used_at),
-              sql`${passport_invites.expires_at} > now()`
-            )
+        // Pre-flight: WHOSE invite is this? An invite must never be able to
+        // repoint an account that is already bound to somebody else.
+        //
+        // Without this check, trainee A scanning trainee B's QR code would burn
+        // B's invite AND have A's binding silently rewritten to employee B —
+        // A then reads and completes B's training record. Same shape for a
+        // mentor binding (user_id set, employee_id null): the upsert would
+        // write employee_id, and since role resolution is
+        // `employee_id ? "trainee" : "mentor"`, the mentor would silently lose
+        // mentor access.
+        //
+        // This read only REFUSES early. It is not the claim — the conditional
+        // UPDATE below remains the single atomic claim on the invite, so the
+        // concurrency property is untouched. And, exactly like the `banned`
+        // check above, a refusal here does NOT touch used_at: a bystander must
+        // not be able to burn someone else's invite.
+        const [target] = await drizzle
+          .select({ employee_id: passport_enrollments.employee_id })
+          .from(passport_invites)
+          .innerJoin(
+            passport_enrollments,
+            eq(passport_enrollments.id, passport_invites.enrollment_id)
           )
-          .returning({ enrollment_id: passport_invites.enrollment_id })
+          .where(eq(passport_invites.id, inviteId))
           .execute();
 
-        if (redeemed) {
-          const [enrollment] = await drizzle
-            .select({ employee_id: passport_enrollments.employee_id })
-            .from(passport_enrollments)
-            .where(eq(passport_enrollments.id, redeemed.enrollment_id))
-            .execute();
+        // No such invite: nothing to claim, and the conditional UPDATE below
+        // would match nothing anyway. Fall through to the binding lookup.
+        if (target) {
+          const boundElsewhere =
+            existing != null &&
+            (existing.user_id != null ||
+              (existing.employee_id != null &&
+                existing.employee_id !== target.employee_id));
+          if (boundElsewhere) {
+            set.status = 403;
+            return { error: "wrong_account" };
+          }
 
-          if (enrollment) {
+          // All-or-nothing. The redeem used to commit independently of the
+          // binding upsert, so an error in between left the invite burned with
+          // no binding — the trainee locked out until HR reissued. Every
+          // statement below uses `tx`, never the outer `drizzle`: mixing the
+          // two silently runs the statement outside the transaction.
+          const saved = await drizzle.transaction(async (tx) => {
+            // Single-use redemption, concurrency-safe: the WHERE clause is the
+            // lock. Only the transaction whose UPDATE matches an unused,
+            // unexpired row gets a RETURNING row; a second concurrent
+            // redemption of the same invite matches nothing and falls through
+            // to the binding lookup below (403 no_access if that user has no
+            // binding of their own). Both time predicates use in-DB now()
+            // rather than a JS timestamp.
+            const [redeemed] = await tx
+              .update(passport_invites)
+              .set({ used_at: sql`now()` })
+              .where(
+                and(
+                  eq(passport_invites.id, inviteId),
+                  isNull(passport_invites.used_at),
+                  sql`${passport_invites.expires_at} > now()`
+                )
+              )
+              .returning({ enrollment_id: passport_invites.enrollment_id })
+              .execute();
+
+            // Already used, or expired. Re-entry with an invite this account
+            // already redeemed lands here and is fine: the binding lookup
+            // outside still issues a session.
+            if (!redeemed) return null;
+
+            const [enrollment] = await tx
+              .select({ employee_id: passport_enrollments.employee_id })
+              .from(passport_enrollments)
+              .where(eq(passport_enrollments.id, redeemed.enrollment_id))
+              .execute();
+            // Unreachable in practice (enrollment_id is an FK), but throwing
+            // rather than returning is the point: it rolls the burn back
+            // instead of committing a consumed invite with no binding.
+            if (!enrollment) {
+              throw new Error("passport: invite points at a missing enrollment");
+            }
+
             // `banned` and `lang` are intentionally absent from the update
             // set: a banned trainee must not be able to clear the flag by
             // redeeming a new invite, and a chosen UI language must survive.
-            const [saved] = await drizzle
+            const [row] = await tx
               .insert(passport_tg_bindings)
               .values({
                 telegram_id: verified.telegramId,
@@ -113,8 +168,9 @@ const passportTgControllerImpl = new Elysia({
               })
               .returning()
               .execute();
-            binding = saved ?? binding;
-          }
+            return row ?? null;
+          });
+          binding = saved ?? binding;
         }
       }
 
