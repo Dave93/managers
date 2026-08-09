@@ -51,18 +51,33 @@ function quizCooldownKey(enrollmentId: string, topicId: string): string {
   return `${process.env.PROJECT_PREFIX}passport_quiz_cd:${enrollmentId}:${topicId}`;
 }
 
-// Order matters here, and it is the opposite of the usual behind-a-proxy
-// instinct: the SOCKET PEER first, headers only as a fallback. This service's
-// vhost does not set x-real-ip today — nginx forwards whatever the client sent
-// — so a header-first read gave every honest phone `ip = null` while letting a
-// malicious one write its own audit trail. A peer address cannot be forged by
-// the client.
+// Order matters here, and it is now the OPPOSITE of what it was at first
+// commit: `x-real-ip` FIRST, the socket peer only as a fallback.
 //
-// FOLLOW-UP owned by the deploy task (which owns the nginx half): once the
-// vhost sets x-real-ip, the peer becomes the proxy's loopback address and this
-// order must flip to "trust x-real-ip when the peer IS the local proxy".
-// Flipping it before the vhost is fixed would simply re-open the forgery, which
-// is why it is not done here.
+// It flipped because the deploy added the nginx half. The
+// `api.office.lesailes.uz` vhost sets `proxy_set_header X-Real-IP $remote_addr`
+// directly in its one proxying `location /` (NOT via `include proxy_params` --
+// do not grep for that and conclude otherwise), so nginx OVERWRITES the header
+// with the real peer on every single request: a client-supplied `X-Real-IP` is
+// destroyed before the app ever sees it, and is therefore no longer forgeable.
+// Meanwhile the socket peer is now nginx's own loopback address, so a
+// peer-first read would stamp `127.0.0.1` into every journal row forever --
+// and `passport_signoffs` is append-only, so those rows could never be
+// repaired, blinding the fraud detector that compares trainee/mentor IPs and
+// subnets.
+//
+// The peer fallback survives for direct/local calls (tests, curl on the box).
+// That is safe because the upstream port is not reachable from the internet:
+// ufw allows only "Nginx Full" and "OpenSSH", and the upstream is bound to
+// 127.0.0.1.
+//
+// `x-forwarded-for` is deliberately NEVER read: nginx APPENDS to it rather than
+// overwriting it, so it still carries client-controlled values.
+//
+// This helper is kept byte-identical to its twin -- adminClientIp in
+// controller.ts -- on purpose:
+// the trainee side and the mentor side must record IPs the same way for the
+// comparison to mean anything.
 function clientIp(
   server:
     | { requestIP?: (req: Request) => { address?: string } | null }
@@ -71,10 +86,10 @@ function clientIp(
   request: Request,
   headers: Record<string, string | undefined>
 ): string | null {
-  const peer = server?.requestIP?.(request)?.address?.trim();
-  if (peer) return peer.slice(0, 64);
   const ip = headers["x-real-ip"]?.trim();
-  return ip ? ip.slice(0, 64) : null;
+  if (ip) return ip.slice(0, 64);
+  const peer = server?.requestIP?.(request)?.address?.trim();
+  return peer ? peer.slice(0, 64) : null;
 }
 
 // These routes are the TRAINEE's. `passportTgCtx` also admits mentor sessions

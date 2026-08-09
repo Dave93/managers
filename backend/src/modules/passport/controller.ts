@@ -158,16 +158,33 @@ class SignoffRefusal extends Error {
   }
 }
 
-// Client IP for the audit journal: the socket peer FIRST, `x-real-ip` only as a
-// fallback -- same order as the miniapp helper, and on this endpoint it is a
-// security property rather than a style choice. The nginx server block in front
-// of this service (`api.office.lesailes.uz`) does NOT `include proxy_params`, so
-// it does not overwrite `X-Real-IP`: a client-supplied one is forwarded
-// verbatim. Trusting the header first would let a mentor dictate the IP written
-// into their own sign-off row -- on the one endpoint whose whole purpose is
-// evidence. The peer is therefore the honest value even though, behind nginx, it
-// is the loopback address; making it informative is a one-line nginx change, not
-// a change here. `x-forwarded-for` is never read, for the same reason.
+// Order matters here, and it is now the OPPOSITE of what it was at first
+// commit: `x-real-ip` FIRST, the socket peer only as a fallback.
+//
+// It flipped because the deploy added the nginx half. The
+// `api.office.lesailes.uz` vhost sets `proxy_set_header X-Real-IP $remote_addr`
+// directly in its one proxying `location /` (NOT via `include proxy_params` --
+// do not grep for that and conclude otherwise), so nginx OVERWRITES the header
+// with the real peer on every single request: a client-supplied `X-Real-IP` is
+// destroyed before the app ever sees it, and is therefore no longer forgeable.
+// Meanwhile the socket peer is now nginx's own loopback address, so a
+// peer-first read would stamp `127.0.0.1` into every journal row forever --
+// and `passport_signoffs` is append-only, so those rows could never be
+// repaired, blinding the fraud detector that compares trainee/mentor IPs and
+// subnets.
+//
+// The peer fallback survives for direct/local calls (tests, curl on the box).
+// That is safe because the upstream port is not reachable from the internet:
+// ufw allows only "Nginx Full" and "OpenSSH", and the upstream is bound to
+// 127.0.0.1.
+//
+// `x-forwarded-for` is deliberately NEVER read: nginx APPENDS to it rather than
+// overwriting it, so it still carries client-controlled values.
+//
+// This helper is kept byte-identical to its twin -- clientIp in
+// tg-controller.ts -- on purpose:
+// the trainee side and the mentor side must record IPs the same way for the
+// comparison to mean anything.
 function adminClientIp(
   server:
     | { requestIP?: (req: Request) => { address?: string } | null }
@@ -176,10 +193,10 @@ function adminClientIp(
   request: Request,
   headers: Record<string, string | undefined>
 ): string | null {
+  const ip = headers["x-real-ip"]?.trim();
+  if (ip) return ip.slice(0, 64);
   const peer = server?.requestIP?.(request)?.address?.trim();
-  if (peer) return peer.slice(0, 64);
-  const fwd = headers["x-real-ip"]?.trim();
-  return fwd ? fwd.slice(0, 64) : null;
+  return peer ? peer.slice(0, 64) : null;
 }
 
 // Topic lookup that IS the authorization check, deliberately REPLICATED from
