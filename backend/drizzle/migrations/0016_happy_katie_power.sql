@@ -1,0 +1,1 @@
+ALTER TABLE "attestation_test_attempts" ALTER COLUMN "launched_by_user_id" DROP NOT NULL;

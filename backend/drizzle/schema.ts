@@ -1554,7 +1554,7 @@ export const attestation_test_attempts = pgTable("attestation_test_attempts", {
   test_id: uuid("test_id").notNull(),
   employee_id: uuid("employee_id").notNull(),
   terminal_id: uuid("terminal_id").notNull(),
-  launched_by_user_id: uuid("launched_by_user_id").notNull(),
+  launched_by_user_id: uuid("launched_by_user_id"),
   started_at: timestamp("started_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),

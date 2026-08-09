@@ -41,14 +41,6 @@ import {
   type GradableQuestion,
 } from "@backend/modules/attestation/grading";
 
-// attestation_test_attempts.launched_by_user_id is NOT NULL in the database
-// (no FK, and nothing in the codebase ever reads or joins on it — only the
-// kiosk insert writes it). A miniapp attempt has no launching manager, so it
-// gets the all-zero uuid: it can never collide with a real users.id, and it
-// reads as "nobody" instead of pinning the attempt on the HR person who
-// created the enrollment. Relaxing the column to nullable is a follow-up.
-const NO_LAUNCHER_USER_ID = "00000000-0000-0000-0000-000000000000";
-
 const QUIZ_COOLDOWN_SEC = 3600;
 const QUIZ_FAIL_LIMIT = 2;
 
@@ -750,11 +742,11 @@ const passportTgControllerImpl = new Elysia({
             employee_id: guard.employee_id,
             // Server-derived, never client-supplied.
             terminal_id: enrollment.terminal_id,
-            // No manager launches a miniapp attempt. The column is NOT NULL
-            // in the DB (and carries no FK), so the "nobody" sentinel stands
-            // in until it is relaxed to nullable — see the note in the task
-            // report. `source` is what actually distinguishes these rows.
-            launched_by_user_id: NO_LAUNCHER_USER_ID,
+            // No manager launches a miniapp attempt. The column is nullable
+            // since migration 0016 (and carries no FK), so the row records
+            // "nobody" honestly instead of an all-zero sentinel. `source` is
+            // what actually distinguishes these rows.
+            launched_by_user_id: null,
             status: "in_progress",
             question_ids: candidateIds,
             source: "miniapp",
