@@ -37,7 +37,6 @@ import {
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import {
   SortableContext,
-  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -82,6 +81,11 @@ import {
   publishTopics,
   topicMissingLangs,
 } from "./completeness";
+import {
+  persistSortAssignments,
+  planReorder,
+  type SortAssignment,
+} from "./reorder";
 import { LangPips, StatusDot } from "./status";
 import {
   apiMessage,
@@ -127,13 +131,22 @@ function VerificationIcon({ topic }: { topic: PassportTopic }) {
 
 function TopicRow({
   topic,
-  index,
+  label,
   module: mod,
   handlers,
   draggable,
 }: {
   topic: PassportTopic;
-  index: number;
+  /**
+   * The topic's position AS THE PUBLISH GATE COUNTS IT — 1-based over active
+   * topics ordered by `sort`, which is the exact list the 422 `topic N`
+   * labels and the readiness panel index into. An inactive topic gets «—»
+   * because it has no number in that list at all. Numbering the rendered rows
+   * 1..n instead would drift from the error list as soon as one topic is
+   * deactivated, and the title cannot rescue it precisely when title_ru is
+   * empty — which is itself one of the blockers being reported.
+   */
+  label: string;
   module: PassportModule;
   handlers: TreeHandlers;
   draggable: boolean;
@@ -175,7 +188,7 @@ function TopicRow({
         <span className="size-[18px] shrink-0" />
       )}
       <span className="w-4 shrink-0 text-right text-[10px] tabular-nums text-muted-foreground/60">
-        {index + 1}
+        {label}
       </span>
       <button
         type="button"
@@ -241,6 +254,15 @@ function ModuleNode({
     return { ru, uz };
   }, [mod.title_ru, mod.title_uz, ordered]);
 
+  // The numbers the 422 list and the readiness panel use. Built from the same
+  // publishTopics() the backend validator is fed, so «Тема 3» in an error
+  // always points at the row labelled 3 in the tree.
+  const publishIndex = useMemo(() => {
+    const m = new Map<string, number>();
+    publishTopics(ordered).forEach((t, i) => m.set(t.id, i + 1));
+    return m;
+  }, [ordered]);
+
   const unsignableCount = useMemo(
     () => publishTopics(ordered).filter((t) => isUnsignable(t.verification_type)).length,
     [ordered]
@@ -253,18 +275,15 @@ function ModuleNode({
   );
 
   const reorder = useMutation({
-    mutationFn: async (next: PassportTopic[]) => {
-      // Persist only the rows whose position actually moved, sequentially —
-      // a reorder normally touches 2-3 rows.
-      const changed = next
-        .map((t, i) => ({ t, i }))
-        .filter(({ t, i }) => t.sort !== i);
-      for (const { t, i } of changed) {
-        const { error } = await updateTopic(t.id, { sort: i });
-        if (error) throw new Error(apiMessage(error));
-      }
-      return changed.length;
-    },
+    // Takes the already-diffed assignments (see planReorder) rather than the
+    // renumbered list: diffing here would compare each row's sort against the
+    // index it had just been assigned, and never find a change.
+    mutationFn: (changed: SortAssignment[]) =>
+      persistSortAssignments(
+        changed,
+        async (id, sort) => await updateTopic(id, { sort }),
+        apiMessage
+      ),
     onError: (e: any) => {
       toast.error(`Порядок не сохранён: ${e?.message ?? "ошибка"}`);
       // Roll back to the server's truth rather than leaving the optimistic
@@ -282,14 +301,15 @@ function ModuleNode({
     const from = ids.indexOf(String(active.id));
     const to = ids.indexOf(String(over.id));
     if (from < 0 || to < 0) return;
-    const next = arrayMove(ordered, from, to).map((t, i) => ({ ...t, sort: i }));
+    const { next, changed } = planReorder(ordered, from, to);
+    if (!changed.length) return;
     // Optimistic: the row lands where it was dropped immediately; onError
     // above invalidates and the server order comes back.
     queryClient.setQueryData(qk.topics(mod.id), {
       total: next.length,
       data: next,
     });
-    reorder.mutate(next);
+    reorder.mutate(changed);
   };
 
   const selected = handlers.selectedModuleId === mod.id;
@@ -383,11 +403,11 @@ function ModuleNode({
             onDragEnd={onDragEnd}
           >
             <SortableContext items={ids} strategy={verticalListSortingStrategy}>
-              {ordered.map((t, i) => (
+              {ordered.map((t) => (
                 <TopicRow
                   key={t.id}
                   topic={t}
-                  index={i}
+                  label={String(publishIndex.get(t.id) ?? "—")}
                   module={mod}
                   handlers={handlers}
                   draggable={dragAllowed}

@@ -81,6 +81,21 @@ import {
   type CurriculumAccess,
 } from "./use-curriculum";
 
+// Deactivation is offered from two places (the action bar and the
+// unpublish-refused block). The consequence text is defined once so the second
+// entry point can never turn into a bare, unconfirmed destructive click.
+const DEACTIVATE_TITLE = "Снять модуль с обращения?";
+const DEACTIVATE_CONSEQUENCE = (
+  <>
+    <p>Модуль пропадёт из выдачи стажёрам и из списка модулей по умолчанию.</p>
+    <p>
+      Весь прогресс, подписи и стажировки <b>сохранятся</b> — это мягкое
+      снятие, а не удаление. Вернуть можно кнопкой «Вернуть в обращение»
+      (включите «Показывать снятые с обращения», чтобы его найти).
+    </p>
+  </>
+);
+
 function ConfirmAction({
   trigger,
   title,
@@ -159,6 +174,11 @@ export function ModulePanel({
   const [issues, setIssues] = useState<PublishIssue[] | null>(null);
   const [inUse, setInUse] = useState<{ rows: number } | null>(null);
 
+  // A module's readiness is meaningless until its topics have loaded: with an
+  // empty list the mirror correctly reports «нет активных тем», so a perfectly
+  // ready module would flash "не готов" on every selection — and the publish
+  // dialog would warn about blockers that do not exist.
+  const topicsUnknown = topicsLoading && topics.length === 0;
   const readiness = moduleReadiness(mod, topics);
   const inScope = access.canPublish || mod.owner_department === access.department;
   // "Frozen" for the edit button's label: published, foreign department, or no
@@ -428,7 +448,7 @@ export function ModulePanel({
                   тексты напрямую больше нельзя — только «Новая версия» или
                   снятие с публикации (пока по нему нет прогресса).
                 </p>
-                {!readiness.ready && (
+                {!topicsUnknown && !readiness.ready && (
                   <p className="text-amber-700 dark:text-amber-400">
                     Проверка уже сейчас показывает незакрытые пункты — публикация
                     скорее всего будет отклонена.
@@ -503,21 +523,8 @@ export function ModulePanel({
                 <CircleSlash className="mr-1.5 size-3.5" /> Деактивировать
               </Button>
             }
-            title="Снять модуль с обращения?"
-            description={
-              <>
-                <p>
-                  Модуль пропадёт из выдачи стажёрам и из списка модулей по
-                  умолчанию.
-                </p>
-                <p>
-                  Весь прогресс, подписи и стажировки <b>сохранятся</b> — это
-                  мягкое снятие, а не удаление. Вернуть можно кнопкой «Вернуть в
-                  обращение» (включите «Показывать снятые с обращения», чтобы
-                  его найти).
-                </p>
-              </>
-            }
+            title={DEACTIVATE_TITLE}
+            description={DEACTIVATE_CONSEQUENCE}
             confirmLabel="Деактивировать"
             destructive
             onConfirm={() => deactivate.mutate()}
@@ -595,13 +602,18 @@ export function ModulePanel({
                 </Button>
               )}
               {access.canPublish && mod.active && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => deactivate.mutate()}
-                >
-                  <CircleSlash className="mr-1.5 size-3.5" /> Деактивировать
-                </Button>
+                <ConfirmAction
+                  trigger={
+                    <Button size="sm" variant="outline">
+                      <CircleSlash className="mr-1.5 size-3.5" /> Деактивировать
+                    </Button>
+                  }
+                  title={DEACTIVATE_TITLE}
+                  description={DEACTIVATE_CONSEQUENCE}
+                  confirmLabel="Деактивировать"
+                  destructive
+                  onConfirm={() => deactivate.mutate()}
+                />
               )}
               <Button size="sm" variant="ghost" onClick={() => setInUse(null)}>
                 Закрыть
@@ -641,17 +653,21 @@ export function ModulePanel({
 
         <div>
           <div className="flex items-center gap-2">
-            {readiness.ready ? (
+            {topicsUnknown ? (
+              <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            ) : readiness.ready ? (
               <CheckCircle2 className="size-4 text-emerald-600" />
             ) : (
               <AlertTriangle className="size-4 text-amber-600" />
             )}
             <h3 className="text-[13px] font-semibold">
-              {readiness.ready
-                ? "Готов к публикации"
-                : "Не готов к публикации"}
+              {topicsUnknown
+                ? "Проверяем готовность…"
+                : readiness.ready
+                  ? "Готов к публикации"
+                  : "Не готов к публикации"}
             </h3>
-            {topicsLoading && (
+            {!topicsUnknown && topicsLoading && (
               <Loader2 className="size-3 animate-spin text-muted-foreground" />
             )}
           </div>
@@ -661,7 +677,7 @@ export function ModulePanel({
             и подписываемый тип проверки.
           </p>
 
-          {!readiness.ready && (
+          {!topicsUnknown && !readiness.ready && (
             <div className="mt-3 space-y-3">
               {readiness.moduleBlockers.length > 0 && (
                 <div>

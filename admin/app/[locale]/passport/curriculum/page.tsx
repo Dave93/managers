@@ -54,7 +54,16 @@ import {
   useTopics,
 } from "./_components/use-curriculum";
 
-function Metric({ label, value, tone }: { label: string; value: number; tone?: string }) {
+function Metric({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  /** A string («—») when the number is not knowable from the data on hand. */
+  value: number | string;
+  tone?: string;
+}) {
   return (
     <div className="flex min-w-0 flex-col">
       <span className={cn("text-[15px] font-semibold tabular-nums", tone)}>
@@ -190,7 +199,7 @@ export default function CurriculumPage() {
           <p className="text-[12px] text-muted-foreground">{t("subtitle")}</p>
         </div>
         <div className="flex items-center gap-2">
-          {access.canPublish && (
+          {access.ready && access.canPublish && (
             <Button
               variant="outline"
               size="sm"
@@ -199,7 +208,10 @@ export default function CurriculumPage() {
               <Plus className="mr-1.5 size-3.5" /> {t("newProgram")}
             </Button>
           )}
-          {access.canEdit && (
+          {/* access.ready gates both: canEdit/canPublish are false until
+              my_permissions resolves, so without it the action bar pops in a
+              beat after the page paints. */}
+          {access.ready && access.canEdit && (
             <Button
               size="sm"
               onClick={() => setModuleSheet({ open: true, module: null })}
@@ -307,7 +319,13 @@ export default function CurriculumPage() {
                 value={counts.review}
                 tone="text-amber-600 dark:text-amber-400"
               />
-              <Metric label={t("metricRetired")} value={counts.retired} />
+              {/* Retired modules are only in the lists when include_inactive
+                  is on; without the toggle this counter has no data, so it
+                  shows «—» instead of a confident, wrong 0. */}
+              <Metric
+                label={t("metricRetired")}
+                value={includeInactive ? counts.retired : "—"}
+              />
             </div>
 
             <div className="flex items-center justify-between gap-2">
