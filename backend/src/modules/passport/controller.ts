@@ -1235,8 +1235,18 @@ const passportControllerImpl = new Elysia({
       }
       if (query.terminal_id)
         where.push(eq(passport_enrollments.terminal_id, query.terminal_id));
-      if (query.status)
+      // Same vocabulary AND the same default as GET /passport/matrix, on
+      // purpose: the two screens are the same cohort seen two ways, and the
+      // admin drives both from one filter component. When this endpoint
+      // defaulted to "all history" while the matrix defaulted to the live
+      // cohort, the same branch showed 12 trainees on the grid and 40 in the
+      // list — a silent disagreement HR would read as "one of these screens is
+      // broken", and one that no error message would ever point at.
+      if (!query.status || query.status === "live") {
+        where.push(inArray(passport_enrollments.status, ["active", "paused"]));
+      } else if (query.status !== "all") {
         where.push(eq(passport_enrollments.status, query.status));
+      }
       if (query.employee_id)
         where.push(eq(passport_enrollments.employee_id, query.employee_id));
       if (query.program_id)
@@ -1289,8 +1299,13 @@ const passportControllerImpl = new Elysia({
       query: t.Object({
         limit: t.Optional(t.String()),
         offset: t.Optional(t.String()),
+        // "live" (the default) and "all" are selection modes, not members of
+        // passport_enrollment_status; the four enum values pick one status.
+        // Kept identical to /passport/matrix — see the comment on the filter.
         status: t.Optional(
           t.Union([
+            t.Literal("live"),
+            t.Literal("all"),
             t.Literal("active"),
             t.Literal("completed"),
             t.Literal("failed"),

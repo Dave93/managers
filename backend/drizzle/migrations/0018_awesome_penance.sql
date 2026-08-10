@@ -1,0 +1,1 @@
+CREATE INDEX "IX_passport_topics_module" ON "passport_topics" USING btree ("module_id") WHERE active;

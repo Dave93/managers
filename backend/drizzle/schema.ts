@@ -1828,7 +1828,14 @@ export const passport_topics = pgTable("passport_topics", {
   quiz_test_id: uuid("quiz_test_id"), // -> attestation_tests
   observation_checklist: jsonb("observation_checklist"), // {items:[{ru,uz}], questions:[{ru,uz}]}
   active: boolean("active").default(true).notNull(),
-});
+}, (t) => [
+  // Every read of a topic list is "the ACTIVE topics of these modules": the
+  // trainee /me feed and the HR progress matrix both do
+  // module_id IN (...) AND active. Without this the table had only its PK and
+  // both did a seq scan. Partial on `active` because a retired topic is never
+  // in the answer.
+  index("IX_passport_topics_module").on(t.module_id).where(sql`active`),
+]);
 
 export const passport_enrollments = pgTable("passport_enrollments", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
