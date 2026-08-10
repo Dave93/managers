@@ -1,15 +1,23 @@
 import { ctx } from "@backend/context";
 import {
   employees,
+  organization,
   passport_enrollments,
   passport_invites,
   passport_modules,
   passport_program_modules,
   passport_programs,
   passport_signoffs,
+  passport_tg_bindings,
   passport_topic_progress,
   passport_topics,
+  // Aliased: every scoped handler in this file destructures a `terminals`
+  // string[] out of the session context, and an unaliased import of the table
+  // would shadow (or be shadowed by) it depending on the block.
+  terminals as terminalsTable,
+  users,
 } from "backend/drizzle/schema";
+import { deadlineStatus } from "./deadline";
 import { validateModuleForPublish } from "./publish-validation";
 import {
   canObserve,
@@ -26,6 +34,7 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   sql,
   type SQLWrapper,
@@ -274,9 +283,18 @@ function adminClientIp(
 // tg-controller.ts rather than imported: that file is the trainee surface and
 // exports nothing of the sort, and a shared helper would couple the mentor path
 // to a controller that is being edited in parallel. The joins require the topic
-// to be active, its module published, and that module linked to THIS
+// to be active, its module published AND active, and that module linked to THIS
 // enrollment's program -- so a topic id copied out of another program comes back
 // null and the caller gets a 404, never a silent sign-off.
+//
+// `passport_modules.active = true` is part of the check, not decoration:
+// `deactivate` is the lever HR reaches for when a module's content is WRONG, and
+// it is the ONLY lever available once a trainee has progress on it (unpublish
+// refuses then). Without this predicate the emergency stop stopped nothing --
+// the module vanished from the trainee's /me feed while a stale client could
+// still submit its quizzes and a mentor could still sign it off. Symmetric with
+// the /me filter in tg-controller.ts, and with its twin loadTopicInEnrollment,
+// which is kept byte-identical to this function on purpose.
 async function loadTopicInProgram(
   drizzle: any,
   topicId: string,
@@ -300,11 +318,28 @@ async function loadTopicInProgram(
       and(
         eq(passport_topics.id, topicId),
         eq(passport_topics.active, true),
-        eq(passport_modules.status, "published")
+        eq(passport_modules.status, "published"),
+        eq(passport_modules.active, true)
       )
     )
     .execute();
   return row?.topic ?? null;
+}
+
+// Journal/mentor display name. users.first_name and last_name are both
+// nullable, and an account created by an integration often has neither — the
+// login is the last resort so that a row never renders as an empty string,
+// which in an evidence trail reads as "nobody signed this".
+function personName(
+  firstName: string | null,
+  lastName: string | null,
+  fallback: string | null
+): string | null {
+  const name = [firstName, lastName]
+    .map((p) => (p ?? "").trim())
+    .filter((p) => p.length > 0)
+    .join(" ");
+  return name || fallback || null;
 }
 
 // observationComplete() dereferences .length on both arrays, so the checklist is
@@ -1719,6 +1754,711 @@ const passportControllerImpl = new Elysia({
         }),
         declined: t.Optional(t.Boolean()),
       }),
+    }
+  )
+  // ---- progress matrix (the screen HR lives in) ----
+  //
+  // Rows are trainees, columns are the modules of their program, and every cell
+  // arrives pre-aggregated: the UI paints chips and dates, it never re-derives a
+  // level or a deadline rule. `deadlineStatus` is the SAME function the miniapp
+  // feed uses, so a module the trainee sees as overdue on their phone is red in
+  // HR's grid too.
+  //
+  // Columns are (program_id, module_id) PAIRS, not modules: `sort`, `required`
+  // and `deadline_days` live on passport_program_modules, so the same module in
+  // two programs is legitimately two different columns in two different places.
+  // With the usual single-program view this degenerates to the flat list the
+  // grid wants; when rows span programs the UI selects columns by
+  // `column.program_id === row.program_id` and still re-derives nothing.
+  //
+  // Columns are published AND active modules only -- exactly the /me filter. A
+  // module HR retires therefore leaves the grid, and the row totals (defined
+  // over the visible columns) move with it. That is deliberate: HR must see the
+  // curriculum the trainee is actually being fed. The retired module's progress
+  // rows and its sign-offs are untouched and stay readable in the journal.
+  //
+  // Cost: five queries, no per-row query and no mega-join. One count, one page
+  // of enrollments (<=200), one curriculum read for the programs on that page,
+  // one topic read for those modules, one progress read for those enrollments.
+  // A branch runs tens of trainees, so the in-memory join is a handful of maps.
+  .get(
+    "/passport/matrix",
+    async ({ drizzle, cacheController, user, role, terminals, query }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      const where: (SQLWrapper | undefined)[] = [];
+      if (!isHQ) {
+        // Fail closed, before any query runs — same rule as GET
+        // /passport/enrollments. An unscoped non-HQ user sees nobody, not
+        // everybody, and inArray is never handed an empty list.
+        if (!terminals.length) return { total: 0, modules: [], rows: [] };
+        where.push(inArray(passport_enrollments.terminal_id, terminals));
+      }
+      // The matrix is a live-cohort screen: the default is who is training NOW
+      // (active + paused), because a branch accumulates closed enrollments
+      // forever and page 1 would silently fill with last year's leavers.
+      // `status=all` opts into history, a concrete status picks one.
+      if (!query.status || query.status === "live") {
+        where.push(inArray(passport_enrollments.status, ["active", "paused"]));
+      } else if (query.status !== "all") {
+        where.push(eq(passport_enrollments.status, query.status));
+      }
+      if (query.terminal_id)
+        where.push(eq(passport_enrollments.terminal_id, query.terminal_id));
+      if (query.program_id)
+        where.push(eq(passport_enrollments.program_id, query.program_id));
+      if (query.position) where.push(eq(employees.position, query.position));
+      // Brand is not a column on employees or enrollments: it is the code of
+      // the organization owning the trainee's terminal ("chopar" | "les").
+      if (query.brand) where.push(eq(organization.code, query.brand));
+      const whereClause = where.length ? and(...where) : undefined;
+      const limit = Math.min(Math.max(Number(query.limit ?? 100) || 100, 1), 200);
+      const offset = Math.max(Number(query.offset ?? 0) || 0, 0);
+
+      // Count and page share one join set on purpose: `position` and `brand`
+      // are predicates that live on the joined tables, so the count cannot be
+      // taken on the bare base table. Every join here is onto a PRIMARY KEY
+      // (employees.id, terminals.id, organization.id, programs.id), so none of
+      // them can multiply a row and inflate the total.
+      const count = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(passport_enrollments)
+        .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          terminalsTable,
+          eq(terminalsTable.id, passport_enrollments.terminal_id)
+        )
+        .leftJoin(
+          organization,
+          eq(organization.id, terminalsTable.organization_id)
+        )
+        .where(whereClause)
+        .execute();
+      const total = Number(count[0].count);
+
+      const enrollments = await drizzle
+        .select({
+          id: passport_enrollments.id,
+          employee_id: passport_enrollments.employee_id,
+          program_id: passport_enrollments.program_id,
+          terminal_id: passport_enrollments.terminal_id,
+          status: passport_enrollments.status,
+          started_at: passport_enrollments.started_at,
+          probation_deadline: passport_enrollments.probation_deadline,
+          completed_at: passport_enrollments.completed_at,
+          first_name: employees.first_name,
+          last_name: employees.last_name,
+          position: employees.position,
+          brand: organization.code,
+          terminal_name: terminalsTable.name,
+          program_title_ru: passport_programs.title_ru,
+          program_title_uz: passport_programs.title_uz,
+        })
+        .from(passport_enrollments)
+        .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          terminalsTable,
+          eq(terminalsTable.id, passport_enrollments.terminal_id)
+        )
+        .leftJoin(
+          organization,
+          eq(organization.id, terminalsTable.organization_id)
+        )
+        .leftJoin(
+          passport_programs,
+          eq(passport_programs.id, passport_enrollments.program_id)
+        )
+        // The SAME predicate as the count above. Its first clause is the
+        // terminal scope, so leaving it off here does not just miscount -- it
+        // serves a branch manager every other branch's trainees. (It was left
+        // off in the first draft of this endpoint and the smoke test caught it:
+        // total said 1, the body carried 2 rows.)
+        .where(whereClause)
+        // Deterministic across pages: names first (that is how a human reads a
+        // grid), enrollment id as the tiebreaker so two namesakes never swap
+        // places between page 1 and page 2.
+        .orderBy(
+          asc(employees.last_name),
+          asc(employees.first_name),
+          asc(passport_enrollments.id)
+        )
+        .limit(limit)
+        .offset(offset)
+        .execute();
+      if (!enrollments.length) return { total, modules: [], rows: [] };
+
+      const programIds = [
+        ...new Set(enrollments.map((e: { program_id: string }) => e.program_id)),
+      ];
+      const links = await drizzle
+        .select({
+          program_id: passport_program_modules.program_id,
+          module_id: passport_modules.id,
+          title_ru: passport_modules.title_ru,
+          title_uz: passport_modules.title_uz,
+          sort: passport_program_modules.sort,
+          required: passport_program_modules.required,
+          deadline_days: passport_program_modules.deadline_days,
+        })
+        .from(passport_program_modules)
+        .innerJoin(
+          passport_modules,
+          eq(passport_modules.id, passport_program_modules.module_id)
+        )
+        .where(
+          and(
+            inArray(passport_program_modules.program_id, programIds),
+            eq(passport_modules.status, "published"),
+            eq(passport_modules.active, true)
+          )
+        )
+        .orderBy(
+          asc(passport_program_modules.program_id),
+          asc(passport_program_modules.sort),
+          asc(passport_modules.title_ru)
+        )
+        .execute();
+
+      const moduleIds = [
+        ...new Set(links.map((l: { module_id: string }) => l.module_id)),
+      ];
+      const topics = moduleIds.length
+        ? await drizzle
+            .select({
+              id: passport_topics.id,
+              module_id: passport_topics.module_id,
+            })
+            .from(passport_topics)
+            .where(
+              and(
+                inArray(passport_topics.module_id, moduleIds),
+                eq(passport_topics.active, true)
+              )
+            )
+            .execute()
+        : [];
+      const topicsByModule = new Map<string, string[]>();
+      for (const tp of topics as { id: string; module_id: string }[]) {
+        const list = topicsByModule.get(tp.module_id);
+        if (list) list.push(tp.id);
+        else topicsByModule.set(tp.module_id, [tp.id]);
+      }
+
+      const progress = await drizzle
+        .select({
+          enrollment_id: passport_topic_progress.enrollment_id,
+          topic_id: passport_topic_progress.topic_id,
+          level: passport_topic_progress.level,
+        })
+        .from(passport_topic_progress)
+        .where(
+          inArray(
+            passport_topic_progress.enrollment_id,
+            enrollments.map((e: { id: string }) => e.id)
+          )
+        )
+        .execute();
+      const levelByKey = new Map<string, number>(
+        (
+          progress as {
+            enrollment_id: string;
+            topic_id: string;
+            level: number;
+          }[]
+        ).map((p) => [`${p.enrollment_id}:${p.topic_id}`, p.level])
+      );
+
+      const columnsByProgram = new Map<string, typeof links>();
+      for (const l of links as { program_id: string }[]) {
+        const list = columnsByProgram.get(l.program_id);
+        if (list) list.push(l as any);
+        else columnsByProgram.set(l.program_id, [l] as any);
+      }
+
+      const nowMs = Date.now();
+      const rows = enrollments.map((e: any) => {
+        const columns: any[] = columnsByProgram.get(e.program_id) ?? [];
+        let topicsTotal = 0;
+        let topicsDone = 0;
+        let modulesDone = 0;
+        let overdueModules = 0;
+        const cells = columns.map((c) => {
+          const topicIds = topicsByModule.get(c.module_id) ?? [];
+          let done = 0;
+          // A module with no active topics has no minimum level to speak of:
+          // `null`, not 0, so the UI shows an empty cell rather than a grey
+          // "level 0" chip that reads as "the trainee has done nothing".
+          let levelMin: number | null = null;
+          for (const tid of topicIds) {
+            const lvl = levelByKey.get(`${e.id}:${tid}`) ?? 0;
+            // Level 3 = "does it alone" — the bar for a topic being finished.
+            // 4 ("can teach") is above it, never below.
+            if (lvl >= 3) done += 1;
+            levelMin = levelMin === null ? lvl : Math.min(levelMin, lvl);
+          }
+          const complete = topicIds.length > 0 && done === topicIds.length;
+          const dl = deadlineStatus(e.started_at, c.deadline_days, nowMs);
+          topicsTotal += topicIds.length;
+          topicsDone += done;
+          if (complete) modulesDone += 1;
+          // A finished module is not "overdue" in the metrics bar even if the
+          // date has passed — the cell keeps the raw rule, the counter counts
+          // what still needs chasing.
+          if (!complete && dl.deadline_status === "overdue") overdueModules += 1;
+          return {
+            module_id: c.module_id,
+            topics_total: topicIds.length,
+            topics_done: done,
+            level_min: levelMin,
+            complete,
+            required: c.required,
+            deadline_days: c.deadline_days,
+            ...dl,
+          };
+        });
+        return {
+          enrollment_id: e.id,
+          program_id: e.program_id,
+          program_title_ru: e.program_title_ru,
+          program_title_uz: e.program_title_uz,
+          employee: {
+            id: e.employee_id,
+            first_name: e.first_name,
+            last_name: e.last_name,
+            position: e.position,
+          },
+          terminal_id: e.terminal_id,
+          terminal_name: e.terminal_name,
+          brand: e.brand,
+          status: e.status,
+          started_at: e.started_at,
+          probation_deadline: e.probation_deadline,
+          completed_at: e.completed_at,
+          totals: {
+            modules_total: cells.length,
+            modules_done: modulesDone,
+            topics_total: topicsTotal,
+            topics_done: topicsDone,
+            overdue_modules: overdueModules,
+          },
+          cells,
+        };
+      });
+
+      return { total, modules: links, rows };
+    },
+    {
+      permission: "passport.matrix.view",
+      query: t.Object({
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+        brand: t.Optional(t.String()),
+        terminal_id: t.Optional(t.String({ format: "uuid" })),
+        program_id: t.Optional(t.String({ format: "uuid" })),
+        position: t.Optional(t.String()),
+        status: t.Optional(
+          t.Union([
+            t.Literal("live"),
+            t.Literal("all"),
+            t.Literal("active"),
+            t.Literal("paused"),
+            t.Literal("completed"),
+            t.Literal("failed"),
+          ])
+        ),
+      }),
+    }
+  )
+  // ---- enrollment journal (the evidence trail) ----
+  //
+  // passport_signoffs is append-only, and this is the only way HR reads it: who
+  // certified what, from which IP, when. Actor uuids are resolved to names here
+  // rather than in the UI — a uuid tells an HR manager nothing, and the UI has
+  // no business fetching the whole users table to find out.
+  //
+  // No status filter of any kind: the journal is HISTORY. A completed, failed or
+  // paused enrollment still returns its rows, and rows about a module that has
+  // since been deactivated or unpublished stay readable — that is the entire
+  // point of keeping them.
+  .get(
+    "/passport/enrollments/:id/journal",
+    async ({
+      drizzle,
+      cacheController,
+      user,
+      role,
+      terminals,
+      params,
+      query,
+      set,
+    }) => {
+      const isHQ = await resolveIsHq({ user, role, cacheController });
+      // 404 unknown, 403 another branch's trainee — the same scope gate the
+      // sign-off endpoint uses, so the journal can never become the way to read
+      // a record you may not sign.
+      const enr = await loadEnrollmentScoped(
+        drizzle,
+        params.id,
+        isHQ,
+        terminals,
+        set
+      );
+      if (!enr) return { message: "Enrollment is not accessible" };
+      const limit = Math.min(Math.max(Number(query.limit ?? 50) || 50, 1), 200);
+      const offset = Math.max(Number(query.offset ?? 0) || 0, 0);
+      const count = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(passport_signoffs)
+        .where(eq(passport_signoffs.enrollment_id, params.id))
+        .execute();
+      const data = await drizzle
+        .select({
+          id: passport_signoffs.id,
+          created_at: passport_signoffs.created_at,
+          action: passport_signoffs.action,
+          topic_id: passport_signoffs.topic_id,
+          topic_title_ru: passport_topics.title_ru,
+          topic_title_uz: passport_topics.title_uz,
+          module_id: passport_signoffs.module_id,
+          module_title_ru: passport_modules.title_ru,
+          module_title_uz: passport_modules.title_uz,
+          terminal_id: passport_signoffs.terminal_id,
+          ip: passport_signoffs.ip,
+          meta: passport_signoffs.meta,
+          actor_user_id: passport_signoffs.actor_user_id,
+          actor_user_login: users.login,
+          actor_user_first_name: users.first_name,
+          actor_user_last_name: users.last_name,
+          actor_employee_id: passport_signoffs.actor_employee_id,
+          actor_employee_first_name: employees.first_name,
+          actor_employee_last_name: employees.last_name,
+        })
+        .from(passport_signoffs)
+        // All four are leftJoins on primary keys: an actor column is nullable
+        // (a trainee-side event has no user, an office event has no employee),
+        // and topic_id / module_id are plain uuids with no FK — a row about a
+        // hard-deleted topic must still appear, with a null title, rather than
+        // disappear from the evidence.
+        .leftJoin(users, eq(users.id, passport_signoffs.actor_user_id))
+        .leftJoin(
+          employees,
+          eq(employees.id, passport_signoffs.actor_employee_id)
+        )
+        .leftJoin(
+          passport_topics,
+          eq(passport_topics.id, passport_signoffs.topic_id)
+        )
+        .leftJoin(
+          passport_modules,
+          eq(passport_modules.id, passport_signoffs.module_id)
+        )
+        .where(eq(passport_signoffs.enrollment_id, params.id))
+        // Newest first; id breaks ties so that two events written in the same
+        // millisecond keep a stable order across pages.
+        .orderBy(desc(passport_signoffs.created_at), desc(passport_signoffs.id))
+        .limit(limit)
+        .offset(offset)
+        .execute();
+      return {
+        total: Number(count[0].count),
+        enrollment: {
+          id: enr.id,
+          employee_id: enr.employee_id,
+          program_id: enr.program_id,
+          terminal_id: enr.terminal_id,
+          status: enr.status,
+          started_at: enr.started_at,
+        },
+        data: data.map((r: any) => ({
+          id: r.id,
+          created_at: r.created_at,
+          action: r.action,
+          topic: r.topic_id
+            ? {
+                id: r.topic_id,
+                title_ru: r.topic_title_ru,
+                title_uz: r.topic_title_uz,
+              }
+            : null,
+          module: r.module_id
+            ? {
+                id: r.module_id,
+                title_ru: r.module_title_ru,
+                title_uz: r.module_title_uz,
+              }
+            : null,
+          actor: {
+            // "office" = an admin/mentor acting through the panel, "trainee" =
+            // the phone. `null` is a system-written row.
+            kind: r.actor_user_id
+              ? "office"
+              : r.actor_employee_id
+                ? "trainee"
+                : null,
+            user_id: r.actor_user_id,
+            employee_id: r.actor_employee_id,
+            name: r.actor_user_id
+              ? personName(
+                  r.actor_user_first_name,
+                  r.actor_user_last_name,
+                  r.actor_user_login
+                )
+              : r.actor_employee_id
+                ? personName(
+                    r.actor_employee_first_name,
+                    r.actor_employee_last_name,
+                    null
+                  )
+                : null,
+          },
+          terminal_id: r.terminal_id,
+          ip: r.ip,
+          meta: r.meta,
+        })),
+      };
+    },
+    {
+      permission: "passport.matrix.view",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+      query: t.Object({
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+      }),
+    }
+  )
+  // ---- mentor telegram bindings ----
+  //
+  // A trainee gets their binding by scanning a QR (tg/auth redeems an invite).
+  // A mentor has no QR and no invite: without a row here a branch manager
+  // cannot log into the miniapp AT ALL, so this is HR's only way to let one in.
+  // Mentor = user_id set, employee_id null — that is exactly how tg/auth
+  // resolves the role (`employee_id ? "trainee" : "mentor"`), so the list is
+  // filtered on the same pair rather than on user_id alone.
+  .get(
+    "/passport/mentors",
+    async ({ drizzle, query }) => {
+      const conds = [
+        isNotNull(passport_tg_bindings.user_id),
+        isNull(passport_tg_bindings.employee_id),
+      ];
+      if (query.user_id)
+        conds.push(eq(passport_tg_bindings.user_id, query.user_id));
+      const whereClause = and(...conds);
+      const limit = Math.min(Math.max(Number(query.limit ?? 100) || 100, 1), 200);
+      const offset = Math.max(Number(query.offset ?? 0) || 0, 0);
+      const count = await drizzle
+        .select({ count: sql<number>`count(*)` })
+        .from(passport_tg_bindings)
+        .where(whereClause)
+        .execute();
+      const data = await drizzle
+        .select({
+          id: passport_tg_bindings.id,
+          telegram_id: passport_tg_bindings.telegram_id,
+          user_id: passport_tg_bindings.user_id,
+          first_name: passport_tg_bindings.first_name,
+          lang: passport_tg_bindings.lang,
+          banned: passport_tg_bindings.banned,
+          created_at: passport_tg_bindings.created_at,
+          user_login: users.login,
+          user_first_name: users.first_name,
+          user_last_name: users.last_name,
+          user_status: users.status,
+        })
+        .from(passport_tg_bindings)
+        .leftJoin(users, eq(users.id, passport_tg_bindings.user_id))
+        .where(whereClause)
+        .orderBy(desc(passport_tg_bindings.created_at))
+        .limit(limit)
+        .offset(offset)
+        .execute();
+      return {
+        total: Number(count[0].count),
+        data: data.map((r: any) => ({
+          id: r.id,
+          telegram_id: r.telegram_id,
+          user_id: r.user_id,
+          // The name telegram gave us when the account last authenticated —
+          // empty until the mentor's first login, which is itself the signal
+          // HR wants ("did he ever actually get in?").
+          tg_first_name: r.first_name,
+          lang: r.lang,
+          banned: r.banned,
+          created_at: r.created_at,
+          user: r.user_id
+            ? {
+                id: r.user_id,
+                login: r.user_login,
+                first_name: r.user_first_name,
+                last_name: r.user_last_name,
+                status: r.user_status,
+                name: personName(r.user_first_name, r.user_last_name, r.user_login),
+              }
+            : null,
+        })),
+      };
+    },
+    {
+      permission: "passport.mentors.manage",
+      query: t.Object({
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+        user_id: t.Optional(t.String({ format: "uuid" })),
+      }),
+    }
+  )
+  .post(
+    "/passport/mentors",
+    async ({ drizzle, body, set }) => {
+      try {
+        return await drizzle.transaction(async (tx) => {
+          const [target] = await tx
+            .select({ id: users.id, login: users.login })
+            .from(users)
+            .where(eq(users.id, body.user_id))
+            .execute();
+          if (!target)
+            throw new CurriculumRefusal(404, {
+              message: "User not found",
+              code: "user_not_found",
+            });
+          // telegram_id is UNIQUE, and the decision below is a check-then-act
+          // on that row. Two HR managers binding the same telegram_id at the
+          // same moment would otherwise both read "free" and the loser would
+          // get a raw unique-violation 500. Same advisory-lock pattern as
+          // POST /passport/enrollments; held to end of transaction, and it only
+          // ever collides with another binding of the SAME telegram id.
+          await tx.execute(
+            sql`select pg_advisory_xact_lock(hashtext(${"passport_tg:" + String(body.telegram_id)}))`
+          );
+          const [existing] = await tx
+            .select()
+            .from(passport_tg_bindings)
+            .where(eq(passport_tg_bindings.telegram_id, body.telegram_id))
+            .execute();
+          if (existing) {
+            // THE guard. This telegram account is a trainee's: overwriting it
+            // with user_id would flip its role to mentor (tg/auth reads
+            // `employee_id ? trainee : mentor`), the trainee would lose their
+            // own passport, and whoever holds the phone would gain sign-off
+            // reach over the branch. tg/auth already refuses the mirror image
+            // of this from the invite side ("wrong_account"); this is the same
+            // takeover coming from the admin side, and it is refused here.
+            if (existing.employee_id) {
+              throw new CurriculumRefusal(409, {
+                message:
+                  "This telegram account belongs to a trainee and cannot be bound as a mentor",
+                code: "telegram_bound_to_trainee",
+                telegram_id: body.telegram_id,
+              });
+            }
+            if (existing.user_id && existing.user_id !== body.user_id) {
+              throw new CurriculumRefusal(409, {
+                message:
+                  "This telegram account is already bound to another user. Unbind it first.",
+                code: "telegram_bound_to_other_user",
+                telegram_id: body.telegram_id,
+                user_id: existing.user_id,
+              });
+            }
+            // Same user, again: idempotent. `banned` is deliberately NOT
+            // cleared — un-banning is its own decision, not a side effect of
+            // re-saving a binding that already exists.
+            const [updated] = await tx
+              .update(passport_tg_bindings)
+              .set({
+                user_id: body.user_id,
+                ...(body.lang ? { lang: body.lang } : {}),
+              })
+              .where(eq(passport_tg_bindings.id, existing.id))
+              .returning()
+              .execute();
+            return { created: false, ...updated };
+          }
+          const [row] = await tx
+            .insert(passport_tg_bindings)
+            .values({
+              telegram_id: body.telegram_id,
+              user_id: body.user_id,
+              // employee_id stays null: that null IS the mentor role.
+              lang: body.lang ?? "ru",
+            })
+            .returning()
+            .execute();
+          return { created: true, ...row };
+        });
+      } catch (e) {
+        if (e instanceof CurriculumRefusal) {
+          set.status = e.httpStatus;
+          return e.payload;
+        }
+        throw e;
+      }
+    },
+    {
+      permission: "passport.mentors.manage",
+      body: t.Object({
+        user_id: t.String({ format: "uuid" }),
+        // Telegram ids are positive and comfortably inside 2^53 (the column is
+        // a bigint read in JS number mode), so the bound is the safe-integer
+        // limit rather than bigint's.
+        telegram_id: t.Integer({ minimum: 1, maximum: 9007199254740991 }),
+        lang: t.Optional(t.Union([t.Literal("ru"), t.Literal("uz")])),
+      }),
+    }
+  )
+  // Unbind: the mentor loses miniapp access. Deleting the row (rather than
+  // setting `banned`) is what HR asked for — "снять привязку" — and it leaves
+  // the telegram id free to be bound to somebody else, which `banned` would not.
+  //
+  // KNOWN GAP, pre-existing and shared with `banned`: a Bearer session already
+  // issued lives in Redis for up to 12h and is never re-checked against this
+  // table (see passportTgCtx), so access ends within that window rather than
+  // instantly. Closing it needs a binding->token index in the auth path.
+  .delete(
+    "/passport/mentors/:telegram_id",
+    async ({ drizzle, params, set }) => {
+      const telegramId = Number(params.telegram_id);
+      if (!Number.isSafeInteger(telegramId) || telegramId <= 0) {
+        set.status = 422;
+        return { message: "Bad telegram_id", code: "bad_telegram_id" };
+      }
+      const [existing] = await drizzle
+        .select()
+        .from(passport_tg_bindings)
+        .where(eq(passport_tg_bindings.telegram_id, telegramId))
+        .execute();
+      if (!existing) {
+        set.status = 404;
+        return { message: "Binding not found", code: "binding_not_found" };
+      }
+      // The mentors surface does not unbind trainees, in either direction: a
+      // trainee's binding is created by redeeming their invite and is removed
+      // by HR closing the enrollment, not by a stray DELETE here.
+      if (existing.employee_id) {
+        set.status = 409;
+        return {
+          message: "This binding belongs to a trainee, not a mentor",
+          code: "binding_is_trainee",
+          telegram_id: telegramId,
+        };
+      }
+      await drizzle
+        .delete(passport_tg_bindings)
+        .where(eq(passport_tg_bindings.id, existing.id))
+        .execute();
+      return {
+        deleted: true,
+        id: existing.id,
+        telegram_id: telegramId,
+        user_id: existing.user_id,
+      };
+    },
+    {
+      permission: "passport.mentors.manage",
+      // Numeric path param, validated as digits and then bounds-checked in the
+      // handler: a bigint that overflows JS's safe range must be refused, not
+      // silently rounded into somebody else's binding.
+      params: t.Object({ telegram_id: t.String({ pattern: "^[0-9]{1,19}$" }) }),
     }
   );
 

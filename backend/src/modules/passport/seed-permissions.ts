@@ -10,6 +10,7 @@ const SLUGS: { slug: string; description: string }[] = [
   { slug: "passport.matrix.view", description: "Passport: view progress matrix" },
   { slug: "passport.recheck", description: "Passport: perform rechecks (audit)" },
   { slug: "passport.level4.grant", description: "Passport: grant level 4 (can teach)" },
+  { slug: "passport.mentors.manage", description: "Passport: bind mentor telegram accounts" },
   { slug: "passport_layout", description: "Passport: top-level admin layout" },
 ];
 

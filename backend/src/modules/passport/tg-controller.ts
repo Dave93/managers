@@ -128,8 +128,19 @@ async function loadTraineeEnrollment(drizzle: any, employeeId: string) {
 }
 
 // Topic lookup that IS the authorization check: the joins require the topic's
-// module to be published AND linked to this enrollment's program. A topic id
-// copied from another trainee's program comes back null -> 404, never served.
+// module to be published, still ACTIVE, and linked to this enrollment's
+// program. A topic id copied from another trainee's program comes back null ->
+// 404, never served.
+//
+// `passport_modules.active = true` matches the /me feed filter below, and it is
+// what makes `deactivate` an actual emergency stop: HR deactivates a module the
+// moment its content is found to be wrong (and once a trainee has progress on
+// it, deactivate is the ONLY move -- unpublish refuses). Before this predicate a
+// client that already had the topic list cached could still open the material,
+// start and submit quizzes on a withdrawn module. All three call sites below
+// (material-open, quiz start, quiz submit) now fail safe to 404, as does the
+// mentor sign-off through the byte-identical twin loadTopicInProgram in
+// controller.ts.
 async function loadTopicInEnrollment(
   drizzle: any,
   topicId: string,
@@ -153,7 +164,8 @@ async function loadTopicInEnrollment(
       and(
         eq(passport_topics.id, topicId),
         eq(passport_topics.active, true),
-        eq(passport_modules.status, "published")
+        eq(passport_modules.status, "published"),
+        eq(passport_modules.active, true)
       )
     )
     .execute();
