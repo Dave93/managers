@@ -225,6 +225,28 @@
     }
   },
   "passport": {
+    "enrollments": {
+      "title": "Stajirovkalar",
+      "subtitle": "Hozir kim o‘qimoqda, kimning sinov muddati tugayapti va kimga QR-taklifnoma kerak.",
+      "newEnrollment": "Stajirovkani boshlash",
+      "filterStatus": "Holat",
+      "statusLive": "Hozir davom etmoqda",
+      "statusAll": "Hammasi",
+      "statusActive": "Davom etmoqda",
+      "statusPaused": "To‘xtatilgan",
+      "statusCompleted": "Yakunlangan",
+      "statusFailed": "O‘tmadi",
+      "filterTerminal": "Filial",
+      "allTerminals": "Barcha filiallar",
+      "filterProgram": "Dastur",
+      "allPrograms": "Barcha dasturlar",
+      "oneEmployee": "Bitta xodim bo‘yicha",
+      "metricTotal": "jami",
+      "metricLive": "davom etmoqda",
+      "metricWarning": "muddat yaqin",
+      "metricOverdue": "muddati o‘tgan",
+      "metricScope": "«Jami» — butun filtr bo‘yicha; muddat hisoblagichlari faqat shu sahifadagi qatorlar bo‘yicha."
+    },
     "title": "Stajyor pasporti",
     "nav": {
       "curriculum": "Kurrikulum",

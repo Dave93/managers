@@ -262,6 +262,28 @@
     }
   },
   "passport": {
+    "enrollments": {
+      "title": "Enrollments",
+      "subtitle": "Who is training now, whose probation is running out, and who still needs a QR invite.",
+      "newEnrollment": "Start an enrollment",
+      "filterStatus": "Status",
+      "statusLive": "Running now",
+      "statusAll": "All",
+      "statusActive": "In progress",
+      "statusPaused": "Paused",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "filterTerminal": "Branch",
+      "allTerminals": "All branches",
+      "filterProgram": "Programme",
+      "allPrograms": "All programmes",
+      "oneEmployee": "Filtered to one employee",
+      "metricTotal": "total",
+      "metricLive": "running",
+      "metricWarning": "due soon",
+      "metricOverdue": "overdue",
+      "metricScope": "“Total” covers the whole filter; the deadline counters cover only the rows on this page."
+    },
     "title": "Trainee passport",
     "nav": {
       "curriculum": "Curriculum",

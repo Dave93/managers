@@ -292,6 +292,28 @@
     }
   },
   "passport": {
+    "enrollments": {
+      "title": "Стажировки",
+      "subtitle": "Кто сейчас учится, у кого горит испытательный и кому выдать QR-инвайт.",
+      "newEnrollment": "Начать стажировку",
+      "filterStatus": "Статус",
+      "statusLive": "Идут сейчас",
+      "statusAll": "Все",
+      "statusActive": "Идёт",
+      "statusPaused": "На паузе",
+      "statusCompleted": "Завершена",
+      "statusFailed": "Не пройдена",
+      "filterTerminal": "Филиал",
+      "allTerminals": "Все филиалы",
+      "filterProgram": "Программа",
+      "allPrograms": "Все программы",
+      "oneEmployee": "Показан один сотрудник",
+      "metricTotal": "всего",
+      "metricLive": "идут",
+      "metricWarning": "скоро дедлайн",
+      "metricOverdue": "просрочено",
+      "metricScope": "«Всего» — по текущему фильтру целиком; счётчики дедлайнов — по строкам на этой странице."
+    },
     "title": "Паспорт стажёра",
     "nav": {
       "curriculum": "Куррикулум",

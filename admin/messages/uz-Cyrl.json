@@ -237,6 +237,28 @@
     }
   },
   "passport": {
+    "enrollments": {
+      "title": "Стажировкалар",
+      "subtitle": "Ҳозир ким ўқимоқда, кимнинг синов муддати тугаяпти ва кимга QR-таклифнома керак.",
+      "newEnrollment": "Стажировкани бошлаш",
+      "filterStatus": "Ҳолат",
+      "statusLive": "Ҳозир давом этмоқда",
+      "statusAll": "Ҳаммаси",
+      "statusActive": "Давом этмоқда",
+      "statusPaused": "Тўхтатилган",
+      "statusCompleted": "Якунланган",
+      "statusFailed": "Ўтмади",
+      "filterTerminal": "Филиал",
+      "allTerminals": "Барча филиаллар",
+      "filterProgram": "Дастур",
+      "allPrograms": "Барча дастурлар",
+      "oneEmployee": "Битта ходим бўйича",
+      "metricTotal": "жами",
+      "metricLive": "давом этмоқда",
+      "metricWarning": "муддат яқин",
+      "metricOverdue": "муддати ўтган",
+      "metricScope": "«Жами» — бутун филтр бўйича; муддат ҳисоблагичлари фақат шу саҳифадаги қаторлар бўйича."
+    },
     "title": "Стажёр паспорти",
     "nav": {
       "curriculum": "Куррикулум",
