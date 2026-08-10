@@ -1791,6 +1791,10 @@ export const passport_modules = pgTable("passport_modules", {
   brand: varchar("brand", { length: 20 }), // null | 'chopar' | 'les'
   owner_department: varchar("owner_department", { length: 50 }).notNull(),
   status: passport_module_status("status").default("draft").notNull(),
+  // Orthogonal to status: retires a module from the trainee feed and from the
+  // default curriculum listing WITHOUT touching history. The soft alternative
+  // to unpublish, which is refused once any trainee has progress on it.
+  active: boolean("active").default(true).notNull(),
   version: integer("version").default(1).notNull(),
   exam_test_id: uuid("exam_test_id"), // -> attestation_tests
   parent_module_id: uuid("parent_module_id"), // root of the version chain (new-version fork)

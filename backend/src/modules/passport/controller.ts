@@ -106,6 +106,72 @@ async function assertModuleEditable(
   return mod;
 }
 
+// Refusal raised from INSIDE a curriculum transaction, so that a refusal rolls
+// the whole thing back rather than committing a half-done change. Same shape and
+// same reasoning as SignoffRefusal below; kept separate only so the two domains
+// can never be caught by accident for one another.
+class CurriculumRefusal extends Error {
+  constructor(
+    public httpStatus: number,
+    public payload: Record<string, unknown>
+  ) {
+    super(String(payload.code ?? "refused"));
+  }
+}
+
+// The guard behind BOTH unpublish and unlink: pulling a module out from under a
+// trainee who has already started it would leave their progress rows pointing at
+// topics their /me feed can no longer reach -- progress that is invisible but
+// still counted. `deactivate` exists as the soft alternative for exactly the
+// cases this refuses.
+//
+// The two callers deliberately count different things:
+//   * unpublish (programId === null) counts EVERY progress row on the module,
+//     whatever the enrollment's status. Unpublishing hits every program at once,
+//     so the bar is the highest one.
+//   * unlink (programId set) counts only rows belonging to ACTIVE enrollments of
+//     THAT program. Removing one link cannot affect another program, and a
+//     completed trainee's rows are history -- which is precisely what stays
+//     intact either way.
+async function countTraineeProgress(
+  tx: any,
+  moduleId: string,
+  programId: string | null
+): Promise<number> {
+  if (programId === null) {
+    const rows = await tx
+      .select({ n: sql<number>`count(*)` })
+      .from(passport_topic_progress)
+      .innerJoin(
+        passport_topics,
+        eq(passport_topics.id, passport_topic_progress.topic_id)
+      )
+      .where(eq(passport_topics.module_id, moduleId))
+      .execute();
+    return Number(rows[0]?.n ?? 0);
+  }
+  const rows = await tx
+    .select({ n: sql<number>`count(*)` })
+    .from(passport_topic_progress)
+    .innerJoin(
+      passport_topics,
+      eq(passport_topics.id, passport_topic_progress.topic_id)
+    )
+    .innerJoin(
+      passport_enrollments,
+      eq(passport_enrollments.id, passport_topic_progress.enrollment_id)
+    )
+    .where(
+      and(
+        eq(passport_topics.module_id, moduleId),
+        eq(passport_enrollments.program_id, programId),
+        eq(passport_enrollments.status, "active")
+      )
+    )
+    .execute();
+  return Number(rows[0]?.n ?? 0);
+}
+
 // An invite is a printable QR that a trainee scans once. A week is long enough
 // for a new hire who starts on Monday and gets their phone sorted out on
 // Friday, short enough that a QR left on a noticeboard stops working.
@@ -351,6 +417,14 @@ const passportControllerImpl = new Elysia({
         if (!user?.department) return { total: 0, data: [] };
         conds.push(eq(passport_modules.owner_department, user.department));
       }
+      // Retired modules stay out of the builder unless explicitly asked for:
+      // the list is the pick-a-module surface, and offering a module that HR
+      // deliberately took out of circulation is how it gets attached again.
+      // String compare, not t.Boolean: every other query param in this codebase
+      // is a raw string, so `?include_inactive=true` is the exact spelling.
+      if (query.include_inactive !== "true") {
+        conds.push(eq(passport_modules.active, true));
+      }
       const data = await drizzle
         .select()
         .from(passport_modules)
@@ -361,7 +435,10 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
-      query: t.Object({ program_id: t.Optional(t.String({ format: "uuid" })) }),
+      query: t.Object({
+        program_id: t.Optional(t.String({ format: "uuid" })),
+        include_inactive: t.Optional(t.String()),
+      }),
     }
   )
   .post(
@@ -555,6 +632,11 @@ const passportControllerImpl = new Elysia({
           .values({
             ...rest,
             status: "draft",
+            // NOT inherited from the source: forking a retired (active=false)
+            // module would mint a working copy that the builder hides by
+            // default, so HR clicks "new version" and the draft vanishes. A
+            // fork is an explicit new working copy; it is always visible.
+            active: true,
             version: mod.version + 1,
             parent_module_id: rootId,
           })
@@ -579,6 +661,117 @@ const passportControllerImpl = new Elysia({
     },
     {
       permission: "passport.curriculum.edit",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+    }
+  )
+  // Unpublish: the repair path for a module published by mistake. Back in
+  // `draft` it is editable again (assertModuleEditable unfreezes with the
+  // status), so a typo is fixed in place instead of forking a version nobody
+  // asked for. `version` deliberately does NOT move -- which is only defensible
+  // because the guard below proves nobody was working through this version.
+  //
+  // The read and the write share one transaction: the count is what authorises
+  // the update. Under READ COMMITTED that narrows, but does not close, the
+  // check-then-act window (a trainee could start a topic between the count and
+  // the UPDATE). The window is milliseconds and the outcome is recoverable by
+  // publishing again, so it is not worth a row lock over the whole module.
+  .post(
+    "/passport/modules/:id/unpublish",
+    async ({ drizzle, params, set }) => {
+      try {
+        return await drizzle.transaction(async (tx) => {
+          const [mod] = await tx
+            .select()
+            .from(passport_modules)
+            .where(eq(passport_modules.id, params.id))
+            .execute();
+          if (!mod) {
+            throw new CurriculumRefusal(404, {
+              message: "Module not found",
+              code: "module_not_found",
+            });
+          }
+          if (mod.status !== "published") {
+            throw new CurriculumRefusal(409, {
+              message: "Only a published module can be unpublished",
+              code: "not_published",
+              status: mod.status,
+            });
+          }
+          const used = await countTraineeProgress(tx, params.id, null);
+          if (used > 0) {
+            throw new CurriculumRefusal(409, {
+              message:
+                "Module has trainee progress: unpublishing would break their path. Use deactivate, or publish a new version.",
+              code: "module_in_use",
+              progress_rows: used,
+            });
+          }
+          const [updated] = await tx
+            .update(passport_modules)
+            .set({ status: "draft", updated_at: new Date().toISOString() })
+            .where(eq(passport_modules.id, params.id))
+            .returning()
+            .execute();
+          return updated;
+        });
+      } catch (e) {
+        if (e instanceof CurriculumRefusal) {
+          set.status = e.httpStatus;
+          return e.payload;
+        }
+        throw e;
+      }
+    },
+    {
+      permission: "passport.curriculum.publish",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+    }
+  )
+  // Deactivate: the soft retirement, and the answer whenever unpublish refuses.
+  // It hides the module from the trainee feed and from the builder's default
+  // listing while leaving every enrollment, progress row and sign-off exactly
+  // where it is -- so it needs no progress guard, and no status guard either:
+  // `active` is orthogonal to `status` (a draft can be inactive, and a
+  // published-but-inactive module is simply one nobody is fed any more).
+  // Idempotent on purpose: deactivating twice is a no-op, not a 409.
+  .post(
+    "/passport/modules/:id/deactivate",
+    async ({ drizzle, params, set }) => {
+      const [updated] = await drizzle
+        .update(passport_modules)
+        .set({ active: false, updated_at: new Date().toISOString() })
+        .where(eq(passport_modules.id, params.id))
+        .returning()
+        .execute();
+      if (!updated) {
+        set.status = 404;
+        return { message: "Module not found", code: "module_not_found" };
+      }
+      return updated;
+    },
+    {
+      permission: "passport.curriculum.publish",
+      params: t.Object({ id: t.String({ format: "uuid" }) }),
+    }
+  )
+  .post(
+    "/passport/modules/:id/activate",
+    async ({ drizzle, params, set }) => {
+      const [updated] = await drizzle
+        .update(passport_modules)
+        .set({ active: true, updated_at: new Date().toISOString() })
+        .where(eq(passport_modules.id, params.id))
+        .returning()
+        .execute();
+      if (!updated) {
+        set.status = 404;
+        return { message: "Module not found", code: "module_not_found" };
+      }
+      return updated;
+    },
+    {
+      permission: "passport.curriculum.publish",
       params: t.Object({ id: t.String({ format: "uuid" }) }),
     }
   )
@@ -780,6 +973,72 @@ const passportControllerImpl = new Elysia({
         sort: t.Optional(t.Number()),
         required: t.Optional(t.Boolean()),
         deadline_days: t.Optional(t.Nullable(t.Number())),
+      }),
+    }
+  )
+  // Unlink a module from a program. The counterpart to the upsert above, and
+  // the only way a mis-attached module leaves a program without hand-written
+  // SQL. Refused while active trainees of THIS program have progress on the
+  // module -- their rows would survive the delete but the module would vanish
+  // from their /me feed. Same one-transaction read+write as unpublish.
+  .delete(
+    "/passport/program-modules",
+    async ({ drizzle, body, set }) => {
+      try {
+        return await drizzle.transaction(async (tx) => {
+          const [link] = await tx
+            .select()
+            .from(passport_program_modules)
+            .where(
+              and(
+                eq(passport_program_modules.program_id, body.program_id),
+                eq(passport_program_modules.module_id, body.module_id)
+              )
+            )
+            .execute();
+          if (!link) {
+            throw new CurriculumRefusal(404, {
+              message: "Link not found",
+              code: "link_not_found",
+            });
+          }
+          const used = await countTraineeProgress(
+            tx,
+            body.module_id,
+            body.program_id
+          );
+          if (used > 0) {
+            throw new CurriculumRefusal(409, {
+              message:
+                "Active trainees of this program already have progress on the module. Deactivate the module instead of unlinking it.",
+              code: "module_in_use_in_program",
+              progress_rows: used,
+            });
+          }
+          await tx
+            .delete(passport_program_modules)
+            .where(eq(passport_program_modules.id, link.id))
+            .execute();
+          return {
+            deleted: true,
+            id: link.id,
+            program_id: body.program_id,
+            module_id: body.module_id,
+          };
+        });
+      } catch (e) {
+        if (e instanceof CurriculumRefusal) {
+          set.status = e.httpStatus;
+          return e.payload;
+        }
+        throw e;
+      }
+    },
+    {
+      permission: "passport.curriculum.publish",
+      body: t.Object({
+        program_id: t.String({ format: "uuid" }),
+        module_id: t.String({ format: "uuid" }),
       }),
     }
   )

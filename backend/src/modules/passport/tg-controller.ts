@@ -396,7 +396,10 @@ const passportTgControllerImpl = new Elysia({
         .where(eq(passport_programs.id, enrollment.program_id))
         .execute();
 
-      // Only published modules of THIS program, in the program's own order.
+      // Only published AND active modules of THIS program, in the program's own
+      // order. `active = false` is HR retiring a module without disturbing
+      // history: it leaves the feed here, while every progress row and sign-off
+      // already recorded against it stays exactly where it is.
       const links = await drizzle
         .select({ link: passport_program_modules, module: passport_modules })
         .from(passport_program_modules)
@@ -407,7 +410,8 @@ const passportTgControllerImpl = new Elysia({
         .where(
           and(
             eq(passport_program_modules.program_id, enrollment.program_id),
-            eq(passport_modules.status, "published")
+            eq(passport_modules.status, "published"),
+            eq(passport_modules.active, true)
           )
         )
         .orderBy(asc(passport_program_modules.sort))
