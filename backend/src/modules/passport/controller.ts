@@ -129,10 +129,10 @@ class CurriculumRefusal extends Error {
 //   * unpublish (programId === null) counts EVERY progress row on the module,
 //     whatever the enrollment's status. Unpublishing hits every program at once,
 //     so the bar is the highest one.
-//   * unlink (programId set) counts only rows belonging to ACTIVE enrollments of
-//     THAT program. Removing one link cannot affect another program, and a
-//     completed trainee's rows are history -- which is precisely what stays
-//     intact either way.
+//   * unlink (programId set) counts only rows belonging to LIVE (active or
+//     paused) enrollments of THAT program. Removing one link cannot affect
+//     another program, and a finished trainee's rows are history -- which is
+//     precisely what stays intact either way.
 async function countTraineeProgress(
   tx: any,
   moduleId: string,
@@ -165,7 +165,12 @@ async function countTraineeProgress(
       and(
         eq(passport_topics.module_id, moduleId),
         eq(passport_enrollments.program_id, programId),
-        eq(passport_enrollments.status, "active")
+        // "Live" is active OR paused, matching the four other places in this
+        // file that decide the same thing (the mentor sign-off gate explicitly
+        // accepts paused). A trainee on hold has not stopped being a trainee:
+        // unlinking under them would strand their progress rows behind a
+        // sign-off path that starts 404ing the moment the link disappears.
+        inArray(passport_enrollments.status, ["active", "paused"])
       )
     )
     .execute();
@@ -583,7 +588,16 @@ const passportControllerImpl = new Elysia({
       }
       const [updated] = await drizzle
         .update(passport_modules)
-        .set({ status: "published", updated_at: new Date().toISOString() })
+        .set({
+          status: "published",
+          // Publishing is the act of putting a module into circulation, so it
+          // always un-hides: without this, deactivating a draft and then
+          // publishing it yields a published-but-invisible module, missing from
+          // the default admin list AND from the trainee feed. Same trap as the
+          // new-version fork above.
+          active: true,
+          updated_at: new Date().toISOString(),
+        })
         .where(eq(passport_modules.id, params.id))
         .returning()
         .execute();
@@ -1010,7 +1024,7 @@ const passportControllerImpl = new Elysia({
           if (used > 0) {
             throw new CurriculumRefusal(409, {
               message:
-                "Active trainees of this program already have progress on the module. Deactivate the module instead of unlinking it.",
+                "Trainees of this program (active or paused) already have progress on the module. Deactivate the module instead of unlinking it.",
               code: "module_in_use_in_program",
               progress_rows: used,
             });
