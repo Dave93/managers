@@ -291,6 +291,38 @@
       "confirmReset": "Сбросить PIN этого менеджера?"
     }
   },
+  "passport": {
+    "title": "Паспорт стажёра",
+    "nav": {
+      "curriculum": "Куррикулум",
+      "enrollments": "Стажировки",
+      "matrix": "Матрица",
+      "mentors": "Наставники"
+    },
+    "levels": {
+      "l0": "Не начато",
+      "l1": "Увидел",
+      "l2": "Сделал",
+      "l3": "Сам",
+      "l4": "Учит"
+    },
+    "moduleStatus": {
+      "draft": "Черновик",
+      "review": "На проверке",
+      "published": "Опубликован"
+    },
+    "enrollmentStatus": {
+      "active": "Идёт",
+      "completed": "Завершена",
+      "failed": "Не пройдена",
+      "paused": "На паузе"
+    },
+    "deadline": {
+      "ok": "В срок",
+      "warning": "Скоро дедлайн",
+      "overdue": "Просрочено"
+    }
+  },
   "medical": {
     "title": "Медосмотр",
     "nav": "Медосмотр",

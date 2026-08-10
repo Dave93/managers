@@ -224,6 +224,38 @@
       "confirmReset": "Bu menejer PINini tozalansinmi?"
     }
   },
+  "passport": {
+    "title": "Stajyor pasporti",
+    "nav": {
+      "curriculum": "Kurrikulum",
+      "enrollments": "Stajirovkalar",
+      "matrix": "Matritsa",
+      "mentors": "Murabbiylar"
+    },
+    "levels": {
+      "l0": "Boshlanmagan",
+      "l1": "Ko'rdi",
+      "l2": "Bajardi",
+      "l3": "Mustaqil",
+      "l4": "O'rgatadi"
+    },
+    "moduleStatus": {
+      "draft": "Qoralama",
+      "review": "Tekshiruvda",
+      "published": "Chop etilgan"
+    },
+    "enrollmentStatus": {
+      "active": "Davom etmoqda",
+      "completed": "Yakunlangan",
+      "failed": "O'tmadi",
+      "paused": "To'xtatilgan"
+    },
+    "deadline": {
+      "ok": "Muddatida",
+      "warning": "Muddat yaqin",
+      "overdue": "Muddati o'tgan"
+    }
+  },
   "medical": {
     "title": "Tibbiy ko'rik",
     "nav": "Tibbiy ko'rik",

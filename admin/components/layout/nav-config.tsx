@@ -11,6 +11,7 @@ import {
   Clock,
   FileText,
   GraduationCap,
+  IdCard,
   LayoutDashboard,
   Settings2,
   Stethoscope,
@@ -71,6 +72,21 @@ export function buildNav(locale: string): NavEntry[] {
         { title: "Пройти тест", href: p("/attestation/kiosk"), permission: "attestation.run" },
         { title: "Мой PIN", href: p("/attestation/pin"), permission: "attestation_layout" },
         { title: "PIN менеджеров", href: p("/attestation/manager-pins"), permission: "attestation.manage_pins" },
+      ],
+    },
+    {
+      kind: "group",
+      title: "Паспорт стажёра",
+      icon: IdCard,
+      permission: "passport_layout",
+      items: [
+        { title: "Куррикулум", href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
+        { title: "Стажировки", href: p("/passport/enrollments"), permission: "passport.enrollments.manage" },
+        { title: "Матрица", href: p("/passport/matrix"), permission: "passport.matrix.view" },
+        // passport.mentors.manage is seeded by stage-1b task B2; until then this
+        // item is filtered out for everyone, which is the intended fail-closed
+        // default for a page whose backend does not exist yet.
+        { title: "Наставники", href: p("/passport/mentors"), permission: "passport.mentors.manage" },
       ],
     },
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },

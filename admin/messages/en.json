@@ -261,6 +261,38 @@
       "confirmReset": "Reset this manager's PIN?"
     }
   },
+  "passport": {
+    "title": "Trainee passport",
+    "nav": {
+      "curriculum": "Curriculum",
+      "enrollments": "Enrollments",
+      "matrix": "Matrix",
+      "mentors": "Mentors"
+    },
+    "levels": {
+      "l0": "Not started",
+      "l1": "Watched",
+      "l2": "Did it",
+      "l3": "On their own",
+      "l4": "Teaches"
+    },
+    "moduleStatus": {
+      "draft": "Draft",
+      "review": "In review",
+      "published": "Published"
+    },
+    "enrollmentStatus": {
+      "active": "In progress",
+      "completed": "Completed",
+      "failed": "Failed",
+      "paused": "Paused"
+    },
+    "deadline": {
+      "ok": "On time",
+      "warning": "Due soon",
+      "overdue": "Overdue"
+    }
+  },
   "medical": {
     "title": "Medical exams",
     "nav": "Medical exams",
