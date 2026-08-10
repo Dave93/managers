@@ -74,7 +74,12 @@ import {
 import { moduleReadiness } from "./completeness";
 import { issueLabel, translatePublishErrors, type PublishIssue } from "./publish-errors";
 import { MODULE_STATUS_LABEL, StatusChip } from "./status";
-import { apiMessage, qk, type CurriculumAccess } from "./use-curriculum";
+import {
+  apiMessage,
+  moduleIsWritable,
+  qk,
+  type CurriculumAccess,
+} from "./use-curriculum";
 
 function ConfirmAction({
   trigger,
@@ -132,6 +137,7 @@ export function ModulePanel({
   topicsLoading,
   access,
   programId,
+  programLinksReady,
   attachedToProgram,
   onEdit,
   onSelectModule,
@@ -141,6 +147,10 @@ export function ModulePanel({
   topicsLoading: boolean;
   access: CurriculumAccess;
   programId: string | null;
+  /** False until the programme's module list has actually loaded — until then
+   *  "is this module attached" is unknown, and offering either answer would
+   *  flicker the wrong button. */
+  programLinksReady: boolean;
   attachedToProgram: boolean;
   onEdit: () => void;
   onSelectModule: (m: PassportModule) => void;
@@ -151,7 +161,10 @@ export function ModulePanel({
 
   const readiness = moduleReadiness(mod, topics);
   const inScope = access.canPublish || mod.owner_department === access.department;
-  const frozen = mod.status === "published";
+  // "Frozen" for the edit button's label: published, foreign department, or no
+  // edit right — all three make the module Sheet read-only, so the button must
+  // say so rather than promising an editor.
+  const frozen = !moduleIsWritable(mod, access);
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["passport_modules"] });
@@ -522,7 +535,7 @@ export function ModulePanel({
           </Button>
         )}
 
-        {access.canPublish && programId && !attachedToProgram && (
+        {access.canPublish && programLinksReady && !attachedToProgram && (
           <Button
             size="sm"
             variant="outline"
@@ -533,7 +546,7 @@ export function ModulePanel({
           </Button>
         )}
 
-        {access.canPublish && programId && attachedToProgram && (
+        {access.canPublish && programLinksReady && attachedToProgram && (
           <ConfirmAction
             trigger={
               <Button size="sm" variant="ghost" disabled={busy}>

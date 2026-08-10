@@ -43,6 +43,7 @@ import { BilingualPair } from "./bilingual-field";
 import { StatusChip } from "./status";
 import {
   apiMessage,
+  moduleIsWritable,
   useTestOptions,
   type CurriculumAccess,
 } from "./use-curriculum";
@@ -65,7 +66,11 @@ function ModuleForm({
 }) {
   const queryClient = useQueryClient();
   const tests = useTestOptions();
-  const frozen = mod?.status === "published";
+  // Read-only whenever the backend would refuse the write: published (409),
+  // another department's module (403), or no curriculum.edit right at all.
+  // Same predicate the tree and the topic editor use — this form must not be
+  // the one place that disagrees and offers a Save button that 403s.
+  const frozen = !!mod && !moduleIsWritable(mod, access);
 
   const form = useForm({
     defaultValues: {

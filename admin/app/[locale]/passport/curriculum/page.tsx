@@ -389,6 +389,7 @@ export default function CurriculumPage() {
               topicsLoading={selectedTopics.isLoading}
               access={access}
               programId={programId}
+              programLinksReady={!!programId && !scoped.isLoading}
               attachedToProgram={attachedIds.has(selectedModule.id)}
               onEdit={() =>
                 setModuleSheet({ open: true, module: selectedModule })
