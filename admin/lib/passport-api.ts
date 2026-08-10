@@ -62,6 +62,15 @@ export type PassportEnrollmentStatus =
   | "failed"
   | "paused";
 
+// The status filter shared by GET /passport/enrollments and GET /passport/matrix
+// — same vocabulary AND same default on both, so one filter component can drive
+// both screens. "live" (the DEFAULT when the param is omitted) = active+paused,
+// i.e. who is training right now; "all" opts into history; the four enum values
+// pick exactly one status. "live"/"all" are selection modes, NOT members of
+// passport_enrollment_status — do not feed a raw row status into this type's
+// place expecting a round trip.
+export type PassportStatusFilter = "live" | "all" | PassportEnrollmentStatus;
+
 export type PassportSignoffAction =
   | "material_opened"
   | "quiz_passed"
@@ -228,16 +237,22 @@ export function publishModule(id: string): EdenResult<PassportModule> {
   return passportApi.modules({ id }).publish.post();
 }
 
-// The 409 refusal bodies of unpublish / DELETE program-modules carry a machine
-// `code` on top of the human message — "module_in_use" (someone already has
-// progress; deactivate or publish a new version instead),
-// "module_in_use_in_program", "not_published", "module_not_found",
-// "link_not_found" — plus `progress_rows` on the in-use ones.
+// Several routes refuse with a machine-readable `code` on top of the human
+// message. Curriculum: "module_in_use" (someone already has progress —
+// deactivate, or publish a new version, instead), "module_in_use_in_program",
+// "not_published", "module_not_found", "link_not_found", each of the in-use
+// ones carrying `progress_rows`. Mentors: "user_not_found",
+// "telegram_bound_to_trainee", "telegram_bound_to_other_user",
+// "bad_telegram_id", "binding_not_found", "binding_is_trainee", carrying
+// `telegram_id` and (for the occupied case) the occupying `user_id`.
+// Read the code with refusalCode() and branch the UI on it, never on the prose.
 export interface PassportRefusal {
   message: string;
   code?: string;
   status?: PassportModuleStatus;
   progress_rows?: number;
+  telegram_id?: number;
+  user_id?: string;
 }
 
 // published -> draft, the repair path for a mistaken publish. Refused (409
@@ -443,7 +458,9 @@ export interface PassportEnrollmentRow {
 export interface PassportEnrollmentListQuery {
   limit?: string;
   offset?: string;
-  status?: PassportEnrollmentStatus;
+  // Omitted means "live" (active+paused), NOT "everything" — see
+  // PassportStatusFilter. Pass "all" for the full history.
+  status?: PassportStatusFilter;
   terminal_id?: string;
   employee_id?: string;
   program_id?: string;
@@ -519,22 +536,39 @@ export function reinvite(id: string): EdenResult<PassportReinviteResult> {
 }
 
 // ---------------------------------------------------------------------------
-// PENDING — matrix / journal / mentors
+// progress matrix — GET /passport/matrix (permission passport.matrix.view)
 //
-// These four endpoints DO NOT EXIST on the backend yet. They are being added by
-// task B2 (`GET /passport/matrix`, `GET /passport/enrollments/:id/journal`,
-// `GET|POST /passport/mentors`, `DELETE /passport/mentors/:telegram_id`), and
-// the shapes below are transcribed from that task's brief, not from a
-// controller that has been read. Treat them as provisional: re-check them
-// against backend/src/modules/passport/controller.ts once B2 lands, before the
-// matrix/mentors UI relies on a field name. Calling them today returns 404.
+// Rows are trainees, columns are the modules of their program, every cell
+// arrives pre-aggregated. The UI paints chips and dates and re-derives NOTHING:
+// `level_min`, `complete` and `deadline_status` are all computed server-side by
+// the same `deadlineStatus()` the miniapp feed uses, so a module the trainee
+// sees as overdue on their phone is red in HR's grid too.
+//
+// !! GRID KEYING !! `modules` is a flat list of (program_id, module_id) PAIRS,
+// not a list of modules — `sort`, `required` and `deadline_days` live on
+// passport_program_modules, so one module attached to two programs is
+// legitimately two columns with different settings. A grid MUST key its columns
+// on `${program_id}:${module_id}`; keying on module_id alone collides the
+// moment the rows span more than one program. Select a row's columns with
+// `column.program_id === row.program_id`.
+//
+// Columns are published AND active modules only (exactly the trainee /me
+// filter), so a module HR retires leaves the grid and the row totals move with
+// it — deliberate: HR sees the curriculum actually being fed. The retired
+// module's progress rows and sign-offs stay readable in the journal.
 // ---------------------------------------------------------------------------
 
+// One COLUMN of the grid, i.e. one row of passport_program_modules joined to
+// its module. Note there is NO `id` field — the identity is the
+// (program_id, module_id) pair.
 export interface PassportMatrixModule {
-  id: string;
+  program_id: string;
+  module_id: string;
   title_ru: string;
   title_uz: string;
   sort: number;
+  required: boolean;
+  deadline_days: number | null;
 }
 
 export interface PassportMatrixEmployee {
@@ -544,124 +578,287 @@ export interface PassportMatrixEmployee {
   position: string | null;
 }
 
-// One trainee × one module. `level_min` is the weakest level across the
-// module's topics (0..4) — the cell colour: 1 "увидел" grey, 2 "сделал" amber,
-// 3 "сам" green, 4 "учит" accent; `deadline_status: "overdue"` is red and wins.
+// One trainee × one column.
+//
+// `level_min` is the weakest level across the module's active topics — the cell
+// colour: 1 "увидел" grey, 2 "сделал" amber, 3 "сам" green, 4 "учит" accent.
+// It is **null, not 0**, for a module with no active topics at all: paint an
+// empty cell, not a grey "level 0" chip that reads as "this trainee has done
+// nothing". `complete` means every topic reached level >= 3 (level 3 "does it
+// alone" is the bar; 4 is above it). `deadline_status: "overdue"` is red and
+// wins over the level colour — but note a COMPLETE module can still carry
+// "overdue" here while being excluded from `totals.overdue_modules`.
 export interface PassportMatrixCell {
   module_id: string;
   topics_total: number;
   topics_done: number;
-  level_min: number;
+  level_min: number | null;
+  complete: boolean;
+  required: boolean;
+  deadline_days: number | null;
   deadline_at: string | null;
   deadline_status: PassportDeadlineStatus;
 }
 
+// The compact metrics strip above/beside the grid. Defined over the VISIBLE
+// columns, so retiring a module moves these numbers.
+export interface PassportMatrixTotals {
+  modules_total: number;
+  modules_done: number;
+  topics_total: number;
+  topics_done: number;
+  // Counts only modules that are BOTH overdue and not complete — what still
+  // needs chasing, not what merely ran past its date.
+  overdue_modules: number;
+}
+
 export interface PassportMatrixRow {
   enrollment_id: string;
+  program_id: string;
+  program_title_ru: string | null;
+  program_title_uz: string | null;
   employee: PassportMatrixEmployee;
   terminal_id: string;
+  terminal_name: string | null;
+  // The code of the organization owning the trainee's terminal
+  // ("chopar" | "les") — not a column on employees or enrollments.
+  brand: string | null;
+  status: PassportEnrollmentStatus;
   started_at: string;
   probation_deadline: string | null;
+  completed_at: string | null;
+  totals: PassportMatrixTotals;
   cells: PassportMatrixCell[];
 }
 
 export interface PassportMatrixResponse {
+  total: number;
   modules: PassportMatrixModule[];
   rows: PassportMatrixRow[];
 }
 
 export interface PassportMatrixQuery {
+  limit?: string; // default 100, capped at 200
+  offset?: string;
   brand?: string;
   terminal_id?: string;
+  program_id?: string;
   position?: string;
-  status?: PassportEnrollmentStatus;
+  // Omitted means "live" — same vocabulary and same default as listEnrollments,
+  // so one filter component drives both screens.
+  status?: PassportStatusFilter;
 }
 
-// PENDING (B2). Non-HQ callers are terminal-scoped and an empty scope yields an
-// empty result (fail-closed), same as listEnrollments.
+// Non-HQ callers are terminal-scoped, and an empty scope yields an empty result
+// (fail-closed), same as listEnrollments. Rows are ordered last name, first
+// name, enrollment id — stable across pages.
 export function getMatrix(
   query: PassportMatrixQuery = {}
 ): EdenResult<PassportMatrixResponse> {
   const q: Record<string, string> = {};
+  if (query.limit) q.limit = query.limit;
+  if (query.offset) q.offset = query.offset;
   if (query.brand) q.brand = query.brand;
   if (query.terminal_id) q.terminal_id = query.terminal_id;
+  if (query.program_id) q.program_id = query.program_id;
   if (query.position) q.position = query.position;
   if (query.status) q.status = query.status;
   return passportApi.matrix.get({ query: q });
 }
 
-// PENDING (B2). A passport_signoffs row with the actor's name resolved.
+// ---------------------------------------------------------------------------
+// enrollment journal — GET /passport/enrollments/:id/journal
+// (permission passport.matrix.view, same terminal scope as the sign-off route:
+// 404 unknown, 403 another branch's trainee)
+//
+// passport_signoffs is append-only and this is the only way HR reads it: who
+// certified what, from which IP, when. There is NO status filter of any kind —
+// the journal is history, so a completed/failed/paused enrollment still returns
+// its rows, and rows about a since-deactivated module stay readable.
+// ---------------------------------------------------------------------------
+
+// The topic/module a journal row refers to. `topic_id`/`module_id` are plain
+// uuids with no FK, so a row about a hard-deleted topic still appears with null
+// titles rather than vanishing from the evidence — hence nullable titles on a
+// non-null ref.
+export interface PassportJournalRef {
+  id: string;
+  title_ru: string | null;
+  title_uz: string | null;
+}
+
+// "office" = an admin/mentor acting through this panel, "trainee" = the phone,
+// `null` kind = a system-written row. `name` is already resolved server-side
+// (users fall back to their login) — do not fetch the users table to render it.
+export interface PassportJournalActor {
+  kind: "office" | "trainee" | null;
+  user_id: string | null;
+  employee_id: string | null;
+  name: string | null;
+}
+
+// NOTE the nesting: `topic` and `module` are objects (or null), NOT flat
+// `topic_id`/`topic_title_ru` fields.
 export interface PassportJournalEntry {
   id: string;
-  enrollment_id: string;
-  topic_id: string | null;
-  module_id: string | null;
+  created_at: string;
   action: PassportSignoffAction;
-  actor_user_id: string | null;
-  actor_employee_id: string | null;
-  actor_name: string | null;
+  topic: PassportJournalRef | null;
+  module: PassportJournalRef | null;
+  actor: PassportJournalActor;
   terminal_id: string | null;
   ip: string | null;
   meta: unknown;
-  created_at: string;
+}
+
+// Context for the header of the journal drawer, so the UI does not need a
+// second call to name the enrollment it is showing. This is why the journal
+// does NOT use the generic PassportListResponse envelope.
+export interface PassportJournalEnrollment {
+  id: string;
+  employee_id: string;
+  program_id: string;
+  terminal_id: string;
+  status: PassportEnrollmentStatus;
+  started_at: string;
+}
+
+export interface PassportJournalResponse {
+  total: number;
+  enrollment: PassportJournalEnrollment;
+  data: PassportJournalEntry[];
 }
 
 export interface PassportJournalQuery {
-  limit?: string;
+  limit?: string; // default 50, capped at 200
   offset?: string;
 }
 
-// PENDING (B2). Freshest first, terminal-scoped like the matrix (403 on another
-// branch's enrollment).
+// Newest first, id breaking ties so two events written in the same millisecond
+// keep a stable order across pages.
 export function getJournal(
   enrollmentId: string,
   query: PassportJournalQuery = {}
-): EdenResult<PassportListResponse<PassportJournalEntry>> {
+): EdenResult<PassportJournalResponse> {
   const q: Record<string, string> = {};
   if (query.limit) q.limit = query.limit;
   if (query.offset) q.offset = query.offset;
   return passportApi.enrollments({ id: enrollmentId }).journal.get({ query: q });
 }
 
-// PENDING (B2). A passport_tg_bindings row with user_id set and employee_id
-// null — the mentor's telegram binding, without which a manager cannot enter
-// the miniapp at all.
-export interface PassportMentor {
+// ---------------------------------------------------------------------------
+// mentor telegram bindings — /passport/mentors
+// (permission passport.mentors.manage)
+//
+// A trainee gets their binding by scanning a QR; a mentor has no QR and no
+// invite, so without a row here a branch manager cannot log into the miniapp AT
+// ALL. Mentor = `user_id` set and `employee_id` null — that null IS the role,
+// and the list filters on the pair, not on user_id alone.
+//
+// !! The LIST and the CREATE responses are DIFFERENT SHAPES. The list renames
+// the binding's own telegram-supplied name to `tg_first_name` and nests the
+// resolved office user under `user`; create/update returns the raw table row
+// (where the field is `first_name`) plus a `created` flag. One interface cannot
+// describe both — they are separate types below.
+// ---------------------------------------------------------------------------
+
+// The office user a binding points at, resolved by the list route.
+export interface PassportMentorUser {
+  id: string;
+  login: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  status: "active" | "blocked" | "inactive" | null;
+  // first+last, falling back to login — already computed, render as-is.
+  name: string | null;
+}
+
+// A row of GET /passport/mentors.
+export interface PassportMentorRow {
   id: string;
   telegram_id: number;
   user_id: string | null;
-  employee_id: string | null;
-  first_name: string;
+  // The name TELEGRAM gave us when this account last authenticated — empty
+  // until the mentor's first login, which is itself the signal HR wants
+  // ("did he ever actually get in?"). NOT the office user's name; that is
+  // `user.name`.
+  tg_first_name: string;
   lang: string; // "ru" | "uz"
+  banned: boolean;
+  created_at: string;
+  user: PassportMentorUser | null;
+}
+
+export interface PassportMentorListQuery {
+  limit?: string; // default 100, capped at 200
+  offset?: string;
+  user_id?: string;
+}
+
+// The response of POST /passport/mentors: the raw passport_tg_bindings row
+// (so `first_name`, not `tg_first_name`, and no nested `user`) plus `created` —
+// false when an existing binding for the same user was updated instead of
+// inserted. Re-binding the same pair is idempotent, and `banned` is
+// deliberately NOT cleared by it (un-banning is its own decision).
+export interface PassportMentorBinding {
+  created: boolean;
+  id: string;
+  telegram_id: number;
+  employee_id: string | null; // always null for a mentor
+  user_id: string | null;
+  first_name: string;
+  lang: string;
   banned: boolean;
   created_at: string;
 }
 
 export interface PassportMentorCreateInput {
   user_id: string;
+  // bigint read in JS number mode; the route bounds it at Number.MAX_SAFE_INTEGER.
   telegram_id: number;
+  lang?: "ru" | "uz";
 }
 
-// PENDING (B2). Gated by the not-yet-seeded `passport.mentors.manage`.
-export function listMentors(): EdenResult<
-  PassportListResponse<PassportMentor>
-> {
-  return passportApi.mentors.get();
+export interface PassportMentorDeleted {
+  deleted: true;
+  id: string;
+  telegram_id: number;
+  user_id: string | null;
 }
 
-// PENDING (B2). 409 if that telegram_id is already bound to a TRAINEE
-// (employee_id not null) — re-binding a trainee's account to a mentor is the
-// defect class fixed in stage 1a.
+export function listMentors(
+  query: PassportMentorListQuery = {}
+): EdenResult<PassportListResponse<PassportMentorRow>> {
+  const q: Record<string, string> = {};
+  if (query.limit) q.limit = query.limit;
+  if (query.offset) q.offset = query.offset;
+  if (query.user_id) q.user_id = query.user_id;
+  return passportApi.mentors.get({ query: q });
+}
+
+// 404 code:"user_not_found"; 409 code:"telegram_bound_to_trainee" (that
+// telegram account is a TRAINEE's — binding it as a mentor would flip its role,
+// cost the trainee their passport and hand sign-off reach to whoever holds the
+// phone); 409 code:"telegram_bound_to_other_user" (unbind it first). Read the
+// code with refusalCode(); the 409 payloads also carry telegram_id, and the
+// other-user one carries the occupying user_id.
 export function createMentor(
   input: PassportMentorCreateInput
-): EdenResult<PassportMentor> {
+): EdenResult<PassportMentorBinding> {
   return passportApi.mentors.post(input);
 }
 
-// PENDING (B2). telegram_id is a PATH param here, not a body field.
+// telegram_id is a PATH param, not a body field. 422 code:"bad_telegram_id",
+// 404 code:"binding_not_found", 409 code:"binding_is_trainee" — this surface
+// never unbinds a trainee in either direction.
+//
+// KNOWN GAP inherited from the backend: an already-issued miniapp session lives
+// in Redis for up to 12h and is not re-checked against this table, so access
+// ends within that window rather than instantly. Do not promise the user
+// immediate revocation in the UI copy.
 export function deleteMentor(
   telegramId: number | string
-): EdenResult<{ deleted: boolean }> {
+): EdenResult<PassportMentorDeleted> {
   return passportApi.mentors({ telegram_id: String(telegramId) }).delete();
 }
 
@@ -692,10 +889,11 @@ export function enrollmentConflict(
   return v as PassportEnrollmentConflict;
 }
 
-// The machine-readable `code` on a curriculum refusal (unpublish /
-// deleteProgramModule): "module_in_use", "module_in_use_in_program",
-// "not_published", "module_not_found", "link_not_found". Lets the UI offer the
-// right next action ("deactivate instead") rather than echoing English prose.
+// The machine-readable `code` on a refusal — see PassportRefusal for the full
+// list across curriculum (unpublish / deleteProgramModule) and mentors
+// (createMentor / deleteMentor). Lets the UI offer the right next action
+// ("deactivate instead", "unbind it first") rather than echoing English prose
+// written for a developer.
 export function refusalCode(error: any): string | null {
   const code = error?.value?.code;
   return typeof code === "string" ? code : null;
