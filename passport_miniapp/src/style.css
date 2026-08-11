@@ -1,0 +1,369 @@
+/* Trainee passport miniapp — visual system.
+ *
+ * Lineage: the deployed les_training_miniapp is the house reference for a
+ * Telegram miniapp here (graphite canvas, card list, floating pill panel), so
+ * the surfaces, radii and the red action colour are shared with it. What is NOT
+ * copied is its content furniture — this product is a credential, not a video
+ * library.
+ *
+ * Two deliberate departures from the reference:
+ *   1. Saturated red is reserved for the ONE action on a screen. Status glyphs
+ *      are low-contrast tinted tiles (the dark-empty-state idiom: a quiet glyph,
+ *      generous space, colour only where a finger should go).
+ *   2. Tap targets are 52px, not 48. The audience is line staff mid-shift, with
+ *      wet or gloved hands, on 5-6" phones.
+ *
+ * No web font: system-ui only. A font file is a second request on branch wifi
+ * that drops, and Cyrillic + Uzbek Latin coverage is already guaranteed by the
+ * device stack.
+ */
+
+:root {
+  /* Surfaces — house graphite. */
+  --bg: #121214;
+  --bg-2: #1c1c20;
+  --bg-3: #26262c;
+  --line: #ffffff14;
+
+  --text: #fff;
+  --muted: #ffffff8f;
+
+  /* Action / brand. Shared by both brands this app serves. */
+  --primary: #fc004a;
+  --primary-glow: #fd004a80;
+  --warn: #faaf04;
+
+  /* Level vocabulary, kept byte-identical in meaning to the office admin's
+   * matrix (admin/app/[locale]/passport/matrix/_components/level.tsx):
+   * 1 «увидел» slate, 2 «сделал» amber, 3 «сам» emerald, 4 «учит» violet.
+   * Unused by C1's shell; declared here so C2 cannot invent a second palette. */
+  --lvl-1: #cbd5e1;
+  --lvl-2: #fcd34d;
+  --lvl-3: #6ee7b7;
+  --lvl-4: #c4b5fd;
+  --overdue: #f87171;
+
+  --r-card: 18px;
+  --r-glyph: 26px;
+
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overscroll-behavior: none;
+}
+
+body {
+  min-height: 100svh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* ---------- screens ---------- */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  /* Room for the floating language pill so it never covers the last line. */
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+
+.screen-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.screen--center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding-top: 32px;
+}
+
+.screen--top {
+  align-items: stretch;
+  padding-top: calc(18px + env(safe-area-inset-top));
+}
+
+/* ---------- status screen ---------- */
+
+.glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 6px;
+  border-radius: var(--r-glyph);
+}
+
+.glyph svg {
+  width: 30px;
+  height: 30px;
+}
+
+.glyph--danger {
+  color: var(--primary);
+  background: #fc004a1a;
+  box-shadow: inset 0 0 0 1px #fc004a2e;
+}
+
+.glyph--warn {
+  color: var(--warn);
+  background: #faaf0421;
+  box-shadow: inset 0 0 0 1px #faaf0433;
+}
+
+.glyph--neutral {
+  color: #ffffffd1;
+  background: #ffffff0f;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+
+.status-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  max-width: 340px;
+  text-wrap: balance;
+}
+
+.status-body {
+  margin: 0;
+  max-width: 330px;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.btn-primary {
+  min-height: 52px;
+  min-width: 200px;
+  margin-top: 14px;
+  padding: 0 30px;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 28px -10px var(--primary-glow);
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 6px 16px -10px var(--primary-glow);
+}
+
+/* ---------- passport / mentor placeholder ---------- */
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 2px 16px;
+}
+
+.head-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.chip {
+  align-self: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.chip--soon {
+  color: var(--warn);
+  background: #faaf0421;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+  padding: 16px;
+  box-shadow: 0 10px 24px -18px #000000b3;
+}
+
+.card-body {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.card-note {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ---------- loading ---------- */
+
+.sk-head {
+  padding: 4px 2px 18px;
+}
+
+.sk-bar,
+.sk-tile {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-2) 25%,
+    var(--bg-3) 37%,
+    var(--bg-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.sk-bar--title {
+  width: 56%;
+  height: 26px;
+  margin-bottom: 10px;
+}
+
+.sk-bar--sub {
+  width: 34%;
+  height: 14px;
+}
+
+.sk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sk-tile {
+  height: 76px;
+  border-radius: var(--r-card);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+.loading-hint {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  animation: fade-in 0.3s ease-out;
+}
+
+.loading-hint[hidden] {
+  display: none;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- language pill ---------- */
+
+.lang-panel {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  transform: translateX(-50%);
+  border: 1px solid #ffffff1a;
+  border-radius: 999px;
+  background: #1c1c20e6;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 28px -14px #000c;
+}
+
+.lang-panel[hidden] {
+  display: none;
+}
+
+.lang-panel button {
+  min-width: 62px;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.lang-panel button.active {
+  background: #ffffff17;
+  color: var(--text);
+}
+
+/* Vestibular safety, and a free battery win on cheap phones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#121214" />
+  <title>Паспорт стажёра</title>
+  <!-- SRI is deliberately NOT set: Telegram serves a rolling file at an
+       unversioned URL, so an integrity pin breaks the miniapp on their next
+       update. Same include as the deployed les_training_miniapp. -->
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <!-- The loading screen is static markup, not JS-rendered: on a mid-range
+       Android it paints on the first frame, before the bundle has parsed. -->
+  <div id="screen-loading" class="screen screen--top screen-active">
+    <div class="sk-head">
+      <div class="sk-bar sk-bar--title"></div>
+      <div class="sk-bar sk-bar--sub"></div>
+    </div>
+    <div class="sk-list">
+      <div class="sk-tile"></div>
+      <div class="sk-tile"></div>
+      <div class="sk-tile"></div>
+    </div>
+    <p id="loading-hint" class="loading-hint" hidden></p>
+  </div>
+
+  <div id="screen-view" class="screen" hidden aria-live="polite"></div>
+
+  <!-- Floating language pill. Static labels, so it needs no translation and
+       stays readable in whichever language the app is currently in. -->
+  <div id="lang-panel" class="lang-panel" hidden>
+    <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+    <button type="button" data-lang="uz" aria-pressed="false">O‘z</button>
+  </div>
+
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
