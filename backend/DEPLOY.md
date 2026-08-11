@@ -39,7 +39,12 @@ NODE_ENV=development PORT=6798 \
 CREDIT_SOCKET_PATH=/tmp/credit-smoke-$$.sock \
   ./app.new &
 SMOKE_PID=$!
-sleep 3
+# MEASURED 2026-08-11: this binary takes ~21s to bind. `sleep 3` (the old value
+# here) makes every curl below fail and reads as a broken build for a perfectly
+# good one. Wait for the port instead of guessing.
+for i in $(seq 1 40); do
+  curl -sS -m 1 -o /dev/null http://127.0.0.1:6798/ && break || sleep 1
+done
 
 # 4. Prove it actually serves. Both must answer.
 curl -sS -m 5 http://127.0.0.1:6798/ -o /dev/null -w 'http: %{http_code}\n'
