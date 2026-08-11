@@ -312,6 +312,8 @@
       "allBrands": "Ikkala brend",
       "filterTerminal": "Filial",
       "allTerminals": "Barcha filiallar",
+      "filterProgram": "Dastur",
+      "allPrograms": "Barcha dasturlar",
       "filterPosition": "Lavozim",
       "allPositions": "Barcha lavozimlar",
       "filterStatus": "Holat",

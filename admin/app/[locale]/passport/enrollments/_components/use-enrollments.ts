@@ -213,7 +213,20 @@ export function useJournal(enrollmentId: string | null, limit: number) {
       unwrap(getJournal(enrollmentId as string, { limit: String(limit) })),
     enabled: !!enrollmentId,
     retry: false,
-    placeholderData: (prev) => prev,
+    // NOT `(prev) => prev`. In TanStack v5 placeholderData is carried ACROSS
+    // query-key changes, and this key changes every time the user opens the
+    // journal of a DIFFERENT enrollment — the routine interaction here. The
+    // previous trainee's sign-offs would render under the new trainee's name
+    // with no loading state at all (`isLoading` is false while placeholder data
+    // exists), and any module-level focus makes it worse rather than better:
+    // filtering the stale rows by module id keeps exactly the ones that look
+    // topically plausible. This is an audit surface — "кто что подтвердил" must
+    // never show another person's evidence, not even for one frame.
+    //
+    // The placeholder survives only when the enrollment is unchanged and just
+    // `limit` grew ("показать ещё"), which is the case it was added for.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[1] === (enrollmentId ?? "none") ? prev : undefined,
   });
 }
 

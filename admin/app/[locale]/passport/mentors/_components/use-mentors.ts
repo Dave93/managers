@@ -132,6 +132,18 @@ export function useOfficeUsers(enabled: boolean) {
   });
 }
 
+/** The users table's status enum, in the language the page is written in. */
+export const USER_STATUS_LABEL: Record<string, string> = {
+  active: "активна",
+  blocked: "заблокирована",
+  inactive: "отключена",
+};
+
+export function userStatusLabel(status: string | null | undefined): string {
+  if (!status) return "неизвестно";
+  return USER_STATUS_LABEL[status] ?? status;
+}
+
 /** first+last, falling back to login — the same rule the list route applies
  *  server-side when it computes `user.name`. */
 export function userLabel(u: {

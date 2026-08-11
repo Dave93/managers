@@ -379,6 +379,8 @@
       "allBrands": "Оба бренда",
       "filterTerminal": "Филиал",
       "allTerminals": "Все филиалы",
+      "filterProgram": "Программа",
+      "allPrograms": "Все программы",
       "filterPosition": "Должность",
       "allPositions": "Все должности",
       "filterStatus": "Статус",

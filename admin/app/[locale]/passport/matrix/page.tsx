@@ -43,6 +43,7 @@ import { MatrixLegend } from "./_components/level";
 import { MatrixGrid, type CellTarget } from "./_components/matrix-grid";
 import { MatrixJournalSheet } from "./_components/journal-sheet";
 import {
+  BRANDS,
   parseTimestamp,
   useMatrix,
   useMatrixAccess,
@@ -58,12 +59,6 @@ const STATUS_OPTIONS: { value: PassportStatusFilter; key: string }[] = [
   { value: "paused", key: "statusPaused" },
   { value: "completed", key: "statusCompleted" },
   { value: "failed", key: "statusFailed" },
-];
-
-// The two organizations behind the 53 branches (organization.code).
-const BRANDS = [
-  { value: "chopar", label: "ChoparPizza" },
-  { value: "les", label: "Les Ailes" },
 ];
 
 const PAGE_SIZES = [50, 100, 200];
@@ -114,6 +109,11 @@ export default function MatrixPage() {
   const [brand, setBrand] = useState("");
   const [terminalId, setTerminalId] = useState("");
   const [position, setPosition] = useState("");
+  // The grid sections by programme, and paging orders by last name ACROSS
+  // programmes — so without this filter a section is an arbitrary partial
+  // slice of its programme. Selecting one is what turns the screen into the
+  // single dense grid the design asks for.
+  const [programId, setProgramId] = useState("");
   const [pageSize, setPageSize] = useState(100);
   const [page, setPage] = useState(0);
 
@@ -129,8 +129,9 @@ export default function MatrixPage() {
       ...(brand ? { brand } : {}),
       ...(terminalId ? { terminal_id: terminalId } : {}),
       ...(position ? { position } : {}),
+      ...(programId ? { program_id: programId } : {}),
     }),
-    [pageSize, page, status, brand, terminalId, position]
+    [pageSize, page, status, brand, terminalId, position, programId]
   );
 
   const q = useMatrix(query);
@@ -145,6 +146,15 @@ export default function MatrixPage() {
 
   const resetPage = <T,>(setter: (v: T) => void) => (v: T) => {
     setter(v);
+    setPage(0);
+  };
+
+  const resetFilters = () => {
+    setBrand("");
+    setTerminalId("");
+    setPosition("");
+    setProgramId("");
+    setStatus("live");
     setPage(0);
   };
 
@@ -198,7 +208,8 @@ export default function MatrixPage() {
   // click that brings it in.
   const completedInScope = status === "all" || status === "completed";
 
-  const filtersDirty = !!(brand || terminalId || position) || status !== "live";
+  const filtersDirty =
+    !!(brand || terminalId || position || programId) || status !== "live";
   const pageCount = Math.max(Math.ceil(total / pageSize), 1);
 
   if (access.ready && !access.canViewMatrix) {
@@ -282,6 +293,30 @@ export default function MatrixPage() {
 
         <div className="space-y-1">
           <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {t("filterProgram")}
+          </Label>
+          <Select
+            value={programId || "__all__"}
+            onValueChange={resetPage((v: string) =>
+              setProgramId(v === "__all__" ? "" : v)
+            )}
+          >
+            <SelectTrigger className="h-8 w-[220px] text-[13px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all__">{t("allPrograms")}</SelectItem>
+              {(programs.data?.data ?? []).map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.position} · {p.title_ru}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1">
+          <Label className="text-[10px] uppercase tracking-wide text-muted-foreground">
             {t("filterPosition")}
           </Label>
           <Select
@@ -332,13 +367,7 @@ export default function MatrixPage() {
             variant="ghost"
             size="sm"
             className="mb-0.5 h-8 text-[12px]"
-            onClick={() => {
-              setBrand("");
-              setTerminalId("");
-              setPosition("");
-              setStatus("live");
-              setPage(0);
-            }}
+            onClick={resetFilters}
           >
             {t("reset")}
           </Button>
@@ -392,10 +421,7 @@ export default function MatrixPage() {
         «Всего» — по текущему фильтру целиком; остальные счётчики — по строкам на
         этой странице. «Просрочено модулей» намеренно не считает уже закрытые
         модули: у такого модуля ячейка всё равно с красной (пунктирной) рамкой —
-        дедлайн действительно прошёл, — но догонять там уже нечего. Обратный
-        случай тоже бывает: модуль без активных тем закрытым не считается и в
-        счётчик попадает, а ячейка у него пустая — учить там пока нечему, и
-        вопрос это к куррикулуму, а не к стажёру.
+        дедлайн действительно прошёл, — но догонять там уже нечего.
       </p>
 
       <MatrixLegend className="mb-4" />
@@ -448,13 +474,7 @@ export default function MatrixPage() {
               variant="outline"
               size="sm"
               className="mt-4"
-              onClick={() => {
-                setBrand("");
-                setTerminalId("");
-                setPosition("");
-                setStatus("live");
-                setPage(0);
-              }}
+              onClick={resetFilters}
             >
               {t("reset")}
             </Button>

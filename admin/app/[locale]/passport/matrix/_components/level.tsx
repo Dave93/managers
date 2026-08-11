@@ -104,6 +104,14 @@ export function MatrixLegend({ className }: { className?: string }) {
       <span className="text-[10px] font-semibold uppercase tracking-wide">
         Уровень
       </span>
+      {/* Level 0 — the trainee has active topics but has opened none of them.
+          A DIFFERENT fact from "the module has no active topics" (level_min
+          null) further down, and the two share a dashed outline, so both have
+          to be named or the vocabulary is ambiguous. */}
+      <span className="inline-flex items-center gap-1.5">
+        <LevelChip level={0} />
+        не начато
+      </span>
       {[1, 2, 3, 4].map((l) => (
         <span key={l} className="inline-flex items-center gap-1.5">
           <LevelChip level={l} />

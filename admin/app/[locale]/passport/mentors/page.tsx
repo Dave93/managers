@@ -67,6 +67,7 @@ import {
   useMentors,
   useMentorsAccess,
   userLabel,
+  userStatusLabel,
 } from "./_components/use-mentors";
 
 const PAGE = 100;
@@ -232,13 +233,46 @@ export default function MentorsPage() {
         </div>
         {/* Both mentor write routes are gated on passport.mentors.manage, so
             the affordance only appears once the permission is known to be
-            held — nothing offered here can come back 403. */}
+            held. It ALSO needs `users.list`: the form picks the office account
+            from the users registry, and that list is a separate permission no
+            seed bundles with mentors.manage. Without it the flow dead-ends
+            inside the sheet on a 403, so the button is disabled up front and
+            the banner below says why — nothing offered here can 403. */}
         {access.canManage && (
-          <Button size="sm" onClick={() => setSheetOpen(true)}>
+          <Button
+            size="sm"
+            disabled={access.ready && !access.canListUsers}
+            title={
+              access.ready && !access.canListUsers
+                ? "Нужно право users.list — без списка учётных записей выбрать сотрудника не из чего"
+                : undefined
+            }
+            onClick={() => setSheetOpen(true)}
+          >
             <Plus className="mr-1.5 size-3.5" /> {t("newBinding")}
           </Button>
         )}
       </div>
+
+      {access.ready && access.canManage && !access.canListUsers && (
+        <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+          <span>
+            <b>Новую привязку отсюда завести не получится.</b> Форма выбирает
+            сотрудника из реестра учётных записей, а он отдаётся по праву{" "}
+            <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
+              users.list
+            </code>{" "}
+            — отдельному от{" "}
+            <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
+              passport.mentors.manage
+            </code>{" "}
+            и не входящему с ним в один набор прав. Уже заведённые привязки
+            видны и снимаются как обычно; новую заведёт администратор с этим
+            правом — либо попросите добавить его вашей роли.
+          </span>
+        </div>
+      )}
 
       <TelegramIdHelp className="mb-4" />
 
@@ -327,7 +361,7 @@ export default function MentorsPage() {
                               tone="warn"
                               title="Учётная запись в админке не активна — права наставника следуют за ней."
                             >
-                              учётка {row.user?.status}
+                              учётка {userStatusLabel(row.user?.status)}
                             </Chip>
                           )}
                           {!row.user && (

@@ -43,7 +43,19 @@ import type {
 
 import { LevelChip, levelTitle } from "./level";
 import { EnrollmentStatusChip } from "./status";
-import { deadlineInfo, fmtDate, fullName, plural } from "./use-matrix";
+import {
+  brandLabel,
+  deadlineInfo,
+  fmtDate,
+  fullName,
+  plural,
+} from "./use-matrix";
+
+const OVERDUE_COUNTER_TITLE = [
+  "Модули, у которых дедлайн прошёл и которые ещё не закрыты.",
+  "Уже закрытый просроченный модуль сюда НЕ входит — но его ячейка всё равно с пунктирной красной рамкой: дедлайн действительно прошёл, догонять там нечего.",
+  "Модуль без активных тем, наоборот, входит: закрытым он не считается, хотя ячейка у него пустая — вопрос это к куррикулуму, а не к стажёру.",
+].join("\n");
 
 /** The identity of a column. NEVER `module_id` alone — see the header comment. */
 export function columnKey(m: { program_id: string; module_id: string }): string {
@@ -219,7 +231,9 @@ function ProgramSection({
                       <span className="truncate text-[11px] text-muted-foreground">
                         {row.employee.position || "должность не указана"} ·{" "}
                         {row.terminal_name ?? terminalName(row.terminal_id)}
-                        {row.brand ? ` · ${row.brand}` : ""}
+                        {brandLabel(row.brand)
+                          ? ` · ${brandLabel(row.brand)}`
+                          : ""}
                       </span>
                       {probation && live && probation.tone !== "ok" && (
                         <span
@@ -257,10 +271,16 @@ function ProgramSection({
                     <span className="text-[12px] font-medium tabular-nums">
                       {row.totals.modules_done}/{row.totals.modules_total}
                     </span>
+                    {/* The counter's tooltip carries BOTH directions of the
+                        `overdue_modules` discrepancy, stated where the
+                        confusion actually happens — at the number that
+                        disagrees with the cells next to it, not in a footnote
+                        at the top of the page. Nothing is recomputed: this is
+                        the server's own count, explained. */}
                     {row.totals.overdue_modules > 0 && (
                       <span
                         className="block text-[10px] font-medium leading-tight text-red-600 dark:text-red-400"
-                        title="Просроченные и ещё не закрытые модули"
+                        title={OVERDUE_COUNTER_TITLE}
                       >
                         {row.totals.overdue_modules} просроч.
                       </span>

@@ -89,6 +89,27 @@ export function useMatrixAccess(): MatrixAccess {
 }
 
 // ---------------------------------------------------------------------------
+// brands
+//
+// `row.brand` is the CODE of the organization owning the trainee's terminal
+// (organization.code — verified against the database: exactly two rows,
+// "chopar" and "les"). The code is what the API filter takes; the name is what
+// a human reads. Both live here so the filter and the grid can never show two
+// different words for the same brand.
+// ---------------------------------------------------------------------------
+
+export const BRANDS: { value: string; label: string }[] = [
+  { value: "chopar", label: "ChoparPizza" },
+  { value: "les", label: "Les Ailes" },
+];
+
+/** Falls back to the raw code: a third organization would be visible, not hidden. */
+export function brandLabel(code: string | null | undefined): string | null {
+  if (!code) return null;
+  return BRANDS.find((b) => b.value === code)?.label ?? code;
+}
+
+// ---------------------------------------------------------------------------
 // reference data
 // ---------------------------------------------------------------------------
 
@@ -158,7 +179,20 @@ export function useJournal(enrollmentId: string | null, limit: number) {
       unwrap(getJournal(enrollmentId as string, { limit: String(limit) })),
     enabled: !!enrollmentId,
     retry: false,
-    placeholderData: (prev) => prev,
+    // NOT `(prev) => prev`. In TanStack v5 placeholderData is carried ACROSS
+    // query-key changes, and this key changes every time the user opens the
+    // journal of a DIFFERENT enrollment — the routine interaction here. The
+    // previous trainee's sign-offs would render under the new trainee's name
+    // with no loading state at all (`isLoading` is false while placeholder data
+    // exists), and any module-level focus makes it worse rather than better:
+    // filtering the stale rows by module id keeps exactly the ones that look
+    // topically plausible. This is an audit surface — "кто что подтвердил" must
+    // never show another person's evidence, not even for one frame.
+    //
+    // The placeholder survives only when the enrollment is unchanged and just
+    // `limit` grew ("показать ещё"), which is the case it was added for.
+    placeholderData: (prev, prevQuery) =>
+      prevQuery?.queryKey[1] === (enrollmentId ?? "none") ? prev : undefined,
   });
 }
 

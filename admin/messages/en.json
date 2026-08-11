@@ -349,6 +349,8 @@
       "allBrands": "Both brands",
       "filterTerminal": "Branch",
       "allTerminals": "All branches",
+      "filterProgram": "Programme",
+      "allPrograms": "All programmes",
       "filterPosition": "Position",
       "allPositions": "All positions",
       "filterStatus": "Status",
