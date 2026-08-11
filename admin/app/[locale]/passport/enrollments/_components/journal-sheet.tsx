@@ -191,9 +191,15 @@ function Entry({
           <span className="rounded border px-1 py-px text-[10px] uppercase tracking-wide">
             {ACTOR_LABEL[actorKind] ?? actorKind}
           </span>
-          <span className="text-foreground/80">
-            {entry.actor.name ?? "без имени"}
-          </span>
+          {/* A `kind === null` row has no human behind it, so the «Система»
+              badge IS the actor — appending "без имени" would read as a person
+              whose name we failed to resolve. The fallback stays for office and
+              trainee rows, where a missing name is exactly that. */}
+          {entry.actor.kind !== null && (
+            <span className="text-foreground/80">
+              {entry.actor.name ?? "без имени"}
+            </span>
+          )}
           <span>·</span>
           <span>{terminalName(entry.terminal_id)}</span>
           {entry.ip && (

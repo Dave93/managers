@@ -13,10 +13,16 @@
 //    exposes no way to read an existing invite id (by design — an invite is a
 //    bearer token), so the only honest label for this button is "выдать НОВЫЙ".
 //
-//  * Close revokes the same unused invites and marks the outcome. It does not
-//    kill a session that was already redeemed — the miniapp session lives in
-//    Redis for up to 12h — so the copy promises "новые входы по QR", not
-//    instant lockout.
+//  * Close revokes the same set and marks the outcome. "The same set" is the
+//    literal one /reinvite uses (controller.ts:1364-1374): every invite with
+//    `used_at IS NULL AND expires_at > now()` — i.e. every UNSCANNED invite,
+//    whether or not it was printed and handed over. The copy has to name that
+//    set, not "невыданные" ones: in this app «выдать» means «hand out» (the
+//    menu item is «Выдать новый QR»), so promising that only un-handed-out
+//    codes die would describe the harmless half and hide the half that hurts.
+//    It does not kill a session that was already redeemed — the miniapp
+//    session lives in Redis for up to 12h — so the copy promises "новые входы
+//    по QR", not instant lockout.
 
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -262,11 +268,12 @@ export function RowActions({
                 </div>
 
                 <p className="rounded-md border border-border/70 bg-muted/50 px-2.5 py-2">
-                  Невыданные и нераспечатанные QR-коды этой стажировки перестанут
-                  работать — новые входы по ним станут невозможны (уже открытая у
-                  стажёра сессия в Telegram может доработать до 12 часов). Заново
-                  открыть закрытую стажировку из админки нельзя — понадобится
-                  начать новую. Журнал и все отметки наставников сохранятся.
+                  Все ещё не отсканированные QR-коды этой стажировки перестанут
+                  работать, <b>включая уже распечатанные и отданные на руки</b> —
+                  новые входы по ним станут невозможны (уже открытая у стажёра
+                  сессия в Telegram может доработать до 12 часов). Заново открыть
+                  закрытую стажировку из админки нельзя — понадобится начать
+                  новую. Журнал и все отметки наставников сохранятся.
                 </p>
               </div>
             </AlertDialogDescription>

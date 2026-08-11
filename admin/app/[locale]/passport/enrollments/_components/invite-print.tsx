@@ -77,7 +77,12 @@ const PRINT_CSS = `
 .passport-invite-print { color-scheme: light; }
 .passport-invite-print .invite-page {
   width: 148mm;
-  min-height: 210mm;
+  /* NOT 210mm. Sizing the block to exactly the paper leaves zero rounding
+     slack under the A5 zero-margin @page rule below, and a sub-pixel overflow
+     is all it takes for a browser to emit a blank second page. 200mm keeps the
+     layout tall enough for the mt-auto footer while staying clear of the edge.
+     (No backticks in this comment: the whole block is a JS template literal.) */
+  min-height: 200mm;
   background: #fff;
   color: #000;
 }
@@ -100,6 +105,8 @@ const PRINT_CSS = `
     border-radius: 0 !important;
     box-shadow: none !important;
     page-break-after: avoid;
+    break-after: avoid;
+    break-inside: avoid;
   }
   .passport-invite-print * {
     -webkit-print-color-adjust: exact;
@@ -205,7 +212,8 @@ export function InvitePrintView({
             <code className="rounded bg-red-100 px-1 py-px font-mono text-[11px]">
               {BOT_ENV_VAR}
             </code>{" "}
-            (например <code className="font-mono text-[11px]">chopar_passport_bot</code>).
+            — имя бота паспорта, сейчас это{" "}
+            <code className="font-mono text-[11px]">pasport_stajer_bot</code>.
             Стажировка уже создана, инвайт выпущен — распечатать его можно будет
             после того, как переменную зададут в{" "}
             <code className="font-mono text-[11px]">admin/.env</code> и админку

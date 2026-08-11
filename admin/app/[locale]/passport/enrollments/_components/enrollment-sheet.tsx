@@ -394,27 +394,45 @@ function EnrollmentForm({
         действует 7 дней — распечатайте и отдайте его стажёру в тот же день.
       </div>
 
-      {/* A scalar selector, not a one-element array: react-form types the child
-          as `(state: TSelected) => ReactNode`, and a `[string]` tuple parameter
-          against an inferred `any[]` selection is a compile error ("target
-          requires 1 element(s) but source may have fewer"). */}
-      <form.Subscribe selector={(s: any) => s.values.program_id}>
-        {(programId: any) => (
-          <div className="flex justify-end gap-2 border-t pt-4">
-            <Button type="button" variant="outline" onClick={onClose}>
-              Отмена
-            </Button>
-            <Button
-              type="submit"
-              disabled={save.isPending || blocked || !employee || !programId}
-            >
-              {save.isPending && (
-                <Loader2 className="mr-1.5 size-4 animate-spin" />
-              )}
-              Начать и выдать QR
-            </Button>
-          </div>
-        )}
+      {/* Subscribes to the whole `values` object (the idiom the curriculum
+          builder's topic-sheet.tsx uses): react-form types the child as
+          `(state: TSelected) => ReactNode`, and a tuple parameter against an
+          inferred `any[]` selection is a compile error ("target requires N
+          element(s) but source may have fewer").
+
+          probation_days is re-validated HERE, with the same 1..365 predicate
+          the field draws in red. The field alone only coloured the input, so an
+          out-of-range value still submitted and came back as a raw Elysia 422
+          in a toast — the server's schema message, written for a developer,
+          shown to HR. The gate belongs on the button too. */}
+      <form.Subscribe selector={(s: any) => s.values}>
+        {(values: any) => {
+          const programId = values?.program_id;
+          const days = Number(values?.probation_days);
+          const daysValid = Number.isFinite(days) && days >= 1 && days <= 365;
+          return (
+            <div className="flex justify-end gap-2 border-t pt-4">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Отмена
+              </Button>
+              <Button
+                type="submit"
+                disabled={
+                  save.isPending ||
+                  blocked ||
+                  !employee ||
+                  !programId ||
+                  !daysValid
+                }
+              >
+                {save.isPending && (
+                  <Loader2 className="mr-1.5 size-4 animate-spin" />
+                )}
+                Начать и выдать QR
+              </Button>
+            </div>
+          );
+        }}
       </form.Subscribe>
     </form>
   );

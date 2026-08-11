@@ -191,8 +191,10 @@ export default function EnrollmentsPage() {
             <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
               {BOT_ENV_VAR}
             </code>{" "}
-            — имя Telegram-бота паспорта, без которого ссылку для QR собрать не
-            из чего. Стажировки создавать можно, инвайты выпускаются, но
+            — имя Telegram-бота паспорта (
+            <code className="font-mono text-[11px]">pasport_stajer_bot</code>),
+            без которого ссылку для QR собрать не из чего. Стажировки создавать
+            можно, инвайты выпускаются, но
             распечатать их не получится, пока переменную не зададут в{" "}
             <code className="font-mono text-[11px]">admin/.env</code> и админку
             не пересоберут.
