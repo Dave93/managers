@@ -6,11 +6,18 @@
 // Design constraints that drove the layout:
 //  * One A5 portrait page. A5 because it is half a sheet: two invites per A4,
 //    and it fits a name badge pocket / a clipboard at the pass.
-//  * The QR block is 60 mm and carries its OWN 4-module quiet zone
+//  * The QR block is 50 mm and carries its OWN 4-module quiet zone
 //    (`marginSize={4}`), which is what the spec requires and what a decoder
 //    actually looks for. The payload is ~90 bytes at level Q, i.e. a 45–49
-//    module grid, so the printed data area still lands at ~51 mm — a phone
-//    locks onto that from about an arm's length. NOTHING dark may touch the
+//    module grid, so the printed data area still lands at ~42 mm — a phone
+//    locks onto that from about an arm's length, and it is still far above the
+//    ~25 mm where scanning from paper starts to get fussy. It was 60 mm (~51 mm
+//    of data) until the sheet was measured against the A5 page and came out at
+//    233 mm — 23 mm too tall, i.e. it printed on TWO pages, which defeats the
+//    entire point of the format. The 10 mm came off the code because that was
+//    the largest single block and it had the most slack; the type sizes did
+//    not move, because a trainee reading instructions off paper is the other
+//    thing this sheet has to get right. NOTHING dark may touch the
 //    code: an earlier draft framed it in a black hairline 3 mm out, which eats
 //    into the quiet zone and is the classic "scans on screen, fails after a
 //    fold and a photocopy" defect. The frame is gone; the white margin is the
@@ -126,8 +133,8 @@ function Steps({
 }) {
   return (
     <div className="min-w-0">
-      <p className="mb-[2mm] text-[9.5pt] font-bold leading-tight">{title}</p>
-      <ol className="m-0 list-none space-y-[1.4mm] p-0">
+      <p className="mb-[1.5mm] text-[9.5pt] font-bold leading-tight">{title}</p>
+      <ol className="m-0 list-none space-y-[1.2mm] p-0">
         {steps.map((s, i) => (
           <li key={i} className="flex gap-[2mm] text-[9pt] leading-[1.35]">
             <span className="w-[4mm] shrink-0 font-bold tabular-nums">
@@ -137,7 +144,7 @@ function Steps({
           </li>
         ))}
       </ol>
-      <p className="mt-[2mm] text-[8pt] leading-[1.3]">{warning}</p>
+      <p className="mt-[1.5mm] text-[8pt] leading-[1.3]">{warning}</p>
     </div>
   );
 }
@@ -231,7 +238,7 @@ export function InvitePrintView({
       )}
 
       {/* ----------------------------- the page ----------------------------- */}
-      <div className="invite-page mx-auto flex max-w-full flex-col rounded-sm px-[12mm] py-[11mm] shadow-2xl print:shadow-none">
+      <div className="invite-page mx-auto flex max-w-full flex-col rounded-sm px-[12mm] py-[7mm] shadow-2xl print:shadow-none">
         {/* header rule */}
         <div className="flex items-baseline justify-between border-b-2 border-black pb-[2mm]">
           <span className="text-[8pt] font-bold uppercase tracking-[0.18em]">
@@ -243,11 +250,11 @@ export function InvitePrintView({
         </div>
 
         {/* who */}
-        <div className="pt-[5mm]">
+        <div className="pt-[3.5mm]">
           <p className="text-[7.5pt] uppercase tracking-[0.14em] text-neutral-500">
             Стажёр · Stajyor
           </p>
-          <p className="mt-[1mm] text-[24pt] font-bold leading-[1.05] tracking-tight">
+          <p className="mt-[1mm] text-[21pt] font-bold leading-[1.05] tracking-tight">
             {invite.traineeName}
           </p>
           <p className="mt-[2mm] text-[11pt] leading-snug">
@@ -264,12 +271,12 @@ export function InvitePrintView({
         </div>
 
         {/* the code */}
-        <div className="flex flex-col items-center pt-[6mm]">
+        <div className="flex flex-col items-center pt-[4mm]">
           {url ? (
             // No border, no padding wrapper: the 4-module quiet zone is drawn
             // INSIDE the svg, and anything dark placed against it would undo
             // that. The white square IS the frame.
-            <div className="h-[60mm] w-[60mm] bg-white">
+            <div className="h-[50mm] w-[50mm] bg-white">
               <QRCodeSVG
                 value={url}
                 size={1024}
@@ -284,7 +291,7 @@ export function InvitePrintView({
               />
             </div>
           ) : (
-            <div className="flex h-[60mm] w-[60mm] flex-col items-center justify-center gap-[2mm] border-2 border-dashed border-neutral-400 px-[4mm] text-center">
+            <div className="flex h-[50mm] w-[50mm] flex-col items-center justify-center gap-[2mm] border-2 border-dashed border-neutral-400 px-[4mm] text-center">
               <p className="text-[10pt] font-bold">QR не сформирован</p>
               <p className="text-[8pt] leading-snug text-neutral-600">
                 Бот паспорта не настроен в этой сборке админки. Печать этой
@@ -294,14 +301,14 @@ export function InvitePrintView({
           )}
 
           {url && (
-            <p className="mt-[3mm] max-w-[100mm] break-all text-center font-mono text-[7pt] leading-[1.3] text-neutral-600">
+            <p className="mt-[2mm] max-w-[100mm] break-all text-center font-mono text-[7pt] leading-[1.3] text-neutral-600">
               {url}
             </p>
           )}
         </div>
 
         {/* validity */}
-        <div className="mt-[5mm] border-2 border-black px-[4mm] py-[2.5mm] text-center">
+        <div className="mt-[3mm] border-2 border-black px-[4mm] py-[2mm] text-center">
           <p className="text-[11pt] font-bold leading-tight">
             Действует до {fmtLongDate(invite.expiresAt)}
           </p>
@@ -311,7 +318,7 @@ export function InvitePrintView({
         </div>
 
         {/* instructions, two languages, equal weight */}
-        <div className="mt-[5mm] grid grid-cols-2 gap-x-[6mm] border-t border-neutral-300 pt-[4mm]">
+        <div className="mt-[3mm] grid grid-cols-2 gap-x-[6mm] border-t border-neutral-300 pt-[3mm]">
           <Steps
             title="Как открыть паспорт"
             steps={[
@@ -333,7 +340,7 @@ export function InvitePrintView({
         </div>
 
         {/* footer */}
-        <div className="mt-auto border-t border-neutral-300 pt-[2.5mm] text-[7pt] leading-[1.35] text-neutral-500">
+        <div className="mt-auto border-t border-neutral-300 pt-[2mm] text-[7pt] leading-[1.35] text-neutral-500">
           <p>
             Филиал · Filial: {invite.branch} · Выдан ·{" "}
             {fmtLongDate(Date.now())}

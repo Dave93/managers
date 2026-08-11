@@ -47,7 +47,9 @@ export function buildColumns({
       header: "Филиал",
       cell: ({ row }) => (
         <span className="text-[12.5px]">
-          {terminalName(row.original.terminal_id)}
+          {/* Server-resolved name first; terminalName() is the fallback for a
+              terminal that no longer exists in the cached registry. */}
+          {row.original.terminal_name ?? terminalName(row.original.terminal_id)}
         </span>
       ),
     },

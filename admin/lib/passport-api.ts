@@ -443,6 +443,11 @@ export interface PassportEnrollmentRow {
   employee_id: string;
   program_id: string;
   terminal_id: string;
+  /** Branch name resolved server-side (GET /passport/enrollments joins
+   *  terminals), so the table stays readable for a role WITHOUT
+   *  `terminals.list` — that 403 used to degrade every branch cell to a
+   *  truncated uuid. Null only when the terminal row itself is gone. */
+  terminal_name: string | null;
   status: PassportEnrollmentStatus;
   started_at: string;
   probation_deadline: string | null;

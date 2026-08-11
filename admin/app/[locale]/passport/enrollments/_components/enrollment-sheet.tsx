@@ -166,6 +166,11 @@ function EnrollmentForm({
   );
 
   const [employee, setEmployee] = useState<EmployeeOption | null>(null);
+  // `useTerminalNames` falls back to a truncated uuid when it cannot resolve a
+  // branch; detecting that here keeps the uuid out of a sentence meant for a
+  // human, without changing the helper other screens rely on.
+  const branchLabel = employee ? terminalName(employee.terminal_id) : "";
+  const branchKnown = !!employee && !branchLabel.endsWith("…") && branchLabel !== "—";
   const [conflict, setConflict] = useState<PassportEnrollmentConflict | null>(
     null
   );
@@ -269,8 +274,17 @@ function EnrollmentForm({
           нельзя.{" "}
           {employee && (
             <span className="text-foreground">
-              Стажировка будет открыта в филиале «
-              {terminalName(employee.terminal_id)}».
+              {/* The employee registry (GET /attestation/employees) carries
+                  terminal_id but no name, so this line depends on the cached
+                  terminals registry — which a role without `terminals.list`
+                  cannot read. Rather than print a truncated uuid at HR ("будет
+                  открыта в филиале «e85de515…»", which names nothing and
+                  suggests nothing), say the true thing: the branch comes from
+                  the employee card either way, and the operator cannot change
+                  it here. */}
+              {branchKnown
+                ? `Стажировка будет открыта в филиале «${branchLabel}».`
+                : "Стажировка будет открыта в филиале, указанном в карточке этого сотрудника."}
             </span>
           )}
         </p>

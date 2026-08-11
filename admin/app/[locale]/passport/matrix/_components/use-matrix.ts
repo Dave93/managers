@@ -152,6 +152,14 @@ export function useTerminalNames(): (id: string | null) => string {
   const { data } = useTerminals();
   return (id) => {
     if (!id) return "—";
+    // A name is missing either because the registry could not be read (a role
+    // without `terminals.list` gets 403 and this list stays empty) or because
+    // the id is not in it (deleted / renamed terminal). Neither is worth a
+    // uuid in a column a human reads: both list screens take the branch NAME
+    // straight from the server instead (terminal_name on GET
+    // /passport/enrollments and GET /passport/matrix), so neither depends on
+    // `terminals.list` to stay readable. This stays as the last-resort label
+    // for the few places that only ever have an id.
     const hit = (data ?? []).find((t) => t.id === id);
     return hit?.name ?? `${id.slice(0, 8)}…`;
   };

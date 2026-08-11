@@ -1275,11 +1275,23 @@ const passportControllerImpl = new Elysia({
           first_name: employees.first_name,
           last_name: employees.last_name,
           position: employees.position,
+          // Branch NAME, not just the id. Reading it here costs one join onto a
+          // primary key, and it is what stops the UI from having to hold
+          // `terminals.list` purely to render a human-readable branch: without
+          // it the column fell back to a truncated uuid ("e85de515…") for every
+          // row, which is unreadable and unactionable for HR. GET
+          // /passport/matrix already returns terminal_name for exactly this
+          // reason — these two screens must not disagree about a branch.
+          terminal_name: terminalsTable.name,
           program_title_ru: passport_programs.title_ru,
           program_title_uz: passport_programs.title_uz,
         })
         .from(passport_enrollments)
         .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          terminalsTable,
+          eq(terminalsTable.id, passport_enrollments.terminal_id)
+        )
         .leftJoin(
           passport_programs,
           eq(passport_programs.id, passport_enrollments.program_id)
