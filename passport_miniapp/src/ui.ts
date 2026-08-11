@@ -54,6 +54,9 @@ const el = (id: string): HTMLElement => {
   return node;
 };
 
+/** Set by mountLangPanel; repainted on every screen change (see below). */
+let paintLang: (() => void) | null = null;
+
 function show(id: "loading" | "view"): void {
   for (const name of ["loading", "view"] as const) {
     const node = el(`screen-${name}`);
@@ -61,6 +64,13 @@ function show(id: "loading" | "view"): void {
     node.hidden = !active;
     node.classList.toggle("screen-active", active);
   }
+  // The pill is mounted BEFORE the auth exchange (so it works even on the
+  // loading screen), but the server's `lang` arrives with the auth response
+  // and can move the language out from under it. Without this repaint, a
+  // first-time trainee whose binding says `uz` would read Uzbek copy with RU
+  // highlighted -- and tapping "O'z" would be a no-op, because the language
+  // already IS uz. Every screen change re-syncs the pill.
+  paintLang?.();
 }
 
 function icon(key: IconKey): string {
@@ -159,13 +169,14 @@ export function mountLangPanel(): void {
       btn.setAttribute("aria-pressed", active ? "true" : "false");
     }
   };
+  paintLang = paint;
   panel.addEventListener("click", (event) => {
     const btn = (event.target as HTMLElement).closest<HTMLButtonElement>("button[data-lang]");
     const next = btn?.dataset["lang"];
     if (next !== "ru" && next !== "uz") return;
     if (next === lang()) return;
     setLang(next as Lang, true);
-    paint();
+    paintLang?.();
     setSlowHint(!el("loading-hint").hidden);
     repaint?.();
   });
