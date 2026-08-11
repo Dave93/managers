@@ -341,6 +341,34 @@
       "emptySelectionHint": "Pick a module in the tree on the left to see its status, publication readiness and available actions. The amber RU/UZ marks show where a translation is missing — that is exactly what blocks publication.",
       "programsDenied": "The programme list is unavailable: it requires the “passport.matrix.view” permission, which your role does not have. Your department’s modules are shown as a flat list — linking them to programmes is done by HR.",
       "noDepartment": "Your account has no department set, so no modules are shown at all. Ask HR to set the department on your user profile — the rule is server-side and deliberately fail-closed."
+    },
+    "matrix": {
+      "title": "Progress matrix",
+      "subtitle": "Who is where and what is late. Rows are trainees, columns are the modules of their programme.",
+      "filterBrand": "Brand",
+      "allBrands": "Both brands",
+      "filterTerminal": "Branch",
+      "allTerminals": "All branches",
+      "filterPosition": "Position",
+      "allPositions": "All positions",
+      "filterStatus": "Status",
+      "statusLive": "Running now",
+      "statusAll": "All",
+      "statusActive": "In progress",
+      "statusPaused": "Paused",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "reset": "Reset filters",
+      "metricTotal": "total",
+      "metricLive": "running",
+      "metricOverdue": "overdue modules",
+      "metricAwaiting": "awaiting observation",
+      "metricCompleted30": "completed in 30 days"
+    },
+    "mentors": {
+      "title": "Mentors",
+      "subtitle": "Binding a branch manager to a Telegram account — without it they cannot open the passport miniapp.",
+      "newBinding": "Bind a mentor"
     }
   },
   "medical": {

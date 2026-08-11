@@ -304,6 +304,34 @@
       "emptySelectionHint": "Modulning holati, chop etishga tayyorligi va mavjud amallarini ko‘rish uchun chapdagi daraxtdan modul tanlang. Sariq RU/UZ belgilari tarjima yetishmayotgan joyni ko‘rsatadi — aynan shu chop etishni to‘xtatadi.",
       "programsDenied": "Dasturlar ro‘yxati mavjud emas: u «passport.matrix.view» huquqini talab qiladi, sizning rolingizda esa bu huquq yo‘q. Departamentingiz modullari tekis ro‘yxat sifatida ko‘rsatilgan — dasturga bog‘lashni HR bajaradi.",
       "noDepartment": "Hisobingizda departament ko‘rsatilmagan, shuning uchun modullar umuman ko‘rsatilmaydi. HR dan foydalanuvchi profilida departamentni belgilashni so‘rang — bu qoida server tomonida va ataylab yopiq."
+    },
+    "matrix": {
+      "title": "Progress matritsasi",
+      "subtitle": "Kim qayerda va nimasi kechikkan. Qatorlar — stajyorlar, ustunlar — ularning dasturi modullari.",
+      "filterBrand": "Brend",
+      "allBrands": "Ikkala brend",
+      "filterTerminal": "Filial",
+      "allTerminals": "Barcha filiallar",
+      "filterPosition": "Lavozim",
+      "allPositions": "Barcha lavozimlar",
+      "filterStatus": "Holat",
+      "statusLive": "Hozir davom etmoqda",
+      "statusAll": "Hammasi",
+      "statusActive": "Davom etmoqda",
+      "statusPaused": "To‘xtatilgan",
+      "statusCompleted": "Yakunlangan",
+      "statusFailed": "O‘tmadi",
+      "reset": "Filtrlarni tozalash",
+      "metricTotal": "jami",
+      "metricLive": "davom etmoqda",
+      "metricOverdue": "kechikkan modullar",
+      "metricAwaiting": "kuzatuv kutmoqda",
+      "metricCompleted30": "30 kunda yakunlangan"
+    },
+    "mentors": {
+      "title": "Ustozlar",
+      "subtitle": "Boshqaruvchini Telegram akkauntiga bog‘lash: busiz u pasport mini-ilovasiga umuman kira olmaydi.",
+      "newBinding": "Ustozni bog‘lash"
     }
   },
   "medical": {
