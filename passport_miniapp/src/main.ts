@@ -7,6 +7,7 @@ import "./style.css";
 import { authenticate, api } from "./api";
 import { setLang, storedLang } from "./i18n";
 import { paintChrome } from "./telegram";
+import { parseMe, renderPassport } from "./passport";
 import {
   mountLangPanel,
   renderLoading,
@@ -56,9 +57,6 @@ async function start(): Promise<void> {
     return;
   }
 
-  // One real authenticated call, so the bearer/re-auth path is exercised on
-  // every launch rather than lying dormant until C2. The payload is not read
-  // here -- only whether a passport exists at all.
   const me = await api<unknown>("/me");
   stopLoading();
 
@@ -74,7 +72,17 @@ async function start(): Promise<void> {
     else renderStatus("unknown", start);
     return;
   }
-  renderPlaceholder("trainee");
+
+  // A body that does not look like a passport is an error, not a passport with
+  // holes in it: rendering half a screen would be worse than saying so.
+  const data = parseMe(me.data);
+  if (!data) {
+    renderStatus("unknown", start);
+    return;
+  }
+  // No onOpenTopic yet: C3 owns the topic screen and passes it here. Until then
+  // the rows render as rows, not as buttons that do nothing.
+  renderPassport(data);
 }
 
 // Language before first paint: the loading hint and every screen depend on it.

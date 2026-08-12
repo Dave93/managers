@@ -74,6 +74,60 @@ export type StatusKey =
   | "offline"
   | "unknown";
 
+/** The four stamp kinds `passport_stamps.type` can hold. */
+export type StampType =
+  | "module_cert"
+  | "universal_chopar"
+  | "universal_les"
+  | "probation_passed";
+
+/**
+ * The passport screen's own vocabulary.
+ *
+ * The level words are LIFTED FROM THE OFFICE ADMIN, verbatim
+ * (admin/app/[locale]/passport/matrix/_components/level.tsx): «Увидел»,
+ * «Сделал», «Сам», «Учит других». A manager reading the matrix and a trainee
+ * reading this screen have to be able to say "у тебя по этой теме сделал" and
+ * mean the same cell. Inventing warmer first-person wording here would break
+ * that shared vocabulary for nothing. Level 0 has no name in the design
+ * vocabulary — it is «не начато», exactly as the admin says.
+ *
+ * Interpolated strings are functions, not templates with placeholders: Russian
+ * needs the day word agreed with the number and Uzbek does not, and a function
+ * per language is the only way to keep that inside the dictionary instead of
+ * leaking grammar into the renderer.
+ */
+export type PassportDict = {
+  since: (date: string) => string;
+  ring_caption: string;
+  ring_counts: (done: number, total: number) => string;
+  probation: string;
+  left: (days: number) => string;
+  over: (days: number) => string;
+  due_today: string;
+  until: (date: string) => string;
+  overdue_modules: (n: number) => string;
+  modules: string;
+  optional: string;
+  no_topics: string;
+  done: string;
+  done_late: string;
+  topics_progress: (done: number, total: number) => string;
+  /** Index 0..4. 0 is "не начато". */
+  level: readonly string[];
+  locked: string;
+  need_mentor: string;
+  current: string;
+  stamps: string;
+  stamps_empty: string;
+  stamp: Record<StampType, string>;
+  stamp_valid: (date: string) => string;
+  empty_title: string;
+  empty_body: string;
+  /** Short month names, January first. */
+  months: readonly string[];
+};
+
 export type Dict = {
   loading_slow: string;
   retry: string;
@@ -84,7 +138,18 @@ export type Dict = {
   mentor_body: string;
   mentor_signoff_note: string;
   soon: string;
+  p: PassportDict;
 };
+
+/** «1 день», «2 дня», «5 дней». Russian only; Uzbek has no such agreement. */
+function ruDays(n: number): string {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return "дней";
+  if (b === 1) return "день";
+  if (b >= 2 && b <= 4) return "дня";
+  return "дней";
+}
 
 const RU: Dict = {
   loading_slow: "Связь медленная. Ждём ответ…",
@@ -133,6 +198,56 @@ const RU: Dict = {
   mentor_body: "Вход выполнен как наставник. Здесь появится очередь стажёров, которые ждут наблюдения.",
   mentor_signoff_note: "Подпись за стажёра ставится в офисной админке, не в этом приложении.",
   soon: "Готовится",
+  p: {
+    since: (date) => `Стажировка с ${date}`,
+    ring_caption: "тем на уровне «Сам»",
+    ring_counts: (done, total) => `${done} из ${total}`,
+    probation: "Испытательный срок",
+    left: (days) => `осталось ${days} ${ruDays(days)}`,
+    over: (days) => `просрочено на ${days} ${ruDays(days)}`,
+    due_today: "срок сегодня",
+    until: (date) => `до ${date}`,
+    // Counter-style phrasing on purpose: «Просрочено модулей: 2» needs no
+    // agreement between the number, the noun and the verb, so it stays right
+    // for 1, 2 and 5 alike.
+    overdue_modules: (n) => `Просрочено модулей: ${n}`,
+    modules: "Модули",
+    optional: "необязательный",
+    no_topics: "Темы ещё не добавлены",
+    done: "Сдано",
+    done_late: "Сдано с опозданием",
+    topics_progress: (done, total) => `${done} из ${total} тем`,
+    level: ["Не начато", "Увидел", "Сделал", "Сам", "Учит других"],
+    locked: "Откроется позже",
+    need_mentor: "нужен наставник",
+    current: "Ваш шаг",
+    stamps: "Штампы",
+    stamps_empty: "Пока ни одного. Штамп ставится за сданный модуль.",
+    stamp: {
+      module_cert: "Модуль сдан",
+      universal_chopar: "Универсал Chopar",
+      universal_les: "Универсал Les",
+      probation_passed: "Испытательный срок пройден",
+    },
+    stamp_valid: (date) => `действует до ${date}`,
+    empty_title: "Программа ещё готовится",
+    empty_body:
+      "Стажировка открыта, но в вашей программе пока нет опубликованных модулей. Они появятся, когда офис их выпустит.",
+    months: [
+      "янв",
+      "фев",
+      "мар",
+      "апр",
+      "мая",
+      "июн",
+      "июл",
+      "авг",
+      "сен",
+      "окт",
+      "ноя",
+      "дек",
+    ],
+  },
 };
 
 const UZ: Dict = {
@@ -182,10 +297,86 @@ const UZ: Dict = {
   mentor_body: "Ustoz sifatida kirdingiz. Bu yerda kuzatuvni kutayotgan stajyorlar navbati koʻrinadi.",
   mentor_signoff_note: "Stajyor uchun imzo ofis admin panelida qoʻyiladi, bu ilovada emas.",
   soon: "Tayyorlanmoqda",
+  p: {
+    since: (date) => `Stajirovka ${date} dan`,
+    ring_caption: "mavzu «Mustaqil» darajasida",
+    ring_counts: (done, total) => `${total} tadan ${done} tasi`,
+    probation: "Sinov muddati",
+    left: (days) => `${days} kun qoldi`,
+    over: (days) => `${days} kun kechikdi`,
+    due_today: "muddat bugun",
+    until: (date) => `${date} gacha`,
+    overdue_modules: (n) => `Muddati oʻtgan modullar: ${n}`,
+    modules: "Modullar",
+    optional: "majburiy emas",
+    no_topics: "Mavzular hali qoʻshilmagan",
+    done: "Topshirildi",
+    done_late: "Kechikib topshirildi",
+    topics_progress: (done, total) => `${total} mavzudan ${done} tasi`,
+    level: ["Boshlanmagan", "Koʻrdi", "Qildi", "Mustaqil", "Oʻrgatadi"],
+    locked: "Keyinroq ochiladi",
+    need_mentor: "ustoz kerak",
+    current: "Navbat sizda",
+    stamps: "Muhrlar",
+    stamps_empty: "Hozircha yoʻq. Muhr topshirilgan modul uchun beriladi.",
+    stamp: {
+      module_cert: "Modul topshirildi",
+      universal_chopar: "Chopar universali",
+      universal_les: "Les universali",
+      probation_passed: "Sinov muddati oʻtildi",
+    },
+    stamp_valid: (date) => `${date} gacha amal qiladi`,
+    empty_title: "Dastur hali tayyorlanmoqda",
+    empty_body:
+      "Stajirovka ochilgan, lekin dasturingizda hali chop etilgan modullar yoʻq. Ofis ularni chiqargach, shu yerda paydo boʻladi.",
+    months: [
+      "yan",
+      "fev",
+      "mar",
+      "apr",
+      "may",
+      "iyn",
+      "iyl",
+      "avg",
+      "sen",
+      "okt",
+      "noy",
+      "dek",
+    ],
+  },
 };
 
 const DICTS: Record<Lang, Dict> = { ru: RU, uz: UZ };
 
 export function t(): Dict {
   return DICTS[current];
+}
+
+/**
+ * Postgres `timestamptz` arrives from drizzle (mode: "string") as
+ * "2026-08-09 17:00:00+05", which is not ISO-8601, while `deadline_at` is
+ * computed server-side and IS ISO. Both have to parse, so this mirrors
+ * backend/src/modules/passport/deadline.ts: try as-is, then T-normalised.
+ */
+export function parseTs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const direct = Date.parse(value);
+  if (!Number.isNaN(direct)) return direct;
+  const fixed = Date.parse(value.replace(" ", "T"));
+  return Number.isNaN(fixed) ? null : fixed;
+}
+
+/**
+ * «3 авг», and «3 авг 2027» once the year stops being obvious. Hand-rolled
+ * month names rather than Intl: uz-Latn is missing or wrong on a good share of
+ * mid-range Android WebViews, and this is twelve short strings.
+ */
+export function fmtDate(value: string | null | undefined): string {
+  const ms = parseTs(value);
+  if (ms === null) return "";
+  const d = new Date(ms);
+  const month = t().p.months[d.getMonth()] ?? "";
+  const year =
+    d.getFullYear() === new Date().getFullYear() ? "" : ` ${d.getFullYear()}`;
+  return `${d.getDate()} ${month}${year}`;
 }

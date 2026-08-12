@@ -73,18 +73,23 @@ function show(id: "loading" | "view"): void {
   paintLang?.();
 }
 
-function icon(key: IconKey): string {
+/** The stroke-glyph wrapper. Shared with passport.ts, which owns its own paths. */
+export function svgWrap(paths: string): string {
   return (
     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" ' +
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-    ICONS[key] +
+    paths +
     "</svg>"
   );
 }
 
+function icon(key: IconKey): string {
+  return svgWrap(ICONS[key]);
+}
+
 // textContent everywhere below, never innerHTML, for anything that could carry
 // a name from the API later on.
-function text(tag: string, cls: string, value: string): HTMLElement {
+export function text(tag: string, cls: string, value: string): HTMLElement {
   const node = document.createElement(tag);
   node.className = cls;
   node.textContent = value;
@@ -93,6 +98,25 @@ function text(tag: string, cls: string, value: string): HTMLElement {
 
 /** What the last render was, so a language switch can repaint it. */
 let repaint: (() => void) | null = null;
+
+/**
+ * The two lines every screen repeats, exported so screens that live in their
+ * own file (passport.ts) cannot forget either of them: clear the view, and
+ * register how to repaint it when the language changes. Everything a screen
+ * builds hangs off the returned node.
+ */
+export function beginScreen(cls: string, onRepaint: () => void): HTMLElement {
+  repaint = onRepaint;
+  const view = el("screen-view");
+  view.innerHTML = "";
+  view.className = `screen ${cls}`;
+  return view;
+}
+
+/** Reveal what beginScreen filled in. Always the last line of a renderer. */
+export function endScreen(): void {
+  show("view");
+}
 
 export function renderStatus(status: StatusKey, onRetry?: () => void): void {
   repaint = () => renderStatus(status, onRetry);
