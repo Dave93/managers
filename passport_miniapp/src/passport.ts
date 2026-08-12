@@ -66,7 +66,7 @@ export function parseMe(data: unknown): Me | null {
   const d = data as Record<string, unknown>;
   const enrollment = d["enrollment"];
   if (!enrollment || typeof enrollment !== "object") return null;
-  if (!Array.isArray(d["modules"])) return null;
+  if (!Array.isArray(d["modules"]) || !Array.isArray(d["stamps"])) return null;
   return data as Me;
 }
 
@@ -127,9 +127,28 @@ function isDone(rows: Row[]): boolean {
   return rows.length > 0 && rows.every((r) => r.level >= BAR);
 }
 
-/** Whole days between now and a deadline; positive = still ahead. */
-function daysTo(ms: number, now: number): number {
+/**
+ * Two functions, not one, because the two sides round in opposite directions
+ * and rounding either of them the other way produces a sentence that is wrong
+ * for a whole day:
+ *   ahead — ceil, so half a day left reads «осталось 1 день», not «0».
+ *   behind — floor, so an hour past the deadline is 0 and the caller says
+ *            «срок вышел» instead of «просрочено на 0 дней», which is what a
+ *            naive abs(ceil()) printed for the entire first day of every
+ *            overdue module — the most common overdue moment there is.
+ */
+function daysLeft(ms: number, now: number): number {
   return Math.ceil((ms - now) / DAY_MS);
+}
+
+function daysOver(ms: number, now: number): number {
+  return Math.floor((now - ms) / DAY_MS);
+}
+
+/** «просрочено на 3 дня», or «срок вышел» while it is still the same day. */
+function overText(ms: number, now: number): string {
+  const days = daysOver(ms, now);
+  return days >= 1 ? t().p.over(days) : t().p.over_today;
 }
 
 // ---------------------------------------------------------------------------
@@ -246,11 +265,11 @@ function strip(me: Me, now: number): HTMLElement | null {
   if (due === null) return null;
   const started = parseTs(me.enrollment.started_at);
 
-  const left = daysTo(due, now);
+  const left = daysLeft(due, now);
   const state = now > due ? "over" : due - now <= WARNING_MS ? "warn" : "ok";
   const value =
     state === "over"
-      ? d.p.over(Math.abs(left))
+      ? overText(due, now)
       : left <= 0
         ? d.p.due_today
         : state === "warn"
@@ -304,15 +323,19 @@ function deadlineChip(row: ModuleRow, done: boolean, now: number): HTMLElement |
       ? chip("chip--late", d.p.done_late)
       : chip("chip--done", d.p.done);
   }
-  const left = daysTo(at, now);
-  if (row.deadline_status === "overdue") return chip("chip--over", d.p.over(Math.abs(left)));
+  const left = daysLeft(at, now);
+  if (row.deadline_status === "overdue") return chip("chip--over", overText(at, now));
   if (row.deadline_status === "warning") {
     return chip("chip--warn", left <= 0 ? d.p.due_today : d.p.left(left));
   }
   return chip("chip--calm", d.p.until(fmtDate(row.deadline_at)));
 }
 
-function topicRow(r: Row, onOpenTopic?: (topicId: string) => void): HTMLElement {
+function topicRow(
+  r: Row,
+  index: number,
+  onOpenTopic?: (topicId: string) => void
+): HTMLElement {
   const d = t();
   const li = document.createElement("li");
   li.className = "tp";
@@ -333,7 +356,11 @@ function topicRow(r: Row, onOpenTopic?: (topicId: string) => void): HTMLElement 
   node.dataset["l"] = String(r.level);
   if (r.level >= BAR) node.innerHTML = svgWrap(GLYPH.check);
   else if (r.locked) node.innerHTML = svgWrap(GLYPH.lock);
-  else node.textContent = String(r.topic.sort + 1);
+  // The position in THIS list, not topic.sort. `sort` is an ordering key, and
+  // the trainee's list is filtered to active topics: retire topic 2 and the
+  // remaining sort values read 1, 3, 4. The admin's own numbering counts
+  // inactive rows too, so `sort + 1` would not even match what HR sees.
+  else node.textContent = String(index + 1);
   inner.append(node);
 
   const body = document.createElement("span");
@@ -425,7 +452,7 @@ function moduleCard(
   if (open && m.rows.length) {
     const list = document.createElement("ul");
     list.className = "topics";
-    for (const r of m.rows) list.append(topicRow(r, onOpenTopic));
+    m.rows.forEach((r, i) => list.append(topicRow(r, i, onOpenTopic)));
     card.append(list);
   }
   return card;

@@ -104,6 +104,8 @@ export type PassportDict = {
   probation: string;
   left: (days: number) => string;
   over: (days: number) => string;
+  /** Past the deadline by less than a day: «просрочено на 0 дней» is not a thing. */
+  over_today: string;
   due_today: string;
   until: (date: string) => string;
   overdue_modules: (n: number) => string;
@@ -205,6 +207,7 @@ const RU: Dict = {
     probation: "Испытательный срок",
     left: (days) => `осталось ${days} ${ruDays(days)}`,
     over: (days) => `просрочено на ${days} ${ruDays(days)}`,
+    over_today: "срок вышел",
     due_today: "срок сегодня",
     until: (date) => `до ${date}`,
     // Counter-style phrasing on purpose: «Просрочено модулей: 2» needs no
@@ -304,6 +307,7 @@ const UZ: Dict = {
     probation: "Sinov muddati",
     left: (days) => `${days} kun qoldi`,
     over: (days) => `${days} kun kechikdi`,
+    over_today: "muddat tugadi",
     due_today: "muddat bugun",
     until: (date) => `${date} gacha`,
     overdue_modules: (n) => `Muddati oʻtgan modullar: ${n}`,
