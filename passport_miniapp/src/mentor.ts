@@ -137,6 +137,10 @@ const GLYPH = {
   chevron: '<path d="M9 6l6 6-6 6"/>',
   office:
     '<rect x="4" y="4" width="16" height="16" rx="2.5"/><path d="M8 9h4M8 13h8M8 17h6"/>',
+  // Byte-identical to ui.ts's `lock`, and deliberately so: this screen is the
+  // same situation as the trainee's `no_access` — an account that is bound but
+  // has no access — so it wears the same glyph.
+  lock: '<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/>',
 } as const;
 
@@ -307,24 +311,46 @@ function personRow(
   return row;
 }
 
+/**
+ * Two different screens behind one empty list, and the difference is the whole
+ * point of the branch below.
+ *
+ * An empty queue at a real branch is GOOD NEWS: everybody who could be signed
+ * off has been. A manager with no terminals bound to their office account is
+ * looking at something else entirely — a queue that is empty because nothing
+ * can ever reach it, and that will stay empty however many times they open the
+ * app.
+ *
+ * The first version swapped only the body text and left the green tick and
+ * «Сейчас никто не ждёт» in place above it. Glyph and title are what a person
+ * reads first, so the screen opened by telling a manager with a broken binding
+ * that all was well and then explained underneath that it was not. The
+ * predictable outcome is a manager who concludes there is genuinely nobody
+ * waiting and stops opening the app — the exact failure the queue exists to
+ * prevent, delivered by its own empty state.
+ *
+ * The tone vocabulary in ui.ts already had the right word for this:
+ * `danger` is «a wall: this account will not get in until someone acts», which
+ * is precisely a binding only the office can create.
+ */
 function queueEmpty(q: Queue, reload: () => void): void {
   const d = t();
+  const noBranch = !q.scope.is_hq && q.scope.terminal_count === 0;
   const view = beginScreen("screen--center", () => renderQueue(q, reload));
-  view.append(glyphBox("good", GLYPH.calm));
-  view.append(text("h1", "status-title", d.m.empty_title));
+
   view.append(
-    text(
-      "p",
-      "status-body",
-      // A manager with no branches at all is not looking at an empty queue —
-      // they are looking at an account nobody has bound to a branch yet, and
-      // "nobody is waiting" would send them back to the floor to wait for a
-      // notification that can never arrive.
-      !q.scope.is_hq && q.scope.terminal_count === 0
-        ? d.m.empty_no_branch
-        : d.m.empty_body
-    )
+    noBranch ? glyphBox("danger", GLYPH.lock) : glyphBox("good", GLYPH.calm)
   );
+  view.append(
+    text("h1", "status-title", noBranch ? d.m.no_branch_title : d.m.empty_title)
+  );
+  view.append(
+    text("p", "status-body", noBranch ? d.m.empty_no_branch : d.m.empty_body)
+  );
+  // The retry stays in BOTH cases, and it is not decoration in the broken one:
+  // the office can bind a branch while this screen is open, and pressing it is
+  // then the whole fix. (Unlike the trainee's `no_access`, which has no retry
+  // because it would replay an initData blob that cannot change.)
   view.append(button("btn-ghost", d.retry, reload));
   view.append(signoffNote(false));
   endScreen();

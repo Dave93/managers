@@ -236,7 +236,13 @@ export type MentorDict = {
   capped: (shown: number, total: number) => string;
   empty_title: string;
   empty_body: string;
-  /** A bound manager with no branch at all: not an empty queue, a broken bind. */
+  /**
+   * A bound manager with no branch at all: not an empty queue, a broken bind.
+   * Carries its own TITLE as well as its own body — the glyph and the title are
+   * read first, and an all-clear tick over this text told the manager the
+   * opposite of what the text said.
+   */
+  no_branch_title: string;
   empty_no_branch: string;
   /** Why the sign-off is not in this app. Sits under the waiting topics. */
   signoff_why: string;
@@ -512,6 +518,7 @@ const RU: Dict = {
     capped: (shown, total) => `Показаны первые ${shown} из ${total} — сначала те, у кого срок ближе`,
     empty_title: "Сейчас никто не ждёт",
     empty_body: "Стажёр появится здесь, как только сдаст квиз по теме, которую надо проверить на практике. Загляните после смены.",
+    no_branch_title: "Филиал не привязан",
     empty_no_branch: "К вашему аккаунту не привязан ни один филиал, поэтому очередь пуста и останется пустой. Попросите офис привязать вас к филиалу.",
     signoff_why: "Так задумано: квиз стажёр сдаёт сам, а практику подписывает другой человек — подтверждение по QR появится на следующем этапе.",
     back: "К очереди",
@@ -719,6 +726,7 @@ const UZ: Dict = {
     capped: (shown, total) => `${total} tadan birinchi ${shown} tasi koʻrsatilgan — muddati yaqinlari birinchi`,
     empty_title: "Hozir hech kim kutmayapti",
     empty_body: "Stajyor amalda tekshiriladigan mavzu boʻyicha kvizni topshirishi bilan shu yerda paydo boʻladi. Smenadan keyin qarab qoʻying.",
+    no_branch_title: "Filial biriktirilmagan",
     empty_no_branch: "Akkauntingizga birorta filial biriktirilmagan, shuning uchun navbat boʻsh va boʻsh qoladi. Ofisdan filialga biriktirishni soʻrang.",
     signoff_why: "Bu ataylab shunday: kvizni stajyor oʻzi topshiradi, amaliyotni esa boshqa odam imzolaydi — QR orqali tasdiqlash keyingi bosqichda paydo boʻladi.",
     back: "Navbatga",
