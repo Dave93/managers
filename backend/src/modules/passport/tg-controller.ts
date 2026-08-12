@@ -144,7 +144,6 @@ type MentorQueueTopic = {
   module_title_uz: string;
   verification_type: string;
   level: number;
-  waiting_since: string;
   deadline_at: string | null;
   deadline_status: "ok" | "warning" | "overdue";
   /** Module sort, then topic sort. Stripped before the response. */
@@ -1355,7 +1354,6 @@ const passportTgControllerImpl = new Elysia({
           topic_title_uz: passport_topics.title_uz,
           verification_type: passport_topics.verification_type,
           level: passport_topic_progress.level,
-          since: passport_topic_progress.updated_at,
         })
         .from(passport_topic_progress)
         .innerJoin(
@@ -1438,7 +1436,6 @@ const passportTgControllerImpl = new Elysia({
           module_title_uz: r.module_title_uz,
           verification_type: r.verification_type,
           level: r.level,
-          waiting_since: r.since,
           deadline_at: dl.deadline_at,
           deadline_status: dl.deadline_status,
           _sort: [r.module_sort ?? 0, r.topic_sort ?? 0],

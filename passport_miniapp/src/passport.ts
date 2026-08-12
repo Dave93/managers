@@ -90,8 +90,14 @@ export function parseMe(data: unknown): Me | null {
 /** «Сам» is the bar — the admin matrix says so in as many words. */
 export const BAR = 3;
 
-/** Same 3 days the backend uses for `deadline_status: "warning"`. */
-const WARNING_MS = 3 * 86400_000;
+/**
+ * Same 3 days the backend uses for `deadline_status: "warning"`
+ * (DEADLINE_WARNING_MS in modules/passport/deadline.ts). Exported because the
+ * mentor's card draws the same probation strip: the number was briefly written
+ * out twice in mentor.ts, one line under a comment about not duplicating
+ * exactly this kind of rule.
+ */
+export const WARNING_MS = 3 * 86400_000;
 
 const DAY_MS = 86400_000;
 

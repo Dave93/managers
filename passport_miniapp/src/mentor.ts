@@ -14,7 +14,7 @@
 // cannot find the button assumes the app is broken and stops using it.
 import { api } from "./api";
 import { fmtDate, parseTs, t } from "./i18n";
-import { BAR, deadlineLabel, local } from "./passport";
+import { BAR, WARNING_MS, deadlineLabel, local } from "./passport";
 import {
   backBar,
   beginScreen,
@@ -42,7 +42,6 @@ export type QueueTopic = {
   module_title_uz: string;
   verification_type: string;
   level: number;
-  waiting_since: string;
   deadline_at: string | null;
   deadline_status: DeadlineState;
 };
@@ -440,16 +439,24 @@ function probationStrip(card: Card, now: number): HTMLElement | null {
   const due = parseTs(card.enrollment.probation_deadline);
   if (due === null) return null;
   const started = parseTs(card.enrollment.started_at);
+  // Derived ONCE, from the threshold passport.ts owns. The first version
+  // spelled `3 * 86400_000` out twice, right next to deadlineLabel — which was
+  // extracted precisely so this rule would have one home.
+  const over = now > due;
+  const state: "over" | "warn" | "ok" = over
+    ? "over"
+    : due - now <= WARNING_MS
+      ? "warn"
+      : "ok";
   const label = deadlineLabel(
     due,
-    now > due ? "overdue" : due - now <= 3 * 86400_000 ? "warning" : "ok",
+    state === "over" ? "overdue" : state === "warn" ? "warning" : "ok",
     now
   );
 
   const node = document.createElement("section");
   node.className = "strip";
-  node.dataset["state"] =
-    now > due ? "over" : due - now <= 3 * 86400_000 ? "warn" : "ok";
+  node.dataset["state"] = state;
   const row = document.createElement("div");
   row.className = "strip-head";
   row.append(span("strip-label", d.p.probation));
@@ -461,7 +468,7 @@ function probationStrip(card: Card, now: number): HTMLElement | null {
   const ratio =
     started !== null && due > started
       ? Math.min(1, Math.max(0, (now - started) / (due - started)))
-      : now > due
+      : over
         ? 1
         : 0;
   fill.style.width = `${Math.round(ratio * 100)}%`;
