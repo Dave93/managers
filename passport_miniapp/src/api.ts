@@ -154,14 +154,31 @@ export async function api<T>(
     if (auth.kind === "fail") return { kind: "fail", status: auth.status };
   }
 
-  const out = await request(path, {
-    ...init,
-    headers: { ...(init.headers ?? {}), Authorization: `Bearer ${token}` },
-  });
+  // Headers via the Headers constructor, NOT an object spread.
+  //
+  // `{ ...init.headers }` only works when the caller passed a plain object. A
+  // `Headers` instance or a `[k, v][]` -- both legal RequestInit.headers, and
+  // both natural for the POSTs C3 is about to add -- spread to nothing, which
+  // would silently DROP the Authorization header. The request would come back
+  // 401 and be rendered as an expired session: a bug that looks like a login
+  // problem and would be debugged in the wrong place entirely. The constructor
+  // accepts all three forms.
+  const headers = new Headers(init.headers);
+  headers.set("Authorization", `Bearer ${token}`);
+
+  const out = await request(path, { ...init, headers });
   if (!out) return { kind: "fail", status: "offline" };
 
   const { res, body } = out;
-  if (res.ok) return { kind: "ok", data: body as T };
+  if (res.ok) {
+    // `body` is null when the response carried no JSON (an empty 204, or an
+    // HTML error page from nginx that still arrived with a 2xx). Casting that
+    // to T would hand the caller a null it has been promised is a T; parseMe
+    // guards today, but this stops the lie at the boundary instead of relying
+    // on every future caller to re-check.
+    if (body === null) return { kind: "fail", status: "unknown" };
+    return { kind: "ok", data: body as T };
+  }
 
   if (res.status === 401 && !retried) {
     token = null;

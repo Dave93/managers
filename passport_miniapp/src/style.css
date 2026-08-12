@@ -65,6 +65,11 @@ body {
 }
 
 body {
+  /* The vh line is a FALLBACK, not a duplicate: an older WebView that does not
+     know svh drops that declaration and keeps this one. Without it the whole
+     rule is discarded and .screen--center collapses to content height, so
+     every status screen stops being centred. Same pairing on .screen below. */
+  min-height: 100vh;
   min-height: 100svh;
 }
 
@@ -83,6 +88,7 @@ button {
 .screen {
   display: flex;
   flex-direction: column;
+  min-height: 100vh; /* fallback for WebViews without svh — see body above */
   min-height: 100svh;
   opacity: 0;
   transform: translateY(6px);
@@ -294,16 +300,55 @@ button {
   }
 }
 
+/* The slow-network line, revealed WITHOUT JavaScript.
+ *
+ * `animation-delay` is doing the work a setTimeout used to: main.ts sits
+ * behind the deferred telegram.org fetch, so on an unreachable SDK host no JS
+ * timer of ours ever starts and the skeleton would shimmer in silence. The
+ * animation is declarative, so the browser runs it regardless.
+ *
+ * `forwards` is load bearing — without it the line would flash and vanish back
+ * to opacity 0 the moment the animation ends. */
 .loading-hint {
   margin: 22px 0 0;
   color: var(--muted);
   font-size: 14px;
   text-align: center;
-  animation: fade-in 0.3s ease-out;
+  opacity: 0;
+  animation: hint-in 0.3s ease-out 8s forwards;
+}
+
+/* Both languages ship in the markup; exactly one is displayed. Defaulting the
+   `ru` span to visible means a browser that somehow matches neither selector
+   still shows a sentence rather than an empty line. */
+.loading-hint [data-lang] {
+  display: none;
+}
+
+.loading-hint [data-lang="ru"],
+[lang="ru"] .loading-hint [data-lang="ru"] {
+  display: inline;
+}
+
+[lang="uz"] .loading-hint [data-lang="ru"] {
+  display: none;
+}
+
+[lang="uz"] .loading-hint [data-lang="uz"] {
+  display: inline;
 }
 
 .loading-hint[hidden] {
   display: none;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes fade-in {
@@ -340,7 +385,9 @@ button {
 
 .lang-panel button {
   min-width: 62px;
-  min-height: 44px;
+  /* 52, not 44, to match the rule stated at the top of this file. On most
+     status screens this pill is the only thing on the page you can tap. */
+  min-height: 52px;
   padding: 0 14px;
   border: none;
   border-radius: 999px;

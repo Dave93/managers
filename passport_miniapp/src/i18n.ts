@@ -157,9 +157,15 @@ const RU: Dict = {
   loading_slow: "Связь медленная. Ждём ответ…",
   retry: "Повторить",
   status: {
+    // TWO causes, one screen, and the second half is not optional.
+    //
+    // We get here whenever initData is empty, and that happens both when the
+    // page was opened outside Telegram AND when telegram-web-app.js could not
+    // be fetched -- a person who IS inside Telegram, on branch wifi. Telling
+    // them only to rescan sends them to rescan, fail, and call the manager.
     outside_telegram: {
       title: "Откройте через Telegram",
-      body: "Приложение работает только внутри Telegram. Отсканируйте QR-код с листа ещё раз или откройте бота @pasport_stajer_bot.",
+      body: "Приложение работает только внутри Telegram — отсканируйте QR-код с листа или откройте бота @pasport_stajer_bot. Если вы уже открыли его из Telegram, значит нет связи: проверьте интернет и откройте приложение заново.",
     },
     no_access: {
       title: "Доступа пока нет",
@@ -259,7 +265,7 @@ const UZ: Dict = {
   status: {
     outside_telegram: {
       title: "Telegram orqali oching",
-      body: "Ilova faqat Telegram ichida ishlaydi. Qogʻozdagi QR-kodni qaytadan skanerlang yoki @pasport_stajer_bot botini oching.",
+      body: "Ilova faqat Telegram ichida ishlaydi — qogʻozdagi QR-kodni skanerlang yoki @pasport_stajer_bot botini oching. Agar uni Telegramdan ochgan boʻlsangiz, demak aloqa yoʻq: internetni tekshiring va ilovani qaytadan oching.",
     },
     no_access: {
       title: "Hozircha ruxsat yoʻq",

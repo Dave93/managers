@@ -35,6 +35,10 @@ type IconKey = keyof typeof ICONS;
 //   warn    — a mix-up or a hiccup: the same person can still fix it.
 //   neutral — nothing is broken about you: wrong door, or not your turn yet.
 const LOOK: Record<StatusKey, { tone: Tone; icon: IconKey; retry: boolean }> = {
+  // No retry button, and the copy is worded to match: retrying start() would
+  // re-read window.Telegram, which stays undefined for the rest of this page
+  // load once the SDK fetch has failed. Only reopening the miniapp refetches
+  // it, which is what the text asks for.
   outside_telegram: { tone: "neutral", icon: "send", retry: false },
   no_access: { tone: "danger", icon: "lock", retry: false },
   banned: { tone: "danger", icon: "ban", retry: false },
@@ -173,14 +177,24 @@ export function renderPlaceholder(role: "trainee" | "mentor"): void {
 
 export function renderLoading(): void {
   repaint = null;
-  show("loading");
-}
-
-/** The slow-network line under the skeleton; text depends on the language. */
-export function setSlowHint(visible: boolean): void {
+  // Restart the CSS reveal of the slow-network line.
+  //
+  // That line is revealed by an `animation-delay` in style.css rather than a
+  // timer here, because on a cold start main.ts is queued behind the deferred
+  // telegram.org fetch and may not run for the length of a network timeout --
+  // a JS timer would never start and the skeleton would shimmer in silence.
+  // The animation uses `forwards`, so once it has run the hint stays visible;
+  // without this restart a RETRY would land on the loading screen with "the
+  // connection is slow" already showing, before anything is slow.
+  //
+  // Reaching this line at all means the bundle is alive, so relying on JS for
+  // the restart is safe in a way that relying on it for the first reveal is
+  // not.
   const hint = el("loading-hint");
-  hint.textContent = t().loading_slow;
-  hint.hidden = !visible;
+  hint.style.animation = "none";
+  void hint.offsetWidth; // forced reflow: without it the restart is coalesced away
+  hint.style.animation = "";
+  show("loading");
 }
 
 export function mountLangPanel(): void {
@@ -201,7 +215,8 @@ export function mountLangPanel(): void {
     if (next === lang()) return;
     setLang(next as Lang, true);
     paintLang?.();
-    setSlowHint(!el("loading-hint").hidden);
+    // The loading hint needs no repaint here: setLang stamps <html lang>, and
+    // the [lang] rules in style.css swap the two static spans.
     repaint?.();
   });
   paint();

@@ -13,36 +13,25 @@ import {
   renderLoading,
   renderPlaceholder,
   renderStatus,
-  setSlowHint,
 } from "./ui";
 
 const BG = "#121214";
 
-// If the answer has not arrived by then, say something. A spinner with no
-// explanation is exactly what a cook on dropping branch wifi reads as "broken".
-const SLOW_AFTER_MS = 8_000;
-
-let slowTimer: number | null = null;
-
-function startLoading(): void {
-  renderLoading();
-  setSlowHint(false);
-  if (slowTimer !== null) clearTimeout(slowTimer);
-  slowTimer = window.setTimeout(() => setSlowHint(true), SLOW_AFTER_MS);
-}
-
-function stopLoading(): void {
-  if (slowTimer !== null) clearTimeout(slowTimer);
-  slowTimer = null;
-  setSlowHint(false);
-}
+// The "connection is slow" line used to be a setTimeout here. It is now an
+// animation-delay in style.css, and that is a correctness fix rather than a
+// stylistic one: this module is queued behind the deferred telegram.org
+// script, so when that host is unreachable NOTHING in this file runs until the
+// browser's network timeout expires. A timer that has not started cannot
+// explain a shimmering skeleton. CSS runs regardless; see index.html.
+//
+// The paired teardown went with it: the hint lives inside #screen-loading, so
+// rendering any other screen hides it.
 
 async function start(): Promise<void> {
-  startLoading();
+  renderLoading();
 
   const auth = await authenticate();
   if (auth.kind === "fail") {
-    stopLoading();
     renderStatus(auth.status, start);
     return;
   }
@@ -52,13 +41,11 @@ async function start(): Promise<void> {
   // employee_id is null, so calling it here would turn a perfectly good mentor
   // login into a denial screen. The mentor's own endpoints arrive with C4.
   if (auth.role === "mentor") {
-    stopLoading();
     renderPlaceholder("mentor");
     return;
   }
 
   const me = await api<unknown>("/me");
-  stopLoading();
 
   if (me.kind === "fail") {
     renderStatus(me.status, start);
@@ -85,9 +72,12 @@ async function start(): Promise<void> {
   renderPassport(data);
 }
 
-// Language before first paint: the loading hint and every screen depend on it.
-// storedLang() is this phone's own earlier choice; the server's `lang` arrives
-// with the auth response and only seeds the case where there is no choice yet.
+// Language before first paint. The inline script in index.html has already
+// stamped <html lang> for the CSS-revealed loading hint; this repeats the read
+// so the module's own `current` agrees with it, and so setLang keeps being the
+// single place that owns the value. storedLang() is this phone's own earlier
+// choice; the server's `lang` arrives with the auth response and only seeds
+// the case where there is no choice yet.
 setLang(storedLang() ?? "ru", false);
 mountLangPanel();
 paintChrome(BG);
