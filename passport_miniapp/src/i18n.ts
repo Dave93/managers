@@ -468,8 +468,13 @@ const RU: Dict = {
         body: "Эта попытка больше не действует. Откройте квиз заново.",
       },
       finalized: {
+        // NOT «там видно, что засчитано»: that is only true when the lost
+        // submit passed. A failed one leaves the topic exactly as it was, and
+        // the sentence would send someone looking for a change that is not
+        // there. What IS always true: the topic shows the current state, and
+        // the quiz is open again if it was not counted.
         title: "Ответы уже приняты",
-        body: "Эта попытка закрыта на сервере. Откройте тему — там видно, что засчитано.",
+        body: "Эта попытка закрыта на сервере. Откройте тему — там текущее состояние: если квиз не засчитан, его можно пройти ещё раз.",
       },
     },
   },
@@ -659,7 +664,7 @@ const UZ: Dict = {
       },
       finalized: {
         title: "Javoblar allaqachon qabul qilingan",
-        body: "Bu urinish serverda yopilgan. Mavzuni oching — u yerda nima hisobga olingani koʻrinadi.",
+        body: "Bu urinish serverda yopilgan. Mavzuni oching — u yerda joriy holat: kviz hisobga olinmagan boʻlsa, uni yana topshirish mumkin.",
       },
     },
   },

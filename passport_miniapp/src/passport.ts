@@ -119,8 +119,16 @@ function soloCeiling(topic: Topic): number {
  * more — and quiz start only looks at the topic's own level. So the lock below
  * is a guide through the material, not a wall: it is honest about sequence but
  * it is not a security boundary, and the copy («Откроется позже») never claims
- * to be one. The matching server-side check belongs with C3, which owns
- * /topics/:id/opened and the quiz routes.
+ * to be one.
+ *
+ * SETTLED, so nobody picks this up as an open TODO: there is no matching
+ * server-side gate and none is wanted. The spec files «квиз до материала» among
+ * the anomaly detector's signals, i.e. an out-of-order pass is to be FLAGGED,
+ * not refused; the endpoint contract has no ordering rule; and the lock is weak
+ * by construction anyway (soloCeiling — open the material and everything after
+ * it is formally reachable). C3 owns /topics/:id/opened and the quiz routes and
+ * deliberately added no gate. Making the order a rule is a separate, conscious
+ * backend decision, not a leftover.
  */
 type Row = TopicRow & { locked: boolean; current: boolean };
 

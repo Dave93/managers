@@ -68,6 +68,14 @@ export type TopicCtx = {
   onBack: () => void;
   /** Refetch /me and re-render this same topic from the server's answer. */
   onReload: () => void;
+  /**
+   * Refetch /me and land on the PASSPORT. The mentor screen's way out, and the
+   * one post-pass route that otherwise never refetched: a pass reaches it
+   * straight from the result screen, so the model behind it carries only the
+   * level the submit returned. Everything else /me may have changed — a stamp,
+   * a module rolling over — would have been missing until the next cold start.
+   */
+  onBackFresh: () => void;
 };
 
 /** The topic and its level, or null if this id is not in the payload. */
@@ -224,7 +232,7 @@ function mentorScreen(ctx: TopicCtx, found: { row: TopicRow; module: string }): 
 
   const foot = document.createElement("div");
   foot.className = "tp-foot";
-  foot.append(button("btn-ghost", d.tp.to_passport, leave(ctx.onBack)));
+  foot.append(button("btn-ghost", d.tp.to_passport, leave(ctx.onBackFresh)));
   view.append(foot);
   endScreen();
 }

@@ -444,7 +444,14 @@ function confirmScreen(): void {
 
   const bar = document.createElement("div");
   bar.className = "q-bar";
-  bar.append(backButton(d.q.back_to_questions, () => renderQuestion()));
+  // Frozen while the answers are in the air, together with the review rows
+  // below: the send button already was, and leaving the other two live let a
+  // trainee walk away mid-send into the very race the guard in submit() now
+  // catches. Closing the door is the better half of the fix — the guard then
+  // only has to be right, not also reachable.
+  const back = backButton(d.q.back_to_questions, () => renderQuestion());
+  back.disabled = state.sending;
+  bar.append(back);
   const clock = clockNode();
   if (clock) bar.append(clock);
   view.append(bar);
@@ -468,6 +475,7 @@ function confirmScreen(): void {
     const row = document.createElement("button");
     row.type = "button";
     row.className = "rev-row";
+    row.disabled = state.sending;
     row.dataset["on"] = selected(q).length ? "1" : "0";
     row.append(text("span", "rev-idx", String(i + 1)));
     row.append(text("span", "rev-text", q.text));
@@ -516,6 +524,20 @@ async function submit(): Promise<void> {
       })),
     }),
   });
+
+  // GENERATION GUARD, and it belongs before every line below it.
+  //
+  // `state` was captured before the await; the module-level `attempt` was not.
+  // A submit can be in flight for up to the 15s API timeout, and in that window
+  // the trainee can leave: leaveScreen nulls `attempt` and exits to the topic,
+  // or they start the quiz again and /start mints a NEW attempt. `state`
+  // survives both, so without this the resolved answer went on to call
+  // ctx.onLevel and paint a result — «Квиз сдан» over the topic screen for an
+  // attempt they were just told stays open, or attempt A's verdict over
+  // attempt B's live question. Identity, not a boolean: a fresh attempt object
+  // is as stale a target as none at all. topic.ts guards its own late /opened
+  // response the same way, with a counter.
+  if (attempt !== state) return;
   state.sending = false;
 
   if (res.kind === "fail") {

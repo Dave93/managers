@@ -1488,6 +1488,14 @@ button.tp-inner {
   line-height: 1.5;
 }
 
+/* Frozen while the answers are being sent. Dimmed rather than hidden: the
+ * screen must not reflow under a thumb that is already on its way down. */
+.back-btn:disabled,
+.rev-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* ---------- confirmation ---------- */
 
 .q-confirm-title {

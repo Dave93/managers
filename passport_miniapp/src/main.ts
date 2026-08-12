@@ -70,6 +70,7 @@ function topicCtx(me: Me, topicId: string): TopicCtx {
     topicId,
     onBack: () => showPassport(me),
     onReload: () => void reload(topicId),
+    onBackFresh: () => void reload(null),
   };
 }
 
