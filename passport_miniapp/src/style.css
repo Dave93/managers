@@ -931,6 +931,15 @@ button.tp-inner {
 .tp[data-state="locked"] .tp-node,
 .tp[data-state="locked"] .tp-chip {
   color: var(--muted);
+}
+
+/* Only the NODE undoes the dashed level-0 border. The chip has no border of
+ * its own, so naming it here resolved border-style against a `medium` default
+ * and drew a 3px currentColor box around «Откроется позже» — the one boxed
+ * element on the screen, wrapped around the one thing that is not tappable,
+ * and with border-box it was eating 6px out of a chip already capped at 40%
+ * of a 360px phone. */
+.tp[data-state="locked"] .tp-node {
   border-style: solid;
 }
 
@@ -942,7 +951,12 @@ button.tp-inner {
   box-shadow: 0 0 0 4px #fc004a1a;
 }
 
-.tp[data-state="current"] .tp-chip {
+/* Scoped to level 0, which is the only level where the label is «Ваш шаг».
+ * Unscoped, a current topic that has been opened (C3 sets level 1) would paint
+ * the LEVEL WORD «Увидел» in #fc004a — the red family this screen reserves for
+ * being late. Above level 0 the chip keeps its own level colour and the node
+ * carries the accent on its own. */
+.tp[data-state="current"] .tp-chip[data-l="0"] {
   color: var(--primary);
 }
 

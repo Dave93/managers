@@ -115,8 +115,15 @@ function rowsOf(topics: TopicRow[]): Row[] {
   let blocked = false;
   const rows: Row[] = [];
   for (const item of topics) {
-    const locked = blocked;
-    if (!locked && item.level < soloCeiling(item.topic)) blocked = true;
+    // A topic that has ALREADY been reached is never locked, whatever came
+    // before it. Levels are not monotonic in practice: a mentor can sign off
+    // topic 3 before topic 2's quiz is passed, and HR can reorder `sort` after
+    // progress exists. Inheriting the lock unconditionally then drew a green
+    // check and «Откроется позже» on one row, while ringCard and isDone kept
+    // counting it done — a module reading «Сдано» with a locked topic inside.
+    const short = item.level < soloCeiling(item.topic);
+    const locked = blocked && short;
+    if (short) blocked = true;
     rows.push({ ...item, locked, current: false });
   }
   return rows;
@@ -143,6 +150,23 @@ function daysLeft(ms: number, now: number): number {
 
 function daysOver(ms: number, now: number): number {
   return Math.floor((now - ms) / DAY_MS);
+}
+
+/**
+ * Calendar-day equality, deliberately not "less than 24 hours": a deadline at
+ * 18:00 today is «срок сегодня» at 09:00 and «осталось 1 день» is a lie about
+ * it, while a deadline at 09:00 tomorrow is genuinely a day away even though
+ * it is 15 hours off. daysLeft() alone can never produce 0 — it rounds up —
+ * so without this the string was dead code.
+ */
+function sameDay(a: number, b: number): boolean {
+  const x = new Date(a);
+  const y = new Date(b);
+  return (
+    x.getFullYear() === y.getFullYear() &&
+    x.getMonth() === y.getMonth() &&
+    x.getDate() === y.getDate()
+  );
 }
 
 /** «просрочено на 3 дня», or «срок вышел» while it is still the same day. */
@@ -270,7 +294,7 @@ function strip(me: Me, now: number): HTMLElement | null {
   const value =
     state === "over"
       ? overText(due, now)
-      : left <= 0
+      : sameDay(due, now)
         ? d.p.due_today
         : state === "warn"
           ? d.p.left(left)
@@ -326,7 +350,7 @@ function deadlineChip(row: ModuleRow, done: boolean, now: number): HTMLElement |
   const left = daysLeft(at, now);
   if (row.deadline_status === "overdue") return chip("chip--over", overText(at, now));
   if (row.deadline_status === "warning") {
-    return chip("chip--warn", left <= 0 ? d.p.due_today : d.p.left(left));
+    return chip("chip--warn", sameDay(at, now) ? d.p.due_today : d.p.left(left));
   }
   return chip("chip--calm", d.p.until(fmtDate(row.deadline_at)));
 }
@@ -481,7 +505,10 @@ function stampsSection(me: Me): HTMLElement {
     const body = document.createElement("span");
     body.className = "stamp-body";
     const named = s.type === "module_cert" ? titles.get(s.module_id ?? "") : null;
-    body.append(span("stamp-title", named ?? d.p.stamp[s.type] ?? ""));
+    // A stamp type this build has never heard of still says something: the
+    // enum is extended server-side (universal_* arrived in stage 2's plan) and
+    // an unknown one rendered a seal, a date and a blank line.
+    body.append(span("stamp-title", named ?? d.p.stamp[s.type] ?? d.p.stamp_other));
     const sub = [fmtDate(s.issued_at)];
     if (s.valid_until) sub.push(d.p.stamp_valid(fmtDate(s.valid_until)));
     body.append(span("stamp-sub", sub.filter(Boolean).join(" · ")));

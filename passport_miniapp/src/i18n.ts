@@ -123,6 +123,8 @@ export type PassportDict = {
   stamps: string;
   stamps_empty: string;
   stamp: Record<StampType, string>;
+  /** Fallback for a stamp type this build does not know. */
+  stamp_other: string;
   stamp_valid: (date: string) => string;
   empty_title: string;
   empty_body: string;
@@ -241,6 +243,7 @@ const RU: Dict = {
       universal_les: "Универсал Les",
       probation_passed: "Испытательный срок пройден",
     },
+    stamp_other: "Штамп",
     stamp_valid: (date) => `действует до ${date}`,
     empty_title: "Программа ещё готовится",
     empty_body:
@@ -337,6 +340,7 @@ const UZ: Dict = {
       universal_les: "Les universali",
       probation_passed: "Sinov muddati oʻtildi",
     },
+    stamp_other: "Muhr",
     stamp_valid: (date) => `${date} gacha amal qiladi`,
     empty_title: "Dastur hali tayyorlanmoqda",
     empty_body:
