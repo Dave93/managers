@@ -131,7 +131,11 @@ export type PassportDict = {
 };
 
 export type Dict = {
-  loading_slow: string;
+  // NOTE: there is deliberately no `loading_slow` here. The slow-network line
+  // must render when the bundle has not run at all (telegram.org unreachable),
+  // so it lives as static markup in index.html and is revealed by CSS. Keeping
+  // a copy in this file would be dead code that silently fails to take effect
+  // when someone edits it. Change that text in index.html.
   retry: string;
   status: Record<StatusKey, { title: string; body: string }>;
   passport_title: string;
@@ -154,7 +158,6 @@ function ruDays(n: number): string {
 }
 
 const RU: Dict = {
-  loading_slow: "Связь медленная. Ждём ответ…",
   retry: "Повторить",
   status: {
     // TWO causes, one screen, and the second half is not optional.
@@ -260,7 +263,6 @@ const RU: Dict = {
 };
 
 const UZ: Dict = {
-  loading_slow: "Aloqa sekin. Javobni kutyapmiz…",
   retry: "Qayta urinish",
   status: {
     outside_telegram: {
