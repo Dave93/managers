@@ -15,8 +15,15 @@ import {
   passport_tg_bindings,
   passport_topic_progress,
   passport_topics,
+  // The mentor's side (C4) needs the office tables the trainee's side never
+  // touches: who the trainee is, which branch they are at, and which branches
+  // the mentor's own office account is bound to.
+  employees,
+  terminals as terminalsTable,
+  users,
+  users_terminals,
 } from "backend/drizzle/schema";
-import { and, asc, desc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { randomUUID } from "crypto";
 import { parseInviteStartParam, verifyInitData } from "./tg-auth";
@@ -27,7 +34,11 @@ import {
   type PassportTgSession,
 } from "./tg-ctx";
 import { deadlineStatus, parseTimestamp } from "./deadline";
+// The SAME HQ rule the office admin uses. A second definition of "HQ" living
+// in this file is how the two sides drift apart.
+import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import {
+  canObserve,
   hasObservation,
   hasQuiz,
   levelAfterMaterialOpened,
@@ -104,6 +115,147 @@ function traineeOrForbidden(
     return null;
   }
   return { employee_id: tgSession.employee_id };
+}
+
+// ---------------------------------------------------------------------------
+// The mentor's side (Task C4). Everything below is shared by the two mentor
+// routes at the bottom of this file.
+// ---------------------------------------------------------------------------
+
+// The verification types a mentor can actually get SIGNED today. POST
+// /passport/signoff refuses `dual` (409 dual_signature_unsupported — no second
+// signature column exists) and every photo-evidence type (409
+// photo_evidence_unsupported — no upload exists). Queuing a topic the admin
+// will refuse is worse than not queuing it: it costs a walk to the floor and a
+// dead end.
+const SIGNABLE_OBSERVATION = ["observation", "quiz_observation"] as const;
+
+// A branch runs tens of trainees; HQ sees the company. The cap is on the
+// RESPONSE only — `total` is counted before it — so a big list is truncated
+// honestly rather than silently.
+const MENTOR_QUEUE_LIMIT = 100;
+
+type MentorQueueTopic = {
+  topic_id: string;
+  title_ru: string;
+  title_uz: string;
+  module_id: string;
+  module_title_ru: string;
+  module_title_uz: string;
+  verification_type: string;
+  level: number;
+  waiting_since: string;
+  deadline_at: string | null;
+  deadline_status: "ok" | "warning" | "overdue";
+  /** Module sort, then topic sort. Stripped before the response. */
+  _sort: [number, number];
+};
+
+type MentorQueueItem = {
+  enrollment_id: string;
+  enrollment_status: string;
+  started_at: string;
+  probation_deadline: string | null;
+  employee: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    position: string | null;
+  };
+  terminal: { id: string; name: string | null };
+  program: { title_ru: string; title_uz: string };
+  waiting_count: number;
+  deadline_at: string | null;
+  deadline_status: "ok" | "warning" | "overdue";
+  topics: MentorQueueTopic[];
+};
+
+// The mentor twin of traineeOrForbidden, and deliberately as strict in the
+// other direction: the session must call itself a mentor, carry a user id AND
+// carry no employee id. The three are redundant while auth derives `role` from
+// `employee_id ? trainee : mentor`, but nothing in the schema stops a
+// passport_tg_bindings row holding BOTH columns, and a guard that disagreed
+// with that derivation is how a trainee ends up reading the branch's queue.
+function mentorOrForbidden(
+  tgSession: PassportTgSession | undefined,
+  set: { status?: number | string }
+): { user_id: string } | null {
+  if (
+    !tgSession ||
+    tgSession.role !== "mentor" ||
+    !tgSession.user_id ||
+    tgSession.employee_id
+  ) {
+    set.status = 403;
+    return null;
+  }
+  return { user_id: tgSession.user_id };
+}
+
+type MentorScope = { isHQ: boolean; terminals: string[] };
+
+// Everything this mentor is allowed to see, resolved from the SESSION's user
+// id and never from anything the request carries.
+//
+// Parity with the office admin is the whole point, and it is exact:
+// cacheUserDataByToken() builds a login session from these same three reads —
+// it refuses a user whose `status` is not "active", it takes the role from
+// `users.role_id`, and its `terminals` is a plain users_terminals lookup with
+// no organisation rollup and no descendant expansion. So this queue can never
+// show a branch that the same person's admin screen would not, and HQ is
+// resolved by the shared resolveIsHq rather than by a second definition.
+//
+// Two fail-CLOSED cases the cookie side gets for free and this does not:
+// passport_tg_bindings.user_id carries no foreign key, so the user row can
+// simply be gone; and a manager who has left or been blocked keeps their
+// Telegram binding forever. Both return null -> 403. Never an empty scope,
+// which for an HQ user would silently mean "everything".
+async function mentorScope(
+  drizzle: any,
+  cacheController: {
+    getPermissionsByRoleId: (roleId: string) => Promise<string[]>;
+  },
+  userId: string
+): Promise<MentorScope | null> {
+  const [row] = await drizzle
+    .select({
+      id: users.id,
+      is_super_user: users.is_super_user,
+      status: users.status,
+      role_id: users.role_id,
+    })
+    .from(users)
+    .where(eq(users.id, userId))
+    .execute();
+  if (!row || row.status !== "active") return null;
+
+  const isHQ = await resolveIsHq({
+    user: { is_super_user: row.is_super_user },
+    role: row.role_id ? { id: row.role_id } : null,
+    cacheController,
+  });
+
+  const bound = await drizzle
+    .select({ terminal_id: users_terminals.terminal_id })
+    .from(users_terminals)
+    .where(eq(users_terminals.user_id, userId))
+    .execute();
+
+  return { isHQ, terminals: bound.map((t: any) => t.terminal_id) };
+}
+
+// What the screen is allowed to know about its own scope: whether this is the
+// company-wide view, and how many branches it covers. Never the terminal ids
+// themselves — the screen has no use for them and they are the one part of the
+// scope that would be worth forging.
+function scopeInfo(scope: MentorScope): {
+  is_hq: boolean;
+  terminal_count: number;
+} {
+  return {
+    is_hq: scope.isHQ,
+    terminal_count: scope.isHQ ? 0 : scope.terminals.length,
+  };
 }
 
 // The ONE enrollment a session may touch. An employee can accumulate several
@@ -1098,6 +1250,426 @@ const passportTgControllerImpl = new Elysia({
         ),
       }),
     }
+  )
+  // =====================================================================
+  // The MENTOR's side (Task C4).
+  //
+  // A branch manager opens the SAME miniapp and gets a different app: not a
+  // passport but a queue — the people at their branch whose next move is a
+  // signature only a second person can give.
+  //
+  // Both routes are READS, and that is a design decision rather than a stage
+  // boundary that happened to fall here. The signature stays in the office
+  // admin (POST /passport/signoff) until the QR handshake of stage 2 exists:
+  // a "sign" button on the mentor's own phone, with nothing proving the
+  // trainee was ever standing in front of them, is precisely the hole the
+  // two-actor split is built to close — one person with two thumbs could
+  // certify a whole branch. The screen says so in words rather than leaving
+  // the mentor to wonder where the button is.
+  // =====================================================================
+  .get(
+    "/passport/tg/mentor/queue",
+    async ({ tgSession, drizzle, cacheController, set }) => {
+      const guard = mentorOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+      const scope = await mentorScope(drizzle, cacheController, guard.user_id);
+      if (!scope) {
+        set.status = 403;
+        return { error: "forbidden" };
+      }
+      // Fail CLOSED, before any query runs — the same rule and the same shape
+      // as GET /passport/matrix. A bound manager with no terminals sees
+      // nobody, never everybody, and inArray is never handed an empty list
+      // (which in SQL is `IN ()` — a syntax error at best and a silently
+      // dropped predicate at worst).
+      if (!scope.isHQ && !scope.terminals.length) {
+        return { scope: scopeInfo(scope), total: 0, items: [] };
+      }
+
+      const where = [
+        // A closed enrollment is not waiting for anybody. `paused` stays in:
+        // POST /passport/signoff accepts active AND paused, so a trainee on
+        // sick leave whose topic is signable must not vanish from the queue
+        // the mentor works from.
+        inArray(passport_enrollments.status, ["active", "paused"]),
+        eq(passport_topics.active, true),
+        eq(passport_modules.status, "published"),
+        eq(passport_modules.active, true),
+        // Level 3 is "signed". Nothing above 2 is waiting.
+        lt(passport_topic_progress.level, 3),
+        // The queue predicate IS canObserve() from state.ts, transcribed into
+        // SQL — and it is NOT the flat "level = 2" the brief describes:
+        //   observation-only    → level >= 1, because opening the material is
+        //                         the whole of what the trainee can do alone;
+        //                         such a topic waits at 1 and would never
+        //                         appear in a level-2 queue.
+        //   quiz + observation  → level >= 2, the quiz behind them.
+        or(
+          and(
+            eq(passport_topics.verification_type, "observation"),
+            gte(passport_topic_progress.level, 1)
+          ),
+          gte(passport_topic_progress.level, 2)
+        ),
+        // Only what a mentor can ACTUALLY get signed today. POST
+        // /passport/signoff answers 409 dual_signature_unsupported and 409
+        // photo_evidence_unsupported, so listing those topics here would send
+        // somebody to walk a checklist and then meet a refusal in the admin.
+        // They are not hidden from the product: the trainee card below shows
+        // them with their real state and says why they are stuck, which is
+        // where a person who is blocked belongs — visible, not queued.
+        inArray(passport_topics.verification_type, SIGNABLE_OBSERVATION),
+      ];
+      if (!scope.isHQ) {
+        where.unshift(
+          inArray(passport_enrollments.terminal_id, scope.terminals)
+        );
+      }
+
+      // One query, and it stays small on its own: it is keyed off the progress
+      // rows that are actually waiting, not off the branch's roster. Every
+      // join is onto a primary key or the (program_id, module_id) unique pair,
+      // so nothing multiplies a row.
+      const rows = await drizzle
+        .select({
+          enrollment_id: passport_enrollments.id,
+          enrollment_status: passport_enrollments.status,
+          started_at: passport_enrollments.started_at,
+          probation_deadline: passport_enrollments.probation_deadline,
+          employee_id: passport_enrollments.employee_id,
+          first_name: employees.first_name,
+          last_name: employees.last_name,
+          position: employees.position,
+          terminal_id: passport_enrollments.terminal_id,
+          terminal_name: terminalsTable.name,
+          program_title_ru: passport_programs.title_ru,
+          program_title_uz: passport_programs.title_uz,
+          module_id: passport_modules.id,
+          module_title_ru: passport_modules.title_ru,
+          module_title_uz: passport_modules.title_uz,
+          module_sort: passport_program_modules.sort,
+          deadline_days: passport_program_modules.deadline_days,
+          topic_id: passport_topics.id,
+          topic_sort: passport_topics.sort,
+          topic_title_ru: passport_topics.title_ru,
+          topic_title_uz: passport_topics.title_uz,
+          verification_type: passport_topics.verification_type,
+          level: passport_topic_progress.level,
+          since: passport_topic_progress.updated_at,
+        })
+        .from(passport_topic_progress)
+        .innerJoin(
+          passport_enrollments,
+          eq(passport_enrollments.id, passport_topic_progress.enrollment_id)
+        )
+        .innerJoin(
+          passport_topics,
+          eq(passport_topics.id, passport_topic_progress.topic_id)
+        )
+        .innerJoin(
+          passport_modules,
+          eq(passport_modules.id, passport_topics.module_id)
+        )
+        // The module must belong to THIS enrollment's programme — the same
+        // predicate loadTopicInEnrollment uses as its authorization check.
+        // Without it a module shared by two programmes would carry the other
+        // programme's deadline_days into this trainee's row.
+        .innerJoin(
+          passport_program_modules,
+          and(
+            eq(passport_program_modules.module_id, passport_modules.id),
+            eq(
+              passport_program_modules.program_id,
+              passport_enrollments.program_id
+            )
+          )
+        )
+        .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          terminalsTable,
+          eq(terminalsTable.id, passport_enrollments.terminal_id)
+        )
+        .leftJoin(
+          passport_programs,
+          eq(passport_programs.id, passport_enrollments.program_id)
+        )
+        .where(and(...where))
+        .execute();
+
+      const nowMs = Date.now();
+      const byEnrollment = new Map<string, MentorQueueItem>();
+      for (const r of rows as any[]) {
+        // The SAME deadlineStatus the trainee reads on their phone and HR
+        // reads in the matrix, so a module that is red in one place is red in
+        // all three.
+        const dl = deadlineStatus(r.started_at, r.deadline_days, nowMs);
+        let item = byEnrollment.get(r.enrollment_id);
+        if (!item) {
+          item = {
+            enrollment_id: r.enrollment_id,
+            enrollment_status: r.enrollment_status,
+            started_at: r.started_at,
+            probation_deadline: r.probation_deadline,
+            employee: {
+              id: r.employee_id,
+              first_name: r.first_name ?? "",
+              last_name: r.last_name ?? "",
+              position: r.position ?? null,
+            },
+            terminal: { id: r.terminal_id, name: r.terminal_name ?? null },
+            program: {
+              title_ru: r.program_title_ru ?? "",
+              title_uz: r.program_title_uz ?? "",
+            },
+            waiting_count: 0,
+            deadline_at: null,
+            deadline_status: "ok",
+            topics: [],
+          };
+          byEnrollment.set(r.enrollment_id, item);
+        }
+        item.waiting_count += 1;
+        item.topics.push({
+          topic_id: r.topic_id,
+          title_ru: r.topic_title_ru,
+          title_uz: r.topic_title_uz,
+          module_id: r.module_id,
+          module_title_ru: r.module_title_ru,
+          module_title_uz: r.module_title_uz,
+          verification_type: r.verification_type,
+          level: r.level,
+          waiting_since: r.since,
+          deadline_at: dl.deadline_at,
+          deadline_status: dl.deadline_status,
+          _sort: [r.module_sort ?? 0, r.topic_sort ?? 0],
+        });
+      }
+
+      const items = [...byEnrollment.values()];
+      for (const item of items) {
+        item.topics.sort(
+          (a, b) => a._sort[0] - b._sort[0] || a._sort[1] - b._sort[1]
+        );
+        // The person's own urgency is their EARLIEST waiting deadline: that is
+        // the one that runs out first, and it is what decides who the mentor
+        // walks to next. A module with no deadline contributes nothing here
+        // rather than a zero.
+        let soonest: number | null = null;
+        let status: "ok" | "warning" | "overdue" = "ok";
+        for (const tp of item.topics) {
+          const ms = tp.deadline_at ? Date.parse(tp.deadline_at) : null;
+          if (ms === null || Number.isNaN(ms)) continue;
+          if (soonest === null || ms < soonest) {
+            soonest = ms;
+            status = tp.deadline_status;
+          }
+        }
+        item.deadline_at = soonest === null ? null : new Date(soonest).toISOString();
+        item.deadline_status = status;
+        for (const tp of item.topics) delete (tp as any)._sort;
+      }
+
+      // Burning deadlines first, and the null handling is the whole of it:
+      // `null < 5` is TRUE in JavaScript (null coerces to 0), so a comparator
+      // that subtracts would float every deadline-less trainee to the top of a
+      // screen whose entire promise is "these are the ones running out of
+      // time". Nulls are sunk explicitly. The name/id tail is the matrix's own
+      // tiebreak, so the list does not reshuffle between two reloads.
+      items.sort((a, b) => {
+        if (a.deadline_at !== b.deadline_at) {
+          if (a.deadline_at === null) return 1;
+          if (b.deadline_at === null) return -1;
+          const d = Date.parse(a.deadline_at) - Date.parse(b.deadline_at);
+          if (d) return d;
+        }
+        return (
+          a.employee.last_name.localeCompare(b.employee.last_name) ||
+          a.employee.first_name.localeCompare(b.employee.first_name) ||
+          a.enrollment_id.localeCompare(b.enrollment_id)
+        );
+      });
+
+      // `total` is counted BEFORE the cap, so an HQ user reading a long list
+      // is told how much of it they are looking at instead of quietly seeing
+      // the first hundred as if that were all of it.
+      return {
+        scope: scopeInfo(scope),
+        total: items.length,
+        items: items.slice(0, MENTOR_QUEUE_LIMIT),
+      };
+    }
+  )
+  // ---- one trainee's card ----
+  //
+  // Everything the mentor needs to know what they are signing AROUND: the
+  // whole programme, not just the topics that happen to be waiting. A mentor
+  // who can only see the queue rows is signing blind — they cannot tell a
+  // person on their last topic from one who opened the programme yesterday.
+  .get(
+    "/passport/tg/mentor/trainee/:enrollmentId",
+    async ({ tgSession, params: { enrollmentId }, drizzle, cacheController, set }) => {
+      const guard = mentorOrForbidden(tgSession, set);
+      if (!guard) return { error: "forbidden" };
+      const scope = await mentorScope(drizzle, cacheController, guard.user_id);
+      if (!scope) {
+        set.status = 403;
+        return { error: "forbidden" };
+      }
+
+      // Kept identical to loadEnrollmentScoped in controller.ts on purpose,
+      // including the 404/403 split: an unknown id is 404, another branch's
+      // trainee is 403. It is a local twin rather than a shared import for the
+      // same reason clientIp and loadTopicInEnrollment are — controller.ts
+      // pulls in the cookie/permission machinery this file must not depend on.
+      const [enrollment] = await drizzle
+        .select()
+        .from(passport_enrollments)
+        .where(eq(passport_enrollments.id, enrollmentId))
+        .execute();
+      if (!enrollment) {
+        set.status = 404;
+        return { error: "not_found" };
+      }
+      if (!scope.isHQ && !scope.terminals.includes(enrollment.terminal_id)) {
+        set.status = 403;
+        return { error: "forbidden" };
+      }
+
+      const [who] = await drizzle
+        .select({
+          first_name: employees.first_name,
+          last_name: employees.last_name,
+          position: employees.position,
+          terminal_name: terminalsTable.name,
+          program_title_ru: passport_programs.title_ru,
+          program_title_uz: passport_programs.title_uz,
+        })
+        .from(passport_enrollments)
+        .leftJoin(employees, eq(employees.id, passport_enrollments.employee_id))
+        .leftJoin(
+          terminalsTable,
+          eq(terminalsTable.id, passport_enrollments.terminal_id)
+        )
+        .leftJoin(
+          passport_programs,
+          eq(passport_programs.id, passport_enrollments.program_id)
+        )
+        .where(eq(passport_enrollments.id, enrollment.id))
+        .execute();
+
+      // The same curriculum read as /passport/tg/me — published AND active
+      // modules of this programme, in the programme's own order — so the card
+      // and the trainee's own phone can never disagree about what is in the
+      // programme.
+      const links = await drizzle
+        .select({ link: passport_program_modules, module: passport_modules })
+        .from(passport_program_modules)
+        .innerJoin(
+          passport_modules,
+          eq(passport_modules.id, passport_program_modules.module_id)
+        )
+        .where(
+          and(
+            eq(passport_program_modules.program_id, enrollment.program_id),
+            eq(passport_modules.status, "published"),
+            eq(passport_modules.active, true)
+          )
+        )
+        .orderBy(asc(passport_program_modules.sort))
+        .execute();
+
+      const moduleIds = links.map((l: any) => l.module.id);
+      const topics = moduleIds.length
+        ? await drizzle
+            .select()
+            .from(passport_topics)
+            .where(
+              and(
+                inArray(passport_topics.module_id, moduleIds),
+                eq(passport_topics.active, true)
+              )
+            )
+            .orderBy(asc(passport_topics.sort))
+            .execute()
+        : [];
+
+      const progress = await drizzle
+        .select()
+        .from(passport_topic_progress)
+        .where(eq(passport_topic_progress.enrollment_id, enrollment.id))
+        .execute();
+      const byTopic = new Map<string, any>(
+        progress.map((p: any) => [p.topic_id, p])
+      );
+
+      const stamps = await drizzle
+        .select()
+        .from(passport_stamps)
+        .where(eq(passport_stamps.enrollment_id, enrollment.id))
+        .execute();
+
+      const nowMs = Date.now();
+      return {
+        enrollment: {
+          id: enrollment.id,
+          status: enrollment.status,
+          started_at: enrollment.started_at,
+          probation_deadline: enrollment.probation_deadline,
+          terminal_id: enrollment.terminal_id,
+        },
+        employee: {
+          id: enrollment.employee_id,
+          first_name: who?.first_name ?? "",
+          last_name: who?.last_name ?? "",
+          position: who?.position ?? null,
+        },
+        terminal: { id: enrollment.terminal_id, name: who?.terminal_name ?? null },
+        program: {
+          title_ru: who?.program_title_ru ?? "",
+          title_uz: who?.program_title_uz ?? "",
+        },
+        modules: links.map((l: any) => ({
+          module: {
+            id: l.module.id,
+            title_ru: l.module.title_ru,
+            title_uz: l.module.title_uz,
+            brand: l.module.brand,
+          },
+          required: l.link.required,
+          ...deadlineStatus(enrollment.started_at, l.link.deadline_days, nowMs),
+          topics: topics
+            .filter((tp: any) => tp.module_id === l.module.id)
+            .map((tp: any) => {
+              const vt = tp.verification_type as VerificationType;
+              const level: number = byTopic.get(tp.id)?.level ?? 0;
+              return {
+                id: tp.id,
+                title_ru: tp.title_ru,
+                title_uz: tp.title_uz,
+                verification_type: vt,
+                level,
+                // Derived HERE, from the same state.ts the trainee endpoints
+                // move levels through, so the card cannot invent a state the
+                // rest of the system does not recognise.
+                awaiting_observation: canObserve(level, vt) && level < 3,
+                // False for `dual` and for photo-evidence topics: the office
+                // sign-off refuses both until stage 2. The queue drops them;
+                // the card keeps them and lets the screen say why this one is
+                // not moving.
+                signable: SIGNABLE_OBSERVATION.includes(vt as any),
+                observed_at: byTopic.get(tp.id)?.observed_at ?? null,
+              };
+            }),
+        })),
+        stamps: stamps.map((s: any) => ({
+          id: s.id,
+          type: s.type,
+          module_id: s.module_id,
+          issued_at: s.issued_at,
+        })),
+      };
+    },
+    { params: t.Object({ enrollmentId: t.String({ format: "uuid" }) }) }
   );
 
 // Widened export, same reason as creditAdminController: keeps the app root
