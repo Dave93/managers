@@ -674,9 +674,29 @@ export function renderCard(card: Card, onBack: () => void): void {
 // for the trainee, and for the same reason: the model is refetched rather than
 // cached, so a screen can never be painted from data older than the one the
 // mentor is looking at.
+//
+// LOAD-BEARING, and it holds by construction rather than by a guard:
+// `renderLoading()` is the FIRST statement of both entry points below, before
+// any await. It nulls `repaint` and puts `hidden` on #screen-view, so every tap
+// target of the previous screen leaves the layout before the request even
+// exists. A response therefore cannot arrive over a live screen, and a second
+// navigation cannot start while one is in flight because there is nothing left
+// to tap. Neither function needs the generation counter topic.ts and quiz.ts
+// carry — those two DO keep a screen interactive across an await (a background
+// /opened write, a submit with the review rows still on screen), and that is
+// the whole difference.
+//
+// The change that breaks this is one somebody will actually ask for: «не мигай
+// скелетоном на каждом обновлении, оставь список». Rendering the refetch
+// without the intervening renderLoading() leaves the queue interactive with a
+// request in flight, and then a mentor who taps refresh and opens a trainee
+// card gets the stale queue painted over the card. If that is ever done, this
+// file needs quiz.ts's guard: capture a generation before the await and bail
+// after it if the generation moved.
 // ---------------------------------------------------------------------------
 
 export async function showQueue(): Promise<void> {
+  // First statement, deliberately — see the note above.
   renderLoading();
   const res = await api<unknown>("/mentor/queue");
   if (res.kind === "fail") {
@@ -699,6 +719,7 @@ export async function showQueue(): Promise<void> {
 }
 
 export async function showTrainee(enrollmentId: string): Promise<void> {
+  // First statement, deliberately — see the note above showQueue.
   renderLoading();
   const res = await api<unknown>(`/mentor/trainee/${enrollmentId}`);
   if (res.kind === "fail") {
