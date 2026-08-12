@@ -6,7 +6,7 @@
 // single-digit kilobytes for a phone on branch wifi.
 import { t, lang, setLang, type Lang, type StatusKey } from "./i18n";
 
-type Tone = "danger" | "warn" | "neutral";
+export type Tone = "danger" | "warn" | "neutral" | "good";
 
 // Stroke glyphs, 24-unit grid, inherited colour. Inline rather than a sprite
 // or an icon package: nine paths are smaller than any dependency, and they
@@ -146,6 +146,97 @@ export function renderStatus(status: StatusKey, onRetry?: () => void): void {
     view.append(btn);
   }
   show("view");
+}
+
+// ---------------------------------------------------------------------------
+// Shared furniture for the screens that live in their own files (C3's topic and
+// quiz). It sits here rather than in one of them because both need it and a
+// second copy would be the thing that drifts: two "back" rows with two tap
+// heights, two outcome screens with two glyph sizes.
+// ---------------------------------------------------------------------------
+
+/**
+ * The tinted glyph tile, from raw paths. renderStatus draws its own from the
+ * closed ICONS set above; screens that own their vocabulary pass paths in.
+ */
+export function glyphBox(tone: Tone, paths: string): HTMLElement {
+  const node = document.createElement("div");
+  node.className = `glyph glyph--${tone}`;
+  node.innerHTML = svgWrap(paths);
+  return node;
+}
+
+export function button(
+  cls: string,
+  label: string,
+  onClick: () => void
+): HTMLButtonElement {
+  const node = document.createElement("button");
+  node.type = "button";
+  node.className = cls;
+  node.textContent = label;
+  node.addEventListener("click", onClick);
+  return node;
+}
+
+const BACK_ARROW = '<path d="M15 5l-7 7 7 7"/>';
+
+/**
+ * The one way back. A real button in the layout rather than Telegram's
+ * BackButton: that API is missing on the older WebViews this audience carries,
+ * and a back affordance that exists on some phones is worse than none.
+ */
+export function backButton(label: string, onBack: () => void): HTMLButtonElement {
+  const btn = button("back-btn", label, onBack);
+  // Prepended, so the arrow sits before the word in both languages.
+  btn.insertAdjacentHTML("afterbegin", svgWrap(BACK_ARROW));
+  return btn;
+}
+
+export function backBar(label: string, onBack: () => void): HTMLElement {
+  const row = document.createElement("div");
+  row.className = "backbar";
+  row.append(backButton(label, onBack));
+  return row;
+}
+
+export type OutcomeAction = {
+  label: string;
+  onClick: () => void;
+  primary?: boolean;
+};
+
+/**
+ * The centred "here is what happened" screen: a result, a cooldown, a
+ * misconfiguration. Same shape as renderStatus, but parameterised by copy the
+ * caller owns rather than by a StatusKey, and it can carry more than one
+ * action — a passed quiz has two next moves and a cooldown has one.
+ */
+export function renderOutcome(opts: {
+  tone: Tone;
+  paths: string;
+  title: string;
+  body: string;
+  /** Between the body and the actions: the score line, the topic card. */
+  extra?: HTMLElement[];
+  actions: OutcomeAction[];
+  onRepaint: () => void;
+}): void {
+  const view = beginScreen("screen--center", opts.onRepaint);
+  view.append(glyphBox(opts.tone, opts.paths));
+  view.append(text("h1", "status-title", opts.title));
+  view.append(text("p", "status-body", opts.body));
+  for (const node of opts.extra ?? []) view.append(node);
+  for (const action of opts.actions) {
+    view.append(
+      button(
+        action.primary ? "btn-primary" : "btn-ghost",
+        action.label,
+        action.onClick
+      )
+    );
+  }
+  endScreen();
 }
 
 /**

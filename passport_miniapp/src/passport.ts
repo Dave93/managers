@@ -28,6 +28,19 @@ export type Topic = {
   sort: number;
   title_ru: string;
   title_uz: string;
+  // The TWI material. /me already carries it for every topic in the programme,
+  // so the topic screen (C3) needs no second request — which is the difference
+  // between a card that paints instantly and one that waits on branch wifi.
+  // Every one of these columns is `.default("")`, so "" means "HR left it
+  // blank", not "missing field".
+  step_ru: string;
+  step_uz: string;
+  key_point_ru: string;
+  key_point_uz: string;
+  reason_ru: string;
+  reason_uz: string;
+  /** -> passport_media. Nothing serves those bytes yet; see TopicDict.video_note. */
+  video_id: string | null;
   has_quiz: boolean;
   has_observation: boolean;
 };
@@ -75,7 +88,7 @@ export function parseMe(data: unknown): Me | null {
 // ---------------------------------------------------------------------------
 
 /** «Сам» is the bar — the admin matrix says so in as many words. */
-const BAR = 3;
+export const BAR = 3;
 
 /** Same 3 days the backend uses for `deadline_status: "warning"`. */
 const WARNING_MS = 3 * 86400_000;
@@ -189,7 +202,7 @@ const GLYPH = {
 } as const;
 
 /** Uzbek columns are `.default("")` in the schema: fall back, never render blank. */
-function local(ru: string, uz: string): string {
+export function local(ru: string, uz: string): string {
   return lang() === "uz" && uz.trim() ? uz : ru;
 }
 

@@ -7,7 +7,8 @@ import "./style.css";
 import { authenticate, api } from "./api";
 import { setLang, storedLang } from "./i18n";
 import { paintChrome } from "./telegram";
-import { parseMe, renderPassport } from "./passport";
+import { parseMe, renderPassport, type Me } from "./passport";
+import { openTopic, showTopic, type TopicCtx } from "./topic";
 import {
   mountLangPanel,
   renderLoading,
@@ -27,6 +28,68 @@ const BG = "#121214";
 // The paired teardown went with it: the hint lives inside #screen-loading, so
 // rendering any other screen hides it.
 
+/**
+ * One fetch of the passport, with every terminal state already turned into a
+ * screen. Returns null when it has rendered one, so callers just stop.
+ */
+async function loadMe(): Promise<Me | null> {
+  const me = await api<unknown>("/me");
+
+  if (me.kind === "fail") {
+    renderStatus(me.status, start);
+    return null;
+  }
+  if (me.kind === "http") {
+    // 404 no_enrollment: the account is bound but HR has not opened the
+    // traineeship yet. A real, common state on day one -- and its own screen,
+    // not a denial.
+    if (me.code === 404) renderStatus("not_started", start);
+    else renderStatus("unknown", start);
+    return null;
+  }
+
+  // A body that does not look like a passport is an error, not a passport with
+  // holes in it: rendering half a screen would be worse than saying so.
+  const data = parseMe(me.data);
+  if (!data) {
+    renderStatus("unknown", start);
+    return null;
+  }
+  return data;
+}
+
+/**
+ * Navigation, and it is the whole of it: two screens and one way between them.
+ * The context is rebuilt from the payload each time rather than kept in a
+ * variable, so a screen can never be rendered from a `me` older than the one
+ * the trainee is looking at.
+ */
+function topicCtx(me: Me, topicId: string): TopicCtx {
+  return {
+    me,
+    topicId,
+    onBack: () => showPassport(me),
+    onReload: () => void reload(topicId),
+  };
+}
+
+function showPassport(me: Me): void {
+  renderPassport(me, (topicId) => openTopic(topicCtx(me, topicId)));
+}
+
+/**
+ * Refetch and land where the caller asks. This is what a passed quiz comes back
+ * through: the level on the passport must be the server's, never a number this
+ * app raised on its own screen.
+ */
+async function reload(topicId: string | null): Promise<void> {
+  renderLoading();
+  const me = await loadMe();
+  if (!me) return;
+  if (topicId === null) showPassport(me);
+  else showTopic(topicCtx(me, topicId));
+}
+
 async function start(): Promise<void> {
   renderLoading();
 
@@ -45,31 +108,8 @@ async function start(): Promise<void> {
     return;
   }
 
-  const me = await api<unknown>("/me");
-
-  if (me.kind === "fail") {
-    renderStatus(me.status, start);
-    return;
-  }
-  if (me.kind === "http") {
-    // 404 no_enrollment: the account is bound but HR has not opened the
-    // traineeship yet. A real, common state on day one -- and its own screen,
-    // not a denial.
-    if (me.code === 404) renderStatus("not_started", start);
-    else renderStatus("unknown", start);
-    return;
-  }
-
-  // A body that does not look like a passport is an error, not a passport with
-  // holes in it: rendering half a screen would be worse than saying so.
-  const data = parseMe(me.data);
-  if (!data) {
-    renderStatus("unknown", start);
-    return;
-  }
-  // No onOpenTopic yet: C3 owns the topic screen and passes it here. Until then
-  // the rows render as rows, not as buttons that do nothing.
-  renderPassport(data);
+  const me = await loadMe();
+  if (me) showPassport(me);
 }
 
 // Language before first paint. The inline script in index.html has already

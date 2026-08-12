@@ -132,8 +132,16 @@ export type ApiResult<T> =
   | { kind: "ok"; data: T }
   /** Terminal: render this status screen. */
   | { kind: "fail"; status: StatusKey }
-  /** Non-2xx the caller is expected to interpret (404 no_enrollment, 429 …). */
-  | { kind: "http"; code: number; error: string | null };
+  /**
+   * Non-2xx the caller is expected to interpret (404 no_enrollment, 429 …).
+   *
+   * `body` is the parsed payload, and it is NOT redundant with `error`: the
+   * quiz cooldown answers 429 with `retry_after_sec` alongside its error
+   * string, and a screen that cannot read it can only say "an hour" — wrong by
+   * up to an hour, to somebody standing in a kitchen deciding whether to wait.
+   * Null when the response carried no JSON (nginx's HTML 502).
+   */
+  | { kind: "http"; code: number; error: string | null; body: Json | null };
 
 /**
  * Authenticated call with ONE re-authentication on 401.
@@ -188,5 +196,5 @@ export async function api<T>(
   }
   if (res.status === 401) return { kind: "fail", status: "expired" };
   if (res.status >= 500) return { kind: "fail", status: "offline" };
-  return { kind: "http", code: res.status, error: errorOf(body) };
+  return { kind: "http", code: res.status, error: errorOf(body), body };
 }

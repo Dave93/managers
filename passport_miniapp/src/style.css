@@ -1016,3 +1016,588 @@ button.tp-inner {
   color: var(--muted);
   font-size: 12.5px;
 }
+
+/* ---------- topic + quiz (C3) ----------
+ *
+ * Same rules as above, and one more that this half of the app makes literal:
+ * exactly ONE saturated action per screen. A topic offers one next move, a
+ * question offers one way forward, and the confirmation offers one send. When a
+ * screen genuinely has two moves — a passed quiz on a topic that still needs a
+ * mentor — the second is a ghost button, so the finger still knows where to go
+ * without reading.
+ *
+ * Nothing here uses --primary to carry MEANING. Red on this screen is a place
+ * to tap; a result says what it is in a word and in the level palette (green
+ * «сдан», amber «пока не сдано»), because red already means "you are late" two
+ * screens away and the same colour cannot mean two things in a kitchen.
+ */
+
+.btn-ghost {
+  min-height: 52px;
+  margin-top: 10px;
+  padding: 0 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff0a;
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease-out;
+}
+
+.btn-ghost:active {
+  background: #ffffff17;
+}
+
+/* Full width inside a screen's action foot; auto width when centred on an
+   outcome screen (.screen--center sets align-items: center). */
+.tp-foot .btn-primary,
+.tp-foot .btn-ghost,
+.q-foot .btn-primary,
+.q-foot .btn-ghost {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ---------- back ---------- */
+
+.backbar {
+  display: flex;
+  margin: 0 -12px 8px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* 52px of height, but visually just a word: the padding is the tap target. */
+  min-height: 52px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.back-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- topic head ---------- */
+
+.tp-crumb {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.tp-h {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
+}
+
+.tp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+
+/* The level word, in the level colour — the same data-l → colour mapping the
+   passport rows use, so «Увидел» is the same grey in both places. */
+.tp-level {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tp-level[data-l="0"] {
+  color: var(--muted);
+}
+.tp-level[data-l="1"] {
+  color: var(--lvl-1);
+}
+.tp-level[data-l="2"] {
+  color: var(--lvl-2);
+}
+.tp-level[data-l="3"] {
+  color: var(--lvl-3);
+}
+.tp-level[data-l="4"] {
+  color: var(--lvl-4);
+}
+
+.tp-wait {
+  color: var(--lvl-2);
+  font-size: 13px;
+}
+
+/* ---------- video note ---------- */
+
+.vid-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+  color: var(--muted);
+}
+
+.vid-glyph {
+  display: flex;
+  flex: none;
+}
+
+.vid-glyph svg {
+  width: 22px;
+  height: 22px;
+}
+
+.vid-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* ---------- TWI card ---------- */
+
+.twi-card {
+  margin-top: 16px;
+  padding: 0;
+}
+
+.twi {
+  padding: 14px 16px;
+}
+
+.twi + .twi {
+  border-top: 1px solid var(--line);
+}
+
+.twi-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* pre-line, and it is load bearing: HR types these fields as short numbered
+   lines, and collapsing the newlines is how a checklist stops reading as a
+   checklist. Same fix the storefront needed for product descriptions. */
+.twi-body {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* The key point is the one line that gets somebody hurt or a dish remade, so it
+   is the one block with a surface of its own — weight, not colour, because the
+   colours here are already spoken for. */
+.twi--key {
+  background: #ffffff08;
+}
+
+.twi--key .twi-label {
+  color: var(--text);
+}
+
+.twi--key .twi-body {
+  font-weight: 600;
+}
+
+/* ---------- topic foot ---------- */
+
+.tp-foot {
+  display: flex;
+  flex-direction: column;
+  /* Pushed to the bottom of the viewport when the material is short, so the one
+     action sits where a thumb rests rather than floating mid-screen. */
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.tp-rule {
+  margin: 0 2px 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.next-card {
+  margin-bottom: 14px;
+}
+
+.next-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* ---------- mentor screen ---------- */
+
+.mentor-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 18px;
+  text-align: center;
+}
+
+.show-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.show-label {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.show-topic {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.show-module {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.show-chip {
+  /* .chip centres itself; inside this left-aligned card it must not. */
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.show-card .card-note {
+  align-self: stretch;
+}
+
+/* ---------- quiz ---------- */
+
+.screen--quiz {
+  gap: 0;
+}
+
+.q-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -12px;
+}
+
+.q-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.q-clock {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ffffff0f;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.q-clock[data-over="1"] {
+  background: #fcd34d1f;
+  color: var(--lvl-2);
+}
+
+/* One segment per question: how much is left is a shape, not a sentence. */
+.q-segs {
+  display: flex;
+  gap: 4px;
+  margin: 10px 0 20px;
+}
+
+.q-segs i {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  transition: background 0.2s ease-out;
+}
+
+.q-segs i[data-state="done"] {
+  background: var(--lvl-3);
+}
+
+.q-segs i[data-state="now"] {
+  background: var(--text);
+}
+
+.q-text {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.q-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.opts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* Big, and the whole row is the target: this is read at arm's length with one
+   thumb, so the option is a slab rather than a radio button with a label. */
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease-out, border-color 0.15s ease-out,
+    transform 0.12s ease-out;
+}
+
+.opt:active {
+  transform: scale(0.99);
+}
+
+/* Chosen is NOT the action colour: nothing has been sent yet, and painting a
+   selection red would say "done" a screen too early. White is enough contrast
+   to find in bad light. */
+.opt[data-on="1"] {
+  border-color: #ffffff59;
+  background: #ffffff14;
+}
+
+.opt-box {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid #ffffff4d;
+  color: var(--bg);
+}
+
+/* Round for "one answer", square for "several" — the shape says the rule
+   before the hint line is read. */
+.opt-box--single {
+  border-radius: 50%;
+}
+
+.opt-box--multi {
+  border-radius: 8px;
+}
+
+.opt[data-on="1"] .opt-box {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+.opt-box svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.6;
+}
+
+.opt-text {
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.q-foot {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.q-foot--stack {
+  flex-direction: column;
+  gap: 0;
+}
+
+.q-foot .btn-ghost,
+.q-foot .btn-primary {
+  margin-top: 0;
+}
+
+.q-foot--stack .btn-primary {
+  margin-top: 12px;
+}
+
+.q-rule {
+  margin: 0 2px 4px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ---------- confirmation ---------- */
+
+.q-confirm-title {
+  margin: 14px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin-top: 10px;
+}
+
+.tally-main {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tally[data-all="1"] .tally-main {
+  color: var(--lvl-3);
+}
+
+.tally-warn {
+  color: var(--lvl-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rev {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rev-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rev-idx {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px dashed var(--muted);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rev-row[data-on="1"] .rev-idx {
+  border-style: solid;
+  border-color: var(--lvl-3);
+  background: #6ee7b71a;
+  color: var(--lvl-3);
+}
+
+.rev-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.35;
+  /* Two lines is enough to recognise a question you have just read. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rev-row[data-on="0"] .rev-text {
+  color: var(--muted);
+}
+
+/* ---------- result ---------- */
+
+.glyph--good {
+  color: var(--lvl-3);
+  background: #6ee7b71a;
+  box-shadow: inset 0 0 0 1px #6ee7b733;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.score-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lvl-2);
+}
+
+.score[data-ok="1"] .score-value {
+  color: var(--lvl-3);
+}
+
+.score-need {
+  color: var(--muted);
+  font-size: 14px;
+}

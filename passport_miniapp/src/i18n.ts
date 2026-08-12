@@ -132,6 +132,98 @@ export type PassportDict = {
   months: readonly string[];
 };
 
+/**
+ * The topic screen (C3). TWI wording — «шаг», «ключевой момент», «почему» — is
+ * the vocabulary the paper training sheets already use, so the app names the
+ * three blocks the way a trainer names them out loud.
+ *
+ * `video_note` is the honest half of the video slot. `passport_topics.video_id`
+ * exists and the admin API can set it, but NOTHING serves the bytes yet — there
+ * is no passport_media route anywhere in backend/src, and the X-Accel location
+ * belongs to a later stage. So a topic that HAS a video says so in one muted
+ * line instead of drawing a player that would never load.
+ */
+export type TopicDict = {
+  back: string;
+  step: string;
+  key_point: string;
+  reason: string;
+  no_material: string;
+  video_note: string;
+  start_quiz: string;
+  /** Stated BEFORE the quiz opens: it is taken alone, and why that is fair. */
+  quiz_hint: string;
+  passed_chip: string;
+  mentor_next_title: string;
+  mentor_next_body: string;
+  call_mentor: string;
+  observation_only_title: string;
+  observation_only_body: string;
+  done_title: string;
+  done_body: string;
+  to_passport: string;
+  /** The screen a trainee holds up to a mentor. */
+  mentor_title: string;
+  mentor_body: string;
+  mentor_what: string;
+  mentor_topic: string;
+};
+
+/** Every non-2xx the quiz routes can answer, as its own human situation. */
+export type QuizErrKey =
+  | "already_passed"
+  | "no_quiz"
+  | "no_questions"
+  | "test_gone"
+  | "topic_gone"
+  | "attempt_gone"
+  | "finalized";
+
+export type QuizDict = {
+  title: string;
+  leave: string;
+  leave_title: string;
+  leave_body: string;
+  leave_confirm: string;
+  leave_cancel: string;
+  progress: (index: number, total: number) => string;
+  single_hint: string;
+  multi_hint: string;
+  next: string;
+  prev: string;
+  review: string;
+  /** Header countdown; only rendered when the test carries a time limit. */
+  clock: (minutes: number) => string;
+  time_over: string;
+  confirm_title: string;
+  confirm_body: string;
+  /** The cooldown rule, said BEFORE the tap that can trigger it. */
+  confirm_rule: string;
+  answered: (done: number, total: number) => string;
+  unanswered: (n: number) => string;
+  send: string;
+  sending: string;
+  back_to_questions: string;
+  passed_title: string;
+  failed_title: string;
+  expired_title: string;
+  /** Both numbers come from the server: its score and its own threshold. */
+  score: (score: number) => string;
+  need: (score: number) => string;
+  passed_body_mentor: string;
+  passed_body_solo: string;
+  failed_body: string;
+  expired_body: string;
+  retry: string;
+  to_topic: string;
+  cooldown_title: (minutes: number) => string;
+  cooldown_body: string;
+  send_failed_title: string;
+  send_failed_body: string;
+  send_again: string;
+  err: Record<QuizErrKey, { title: string; body: string }>;
+};
+
 export type Dict = {
   // NOTE: there is deliberately no `loading_slow` here. The slow-network line
   // must render when the bundle has not run at all (telegram.org unreachable),
@@ -147,6 +239,8 @@ export type Dict = {
   mentor_signoff_note: string;
   soon: string;
   p: PassportDict;
+  tp: TopicDict;
+  q: QuizDict;
 };
 
 /** «1 день», «2 дня», «5 дней». Russian only; Uzbek has no such agreement. */
@@ -157,6 +251,22 @@ function ruDays(n: number): string {
   if (b === 1) return "день";
   if (b >= 2 && b <= 4) return "дня";
   return "дней";
+}
+
+/**
+ * Minutes after «через», which is the only place this app counts them: the
+ * cooldown line. Its own helper for two reasons — the noun is feminine, so
+ * ruDays would print «1 минут», and «через» takes the ACCUSATIVE, so even the
+ * nominative «1 минута» would be wrong here. 1 «минуту», 2–4 «минуты», the
+ * rest «минут».
+ */
+function ruMinutesAfterVia(n: number): string {
+  const a = Math.abs(n) % 100;
+  const b = a % 10;
+  if (a > 10 && a < 20) return "минут";
+  if (b === 1) return "минуту";
+  if (b >= 2 && b <= 4) return "минуты";
+  return "минут";
 }
 
 const RU: Dict = {
@@ -263,6 +373,106 @@ const RU: Dict = {
       "дек",
     ],
   },
+  tp: {
+    back: "Назад",
+    step: "Шаг",
+    key_point: "Ключевой момент",
+    reason: "Почему так",
+    no_material: "Материал к этой теме ещё не заполнен. Спросите наставника — он покажет на месте.",
+    video_note: "Видео к этой теме пока не открывается в приложении — его показывает наставник.",
+    start_quiz: "Сдать квиз",
+    // Said before the quiz opens, not after. The trainee is about to be alone
+    // with it on purpose, and knowing that the practical half is signed by
+    // someone else is what makes the rule read as fair rather than as suspicion.
+    quiz_hint: "Квиз проходят одни, без подсказок. Практику принимает наставник отдельно.",
+    passed_chip: "Квиз сдан",
+    mentor_next_title: "Дальше — наставник",
+    mentor_next_body: "Квиз сдан. Осталось показать на смене, как вы это делаете.",
+    call_mentor: "Позвать наставника",
+    observation_only_title: "Эту тему принимает наставник",
+    observation_only_body: "Квиза здесь нет: наставник смотрит, как вы это делаете, и ставит отметку.",
+    done_title: "Тема закрыта",
+    done_body: "Уровень «Сам». Возвращайтесь сюда, когда нужно освежить материал.",
+    to_passport: "К паспорту",
+    mentor_title: "Позовите наставника",
+    // The app sends nothing anywhere. Saying so plainly is the difference
+    // between a person waiting for a mentor who was never called and a person
+    // who goes and finds one.
+    mentor_body: "Приложение никого не вызывает — подойдите к наставнику сами и покажите этот экран.",
+    mentor_what: "Наставник смотрит, как вы делаете это на смене.",
+    mentor_topic: "Тема",
+  },
+  q: {
+    title: "Квиз",
+    leave: "Выйти",
+    leave_title: "Выйти из квиза?",
+    leave_body: "Ответы на этом телефоне не сохранятся, но попытка останется открытой — вы вернётесь к тем же вопросам.",
+    leave_confirm: "Выйти",
+    leave_cancel: "Остаться",
+    progress: (index, total) => `Вопрос ${index} из ${total}`,
+    single_hint: "Один ответ",
+    multi_hint: "Можно выбрать несколько",
+    next: "Далее",
+    prev: "Назад",
+    review: "Проверить ответы",
+    clock: (minutes) => `${minutes} мин`,
+    time_over: "Время вышло",
+    confirm_title: "Отправить ответы?",
+    confirm_body: "После отправки изменить ответы нельзя.",
+    confirm_rule: "Если не сдать два раза подряд, квиз откроется только через час.",
+    answered: (done, total) => `Отвечено ${done} из ${total}`,
+    unanswered: (n) => `Без ответа: ${n}`,
+    send: "Отправить",
+    sending: "Отправляем…",
+    back_to_questions: "Вернуться к вопросам",
+    passed_title: "Квиз сдан",
+    failed_title: "Пока не сдано",
+    expired_title: "Время вышло",
+    score: (score) => `${score} из 100`,
+    need: (score) => `нужно ${score}`,
+    passed_body_mentor: "Дальше наставник смотрит вас на смене.",
+    passed_body_solo: "Тема закрыта на уровне «Сам».",
+    failed_body: "Перечитайте ключевой момент в теме и попробуйте ещё раз.",
+    expired_body: "Ответы ушли позже отведённого времени, поэтому не засчитаны.",
+    retry: "Пройти ещё раз",
+    to_topic: "Вернуться к теме",
+    cooldown_title: (minutes) =>
+      `Откроется через ${minutes} ${ruMinutesAfterVia(minutes)}`,
+    cooldown_body: "Два раза подряд не сдано, поэтому квиз закрыт на час. Это время на повторение материала — так ответы не подбираются наугад.",
+    send_failed_title: "Ответы не ушли",
+    send_failed_body: "Связь пропала. Ответы никуда не делись — они на этом телефоне. Попробуйте отправить ещё раз.",
+    send_again: "Отправить ещё раз",
+    err: {
+      already_passed: {
+        title: "Квиз уже сдан",
+        body: "Эта тема уже пройдена — сдавать заново не нужно.",
+      },
+      no_quiz: {
+        title: "У этой темы нет квиза",
+        body: "Тему принимает наставник: он смотрит, как вы это делаете, и ставит отметку.",
+      },
+      no_questions: {
+        title: "Квиз ещё не готов",
+        body: "В квизе нет вопросов. Покажите этот экран менеджеру — это чинит офис, не вы.",
+      },
+      test_gone: {
+        title: "Квиз недоступен",
+        body: "Офис отключил этот квиз. Спросите наставника, что делать дальше.",
+      },
+      topic_gone: {
+        title: "Темы больше нет",
+        body: "Офис снял этот модуль. Вернитесь в паспорт — там актуальный список.",
+      },
+      attempt_gone: {
+        title: "Попытка не найдена",
+        body: "Эта попытка больше не действует. Откройте квиз заново.",
+      },
+      finalized: {
+        title: "Ответы уже приняты",
+        body: "Эта попытка закрыта на сервере. Откройте тему — там видно, что засчитано.",
+      },
+    },
+  },
 };
 
 const UZ: Dict = {
@@ -359,6 +569,99 @@ const UZ: Dict = {
       "noy",
       "dek",
     ],
+  },
+  tp: {
+    back: "Orqaga",
+    step: "Qadam",
+    key_point: "Asosiy nuqta",
+    reason: "Nima uchun",
+    no_material: "Bu mavzuning materiali hali toʻldirilmagan. Ustozdan soʻrang — u joyida koʻrsatadi.",
+    video_note: "Bu mavzuning videosi ilovada hozircha ochilmaydi — uni ustoz koʻrsatadi.",
+    start_quiz: "Kvizni topshirish",
+    quiz_hint: "Kvizni yolgʻiz, yordamsiz topshirasiz. Amaliyotni ustoz alohida qabul qiladi.",
+    passed_chip: "Kviz topshirildi",
+    mentor_next_title: "Keyingisi — ustoz",
+    mentor_next_body: "Kviz topshirildi. Endi smenada buni qanday bajarishingizni koʻrsatish qoldi.",
+    call_mentor: "Ustozni chaqirish",
+    observation_only_title: "Bu mavzuni ustoz qabul qiladi",
+    observation_only_body: "Bu yerda kviz yoʻq: ustoz buni qanday bajarishingizni koʻradi va belgi qoʻyadi.",
+    done_title: "Mavzu yopildi",
+    done_body: "«Mustaqil» darajasi. Materialni yangilash kerak boʻlsa, shu yerga qayting.",
+    to_passport: "Pasportga",
+    mentor_title: "Ustozni chaqiring",
+    mentor_body: "Ilova hech kimni chaqirmaydi — ustozning oldiga oʻzingiz boring va shu ekranni koʻrsating.",
+    mentor_what: "Ustoz smenada buni qanday bajarishingizni koʻradi.",
+    mentor_topic: "Mavzu",
+  },
+  q: {
+    title: "Kviz",
+    leave: "Chiqish",
+    leave_title: "Kvizdan chiqasizmi?",
+    leave_body: "Bu telefondagi javoblar saqlanmaydi, lekin urinish ochiq qoladi — oʻsha savollarga qaytasiz.",
+    leave_confirm: "Chiqish",
+    leave_cancel: "Qolish",
+    progress: (index, total) => `${total} savoldan ${index}-si`,
+    single_hint: "Bitta javob",
+    multi_hint: "Bir nechtasini tanlash mumkin",
+    next: "Keyingisi",
+    prev: "Orqaga",
+    review: "Javoblarni tekshirish",
+    clock: (minutes) => `${minutes} daq`,
+    time_over: "Vaqt tugadi",
+    confirm_title: "Javoblar yuborilsinmi?",
+    confirm_body: "Yuborilgandan keyin javoblarni oʻzgartirib boʻlmaydi.",
+    confirm_rule: "Ketma-ket ikki marta topshirilmasa, kviz faqat bir soatdan keyin ochiladi.",
+    answered: (done, total) => `${total} tadan ${done} tasiga javob berildi`,
+    unanswered: (n) => `Javobsiz: ${n}`,
+    send: "Yuborish",
+    sending: "Yuborilmoqda…",
+    back_to_questions: "Savollarga qaytish",
+    passed_title: "Kviz topshirildi",
+    failed_title: "Hozircha topshirilmadi",
+    expired_title: "Vaqt tugadi",
+    score: (score) => `100 dan ${score}`,
+    need: (score) => `kerak ${score}`,
+    passed_body_mentor: "Endi ustoz sizni smenada kuzatadi.",
+    passed_body_solo: "Mavzu «Mustaqil» darajasida yopildi.",
+    failed_body: "Mavzudagi asosiy nuqtani qayta oʻqing va yana urinib koʻring.",
+    expired_body: "Javoblar belgilangan vaqtdan kechroq yuborildi, shuning uchun hisobga olinmadi.",
+    retry: "Yana topshirish",
+    to_topic: "Mavzuga qaytish",
+    cooldown_title: (minutes) => `${minutes} daqiqadan keyin ochiladi`,
+    cooldown_body: "Ketma-ket ikki marta topshirilmadi, shuning uchun kviz bir soatga yopildi. Bu vaqt materialni takrorlash uchun — javoblar tavakkaliga topilmasin.",
+    send_failed_title: "Javoblar yuborilmadi",
+    send_failed_body: "Aloqa uzildi. Javoblar yoʻqolgani yoʻq — ular shu telefonda. Yana yuborib koʻring.",
+    send_again: "Yana yuborish",
+    err: {
+      already_passed: {
+        title: "Kviz allaqachon topshirilgan",
+        body: "Bu mavzu oʻtilgan — qayta topshirish shart emas.",
+      },
+      no_quiz: {
+        title: "Bu mavzuda kviz yoʻq",
+        body: "Mavzuni ustoz qabul qiladi: u buni qanday bajarishingizni koʻradi va belgi qoʻyadi.",
+      },
+      no_questions: {
+        title: "Kviz hali tayyor emas",
+        body: "Kvizda savollar yoʻq. Bu ekranni menejerga koʻrsating — buni ofis tuzatadi, siz emas.",
+      },
+      test_gone: {
+        title: "Kviz mavjud emas",
+        body: "Ofis bu kvizni oʻchirib qoʻydi. Ustozdan keyin nima qilishni soʻrang.",
+      },
+      topic_gone: {
+        title: "Bu mavzu endi yoʻq",
+        body: "Ofis bu modulni olib tashladi. Pasportga qayting — u yerda joriy roʻyxat bor.",
+      },
+      attempt_gone: {
+        title: "Urinish topilmadi",
+        body: "Bu urinish endi amal qilmaydi. Kvizni qaytadan oching.",
+      },
+      finalized: {
+        title: "Javoblar allaqachon qabul qilingan",
+        body: "Bu urinish serverda yopilgan. Mavzuni oching — u yerda nima hisobga olingani koʻrinadi.",
+      },
+    },
   },
 };
 
