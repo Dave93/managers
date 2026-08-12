@@ -2,19 +2,15 @@
 //
 // Scope of this file: get a session, decide which of the nine terminal screens
 // the person is actually in, and hand off. The passport itself (C2), topics and
-// quizzes (C3) and the mentor queue (C4) plug into renderPlaceholder's slots.
+// quizzes (C3) and the mentor queue (C4) own their own screens from here.
 import "./style.css";
 import { authenticate, api } from "./api";
 import { setLang, storedLang } from "./i18n";
 import { paintChrome } from "./telegram";
 import { parseMe, renderPassport, type Me } from "./passport";
+import { showQueue } from "./mentor";
 import { openTopic, showTopic, type TopicCtx } from "./topic";
-import {
-  mountLangPanel,
-  renderLoading,
-  renderPlaceholder,
-  renderStatus,
-} from "./ui";
+import { mountLangPanel, renderLoading, renderStatus } from "./ui";
 
 const BG = "#121214";
 
@@ -103,9 +99,12 @@ async function start(): Promise<void> {
   // Mentors deliberately skip /me. That route is the TRAINEE's: tg-controller's
   // traineeOrForbidden answers 403 {"error":"forbidden"} to any session whose
   // employee_id is null, so calling it here would turn a perfectly good mentor
-  // login into a denial screen. The mentor's own endpoints arrive with C4.
+  // login into a denial screen. Their own two routes are /mentor/queue and
+  // /mentor/trainee/:id, and mentor.ts owns everything past this line —
+  // including its own loading and error screens, so this branch never falls
+  // through to the trainee's.
   if (auth.role === "mentor") {
-    renderPlaceholder("mentor");
+    await showQueue();
     return;
   }
 

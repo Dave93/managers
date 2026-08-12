@@ -368,12 +368,35 @@ function deadlineChip(row: ModuleRow, done: boolean, now: number): HTMLElement |
       ? chip("chip--late", d.p.done_late)
       : chip("chip--done", d.p.done);
   }
-  const left = daysLeft(at, now);
-  if (row.deadline_status === "overdue") return chip("chip--over", overText(at, now));
-  if (row.deadline_status === "warning") {
-    return chip("chip--warn", sameDay(at, now) ? d.p.due_today : d.p.left(left));
+  const label = deadlineLabel(at, row.deadline_status, now);
+  return chip(label.cls, label.text);
+}
+
+/**
+ * The chip class and the sentence for a deadline that is NOT yet met, exported
+ * because the mentor's queue (C4) has to say the same thing about the same
+ * date. Two copies of these three branches is how a module ends up reading
+ * «просрочено на 17 дней» on the trainee's phone and «срок вышел» on the
+ * manager's, about the same module, in the same minute.
+ *
+ * The "done" branches deliberately stay in deadlineChip: «Сдано с опозданием»
+ * is a statement about a finished module, which is the trainee's screen and
+ * not a queue of work.
+ */
+export function deadlineLabel(
+  at: number,
+  status: "ok" | "warning" | "overdue",
+  now: number
+): { cls: string; text: string } {
+  const d = t();
+  if (status === "overdue") return { cls: "chip--over", text: overText(at, now) };
+  if (status === "warning") {
+    return {
+      cls: "chip--warn",
+      text: sameDay(at, now) ? d.p.due_today : d.p.left(daysLeft(at, now)),
+    };
   }
-  return chip("chip--calm", d.p.until(fmtDate(row.deadline_at)));
+  return { cls: "chip--calm", text: d.p.until(fmtDate(new Date(at).toISOString())) };
 }
 
 function topicRow(

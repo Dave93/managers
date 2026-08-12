@@ -239,33 +239,6 @@ export function renderOutcome(opts: {
   endScreen();
 }
 
-/**
- * Placeholder for the trainee's passport (Task C2 fills it) and for the
- * mentor's queue (Task C4). It states plainly that the content is still being
- * built rather than faking a skeleton that never resolves -- an eternal
- * shimmer reads as a broken app, and this one is going to real branches.
- */
-export function renderPlaceholder(role: "trainee" | "mentor"): void {
-  repaint = () => renderPlaceholder(role);
-  const d = t();
-  const view = el("screen-view");
-  view.innerHTML = "";
-  view.className = "screen screen--top";
-
-  const head = document.createElement("header");
-  head.className = "head";
-  head.append(text("h1", "head-title", role === "trainee" ? d.passport_title : d.mentor_title));
-  head.append(text("span", "chip chip--soon", d.soon));
-  view.append(head);
-
-  const card = document.createElement("section");
-  card.className = "card";
-  card.append(text("p", "card-body", role === "trainee" ? d.passport_body : d.mentor_body));
-  if (role === "mentor") card.append(text("p", "card-note", d.mentor_signoff_note));
-  view.append(card);
-  show("view");
-}
-
 export function renderLoading(): void {
   repaint = null;
   // Restart the CSS reveal of the slow-network line.

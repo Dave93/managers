@@ -224,6 +224,31 @@ export type QuizDict = {
   err: Record<QuizErrKey, { title: string; body: string }>;
 };
 
+export type MentorDict = {
+  /** The scope line under the title: whose branches this queue covers. */
+  scope_hq: string;
+  scope_branches: (n: number) => string;
+  waiting_title: string;
+  more: (n: number) => string;
+  paused: string;
+  no_deadline: string;
+  no_name: string;
+  capped: (shown: number, total: number) => string;
+  empty_title: string;
+  empty_body: string;
+  /** A bound manager with no branch at all: not an empty queue, a broken bind. */
+  empty_no_branch: string;
+  /** Why the sign-off is not in this app. Sits under the waiting topics. */
+  signoff_why: string;
+  back: string;
+  /** Just the date. p.since already says the word the programme title says. */
+  since: (date: string) => string;
+  progress_label: string;
+  waits_for_you: string;
+  blocked_dual: string;
+  blocked_photo: string;
+};
+
 export type Dict = {
   // NOTE: there is deliberately no `loading_slow` here. The slow-network line
   // must render when the bundle has not run at all (telegram.org unreachable),
@@ -233,14 +258,13 @@ export type Dict = {
   retry: string;
   status: Record<StatusKey, { title: string; body: string }>;
   passport_title: string;
-  passport_body: string;
   mentor_title: string;
-  mentor_body: string;
+  /** Said on BOTH mentor screens, so the rule cannot drift between them. */
   mentor_signoff_note: string;
-  soon: string;
   p: PassportDict;
   tp: TopicDict;
   q: QuizDict;
+  m: MentorDict;
 };
 
 /** «1 день», «2 дня», «5 дней». Russian only; Uzbek has no such agreement. */
@@ -316,11 +340,8 @@ const RU: Dict = {
     },
   },
   passport_title: "Паспорт стажёра",
-  passport_body: "Вход выполнен. Здесь появится ваш путь: модули, темы и сроки.",
   mentor_title: "Режим наставника",
-  mentor_body: "Вход выполнен как наставник. Здесь появится очередь стажёров, которые ждут наблюдения.",
   mentor_signoff_note: "Подпись за стажёра ставится в офисной админке, не в этом приложении.",
-  soon: "Готовится",
   p: {
     since: (date) => `Стажировка с ${date}`,
     ring_caption: "тем на уровне «Сам»",
@@ -478,6 +499,28 @@ const RU: Dict = {
       },
     },
   },
+  m: {
+    scope_hq: "Все филиалы",
+    // Счётная форма нарочно: «Ваших филиалов: 1» верно для 1, 2 и 5 без
+    // согласования числительного с существительным.
+    scope_branches: (n) => `Ваших филиалов: ${n}`,
+    waiting_title: "Ждут наблюдения",
+    more: (n) => `и ещё ${n}`,
+    paused: "на паузе",
+    no_deadline: "без срока",
+    no_name: "Без имени",
+    capped: (shown, total) => `Показаны первые ${shown} из ${total} — сначала те, у кого срок ближе`,
+    empty_title: "Сейчас никто не ждёт",
+    empty_body: "Стажёр появится здесь, как только сдаст квиз по теме, которую надо проверить на практике. Загляните после смены.",
+    empty_no_branch: "К вашему аккаунту не привязан ни один филиал, поэтому очередь пуста и останется пустой. Попросите офис привязать вас к филиалу.",
+    signoff_why: "Так задумано: квиз стажёр сдаёт сам, а практику подписывает другой человек — подтверждение по QR появится на следующем этапе.",
+    back: "К очереди",
+    since: (date) => `с ${date}`,
+    progress_label: "На уровне «Сам»",
+    waits_for_you: "Ждёт вас",
+    blocked_dual: "нужна вторая подпись",
+    blocked_photo: "нужно фото",
+  },
 };
 
 const UZ: Dict = {
@@ -521,11 +564,8 @@ const UZ: Dict = {
     },
   },
   passport_title: "Stajyor pasporti",
-  passport_body: "Kirdingiz. Bu yerda yoʻlingiz koʻrinadi: modullar, mavzular va muddatlar.",
   mentor_title: "Ustoz rejimi",
-  mentor_body: "Ustoz sifatida kirdingiz. Bu yerda kuzatuvni kutayotgan stajyorlar navbati koʻrinadi.",
   mentor_signoff_note: "Stajyor uchun imzo ofis admin panelida qoʻyiladi, bu ilovada emas.",
-  soon: "Tayyorlanmoqda",
   p: {
     since: (date) => `Stajirovka ${date} dan`,
     ring_caption: "mavzu «Mustaqil» darajasida",
@@ -667,6 +707,26 @@ const UZ: Dict = {
         body: "Bu urinish serverda yopilgan. Mavzuni oching — u yerda joriy holat: kviz hisobga olinmagan boʻlsa, uni yana topshirish mumkin.",
       },
     },
+  },
+  m: {
+    scope_hq: "Barcha filiallar",
+    scope_branches: (n) => `Sizning filiallaringiz: ${n}`,
+    waiting_title: "Kuzatuvni kutmoqda",
+    more: (n) => `va yana ${n}`,
+    paused: "pauzada",
+    no_deadline: "muddatsiz",
+    no_name: "Ismsiz",
+    capped: (shown, total) => `${total} tadan birinchi ${shown} tasi koʻrsatilgan — muddati yaqinlari birinchi`,
+    empty_title: "Hozir hech kim kutmayapti",
+    empty_body: "Stajyor amalda tekshiriladigan mavzu boʻyicha kvizni topshirishi bilan shu yerda paydo boʻladi. Smenadan keyin qarab qoʻying.",
+    empty_no_branch: "Akkauntingizga birorta filial biriktirilmagan, shuning uchun navbat boʻsh va boʻsh qoladi. Ofisdan filialga biriktirishni soʻrang.",
+    signoff_why: "Bu ataylab shunday: kvizni stajyor oʻzi topshiradi, amaliyotni esa boshqa odam imzolaydi — QR orqali tasdiqlash keyingi bosqichda paydo boʻladi.",
+    back: "Navbatga",
+    since: (date) => `${date} dan`,
+    progress_label: "«Oʻzi» darajasida",
+    waits_for_you: "Sizni kutmoqda",
+    blocked_dual: "ikkinchi imzo kerak",
+    blocked_photo: "foto kerak",
   },
 };
 
