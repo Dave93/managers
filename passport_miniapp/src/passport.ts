@@ -408,6 +408,25 @@ function topicRow(
   // Saying so costs one muted line and saves a shift of waiting in silence.
   if (!r.locked && r.level === 2 && r.topic.has_observation) {
     body.append(span("tp-hint", d.p.need_mentor));
+  } else if (r.current && r.level > 0) {
+    // «Ваш шаг» in words above level 0, where the chip has been taken over by
+    // the level name.
+    //
+    // At level 0 the chip itself still says it and there is nothing to add. The
+    // moment C3's /topics/:id/opened raises the row to 1, the chip becomes
+    // «Увидел» and the only thing left marking THE row was the node's accent
+    // ring — a colour, alone. That breaks in the ordinary case, not an exotic
+    // one: the lock in rowsOf is computed per module, so two parallel branches
+    // of a programme (kitchen and service) leave two rows reading «Увидел» at
+    // once, identical letter for letter, distinguishable only by ring colour —
+    // on a cheap screen, in a kitchen, by someone returning after a shift.
+    // Whatever carries meaning on this screen carries it twice.
+    //
+    // `else if`, and it never actually competes: need_mentor needs
+    // level === 2 && has_observation, which makes soloCeiling 2, which makes
+    // `level < soloCeiling` false — so a row wearing that hint is never the
+    // current one.
+    body.append(span("tp-hint tp-hint--now", d.p.current));
   }
   inner.append(body);
 

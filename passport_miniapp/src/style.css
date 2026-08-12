@@ -878,6 +878,14 @@ button.tp-inner {
   font-size: 12px;
 }
 
+/* The current row above level 0, where the chip is busy naming the level. Same
+ * slot as .tp-hint, the accent colour instead of amber: this one says "here",
+ * not "waiting". */
+.tp-hint--now {
+  color: var(--primary);
+  font-weight: 600;
+}
+
 .tp-chip {
   flex: none;
   max-width: 40%;
