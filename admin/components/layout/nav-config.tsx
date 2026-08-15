@@ -80,7 +80,7 @@ export function buildNav(locale: string): NavEntry[] {
       icon: IdCard,
       permission: "passport_layout",
       items: [
-        { title: "Куррикулум", href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
+        { title: "Программы обучения", href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
         { title: "Стажировки", href: p("/passport/enrollments"), permission: "passport.enrollments.manage" },
         { title: "Матрица", href: p("/passport/matrix"), permission: "passport.matrix.view" },
         // passport.mentors.manage is seeded by stage-1b task B2; until then this

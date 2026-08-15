@@ -46,7 +46,10 @@ export default function PassportLayout({
   ];
 
   return (
-    <div className="md:container">
+    // Полная ширина, как в большинстве разделов админки: AdminLayout уже даёт
+    // p-4, а md:container зажимал раздел в 1400px по центру. Конструктор — это
+    // дерево плюс панель редактора, матрица — широкая сетка; обоим нужна ширина.
+    <div className="w-full min-w-0">
       <nav className="flex flex-wrap gap-1 border-b py-3 mb-6">
         {navItems.map((item) => {
           const Icon = item.icon;

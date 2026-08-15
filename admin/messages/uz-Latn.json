@@ -249,7 +249,7 @@
     },
     "title": "Stajyor pasporti",
     "nav": {
-      "curriculum": "Kurrikulum",
+      "curriculum": "O'quv dasturlari",
       "enrollments": "Stajirovkalar",
       "matrix": "Matritsa",
       "mentors": "Murabbiylar"
@@ -278,7 +278,7 @@
       "overdue": "Muddati o'tgan"
     },
     "curriculum": {
-      "title": "Kurrikulum konstruktori",
+      "title": "O'quv dasturlari konstruktori",
       "subtitle": "Dastur → modullar → mavzular. Kontent bir vaqtda ikki tilda yuritiladi: o‘zbekcha versiyasiz modul chop etilmaydi.",
       "newProgram": "Dastur",
       "newModule": "Modul",

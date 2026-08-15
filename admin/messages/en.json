@@ -286,7 +286,7 @@
     },
     "title": "Trainee passport",
     "nav": {
-      "curriculum": "Curriculum",
+      "curriculum": "Training programs",
       "enrollments": "Enrollments",
       "matrix": "Matrix",
       "mentors": "Mentors"
@@ -315,7 +315,7 @@
       "overdue": "Overdue"
     },
     "curriculum": {
-      "title": "Curriculum builder",
+      "title": "Training program builder",
       "subtitle": "Programme → modules → topics. Content is authored in two languages: a module without the Uzbek version cannot be published.",
       "newProgram": "Programme",
       "newModule": "Module",
