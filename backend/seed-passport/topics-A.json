@@ -1,0 +1,586 @@
+{
+  "mgr_daily_ops": [
+    {
+      "sort": 0,
+      "title_ru": "Приход в 09:30, Workly и видеоотчёт",
+      "title_uz": "09:30 da kelish, Workly va video hisobot",
+      "step_ru": "Приходи в филиал в 09:30 — за 30 минут до открытия. Сразу отметься в Workly, переоденься и до 10:00 отправь в рабочую группу видеоотчёт о состоянии филиала.",
+      "step_uz": "Filialga 09:30 da kel — ochilishdan 30 daqiqa oldin. Darrov Workly'da otpechatka qo'y, formangni kiy va 10:00 gacha ishchi guruhga filial holati bo'yicha video hisobot tashla.",
+      "key_point_ru": "Workly отмечается точно в назначенное время: за каждую опоздавшую минуту удерживают. Ушёл вечером без отметки — день не засчитан.",
+      "key_point_uz": "Workly qat'iy belgilangan vaqtda bosiladi: kech qolgan har daqiqa uchun pul ushlab qolinadi. Kechqurun otpechatkasiz ketding — ish kuni hisoblanmaydi.",
+      "reason_ru": "Эти 30 минут — единственное время, когда можно найти и починить поломку, грязь или пустой стоп-лист до первого гостя. Придёшь к 10:00 — начнёшь день с проблем на глазах у людей.",
+      "reason_uz": "Bu 30 daqiqa — birinchi mehmon kelgunga qadar nosozlikni, kirni yoki bo'sh stop-listni topib tuzatish uchun yagona vaqt. 10:00 ga kelsang, kunni mehmon ko'z o'ngida muammo bilan boshlaysan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Пришёл и отметился в Workly до 09:30", "uz": "09:30 gacha kelib Workly'da belgilandi"},
+          {"ru": "Видеоотчёт отправлен в группу до 10:00", "uz": "Video hisobot 10:00 gacha guruhga yuborilgan"},
+          {"ru": "Переоделся до обхода, форма чистая", "uz": "Obxoddan oldin formani kiygan, forma toza"},
+          {"ru": "Вечером отметился в Workly перед уходом", "uz": "Kechqurun ketishdan oldin Workly'da belgilangan"}
+        ],
+        "questions": [
+          {"ru": "Что будет, если уйдёшь домой, не отметившись в Workly?", "uz": "Workly'da belgilanmasdan uyga ketsang nima bo'ladi?"},
+          {"ru": "Зачем нужен видеоотчёт, если директор и сам может приехать?", "uz": "Direktor o'zi kelib ko'rishi mumkin-ku, video hisobot nimaga kerak?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Утренний обход по чек-листу",
+      "title_uz": "Ertalabki obxod: chek-list bo'yicha",
+      "step_ru": "С 09:30 до 10:00 пройди филиал по чек-листу: фасад (окна, двери, урны, брусчатка), зал (свет, температура, кондиционер, музыка, мониторы, столы), санузел, фронт, кухня, склад, раздевалка. Включи оборудование, телевизор, свет. Что не в порядке — записывай и сразу назначай исполнителя.",
+      "step_uz": "09:30 dan 10:00 gacha filialni chek-list bo'yicha aylanib chiq: fasad (oyna, eshik, urna, bruschatka), zal (yorug'lik, harorat, konditsioner, musiqa, monitorlar, stollar), hojatxona, front, oshxona, ombor, razdevalka. Jihozlarni, televizorni, chiroqlarni yoq. Nosozlikni yozib ol va darrov mas'ulni belgila.",
+      "key_point_ru": "Иди по листу, а не по памяти. Глаз привыкает и перестаёт видеть грязь на дверных ручках и разводы в санузле.",
+      "key_point_uz": "Xotira bo'yicha emas, list bo'yicha yur. Ko'z o'rganib qoladi va eshik dastasidagi kirni, hojatxonadagi dog'ni ko'rmay qo'yadi.",
+      "reason_ru": "По этому же листу филиал проверяет внутренний аудит, а санитария весит 10% в оценке твоей зарплаты. Чего не нашёл ты утром, найдёт проверяющий днём.",
+      "reason_uz": "Xuddi shu list bo'yicha ichki audit filialni tekshiradi, sanitariya esa oyliging bahosida 10% turadi. Ertalab sen topmagan narsani kunduzi tekshiruvchi topadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Обошёл все зоны, не пропустил склад и раздевалку", "uz": "Barcha zonalarni aylandi, ombor va razdevalkani tashlab ketmadi"},
+          {"ru": "Проверил санузел: мыло, бумага, сухой пол", "uz": "Hojatxonani tekshirdi: sovun, qog'oz, quruq pol"},
+          {"ru": "Включил свет, мониторы, кондиционер, музыку до 10:00", "uz": "10:00 gacha chiroq, monitor, konditsioner va musiqani yoqdi"},
+          {"ru": "Замечания записал и назначил исполнителя", "uz": "Kamchiliklarni yozib, mas'ulni belgiladi"}
+        ],
+        "questions": [
+          {"ru": "Нашёл течь под раковиной — что делаешь и куда пишешь?", "uz": "Rakovina tagida suv oqayotganini ko'rding — nima qilasan va qayerga yozasan?"},
+          {"ru": "Почему уборка санузла отмечается каждый час, а не один раз утром?", "uz": "Nega hojatxona tozalash har soatda belgilanadi, ertalab bir marta emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Внешний вид: свой и сотрудников",
+      "title_uz": "Tashqi ko'rinish: o'zingniki va xodimlarniki",
+      "step_ru": "Сам приходи в белой рубашке, чёрных брюках, с бейджиком, в закрытой обуви — тапочки запрещены. На входе смотри каждого: чистая форма, бахила или кепка (цветную нельзя), короткие ногти без лака, убранные волосы, без колец и часов. Не соответствует — не ставь на смену, пока не исправит.",
+      "step_uz": "O'zing oq ko'ylak, qora shim, beyjik va yopiq oyoq kiyimda kel — tapochka mumkin emas. Kirishda har birini ko'zdan kechir: forma toza, baxila yoki kepka (rangli kepka mumkin emas), tirnoqlar kalta va laksiz, soch yig'ilgan, uzuk-soat yo'q. Standartga to'g'ri kelmasa — tuzatmaguncha smenaga qo'yma.",
+      "key_point_ru": "Кольца, часы и длинные ногти на кухне — не мелочь, а санитарное нарушение: жёлтая зона, до 20% надбавки.",
+      "key_point_uz": "Oshxonada uzuk, soat va uzun tirnoq — mayda-chuyda emas, sanitariya buzilishi: sariq zona, ustamadan 20% gacha.",
+      "reason_ru": "Сотрудник в грязной форме за прилавком — то, что гость запоминает и о чём пишет жалобу. И ты сам первый пример: если менеджер в тапочках, требовать белую рубашку не получится.",
+      "reason_uz": "Prilavka ortidagi kir formali xodim — mehmon eslab qoladigan va shikoyat yozadigan narsa. O'zing esa birinchi namunasan: menejer tapochkada yursa, boshqadan oq ko'ylak talab qilolmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Сам в форме по стандарту: белая рубашка, бейдж, закрытая обувь", "uz": "O'zi standart bo'yicha: oq ko'ylak, beyjik, yopiq oyoq kiyim"},
+          {"ru": "Осмотрел каждого сотрудника до начала смены", "uz": "Smena boshlanishidan oldin har bir xodimni ko'zdan kechirdi"},
+          {"ru": "Отправил сотрудника исправить нарушение, а не закрыл глаза", "uz": "Xodimni kamchilikni tuzatishga yubordi, ko'z yummadi"},
+          {"ru": "Проверил ногти, волосы и украшения у работников кухни", "uz": "Oshxona xodimlarining tirnog'i, sochi va taqinchoqlarini tekshirdi"}
+        ],
+        "questions": [
+          {"ru": "Повар вышел без кепки, запасной нет — твои действия?", "uz": "Oshpaz kepkasiz chiqdi, zaxirasi yo'q — nima qilasan?"},
+          {"ru": "Какое нарушение по внешнему виду сразу уходит в санитарную зону, а не в зелёную?", "uz": "Tashqi ko'rinish bo'yicha qaysi buzilish yashil emas, sanitariya zonasiga tushadi?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Планёрка и готовность к 10:00",
+      "title_uz": "Ertalabki yig'ilish va 10:00 ga tayyorlik",
+      "step_ru": "Перед открытием собери смену на 5–10 минут: проверь отметки в Workly, назови план дня и задачи по позициям, напомни акции и новинки, распредели, кто где стоит. К 10:00 все на местах и готовы обслуживать.",
+      "step_uz": "Ochilishdan oldin smenani 5–10 daqiqaga yig': Workly'dagi belgilanishni tekshir, kun rejasi va pozitsiyalar bo'yicha vazifalarni ayt, aksiya va yangiliklarni eslat, kim qayerda turishini taqsimla. 10:00 da hamma joyida va mehmon kutishga tayyor.",
+      "key_point_ru": "Планёрка — это расстановка и цифры дня, а не перечень проблем. Назови план по выручке и то, что продаём в первую очередь.",
+      "key_point_uz": "Yig'ilish — bu taqsimot va kun raqamlari, muammolar ro'yxati emas. Aylanma rejasini va birinchi navbatda nimani sotishimizni ayt.",
+      "reason_ru": "Если смена узнаёт про акцию от гостя, а не от тебя, она её не продаст. Пять минут утром снимают половину вопросов в пик.",
+      "reason_uz": "Agar smena aksiya haqida sendan emas, mehmondan bilsa — uni sotmaydi. Ertalabki besh daqiqa pik vaqtidagi savollarning yarmini olib tashlaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Собрал планёрку до 10:00", "uz": "10:00 gacha yig'ilish o'tkazdi"},
+          {"ru": "Проверил Workly всей смены, отсутствующих закрыл заменой", "uz": "Butun smenaning Workly'sini tekshirdi, kelmaganlarni almashtirdi"},
+          {"ru": "Озвучил план дня и действующие акции", "uz": "Kun rejasi va amaldagi aksiyalarni aytdi"},
+          {"ru": "Каждый знает свою позицию на смене", "uz": "Har kim smenadagi o'z pozitsiyasini biladi"}
+        ],
+        "questions": [
+          {"ru": "Как объяснишь смене, почему сегодня в первую очередь продаём конкретную позицию?", "uz": "Bugun nega aynan shu pozitsiyani birinchi navbatda sotishimizni smenaga qanday tushuntirasan?"},
+          {"ru": "Кассир не вышел, замены нет — что делаешь до 10:00?", "uz": "Kassir chiqmadi, almashtiradigan odam yo'q — 10:00 gacha nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Стоп-лист: до открытия и в течение дня",
+      "title_uz": "Stop-list: ochilishdan oldin va kun davomida",
+      "step_ru": "До 10:00 вместе со старшим поваром уточни, что идёт в продажу и что снимается. Убедись, что ни одна позиция не висит в СТОП без причины. Продукт кончился или заканчивается — сразу пиши в группу стоп-листа и предупреждай колл-центр.",
+      "step_uz": "10:00 gacha bosh oshpaz bilan sotuvga chiqadigan va sotuvdan olinadigan mahsulotlarni aniqlashtir. Hech bir pozitsiya sababsiz STOP'da turmasin. Mahsulot tugagan yoki tugayotgan bo'lsa — darrov stop-list guruhiga yoz va koll-markazni ogohlantir.",
+      "key_point_ru": "Продукта осталось мало — ставь его в стоп только для офлайн-заказов, не режь доставку целиком.",
+      "key_point_uz": "Mahsulot kam qolgan bo'lsa — uni faqat oflayn buyurtmalar uchun stopga qo'y, dostavkani butunlay yopib tashlama.",
+      "reason_ru": "Колл-центр и приложение продолжают принимать заказы на то, чего у тебя нет. Гость платит, ждёт, потом отменяет — это жалоба и потерянный чек, а жалобы весят 15% в оценке менеджера.",
+      "reason_uz": "Koll-markaz va ilova sende yo'q mahsulotga buyurtma qabul qilaveradi. Mehmon pul to'laydi, kutadi, keyin bekor qiladi — bu shikoyat va yo'qolgan chek, shikoyatlar esa menejer bahosida 15% turadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Сверил стоп-лист со старшим поваром до 10:00", "uz": "10:00 gacha stop-listni bosh oshpaz bilan solishtirdi"},
+          {"ru": "Ни одна позиция не стоит в стопе без причины", "uz": "Hech bir pozitsiya sababsiz stopda turmaydi"},
+          {"ru": "Написал в группу в момент, когда продукт закончился, а не в конце дня", "uz": "Mahsulot tugagan zahoti guruhga yozdi, kun oxirida emas"},
+          {"ru": "Снял позицию со стопа сразу после пополнения", "uz": "Mahsulot kelishi bilan pozitsiyani stopdan chiqardi"}
+        ],
+        "questions": [
+          {"ru": "Соуса хватит на 20 порций, а до вечера ещё пять часов — что ставишь в стоп и где?", "uz": "Sous 20 portsiyaga yetadi, kechgacha esa besh soat bor — nimani va qayerda stopga qo'yasan?"},
+          {"ru": "Кто узнаёт о стопе кроме кухни и почему это важно?", "uz": "Stop haqida oshxonadan tashqari yana kim biladi va bu nega muhim?"}
+        ]
+      }
+    },
+    {
+      "sort": 5,
+      "title_ru": "ФИФО и приёмка склада",
+      "title_uz": "FIFO va omborni qabul qilish",
+      "step_ru": "Утром и после пика проходи холодильники и склад по ФИФО: впереди то, у чего срок ближе, всё промаркировано стикерами. Склад принимай лично — проверяй качество и количество каждой позиции до подписи, затем контролируй, как товар разнесли и записали. Форс-мажор по складу — сразу к BRM.",
+      "step_uz": "Ertalab va pikdan keyin muzlatgich va omborni FIFO bo'yicha aylanib chiq: muddati yaqin mahsulot oldinda tursin, hammasi stiker bilan markalangan bo'lsin. Skladni shaxsan qabul qil — imzodan oldin har bir pozitsiyaning sifati va sonini tekshir, keyin qanday taqsimlanib yozilganini nazorat qil. Sklad bo'yicha fors-major bo'lsa — darrov BRM'ga murojaat qil.",
+      "key_point_ru": "Подписал накладную не считая — недостача твоя. Пересчитывай при курьере, до подписи.",
+      "key_point_uz": "Sanamasdan nakladnoyga imzo qo'yding — kamomad seniki. Kuryer turganda, imzodan oldin qayta sana.",
+      "reason_ru": "ФИФО — это прямо твои списания: продукт, забытый в глубине холодильника, уходит в исроф, а списания весят 13% в оценке зарплаты. Просроченное сырьё в работе — уже жёлтая зона по санитарии.",
+      "reason_uz": "FIFO — bu to'g'ridan-to'g'ri sening spisaniyeng: muzlatgich tubida unutilgan mahsulot isrofga ketadi, spisaniye esa oylik bahosida 13% turadi. Muddati o'tgan xom ashyoni ishlatish — sanitariya bo'yicha sariq zona.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Проверил ФИФО утром и после пика", "uz": "FIFO'ni ertalab va pikdan keyin tekshirdi"},
+          {"ru": "Принял склад лично, пересчитал до подписи", "uz": "Skladni shaxsan qabul qildi, imzodan oldin sanadi"},
+          {"ru": "Все продукты промаркированы, срок читается", "uz": "Barcha mahsulot markalangan, muddati o'qiladi"},
+          {"ru": "Расхождение по накладной зафиксировал и сообщил BRM", "uz": "Nakladnoydagi farqni qayd etib, BRM'ga xabar berdi"}
+        ],
+        "questions": [
+          {"ru": "Привезли на три коробки меньше, чем в накладной — что делаешь по шагам?", "uz": "Nakladnoydagidan uchta quti kam keldi — bosqichma-bosqich nima qilasan?"},
+          {"ru": "Как объяснишь повару, почему нельзя брать пачку сверху?", "uz": "Oshpazga eng ustidagi paketni olish mumkin emasligini qanday tushuntirasan?"}
+        ]
+      }
+    }
+  ],
+  "mgr_peak_reports": [
+    {
+      "sort": 0,
+      "title_ru": "Пик 12:00–16:00: кухня, касса, раздача",
+      "title_uz": "Pik 12:00–16:00: oshxona, kassa, razdacha",
+      "step_ru": "С 12:00 до 16:00 не садись за отчёты. Двигайся по треугольнику кухня — касса — раздача: смотри очередь, время отдачи, загруз позиций. Видишь, что одна позиция тормозит — переставляй людей. При завале вставай на позицию сам.",
+      "step_uz": "12:00 dan 16:00 gacha hisobot yozib o'tirma. Oshxona — kassa — razdacha uchburchagi bo'ylab yur: navbatni, buyurtma chiqish vaqtini, pozitsiyalar yuklamasini kuzat. Bir pozitsiya sekinlashtirayotgan bo'lsa — odamlarni qayta joylashtir. Zaval bo'lsa o'zing pozitsiyaga tur.",
+      "key_point_ru": "В пик менеджер стоит на фронте, а не в кабинете. Твоя работа — увидеть узкое место раньше, чем его покажет очередь.",
+      "key_point_uz": "Pik vaqtida menejer kabinetda emas, frontda turadi. Sening ishing — torlikni navbat ko'rsatishidan oldin ko'rish.",
+      "reason_ru": "Четыре часа пика дают основную часть дневной выручки. Один затор на раздаче — это десятки ушедших гостей и опоздавшие заказы, а своевременность выполнения весит 10% в оценке.",
+      "reason_uz": "Pikning to'rt soati kunlik aylanmaning asosiy qismini beradi. Razdachadagi bitta tiqilinch — o'nlab ketib qolgan mehmon va kechikkan buyurtma, o'z vaqtida bajarish esa bahoda 10% turadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Весь пик был на фронте, не уходил в кабинет", "uz": "Butun pik davomida frontda bo'ldi, kabinetga ketmadi"},
+          {"ru": "Заметил затор и переставил людей до того, как выросла очередь", "uz": "Tiqilinchni sezib, navbat o'sishidan oldin odamlarni qayta joylashtirdi"},
+          {"ru": "Сам встал на позицию при завале", "uz": "Zaval paytida o'zi pozitsiyaga turdi"},
+          {"ru": "Контролировал время отдачи заказов", "uz": "Buyurtma chiqish vaqtini nazorat qildi"}
+        ],
+        "questions": [
+          {"ru": "В пик кончился ключевой продукт — твои первые три действия?", "uz": "Pikda asosiy mahsulot tugadi — birinchi uchta harakating qanday?"},
+          {"ru": "Как решаешь, кого снять с позиции и куда поставить?", "uz": "Kimni pozitsiyadan olib, qayerga qo'yishni qanday hal qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "16:00–17:00: ревизия и подготовка к вечеру",
+      "title_uz": "16:00–17:00: reviziya va kechga tayyorgarlik",
+      "step_ru": "После обеденного пика пройди кухню и холодильники: чего мало, что заготовить, что снять со стопа или поставить в стоп. Поставь заготовку на вечерний пик, разведи перерывы по очереди, проверь чистоту фронта и зала после обеда.",
+      "step_uz": "Tushlik pikidan keyin oshxona va muzlatgichlarni aylanib chiq: nima kam, nimani zagotovka qilish kerak, nimani stopdan chiqarish yoki stopga qo'yish kerak. Kechki pikga zagotovka qo'y, tanaffuslarni navbat bilan taqsimla, tushlikdan keyin front va zal tozaligini tekshir.",
+      "key_point_ru": "Этот час — единственная пауза за день. Не потратишь его на подготовку — вечерний пик будешь тушить на ходу.",
+      "key_point_uz": "Bu soat — kun davomidagi yagona tanaffus. Uni tayyorgarlikka sarflamasang, kechki pikni yurgan holda o'chirasan.",
+      "reason_ru": "Вечером людей на смене меньше, а поток заказов не меньше. Всё, что не заготовлено к 17:00, превращается в стоп-лист и очередь.",
+      "reason_uz": "Kechqurun smenada odam kamroq, buyurtma oqimi esa kam emas. 17:00 gacha zagotovka qilinmagan hamma narsa stop-listga va navbatga aylanadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Прошёл ревизию продуктов после обеденного пика", "uz": "Tushlik pikidan keyin mahsulot reviziyasini o'tkazdi"},
+          {"ru": "Поставил заготовку на вечер с запасом", "uz": "Kechga zaxira bilan zagotovka qo'ydi"},
+          {"ru": "Развёл перерывы так, что фронт не остался пустым", "uz": "Tanaffuslarni front bo'sh qolmaydigan qilib taqsimladi"},
+          {"ru": "Обновил стоп-лист по итогам обеда", "uz": "Tushlik yakuni bo'yicha stop-listni yangiladi"}
+        ],
+        "questions": [
+          {"ru": "По какому признаку решаешь, сколько заготавливать на вечер?", "uz": "Kechga qancha zagotovka qilishni nimaga qarab hal qilasan?"},
+          {"ru": "Почему нельзя отпустить всю смену на перерыв разом, даже если зал пустой?", "uz": "Zal bo'sh bo'lsa ham, nega butun smenani birdan tanaffusga chiqarib bo'lmaydi?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Доставка и самовывоз",
+      "title_uz": "Dostavka va samovivoz",
+      "step_ru": "Заказы на доставку и самовывоз собирай в первую очередь. Курьера решай до того, как заказ готов. Перед выдачей проверь комплект: позиции, соусы, приборы, упаковку. Доставку закрывай не раньше чем за 15 минут до 22:00.",
+      "step_uz": "Dostavka va samovivoz buyurtmalarini birinchi navbatda tayyorla. Kuryerni buyurtma tayyor bo'lgunga qadar hal qil. Berishdan oldin komplektni tekshir: pozitsiyalar, souslar, asboblar, qadoq. Dostavkani 22:00 dan 15 daqiqa oldin yop, undan erta emas.",
+      "key_point_ru": "Курьер решается заранее, а не когда пакет уже стоит на раздаче и остывает.",
+      "key_point_uz": "Kuryer oldindan hal qilinadi, paket razdachada sovib turganda emas.",
+      "reason_ru": "У доставки таймер идёт с момента заказа, а не с момента, когда ты о нём вспомнил. Забытый соус или холодная еда возвращается жалобой и компенсацией из бюджета филиала.",
+      "reason_uz": "Dostavkada taymer buyurtma qabul qilinganda boshlanadi, sen eslaganingda emas. Unutilgan sous yoki sovigan ovqat shikoyat va filial byudjetidan kompensatsiya bo'lib qaytadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Заказы доставки и самовывоза уходят вперёд зала", "uz": "Dostavka va samovivoz buyurtmalari zaldan oldin tayyorlanadi"},
+          {"ru": "Курьер назначен до готовности заказа", "uz": "Kuryer buyurtma tayyor bo'lgunga qadar belgilangan"},
+          {"ru": "Комплектность проверена перед выдачей", "uz": "Berishdan oldin komplekt tekshirilgan"},
+          {"ru": "Доставка не закрыта раньше 21:45", "uz": "Dostavka 21:45 dan erta yopilmagan"}
+        ],
+        "questions": [
+          {"ru": "Заказ готов, курьера нет уже 10 минут — что делаешь?", "uz": "Buyurtma tayyor, kuryer 10 daqiqadan beri yo'q — nima qilasan?"},
+          {"ru": "Гость приехал на самовывоз раньше срока — как выстраиваешь очередь?", "uz": "Mehmon samovivozga muddatidan erta keldi — navbatni qanday tuzasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Граммаж и допродажа",
+      "title_uz": "Grammaj va qo'shimcha sotuv",
+      "step_ru": "В течение дня выборочно взвешивай выход блюд вместе со старшим поваром. Параллельно работай с кассирами по допродаже: что предлагать к каждому заказу и какими словами. В конце смены смотри средний чек по кассирам.",
+      "step_uz": "Kun davomida bosh oshpaz bilan birga taomlar chiqishini tanlab tarozida tekshir. Shu bilan birga kassirlar bilan qo'shimcha sotuv ustida ishla: har bir buyurtmaga nima taklif qilinadi va qanday so'z bilan. Smena oxirida kassirlar kesimida o'rtacha chekni ko'r.",
+      "key_point_ru": "Недовес — жалоба, перевес — списание. Проверяй обе стороны, а не только «мало ли положили».",
+      "key_point_uz": "Kam tortish — shikoyat, ortiq tortish — spisaniye. Faqat «kam qo'yilmadimi» emas, ikkala tomonni ham tekshir.",
+      "reason_ru": "Граммаж — это одновременно вкус, себестоимость и списания. А допродажа — самый дешёвый способ вытянуть план по обороту: гость уже стоит у кассы, привлекать его не надо.",
+      "reason_uz": "Grammaj — bir vaqtda ta'm, tannarx va spisaniye. Qo'shimcha sotuv esa aylanma rejasini bajarishning eng arzon yo'li: mehmon allaqachon kassada turibdi, uni jalb qilish kerak emas.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Взвесил за смену несколько позиций", "uz": "Smena davomida bir nechta pozitsiyani tarozida tekshirdi"},
+          {"ru": "Нарушение граммажа разобрал со старшим поваром", "uz": "Grammaj buzilishini bosh oshpaz bilan ko'rib chiqdi"},
+          {"ru": "Дал кассирам конкретную фразу допродажи на день", "uz": "Kassirlarga kunlik aniq qo'shimcha sotuv iborasini berdi"},
+          {"ru": "Сравнил средний чек по кассирам в конце смены", "uz": "Smena oxirida kassirlar bo'yicha o'rtacha chekni solishtirdi"}
+        ],
+        "questions": [
+          {"ru": "Порция стабильно выходит тяжелее нормы — на чём это отражается в твоих цифрах?", "uz": "Portsiya doim me'yordan og'ir chiqyapti — bu sening raqamlaringda qayerda ko'rinadi?"},
+          {"ru": "Как предложить дополнение, чтобы это не выглядело навязыванием?", "uz": "Qo'shimchani majburlashday ko'rinmaydigan qilib qanday taklif qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "БЕЗ ЧЕК: ничего не уходит мимо кассы",
+      "title_uz": "BEZ CHEK: hech narsa kassadan chetlab o'tmaydi",
+      "step_ru": "Следи, чтобы каждая выданная позиция была пробита. Сверяй раздачу с экраном заказов, проверяй кассу в течение смены, разбирай любые «угощения», «для своих» и отмены. Сам продукт на смене не ешь и другим не позволяй.",
+      "step_uz": "Berilgan har bir pozitsiya kassadan o'tganiga ishonch hosil qil. Razdachani buyurtmalar ekrani bilan solishtir, smena davomida kassani tekshir, har qanday «mehmon qilish», «o'zimizniki uchun» va bekor qilishni ko'rib chiq. O'zing ish vaqtida mahsulot yema va boshqaga ham yo'l qo'yma.",
+      "key_point_ru": "Непробитый чек — красная зона: 30% в первый раз, увольнение при повторе. Кража денег или товара — увольнение сразу.",
+      "key_point_uz": "Chek urilmagani — qizil zona: birinchi marta 30%, takrorlansa ishdan bo'shatish. Pul yoki tovarni o'g'irlash — darrov ishdan bo'shatish.",
+      "reason_ru": "Каждая позиция мимо кассы — дыра одновременно в выручке и в остатках: продукт ушёл, денег нет, а в конце месяца это твой процент списаний. Именно это ищет внутренний аудит.",
+      "reason_uz": "Kassadan o'tmagan har bir pozitsiya — bir vaqtda aylanmada ham, qoldiqda ham teshik: mahsulot ketdi, pul yo'q, oy oxirida bu sening spisaniye foizing. Ichki audit aynan shuni qidiradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Сверял выдачу с чеками в течение смены", "uz": "Smena davomida berilgan buyurtmani cheklar bilan solishtirdi"},
+          {"ru": "Проверил отмены и возвраты за день", "uz": "Kunlik bekor qilish va qaytarishlarni tekshirdi"},
+          {"ru": "Пресёк вынос продукта без чека", "uz": "Cheksiz mahsulot chiqarishning oldini oldi"},
+          {"ru": "Сам не употреблял продукцию на смене", "uz": "O'zi smena davomida mahsulot iste'mol qilmadi"}
+        ],
+        "questions": [
+          {"ru": "Сотрудник говорит, что пробьёт заказ потом — что отвечаешь?", "uz": "Xodim buyurtmani keyinroq urib qo'yaman deydi — nima javob berasan?"},
+          {"ru": "Чем «БЕЗ ЧЕК» вредит филиалу помимо потерянных денег?", "uz": "«BEZ CHEK» yo'qolgan puldan tashqari filialga yana nima zarar keltiradi?"}
+        ]
+      }
+    },
+    {
+      "sort": 5,
+      "title_ru": "Дневной отчёт: выручка, чеки, средний чек",
+      "title_uz": "Kunlik hisobot: aylanma, cheklar, o'rtacha chek",
+      "step_ru": "В конце смены сведи три цифры: выручка за день, количество чеков, средний чек. Сравни с планом и с этим же днём прошлой недели. Найди причину отклонения — погода, акция, стоп-лист, нехватка людей — и запиши её.",
+      "step_uz": "Smena oxirida uchta raqamni yig': kunlik aylanma, cheklar soni, o'rtacha chek. Reja bilan va o'tgan haftaning shu kuni bilan solishtir. Farq sababini top — ob-havo, aksiya, stop-list, odam yetishmasligi — va yozib qo'y.",
+      "key_point_ru": "Смотри все три цифры вместе. Выручка упала при том же числе чеков — просела допродажа; чеков стало меньше — потеряли поток.",
+      "key_point_uz": "Uchala raqamni birga ko'r. Cheklar soni o'zgarmay aylanma tushdi — qo'shimcha sotuv pasaygan; cheklar kamaydi — oqimni yo'qotgansan.",
+      "reason_ru": "План по обороту — самый тяжёлый показатель в оценке менеджера, 24%. Если увидишь провал только в конце месяца, исправлять будет уже нечего.",
+      "reason_uz": "Aylanma rejasi — menejer bahosidagi eng og'ir ko'rsatkich, 24%. Tushishni faqat oy oxirida ko'rsang, tuzatishga hech narsa qolmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Свёл выручку, число чеков и средний чек за день", "uz": "Kunlik aylanma, cheklar soni va o'rtacha chekni yig'di"},
+          {"ru": "Сравнил с планом и прошлой неделей", "uz": "Reja va o'tgan hafta bilan solishtirdi"},
+          {"ru": "Назвал причину отклонения конкретно, а не «мало гостей»", "uz": "Farq sababini «mehmon kam edi» emas, aniq aytdi"},
+          {"ru": "Отчёт сдан вовремя, без напоминания", "uz": "Hisobot eslatmasdan, o'z vaqtida topshirildi"}
+        ],
+        "questions": [
+          {"ru": "Чеков столько же, а выручка ниже — где ищешь причину?", "uz": "Cheklar soni o'sha-o'sha, aylanma esa past — sababni qayerdan qidirasan?"},
+          {"ru": "Что изменишь завтра, если сегодня план не выполнен?", "uz": "Bugun reja bajarilmasa, ertaga nimani o'zgartirasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 6,
+      "title_ru": "Закрытие кассы под камерой и Z-отчёт",
+      "title_uz": "Kassani kamera ostida yopish va Z-hisobot",
+      "step_ru": "Закрытие кассы проверяй лично, все денежные операции делай только в зоне камеры. Сними Z-отчёт, сверь наличные с системой, расхождение оформи сразу. Данные Z-отчёта отправь в бухгалтерию не позже 13:00 следующего дня. Следи за исправностью ККМ и терминалов Uzcard и Humo.",
+      "step_uz": "Kassaning yopilishini shaxsan tekshir, pul bilan bog'liq barcha amalni faqat kamera ostida bajar. Z-hisobotni ol, naqd pulni tizim bilan solishtir, farq chiqsa darrov rasmiylashtir. Z-hisobot ma'lumotini ertasi kuni 13:00 gacha buxgalteriyaga yubor. NKM hamda Uzcard va Humo terminallari soz holatda bo'lishini kuzat.",
+      "key_point_ru": "Брать деньги из кассы, менять валюту и разменивать запрещено — даже если возвращаешь через час.",
+      "key_point_uz": "Kassadan pul olish, valyuta almashtirish va pul maydalash taqiqlanadi — bir soatdan keyin qaytarsang ham.",
+      "reason_ru": "Камера — твоя защита. При любой недостаче первым делом смотрят запись, и операция вне кадра автоматически становится вопросом к тебе.",
+      "reason_uz": "Kamera — sening himoyang. Har qanday kamomadda birinchi navbatda yozuvni ko'rishadi, kadr tashqarisidagi amal esa avtomatik ravishda senga savol bo'lib qaytadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Все денежные операции выполнены в зоне камеры", "uz": "Barcha pul amallari kamera zonasida bajarildi"},
+          {"ru": "Z-отчёт снят, наличные сверены с системой", "uz": "Z-hisobot olindi, naqd pul tizim bilan solishtirildi"},
+          {"ru": "Данные ушли в бухгалтерию до 13:00 следующего дня", "uz": "Ma'lumot ertasi kuni 13:00 gacha buxgalteriyaga yuborildi"},
+          {"ru": "Проверил работу ККМ и терминалов", "uz": "NKM va terminallar ishlashini tekshirdi"}
+        ],
+        "questions": [
+          {"ru": "В кассе недостача 50 000 сум — твои действия по шагам?", "uz": "Kassada 50 000 so'm kamomad — bosqichma-bosqich nima qilasan?"},
+          {"ru": "Терминал Humo не проводит оплату в пик — что делаешь?", "uz": "Pik vaqtida Humo terminali to'lovni o'tkazmayapti — nima qilasan?"}
+        ]
+      }
+    }
+  ],
+  "mgr_people": [
+    {
+      "sort": 0,
+      "title_ru": "Расстановка смены по объёму продаж",
+      "title_uz": "Smenani sotuv hajmiga qarab taqsimlash",
+      "step_ru": "Строй график от прогноза продаж, а не от «как обычно»: смотри выручку по часам и дням недели, усиливай пик и выходные, сокращай мёртвые часы. Изменение графика проводи через HR до того, как поставил человека в смену. О вакансии предупреждай HR минимум за 10 дней.",
+      "step_uz": "Grafikni «odatdagidek» emas, sotuv prognozidan kelib chiqib tuz: soatlar va hafta kunlari bo'yicha aylanmani ko'r, pik va dam olish kunlarini kuchaytir, bo'sh soatlarni qisqartir. Grafik o'zgarishini odamni smenaga qo'yishdan oldin HR orqali rasmiylashtir. Vakansiya haqida HR'ni kamida 10 kun oldin ogohlantir.",
+      "key_point_ru": "Недобрал людей в пик — потерял выручку. Поставил лишних в мёртвый час — сжёг бюджет.",
+      "key_point_uz": "Pikda odam kam qo'yding — aylanmani yo'qotding. Bo'sh soatga ortiqcha qo'yding — byudjetni yoqding.",
+      "reason_ru": "Расходы в рамках бюджета весят 13% в оценке, невыполненный план — 24%. График — единственный рычаг, которым ты управляешь обоими сразу.",
+      "reason_uz": "Byudjet doirasidagi xarajatlar bahoda 13%, bajarilmagan reja esa 24% turadi. Grafik — ikkalasini bir vaqtda boshqaradigan yagona richag.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "График построен на цифрах продаж по часам", "uz": "Grafik soatlik sotuv raqamlari asosida tuzilgan"},
+          {"ru": "Пик и выходные усилены людьми", "uz": "Pik va dam olish kunlari odam bilan kuchaytirilgan"},
+          {"ru": "Изменения графика проведены через HR", "uz": "Grafik o'zgarishlari HR orqali rasmiylashtirilgan"},
+          {"ru": "О вакансии сообщил HR минимум за 10 дней", "uz": "Vakansiya haqida HR'ga kamida 10 kun oldin xabar berdi"}
+        ],
+        "questions": [
+          {"ru": "Как поймёшь, что в четверг вечером нужен ещё один человек на раздачу?", "uz": "Payshanba kechqurun razdachaga yana bitta odam kerakligini qanday bilasan?"},
+          {"ru": "Когда сообщаешь HR о том, что сотрудник уходит?", "uz": "Xodim ishdan ketayotgani haqida HR'ga qachon xabar berasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Выходной, больничный, нехватка людей",
+      "title_uz": "Dam olish kuni, kasallik, odam yetishmasligi",
+      "step_ru": "Даже в свой выходной держи филиал на связи: знай, кто на смене и что происходит. Заболел или не вышел человек — ищи замену сразу, а не к началу пика. Замены нет — вставай на позицию сам. Медкнижки уходящих отдавай на руки, в филиале не держи.",
+      "step_uz": "O'z dam olish kuningda ham filial bilan aloqada bo'l: kim smenada va nima bo'layotganini bil. Xodim kasal bo'lsa yoki chiqmasa — almashtirishni pik boshlanishida emas, darrov qidir. Almashtiradigan odam bo'lmasa — o'zing pozitsiyaga tur. Ishdan ketayotganning tibbiy daftarchasini qo'liga ber, filialda ushlab qolma.",
+      "key_point_ru": "«Меня не было, я не знал» — не аргумент. В выходной филиал остаётся твоей зоной ответственности.",
+      "key_point_uz": "«Men yo'q edim, bilmadim» — dalil emas. Dam olish kunida ham filial sening javobgarlik zonang bo'lib qoladi.",
+      "reason_ru": "Одна дыра в расстановке в пик — это очередь, опоздавшие заказы и жалобы. А сам ты должен уметь встать на любую позицию, иначе не сможешь ни научить, ни проверить.",
+      "reason_uz": "Pikdagi bitta bo'sh joy — navbat, kechikkan buyurtma va shikoyat. O'zing esa istalgan pozitsiyaga tura olishing kerak, aks holda na o'rgata olasan, na tekshira olasan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Знает состав смены в свой выходной", "uz": "O'z dam olish kunida smena tarkibini biladi"},
+          {"ru": "Замену нашёл до начала смены, а не в пик", "uz": "Almashtiruvchini pikda emas, smena boshlanishidan oldin topdi"},
+          {"ru": "Вставал на позицию при нехватке людей", "uz": "Odam yetishmaganda pozitsiyaga turdi"},
+          {"ru": "Медкнижки ушедших не остались в филиале", "uz": "Ishdan ketganlarning tibbiy daftarchasi filialda qolmadi"}
+        ],
+        "questions": [
+          {"ru": "Повар позвонил в 09:00 и сказал, что болен — план действий?", "uz": "Oshpaz 09:00 da qo'ng'iroq qilib kasalman dedi — nima qilasan?"},
+          {"ru": "Почему менеджер должен уметь работать на каждой позиции?", "uz": "Nega menejer har bir pozitsiyada ishlay olishi kerak?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Как разговаривать: смена, гости, колл-центр",
+      "title_uz": "Muloqot uslubi: smena, mehmon, koll-markaz",
+      "step_ru": "С фронтом и кухней говори без крика: подходишь, называешь, что не так и что сделать. С колл-центром на связи весь день — отвечай в группах вовремя и по делу, на жалобы реагируй сразу. Разбор ошибки — один на один, не при гостях.",
+      "step_uz": "Front va oshxona xodimlari bilan baqirmasdan gaplash: yoniga borasan, nima noto'g'ri va nima qilish kerakligini aytasan. Koll-markaz bilan kun bo'yi aloqada bo'l — guruhlarga o'z vaqtida va aniq javob yoz, shikoyatga darrov munosabat bildir. Xatoni yakkama-yakka muhokama qil, mehmon oldida emas.",
+      "key_point_ru": "Крик и брань при гостях и сотрудниках — красная зона: 20% и увольнение при повторе.",
+      "key_point_uz": "Mehmon va xodimlar oldida baqirish va so'kinish — qizil zona: 20%, takrorlansa ishdan bo'shatish.",
+      "reason_ru": "Крикнул на повара в пик — получил обиженного человека на самой горячей позиции на четыре часа. А текучка кадров прямо считается в твоей оценке, 10%.",
+      "reason_uz": "Pikda oshpazga baqirding — eng qizg'in pozitsiyada to'rt soatga xafa odam qoldi. Kadrlar almashinuvi esa bahoingda to'g'ridan-to'g'ri hisoblanadi, 10%.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Замечания делает спокойно и адресно", "uz": "Kamchilikni bosiq va aniq manzil bilan aytadi"},
+          {"ru": "Ответил в группу колл-центра без напоминаний", "uz": "Koll-markaz guruhiga eslatmasdan javob berdi"},
+          {"ru": "Жалобу гостя разобрал сам, не откладывая", "uz": "Mehmon shikoyatini kechiktirmay o'zi hal qildi"},
+          {"ru": "Разбор с сотрудником провёл наедине", "uz": "Xodim bilan suhbatni yakkama-yakka o'tkazdi"}
+        ],
+        "questions": [
+          {"ru": "Гость жалуется громко в зале, вокруг люди — с чего начинаешь?", "uz": "Mehmon zalda baland ovozda shikoyat qilyapti, atrofda odam — nimadan boshlaysan?"},
+          {"ru": "Колл-центр пишет, что заказ опаздывает на 20 минут — что отвечаешь и что делаешь?", "uz": "Koll-markaz buyurtma 20 daqiqaga kechikayotganini yozdi — nima javob berasan va nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Запрещено: рабочее место и субординация",
+      "title_uz": "Taqiqlanadi: ish joyi va bo'ysunish tartibi",
+      "step_ru": "Не покидай рабочее место в течение смены. Все вопросы сотрудников к руководству идут через тебя — прямые обращения через голову запрещены. Не сиди со знакомыми в зале в рабочее время и не позволяй этого смене.",
+      "step_uz": "Smena davomida ish joyingni tashlab ketma. Xodimlarning rahbariyatga barcha murojaati sen orqali boradi — boshingdan oshib to'g'ridan-to'g'ri chiqish taqiqlanadi. Ish vaqtida tanish-bilishlar bilan zalda o'tirma va smenaga ham yo'l qo'yma.",
+      "key_point_ru": "«Отошёл на пять минут» в пик — то же самое, что оставить филиал без менеджера.",
+      "key_point_uz": "Pikda «besh daqiqaga chiqdim» — filialni menejersiz qoldirish bilan bir xil.",
+      "reason_ru": "Пока тебя нет, решение принимает тот, кто не должен его принимать. А если сотрудник идёт к руководству напрямую, ты узнаёшь о проблеме филиала последним и не успеваешь её закрыть.",
+      "reason_uz": "Sen yo'q paytingda qarorni qabul qilmasligi kerak bo'lgan odam qabul qiladi. Xodim rahbariyatga to'g'ridan-to'g'ri chiqsa, filial muammosini sen oxirgi bo'lib bilasan va tuzatishga ulgurmaysan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Не покидал филиал в течение смены", "uz": "Smena davomida filialdan chiqib ketmadi"},
+          {"ru": "Вопрос сотрудника оформил и передал сам", "uz": "Xodim masalasini o'zi rasmiylashtirib yetkazdi"},
+          {"ru": "Не сидел со знакомыми в зале", "uz": "Zalda tanish-bilishlar bilan o'tirmadi"},
+          {"ru": "Пресёк такое же нарушение у сотрудника", "uz": "Xodimdagi shunday buzilishning oldini oldi"}
+        ],
+        "questions": [
+          {"ru": "Сотрудник хочет пойти напрямую к директору — что делаешь?", "uz": "Xodim to'g'ridan-to'g'ri direktorga chiqmoqchi — nima qilasan?"},
+          {"ru": "Пришёл знакомый и зовёт посидеть 10 минут — как отвечаешь?", "uz": "Tanishing kelib 10 daqiqa o'tirishga chaqiryapti — nima deysan?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Запрещено: зарплаты, аудит, продукция",
+      "title_uz": "Taqiqlanadi: oylik, audit, mahsulot",
+      "step_ru": "Обсуждение чужих зарплат в филиале запрещено — и тебе, и смене. Требования внутреннего аудита на месте не обсуждаются: не согласен — иди через BRM. Продукцию Les Ailes и Chopar на смене не ешь и сотрудникам не позволяй. Питание — только в отведённом месте.",
+      "step_uz": "Filialda birovning oyligini muhokama qilish taqiqlanadi — senga ham, smenaga ham. Ichki audit talablari joyida muhokama qilinmaydi: rozi bo'lmasang — BRM orqali murojaat qil. Les Ailes va Chopar mahsulotini smenada yema va xodimlarga ham yo'l qo'yma. Ovqatlanish — faqat belgilangan joyda.",
+      "key_point_ru": "Съел продукт на смене — выговор и 20%. Ел не в отведённом месте — зелёная зона, но это тоже акт и объяснительная.",
+      "key_point_uz": "Smenada mahsulot yeding — hayfsan va 20%. Belgilanmagan joyda ovqatlanding — yashil zona, lekin bu ham dalolatnoma va tushuntirish xati.",
+      "reason_ru": "Разговоры о зарплатах разваливают смену быстрее любой ошибки в графике. А спор с аудитом на месте замечание не отменяет — он только превращает рабочий вопрос в конфликт.",
+      "reason_uz": "Oylik haqidagi gaplar smenani har qanday grafik xatosidan tezroq buzadi. Audit bilan joyida tortishuv esa e'tirozni bekor qilmaydi — u ishchi masalani nizoga aylantiradi, xolos.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Пресекает разговоры о зарплатах в смене", "uz": "Smenada oylik haqidagi gaplarni to'xtatadi"},
+          {"ru": "Замечание аудита принял и оформил, спор не устраивал", "uz": "Audit e'tirozini qabul qilib rasmiylashtirdi, tortishmadi"},
+          {"ru": "Не употреблял продукцию на смене и не разрешал смене", "uz": "Smenada mahsulot iste'mol qilmadi va boshqalarga ruxsat bermadi"},
+          {"ru": "Питание сотрудников только в отведённом месте", "uz": "Xodimlar faqat belgilangan joyda ovqatlanadi"}
+        ],
+        "questions": [
+          {"ru": "Ты не согласен с замечанием аудита — какой правильный путь?", "uz": "Audit e'tirozi bilan rozi emassan — to'g'ri yo'l qanday?"},
+          {"ru": "Кассир узнал чью-то зарплату и обсуждает — что делаешь?", "uz": "Kassir birovning oyligini bilib olib muhokama qilyapti — nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 5,
+      "title_ru": "Конфиденциальность и дисциплинарные зоны",
+      "title_uz": "Konfidensiallik va intizom zonalari",
+      "step_ru": "Данные филиала — выручка, отчёты, документы, фото и видео изнутри — наружу не уходят, съёмка только с разрешения маркетинга. Разбирайся в зонах: зелёная — предупреждение и 5%, жёлтая — санитария, грубость, ошибка в кассе, 10–20%, красная — непробитый чек, кража, алкоголь, разглашение. На каждое нарушение — акт и объяснительная от сотрудника.",
+      "step_uz": "Filial ma'lumotlari — aylanma, hisobot, hujjat, ichkaridagi foto va video — tashqariga chiqmaydi, suratga olish faqat marketing ruxsati bilan. Zonalarni bil: yashil — ogohlantirish va 5%, sariq — sanitariya, qo'pol muomala, kassadagi xato, 10–20%, qizil — chek urilmagani, o'g'irlik, mast holda kelish, sirni oshkor qilish. Har bir buzilishga — dalolatnoma va xodimdan tushuntirish xati.",
+      "key_point_ru": "Без акта и объяснительной наказания нет. Срок тоже ограничен: месяц с момента обнаружения и максимум полгода с момента нарушения.",
+      "key_point_uz": "Dalolatnomasiz va tushuntirish xatisiz jazo yo'q. Muddat ham cheklangan: aniqlangan kundan bir oy, sodir bo'lgan kundan ko'pi bilan olti oy.",
+      "reason_ru": "Штраф без документа — это твой конфликт с сотрудником и повод для жалобы. А коммерческая тайна наружу — красная зона и основание для увольнения, и здесь не важно, случайно или нет.",
+      "reason_uz": "Hujjatsiz jarima — bu sening xodim bilan nizong va shikoyat uchun asos. Tijorat sirining tashqariga chiqishi esa qizil zona va ishdan bo'shatish uchun asos, bu yerda ataylab yoki tasodifan bo'lgani ahamiyatsiz.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Оформил акт и взял объяснительную по нарушению", "uz": "Buzilish bo'yicha dalolatnoma tuzib, tushuntirish xatini oldi"},
+          {"ru": "Правильно определил зону нарушения", "uz": "Buzilish zonasini to'g'ri aniqladi"},
+          {"ru": "Не публиковал фото и видео из филиала без маркетинга", "uz": "Marketing ruxsatisiz filialdan foto va video chiqarmadi"},
+          {"ru": "Не обсуждал показатели филиала за его пределами", "uz": "Filial ko'rsatkichlarini tashqarida muhokama qilmadi"}
+        ],
+        "questions": [
+          {"ru": "Сотрудник опоздал третий раз за месяц — что применяешь и как оформляешь?", "uz": "Xodim bir oyda uchinchi marta kech qoldi — qanday chora qo'llaysan va qanday rasmiylashtirasan?"},
+          {"ru": "Блогер просит снять кухню — что отвечаешь?", "uz": "Bloger oshxonani suratga olmoqchi — nima deysan?"}
+        ]
+      }
+    }
+  ],
+  "mgr_independent": [
+    {
+      "sort": 0,
+      "title_ru": "Полный день под наблюдением наставника",
+      "title_uz": "Mentor kuzatuvida to'liq kun",
+      "step_ru": "Проведи день целиком сам: приход в 09:30, обход, планёрка, стоп-лист, пик, межпик, вечер. Наставник рядом, но не вмешивается — все решения твои. После смены разбираете каждое решение отдельно.",
+      "step_uz": "Kunni boshdan-oxir o'zing olib bor: 09:30 da kelish, obxod, yig'ilish, stop-list, pik, piklar orasi, kechqurun. Mentor yoningda, lekin aralashmaydi — barcha qaror seniki. Smenadan keyin har bir qarorni alohida ko'rib chiqasiz.",
+      "key_point_ru": "Не оглядывайся на наставника перед каждым решением. Ошибку разберёте после смены — вопрос в том, как ты решаешь сам.",
+      "key_point_uz": "Har bir qarordan oldin mentorga qarama. Xatoni smenadan keyin ko'rib chiqasiz — gap sen mustaqil qanday qaror qabul qilishingda.",
+      "reason_ru": "На реальной смене в момент решения никто не подскажет — там будут только очередь и время. Наблюдение нужно, чтобы найти твои слабые места до того, как их найдёт обычный рабочий день.",
+      "reason_uz": "Haqiqiy smenada qaror paytida hech kim maslahat bermaydi — u yerda faqat navbat va vaqt bo'ladi. Kuzatuv sening zaif joylaringni oddiy ish kuni topishidan oldin topish uchun kerak.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Открыл филиал сам с 09:30 по чек-листу", "uz": "Filialni 09:30 dan chek-list bo'yicha o'zi ochdi"},
+          {"ru": "Провёл планёрку и распределил смену", "uz": "Yig'ilish o'tkazib, smenani taqsimladi"},
+          {"ru": "Отработал пик без вмешательства наставника", "uz": "Pikni mentor aralashuvisiz o'tkazdi"},
+          {"ru": "Объяснил свои решения на разборе после смены", "uz": "Smenadan keyingi tahlilda qarorlarini asosladi"}
+        ],
+        "questions": [
+          {"ru": "Какое сегодняшнее решение ты принял бы иначе и почему?", "uz": "Bugungi qaysi qaroringni boshqacha qabul qilarding va nega?"},
+          {"ru": "Где сегодня ты чуть не потерял контроль над пиком?", "uz": "Bugun qayerda pik ustidan nazoratni yo'qotishingga oz qoldi?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Закрытие дня: 22:00, оборудование, фотоотчёт",
+      "title_uz": "Kunni yopish: 22:00, jihozlar, foto hisobot",
+      "step_ru": "Доставку закрывай за 15 минут до конца работы. В 22:00 по чек-листу выключи всё оборудование, проверь газ, вытяжки, свет. Проверь закрытие кассы и убери деньги под камерой. Приведи филиал в состояние готовности к утру и отправь фотоотчёт после выключения.",
+      "step_uz": "Dostavkani ish tugashidan 15 daqiqa oldin yop. 22:00 da chek-list bo'yicha barcha jihozni o'chir, gaz, so'rg'ich va chiroqlarni tekshir. Kassaning yopilishini tekshir va pulni kamera ostida yig'ishtir. Filialni ertalabki ochilishga tayyor holatga keltir va o'chirgandan keyin foto hisobot yubor.",
+      "key_point_ru": "Фотоотчёт делается после выключения, а не «примерно так и было». Оставленное включённым оборудование — это пожар и нарушение по безопасности.",
+      "key_point_uz": "Foto hisobot jihoz o'chirilgandan keyin olinadi, «shunga o'xshash edi» tarzida emas. Yoqilgan holda qolgan jihoz — bu yong'in va xavfsizlik buzilishi.",
+      "reason_ru": "Всё, что не сделано вечером, утром съест те самые 30 минут до открытия. А если не отметился в Workly перед уходом — день тебе не засчитают.",
+      "reason_uz": "Kechqurun qilinmagan har bir ish ertalab ochilishgacha bo'lgan o'sha 30 daqiqani yeb qo'yadi. Ketishdan oldin Workly'da belgilanmasang esa — ish kuning hisoblanmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Оборудование выключено по чек-листу", "uz": "Jihozlar chek-list bo'yicha o'chirilgan"},
+          {"ru": "Фотоотчёт отправлен после выключения", "uz": "Foto hisobot o'chirgandan keyin yuborilgan"},
+          {"ru": "Касса закрыта, деньги убраны под камерой", "uz": "Kassa yopilgan, pul kamera ostida yig'ishtirilgan"},
+          {"ru": "Филиал подготовлен к утреннему открытию", "uz": "Filial ertalabki ochilishga tayyorlangan"},
+          {"ru": "Отметился в Workly перед уходом", "uz": "Ketishdan oldin Workly'da belgilandi"}
+        ],
+        "questions": [
+          {"ru": "Что проверяешь последним перед выходом из филиала?", "uz": "Filialdan chiqishdan oldin oxirgi bo'lib nimani tekshirasan?"},
+          {"ru": "Смена ушла, а ты нашёл невыключенный фритюр — что делаешь и что пишешь?", "uz": "Smena ketdi, sen esa o'chirilmagan frityurni topding — nima qilasan va nima yozasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Дни с минимальным контролем: полный цикл сам",
+      "title_uz": "Eng kam nazorat kunlari: to'liq sikl o'zing",
+      "step_ru": "Три дня работай почти без наставника: чек-лист, стоп-лист, ФИФО, расстановка, пик, доставка, колл-центр, дневной отчёт и закрытие кассы — всё сам. Наставник только смотрит цифры в конце дня.",
+      "step_uz": "Uch kun mentorsiz deyarli mustaqil ishla: chek-list, stop-list, FIFO, odamlarni joylashtirish, pik, dostavka, koll-markaz, kunlik hisobot va kassani yopish — hammasini o'zing. Mentor faqat kun oxirida raqamlarga qaraydi.",
+      "key_point_ru": "Не пропускай рутину только потому, что за тобой не смотрят. Именно там и появляются списания и грязь.",
+      "key_point_uz": "Ortingdan kuzatuvchi yo'q deb kundalik ishni tashlab ketma. Aynan o'sha joyda spisaniye va kir paydo bo'ladi.",
+      "reason_ru": "Разница между стажёром и менеджером в том, что второй делает то же самое, когда никто не проверяет. А проверят всё равно — по остаткам, по камерам, по жалобам.",
+      "reason_uz": "Stajyor bilan menejerning farqi shundaki, ikkinchisi hech kim tekshirmaganda ham xuddi shuni bajaradi. Baribir tekshirishadi — qoldiq bo'yicha, kamera bo'yicha, shikoyat bo'yicha.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Три дня подряд закрыл полный цикл без подсказок", "uz": "Uch kun ketma-ket to'liq siklni maslahatsiz yopdi"},
+          {"ru": "Дневные отчёты сданы вовремя все три дня", "uz": "Kunlik hisobotlar uch kun ham o'z vaqtida topshirildi"},
+          {"ru": "Списания за эти дни в норме", "uz": "Shu kunlardagi spisaniye me'yorda"},
+          {"ru": "Жалоб по смене нет либо разобраны на месте", "uz": "Smena bo'yicha shikoyat yo'q yoki joyida hal qilingan"}
+        ],
+        "questions": [
+          {"ru": "Какой участок ты чаще всего забываешь, когда никто не напоминает?", "uz": "Hech kim eslatmaganda ko'pincha qaysi ishni unutasan?"},
+          {"ru": "Как ты сам себя проверяешь в конце смены?", "uz": "Smena oxirida o'zingni qanday tekshirasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Итоговая аттестация и KPI менеджера",
+      "title_uz": "Yakuniy attestatsiya va menejer KPI'si",
+      "step_ru": "Сдай письменный тест по 38 обязанностям, отработай оценочный день от открытия до закрытия — директор оценивает по чек-листу — и пройди итоговое собеседование. Разбери свою карту KPI: оборот 24%, бюджет 13%, списания 13%, жалобы 15%, своевременность заказов 10%, текучка 10%, обучение 5%, санитария 10%.",
+      "step_uz": "38 banddan iborat vazifalar bo'yicha yozma testni topshir, ochilishdan yopilishgacha baholash kunini o'tka — direktor chek-list asosida baholaydi — va yakuniy suhbatdan o't. O'z KPI kartangni ko'rib chiq: aylanma 24%, byudjet 13%, spisaniye 13%, shikoyatlar 15%, buyurtmalarni o'z vaqtida bajarish 10%, kadrlar almashinuvi 10%, o'qitish 5%, sanitariya 10%.",
+      "key_point_ru": "85 баллов и выше — надбавка 30%, ниже 40 — предупреждение и дисциплинарные меры. Знай, из чего складывается твой балл, до конца месяца, а не после.",
+      "key_point_uz": "85 ball va undan yuqori — 30% ustama, 40 balldan past — ogohlantirish va intizomiy chora. Balling nimadan yig'ilishini oy oxirida emas, oldindan bil.",
+      "reason_ru": "Каждая из этих цифр — то, чем ты управлял все 29 дней: чек-лист даёт санитарию, стоп-лист и доставка дают жалобы и своевременность, ФИФО даёт списания, график даёт бюджет и текучку. Аттестация показывает, видишь ли ты эту связь.",
+      "reason_uz": "Bu raqamlarning har biri — sen 29 kun davomida boshqargan narsa: chek-list sanitariyani beradi, stop-list va dostavka shikoyat va o'z vaqtidalikni beradi, FIFO spisaniyeni beradi, grafik byudjet va kadrlar almashinuvini beradi. Attestatsiya shu bog'liqlikni ko'rasanmi yoki yo'qmi, shuni ko'rsatadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Письменный тест по 38 обязанностям сдан", "uz": "38 vazifa bo'yicha yozma test topshirildi"},
+          {"ru": "Оценочный день проведён самостоятельно от 09:30 до закрытия", "uz": "Baholash kuni 09:30 dan yopilishgacha mustaqil o'tkazildi"},
+          {"ru": "Может назвать свои KPI и их вес", "uz": "O'z KPI'larini va ularning vaznini ayta oladi"},
+          {"ru": "Показал на своих цифрах, что влияет на списания и жалобы", "uz": "O'z raqamlarida spisaniye va shikoyatga nima ta'sir qilishini ko'rsatdi"}
+        ],
+        "questions": [
+          {"ru": "Какой показатель у тебя сейчас самый слабый и что ты с ним сделаешь в первый месяц?", "uz": "Hozir qaysi ko'rsatkiching eng zaif va birinchi oyda u bilan nima qilasan?"},
+          {"ru": "Оборот выполнен на 95%, но списания 6% — какой у тебя балл по этим двум пунктам?", "uz": "Aylanma 95% bajarildi, spisaniye esa 6% — shu ikki band bo'yicha balling qancha?"}
+        ]
+      }
+    }
+  ]
+}
