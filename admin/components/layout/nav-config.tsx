@@ -13,6 +13,7 @@ import {
   GraduationCap,
   IdCard,
   LayoutDashboard,
+  MapPinned,
   Settings2,
   Stethoscope,
   Store,
@@ -61,6 +62,7 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Филиалы", href: p("/organization/terminals"), icon: Store, permission: "terminals.list" },
     { kind: "link", title: "Кассы", href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
     { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
+    { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
     {
       kind: "group",
       title: "Аттестация",
