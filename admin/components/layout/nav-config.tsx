@@ -60,6 +60,7 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Организации", href: p("/organization/organizations"), icon: Building2, permission: "organizations.list" },
     { kind: "link", title: "Филиалы", href: p("/organization/terminals"), icon: Store, permission: "terminals.list" },
     { kind: "link", title: "Кассы", href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
+    { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
     {
       kind: "group",
       title: "Аттестация",
@@ -67,7 +68,6 @@ export function buildNav(locale: string): NavEntry[] {
       permission: "attestation_layout",
       items: [
         { title: "Тесты", href: p("/attestation/tests"), permission: "tests.list" },
-        { title: "Сотрудники", href: p("/attestation/employees"), permission: "employees.list" },
         { title: "Аналитика", href: p("/attestation/analytics"), permission: "attestation.analytics" },
         { title: "Пройти тест", href: p("/attestation/kiosk"), permission: "attestation.run" },
         { title: "Мой PIN", href: p("/attestation/pin"), permission: "attestation_layout" },

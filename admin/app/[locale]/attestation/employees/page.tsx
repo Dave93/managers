@@ -1,28 +1,18 @@
 "use client";
-import { DataTable } from "./data-table";
-import { attestationEmployeeColumns } from "./columns";
-import { Button } from "@admin/components/ui/buttonOrigin";
-import { Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
-import AttestationEmployeeFormSheet from "@admin/components/forms/attestation-employee/sheet";
+import { useEffect } from "react";
+import { useRouter } from "@admin/i18n/routing";
 
-export default function AttestationEmployeesPage() {
-  const t = useTranslations("attestation");
-  return (
-    <div>
-      <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">
-          {t("employees.title")}
-        </h2>
-        <AttestationEmployeeFormSheet>
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> {t("employees.new")}
-          </Button>
-        </AttestationEmployeeFormSheet>
-      </div>
-      <div className="py-10">
-        <DataTable columns={attestationEmployeeColumns} />
-      </div>
-    </div>
-  );
+// Справочник сотрудников переехал в общее меню: на него опираются и аттестация,
+// и паспорт стажёра, поэтому держать его внутри одного из разделов неверно —
+// и его прежний layout требовал прав аттестации, из-за чего HR с employees.list
+// видел пустой экран. Старый адрес остаётся живым ради закладок и ссылок,
+// разосланных до переезда. Клиентский редирект по образцу /passport: локаль-
+// зависимый роутер сохраняет префикс /<locale>, а replace() не оставляет
+// промежуточную запись в истории кнопки «назад».
+export default function MovedEmployeesPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/employees");
+  }, [router]);
+  return <></>;
 }
