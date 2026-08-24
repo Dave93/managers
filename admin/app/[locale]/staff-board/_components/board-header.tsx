@@ -2,10 +2,11 @@
 
 // Сводка по сети и фильтры.
 //
-// «Без данных» стоит отдельной метрикой с предупреждающей рамкой, а не сноской
-// мелким шрифтом: это 38 филиалов из 72, то есть половина сети, про которую
-// экран честно ничего не знает. Пока эта цифра не ноль, любое суждение по
-// остальным метрикам неполное, и человек должен видеть это сразу.
+// «Без данных» стоит отдельной метрикой и набрано янтарём: это 38 филиалов из
+// 72, то есть половина сети, про которую экран честно ничего не знает. Пока
+// эта цифра не ноль, любое суждение по остальным метрикам неполное, и человек
+// должен видеть это сразу. Янтарь на экране один и означает ровно проблему —
+// поэтому у «стажёров» его нет, а строка про PIN набрана обычным серым.
 //
 // Сигналы — это одновременно и цифры сводки, и фильтры: «10 без менеджера» без
 // возможности нажать и увидеть, каких именно, остаётся плакатом.
@@ -94,12 +95,7 @@ function Metric({
   warn?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "min-w-0 rounded-md px-2.5 py-1.5",
-        warn && "border border-amber-300 bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/30"
-      )}
-    >
+    <div className={cn("min-w-0 rounded-md px-2.5 py-1.5", warn && "bg-muted/50")}>
       <div
         className={cn(
           "text-[19px] font-semibold leading-none tabular-nums",
@@ -163,7 +159,6 @@ export function SummaryStrip({ n }: { n: NetworkTotals }) {
           label="Стажёров"
           value={n.trainees_total}
           sub={`${pct(n.trainees_total, n.staff_total)} штата`}
-          tone="text-amber-700 dark:text-amber-300"
         />
         <Metric
           label="День / ночь"
@@ -182,15 +177,8 @@ export function SummaryStrip({ n }: { n: NetworkTotals }) {
         />
       </div>
 
-      <p
-        className={cn(
-          "flex min-w-0 items-start gap-1.5 rounded-md border px-2.5 py-1.5 text-[11.5px] leading-snug",
-          allPinsMissing
-            ? "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-200"
-            : "bg-muted/40 text-muted-foreground"
-        )}
-      >
-        <KeyRound className="mt-px size-3.5 shrink-0" aria-hidden />
+      <p className="flex min-w-0 items-start gap-1.5 px-2.5 text-[11px] leading-snug text-muted-foreground">
+        <KeyRound className="mt-px size-3 shrink-0" aria-hidden />
         {allPinsMissing ? (
           <span>
             PIN не задан ни у кого из {n.staff_total} сотрудников — войти в киоск

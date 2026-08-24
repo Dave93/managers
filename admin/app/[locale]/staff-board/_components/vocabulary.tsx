@@ -12,8 +12,8 @@
 //
 // ЦВЕТ НИКОГДА НЕ ЕДИНСТВЕННЫЙ НОСИТЕЛЬ СМЫСЛА:
 //   бренд      — цвет + ФОРМА метки (круг Les Ailes / шестиугольник Chopar) + подпись;
-//   состав     — цвет + порядок сегментов + числа с подписями рядом;
-//   смена      — иконка солнца/луны + подпись, а не только оттенок;
+//   состав     — названия групп и числа словами, без цвета вообще;
+//   смена      — заголовок группы людей, а не иконка в каждой строке;
 //   сигнал     — иконка + текст, цвет только усиливает;
 //   нет данных — пунктирная рамка + отдельная группа в конце + текст причины.
 
@@ -187,6 +187,12 @@ export const SHIFT: Record<
 // Подписи приходят с бэкенда вместе с числами (label/detail в ответе) — здесь
 // только иконка, тональность и короткое имя для фильтра, чтобы кнопка фильтра
 // и чип на карточке назывались одинаково.
+//
+// Тональность одна на все сигналы-проблемы. Три разных оттенка (янтарь,
+// индиго, оранжевый) читались как три разных класса беды, которого нет:
+// различает сигналы иконка и текст. Акцент, стоящий везде, перестаёт быть
+// акцентом, поэтому янтарь остаётся только на проблемах — «PIN не задан»
+// это состояние справочника и живёт нейтральным серым.
 // --------------------------------------------------------------------------
 export const SIGNAL_ORDER: SignalKey[] = [
   "no_manager",
@@ -216,12 +222,12 @@ export const SIGNAL: Record<
   no_night: {
     filterLabel: "Без ночной смены",
     icon: Moon,
-    chip: "border-indigo-300 bg-indigo-50 text-indigo-900 dark:border-indigo-900/60 dark:bg-indigo-950/40 dark:text-indigo-200",
+    chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   trainee_heavy: {
     filterLabel: "Стажёров больше трети",
     icon: Users,
-    chip: "border-orange-300 bg-orange-50 text-orange-900 dark:border-orange-900/60 dark:bg-orange-950/40 dark:text-orange-200",
+    chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   no_pin: {
     filterLabel: "PIN не задан",
@@ -230,8 +236,6 @@ export const SIGNAL: Record<
   },
 };
 
-export const TRAINEE_CHIP =
-  "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200";
 
 export function pct(n: number, of: number): string {
   if (!of) return "0%";
