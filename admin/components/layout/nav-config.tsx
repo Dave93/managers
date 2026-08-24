@@ -19,6 +19,7 @@ import {
   Store,
   Target,
   Users,
+  UsersRound,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -63,6 +64,7 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Кассы", href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
     { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
     { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
+    { kind: "link", title: "Состав филиалов", href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
     {
       kind: "group",
       title: "Аттестация",

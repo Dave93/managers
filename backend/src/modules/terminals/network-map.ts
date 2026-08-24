@@ -16,8 +16,8 @@ import Elysia from "elysia";
 // в ответе есть has_staff_data — карта обязана отличать «данные не заведены»
 // от «людей нет», иначе половина сети читается как закрытая.
 
-type Group = "kitchen" | "front" | "management" | "other";
-type Shift = "day" | "night" | "unknown";
+export type Group = "kitchen" | "front" | "management" | "other";
+export type Shift = "day" | "night" | "unknown";
 
 const NIGHT = /ночь|tun/i;
 const DAY = /день|kun/i;
@@ -55,6 +55,34 @@ function roleOf(p: string): string {
   if (/няня/.test(s)) return "Няня";
   if (/повар/.test(s)) return "Повар";
   return p.trim() || "Без должности";
+}
+
+export interface ParsedPosition {
+  role: string;
+  group: Group;
+  shift: Shift;
+  /** «1» | «2» | «3», либо null — в строке должности разряда нет. */
+  grade: string | null;
+  is_trainee: boolean;
+}
+
+// Единственная точка разбора должности во всём бэкенде.
+//
+// Карта сети (этот файл) и «Состав филиалов» (staff-board.ts) читают одну и ту
+// же строку из employees.position, и разбирать её дважды нельзя: опечатка
+// «раяряд» правится один раз, иначе два экрана начнут спорить о том, сколько в
+// сети поваров второго разряда. Отличие экранов не в разборе, а в том, что
+// карте хватает агрегатов, а карточкам нужны сами люди.
+export function parsePosition(position: string | null | undefined): ParsedPosition {
+  const p = position ?? "";
+  const g = GRADE.exec(p);
+  return {
+    role: roleOf(p),
+    group: groupOf(p),
+    shift: shiftOf(p),
+    grade: g ? g[1] : null,
+    is_trainee: TRAINEE.test(p),
+  };
 }
 
 // Регистрируется НЕ в цепочке apiController, а на корне приложения, с
@@ -112,20 +140,18 @@ const networkMapControllerImpl = new Elysia({
 
       const byBranch = new Map<string, { roles: Map<string, number>; groups: Record<Group, number>; shifts: Record<Shift, number>; grades: Record<string, number>; trainees: number; total: number }>();
       for (const s of staff) {
-        const p = s.position ?? "";
+        const parsed = parsePosition(s.position);
         let b = byBranch.get(s.terminal_id);
         if (!b) {
           b = { roles: new Map(), groups: { kitchen: 0, front: 0, management: 0, other: 0 }, shifts: { day: 0, night: 0, unknown: 0 }, grades: {}, trainees: 0, total: 0 };
           byBranch.set(s.terminal_id, b);
         }
-        const role = roleOf(p);
-        b.roles.set(role, (b.roles.get(role) ?? 0) + 1);
-        b.groups[groupOf(p)]++;
-        b.shifts[shiftOf(p)]++;
-        const g = GRADE.exec(p);
-        const key = g ? `${g[1]}` : "—";
+        b.roles.set(parsed.role, (b.roles.get(parsed.role) ?? 0) + 1);
+        b.groups[parsed.group]++;
+        b.shifts[parsed.shift]++;
+        const key = parsed.grade ?? "—";
         b.grades[key] = (b.grades[key] ?? 0) + 1;
-        if (TRAINEE.test(p)) b.trainees++;
+        if (parsed.is_trainee) b.trainees++;
         b.total++;
       }
 

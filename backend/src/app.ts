@@ -6,6 +6,7 @@ import { creditAdminController } from "./modules/credit_admin/controller";
 import { passportController } from "./modules/passport/controller";
 import { passportTgController } from "./modules/passport/tg-controller";
 import { networkMapController } from "./modules/terminals/network-map";
+import { staffBoardController } from "./modules/terminals/staff-board";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
 
@@ -30,6 +31,7 @@ const app = new Elysia()
   .use(passportController)
   .use(passportTgController)
   .use(networkMapController)
+  .use(staffBoardController)
   .use(apiController)
   .use(medicalController);
 
