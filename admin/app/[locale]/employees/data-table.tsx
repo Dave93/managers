@@ -21,14 +21,22 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select";
+import {
+  ALL,
+  groupRoles,
+  roleLabel,
+  useStaffRoles,
+} from "@admin/lib/staff-roles";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -45,6 +53,8 @@ interface DataTableProps<TValue> {
 
 export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   const t = useTranslations("attestation.filters");
+  const tEmp = useTranslations("attestation.employees");
+  const locale = useLocale();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -53,6 +63,11 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   // filter state (search/position debounced ~300ms)
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
+  // Роль выбирается списком, но уезжает в тот же параметр ?position=, который
+  // сервер ищет и по строке должности, и по справочнику. Второй контрол —
+  // свободный текст — оставлен: им ищут «ночь» и «2 разряд», чего в списке
+  // ролей нет. Пишут они один параметр, поэтому активен всегда один.
+  const [roleName, setRoleName] = useState("");
   const [terminalId, setTerminalId] = useState("");
   const [active, setActive] = useState("");
   const [debSearch, setDebSearch] = useState("");
@@ -67,9 +82,16 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
     return () => clearTimeout(id);
   }, [position]);
   // any filter change → back to first page
+  const effectivePosition = roleName || debPosition;
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }, [debSearch, debPosition, terminalId, active]);
+  }, [debSearch, effectivePosition, terminalId, active]);
+
+  const { data: staffRoles } = useStaffRoles();
+  const groupLabel = (g: string) =>
+    ["kitchen", "front", "management", "other"].includes(g)
+      ? tEmp(`groups.${g}` as any)
+      : g;
 
   const { data: terminalsData } = useQuery({
     queryKey: ["terminals_cached"],
@@ -87,7 +109,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
         offset: pageIndex * pageSize,
         search: debSearch,
         terminalId,
-        position: debPosition,
+        position: effectivePosition,
         active,
       },
     ],
@@ -98,7 +120,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
           offset: (pageIndex * pageSize).toString(),
           ...(debSearch ? { search: debSearch } : {}),
           ...(terminalId ? { terminal_id: terminalId } : {}),
-          ...(debPosition ? { position: debPosition } : {}),
+          ...(effectivePosition ? { position: effectivePosition } : {}),
           ...(active ? { active } : {}),
         },
       });
@@ -109,6 +131,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   const resetFilters = () => {
     setSearch("");
     setPosition("");
+    setRoleName("");
     setTerminalId("");
     setActive("");
   };
@@ -155,10 +178,41 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
             ))}
           </SelectContent>
         </Select>
+        <Select
+          value={roleName || ALL}
+          onValueChange={(v) => {
+            const next = v === ALL ? "" : v;
+            setRoleName(next);
+            if (next) {
+              setPosition("");
+              setDebPosition("");
+            }
+          }}
+        >
+          <SelectTrigger className="h-9 w-[200px]">
+            <SelectValue placeholder={tEmp("role")} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>{t("all")}</SelectItem>
+            {groupRoles(staffRoles ?? []).map(({ group, roles }) => (
+              <SelectGroup key={group}>
+                <SelectLabel>{groupLabel(group)}</SelectLabel>
+                {roles.map((r) => (
+                  <SelectItem key={r.id} value={r.name_ru}>
+                    {roleLabel(r, locale)}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            ))}
+          </SelectContent>
+        </Select>
         <Input
           placeholder={t("position")}
           value={position}
-          onChange={(e) => setPosition(e.target.value)}
+          onChange={(e) => {
+            setPosition(e.target.value);
+            if (e.target.value) setRoleName("");
+          }}
           className="h-9 w-[160px]"
         />
         <Select

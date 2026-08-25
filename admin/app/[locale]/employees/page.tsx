@@ -1,6 +1,6 @@
 "use client";
 import { DataTable } from "./data-table";
-import { attestationEmployeeColumns } from "./columns";
+import { useAttestationEmployeeColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -8,6 +8,7 @@ import AttestationEmployeeFormSheet from "@admin/components/forms/attestation-em
 
 export default function AttestationEmployeesPage() {
   const t = useTranslations("attestation");
+  const columns = useAttestationEmployeeColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -21,7 +22,7 @@ export default function AttestationEmployeesPage() {
         </AttestationEmployeeFormSheet>
       </div>
       <div className="py-10">
-        <DataTable columns={attestationEmployeeColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

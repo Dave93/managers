@@ -150,7 +150,26 @@
       "active": "Faol",
       "added": "Xodim qo'shildi",
       "updated": "Xodim yangilandi",
-      "selectTerminal": "Filialni tanlang"
+      "selectTerminal": "Filialni tanlang",
+      "role": "Rol",
+      "selectRole": "Rolni tanlang",
+      "roleRequired": "Rolni tanlang — lavozim shundan yig‘iladi",
+      "roleInactive": "(faol emas)",
+      "traineeMark": "stajyor",
+      "traineeBadge": "stajyor",
+      "grade": "Razryad",
+      "shift": "Smena",
+      "shiftDay": "Kunduzi",
+      "shiftNight": "Tunda",
+      "notSpecified": "Ko‘rsatilmagan",
+      "positionPreview": "Lavozim",
+      "positionPreviewEmpty": "roldan yig‘iladi",
+      "groups": {
+        "kitchen": "Oshxona",
+        "front": "Zal",
+        "management": "Boshqaruv",
+        "other": "Boshqa"
+      }
     },
     "kiosk": {
       "pickTest": "Testni tanlang",
@@ -409,6 +428,63 @@
       "branch": "Filial",
       "all": "Barchasi",
       "reset": "Tozalash"
+    }
+  },
+  "staffRoles": {
+    "title": "Xodim rollari",
+    "new": "Yangi rol",
+    "add": "Yangi rol",
+    "edit": "Rolni tahrirlash",
+    "submit": "Saqlash",
+    "added": "Rol qo‘shildi",
+    "updated": "Rol yangilandi",
+    "traineeBadge": "stajyor",
+    "deactivate": "Rolni faolsizlantirish",
+    "deactivateConfirm": "Faolsizlantirish",
+    "deactivateBusyWarning": "Bu rolda {count} kishi turibdi. Rol ro‘yxatlardan yo‘qoladi, lekin ularda saqlanadi.",
+    "deactivateFreeHint": "Bu rolda hech kim yo‘q. Rol ro‘yxatlardan yo‘qoladi; yozuv saqlanadi va qayta yoqilishi mumkin.",
+    "deactivated": "Rol faolsizlantirildi",
+    "deactivatedWithPeople": "Rol faolsizlantirildi, unda {count} kishi qoldi",
+    "columns": {
+      "active": "Faol",
+      "name": "Nomi",
+      "code": "Kod",
+      "group": "Guruh",
+      "employeesCount": "Odamlar",
+      "sort": "Tartib",
+      "actions": "Amallar"
+    },
+    "filters": {
+      "search": "Qidiruv (nomi yoki kodi)",
+      "all": "Hammasi",
+      "activeYes": "Faol",
+      "activeNo": "Faol emas",
+      "reset": "Tozalash"
+    },
+    "groups": {
+      "kitchen": "Oshxona",
+      "front": "Zal",
+      "management": "Boshqaruv",
+      "other": "Boshqa"
+    },
+    "fields": {
+      "code": "Kod",
+      "codeHint": "Lotin harflari, raqamlar va pastki chiziq, 2–50 belgi. Keyin o‘zgarmaydi.",
+      "codeLocked": "Kod tahrirlanmaydi: ma’lumotnoma shu bo‘yicha to‘ldiriladi va stajyor rollari unga bog‘liq.",
+      "nameRu": "Nomi (RU)",
+      "nameRuHint": "Ruscha nom — bezak emas: lavozim satri shundan yig‘iladi va shu bo‘yicha ajratiladi. Nomni o‘zgartirish eski yozuvlar tahlilini buzadi.",
+      "nameUz": "Nomi (UZ)",
+      "group": "Guruh",
+      "sort": "Tartib",
+      "sortHint": "Raqam kichik bo‘lsa, rol ro‘yxatda yuqoriroq turadi.",
+      "isTrainee": "Stajyor roli",
+      "traineeOf": "Qaysi rolga o‘qiydi",
+      "traineeOfHint": "Stajirovkadan keyin odam kim bo‘ladi. Shtatga o‘tkazish — rolni shunga almashtirish.",
+      "active": "Faol"
+    },
+    "errors": {
+      "traineeOfRequired": "Stajyor qaysi rolga o‘qishini ko‘rsating",
+      "codeFormat": "Kod: lotin harflari, raqamlar va pastki chiziq, 2–50 belgi"
     }
   }
 }

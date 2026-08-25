@@ -187,7 +187,26 @@
       "active": "Active",
       "added": "Employee added",
       "updated": "Employee updated",
-      "selectTerminal": "Select branch"
+      "selectTerminal": "Select branch",
+      "role": "Role",
+      "selectRole": "Select a role",
+      "roleRequired": "Pick a role — the position is composed from it",
+      "roleInactive": "(inactive)",
+      "traineeMark": "trainee",
+      "traineeBadge": "trainee",
+      "grade": "Grade",
+      "shift": "Shift",
+      "shiftDay": "Day",
+      "shiftNight": "Night",
+      "notSpecified": "Not specified",
+      "positionPreview": "Position",
+      "positionPreviewEmpty": "will be composed from the role",
+      "groups": {
+        "kitchen": "Kitchen",
+        "front": "Front of house",
+        "management": "Management",
+        "other": "Other"
+      }
     },
     "kiosk": {
       "pickTest": "Choose a test",
@@ -446,6 +465,63 @@
       "branch": "Branch",
       "all": "All",
       "reset": "Reset"
+    }
+  },
+  "staffRoles": {
+    "title": "Staff roles",
+    "new": "New role",
+    "add": "New role",
+    "edit": "Edit role",
+    "submit": "Save",
+    "added": "Role added",
+    "updated": "Role updated",
+    "traineeBadge": "trainee",
+    "deactivate": "Deactivate role",
+    "deactivateConfirm": "Deactivate",
+    "deactivateBusyWarning": "{count} people hold this role. It will disappear from the dropdowns but stay on them.",
+    "deactivateFreeHint": "Nobody holds this role. It will disappear from the dropdowns; the record stays and can be switched back on.",
+    "deactivated": "Role deactivated",
+    "deactivatedWithPeople": "Role deactivated, {count} people kept it",
+    "columns": {
+      "active": "Active",
+      "name": "Name",
+      "code": "Code",
+      "group": "Group",
+      "employeesCount": "People",
+      "sort": "Order",
+      "actions": "Actions"
+    },
+    "filters": {
+      "search": "Search (name or code)",
+      "all": "All",
+      "activeYes": "Active",
+      "activeNo": "Inactive",
+      "reset": "Reset"
+    },
+    "groups": {
+      "kitchen": "Kitchen",
+      "front": "Front of house",
+      "management": "Management",
+      "other": "Other"
+    },
+    "fields": {
+      "code": "Code",
+      "codeHint": "Lowercase latin, digits and underscore, 2–50 characters. Fixed afterwards.",
+      "codeLocked": "The code is read-only: the catalogue is seeded by it and trainee roles point at it.",
+      "nameRu": "Name (RU)",
+      "nameRuHint": "The Russian name is a contract, not decoration: the position string is composed from it and parsed back by it. Renaming breaks parsing of older records.",
+      "nameUz": "Name (UZ)",
+      "group": "Group",
+      "sort": "Order",
+      "sortHint": "Lower number means higher in the dropdowns.",
+      "isTrainee": "Trainee role",
+      "traineeOf": "Trains for",
+      "traineeOfHint": "What the person becomes after the traineeship. Moving them onto staff is switching the role to this one.",
+      "active": "Active"
+    },
+    "errors": {
+      "traineeOfRequired": "State what the trainee trains for",
+      "codeFormat": "Code: lowercase latin, digits and underscore, 2–50 characters"
     }
   }
 }
