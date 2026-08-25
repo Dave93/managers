@@ -1,7 +1,8 @@
 import { ctx } from "@backend/context";
-import { terminals, employees, organization } from "backend/drizzle/schema";
+import { terminals, employees, organization, staff_roles } from "backend/drizzle/schema";
 import { eq, and, inArray, isNotNull } from "drizzle-orm";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
+import { staffRolesController } from "../staff_roles/controller";
 import Elysia from "elysia";
 
 // Карта сети: филиалы с разобранным составом команд.
@@ -66,7 +67,14 @@ export interface ParsedPosition {
   is_trainee: boolean;
 }
 
-// Единственная точка разбора должности во всём бэкенде.
+// Единственная точка разбора должности во всём бэкенде — и с появлением полей
+// staff_role_id / grade / shift / is_trainee уже запасная, а не основная.
+//
+// Основной путь теперь такой: роль лежит в employees.staff_role_id, разряд и
+// смена — в своих колонках, и оба экрана читают их напрямую. Разбор строки
+// остаётся ровно для одного случая: у строки нет проставленной роли — запись
+// приехала мимо API либо её должность справочник не опознал. Тогда лучше
+// разобрать текст, чем показать пустоту.
 //
 // Карта сети (этот файл) и «Состав филиалов» (staff-board.ts) читают одну и ту
 // же строку из employees.position, и разбирать её дважды нельзя: опечатка
@@ -85,6 +93,41 @@ export function parsePosition(position: string | null | undefined): ParsedPositi
   };
 }
 
+/** Строка сотрудника в том виде, в каком её отдаёт база после миграции. */
+export interface StaffRow {
+  position: string | null;
+  role_name_ru?: string | null;
+  role_group?: string | null;
+  role_is_trainee?: boolean | null;
+  grade?: number | null;
+  shift?: string | null;
+  is_trainee?: boolean | null;
+}
+
+/**
+ * Структура должности сотрудника: сначала проставленные поля, и только если
+ * роли нет — разбор строки.
+ *
+ * Смешивать источники внутри одной записи нельзя. Если роль проставлена, то
+ * проставлены и разряд, и смена (их пишет один и тот же композитор), а NULL в
+ * shift означает «смена не указана», а не «поле забыли заполнить» — у охраны и
+ * няни смены нет вовсе. Подставлять сюда результат разбора строки значило бы
+ * придумывать людям ночные смены из формулировки должности.
+ */
+export function structureOf(row: StaffRow): ParsedPosition {
+  if (row.role_name_ru) {
+    const g = (row.role_group ?? "other") as Group;
+    return {
+      role: row.role_name_ru,
+      group: g === "kitchen" || g === "front" || g === "management" ? g : "other",
+      shift: row.shift === "day" || row.shift === "night" ? row.shift : "unknown",
+      grade: row.grade != null ? String(row.grade) : null,
+      is_trainee: row.is_trainee ?? row.role_is_trainee ?? false,
+    };
+  }
+  return parsePosition(row.position);
+}
+
 // Регистрируется НЕ в цепочке apiController, а на корне приложения, с
 // расширением типа до Elysia — тот же приём, что у passportController и
 // creditAdminController. Причина ровно та же и проверена сборкой: цепочка
@@ -96,6 +139,12 @@ const networkMapControllerImpl = new Elysia({
   prefix: "/api",
 })
   .use(ctx)
+  // Справочник ролей висит на этой же цепочке, а не отдельной строкой в app.ts,
+  // сознательно: app.ts сейчас держит незакоммиченную чужую работу, и трогать
+  // его ради двух строк регистрации значит утащить её в чужой коммит. Префикс
+  // "/api" при этом достаётся дочернему плагину от этого инстанса, поэтому в
+  // самом controller.ts путей с "/api" нет.
+  .use(staffRolesController)
   .get(
     "/terminals/network-map",
     // Скоуп и признак HQ берутся ровно так же, как в attestation/controller.ts:
@@ -132,15 +181,25 @@ const networkMapControllerImpl = new Elysia({
       const ids = rows.map((r) => r.id);
       const staff = ids.length
         ? await drizzle
-            .select({ terminal_id: employees.terminal_id, position: employees.position })
+            .select({
+              terminal_id: employees.terminal_id,
+              position: employees.position,
+              grade: employees.grade,
+              shift: employees.shift,
+              is_trainee: employees.is_trainee,
+              role_name_ru: staff_roles.name_ru,
+              role_group: staff_roles.group_key,
+              role_is_trainee: staff_roles.is_trainee,
+            })
             .from(employees)
+            .leftJoin(staff_roles, eq(staff_roles.id, employees.staff_role_id))
             .where(and(eq(employees.active, true), inArray(employees.terminal_id, ids)))
             .execute()
         : [];
 
       const byBranch = new Map<string, { roles: Map<string, number>; groups: Record<Group, number>; shifts: Record<Shift, number>; grades: Record<string, number>; trainees: number; total: number }>();
       for (const s of staff) {
-        const parsed = parsePosition(s.position);
+        const parsed = structureOf(s);
         let b = byBranch.get(s.terminal_id);
         if (!b) {
           b = { roles: new Map(), groups: { kitchen: 0, front: 0, management: 0, other: 0 }, shifts: { day: 0, night: 0, unknown: 0 }, grades: {}, trainees: 0, total: 0 };
@@ -177,7 +236,15 @@ const networkMapControllerImpl = new Elysia({
               groups: b?.groups ?? { kitchen: 0, front: 0, management: 0, other: 0 },
               shifts: b?.shifts ?? { day: 0, night: 0, unknown: 0 },
               grades: b?.grades ?? {},
-              roles: b ? [...b.roles.entries()].map(([role, n]) => ({ role, n })).sort((x, y) => y.n - x.n) : [],
+              // Тай-брейк по названию обязателен: без него порядок ролей с
+              // одинаковым числом людей задаётся порядком строк в employees, а
+              // он меняется от любого UPDATE. Экран из-за этого «моргал»
+              // перестановкой ролей там, где ничего не менялось.
+              roles: b
+                ? [...b.roles.entries()]
+                    .map(([role, n]) => ({ role, n }))
+                    .sort((x, y) => y.n - x.n || x.role.localeCompare(y.role, "ru"))
+                : [],
             },
           };
         })

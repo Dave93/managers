@@ -1,18 +1,20 @@
 import { ctx } from "@backend/context";
-import { terminals, employees, organization } from "backend/drizzle/schema";
+import { terminals, employees, organization, staff_roles } from "backend/drizzle/schema";
 import { eq, and, inArray } from "drizzle-orm";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import Elysia from "elysia";
 
-import { parsePosition, type Group, type Shift } from "./network-map";
+import { structureOf, type Group, type Shift } from "./network-map";
 
 // Состав филиалов: карточка на филиал, а внутри — конкретные люди.
 //
 // Отличие от /terminals/network-map ровно одно, и оно определяет весь эндпоинт:
 // карте хватает агрегатов (сколько поваров, сколько ночью), а карточке нужны
-// сами люди — иначе руководитель не может сказать, КОГО не хватает. Разбор
-// должности при этом общий: parsePosition живёт в network-map.ts и импортируется
-// сюда, потому что опечатка «раяряд» в справочнике должна правиться один раз.
+// сами люди — иначе руководитель не может сказать, КОГО не хватает. Структура
+// должности при этом общая: structureOf живёт в network-map.ts и импортируется
+// сюда. Читает она проставленные поля (staff_role_id, grade, shift), а к разбору
+// строки откатывается только там, где роль ещё не проставлена, — и делает это
+// один раз на оба экрана, чтобы они не разошлись в подсчёте поваров.
 //
 // Два факта, которые эндпоинт обязан не смешать:
 //
@@ -134,8 +136,18 @@ const staffBoardControllerImpl = new Elysia({
               last_name: employees.last_name,
               position: employees.position,
               pin_hash: employees.pin_hash,
+              staff_role_id: employees.staff_role_id,
+              grade: employees.grade,
+              shift: employees.shift,
+              is_trainee: employees.is_trainee,
+              role_code: staff_roles.code,
+              role_name_ru: staff_roles.name_ru,
+              role_name_uz: staff_roles.name_uz,
+              role_group: staff_roles.group_key,
+              role_is_trainee: staff_roles.is_trainee,
             })
             .from(employees)
+            .leftJoin(staff_roles, eq(staff_roles.id, employees.staff_role_id))
             .where(
               and(
                 eq(employees.active, true),
@@ -153,6 +165,10 @@ const staffBoardControllerImpl = new Elysia({
         initials: string;
         position: string | null;
         role: string;
+        /** null — роль ещё не проставлена, структура взята разбором строки. */
+        role_id: string | null;
+        role_code: string | null;
+        role_name_uz: string | null;
         group: Group;
         shift: Shift;
         grade: string | null;
@@ -162,7 +178,7 @@ const staffBoardControllerImpl = new Elysia({
 
       const byBranch = new Map<string, Person[]>();
       for (const s of staff) {
-        const parsed = parsePosition(s.position);
+        const parsed = structureOf(s);
         const first = humanName(s.first_name);
         const last = humanName(s.last_name);
         const list = byBranch.get(s.terminal_id) ?? [];
@@ -174,6 +190,9 @@ const staffBoardControllerImpl = new Elysia({
           initials: initialsOf(first, last),
           position: s.position,
           role: parsed.role,
+          role_id: s.staff_role_id,
+          role_code: s.role_code,
+          role_name_uz: s.role_name_uz,
           group: parsed.group,
           shift: parsed.shift,
           grade: parsed.grade,

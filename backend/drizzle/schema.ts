@@ -1492,11 +1492,62 @@ export const ordersBySource = pgTable('orders_by_source', {
   primaryKey({ columns: [table.date, table.terminalId, table.organizationId, table.source] }),
   index('idx_orders_by_source_date').on(table.date),
 ]);
+// Справочник должностей персонала филиалов.
+//
+// Не путать с `positions` по соседству: та таблица описывает ВАКАНСИЮ (зарплатная
+// вилка, привязка к филиалу, требования) и живёт в найме. Здесь — сама роль в
+// смене: повар, кассир, менеджер. Одна строка справочника может стоять за сотней
+// вакансий и за сотней людей.
+//
+// Стажёрские роли лежат тут же отдельными строками, а не выводятся из флага.
+// Причина в данных: «Стажер повар» и «Стажер кассир» — это то, как должность
+// пишет сам бизнес, и оба экрана (карта сети, состав филиалов) уже считают
+// «Стажёр-повар» отдельной ролью. Флаг is_trainee при этом остаётся: он говорит,
+// что роль временная, а trainee_of_code — кем человек станет, когда стажировка
+// закончится. Перевод стажёра в штат = смена staff_role_id на trainee_of_code.
+export const staff_roles = pgTable(
+  "staff_roles",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    code: varchar("code", { length: 50 }).notNull(),
+    name_ru: varchar("name_ru", { length: 150 }).notNull(),
+    name_uz: varchar("name_uz", { length: 150 }).notNull(),
+    /** kitchen | front | management | other — те же четыре группы, что у parsePosition. */
+    group_key: varchar("group_key", { length: 20 }).notNull(),
+    is_trainee: boolean("is_trainee").default(false).notNull(),
+    /** code роли, на которую учится стажёр; null у нестажёрских ролей. */
+    trainee_of_code: varchar("trainee_of_code", { length: 50 }),
+    sort: integer("sort").default(0).notNull(),
+    active: boolean("active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex("staff_roles_code_key").on(table.code)]
+);
+
 export const employees = pgTable("employees", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   first_name: varchar("first_name", { length: 100 }).notNull(),
   last_name: varchar("last_name", { length: 100 }).notNull(),
+  /**
+   * Свободная строка должности — остаётся ведущей для всех, кто её уже читает
+   * (фильтр аттестации по ilike, паспорт стажёра, колонка в админке). После
+   * появления полей ниже она перестаёт быть источником структуры и становится
+   * её отпечатком: собирается по одному шаблону «Роль[ N разряд][ смена]».
+   */
   position: varchar("position", { length: 150 }),
+  /** Роль из справочника. null — строка ещё не разобрана (см. parsePosition). */
+  staff_role_id: uuid("staff_role_id").references(() => staff_roles.id),
+  /** Разряд 1..3; null — в должности разряда нет, и это нормально. */
+  grade: integer("grade"),
+  /** "day" | "night"; null — смена не указана (у охраны и няни её нет вовсе). */
+  shift: varchar("shift", { length: 10 }),
+  /** Дублирует staff_roles.is_trainee, чтобы считать стажёров без join. */
+  is_trainee: boolean("is_trainee"),
   terminal_id: uuid("terminal_id").notNull(),
   pin_hash: text("pin_hash"),
   external_id: varchar("external_id", { length: 100 }),
@@ -1949,3 +2000,75 @@ export const passport_media = pgTable("passport_media", {
   transcode_error: text("transcode_error"),
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
 });
+
+// ---------------------------------------------------------------------------
+// Stop-list history (fed by Laravel ProcessActualizeStopList webhooks, 2026-08)
+// stoplist_events is a TimescaleDB hypertable (see drizzle/timescale_stoplist.sql —
+// create_hypertable + continuous aggregate are applied out-of-band, same as the
+// other hypertables in timescale_scripts.sql).
+// ---------------------------------------------------------------------------
+
+export const stoplist_events = pgTable(
+  "stoplist_events",
+  {
+    id: uuid("id").defaultRandom().notNull(),
+    event_at: timestamp("event_at", { withTimezone: true, mode: "string" }).notNull(),
+    brand: text("brand").notNull(), // 'chopar' | 'les'
+    terminal_id: integer("terminal_id").notNull(),
+    terminal_name: text("terminal_name"),
+    product_id: integer("product_id").notNull(),
+    product_name: text("product_name"),
+    action: text("action").notNull(), // 'stop' | 'release'
+    balance: doublePrecision("balance"),
+    date_add: timestamp("date_add", { withTimezone: true, mode: "string" }),
+    // iiko terminalGroup uuid — joins credentials(model='terminals', type='iiko_id')
+    // to reach the managers terminals a manager is bound to.
+    terminal_iiko_id: uuid("terminal_iiko_id"),
+    recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      brand_term_prod_event_idx: index(
+        "idx_stoplist_events_brand_term_prod_event_at"
+      ).on(table.brand, table.terminal_id, table.product_id, table.event_at),
+      event_at_idx: index("idx_stoplist_events_event_at").on(table.event_at),
+    };
+  }
+);
+
+// One row per continuous stop period; ended_at IS NULL = currently stopped.
+// A partial unique index (uq_stoplist_intervals_open, created in
+// timescale_stoplist.sql) guarantees a single open interval per position.
+export const stoplist_intervals = pgTable(
+  "stoplist_intervals",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    brand: text("brand").notNull(),
+    terminal_id: integer("terminal_id").notNull(),
+    terminal_name: text("terminal_name"),
+    product_id: integer("product_id").notNull(),
+    product_name: text("product_name"),
+    started_at: timestamp("started_at", { withTimezone: true, mode: "string" }).notNull(),
+    ended_at: timestamp("ended_at", { withTimezone: true, mode: "string" }),
+    last_balance: doublePrecision("last_balance"),
+    // iiko terminalGroup uuid — joins credentials(model='terminals', type='iiko_id').
+    terminal_iiko_id: uuid("terminal_iiko_id"),
+  },
+  (table) => {
+    return {
+      open_lookup_idx: index("idx_stoplist_intervals_open_lookup").on(
+        table.brand,
+        table.terminal_id,
+        table.product_id,
+        table.ended_at
+      ),
+      started_at_idx: index("idx_stoplist_intervals_started_at").on(table.started_at),
+      iiko_ended_idx: index("idx_stoplist_intervals_iiko_ended").on(
+        table.terminal_iiko_id,
+        table.ended_at
+      ),
+    };
+  }
+);

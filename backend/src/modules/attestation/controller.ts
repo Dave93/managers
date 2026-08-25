@@ -1,5 +1,6 @@
 import { ctx } from "@backend/context";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
+import { structureFrom } from "../staff_roles/catalog";
 import { addMonthsClamped } from "@backend/modules/medical/status";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
@@ -10,6 +11,7 @@ import {
   attestation_test_attempts,
   attestation_test_attempt_answers,
   employees,
+  staff_roles,
   users,
   roles_permissions,
   permissions,
@@ -350,7 +352,23 @@ export const attestationController = new Elysia({
           )
         );
       if (terminal_id) where.push(eq(employees.terminal_id, terminal_id));
-      if (position) where.push(ilike(employees.position, `%${position}%`));
+      // Фильтр по должности. Строку он ищет как искал — этот эндпоинт зовут с
+      // произвольным текстом, и ломать его нельзя. Добавлена вторая половина:
+      // тот же текст проверяется и по справочнику, чтобы «kitchen_worker» или
+      // узбекское название находили людей ровно так же, как русское.
+      if (position) {
+        // ё и е здесь одна буква. Канон пишет «Стажёр-повар», а ищут поголовно
+        // «стажер» — до канонизации это находилось, потому что в базе так и
+        // было написано. Свести обе стороны через translate дешевле, чем
+        // объяснять каждому, где в должности точки.
+        const needle = `%${position}%`;
+        where.push(
+          or(
+            sql`translate(${employees.position}, 'ёЁ', 'еЕ') ilike translate(${needle}, 'ёЁ', 'еЕ')`,
+            sql`exists (select 1 from staff_roles sr where sr.id = ${employees.staff_role_id} and (translate(sr.name_ru, 'ёЁ', 'еЕ') ilike translate(${needle}, 'ёЁ', 'еЕ') or sr.name_uz ilike ${needle} or sr.code ilike ${needle}))`
+          )
+        );
+      }
       if (active === "true" || active === "false")
         where.push(eq(employees.active, active === "true"));
       const count = await drizzle
@@ -409,15 +427,29 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Out of scope" };
       }
-      const { medical_start_date, ...empData } = data;
+      const { medical_start_date, grade, shift, staff_role_id, ...empData } = data;
       if (medical_start_date && !/^\d{4}-\d{2}-\d{2}$/.test(medical_start_date)) {
         set.status = 422;
         return { message: "medical_start_date must be YYYY-MM-DD" };
       }
+      // Должность собирается на сервере, а не приходит готовой строкой. Это и
+      // есть обратная совместимость: старая форма шлёт только position и её
+      // разберут, новая пришлёт роль/разряд/смену и строку соберут по шаблону.
+      // В обе стороны в базу ложится одно и то же — структура плюс её отпечаток.
+      const roleRows = await drizzle.select().from(staff_roles).execute();
+      const structured = structureFrom(
+        roleRows,
+        { position: empData.position, staff_role_id, grade, shift },
+        staff_role_id != null
+      );
+      if (staff_role_id != null && structured.staff_role_id == null) {
+        set.status = 422;
+        return { message: "Unknown staff_role_id" };
+      }
       const inserted = await drizzle.transaction(async (tx) => {
         const emp = await tx
           .insert(employees)
-          .values(empData)
+          .values({ ...empData, ...structured })
           .returning({ id: employees.id })
           .execute();
         if (medical_start_date) {
@@ -470,6 +502,9 @@ export const attestationController = new Elysia({
           first_name: t.String(),
           last_name: t.String(),
           position: t.Optional(t.Nullable(t.String())),
+          staff_role_id: t.Optional(t.Nullable(t.String())),
+          grade: t.Optional(t.Nullable(t.Union([t.Number(), t.String()]))),
+          shift: t.Optional(t.Nullable(t.String())),
           terminal_id: t.String(),
           external_id: t.Optional(t.Nullable(t.String())),
           active: t.Optional(t.Boolean()),
@@ -499,9 +534,38 @@ export const attestationController = new Elysia({
         set.status = 403;
         return { message: "Cross-terminal transfer requires HQ" };
       }
+      // Частичный PATCH по структуре: недостающее берётся из текущей строки,
+      // иначе «перевести человека в ночь» одним полем shift обнулило бы ему
+      // роль и разряд. Строку position после этого пересобирает сервер — ровно
+      // затем эта задача и затевалась: смена меняется одним полем, а не
+      // переписыванием текста, в котором можно ошибиться в формулировке.
+      const { grade, shift, staff_role_id, ...rest } = data;
+      const touchesStructure =
+        staff_role_id !== undefined || grade !== undefined || shift !== undefined;
+      const roleRows = await drizzle.select().from(staff_roles).execute();
+      const effectiveRoleId =
+        staff_role_id !== undefined ? staff_role_id : current[0].staff_role_id;
+      const structured = structureFrom(
+        roleRows,
+        {
+          position: rest.position !== undefined ? rest.position : current[0].position,
+          staff_role_id: effectiveRoleId,
+          grade: grade !== undefined ? grade : current[0].grade,
+          shift: shift !== undefined ? shift : current[0].shift,
+        },
+        touchesStructure || effectiveRoleId != null
+      );
+      if (staff_role_id != null && structured.staff_role_id == null) {
+        set.status = 422;
+        return { message: "Unknown staff_role_id" };
+      }
+      const patch =
+        touchesStructure || rest.position !== undefined
+          ? { ...rest, ...structured }
+          : rest;
       const updated = await drizzle
         .update(employees)
-        .set({ ...data, updated_at: new Date().toISOString() })
+        .set({ ...patch, updated_at: new Date().toISOString() })
         .where(eq(employees.id, id))
         .returning({ id: employees.id })
         .execute();
@@ -515,6 +579,9 @@ export const attestationController = new Elysia({
           first_name: t.Optional(t.String()),
           last_name: t.Optional(t.String()),
           position: t.Optional(t.Nullable(t.String())),
+          staff_role_id: t.Optional(t.Nullable(t.String())),
+          grade: t.Optional(t.Nullable(t.Union([t.Number(), t.String()]))),
+          shift: t.Optional(t.Nullable(t.String())),
           terminal_id: t.Optional(t.String()),
           external_id: t.Optional(t.Nullable(t.String())),
           active: t.Optional(t.Boolean()),
