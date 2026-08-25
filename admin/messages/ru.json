@@ -237,6 +237,8 @@
         "management": "Управление",
         "other": "Прочее"
       },
+      "addEmployee": "Добавить сотрудника",
+      "addToBranch": "Добавить сотрудника в филиал «{branch}»",
       "roleSearch": "Поиск роли",
       "roleNotFound": "Роль не найдена",
       "roleWholeGroup": "вся группа"

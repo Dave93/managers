@@ -170,6 +170,8 @@
         "management": "Boshqaruv",
         "other": "Boshqa"
       },
+      "addEmployee": "Xodim qo'shish",
+      "addToBranch": "{branch} filialiga xodim qo'shish",
       "roleSearch": "Rolni qidirish",
       "roleNotFound": "Rol topilmadi",
       "roleWholeGroup": "butun guruh"

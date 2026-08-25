@@ -182,6 +182,8 @@
         "management": "Бошқарув",
         "other": "Бошқа"
       },
+      "addEmployee": "Ходим қўшиш",
+      "addToBranch": "{branch} филиалига ходим қўшиш",
       "roleSearch": "Ролни қидириш",
       "roleNotFound": "Рол топилмади",
       "roleWholeGroup": "бутун гуруҳ"

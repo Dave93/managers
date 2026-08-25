@@ -207,6 +207,8 @@
         "management": "Management",
         "other": "Other"
       },
+      "addEmployee": "Add employee",
+      "addToBranch": "Add an employee to {branch}",
       "roleSearch": "Search role",
       "roleNotFound": "No such role",
       "roleWholeGroup": "whole group"

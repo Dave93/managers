@@ -12,9 +12,14 @@ import AttestationEmployeeForm from "./_form";
 export default function AttestationEmployeeFormSheet({
   children,
   recordId,
+  terminalId,
 }: {
   children: React.ReactNode;
   recordId?: string;
+  /** Филиал, подставленный вызывающим экраном («Состав филиалов» открывает
+   *  форму прямо с карточки). Не передан — форма ведёт себя как раньше и
+   *  просит выбрать филиал из списка на 72 позиции. */
+  terminalId?: string;
 }) {
   const t = useTranslations("attestation");
   const [open, setOpen] = useState<boolean>(false);
@@ -28,7 +33,13 @@ export default function AttestationEmployeeFormSheet({
             {recordId ? t("employees.edit") : t("employees.add")}
           </SheetTitle>
         </SheetHeader>
-        {open && <AttestationEmployeeForm setOpen={setOpen} recordId={recordId} />}
+        {open && (
+          <AttestationEmployeeForm
+            setOpen={setOpen}
+            recordId={recordId}
+            terminalId={terminalId}
+          />
+        )}
       </SheetContent>
     </Sheet>
   );

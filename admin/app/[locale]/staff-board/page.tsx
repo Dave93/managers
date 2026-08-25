@@ -21,11 +21,17 @@
 // ответу. Разбор должности, приведение имён и сами сигналы живут на бэкенде.
 
 import * as React from "react";
-import { Loader2, ShieldAlert, UsersRound } from "lucide-react";
+import { Loader2, Plus, ShieldAlert, UsersRound } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
+import { Button } from "@admin/components/ui/buttonOrigin";
+import AttestationEmployeeFormSheet from "@admin/components/forms/attestation-employee/sheet";
 import type { Branch, Person } from "./_components/use-staff-board";
-import { useStaffBoard } from "./_components/use-staff-board";
+import {
+  useCanEditEmployees,
+  useStaffBoard,
+} from "./_components/use-staff-board";
 import { BranchCard, NoDataCard } from "./_components/branch-card";
 import {
   EMPTY_FILTERS,
@@ -41,7 +47,12 @@ const has = (haystack: string | null | undefined, needle: string) =>
   (haystack ?? "").toLocaleLowerCase("ru-RU").includes(needle);
 
 export default function StaffBoardPage() {
+  const t = useTranslations("attestation");
   const q = useStaffBoard();
+  // Читать состав можно по employees.list, заводить человека — по
+  // employees.edit. Право спрашивается один раз здесь и раздаётся карточкам
+  // пропом: 72 одинаковых хука ради одного и того же ответа не нужны.
+  const canEdit = useCanEditEmployees();
   const [filters, setFilters] = React.useState<BoardFilters>(EMPTY_FILTERS);
 
   const branches: Branch[] = q.data?.branches ?? [];
@@ -115,15 +126,25 @@ export default function StaffBoardPage() {
     // SidebarInset выше по дереву это flex-1 без min-w-0, и любой широкий
     // потомок иначе распёр бы страницу вбок.
     <div className="w-full min-w-0 max-w-full overflow-x-clip pb-8">
-      <div className="mb-3">
-        <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
-          <UsersRound className="size-4 text-muted-foreground" aria-hidden />
-          Состав филиалов
-        </h1>
-        <p className="text-[12px] text-muted-foreground">
-          Кто где работает и как собрана команда — по каждому филиалу поимённо,
-          из одного запроса.
-        </p>
+      <div className="mb-3 flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
+            <UsersRound className="size-4 text-muted-foreground" aria-hidden />
+            Состав филиалов
+          </h1>
+          <p className="text-[12px] text-muted-foreground">
+            Кто где работает и как собрана команда — по каждому филиалу
+            поимённо, из одного запроса.
+          </p>
+        </div>
+        {canEdit && (
+          <AttestationEmployeeFormSheet>
+            <Button size="sm" className="shrink-0">
+              <Plus className="size-4" aria-hidden />
+              {t("employees.addEmployee")}
+            </Button>
+          </AttestationEmployeeFormSheet>
+        )}
       </div>
 
       {denied ? (
@@ -204,6 +225,7 @@ export default function StaffBoardPage() {
                       peopleFilters && c.people.length < c.branch.staff.total
                     }
                     query={filters.employeeQuery}
+                    canEdit={canEdit}
                   />
                 ))}
               </div>
@@ -233,7 +255,7 @@ export default function StaffBoardPage() {
                   )}
                 >
                   {noData.map((b) => (
-                    <NoDataCard key={b.id} branch={b} />
+                    <NoDataCard key={b.id} branch={b} canEdit={canEdit} />
                   ))}
                 </div>
               ) : (

@@ -32,9 +32,14 @@ import {
 export default function AttestationEmployeeForm({
   setOpen,
   recordId,
+  terminalId,
 }: {
   setOpen: (open: boolean) => void;
   recordId?: string;
+  /** Предустановленный филиал. Форма монтируется только при открытом Sheet,
+   *  поэтому значение попадает в defaultValues на каждом открытии; поле
+   *  остаётся редактируемым — филиал можно поправить, не закрывая форму. */
+  terminalId?: string;
 }) {
   const t = useTranslations("attestation");
   const tMedical = useTranslations("medical");
@@ -44,6 +49,10 @@ export default function AttestationEmployeeForm({
   const onDone = (msg: string) => {
     toast.success(msg);
     queryClient.invalidateQueries({ queryKey: ["attestation_employees"] });
+    // Тот же сотрудник виден и на «Составе филиалов». Экран читает свой
+    // запрос, а не таблицу справочника, — без этого сброса карточка филиала
+    // осталась бы без только что заведённого человека до перезагрузки.
+    queryClient.invalidateQueries({ queryKey: ["terminals_staff_board"] });
     setOpen(false);
   };
   const onError = (e: any) => toast.error(e.message);
@@ -82,7 +91,7 @@ export default function AttestationEmployeeForm({
       staff_role_id: "",
       grade: NONE,
       shift: NONE,
-      terminal_id: "",
+      terminal_id: terminalId ?? "",
       active: true,
       medical_start_date: "",
     },

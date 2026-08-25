@@ -139,3 +139,17 @@ export function useStaffBoard() {
     staleTime: 60_000,
   });
 }
+
+// Смотреть состав можно по employees.list, заводить человека — только по
+// employees.edit. Кнопка, которая упрётся в 403, хуже отсутствующей кнопки,
+// поэтому право спрашивается тем же запросом, что и гейт раздела: ["my_permissions"]
+// уже прогрет layout'ом, лишнего похода на бэкенд здесь нет. До ответа
+// возвращаем false — иначе кнопка успела бы мигнуть у того, кому не положена.
+export function useCanEditEmployees(): boolean {
+  const { data, isFetched } = useQuery({
+    queryKey: ["my_permissions"],
+    queryFn: async () => (await apiClient.api.users.my_permissions.get()).data,
+  });
+  const perms: string[] = (data as any)?.permissions ?? [];
+  return isFetched && perms.includes("employees.edit");
+}

@@ -22,9 +22,11 @@
 
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
+import AttestationEmployeeFormSheet from "@admin/components/forms/attestation-employee/sheet";
 import type { Branch, GroupKey, Person, ShiftKey } from "./use-staff-board";
 import {
   BrandMark,
@@ -80,6 +82,40 @@ function PersonRow({ p, query }: { p: Person; query: string }) {
   );
 }
 
+// Завести человека можно прямо отсюда — филиал уже выбран, и в форме его не
+// придётся искать среди семидесяти двух. Кнопка сделана тем же приглушённым
+// текстом, что «Показать всех»: это подсобное действие карточки, а не её
+// главный смысл, и ни заливки, ни бейджа она не приносит. Рядом с раскрытием
+// состава — потому что оба относятся к списку людей, а не к шапке филиала.
+function AddEmployeeButton({
+  branch,
+  compact,
+}: {
+  branch: Branch;
+  /** Место в подвале уже занято «Показать всех» — тогда остаётся один плюс,
+   *  а слова уезжают в подсказку и aria-label. */
+  compact?: boolean;
+}) {
+  const t = useTranslations("attestation");
+  const title = t("employees.addToBranch", { branch: branch.name });
+  return (
+    <AttestationEmployeeFormSheet terminalId={branch.id}>
+      <button
+        type="button"
+        title={title}
+        aria-label={title}
+        className={cn(
+          "inline-flex items-center justify-center gap-1 rounded py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          compact ? "shrink-0 px-1.5" : "w-full"
+        )}
+      >
+        <Plus className="size-3 shrink-0" aria-hidden />
+        {!compact && t("employees.addEmployee")}
+      </button>
+    </AttestationEmployeeFormSheet>
+  );
+}
+
 interface Section {
   group: GroupKey;
   people: Person[];
@@ -117,12 +153,16 @@ export function BranchCard({
   people,
   peopleFiltered,
   query,
+  canEdit,
 }: {
   branch: Branch;
   /** Люди после фильтров экрана — может быть меньше, чем branch.people. */
   people: Person[];
   peopleFiltered: boolean;
   query: string;
+  /** employees.edit. Без права на запись кнопка не показывается вовсе: нажать
+   *  её значило бы получить отказ на сохранении. */
+  canEdit?: boolean;
 }) {
   const [expanded, setExpanded] = React.useState(false);
   // Свёрнутая карточка не «прячет» строки стилями, а не рендерит их: скрытая
@@ -253,30 +293,40 @@ export function BranchCard({
         </div>
       )}
 
-      <AnimatePresence initial={false}>
-        {(hidden > 0 || expanded) && (
-          <motion.button
-            type="button"
-            key="toggle"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15, ease: EASE_OUT }}
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-            className="mt-1.5 inline-flex w-full items-center justify-center gap-1 rounded py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ChevronDown
-              className={cn(
-                "size-3 transition-transform duration-200",
-                expanded && "rotate-180"
-              )}
-              aria-hidden
+      {(hidden > 0 || expanded || canEdit) && (
+        <div className="mt-1.5 flex min-w-0 items-center gap-1">
+          <AnimatePresence initial={false}>
+            {(hidden > 0 || expanded) && (
+              <motion.button
+                type="button"
+                key="toggle"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15, ease: EASE_OUT }}
+                onClick={() => setExpanded((v) => !v)}
+                aria-expanded={expanded}
+                className="inline-flex min-w-0 flex-1 items-center justify-center gap-1 rounded py-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <ChevronDown
+                  className={cn(
+                    "size-3 transition-transform duration-200",
+                    expanded && "rotate-180"
+                  )}
+                  aria-hidden
+                />
+                {expanded ? "Свернуть состав" : `Показать всех — ещё ${hidden}`}
+              </motion.button>
+            )}
+          </AnimatePresence>
+          {canEdit && (
+            <AddEmployeeButton
+              branch={branch}
+              compact={hidden > 0 || expanded}
             />
-            {expanded ? "Свернуть состав" : `Показать всех — ещё ${hidden}`}
-          </motion.button>
-        )}
-      </AnimatePresence>
+          )}
+        </div>
+      )}
     </article>
   );
 }
@@ -285,8 +335,18 @@ export function BranchCard({
 // вариант обычной: у неё нечего показывать внутри. Пунктирная рамка + своя
 // группа в конце экрана, цвет ничего не решает. Причина названа один раз в
 // заголовке группы, а не на каждой из тридцати восьми карточек.
-export function NoDataCard({ branch }: { branch: Branch }) {
+export function NoDataCard({
+  branch,
+  canEdit,
+}: {
+  branch: Branch;
+  canEdit?: boolean;
+}) {
   return (
+    // Здесь кнопка нужнее всего: пока в справочнике нет ни одной строки, это
+    // единственное место экрана, откуда состав филиала вообще можно начать
+    // заводить. Один плюс без подписи — иначе тридцать восемь раз повторённое
+    // «Добавить сотрудника» станет фоном, как строка «менеджер не указан».
     <article className="flex min-w-0 items-baseline gap-2 px-1 py-1">
       <span className="translate-y-px">
         <BrandMark brand={branch.brand} size={9} />
@@ -294,6 +354,11 @@ export function NoDataCard({ branch }: { branch: Branch }) {
       <h3 className="min-w-0 flex-1 truncate text-[12px] leading-tight text-foreground/80">
         {branch.name}
       </h3>
+      {canEdit && (
+        <span className="self-center">
+          <AddEmployeeButton branch={branch} compact />
+        </span>
+      )}
     </article>
   );
 }
