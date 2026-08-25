@@ -61,6 +61,29 @@ export function useStaffRoleColumns(): ColumnDef<StaffRole>[] {
       cell: ({ row }) => groupLabel(row.original.group_key),
     },
     {
+      accessorKey: "synonyms",
+      header: t("columns.synonyms"),
+      // Видно сразу, у каких ролей поисковые слова уже есть, а у каких пусто:
+      // иначе «почему не находится» проверяется только открытием формы.
+      cell: ({ row }) => {
+        const syn = row.original.synonyms ?? [];
+        if (!syn.length)
+          return <span className="text-muted-foreground">—</span>;
+        return (
+          <div className="flex max-w-[220px] flex-wrap gap-1">
+            {syn.map((w) => (
+              <span
+                key={w}
+                className="rounded bg-muted px-1.5 py-0.5 text-[11px] text-muted-foreground"
+              >
+                {w}
+              </span>
+            ))}
+          </div>
+        );
+      },
+    },
+    {
       accessorKey: "employees_count",
       header: t("columns.employeesCount"),
       cell: ({ row }) => (

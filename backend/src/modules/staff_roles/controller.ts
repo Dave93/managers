@@ -1,7 +1,12 @@
 import { ctx } from "@backend/context";
 import { staff_roles, employees } from "backend/drizzle/schema";
-import { and, asc, eq, ilike, or, sql, type SQLWrapper } from "drizzle-orm";
+import { and, asc, eq, ilike, inArray, or, sql, type SQLWrapper } from "drizzle-orm";
 import Elysia, { t } from "elysia";
+import {
+  composePosition,
+  normalizeSynonyms,
+  renameConflicts,
+} from "./catalog";
 
 // CRUD справочника ролей.
 //
@@ -31,7 +36,11 @@ const staffRolesControllerImpl = new Elysia({
           or(
             ilike(staff_roles.name_ru, `%${query.search}%`),
             ilike(staff_roles.name_uz, `%${query.search}%`),
-            ilike(staff_roles.code, `%${query.search}%`)
+            ilike(staff_roles.code, `%${query.search}%`),
+            // Синонимы ищутся и здесь: иначе HR, дописавший «салатчица»
+            // работнику кухни, не может потом найти строку, в которую он это
+            // слово положил.
+            sql`array_to_string(coalesce(${staff_roles.synonyms}, '{}'), ' ') ilike ${`%${query.search}%`}`
           )
         );
 
@@ -112,6 +121,7 @@ const staffRolesControllerImpl = new Elysia({
           group_key: data.group_key,
           is_trainee: data.is_trainee ?? false,
           trainee_of_code: data.trainee_of_code ?? null,
+          synonyms: normalizeSynonyms(data.synonyms ?? []),
           sort: data.sort ?? 0,
           active: data.active ?? true,
         })
@@ -129,6 +139,7 @@ const staffRolesControllerImpl = new Elysia({
           group_key: t.String(),
           is_trainee: t.Optional(t.Boolean()),
           trainee_of_code: t.Optional(t.Nullable(t.String())),
+          synonyms: t.Optional(t.Array(t.String())),
           sort: t.Optional(t.Number()),
           active: t.Optional(t.Boolean()),
         }),
@@ -156,13 +167,95 @@ const staffRolesControllerImpl = new Elysia({
       // роль ссылается на свою «взрослую». Переименование кода развязало бы обе
       // связи молча, поэтому его здесь просто нет.
       const { code: _ignored, ...patch } = data as Record<string, unknown>;
+      if (patch.synonyms !== undefined)
+        patch.synonyms = normalizeSynonyms(patch.synonyms);
+
+      const before = current[0];
+      const renamed =
+        typeof data.name_ru === "string" && data.name_ru.trim() !== before.name_ru;
+      const newName = renamed ? (data.name_ru as string).trim() : before.name_ru;
+
+      if (renamed) {
+        // Единственная настоящая опасность переименования — строка position,
+        // которую собирает composePosition и читают все, кто про staff_role_id
+        // не знает. Проверяем ДО записи и отказываем с примером: подпись под
+        // полем такой ошибки не ловит, а ловить её через полгода по расходящейся
+        // статистике дороже, чем отказать сейчас.
+        const conflicts = renameConflicts(before.code, newName);
+        if (conflicts.length) {
+          const c = conflicts[0];
+          const WHAT: Record<string, string> = {
+            role: "роль",
+            group: "группа",
+            shift: "смена",
+            grade: "разряд",
+            trainee: "стажёрство",
+          };
+          set.status = 422;
+          return {
+            message:
+              `Название «${newName}» ломает разбор должности: строка «${c.sample}» ` +
+              (c.expected
+                ? `читается неверно — ${WHAT[c.reason]} «${c.got}» вместо «${c.expected}». `
+                : `читается как чужая роль «${c.got}»` +
+                  (c.parsed_code ? ` (${c.parsed_code})` : "") +
+                  `. `) +
+              `Из названия собирается employees.position, и её читают экраны, ` +
+              `выгрузки и текстовый поиск, поэтому строка и роль разошлись бы молча. ` +
+              `Возьмите название, которое разбор относит к этой же роли, ` +
+              `а нужное слово добавьте в синонимы — поиск их видит.`,
+            conflicts,
+          };
+        }
+        // Старое название — готовый синоним: люди продолжат искать роль так, как
+        // она называлась вчера. Ровно эта потеря и случилась при канонизации
+        // строк, когда из должностей пропала «салатчица».
+        const syn = normalizeSynonyms([
+          ...((patch.synonyms as string[] | undefined) ?? before.synonyms ?? []),
+          before.name_ru,
+        ]);
+        patch.synonyms = syn;
+      }
+
       const updated = await drizzle
         .update(staff_roles)
         .set({ ...patch, updated_at: new Date().toISOString() })
         .where(eq(staff_roles.id, id))
         .returning()
         .execute();
-      return { data: updated[0] };
+
+      // Переименовали — пересобираем строки должностей ИЗ КОЛОНОК (разряд и
+      // смена), а не разбором старой строки: колонки и есть источник правды,
+      // а строка — её отпечаток. Без этого справочник говорил бы одно, а
+      // employees.position и текстовый поиск по нему — другое.
+      let positions_rewritten = 0;
+      if (renamed) {
+        const staff = await drizzle
+          .select({ id: employees.id, grade: employees.grade, shift: employees.shift })
+          .from(employees)
+          .where(eq(employees.staff_role_id, id))
+          .execute();
+        const buckets = new Map<string, string[]>();
+        for (const e of staff)
+          buckets.set(
+            `${e.grade ?? ""}|${e.shift ?? ""}`,
+            [...(buckets.get(`${e.grade ?? ""}|${e.shift ?? ""}`) ?? []), e.id]
+          );
+        for (const [key, ids] of buckets) {
+          const [g, sh] = key.split("|");
+          await drizzle
+            .update(employees)
+            .set({
+              position: composePosition(newName, g ? Number(g) : null, sh || null),
+              updated_at: new Date().toISOString(),
+            })
+            .where(inArray(employees.id, ids))
+            .execute();
+          positions_rewritten += ids.length;
+        }
+      }
+
+      return { data: updated[0], positions_rewritten };
     },
     {
       permission: "employees.edit",
@@ -174,6 +267,7 @@ const staffRolesControllerImpl = new Elysia({
           group_key: t.Optional(t.String()),
           is_trainee: t.Optional(t.Boolean()),
           trainee_of_code: t.Optional(t.Nullable(t.String())),
+          synonyms: t.Optional(t.Array(t.String())),
           sort: t.Optional(t.Number()),
           active: t.Optional(t.Boolean()),
         }),

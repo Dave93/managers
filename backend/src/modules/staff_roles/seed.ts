@@ -12,12 +12,24 @@ import { SEED_ROLES } from "./catalog";
 async function main() {
   for (const r of SEED_ROLES) {
     const existing = await drizzleDb
-      .select({ id: staff_roles.id })
+      .select({ id: staff_roles.id, synonyms: staff_roles.synonyms })
       .from(staff_roles)
       .where(eq(staff_roles.code, r.code))
       .execute();
     if (existing.length) {
-      console.log(`skip ${r.code} (exists)`);
+      // Одно исключение из «существующее не трогаем»: синонимы, которых у роли
+      // ещё нет вовсе (NULL — колонку никто не заполнял). Пустой массив это уже
+      // осознанный выбор HR «синонимов нет», и его сид не переписывает.
+      if (existing[0].synonyms == null && r.synonyms.length) {
+        await drizzleDb
+          .update(staff_roles)
+          .set({ synonyms: r.synonyms })
+          .where(eq(staff_roles.id, existing[0].id))
+          .execute();
+        console.log(`synonyms ${r.code} <- ${r.synonyms.join(", ")}`);
+      } else {
+        console.log(`skip ${r.code} (exists)`);
+      }
       continue;
     }
     await drizzleDb.insert(staff_roles).values(r).execute();

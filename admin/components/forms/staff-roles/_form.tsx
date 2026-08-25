@@ -22,6 +22,7 @@ import {
   useStaffRoles,
   type StaffRole,
 } from "@admin/lib/staff-roles";
+import SynonymsInput from "./synonyms-input";
 
 export default function StaffRoleForm({
   setOpen,
@@ -62,6 +63,7 @@ export default function StaffRoleForm({
       group_key: "kitchen",
       is_trainee: false,
       trainee_of_code: NONE,
+      synonyms: [] as string[],
       sort: "0",
       active: true,
     },
@@ -81,6 +83,7 @@ export default function StaffRoleForm({
         is_trainee: v.is_trainee,
         trainee_of_code:
           v.is_trainee && v.trainee_of_code !== NONE ? v.trainee_of_code : null,
+        synonyms: v.synonyms ?? [],
         sort: Number(v.sort) || 0,
         active: v.active,
       };
@@ -114,6 +117,8 @@ export default function StaffRoleForm({
       form.setFieldValue("group_key", r.group_key ?? "kitchen");
       form.setFieldValue("is_trainee", r.is_trainee ?? false);
       form.setFieldValue("trainee_of_code", r.trainee_of_code ?? NONE);
+      // null и [] с сервера означают одно — синонимов нет.
+      form.setFieldValue("synonyms", r.synonyms ?? []);
       form.setFieldValue("sort", String(r.sort ?? 0));
       form.setFieldValue("active", r.active ?? true);
     }
@@ -178,6 +183,22 @@ export default function StaffRoleForm({
             />
           )}
         </form.Field>
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("fields.synonyms")}</Label>
+        <form.Field name="synonyms">
+          {(field) => (
+            <SynonymsInput
+              value={(field.state.value as string[]) ?? []}
+              onChange={(next) => field.handleChange(next as any)}
+              placeholder={t("fields.synonymsPlaceholder")}
+            />
+          )}
+        </form.Field>
+        <p className="text-xs text-muted-foreground">
+          {t("fields.synonymsHint")}
+        </p>
       </div>
 
       <div className="space-y-2">

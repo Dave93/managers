@@ -169,7 +169,10 @@
         "front": "Zal",
         "management": "Boshqaruv",
         "other": "Boshqa"
-      }
+      },
+      "roleSearch": "Rolni qidirish",
+      "roleNotFound": "Rol topilmadi",
+      "roleWholeGroup": "butun guruh"
     },
     "kiosk": {
       "pickTest": "Testni tanlang",
@@ -452,7 +455,8 @@
       "group": "Guruh",
       "employeesCount": "Odamlar",
       "sort": "Tartib",
-      "actions": "Amallar"
+      "actions": "Amallar",
+      "synonyms": "Qidiruv so'zlari"
     },
     "filters": {
       "search": "Qidiruv (nomi yoki kodi)",
@@ -472,7 +476,7 @@
       "codeHint": "Lotin harflari, raqamlar va pastki chiziq, 2–50 belgi. Keyin o‘zgarmaydi.",
       "codeLocked": "Kod tahrirlanmaydi: ma’lumotnoma shu bo‘yicha to‘ldiriladi va stajyor rollari unga bog‘liq.",
       "nameRu": "Nomi (RU)",
-      "nameRuHint": "Ruscha nom — bezak emas: lavozim satri shundan yig‘iladi va shu bo‘yicha ajratiladi. Nomni o‘zgartirish eski yozuvlar tahlilini buzadi.",
+      "nameRuHint": "Xodim lavozimi satri ruscha nomdan yig'iladi. Satr boshqa rol kabi o'qiladigan nom rad etiladi va sabab tushuntiriladi; xavfsizi qo'llanadi va shu odamlarning lavozimlari qayta yoziladi. Eski nom qidiruv so'zlariga qo'shiladi.",
       "nameUz": "Nomi (UZ)",
       "group": "Guruh",
       "sort": "Tartib",
@@ -480,7 +484,10 @@
       "isTrainee": "Stajyor roli",
       "traineeOf": "Qaysi rolga o‘qiydi",
       "traineeOfHint": "Stajirovkadan keyin odam kim bo‘ladi. Shtatga o‘tkazish — rolni shunga almashtirish.",
-      "active": "Faol"
+      "active": "Faol",
+      "synonyms": "Qidiruv so'zlari",
+      "synonymsPlaceholder": "салатчица, мойка",
+      "synonymsHint": "Ishning hayotdagi nomi. Bu yerdagi so'z bo'yicha qidirilganda, lavozim satrida bunday so'z bo'lmasa ham, shu roldagi xodimlar topiladi. Enter yoki vergul so'z qo'shadi."
     },
     "errors": {
       "traineeOfRequired": "Stajyor qaysi rolga o‘qishini ko‘rsating",

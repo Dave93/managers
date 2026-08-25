@@ -25,6 +25,8 @@ export interface StaffRole {
   group_key: string;
   is_trainee: boolean;
   trainee_of_code: string | null;
+  /** Поисковые слова роли. null — колонку ни разу не заполняли. */
+  synonyms: string[] | null;
   sort: number;
   active: boolean;
   employees_count?: number;
@@ -37,6 +39,7 @@ export interface StaffRoleInput {
   group_key: string;
   is_trainee?: boolean;
   trainee_of_code?: string | null;
+  synonyms?: string[];
   sort?: number;
   active?: boolean;
 }

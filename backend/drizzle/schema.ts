@@ -1517,6 +1517,15 @@ export const staff_roles = pgTable(
     is_trainee: boolean("is_trainee").default(false).notNull(),
     /** code роли, на которую учится стажёр; null у нестажёрских ролей. */
     trainee_of_code: varchar("trainee_of_code", { length: 50 }),
+    /**
+     * Поисковые слова роли: то, чем работа называется в жизни, а не в канонe.
+     * Канонизация строк должностей убрала «(салатчица+мойка)» из 46 записей —
+     * данных это не потеряло, но кадровик, который ищет «салатчица», перестал
+     * находить кого бы то ни было. Сюда HR дописывает такие слова сам.
+     *
+     * null и пустой массив означают одно и то же — синонимов нет.
+     */
+    synonyms: text("synonyms").array(),
     sort: integer("sort").default(0).notNull(),
     active: boolean("active").default(true).notNull(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" })

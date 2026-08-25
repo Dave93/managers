@@ -27,34 +27,77 @@ export interface SeedRole {
   /** code роли, на которую учится стажёр. */
   trainee_of_code: string | null;
   sort: number;
+  /** Поисковые слова: то, чем работа называется в жизни. См. SEED_SYNONYMS. */
+  synonyms: string[];
 }
 
-// name_ru здесь — не украшение, а контракт: ровно эти строки уже возвращает
-// parsePosition и ровно их показывают «Карта сети» и «Состав филиалов». Менять
-// их нельзя, не сломав подписи на обоих экранах и не разойдясь с разбором:
-// composePosition собирает position из name_ru, а parsePosition обязан узнать
-// в собранной строке ту же самую роль.
+// Два имени роли, и путать их нельзя.
+//
+//   name_ru в БД — ОТОБРАЖАЕМОЕ имя. HR правит его через форму, оно уходит в
+//   подписи на экранах и в собираемую composePosition строку position.
+//
+//   PARSE_NAME_BY_CODE ниже — РАЗБОРНОЕ имя, то самое, которое возвращает
+//   parsePosition для этой роли. Оно живёт в коде рядом с регулярками, которые
+//   его порождают, и переименованию через форму не подлежит вовсе.
+//
+// Связывает их code, а не строка: ROLE_CODE_BY_PARSE_NAME отображает выход
+// разбора в код, дальше роль ищется в БД по коду. Поэтому переименование
+// name_ru не может «увести» разбор на чужую роль — оно вообще не участвует в
+// опознании. Единственное, на что рискует повлиять переименование, — на
+// строку, которую собирает composePosition; это проверяет guard в PUT
+// /api/staff-roles/:id (assertRenameSafe ниже).
+//
+// synonyms — поисковые слова: то, чем работа называется в жизни. Канон убрал
+// «(салатчица+мойка)» из 46 строк, и «салатчица» перестала находить кого-либо;
+// старые написания «Универсал повар» и «Стажер повар» разошлись с каноном по
+// дефису. Всё это лежит здесь, а не в регулярках разбора, потому что поиск и
+// разбор — разные задачи: ошибиться в поиске значит не найти, ошибиться в
+// разборе значит записать человеку чужую роль.
 //
 // Узбекские названия — рабочий перевод, HR его ещё не заверял.
 export const SEED_ROLES: SeedRole[] = [
-  { code: "manager", name_ru: "Менеджер", name_uz: "Menejer", group_key: "management", is_trainee: false, trainee_of_code: null, sort: 10 },
-  { code: "senior_cook", name_ru: "Старший повар", name_uz: "Katta oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 20 },
-  { code: "universal_cook", name_ru: "Универсал-повар", name_uz: "Universal oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 30 },
-  { code: "cook", name_ru: "Повар", name_uz: "Oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 40 },
-  { code: "kitchen_worker", name_ru: "Работник кухни", name_uz: "Oshxona xodimi", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 50 },
-  { code: "cashier", name_ru: "Кассир", name_uz: "Kassir", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 60 },
-  { code: "hall_worker", name_ru: "Работник зала", name_uz: "Zal xodimi", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 70 },
-  { code: "serving", name_ru: "Раздача", name_uz: "Taqsimlash", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 80 },
-  { code: "security", name_ru: "Охрана", name_uz: "Qorovul", group_key: "other", is_trainee: false, trainee_of_code: null, sort: 90 },
-  { code: "nanny", name_ru: "Няня", name_uz: "Enaga", group_key: "other", is_trainee: false, trainee_of_code: null, sort: 100 },
-  { code: "trainee_manager", name_ru: "Стажёр-менеджер", name_uz: "Stajyor menejer", group_key: "management", is_trainee: true, trainee_of_code: "manager", sort: 110 },
-  { code: "trainee_cook", name_ru: "Стажёр-повар", name_uz: "Stajyor oshpaz", group_key: "kitchen", is_trainee: true, trainee_of_code: "cook", sort: 120 },
-  { code: "trainee_cashier", name_ru: "Стажёр-кассир", name_uz: "Stajyor kassir", group_key: "front", is_trainee: true, trainee_of_code: "cashier", sort: 130 },
+  { code: "manager", name_ru: "Менеджер", name_uz: "Menejer", group_key: "management", is_trainee: false, trainee_of_code: null, sort: 10, synonyms: [] },
+  { code: "senior_cook", name_ru: "Старший повар", name_uz: "Katta oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 20, synonyms: [] },
+  { code: "universal_cook", name_ru: "Универсал-повар", name_uz: "Universal oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 30, synonyms: ["универсал повар"] },
+  { code: "cook", name_ru: "Повар", name_uz: "Oshpaz", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 40, synonyms: [] },
+  { code: "kitchen_worker", name_ru: "Работник кухни", name_uz: "Oshxona xodimi", group_key: "kitchen", is_trainee: false, trainee_of_code: null, sort: 50, synonyms: ["салатчица", "мойка"] },
+  { code: "cashier", name_ru: "Кассир", name_uz: "Kassir", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 60, synonyms: [] },
+  { code: "hall_worker", name_ru: "Работник зала", name_uz: "Zal xodimi", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 70, synonyms: [] },
+  { code: "serving", name_ru: "Раздача", name_uz: "Taqsimlash", group_key: "front", is_trainee: false, trainee_of_code: null, sort: 80, synonyms: [] },
+  { code: "security", name_ru: "Охрана", name_uz: "Qorovul", group_key: "other", is_trainee: false, trainee_of_code: null, sort: 90, synonyms: [] },
+  { code: "nanny", name_ru: "Няня", name_uz: "Enaga", group_key: "other", is_trainee: false, trainee_of_code: null, sort: 100, synonyms: [] },
+  { code: "trainee_manager", name_ru: "Стажёр-менеджер", name_uz: "Stajyor menejer", group_key: "management", is_trainee: true, trainee_of_code: "manager", sort: 110, synonyms: ["стажер менеджер"] },
+  { code: "trainee_cook", name_ru: "Стажёр-повар", name_uz: "Stajyor oshpaz", group_key: "kitchen", is_trainee: true, trainee_of_code: "cook", sort: 120, synonyms: ["стажер повар"] },
+  { code: "trainee_cashier", name_ru: "Стажёр-кассир", name_uz: "Stajyor kassir", group_key: "front", is_trainee: true, trainee_of_code: "cashier", sort: 130, synonyms: ["стажер кассир"] },
 ];
 
-/** Русское название → код. Ключ ровно тот, что возвращает parsePosition().role. */
-export const ROLE_CODE_BY_NAME_RU: Record<string, string> = Object.fromEntries(
-  SEED_ROLES.map((r) => [r.name_ru, r.code])
+/**
+ * Разборное имя роли: ровно та строка, которую возвращает parsePosition().role.
+ *
+ * Совпадение с сегодняшним name_ru — историческое, а не обязательное. Разбор
+ * живёт в network-map.ts на регулярках и о справочнике не знает; эта таблица —
+ * единственный мост между ним и кодами ролей, и она принципиально константная:
+ * менять её вправе только тот, кто меняет сами регулярки.
+ */
+export const PARSE_NAME_BY_CODE: Record<string, string> = {
+  manager: "Менеджер",
+  senior_cook: "Старший повар",
+  universal_cook: "Универсал-повар",
+  cook: "Повар",
+  kitchen_worker: "Работник кухни",
+  cashier: "Кассир",
+  hall_worker: "Работник зала",
+  serving: "Раздача",
+  security: "Охрана",
+  nanny: "Няня",
+  trainee_manager: "Стажёр-менеджер",
+  trainee_cook: "Стажёр-повар",
+  trainee_cashier: "Стажёр-кассир",
+};
+
+/** Выход разбора → код роли. Обратная сторона PARSE_NAME_BY_CODE. */
+export const ROLE_CODE_BY_PARSE_NAME: Record<string, string> = Object.fromEntries(
+  Object.entries(PARSE_NAME_BY_CODE).map(([code, name]) => [name, code])
 );
 
 export const SHIFT_WORD: Record<"day" | "night", string> = {
@@ -146,7 +189,9 @@ export function structureFrom(
   if (raw == null) return { position: null, staff_role_id: null, grade, shift, is_trainee: null };
 
   const parsed = parsePosition(raw);
-  const code = ROLE_CODE_BY_NAME_RU[parsed.role];
+  // Роль опознаётся по КОДУ, а не по отображаемому названию: как бы HR ни
+  // переименовал роль в справочнике, разбор строки приведёт к тому же коду.
+  const code = ROLE_CODE_BY_PARSE_NAME[parsed.role];
   const role = code ? roles.find((r) => r.code === code) : undefined;
   const parsedGrade = parsed.grade ? Number(parsed.grade) : null;
   const parsedShift: "day" | "night" | null = parsed.shift === "unknown" ? null : parsed.shift;
@@ -180,6 +225,117 @@ export function roundTrips(original: string, canonical: string): boolean {
     a.grade === b.grade &&
     a.is_trainee === b.is_trainee
   );
+}
+
+/**
+ * Отображаемое имя роли — HR-редактируемое. Разборное — константа в коде.
+ * Единственное место, где переименование ещё способно навредить: строка,
+ * которую composePosition кладёт в employees.position. Её продолжают читать
+ * все, кто не знает про staff_role_id — прод-бинарь до выката, выгрузки,
+ * фильтр по свободному тексту, запасной путь structureOf у записей без роли.
+ *
+ * Поэтому переименование проверяется здесь, а не подписью под полем: роль
+ * «Повар», переименованная в «Повар-универсал», начала бы писать людям строку
+ * «Повар-универсал 2 разряд день», которую разбор опознаёт как «Универсал-повар».
+ * Строка и колонка разошлись бы молча, и заметил бы это тот, кто через полгода
+ * ищет универсалов.
+ *
+ * Проверяются все двенадцать сочетаний разряда и смены — а не одно название:
+ * «Повар 1 разряд» как название роли ломается только вместе с разрядом.
+ *
+ * Пусто — переименование безопасно.
+ */
+export interface RenameConflict {
+  /** Строка, которую получил бы сотрудник. */
+  sample: string;
+  /** Роль, которой её считает разбор. */
+  parsed_role: string;
+  /** Код этой роли, либо null — разбор не узнаёт вовсе. */
+  parsed_code: string | null;
+  /** Что именно разошлось — иначе отказ выглядит произволом. */
+  reason: "role" | "group" | "shift" | "grade" | "trainee";
+  /** Что должно было получиться, и что получилось. */
+  expected: string;
+  got: string;
+}
+
+const GRADE_COMBOS: (number | null)[] = [null, 1, 2, 3];
+const SHIFT_COMBOS: (string | null)[] = [null, "day", "night"];
+
+export function renameConflicts(code: string, newNameRu: string): RenameConflict[] {
+  const canon = PARSE_NAME_BY_CODE[code] ?? null;
+  const out: RenameConflict[] = [];
+  for (const grade of GRADE_COMBOS) {
+    for (const shift of SHIFT_COMBOS) {
+      const sample = composePosition(newNameRu, grade, shift);
+      const parsed = parsePosition(sample);
+      const parsedCode = ROLE_CODE_BY_PARSE_NAME[parsed.role] ?? null;
+
+      let reason: RenameConflict["reason"] | null = null;
+      let expected = "";
+      let got = "";
+
+      if (canon) {
+        // Роль, которую разбор знает: собранная строка обязана разбираться в
+        // неё же и по всем пяти полям — иначе группа, смена или разряд уедут.
+        const want = parsePosition(composePosition(canon, grade, shift));
+        if (parsedCode !== code) {
+          reason = "role";
+          expected = canon;
+          got = parsed.role;
+        } else if (parsed.group !== want.group) {
+          reason = "group";
+          expected = want.group;
+          got = parsed.group;
+        } else if (parsed.shift !== want.shift) {
+          reason = "shift";
+          expected = want.shift;
+          got = parsed.shift;
+        } else if (parsed.grade !== want.grade) {
+          reason = "grade";
+          expected = want.grade ?? "без разряда";
+          got = parsed.grade ?? "без разряда";
+        } else if (parsed.is_trainee !== want.is_trainee) {
+          reason = "trainee";
+          expected = want.is_trainee ? "стажёр" : "не стажёр";
+          got = parsed.is_trainee ? "стажёр" : "не стажёр";
+        }
+      } else if (parsedCode !== null) {
+        // Роль, заведённая HR: разбор её не знает и знать не обязан. Запретить
+        // нужно ровно одно — уехать в ЧУЖУЮ роль, которую разбор знает.
+        // Роли нет в PARSE_NAME_BY_CODE — сравнивать не с чем, поэтому
+        // expected остаётся пустым: сообщение об этом случае своё.
+        reason = "role";
+        expected = "";
+        got = parsed.role;
+      }
+
+      if (!reason) continue;
+      out.push({ sample, parsed_role: parsed.role, parsed_code: parsedCode, reason, expected, got });
+    }
+  }
+  return out;
+}
+
+/**
+ * Синонимы приходят из формы списком строк. Чистим по-минимуму: пробелы по
+ * краям, пустые строки, повторы без учёта регистра. Ниже регистр не важен —
+ * поиск идёт через ilike.
+ */
+export function normalizeSynonyms(v: unknown): string[] {
+  if (!Array.isArray(v)) return [];
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const raw of v) {
+    if (typeof raw !== "string") continue;
+    const w = raw.trim().replace(/\s+/g, " ");
+    if (!w) continue;
+    const key = w.toLowerCase().replace(/ё/g, "е");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(w);
+  }
+  return out;
 }
 
 export type { Group, Shift };

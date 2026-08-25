@@ -1,0 +1,1 @@
+ALTER TABLE "staff_roles" ADD COLUMN "synonyms" text[];

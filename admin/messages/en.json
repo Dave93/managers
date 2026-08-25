@@ -206,7 +206,10 @@
         "front": "Front of house",
         "management": "Management",
         "other": "Other"
-      }
+      },
+      "roleSearch": "Search role",
+      "roleNotFound": "No such role",
+      "roleWholeGroup": "whole group"
     },
     "kiosk": {
       "pickTest": "Choose a test",
@@ -489,7 +492,8 @@
       "group": "Group",
       "employeesCount": "People",
       "sort": "Order",
-      "actions": "Actions"
+      "actions": "Actions",
+      "synonyms": "Search words"
     },
     "filters": {
       "search": "Search (name or code)",
@@ -509,7 +513,7 @@
       "codeHint": "Lowercase latin, digits and underscore, 2–50 characters. Fixed afterwards.",
       "codeLocked": "The code is read-only: the catalogue is seeded by it and trainee roles point at it.",
       "nameRu": "Name (RU)",
-      "nameRuHint": "The Russian name is a contract, not decoration: the position string is composed from it and parsed back by it. Renaming breaks parsing of older records.",
+      "nameRuHint": "The Russian name is what the employee's position string is built from. A rename that would make that string read as a different role is rejected with an explanation; a safe one is applied and rewrites those people's positions. The old name is kept as a search word.",
       "nameUz": "Name (UZ)",
       "group": "Group",
       "sort": "Order",
@@ -517,7 +521,10 @@
       "isTrainee": "Trainee role",
       "traineeOf": "Trains for",
       "traineeOfHint": "What the person becomes after the traineeship. Moving them onto staff is switching the role to this one.",
-      "active": "Active"
+      "active": "Active",
+      "synonyms": "Search words",
+      "synonymsPlaceholder": "салатчица, мойка",
+      "synonymsHint": "What the job is called in real life. Searching for a word listed here finds everyone in this role even if the job title never mentions it. Enter or comma adds a word."
     },
     "errors": {
       "traineeOfRequired": "State what the trainee trains for",

@@ -2,7 +2,7 @@ import { drizzleDb } from "../../lib/db";
 import { employees, staff_roles } from "backend/drizzle/schema";
 import { eq } from "drizzle-orm";
 import {
-  ROLE_CODE_BY_NAME_RU,
+  ROLE_CODE_BY_PARSE_NAME,
   composePosition,
   roundTrips,
 } from "./catalog";
@@ -52,7 +52,7 @@ const notCanon = new Map<string, number>();
 
 for (const e of rows) {
   const parsed = parsePosition(e.position);
-  const code = ROLE_CODE_BY_NAME_RU[parsed.role];
+  const code = ROLE_CODE_BY_PARSE_NAME[parsed.role];
   const role = code ? roleByCode.get(code) : undefined;
   const grade = parsed.grade ? Number(parsed.grade) : null;
   const shift: "day" | "night" | null =
