@@ -1,36 +1,64 @@
 "use client";
 import { Suspense } from "react";
-import { DataTable } from "./data-table";
-import { stoplistColumns } from "./columns";
-import StoplistFilterPanel from "./filter-panel";
+import { parseAsStringEnum, useQueryState } from "nuqs";
+import { cn } from "@admin/lib/utils";
+import { BoardView } from "./board/board-view";
+import { HistoryView } from "./history-view";
+
+const VIEWS = [
+  { value: "board", label: "По филиалам" },
+  { value: "products", label: "По продуктам" },
+  { value: "history", label: "История" },
+] as const;
+type View = (typeof VIEWS)[number]["value"];
 
 function StoplistContent() {
+  const [view, setView] = useQueryState(
+    "view",
+    parseAsStringEnum<View>(["board", "products", "history"]).withDefault("board")
+  );
   return (
     <div>
-      <div className="flex flex-wrap items-baseline justify-between gap-2 pb-4">
-        <h2 className="text-3xl font-bold tracking-tight">Стоп-лист</h2>
-        {/* History collection started on 2026-08-13; earlier days only hold
-            the stops that were still open at the first sync. */}
-        <span
-          className="text-xs text-muted-foreground"
-          title="История стоп-листа собирается с 13.08.2026; более ранние периоды неполные"
-        >
-          полные данные с 13.08.2026
-        </span>
+      <div className="flex flex-wrap items-center gap-4 pb-3">
+        <h2 className="text-2xl font-bold tracking-tight">Стоп-лист</h2>
+        <nav className="flex gap-1" aria-label="Режим">
+          {VIEWS.map((v) => (
+            <button
+              key={v.value}
+              type="button"
+              onClick={() => setView(v.value)}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm transition-colors",
+                view === v.value
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              {v.label}
+            </button>
+          ))}
+        </nav>
+        {view === "history" && (
+          <span
+            className="ml-auto text-xs text-muted-foreground"
+            title="История стоп-листа собирается с 13.08.2026; более ранние периоды неполные"
+          >
+            полные данные с 13.08.2026
+          </span>
+        )}
       </div>
-      <div className="sticky top-16 z-10">
-        <StoplistFilterPanel />
-      </div>
-      <div className="py-6">
-        <DataTable columns={stoplistColumns} />
-      </div>
+      {view === "history" ? (
+        <HistoryView />
+      ) : (
+        <BoardView view={view} onView={(v) => setView(v)} />
+      )}
     </div>
   );
 }
 
 export default function StoplistPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground">Загрузка…</div>}>
       <StoplistContent />
     </Suspense>
   );

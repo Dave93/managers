@@ -549,6 +549,94 @@ const stoplistControllerImpl = new Elysia({
         offset: t.Optional(t.String()),
       }),
     } as any
+  )
+  // ---- Warehouse board: everything open right now ---------------------------
+  // One flat payload (~700 rows): the client groups it into terminals →
+  // incidents (same minute of placement) → positions. `times_30d` lets the
+  // board flag repeat offenders inline instead of a per-row history call.
+  .get(
+    "/stoplist/board",
+    async (c: any) => {
+      const { query, drizzle, cacheController } = c;
+      const userTerminals = c.terminals as string[] | undefined;
+      const brand =
+        query.brand === "les" || query.brand === "chopar" ? query.brand : null;
+      const { pairs, restrict } = await resolveTerminalPairs(
+        drizzle,
+        cacheController,
+        undefined,
+        userTerminals
+      );
+      const brandFilter = brand ? sql`AND si.brand = ${brand}` : sql``;
+      const scope = sql`${brandFilter} ${pairFilter(pairs, restrict)}`;
+
+      const rows = unwrapRows(
+        await drizzle.execute(sql`
+          SELECT si.id, si.brand, si.terminal_id, si.terminal_name,
+                 mt.id AS managers_terminal_id, mt.name AS managers_terminal_name,
+                 si.product_id, si.product_name, si.started_at, si.last_balance,
+                 EXTRACT(epoch FROM (now() - si.started_at))::bigint AS seconds_stopped,
+                 (SELECT count(*) FROM stoplist_intervals h
+                   WHERE h.brand = si.brand AND h.terminal_id = si.terminal_id
+                     AND h.product_id = si.product_id
+                     AND h.started_at >= now() - interval '30 days')::int AS times_30d
+          FROM stoplist_intervals si
+          LEFT JOIN LATERAL (
+            SELECT t.id, t.name
+            FROM credentials cr
+            JOIN terminals t ON t.id = cr.model_id::uuid
+            JOIN organization o ON o.id = t.organization_id
+            WHERE cr.model = 'terminals' AND cr.type = 'iiko_id'
+              AND cr.key = si.terminal_iiko_id::text
+              AND ((o.name ILIKE 'les%') = (si.brand = 'les'))
+            LIMIT 1
+          ) mt ON true
+          WHERE si.ended_at IS NULL
+          ${scope}
+          ORDER BY si.started_at DESC`)
+      );
+
+      const [stats] = unwrapRows(
+        await drizzle.execute(sql`
+          WITH today AS (
+            SELECT date_trunc('day', now() AT TIME ZONE ${TZ}) AT TIME ZONE ${TZ} AS start
+          )
+          SELECT
+            (SELECT count(*) FROM stoplist_intervals si, today
+              WHERE si.ended_at >= today.start ${scope})::int AS released_today,
+            (SELECT count(*) FROM stoplist_intervals si, today
+              WHERE si.started_at >= today.start ${scope})::int AS stops_today,
+            (SELECT max(recorded_at) FROM stoplist_events) AS synced_at`)
+      );
+
+      return {
+        synced_at: stats?.synced_at ?? null,
+        stats: {
+          released_today: Number(stats?.released_today) || 0,
+          stops_today: Number(stats?.stops_today) || 0,
+        },
+        items: rows.map((r: any) => ({
+          id: String(r.id),
+          brand: String(r.brand),
+          terminal_id: Number(r.terminal_id),
+          terminal_name: r.terminal_name ?? null,
+          managers_terminal_id: r.managers_terminal_id ?? null,
+          managers_terminal_name: r.managers_terminal_name ?? null,
+          product_id: Number(r.product_id),
+          product_name: r.product_name ?? null,
+          started_at: r.started_at,
+          last_balance: r.last_balance == null ? null : Number(r.last_balance),
+          seconds_stopped: Number(r.seconds_stopped) || 0,
+          times_30d: Number(r.times_30d) || 0,
+        })),
+      };
+    },
+    {
+      permission: "stoplist.list",
+      query: t.Object({
+        brand: t.Optional(t.String()),
+      }),
+    } as any
   );
 
 // Widened export: keeps the app root .use() chain from overflowing TS
