@@ -54,9 +54,12 @@ const cashShiftsControllerImpl = new Elysia({ name: "@api/cash_shifts", prefix: 
         return { message: `period is limited to ${MAX_RANGE_DAYS} days` };
       }
       const scope = resolveTerminalScope(query.terminals, c.terminals as string[] | undefined);
+      // synced_at: latest sync over the same scoped rows as UTC ISO (null when none).
       const rows = unwrapRows(
         await drizzle.execute(sql`
-          SELECT ${LITE_COLUMNS}
+          SELECT ${LITE_COLUMNS},
+                 to_char(max(cs.synced_at) OVER () AT TIME ZONE 'UTC',
+                         'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS synced_at_max
           FROM cash_shifts cs
           LEFT JOIN terminals t ON t.id = cs.terminal_id
           WHERE cs.business_date
@@ -65,7 +68,7 @@ const cashShiftsControllerImpl = new Elysia({ name: "@api/cash_shifts", prefix: 
           ${scopeFilter(scope)}
           ORDER BY cs.business_date DESC, t.name NULLS LAST, cs.cash_reg_number, cs.open_at`)
       );
-      return { shifts: rows.map(liteRow) };
+      return { shifts: rows.map(liteRow), synced_at: rows.length > 0 ? iso(rows[0].synced_at_max) : null };
     },
     {
       permission: "charts.list",
