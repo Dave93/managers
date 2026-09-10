@@ -16,6 +16,7 @@ import {
   aggregateCashiers,
   chunk,
   dateChunks,
+  effectiveFrom,
   mapShift,
   parseEmployeesXml,
   parseGroupsXml,
@@ -27,7 +28,7 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-function parseArgs(argv: string[]): { from: string; to: string } {
+function parseArgs(argv: string[]): { from: string; to: string; explicitFrom: boolean } {
   const get = (flag: string) => {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
@@ -36,7 +37,16 @@ function parseArgs(argv: string[]): { from: string; to: string } {
   const from = get("--from") ?? addDays(today, -3);
   const to = get("--to") ?? today;
   if (!DATE_RE.test(from) || !DATE_RE.test(to)) throw new Error(`bad --from/--to: ${from} ${to}`);
-  return { from, to };
+  return { from, to, explicitFrom: get("--from") !== undefined };
+}
+
+// Oldest business date that still has an open shift, within the API limit.
+async function oldestOpenShiftDate(): Promise<string | null> {
+  const res: any = await drizzleDb.execute(sql`
+    SELECT to_char(min(business_date), 'YYYY-MM-DD') AS d FROM cash_shifts
+    WHERE close_at IS NULL AND business_date >= (current_date - 92)`);
+  const rows: any[] = Array.isArray(res) ? res : res?.rows ?? [];
+  return rows[0]?.d ?? null;
 }
 
 async function loadTerminalByGroup(): Promise<Map<string, string>> {
@@ -99,11 +109,21 @@ async function saveChunk(rows: ShiftRow[], cashiers: CashierRow[]): Promise<void
 }
 
 async function main(): Promise<number> {
-  const { from, to } = parseArgs(process.argv);
+  const args = parseArgs(process.argv);
+  const to = args.to;
+  let from = args.from;
   const started = Date.now();
   console.log(`[cash_shifts] start ${new Date().toISOString()} window ${from}..${to}`);
   const iiko = new IikoResto();
   try {
+    // Default mode only: shifts that close days after opening need a re-sync.
+    if (!args.explicitFrom) {
+      const extended = effectiveFrom(from, await oldestOpenShiftDate(), tashkentToday());
+      if (extended !== from) {
+        from = extended;
+        console.log(`[cash_shifts] window extended to ${from} for open shifts`);
+      }
+    }
     const [groupsXml, employeesXml] = [
       await (await iiko.request("GET", "/corporation/groups")).text(),
       await (await iiko.request("GET", "/employees")).text(),
@@ -122,6 +142,11 @@ async function main(): Promise<number> {
       const { cashiers, registerNames } = aggregateCashiers(olap, ids);
       const syncedAt = new Date().toISOString();
       const rows = raw.map((r) => mapShift(r, { pos, terminalByGroup, names, registerNames, syncedAt }));
+      // An empty OLAP answer would wipe every cashier of the chunk.
+      const chunkPayOrders = rows.reduce((sum, r) => sum + Number(r.pay_orders), 0);
+      if (cashiers.length === 0 && chunkPayOrders > 0) {
+        throw new Error(`olap returned no cashier rows for shifts with orders ${part.from}..${part.to}`);
+      }
       await saveChunk(rows, cashiers);
 
       const mismatches = reconcile(rows, cashiers);

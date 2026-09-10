@@ -81,6 +81,14 @@ export function dateChunks(from: string, to: string, size = 7): { from: string; 
   return out;
 }
 
+// Default-mode window start: reach back to the oldest shift that is still
+// open (within the 92-day API limit) so shifts closing days later get their
+// close time; otherwise keep the default start.
+export function effectiveFrom(defaultFrom: string, oldestOpen: string | null, today: string): string {
+  if (oldestOpen && oldestOpen >= addDays(today, -92) && oldestOpen < defaultFrom) return oldestOpen;
+  return defaultFrom;
+}
+
 // Uzbekistan has no DST, a fixed +5h is exact.
 export function tashkentToday(now = new Date()): string {
   return new Date(now.getTime() + 5 * 3_600_000).toISOString().slice(0, 10);

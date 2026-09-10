@@ -11,6 +11,7 @@ import {
   dateChunks,
   tashkentToday,
   chunk,
+  effectiveFrom,
   type MapContext,
 } from "./parse";
 
@@ -94,6 +95,25 @@ describe("time helpers", () => {
   });
   test("chunk", () => {
     expect(chunk([1, 2, 3, 4, 5], 2)).toEqual([[1, 2], [3, 4], [5]]);
+  });
+});
+
+describe("effectiveFrom", () => {
+  const today = "2026-09-11";
+  const def = "2026-09-08";
+  test("no open shifts keeps the default window start", () => {
+    expect(effectiveFrom(def, null, today)).toBe(def);
+  });
+  test("an older open shift within 92 days extends the window down to it", () => {
+    expect(effectiveFrom(def, "2026-08-20", today)).toBe("2026-08-20");
+    expect(effectiveFrom(def, "2026-06-11", today)).toBe("2026-06-11");
+  });
+  test("an open shift older than 92 days is ignored", () => {
+    expect(effectiveFrom(def, "2026-06-10", today)).toBe(def);
+  });
+  test("an open shift newer than the default start keeps the default", () => {
+    expect(effectiveFrom(def, "2026-09-10", today)).toBe(def);
+    expect(effectiveFrom(def, def, today)).toBe(def);
   });
 });
 

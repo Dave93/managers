@@ -56,7 +56,7 @@ export class IikoResto {
   async logout(): Promise<void> {
     if (!this.token) return;
     try {
-      await fetch(`${BASE}/logout?key=${this.token}`);
+      await fetch(`${BASE}/logout?key=${this.token}`, { signal: AbortSignal.timeout(30_000) });
     } catch (e) {
       console.error(`[iiko] logout failed: ${(e as Error).message}`);
     }
