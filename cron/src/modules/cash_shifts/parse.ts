@@ -133,6 +133,7 @@ export function mapShift(raw: any, c: MapContext): ShiftRow {
       throw new Error(`cashshifts/list: field "${k}" missing in shift ${raw?.id ?? "?"}, API shape changed?`);
     }
   }
+  if (!("responsibleUserId" in (raw ?? {}))) throw new Error(`cashshifts/list: field "responsibleUserId" missing in shift ${raw?.id ?? "?"}, API shape changed?`);
   const pos = c.pos.get(raw.pointOfSaleId);
   const groupId = pos?.groupId ?? null;
   const nameOf = (id: string | null | undefined) => (id ? c.names.get(id) ?? null : null);

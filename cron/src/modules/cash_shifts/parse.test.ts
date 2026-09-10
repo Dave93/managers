@@ -165,6 +165,16 @@ describe("mapShift", () => {
       'field "pointOfSaleId" missing'
     );
   });
+  test("documented responsibleUser instead of responsibleUserId fails loudly", async () => {
+    const { responsibleUserId, ...rest } = RAW_SHIFT;
+    const c = await ctx();
+    expect(() => mapShift({ ...rest, responsibleUser: responsibleUserId }, c)).toThrow('field "responsibleUserId" missing');
+  });
+  test("null responsibleUserId is accepted", async () => {
+    const row = mapShift({ ...RAW_SHIFT, responsibleUserId: null }, await ctx());
+    expect(row.responsible_user_id).toBeNull();
+    expect(row.responsible_user_name).toBeNull();
+  });
 });
 
 describe("cashiers", () => {
