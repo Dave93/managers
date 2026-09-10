@@ -10,6 +10,7 @@ import { computeFlags, tashkentToday } from "./cash-shifts/flags";
 import DayStrip, { type DaySummary } from "./cash-shifts/DayStrip";
 import DayTimeline from "./cash-shifts/DayTimeline";
 import SettingsPopover from "./cash-shifts/SettingsPopover";
+import { fmtDayMonthTime, plural } from "./cash-shifts/format";
 import type { CashShiftFull, CashShiftLite } from "./cash-shifts/types";
 
 // Cash shift routes live on a widened (non-Eden) controller, so this widget
@@ -53,7 +54,7 @@ const CashShiftsByDay = () => {
     return { startDate: now, endDate: now };
   }, [dateRange]);
 
-  const listQuery = useQuery<{ shifts: CashShiftLite[] }>({
+  const listQuery = useQuery<{ shifts: CashShiftLite[]; synced_at?: string | null }>({
     queryKey: ["cash_shifts", startDate, endDate, terminals],
     queryFn: () => {
       const p = new URLSearchParams({ startDate: startDate.toISOString(), endDate: endDate.toISOString() });
@@ -75,10 +76,11 @@ const CashShiftsByDay = () => {
   }, [listQuery.data, settings, today]);
 
   const [selectedDay, setSelectedDay] = React.useState<string | null>(null);
+  // Without a selection open the latest complete day: today is still partial.
   const activeDay = React.useMemo(() => {
     if (selectedDay && days.some((d) => d.day === selectedDay)) return selectedDay;
-    return days[0]?.day ?? null;
-  }, [selectedDay, days]);
+    return days.find((d) => d.day < today)?.day ?? days[0]?.day ?? null;
+  }, [selectedDay, days, today]);
 
   const dayQuery = useQuery<{ day: string; shifts: CashShiftFull[] }>({
     queryKey: ["cash_shifts_day", activeDay, terminals],
@@ -95,6 +97,7 @@ const CashShiftsByDay = () => {
     [dayQuery.data, settings, today]
   );
 
+  const syncedAt = listQuery.data?.synced_at ?? null;
   const totals = days.reduce(
     (t, d) => ({ shifts: t.shifts + d.shifts, flagged: t.flagged + d.flagged }),
     { shifts: 0, flagged: 0 }
@@ -110,10 +113,15 @@ const CashShiftsByDay = () => {
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
         <div className="space-y-1.5">
           <CardTitle>Кассовые смены</CardTitle>
-          {listQuery.isSuccess && days.length > 0 && (
-            <CardDescription className="text-xs tabular-nums">
-              {totals.shifts.toLocaleString("ru-RU")} смен за период, с нарушениями:{" "}
-              {totals.flagged.toLocaleString("ru-RU")}
+          {listQuery.isSuccess && (days.length > 0 || syncedAt) && (
+            <CardDescription className="flex flex-wrap gap-x-3 text-xs tabular-nums">
+              {days.length > 0 && (
+                <span>
+                  {totals.shifts.toLocaleString("ru-RU")} {plural(totals.shifts, "смена", "смены", "смен")} за
+                  период, с нарушениями: {totals.flagged.toLocaleString("ru-RU")}
+                </span>
+              )}
+              {syncedAt && <span>данные на {fmtDayMonthTime(syncedAt)}</span>}
             </CardDescription>
           )}
         </div>

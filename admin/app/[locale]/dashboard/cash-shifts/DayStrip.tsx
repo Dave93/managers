@@ -1,7 +1,7 @@
 "use client";
 import { AlertTriangle } from "lucide-react";
 import { cn } from "@admin/lib/utils";
-import { fmtDay } from "./format";
+import { fmtDay, plural } from "./format";
 
 export type DaySummary = { day: string; shifts: number; flagged: number };
 
@@ -31,7 +31,7 @@ export default function DayStrip({
           )}
         >
           <div className="text-xs text-muted-foreground">{fmtDay(d.day)}</div>
-          <div className="mt-0.5 text-sm font-semibold tabular-nums">{d.shifts} смен</div>
+          <div className="mt-0.5 text-sm font-semibold tabular-nums">{d.shifts} {plural(d.shifts, "смена", "смены", "смен")}</div>
           <div
             className={cn(
               "mt-0.5 flex items-center gap-1 text-xs tabular-nums",
