@@ -2081,3 +2081,69 @@ export const stoplist_intervals = pgTable(
     };
   }
 );
+
+// ---- Кассовые смены iiko (виджет «Кассовые смены» на дашборде) -------------
+// Наполняет cron/cash_shifts_sync раз в сутки из resto v2/cashshifts/list.
+// id — id смены в iiko. terminal_id = null, если точка продаж не привязана к
+// терминалу через corporation/groups → credentials(model='terminals', type='iiko_id').
+export const cash_shifts = pgTable(
+  "cash_shifts",
+  {
+    id: uuid("id").primaryKey().notNull(),
+    terminal_id: uuid("terminal_id"),
+    iiko_group_id: uuid("iiko_group_id"),
+    iiko_group_name: text("iiko_group_name"),
+    point_of_sale_id: uuid("point_of_sale_id").notNull(),
+    cash_reg_number: integer("cash_reg_number").notNull(),
+    cash_register_name: text("cash_register_name"),
+    session_number: integer("session_number").notNull(),
+    open_at: timestamp("open_at", { withTimezone: true, mode: "string" }).notNull(),
+    close_at: timestamp("close_at", { withTimezone: true, mode: "string" }),
+    business_date: date("business_date", { mode: "string" }).notNull(),
+    status: text("status").notNull(),
+    responsible_user_id: uuid("responsible_user_id"),
+    responsible_user_name: text("responsible_user_name"),
+    manager_id: uuid("manager_id"),
+    manager_name: text("manager_name"),
+    pay_orders: numeric("pay_orders", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_cash: numeric("sales_cash", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_card: numeric("sales_card", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_credit: numeric("sales_credit", { precision: 18, scale: 2 }).default("0").notNull(),
+    pay_in: numeric("pay_in", { precision: 18, scale: 2 }).default("0").notNull(),
+    pay_out: numeric("pay_out", { precision: 18, scale: 2 }).default("0").notNull(),
+    cash_diff: numeric("cash_diff", { precision: 18, scale: 2 }).default("0").notNull(),
+    synced_at: timestamp("synced_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      business_date_idx: index("idx_cash_shifts_business_date").on(table.business_date),
+      terminal_date_idx: index("idx_cash_shifts_terminal_date").on(
+        table.terminal_id,
+        table.business_date
+      ),
+    };
+  }
+);
+
+// Кассиры смены из OLAP SALES (SessionID × Cashier.Id). Пересобирается целиком
+// для каждой синкнутой смены.
+export const cash_shift_cashiers = pgTable(
+  "cash_shift_cashiers",
+  {
+    shift_id: uuid("shift_id")
+      .notNull()
+      .references(() => cash_shifts.id, { onDelete: "cascade" }),
+    cashier_id: uuid("cashier_id").notNull(),
+    cashier_name: text("cashier_name").notNull(),
+    cashier_code: text("cashier_code"),
+    orders_count: integer("orders_count").notNull(),
+    revenue: numeric("revenue", { precision: 18, scale: 2 }).notNull(),
+  },
+  (table) => {
+    return {
+      pk: primaryKey({ columns: [table.shift_id, table.cashier_id] }),
+    };
+  }
+);
