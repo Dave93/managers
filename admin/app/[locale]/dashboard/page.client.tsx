@@ -31,6 +31,8 @@ import BasketAdditionalSales from "./BasketAdditionalSales";
 import BasketAdditionalSalesBySource from "./BasketAdditionalSalesBySource";
 import BasketAdditionalSalesBySourceGroup from "./BasketAdditionalSalesBySourceGroup";
 import BasketAdditionalSalesTrendChart from "./BasketAdditionalSalesTrendChart";
+import StoplistByDay from "./StoplistByDay";
+import CashShiftsByDay from "./CashShiftsByDay";
 
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -107,6 +109,12 @@ export default function ChartsPageClient() {
             </ChartWrapper>
             <ChartWrapper className="md:col-span-2 lg:col-span-4">
                 <BasketAdditionalSalesTrendChart />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[480px] md:h-[600px]">
+                <StoplistByDay />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[560px] md:h-[680px]">
+                <CashShiftsByDay />
             </ChartWrapper>
         </>
     )
