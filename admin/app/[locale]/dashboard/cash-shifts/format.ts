@@ -39,3 +39,11 @@ export const FLAG_LABEL: Record<ShiftFlag, string> = {
   too_long: "долгая смена",
   unclosed: "не закрыта",
 };
+
+export const STATUS_LABEL: Record<string, string> = {
+  OPEN: "открыта",
+  CLOSED: "закрыта",
+  ACCEPTED: "принята",
+  UNACCEPTED: "не принята",
+  HASWARNINGS: "подозрительная",
+};

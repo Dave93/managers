@@ -4,7 +4,7 @@ import { cn } from "@admin/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import type { ShiftFlag } from "./flags";
 import { barGeometry, timelineAxis } from "./timeline";
-import { FLAG_LABEL, fmtDateTime, fmtDay, fmtDuration, fmtMoney, fmtTime } from "./format";
+import { FLAG_LABEL, STATUS_LABEL, fmtDateTime, fmtDay, fmtDuration, fmtMoney, fmtTime } from "./format";
 import type { CashShiftFull } from "./types";
 
 type Flagged = CashShiftFull & { flags: ShiftFlag[] };
@@ -33,7 +33,7 @@ function buildRows(shifts: Flagged[]): Row[] {
         key: `${loc}|${reg}`,
         label: i === 0 ? label : "",
         unmapped: i === 0 && unmapped,
-        sub: registers.length > 1 ? own[0].cash_register_name ?? `касса ${reg}` : null,
+        sub: registers.length > 1 ? `№ ${reg} · ${own[0].cash_register_name ?? "без имени"}` : null,
         shifts: own,
       });
     });
@@ -82,12 +82,14 @@ function Legend() {
   );
 }
 
+const DIFF_STATUSES = new Set(["ACCEPTED", "HASWARNINGS"]);
+
 function ShiftDetails({ s }: { s: Flagged }) {
   return (
     <div className="space-y-3 text-sm">
       <div>
         <div className="font-semibold leading-snug">
-          {locationLabel(s)} · {s.cash_register_name ?? `касса ${s.cash_reg_number}`}
+          {locationLabel(s)} · № {s.cash_reg_number} · {s.cash_register_name ?? "без имени"}
         </div>
         <div className="mt-1 tabular-nums text-muted-foreground">
           {fmtDateTime(s.open_at)} → {s.close_at ? fmtDateTime(s.close_at) : "открыта"} ·{" "}
@@ -112,7 +114,8 @@ function ShiftDetails({ s }: { s: Flagged }) {
         </div>
       )}
       <div className="text-xs text-muted-foreground">
-        Смена № {s.session_number} · {s.status} · открыл: {s.responsible_user_name ?? "—"}
+        Смена № {s.session_number} · {STATUS_LABEL[s.status] ?? s.status} · открыл:{" "}
+        {s.responsible_user_name ?? "—"}
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 tabular-nums">
         <span className="text-muted-foreground">Заказы</span>
@@ -122,7 +125,13 @@ function ShiftDetails({ s }: { s: Flagged }) {
         <span className="text-muted-foreground">Карта</span>
         <span className="text-right">{fmtMoney(s.sales_card)}</span>
         <span className="text-muted-foreground">Расхождение</span>
-        <span className="text-right">{fmtMoney(s.cash_diff)}</span>
+        {/* iiko counts the cash only when a shift is accepted; before that
+            cash_diff is just minus the cash sales, not a shortage. */}
+        {DIFF_STATUSES.has(s.status) ? (
+          <span className="text-right">{fmtMoney(s.cash_diff)}</span>
+        ) : (
+          <span className="text-right text-muted-foreground">— (смена не принята)</span>
+        )}
       </div>
       {s.cashiers.length > 0 && (
         <div className="border-t pt-2">
