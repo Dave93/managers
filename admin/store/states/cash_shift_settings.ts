@@ -21,7 +21,13 @@ export const useCashShiftSettings = create<CashShiftSettingsState>()(
     }),
     {
       name: "cash-shift-widget-settings",
-      storage: createJSONStorage(() => localStorage),
+      // SSR-safe: window/localStorage is absent on the server. zustand calls
+      // this factory during render, so fall back to a no-op store there.
+      storage: createJSONStorage(() =>
+        typeof window !== "undefined"
+          ? window.localStorage
+          : ({ getItem: () => null, setItem: () => {}, removeItem: () => {} } as unknown as Storage)
+      ),
       version: 1,
     }
   )
