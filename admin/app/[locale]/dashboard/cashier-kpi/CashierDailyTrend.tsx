@@ -169,7 +169,7 @@ const CashierDailyTrend = () => {
             {/* Upper panel (~60% of the body): money — one axis. */}
             <div className="min-h-0" style={{ flex: "3 1 0%" }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <LineChart data={days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} syncId="cashier-trend">
                   <CartesianGrid vertical={false} strokeOpacity={0.4} />
                   <XAxis dataKey="day" tick={false} tickLine={false} axisLine={false} minTickGap={24} />
                   <YAxis
@@ -207,7 +207,7 @@ const CashierDailyTrend = () => {
             {/* Lower panel (~40% of the body): a plain count — its own axis. */}
             <div className="min-h-0" style={{ flex: "2 1 0%" }}>
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={days} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <LineChart data={days} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} syncId="cashier-trend">
                   <CartesianGrid vertical={false} strokeOpacity={0.4} />
                   <XAxis
                     dataKey="day"
@@ -222,7 +222,7 @@ const CashierDailyTrend = () => {
                     allowDecimals={false}
                     tickLine={false}
                     axisLine={false}
-                    width={32}
+                    width={52}
                     style={{ fontSize: 12, userSelect: "none" }}
                   />
                   <Tooltip content={<ChartTooltip />} />
