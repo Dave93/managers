@@ -14,6 +14,12 @@ import { useTerminalsFilter } from "@admin/components/filters/terminals/terminal
 import LoadingAnimation from "../LoadingAnimation";
 import OrderDistributionChart from "../OrderDistributionChart";
 import MobileSourcesTrendCard from "./MobileSourcesTrendCard";
+import StoplistByDay from "../StoplistByDay";
+import CashShiftsByDay from "../CashShiftsByDay";
+import CashierRevenueTop from "../cashier-kpi/CashierRevenueTop";
+import CashierAvgCheck from "../cashier-kpi/CashierAvgCheck";
+import CashierOrdersPerHour from "../cashier-kpi/CashierOrdersPerHour";
+import CashierDailyTrend from "../cashier-kpi/CashierDailyTrend";
 
 // ---- shared ----------------------------------------------------------------
 
@@ -429,6 +435,12 @@ export default function MobileDashboard() {
         <TileBoundary><MobileRankedList title="Доп. продажи по источникам" endpoint="basket-additional-sales-by-source" arrayKey="sources" /></TileBoundary>
         <TileBoundary><MobileRankedList title="Доп. продажи по группам" endpoint="basket-additional-sales-by-source-group" arrayKey="productSources" nameField="productName" subField="sourceName" /></TileBoundary>
         <TileBoundary><MobileSourcesTrendCard /></TileBoundary>
+        <CardWrap height="h-[520px]"><StoplistByDay /></CardWrap>
+        <CardWrap height="h-auto"><CashShiftsByDay /></CardWrap>
+        <CardWrap height="h-[420px]"><CashierRevenueTop /></CardWrap>
+        <CardWrap height="h-[420px]"><CashierAvgCheck /></CardWrap>
+        <CardWrap height="h-[420px]"><CashierOrdersPerHour /></CardWrap>
+        <CardWrap height="h-[440px]"><CashierDailyTrend /></CardWrap>
       </div>
     </div>
   );

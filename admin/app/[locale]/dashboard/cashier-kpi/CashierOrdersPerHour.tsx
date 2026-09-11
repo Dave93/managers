@@ -13,8 +13,8 @@ const fmtOrdersPerHour = (n: number) => `${n.toFixed(1)} зак/ч`;
 
 const CardSkeleton = () => <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />;
 
-// RankedBarCard has no subtitle slot, so the network figure lives in this
-// wrapper, right above the card, standing in for "under the title".
+// The network figure lives in RankedBarCard's subtitle slot, under the
+// title, so the card top lines up with the other cards in the row.
 const CashierOrdersPerHour = () => {
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
@@ -39,17 +39,18 @@ const CashierOrdersPerHour = () => {
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="text-xs text-muted-foreground">
-        Заказы в час по сети: {fmtOrdersPerHour(avg)} · только кассиры от {MIN_ORDERS_FOR_AVG} заказов · часы
-        смены делятся между кассирами по их доле заказов
-      </div>
       {query.isError ? (
         <p className="text-sm text-red-600 dark:text-red-400">{cashierKpiErrorMessage(query.error)}</p>
       ) : query.isLoading ? (
         <CardSkeleton />
       ) : (
         <div className="min-h-0 flex-1">
-          <RankedBarCard title="Кассиры: заказы в час" rows={rows} formatValue={fmtOrdersPerHour} />
+          <RankedBarCard
+            title="Кассиры: заказы в час"
+            rows={rows}
+            formatValue={fmtOrdersPerHour}
+            subtitle={`Заказы в час по сети: ${fmtOrdersPerHour(avg)} · только кассиры от ${MIN_ORDERS_FOR_AVG} заказов · часы смены делятся между кассирами по их доле заказов`}
+          />
         </div>
       )}
       <Footnote />

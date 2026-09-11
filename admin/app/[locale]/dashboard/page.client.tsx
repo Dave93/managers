@@ -117,7 +117,7 @@ export default function ChartsPageClient() {
             <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[480px] md:h-[600px]">
                 <StoplistByDay />
             </ChartWrapper>
-            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[560px] md:h-[680px]">
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-auto md:h-auto">
                 <CashShiftsByDay />
             </ChartWrapper>
             <ChartWrapper className="md:col-span-2">

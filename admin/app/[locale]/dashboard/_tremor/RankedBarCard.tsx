@@ -11,6 +11,10 @@ type Props = {
   title: string;
   rows: BranchRow[];
   formatValue: (n: number) => string;
+  /** Optional subtitle / metric line under the title. */
+  subtitle?: React.ReactNode;
+  /** Extra header controls (right side, before the org toggle). */
+  headerRight?: React.ReactNode;
   organization?: string | null;
   orgOptions?: OrgOption[];
   onOrganizationChange?: (id: string) => void;
@@ -25,6 +29,13 @@ const DeltaChip = ({ current, previous }: { current: number; previous: number | 
     );
   }
   const pct = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
+  if (Math.abs(pct) < 0.5) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground dark:bg-slate-800">
+        0%
+      </span>
+    );
+  }
   const up = pct >= 0;
   return (
     <span
@@ -42,6 +53,8 @@ export default function RankedBarCard({
   title,
   rows,
   formatValue,
+  subtitle,
+  headerRight,
   organization,
   orgOptions,
   onOrganizationChange,
@@ -56,28 +69,36 @@ export default function RankedBarCard({
     <Card className="flex h-full flex-col">
       <CardContent className="flex min-h-0 grow flex-col gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="text-sm font-semibold">{title}</div>
-          {orgOptions && orgOptions.length > 0 && onOrganizationChange && (
-            <div className="inline-flex shrink-0 overflow-hidden rounded-lg border">
-              <button
-                type="button"
-                data-active={!organization}
-                onClick={() => onOrganizationChange("")}
-                className="px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
-              >
-                Все
-              </button>
-              {orgOptions.map((o) => (
-                <button
-                  key={o.id}
-                  type="button"
-                  data-active={organization === o.id}
-                  onClick={() => onOrganizationChange(o.id)}
-                  className="border-l px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
-                >
-                  {o.label}
-                </button>
-              ))}
+          <div className="min-w-0">
+            <div className="text-sm font-semibold">{title}</div>
+            {subtitle && <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>}
+          </div>
+          {(headerRight || (orgOptions && orgOptions.length > 0 && onOrganizationChange)) && (
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {headerRight}
+              {orgOptions && orgOptions.length > 0 && onOrganizationChange && (
+                <div className="inline-flex shrink-0 overflow-hidden rounded-lg border">
+                  <button
+                    type="button"
+                    data-active={!organization}
+                    onClick={() => onOrganizationChange("")}
+                    className="px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
+                  >
+                    Все
+                  </button>
+                  {orgOptions.map((o) => (
+                    <button
+                      key={o.id}
+                      type="button"
+                      data-active={organization === o.id}
+                      onClick={() => onOrganizationChange(o.id)}
+                      className="border-l px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

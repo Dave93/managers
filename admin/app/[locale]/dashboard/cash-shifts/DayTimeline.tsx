@@ -159,21 +159,21 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
   const pct = (t: number) => `${((t - axis.startMs) / span) * 100}%`;
 
   if (shifts.length === 0) {
-    return <p className="text-sm text-muted-foreground">В этот день смен нет.</p>;
+    return <p className="flex min-h-[200px] items-center text-sm text-muted-foreground">В этот день смен нет.</p>;
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">
           {fmtDay(day)} <span className="font-normal text-muted-foreground">· касс: {rows.length}</span>
         </span>
         <Legend />
       </div>
-      <div className="min-h-0 flex-1 overflow-auto rounded-md border">
+      <div className="max-h-[480px] overflow-auto rounded-md border">
         <div className="relative min-w-[720px]">
           <div className="sticky top-0 z-10 flex h-7 items-center border-b bg-card text-xs text-muted-foreground">
-            <div className="w-56 shrink-0 px-3">Филиал / касса</div>
+            <div className="sticky left-0 z-10 w-32 shrink-0 bg-card px-3 sm:w-56">Филиал / касса</div>
             <div className="relative mr-6 h-full flex-1">
               {axis.ticks.map((t) => (
                 <span
@@ -188,7 +188,7 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
           </div>
           <div className="relative">
             {/* Hour grid behind the bars. */}
-            <div aria-hidden className="pointer-events-none absolute inset-y-0 left-56 right-6">
+            <div aria-hidden className="pointer-events-none absolute inset-y-0 left-32 right-6 sm:left-56">
               {axis.ticks.map((t) => (
                 <div key={t} className="absolute inset-y-0 border-l border-border/70" style={{ left: pct(t) }} />
               ))}
@@ -201,7 +201,7 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
                 {/* Location on top, register below: a long branch name never
                     squeezes the register name out, and vice versa. */}
                 <div
-                  className="w-56 shrink-0 overflow-hidden px-3"
+                  className="sticky left-0 z-10 w-32 shrink-0 overflow-hidden bg-card px-3 sm:w-56"
                   title={[r.label, r.sub].filter(Boolean).join(" · ") || undefined}
                 >
                   {r.label && (

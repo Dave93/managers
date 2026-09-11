@@ -12,8 +12,8 @@ import Footnote from "./Footnote";
 
 const CardSkeleton = () => <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />;
 
-// RankedBarCard has no subtitle slot, so the network-average line lives in
-// this wrapper, right above the card, standing in for "under the title".
+// The network-average line lives in RankedBarCard's subtitle slot, under
+// the title, so the card top lines up with the other cards in the row.
 const CashierAvgCheck = () => {
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
@@ -35,16 +35,18 @@ const CashierAvgCheck = () => {
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="text-xs text-muted-foreground">
-        Средний чек по сети: {fmtMoney(avg)} · только кассиры от {MIN_ORDERS_FOR_AVG} заказов
-      </div>
       {query.isError ? (
         <p className="text-sm text-red-600 dark:text-red-400">{cashierKpiErrorMessage(query.error)}</p>
       ) : query.isLoading ? (
         <CardSkeleton />
       ) : (
         <div className="min-h-0 flex-1">
-          <RankedBarCard title="Кассиры: средний чек" rows={rows} formatValue={fmtMoney} />
+          <RankedBarCard
+            title="Кассиры: средний чек"
+            rows={rows}
+            formatValue={fmtMoney}
+            subtitle={`Средний чек по сети: ${fmtMoney(avg)} · только кассиры от ${MIN_ORDERS_FOR_AVG} заказов`}
+          />
         </div>
       )}
       <Footnote />

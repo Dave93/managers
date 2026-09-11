@@ -127,9 +127,9 @@ const CashShiftsByDay = () => {
         </div>
         <SettingsPopover />
       </CardHeader>
-      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+      <CardContent className="flex flex-col gap-4">
         {listQuery.isError ? (
-          <p className="text-sm text-red-600 dark:text-red-400">{listError}</p>
+          <p className="flex min-h-[200px] items-center text-sm text-red-600 dark:text-red-400">{listError}</p>
         ) : listQuery.isLoading ? (
           <StripSkeleton />
         ) : (
@@ -137,7 +137,7 @@ const CashShiftsByDay = () => {
         )}
         {activeDay &&
           (dayQuery.isError ? (
-            <p className="text-sm text-red-600 dark:text-red-400">Не удалось загрузить день.</p>
+            <p className="flex min-h-[200px] items-center text-sm text-red-600 dark:text-red-400">Не удалось загрузить день.</p>
           ) : dayQuery.isLoading ? (
             <TimelineSkeleton />
           ) : (

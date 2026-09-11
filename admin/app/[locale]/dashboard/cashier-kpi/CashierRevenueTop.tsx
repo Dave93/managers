@@ -12,8 +12,8 @@ import Footnote from "./Footnote";
 
 const CardSkeleton = () => <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />;
 
-// Ranked bar card has no built-in "show more" slot, so the toggle button
-// lives in this wrapper, above the card, per the brief.
+// The "show more" toggle lives in RankedBarCard's headerRight slot so the
+// card top lines up with the other cards in the row.
 const CashierRevenueTop = () => {
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
@@ -34,22 +34,26 @@ const CashierRevenueTop = () => {
 
   return (
     <div className="flex h-full flex-col gap-2">
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={() => setExpanded((v) => !v)}
-          className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
-        >
-          {expanded ? "Свернуть" : "Показать 25"}
-        </button>
-      </div>
       {query.isError ? (
         <p className="text-sm text-red-600 dark:text-red-400">{cashierKpiErrorMessage(query.error)}</p>
       ) : query.isLoading ? (
         <CardSkeleton />
       ) : (
         <div className="min-h-0 flex-1">
-          <RankedBarCard title="Кассиры: выручка" rows={rows} formatValue={fmtMoney} />
+          <RankedBarCard
+            title="Кассиры: выручка"
+            rows={rows}
+            formatValue={fmtMoney}
+            headerRight={
+              <button
+                type="button"
+                onClick={() => setExpanded((v) => !v)}
+                className="shrink-0 text-xs font-medium text-muted-foreground hover:text-foreground"
+              >
+                {expanded ? "Свернуть" : "Показать 25"}
+              </button>
+            }
+          />
         </div>
       )}
       <Footnote />
