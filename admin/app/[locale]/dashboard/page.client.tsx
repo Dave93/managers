@@ -33,6 +33,10 @@ import BasketAdditionalSalesBySourceGroup from "./BasketAdditionalSalesBySourceG
 import BasketAdditionalSalesTrendChart from "./BasketAdditionalSalesTrendChart";
 import StoplistByDay from "./StoplistByDay";
 import CashShiftsByDay from "./CashShiftsByDay";
+import CashierRevenueTop from "./cashier-kpi/CashierRevenueTop";
+import CashierAvgCheck from "./cashier-kpi/CashierAvgCheck";
+import CashierOrdersPerHour from "./cashier-kpi/CashierOrdersPerHour";
+import CashierDailyTrend from "./cashier-kpi/CashierDailyTrend";
 
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -115,6 +119,18 @@ export default function ChartsPageClient() {
             </ChartWrapper>
             <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[560px] md:h-[680px]">
                 <CashShiftsByDay />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierRevenueTop />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierAvgCheck />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierOrdersPerHour />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4">
+                <CashierDailyTrend />
             </ChartWrapper>
         </>
     )
