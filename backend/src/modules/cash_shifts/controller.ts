@@ -175,7 +175,7 @@ const cashShiftsControllerImpl = new Elysia({ name: "@api/cash_shifts", prefix: 
             SELECT cs.id, cs.terminal_id, t.name AS terminal_name, cs.business_date,
                    CASE WHEN cs.close_at IS NULL THEN 0
                         ELSE EXTRACT(epoch FROM (cs.close_at - cs.open_at)) / 3600.0 END AS hours,
-                   (SELECT sum(x.orders_count) FROM cash_shift_cashiers x WHERE x.shift_id = cs.id) AS shift_orders,
+                   (SELECT sum(x.orders_count) FROM cash_shift_cashiers x WHERE x.shift_id = cs.id AND x.cashier_id <> '00000000-0000-0000-0000-000000000000'::uuid) AS shift_orders,
                    CASE WHEN cs.business_date BETWEEN b.d_from AND b.d_to THEN 'cur' ELSE 'prev' END AS period
             FROM cash_shifts cs
             LEFT JOIN terminals t ON t.id = cs.terminal_id
