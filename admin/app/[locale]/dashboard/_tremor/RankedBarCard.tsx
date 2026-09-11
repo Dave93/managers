@@ -16,7 +16,14 @@ type Props = {
   onOrganizationChange?: (id: string) => void;
 };
 
-const DeltaChip = ({ current, previous }: { current: number; previous: number }) => {
+const DeltaChip = ({ current, previous }: { current: number; previous: number | null | undefined }) => {
+  if (previous == null) {
+    return (
+      <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground dark:bg-slate-800">
+        новый
+      </span>
+    );
+  }
   const pct = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
   const up = pct >= 0;
   return (
@@ -88,7 +95,7 @@ export default function RankedBarCard({
               </div>
               <span className="w-20 shrink-0 text-right text-xs font-bold tabular-nums">{formatValue(r.current)}</span>
               <span className="w-12 shrink-0 text-right">
-                <DeltaChip current={r.current} previous={r.previous ?? 0} />
+                <DeltaChip current={r.current} previous={r.previous} />
               </span>
             </div>
           ))}

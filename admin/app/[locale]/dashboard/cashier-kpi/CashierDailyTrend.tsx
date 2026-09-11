@@ -3,7 +3,6 @@
 import React from "react";
 import {
   CartesianGrid,
-  Legend,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -31,6 +30,8 @@ import Footnote from "./Footnote";
 // card surface. Green = the primary "revenue per cashier" series (matches
 // the rest of the dashboard's "current" line color), blue = the secondary
 // "active cashiers" count, amber = the optional per-cashier overlay.
+// Two stacked single-axis panels (dataviz skill forbids dual axes), one
+// shared legend for the whole card.
 const COLOR_REVENUE_PER_CASHIER = "#16a34a";
 const COLOR_ACTIVE_CASHIERS = "#2563eb";
 const COLOR_SELECTED_CASHIER = "#d97706";
@@ -65,6 +66,21 @@ function ChartTooltip({ active, payload, label }: any) {
   );
 }
 
+// One legend for the whole card (two panels below share it) instead of a
+// recharts <Legend> per panel.
+function CardLegend({ items }: { items: { color: string; label: string }[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+      {items.map((it) => (
+        <span key={it.label} className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-sm" style={{ background: it.color }} />
+          {it.label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
 const CashierDailyTrend = () => {
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
@@ -95,6 +111,16 @@ const CashierDailyTrend = () => {
     }));
   }, [kpiQuery.data]);
 
+  // The date range or terminal filter can change the cashier list under a
+  // selection made earlier — drop it back to "all" rather than render an
+  // empty "Выбранный кассир" line for a cashier no longer in scope.
+  React.useEffect(() => {
+    if (!kpiQuery.data) return;
+    if (cashierId && !cashierOptions.some((o) => o.id === cashierId)) {
+      setCashierId(null);
+    }
+  }, [kpiQuery.data, cashierOptions, cashierId]);
+
   const selectedLabel = cashierOptions.find((o) => o.id === cashierId)?.label ?? null;
 
   const days = dailyQuery.data?.days ?? [];
@@ -104,6 +130,14 @@ const CashierDailyTrend = () => {
       ? cashierKpiErrorMessage(kpiQuery.error)
       : null;
   const loading = dailyQuery.isLoading || kpiQuery.isLoading;
+
+  const legendItems = [
+    { color: COLOR_REVENUE_PER_CASHIER, label: "Выручка на кассира" },
+    ...(cashierId
+      ? [{ color: COLOR_SELECTED_CASHIER, label: selectedLabel ? `Выбранный кассир: ${selectedLabel}` : "Выбранный кассир" }]
+      : []),
+    { color: COLOR_ACTIVE_CASHIERS, label: "Активных кассиров" },
+  ];
 
   return (
     <ChartCard
@@ -130,73 +164,80 @@ const CashierDailyTrend = () => {
         ) : loading ? (
           <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />
         ) : (
-          <div className="min-h-0 flex-1">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <CartesianGrid vertical={false} strokeOpacity={0.4} />
-                <XAxis
-                  dataKey="day"
-                  tickFormatter={fmtDay}
-                  tickLine={false}
-                  axisLine={false}
-                  minTickGap={24}
-                  tickMargin={8}
-                  style={{ fontSize: 12, userSelect: "none" }}
-                />
-                <YAxis
-                  yAxisId="left"
-                  tickFormatter={formatCompactMoney}
-                  tickLine={false}
-                  axisLine={false}
-                  width={52}
-                  style={{ fontSize: 12, userSelect: "none" }}
-                />
-                <YAxis
-                  yAxisId="right"
-                  orientation="right"
-                  allowDecimals={false}
-                  tickLine={false}
-                  axisLine={false}
-                  width={32}
-                  style={{ fontSize: 12, userSelect: "none" }}
-                />
-                <Tooltip content={<ChartTooltip />} />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Line
-                  yAxisId="left"
-                  type="monotone"
-                  dataKey="revenue_per_cashier"
-                  name="Выручка на кассира"
-                  stroke={COLOR_REVENUE_PER_CASHIER}
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                <Line
-                  yAxisId="right"
-                  type="monotone"
-                  dataKey="active_cashiers"
-                  name="Активных кассиров"
-                  stroke={COLOR_ACTIVE_CASHIERS}
-                  strokeWidth={2}
-                  dot={false}
-                  isAnimationActive={false}
-                />
-                {cashierId && (
+          <div className="flex min-h-0 flex-1 flex-col gap-1">
+            <CardLegend items={legendItems} />
+            {/* Upper panel (~60% of the body): money — one axis. */}
+            <div className="min-h-0" style={{ flex: "3 1 0%" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={days} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeOpacity={0.4} />
+                  <XAxis dataKey="day" tick={false} tickLine={false} axisLine={false} minTickGap={24} />
+                  <YAxis
+                    tickFormatter={formatCompactMoney}
+                    tickLine={false}
+                    axisLine={false}
+                    width={52}
+                    style={{ fontSize: 12, userSelect: "none" }}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
                   <Line
-                    yAxisId="left"
                     type="monotone"
-                    dataKey="cashier_revenue"
-                    name={selectedLabel ? `Выбранный кассир: ${selectedLabel}` : "Выбранный кассир"}
-                    stroke={COLOR_SELECTED_CASHIER}
+                    dataKey="revenue_per_cashier"
+                    name="Выручка на кассира"
+                    stroke={COLOR_REVENUE_PER_CASHIER}
                     strokeWidth={2}
                     dot={false}
-                    connectNulls
                     isAnimationActive={false}
                   />
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+                  {cashierId && (
+                    <Line
+                      type="monotone"
+                      dataKey="cashier_revenue"
+                      name={selectedLabel ? `Выбранный кассир: ${selectedLabel}` : "Выбранный кассир"}
+                      stroke={COLOR_SELECTED_CASHIER}
+                      strokeWidth={2}
+                      dot={false}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            {/* Lower panel (~40% of the body): a plain count — its own axis. */}
+            <div className="min-h-0" style={{ flex: "2 1 0%" }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={days} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeOpacity={0.4} />
+                  <XAxis
+                    dataKey="day"
+                    tickFormatter={fmtDay}
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={24}
+                    tickMargin={8}
+                    style={{ fontSize: 12, userSelect: "none" }}
+                  />
+                  <YAxis
+                    allowDecimals={false}
+                    tickLine={false}
+                    axisLine={false}
+                    width={32}
+                    style={{ fontSize: 12, userSelect: "none" }}
+                  />
+                  <Tooltip content={<ChartTooltip />} />
+                  <Line
+                    type="monotone"
+                    dataKey="active_cashiers"
+                    name="Активных кассиров"
+                    stroke={COLOR_ACTIVE_CASHIERS}
+                    strokeWidth={2}
+                    dot={false}
+                    isAnimationActive={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         )}
         <Footnote />
