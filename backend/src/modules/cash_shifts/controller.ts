@@ -6,6 +6,7 @@ import { resolveTerminalScope, scopeFilter } from "./scope";
 const TZ = "Asia/Tashkent";
 const MAX_RANGE_DAYS = 92;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const unwrapRows = (res: unknown): any[] =>
   Array.isArray(res) ? (res as any[]) : (((res as any)?.rows ?? []) as any[]);
@@ -134,6 +135,180 @@ const cashShiftsControllerImpl = new Elysia({ name: "@api/cash_shifts", prefix: 
       query: t.Object({
         day: t.String(),
         terminals: t.Optional(t.String()),
+      }),
+    } as any
+  )
+  // Level 3: per-cashier KPIs for the window plus the immediately preceding
+  // window of the same length (delta chip in the UI). Hours are apportioned
+  // to a shift's cashiers in proportion to their orders_count.
+  .get(
+    "/cash_shifts/cashiers",
+    async (c: any) => {
+      const { query, set, drizzle } = c;
+      const startMs = Date.parse(query.startDate);
+      const endMs = Date.parse(query.endDate);
+      if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+        set.status = 422;
+        return { message: "startDate and endDate must be ISO dates, startDate <= endDate" };
+      }
+      if ((endMs - startMs) / 86_400_000 > MAX_RANGE_DAYS) {
+        set.status = 400;
+        return { message: `period is limited to ${MAX_RANGE_DAYS} days` };
+      }
+      const scope = resolveTerminalScope(query.terminals, c.terminals as string[] | undefined);
+      const boundsRows = unwrapRows(
+        await drizzle.execute(sql`
+          SELECT to_char(b.d_from, 'YYYY-MM-DD') AS d_from,
+                 to_char(b.d_to, 'YYYY-MM-DD') AS d_to,
+                 to_char(b.d_from - (b.d_to - b.d_from + 1), 'YYYY-MM-DD') AS prev_from,
+                 to_char(b.d_from - 1, 'YYYY-MM-DD') AS prev_to
+          FROM (SELECT (${query.startDate}::timestamptz AT TIME ZONE ${TZ})::date AS d_from,
+                       (${query.endDate}::timestamptz AT TIME ZONE ${TZ})::date AS d_to) b`)
+      );
+      const bounds = boundsRows[0] ?? {};
+      const rows = unwrapRows(
+        await drizzle.execute(sql`
+          WITH bounds AS (
+            SELECT (${query.startDate}::timestamptz AT TIME ZONE ${TZ})::date AS d_from,
+                   (${query.endDate}::timestamptz AT TIME ZONE ${TZ})::date AS d_to
+          ), scope AS (
+            SELECT cs.id, cs.terminal_id, t.name AS terminal_name, cs.business_date,
+                   CASE WHEN cs.close_at IS NULL THEN 0
+                        ELSE EXTRACT(epoch FROM (cs.close_at - cs.open_at)) / 3600.0 END AS hours,
+                   (SELECT sum(x.orders_count) FROM cash_shift_cashiers x WHERE x.shift_id = cs.id) AS shift_orders,
+                   CASE WHEN cs.business_date BETWEEN b.d_from AND b.d_to THEN 'cur' ELSE 'prev' END AS period
+            FROM cash_shifts cs
+            LEFT JOIN terminals t ON t.id = cs.terminal_id
+            CROSS JOIN bounds b
+            WHERE cs.business_date BETWEEN b.d_from - (b.d_to - b.d_from + 1) AND b.d_to
+            ${scopeFilter(scope)}
+          )
+          SELECT s.period,
+                 c.cashier_id,
+                 max(c.cashier_name) AS cashier_name,
+                 max(c.cashier_code) AS cashier_code,
+                 mode() WITHIN GROUP (ORDER BY s.terminal_name) AS terminal_name,
+                 count(*)::int AS shifts,
+                 sum(c.orders_count)::int AS orders,
+                 sum(c.revenue) AS revenue,
+                 sum(CASE WHEN coalesce(s.shift_orders, 0) = 0 THEN 0
+                          ELSE s.hours * (c.orders_count::numeric / s.shift_orders) END) AS hours
+          FROM cash_shift_cashiers c
+          JOIN scope s ON s.id = c.shift_id
+          WHERE c.cashier_id <> '00000000-0000-0000-0000-000000000000'::uuid
+          GROUP BY s.period, c.cashier_id`)
+      );
+      const byId = new Map<string, { cur?: any; prev?: any }>();
+      for (const r of rows) {
+        const id = String(r.cashier_id);
+        const entry = byId.get(id) ?? {};
+        entry[r.period as "cur" | "prev"] = r;
+        byId.set(id, entry);
+      }
+      const metrics = (r: any) => {
+        const revenue = num(r.revenue);
+        const hours = num(r.hours);
+        const orders = num(r.orders);
+        return {
+          shifts: num(r.shifts),
+          orders,
+          revenue,
+          hours,
+          avg_check: orders > 0 ? revenue / orders : 0,
+          orders_per_hour: hours > 0 ? orders / hours : 0,
+          revenue_per_hour: hours > 0 ? revenue / hours : 0,
+        };
+      };
+      const cashiers: any[] = [];
+      for (const [id, entry] of byId) {
+        if (!entry.cur) continue;
+        cashiers.push({
+          cashier_id: id,
+          cashier_name: entry.cur.cashier_name ?? null,
+          cashier_code: entry.cur.cashier_code ?? null,
+          terminal_name: entry.cur.terminal_name ?? null,
+          ...metrics(entry.cur),
+          prev: entry.prev ? metrics(entry.prev) : null,
+        });
+      }
+      cashiers.sort((a, b) => b.revenue - a.revenue);
+      return {
+        from: bounds.d_from ?? null,
+        to: bounds.d_to ?? null,
+        prev_from: bounds.prev_from ?? null,
+        prev_to: bounds.prev_to ?? null,
+        cashiers,
+      };
+    },
+    {
+      permission: "charts.list",
+      query: t.Object({
+        startDate: t.String(),
+        endDate: t.String(),
+        terminals: t.Optional(t.String()),
+      }),
+    } as any
+  )
+  // Level 4: daily series for the window, optionally split out one cashier
+  // via FILTER; cashier_* stay null when cashierId is absent or malformed.
+  .get(
+    "/cash_shifts/cashiers/daily",
+    async (c: any) => {
+      const { query, set, drizzle } = c;
+      const startMs = Date.parse(query.startDate);
+      const endMs = Date.parse(query.endDate);
+      if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs < startMs) {
+        set.status = 422;
+        return { message: "startDate and endDate must be ISO dates, startDate <= endDate" };
+      }
+      if ((endMs - startMs) / 86_400_000 > MAX_RANGE_DAYS) {
+        set.status = 400;
+        return { message: `period is limited to ${MAX_RANGE_DAYS} days` };
+      }
+      const scope = resolveTerminalScope(query.terminals, c.terminals as string[] | undefined);
+      const cashierId =
+        typeof query.cashierId === "string" && UUID_RE.test(query.cashierId) ? query.cashierId : null;
+      const cashierFilter = cashierId ? sql`c.cashier_id = ${cashierId}::uuid` : sql`false`;
+      const rows = unwrapRows(
+        await drizzle.execute(sql`
+          SELECT to_char(cs.business_date, 'YYYY-MM-DD') AS day,
+                 sum(c.revenue) AS revenue,
+                 sum(c.orders_count)::int AS orders,
+                 count(DISTINCT c.cashier_id)::int AS active_cashiers,
+                 sum(c.revenue) FILTER (WHERE ${cashierFilter}) AS cashier_revenue,
+                 sum(c.orders_count) FILTER (WHERE ${cashierFilter}) AS cashier_orders
+          FROM cash_shift_cashiers c
+          JOIN cash_shifts cs ON cs.id = c.shift_id
+          WHERE cs.business_date
+                BETWEEN (${query.startDate}::timestamptz AT TIME ZONE ${TZ})::date
+                    AND (${query.endDate}::timestamptz AT TIME ZONE ${TZ})::date
+            AND c.cashier_id <> '00000000-0000-0000-0000-000000000000'::uuid
+            ${scopeFilter(scope)}
+          GROUP BY cs.business_date
+          ORDER BY cs.business_date ASC`)
+      );
+      const days = rows.map((r: any) => {
+        const revenue = num(r.revenue);
+        const activeCashiers = num(r.active_cashiers);
+        return {
+          day: String(r.day),
+          revenue,
+          orders: num(r.orders),
+          active_cashiers: activeCashiers,
+          revenue_per_cashier: activeCashiers > 0 ? revenue / activeCashiers : 0,
+          cashier_revenue: cashierId ? num(r.cashier_revenue) : null,
+          cashier_orders: cashierId ? num(r.cashier_orders) : null,
+        };
+      });
+      return { days };
+    },
+    {
+      permission: "charts.list",
+      query: t.Object({
+        startDate: t.String(),
+        endDate: t.String(),
+        terminals: t.Optional(t.String()),
+        cashierId: t.Optional(t.String()),
       }),
     } as any
   );
