@@ -169,6 +169,13 @@
       "when": 1789060051505,
       "tag": "0023_cash_shifts",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789360175225,
+      "tag": "0024_tickets_core",
+      "breakpoints": true
     }
   ]
 }

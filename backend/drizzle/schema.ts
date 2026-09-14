@@ -2147,3 +2147,243 @@ export const cash_shift_cashiers = pgTable(
     };
   }
 );
+
+export const ticket_status = pgEnum("ticket_status", [
+  "new",
+  "in_progress",
+  "done",
+  "closed",
+  "cancelled",
+]);
+
+export const ticket_priority = pgEnum("ticket_priority", ["normal", "urgent"]);
+
+export const ticket_executor_kind = pgEnum("ticket_executor_kind", ["external", "staff"]);
+
+export const ticket_attachment_phase = pgEnum("ticket_attachment_phase", ["problem", "result"]);
+
+export const ticket_payment_status = pgEnum("ticket_payment_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const ticket_actor_kind = pgEnum("ticket_actor_kind", [
+  "manager",
+  "executor",
+  "office",
+  "system",
+]);
+
+export const ticket_event_type = pgEnum("ticket_event_type", [
+  "created",
+  "assigned",
+  "comment",
+  "done_submitted",
+  "reopened",
+  "closed",
+  "cancelled",
+  "payment_approved",
+  "payment_rejected",
+]);
+
+export const ticket_notification_kind = pgEnum("ticket_notification_kind", ["send", "edit"]);
+
+export const ticket_notification_status = pgEnum("ticket_notification_status", [
+  "pending",
+  "sending",
+  "sent",
+  "failed",
+]);
+
+export const ticket_contractors = pgTable("ticket_contractors", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  note: text("note"),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const ticket_types = pgTable(
+  "ticket_types",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    code: varchar("code", { length: 50 }).notNull(),
+    number_prefix: varchar("number_prefix", { length: 5 }).notNull(),
+    name_ru: varchar("name_ru", { length: 255 }).notNull(),
+    name_uz: varchar("name_uz", { length: 255 }).notNull(),
+    icon: varchar("icon", { length: 50 }),
+    executor_kind: ticket_executor_kind("executor_kind").notNull(),
+    contractor_id: uuid("contractor_id").references(() => ticket_contractors.id),
+    fields_schema: jsonb("fields_schema").default([]).notNull(),
+    requires_cost: boolean("requires_cost").default(true).notNull(),
+    active: boolean("active").default(true).notNull(),
+    sort: integer("sort").default(0).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    code_idx: uniqueIndex("idx_ticket_types_code").on(table.code),
+  })
+);
+
+export const ticket_executors = pgTable(
+  "ticket_executors",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    kind: ticket_executor_kind("kind").notNull(),
+    contractor_id: uuid("contractor_id").references(() => ticket_contractors.id),
+    user_id: uuid("user_id"),
+    full_name: varchar("full_name", { length: 255 }).notNull(),
+    phone: varchar("phone", { length: 50 }),
+    tg_user_id: bigint("tg_user_id", { mode: "number" }),
+    lang: varchar("lang", { length: 10 }).default("ru").notNull(),
+    invite_code: uuid("invite_code").defaultRandom().notNull(),
+    invite_used_at: timestamp("invite_used_at", { withTimezone: true, mode: "string" }),
+    is_active: boolean("is_active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    tg_user_id_idx: uniqueIndex("idx_ticket_executors_tg_user_id").on(table.tg_user_id),
+    invite_code_idx: uniqueIndex("idx_ticket_executors_invite_code").on(table.invite_code),
+    contractor_idx: index("idx_ticket_executors_contractor_id").on(table.contractor_id),
+  })
+);
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    seq: serial("seq").notNull(),
+    type_id: uuid("type_id").references(() => ticket_types.id).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    status: ticket_status("status").default("new").notNull(),
+    priority: ticket_priority("priority").default("normal").notNull(),
+    details: jsonb("details").default({}).notNull(),
+    description: text("description"),
+    created_by: uuid("created_by").notNull(),
+    assigned_executor_id: uuid("assigned_executor_id").references(() => ticket_executors.id),
+    assigned_at: timestamp("assigned_at", { withTimezone: true, mode: "string" }),
+    done_at: timestamp("done_at", { withTimezone: true, mode: "string" }),
+    closed_at: timestamp("closed_at", { withTimezone: true, mode: "string" }),
+    cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "string" }),
+    closed_by: uuid("closed_by"),
+    cancelled_by: uuid("cancelled_by"),
+    reopen_count: integer("reopen_count").default(0).notNull(),
+    work_total_amount: numeric("work_total_amount", { precision: 14, scale: 2 }),
+    payment_status: ticket_payment_status("payment_status").default("pending").notNull(),
+    payment_approved_by: uuid("payment_approved_by"),
+    payment_approved_at: timestamp("payment_approved_at", { withTimezone: true, mode: "string" }),
+    payment_comment: text("payment_comment"),
+    manager_seen_at: timestamp("manager_seen_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    terminal_idx: index("idx_tickets_terminal_id").on(table.terminal_id),
+    status_idx: index("idx_tickets_status").on(table.status),
+    type_idx: index("idx_tickets_type_id").on(table.type_id),
+    created_at_idx: index("idx_tickets_created_at").on(table.created_at),
+    executor_idx: index("idx_tickets_assigned_executor_id").on(table.assigned_executor_id),
+  })
+);
+
+export const ticket_attachments = pgTable(
+  "ticket_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    phase: ticket_attachment_phase("phase").notNull(),
+    file_path: text("file_path").notNull(),
+    mime: varchar("mime", { length: 100 }).notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    uploaded_by_kind: ticket_actor_kind("uploaded_by_kind").notNull(),
+    uploaded_by_user_id: uuid("uploaded_by_user_id"),
+    uploaded_by_executor_id: uuid("uploaded_by_executor_id"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_attachments_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_comments = pgTable(
+  "ticket_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    author_kind: ticket_actor_kind("author_kind").notNull(),
+    author_user_id: uuid("author_user_id"),
+    author_executor_id: uuid("author_executor_id"),
+    body: text("body").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_comments_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_work_items = pgTable(
+  "ticket_work_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    position: integer("position").notNull(),
+    title: text("title").notNull(),
+    qty: numeric("qty", { precision: 10, scale: 2 }).default("1").notNull(),
+    unit: varchar("unit", { length: 20 }),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_work_items_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_events = pgTable(
+  "ticket_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    type: ticket_event_type("type").notNull(),
+    actor_kind: ticket_actor_kind("actor_kind").notNull(),
+    actor_user_id: uuid("actor_user_id"),
+    actor_executor_id: uuid("actor_executor_id"),
+    payload: jsonb("payload").default({}).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_events_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_notifications = pgTable(
+  "ticket_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    event_id: uuid("event_id").references(() => ticket_events.id).notNull(),
+    channel: varchar("channel", { length: 20 }).default("telegram").notNull(),
+    recipient_executor_id: uuid("recipient_executor_id").references(() => ticket_executors.id),
+    recipient_chat_id: bigint("recipient_chat_id", { mode: "number" }).notNull(),
+    kind: ticket_notification_kind("kind").default("send").notNull(),
+    target_message_id: bigint("target_message_id", { mode: "number" }),
+    status: ticket_notification_status("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    last_error: text("last_error"),
+    tg_message_id: bigint("tg_message_id", { mode: "number" }),
+    sent_at: timestamp("sent_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dedupe_idx: uniqueIndex("idx_ticket_notifications_dedupe").on(
+      table.event_id,
+      table.recipient_chat_id,
+      table.kind
+    ),
+    pending_idx: index("idx_ticket_notifications_status").on(table.status, table.created_at),
+  })
+);
