@@ -1,0 +1,491 @@
+import { Queue, Worker, DelayedError, type Job } from "bullmq";
+import { and, asc, eq, sql } from "drizzle-orm";
+import { drizzleDb } from "@backend/lib/db";
+import {
+  ticket_notifications,
+  ticket_events,
+  tickets,
+  ticket_types,
+  terminals,
+  ticket_executors,
+} from "backend/drizzle/schema";
+import { buildMessage, type MessageEvent } from "@backend/modules/tickets/messages";
+import { editMessageText, sendMessage } from "@backend/modules/tickets/telegram";
+import { TICKETS_QUEUE, TICKETS_SWEEP_JOB, jobOptions, redisConnection } from "@backend/modules/tickets/queue";
+import type { FieldDef } from "@backend/modules/tickets/fields";
+
+const BOT_TOKEN = process.env.TICKETS_BOT_TOKEN ?? "";
+const MINIAPP_URL = process.env.TICKETS_MINIAPP_URL ?? "https://api.office.lesailes.uz/tickets-app/";
+
+if (!BOT_TOKEN) {
+  console.error("tickets worker: TICKETS_BOT_TOKEN не задан — доставка невозможна");
+  process.exit(1);
+}
+
+// Правки текстов сообщений живут в backend, но исполняет их ЭТОТ процесс:
+// после деплоя бэкенда его нужно перезапускать отдельно, иначе бот шлёт
+// старые формулировки при уже новом API.
+const queue = new Queue(TICKETS_QUEUE, { connection: redisConnection() });
+queue.on("error", (e) => console.error("tickets-notify queue error", e));
+
+queue
+  .upsertJobScheduler(
+    TICKETS_SWEEP_JOB,
+    { pattern: "*/5 * * * *" },
+    {
+      name: TICKETS_SWEEP_JOB,
+      // Без этого повторяющееся задание подметалки копило бы завершённые
+      // прогоны в Redis без предела — ровно то, что раздуло очередь arryt до
+      // 3.41 ГБ (см. память по BullMQ bloat).
+      opts: { removeOnComplete: { count: 10 }, removeOnFail: { age: 86400 } },
+    }
+  )
+  .catch((e) => console.error("tickets worker: sweep registration failed", e));
+
+const EVENT_TO_MESSAGE: Record<string, MessageEvent> = {
+  created: "created",
+  comment: "comment",
+  reopened: "reopened",
+  closed: "closed",
+  cancelled: "cancelled",
+};
+
+// Сигнал "у этого типа события нет известного текста, и это не 'assigned'
+// (единственный тип, который сознательно обрабатывается отдельным if, а не
+// через карту выше)". Раньше такое молча превращалось в messageEvent =
+// "created" — открытый дефолт, который для будущего типа события (Plan 3
+// собирается добавить routing для assigned/done_submitted) отправил бы
+// подрядчику текст "новая заявка" с живой кнопкой "Беру" на событие, которое
+// вообще не про новую заявку. Заводим для этого случая свой класс ошибки,
+// чтобы общий catch ниже мог отличить "не знаем, что за событие" (постоянно,
+// ретраить нечего, схема не изменится) от временного сбоя чтения БД.
+class UnmappedEventError extends Error {}
+
+// job.attemptsMade — число УЖЕ состоявшихся попыток (0 на первом прогоне),
+// job.opts.attempts — потолок (5, см. jobOptions в queue.ts). Если текущая
+// попытка последняя, обычный ретрай очереди больше не наступит: строку
+// нельзя вернуть в 'pending', иначе она застрянет там навсегда — job уйдёт в
+// 'failed' и переживёт finding #1 (у BullMQ 'failed' — тоже "id занят", и
+// подметалка, которая смотрит только 'pending', никогда не перевыставит эту
+// заявку в очередь).
+function isLastAttempt(job: Job): boolean {
+  return job.attemptsMade + 1 >= (job.opts.attempts ?? 1);
+}
+
+// Вынесено отдельной функцией только чтобы deliver() мог обернуть await в
+// try/catch, сохранив вывод типа результата (без этого пришлось бы объявлять
+// тип ctx вручную или терять типизацию через any).
+function fetchTicketContext(eventId: string) {
+  return drizzleDb
+    .select({
+      ticket_id: ticket_events.ticket_id,
+      event_type: ticket_events.type,
+      payload: ticket_events.payload,
+      status: tickets.status,
+      seq: tickets.seq,
+      priority: tickets.priority,
+      assigned_executor_id: tickets.assigned_executor_id,
+      assigned_at: tickets.assigned_at,
+      details: tickets.details,
+      description: tickets.description,
+      number_prefix: ticket_types.number_prefix,
+      type_name_ru: ticket_types.name_ru,
+      type_name_uz: ticket_types.name_uz,
+      fields_schema: ticket_types.fields_schema,
+      terminal_name: terminals.name,
+    })
+    .from(ticket_events)
+    .leftJoin(tickets, eq(ticket_events.ticket_id, tickets.id))
+    .leftJoin(ticket_types, eq(tickets.type_id, ticket_types.id))
+    .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
+    .where(eq(ticket_events.id, eventId))
+    .execute();
+}
+
+async function deliver(job: Job, token: string) {
+  const notificationId = job.data.notificationId as string;
+
+  // Захват строки: если её уже забрал другой прогон, выходим молча.
+  const claimed = await drizzleDb
+    .update(ticket_notifications)
+    .set({ status: "sending", attempts: sql`${ticket_notifications.attempts} + 1` })
+    .where(and(eq(ticket_notifications.id, notificationId), eq(ticket_notifications.status, "pending")))
+    .returning()
+    .execute();
+  if (claimed.length === 0) {
+    // Это ровно тот сигнал, который назвал бы находку #3 в логах: воркер,
+    // убитый посреди доставки, оставляет строку в 'sending', BullMQ потом
+    // восстанавливает job как stalled, claim здесь молча не находит
+    // 'pending' и выходит — без единой строчки лога до этого момента.
+    console.warn(`tickets worker: notification ${notificationId} skipped — claim не нашёл строку в 'pending'`);
+    return { skipped: true };
+  }
+
+  const n = claimed[0];
+
+  // Этот join выполняется на КАЖДУЮ доставку — куда более вероятная точка
+  // единичного сбоя БД, чем чтения ниже. Без перехвата разовая заминка здесь
+  // навсегда хоронит строку в 'sending': следующая попытка на claim найдёт
+  // не 'pending' и молча выйдет ({skipped: true}, без throw), BullMQ
+  // посчитает job завершённым, подметалка смотрит только 'pending', а
+  // мониторинг — только 'failed'. Тот же рецепт, что и для чтения
+  // получателя/взявшего ниже: вернуть в pending (или, на последней попытке,
+  // в failed — см. isLastAttempt) и пробросить исключение, чтобы обычный
+  // retry очереди дал ещё одну попытку.
+  let ctxRows: Awaited<ReturnType<typeof fetchTicketContext>>;
+  try {
+    ctxRows = await fetchTicketContext(n.event_id);
+  } catch (e) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: isLastAttempt(job) ? "failed" : "pending", last_error: (e as Error).message })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute()
+      .catch(() => {});
+    throw e;
+  }
+  const [ctx] = ctxRows;
+
+  if (!ctx) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "failed", last_error: "event not found" })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    return { failed: true };
+  }
+
+  // leftJoin к tickets вернул пустые поля — событие есть, а заявки уже нет.
+  // Тексты вида "T-null" хуже отсутствия сообщения, и повтор здесь не
+  // поможет: заявка не появится обратно.
+  if (ctx.seq == null) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "failed", last_error: "ticket not found" })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    return { failed: true };
+  }
+
+  // Стейл-рассылка "created": заявку уже взяли/отменили за то время, что
+  // строка ждала своей очереди на доставку. Если взял ИМЕННО этот получатель
+  // (n.recipient_executor_id === ctx.assigned_executor_id), понижать это
+  // сообщение до "assigned_other" нельзя — он уже получил отдельное
+  // подтверждение "assigned_taker" через событие "assigned", и вторая копия
+  // тем же именем сказала бы ему "Взял <своё имя>" про заявку, которую он
+  // только что сам взял. cancelled сюда не попадает: текст "заявка отменена"
+  // одинаково уместен для любого получателя, включая исполнителя.
+  if (
+    ctx.event_type === "created" &&
+    ctx.status !== "new" &&
+    ctx.status !== "cancelled" &&
+    ctx.assigned_executor_id &&
+    ctx.assigned_executor_id === n.recipient_executor_id
+  ) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "sent", sent_at: new Date().toISOString() })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    console.log(`tickets worker: notification ${n.id} подавлена — получатель сам взял заявку`);
+    return { suppressed: true };
+  }
+
+  // Чтение получателя и (если нужно) того, кто взял заявку. Ошибка здесь —
+  // разовая техническая (например, БД моргнула), а не решение по данным,
+  // поэтому строку возвращаем в pending (или failed на последней попытке) и
+  // пробрасываем исключение дальше: пусть обычный бэкофф очереди даст ей ещё
+  // одну попытку. Если этого не сделать, строка застрянет в 'sending'
+  // навсегда — claim выше и подметалка ниже трогают только 'pending'.
+  let executorLang: string | undefined;
+  let messageEvent: MessageEvent;
+  let takenBy: string | undefined;
+  let takenAt: string | undefined;
+  try {
+    const [recipient] = await drizzleDb
+      .select({ lang: ticket_executors.lang })
+      .from(ticket_executors)
+      .where(eq(ticket_executors.id, n.recipient_executor_id!))
+      .execute();
+    executorLang = recipient?.lang;
+
+    const mapped = EVENT_TO_MESSAGE[ctx.event_type];
+    if (!mapped && ctx.event_type !== "assigned") {
+      // Ни в EVENT_TO_MESSAGE, ни в списке типов, обрабатываемых отдельным
+      // if ниже ("assigned") — отказываем закрыто вместо дефолта "created".
+      throw new UnmappedEventError(ctx.event_type);
+    }
+
+    // Рассылка могла пролежать в очереди те секунды, за которые заявку успели
+    // взять или отменить. Сообщение с живой кнопкой на чужую работу хуже, чем
+    // отсутствие сообщения.
+    messageEvent = mapped ?? "created";
+    if (ctx.event_type === "created" && ctx.status !== "new") {
+      messageEvent = ctx.status === "cancelled" ? "cancelled" : "assigned_other";
+    }
+    if (ctx.event_type === "assigned") {
+      messageEvent = n.kind === "edit" ? "assigned_other" : "assigned_taker";
+    }
+    if (ctx.event_type === "cancelled" && n.kind === "edit") {
+      messageEvent = "cancelled";
+    }
+
+    // "assigned_other" сообщает получателю, КТО взял заявку — это исполнитель
+    // из tickets.assigned_executor_id, а не n.recipient_executor_id (это сам
+    // получатель, то есть тот, кому заявку НЕ дали). Подстановка получателя
+    // вместо взявшего показала бы человеку "Взяли вы", хотя взял другой —
+    // прямая дорога ко второму подрядчику на объекте.
+    if (messageEvent === "assigned_other" && ctx.assigned_executor_id) {
+      const [taker] = await drizzleDb
+        .select({ full_name: ticket_executors.full_name })
+        .from(ticket_executors)
+        .where(eq(ticket_executors.id, ctx.assigned_executor_id))
+        .execute();
+      takenBy = taker?.full_name ?? undefined;
+      takenAt = ctx.assigned_at
+        ? new Date(ctx.assigned_at).toLocaleTimeString("ru-RU", {
+            hour: "2-digit",
+            minute: "2-digit",
+            timeZone: "Asia/Tashkent",
+          })
+        : undefined;
+    }
+  } catch (e) {
+    if (e instanceof UnmappedEventError) {
+      await drizzleDb
+        .update(ticket_notifications)
+        .set({ status: "failed", last_error: `unmapped event: ${e.message}` })
+        .where(eq(ticket_notifications.id, n.id))
+        .execute();
+      return { failed: true };
+    }
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: isLastAttempt(job) ? "failed" : "pending", last_error: (e as Error).message })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute()
+      .catch(() => {});
+    throw e;
+  }
+
+  const details = (ctx.details ?? {}) as Record<string, string>;
+  const schema = (ctx.fields_schema ?? []) as FieldDef[];
+
+  // details хранит МАШИННЫЙ код select-поля (o.value, см. fields.ts), а не
+  // подпись, которую менеджер видел на экране — подрядчику нужна подпись.
+  // Раньше эта строка бралась из details.symptom ?? details.broken_part ??
+  // details.note — три конкретных ключа для одного конкретного типа заявки;
+  // тип с полями под другими ключами получал пустую строку. Берём первое
+  // обязательное select-поле схемы (она уже провалидирована validateSchema)
+  // и резолвим значение в label_ru/label_uz для обоих языков.
+  const requiredSelect = schema.find((f) => f.type === "select" && f.required);
+  let summaryRu = "";
+  let summaryUz = "";
+  if (requiredSelect) {
+    const value = details[requiredSelect.key];
+    const option = requiredSelect.options?.find((o) => o.value === value);
+    if (option) {
+      summaryRu = option.label_ru;
+      summaryUz = option.label_uz;
+    }
+  }
+  // Нет select-поля (или значение не резолвится) — свободный текст менеджера
+  // из tickets.description. Раньше он не читался вовсе.
+  if (!summaryRu && !summaryUz) {
+    summaryRu = summaryUz = ctx.description ?? "";
+  }
+
+  // buildMessage детерминирована и намеренно бросает исключение на
+  // неизвестный eventType. Без перехвата такое исключение улетело бы из
+  // deliver() необработанным, и — в отличие от ошибки чтения выше — строка
+  // осталась бы в 'sending' НЕ временно: та же заявка на следующей попытке
+  // даст то же исключение. Ретраить нечего, поэтому это permanent-путь, как
+  // и "event not found" / "ticket not found" выше.
+  let message: { text: string; reply_markup?: object };
+  try {
+    message = buildMessage({
+      eventType: messageEvent,
+      lang: executorLang ?? "ru",
+      ticket: {
+        id: ctx.ticket_id!,
+        number: `${ctx.number_prefix ?? "T"}-${String(ctx.seq).padStart(6, "0")}`,
+        priority: (ctx.priority as "normal" | "urgent") ?? "normal",
+        terminal_name: ctx.terminal_name ?? "",
+        type_name_ru: ctx.type_name_ru ?? "",
+        type_name_uz: ctx.type_name_uz ?? "",
+        summary_ru: summaryRu,
+        summary_uz: summaryUz,
+      },
+      miniappUrl: MINIAPP_URL,
+      comment: (ctx.payload as any)?.comment ?? undefined,
+      takenBy,
+      takenAt,
+    });
+  } catch (e) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "failed", last_error: (e as Error).message })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    return { failed: true };
+  }
+
+  const result =
+    n.kind === "edit" && n.target_message_id
+      ? await editMessageText(BOT_TOKEN, n.recipient_chat_id, n.target_message_id, message)
+      : await sendMessage(BOT_TOKEN, n.recipient_chat_id, message);
+
+  if (result.ok) {
+    // "message is not modified" отдаёт message_id: null — значит "id не
+    // пришёл", а не "id пропал". tg_message_id — это то, во что целятся
+    // будущие правки (editOthers в routing.ts), затирать его null нельзя.
+    const patch: Record<string, unknown> = { status: "sent", sent_at: new Date().toISOString() };
+    if (result.message_id !== null) {
+      patch.tg_message_id = result.message_id;
+    }
+    try {
+      await drizzleDb
+        .update(ticket_notifications)
+        .set(patch)
+        .where(eq(ticket_notifications.id, n.id))
+        .execute();
+    } catch (e) {
+      // Сообщение уже долетело до Telegram — ретраить нельзя: claim выше
+      // увидит 'sending' и молча выйдет, а повторный sendMessage создал бы
+      // дубликат у живого человека. Единственное, что можно сделать —
+      // зафиксировать это громко; строка так и останется в 'sending', а
+      // tg_message_id для неё не сохранится (известный остаточный риск).
+      console.error("tickets worker: сообщение отправлено, но статус не записан", n.id, (e as Error).message);
+    }
+    return { sent: true };
+  }
+
+  if (result.permanent) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "failed", last_error: result.error })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    return { failed: true };
+  }
+
+  if (typeof result.retryAfterMs === "number") {
+    // Телеграм явно назвал время ожидания (валидный числовой retry_after) —
+    // уважаем его напрямую вместо фиксированного exponential-бэкоффа очереди
+    // (queue.ts, который об этом ничего не знает). moveToDelayed + throw
+    // DelayedError не тратит одну из 5 попыток задания — строка остаётся
+    // pending безусловно, isLastAttempt здесь не при чём.
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "pending", last_error: result.error })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute();
+    await job.moveToDelayed(Date.now() + result.retryAfterMs, token);
+    throw new DelayedError();
+  }
+
+  // Обычная временная ошибка (или 429 с нечисловым retry_after — см.
+  // telegram.ts) — она СТОИТ одной из 5 попыток задания. Если это была
+  // последняя, обычный бэкофф очереди больше не наступит: строку нужно
+  // сразу пометить failed, а не оставлять pending навечно (находка #1).
+  await drizzleDb
+    .update(ticket_notifications)
+    .set({ status: isLastAttempt(job) ? "failed" : "pending", last_error: result.error })
+    .where(eq(ticket_notifications.id, n.id))
+    .execute();
+  throw new Error(result.error);
+}
+
+async function sweep() {
+  // Единственный сценарий, который очередь не закрывает: Redis лежал в момент
+  // постановки, строка есть, задачи нет.
+  // ORDER BY created_at — без него при реальном затоне (больше 200 строк)
+  // LIMIT 200 мог бы каждый раз выбирать одни и те же строки, а самые
+  // старые никогда не дождались бы очереди.
+  const stale = await drizzleDb
+    .select({ id: ticket_notifications.id })
+    .from(ticket_notifications)
+    .where(
+      and(
+        eq(ticket_notifications.status, "pending"),
+        sql`${ticket_notifications.created_at} < now() - interval '2 minutes'`
+      )
+    )
+    .orderBy(asc(ticket_notifications.created_at))
+    .limit(200)
+    .execute();
+  for (const row of stale) {
+    await queue.add("deliver", { notificationId: row.id }, { ...jobOptions, jobId: row.id });
+  }
+
+  // Строки в 'sending' эта подметалка (и claim в deliver()) намеренно не
+  // трогает — сбрасывать их обратно в pending рискует повторной отправкой
+  // уже ушедшего сообщения (см. комментарии в deliver()). Но застрявшая
+  // строка не должна тонуть молча: если её никто не увидит, разница между
+  // "редкий сбой" и "воркер сутки не работал" пропадает. Считаем и громко
+  // предупреждаем, не трогая статус.
+  const [{ count: stuckSending }] = await drizzleDb
+    .select({ count: sql<number>`count(*)` })
+    .from(ticket_notifications)
+    .where(
+      and(
+        eq(ticket_notifications.status, "sending"),
+        sql`${ticket_notifications.created_at} < now() - interval '15 minutes'`
+      )
+    )
+    .execute();
+  if (Number(stuckSending) > 0) {
+    console.warn(
+      `tickets worker: ${stuckSending} notification(s) stuck in 'sending' > 15 min — не сбрасываем (риск дубля), но это надо посмотреть глазами`
+    );
+  }
+
+  return { requeued: stale.length, stuckSending: Number(stuckSending) };
+}
+
+const worker = new Worker(
+  TICKETS_QUEUE,
+  async (job, token) => {
+    if (job.name === TICKETS_SWEEP_JOB) return sweep();
+    return deliver(job, token as string);
+  },
+  {
+    connection: redisConnection(),
+    concurrency: 5,
+    // Потолок телеграма около 30 сообщений в секунду; упираться в него не стоит.
+    limiter: { max: 25, duration: 1000 },
+  }
+);
+
+worker.on("error", (e) => console.error("tickets worker error", e));
+worker.on("failed", (job, e) => console.error("tickets job failed", job?.id, e?.message));
+console.log("tickets worker started");
+
+// pm2 шлёт SIGTERM на каждый деплой. Без обработчика процесс убивается
+// немедленно: claim уже мог выставить строке 'sending', BullMQ потом
+// восстановит job как stalled, claim на новом прогоне найдёт не 'pending' и
+// молча выйдет ({skipped:true}) — job завершится "успешно", а строка
+// останется в 'sending' навсегда. Хуже: если Telegram успел принять
+// sendMessage/editMessageText до убийства процесса, tg_message_id не
+// записан — а editOthers (routing.ts) правит кнопку только у строк со
+// статусом 'sent' И заполненным tg_message_id, так что кнопка «Беру» у этого
+// исполнителя остаётся живой на весь срок жизни заявки. worker.close() ждёт
+// завершения уже начатых job (без force) — именно поэтому kill_timeout в
+// pm2.config.js для этого приложения поднят до 10000мс: дефолтных 1600мс не
+// хватает на один "зависший" вызов Telegram API.
+let shuttingDown = false;
+async function shutdown(signal: string) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`tickets worker: получен ${signal}, закрываем worker и queue...`);
+  try {
+    await worker.close();
+    await queue.close();
+  } catch (e) {
+    console.error("tickets worker: ошибка при graceful shutdown", e);
+  } finally {
+    process.exit(0);
+  }
+}
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));
