@@ -25,35 +25,75 @@ export type MessageInput = {
 // поэтому режем сами и оставляем видимый след обрезки.
 const TG_LIMIT = 4096;
 
+type Dict = {
+  urgent: string;
+  normal: string;
+  open: string;
+  taken: (who: string, at: string) => string;
+  taken_no_who: string;
+  taken_no_time: (who: string) => string;
+  reopened: string;
+  closed: string;
+  cancelled: string;
+  comment: string;
+  confirm_taker: string;
+};
+
 const L = {
   ru: {
     urgent: "🔴 Срочная",
     normal: "🔧 Заявка",
     open: "Открыть заявку",
     taken: (who: string, at: string) => `Взял ${who}, ${at}`,
+    taken_no_who: "Заявку уже взяли",
+    taken_no_time: (who: string) => `Взял ${who}`,
     reopened: "Работу вернули на доработку",
     closed: "Филиал принял работу. Спасибо",
     cancelled: "Заявка отменена — выезжать не нужно",
     comment: "Сообщение от филиала",
+    confirm_taker: "✅ Вы взяли заявку",
   },
   uz: {
     urgent: "🔴 Shoshilinch",
     normal: "🔧 Ariza",
     open: "Arizani ochish",
     taken: (who: string, at: string) => `${who} oldi, ${at}`,
+    taken_no_who: "Ariza allaqachon olingan",
+    taken_no_time: (who: string) => `${who} oldi`,
     reopened: "Ish qayta ko'rib chiqishga qaytarildi",
     closed: "Filial ishni qabul qildi. Rahmat",
     cancelled: "Ariza bekor qilindi — borish shart emas",
     comment: "Filialdan xabar",
+    confirm_taker: "✅ Siz arizani oldingiz",
   },
-} as const;
+} as const satisfies Record<string, Dict>;
 
 const pick = (lang: string) => (lang === "uz" ? L.uz : L.ru);
 
-const esc = (s: string): string =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+// Safely escape HTML, handle nullish and non-string inputs
+const esc = (s: unknown): string => {
+  if (s === null || s === undefined || typeof s !== "string") {
+    return "";
+  }
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+};
 
-const clip = (s: string): string => (s.length <= TG_LIMIT ? s : `${s.slice(0, TG_LIMIT - 1)}…`);
+// Clip on UTF-16 code-unit boundary, respecting surrogate pairs
+const clip = (s: string): string => {
+  if (s.length <= TG_LIMIT) {
+    return s;
+  }
+  // s.length counts UTF-16 code units (what Telegram counts)
+  // TG_LIMIT - 1 leaves room for ellipsis
+  let result = s.substring(0, TG_LIMIT - 1);
+  // Check if last char is a high surrogate (incomplete pair)
+  const lastChar = result.charCodeAt(result.length - 1);
+  if (lastChar >= 0xd800 && lastChar <= 0xdbff) {
+    // High surrogate without low surrogate, remove it
+    result = result.substring(0, result.length - 1);
+  }
+  return result + "…";
+};
 
 export function buildMessage(input: MessageInput): { text: string; reply_markup?: object } {
   const t = pick(input.lang);
@@ -70,30 +110,56 @@ export function buildMessage(input: MessageInput): { text: string; reply_markup?
 
   switch (input.eventType) {
     case "created":
-    case "assigned_taker":
       return { text: clip(`${head}\n${place}\n${esc(summary)}`), reply_markup: button };
 
-    case "assigned_other":
+    case "assigned_taker":
       return {
-        text: clip(`${head}\n${place}\n${t.taken(esc(input.takenBy ?? ""), esc(input.takenAt ?? ""))}`),
-      };
-
-    case "comment":
-      return {
-        text: clip(`${head}\n${place}\n\n${t.comment}:\n${esc(input.comment ?? "")}`),
+        text: clip(`${t.confirm_taker}\n${head}\n${place}\n${esc(summary)}`),
         reply_markup: button,
       };
 
-    case "reopened":
+    case "assigned_other": {
+      let takenLine: string;
+      if (esc(input.takenBy) && esc(input.takenAt)) {
+        takenLine = t.taken(esc(input.takenBy), esc(input.takenAt));
+      } else if (esc(input.takenBy)) {
+        takenLine = t.taken_no_time(esc(input.takenBy));
+      } else {
+        takenLine = t.taken_no_who;
+      }
+      return { text: clip(`${head}\n${place}\n${takenLine}`) };
+    }
+
+    case "comment": {
+      const commentText = esc(input.comment);
+      if (!commentText) {
+        return { text: clip(`${head}\n${place}`), reply_markup: button };
+      }
       return {
-        text: clip(`${head}\n${place}\n\n${t.reopened}:\n${esc(input.comment ?? "")}`),
+        text: clip(`${head}\n${place}\n\n${t.comment}:\n${commentText}`),
         reply_markup: button,
       };
+    }
+
+    case "reopened": {
+      const commentText = esc(input.comment);
+      if (!commentText) {
+        return { text: clip(`${head}\n${place}\n\n${t.reopened}`), reply_markup: button };
+      }
+      return {
+        text: clip(`${head}\n${place}\n\n${t.reopened}:\n${commentText}`),
+        reply_markup: button,
+      };
+    }
 
     case "closed":
       return { text: clip(`${head}\n${place}\n\n${t.closed}`) };
 
     case "cancelled":
       return { text: clip(`${head}\n${place}\n\n${t.cancelled}`) };
+
+    default:
+      const _exhaustive: never = input.eventType;
+      return _exhaustive;
   }
 }
