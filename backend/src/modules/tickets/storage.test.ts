@@ -149,9 +149,9 @@ describe("saveAttachment", () => {
       const files = fs.readdirSync(tempDir, { recursive: true, withFileTypes: true });
       for (const file of files.reverse()) {
         if (file.isDirectory()) {
-          fs.rmdirSync(path.join(file.path, file.name));
+          fs.rmdirSync(path.join(tempDir, file.name));
         } else {
-          fs.unlinkSync(path.join(file.path, file.name));
+          fs.unlinkSync(path.join(tempDir, file.name));
         }
       }
       fs.rmdirSync(tempDir);
@@ -222,5 +222,24 @@ describe("saveAttachment", () => {
     
     expect(result.ok).toBe(false);
     expect(dirBefore).toBe(dirAfter); // Никаких новых файлов
+  });
+
+  it("сообщает путь до записи через onPath, даже если запись потом упадёт", async () => {
+    const ticketId = "cccccccc-dddd-eeee-ffff-000000000000";
+    const fileData = new Uint8Array([137, 80, 78, 71]); // PNG signature
+    const file = new File([fileData], "test.png", { type: "image/png" });
+
+    let reportedPath: string | undefined;
+    const result = await saveAttachment(file, ticketId, (p) => {
+      reportedPath = p;
+    });
+
+    // onPath получает путь синхронно до Bun.write — вызывающий код может
+    // использовать его для отката файла, даже не дожидаясь результата.
+    expect(reportedPath).toBeDefined();
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(reportedPath).toBe(result.file_path);
+    }
   });
 });

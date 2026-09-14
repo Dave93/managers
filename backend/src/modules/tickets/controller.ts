@@ -12,17 +12,15 @@ import {
   tickets,
   terminals,
 } from "backend/drizzle/schema";
-import { and, desc, eq, inArray, sql, SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
 import { validateDetails, validateSchema, type FieldDef } from "./fields";
-import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment } from "./storage";
+import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment, uploadsBase, UUID_RE } from "./storage";
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
 
 const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
-
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const MAX_LIST_LIMIT = 200;
 
@@ -106,7 +104,16 @@ async function applyPaymentDecision(
     // повторное нажатие на уже утверждённой/отклонённой заявке ничего не
     // меняет и не пишет второе событие. Статус тикета (`closed`) не трогаем —
     // деньги идут своим путём отдельно от жизненного цикла заявки.
-    const where: SQLWrapper[] = [inArray(tickets.id, ids), eq(tickets.status, "closed"), eq(tickets.payment_status, "pending")];
+    // isNotNull(work_total_amount): без суммы акта одобрять или отклонять
+    // нечего — заявка не должна попадать в очередь «к оплате» с пустым
+    // итогом. Сегодня эту колонку никто не пишет (мини-апп появится позже),
+    // и это ровно причина закрыть условие здесь заранее.
+    const where: SQLWrapper[] = [
+      inArray(tickets.id, ids),
+      eq(tickets.status, "closed"),
+      eq(tickets.payment_status, "pending"),
+      isNotNull(tickets.work_total_amount),
+    ];
     // Офисные роли несут пустой terminals (= все филиалы), но если у сессии
     // филиалы всё же есть — например, роль с tickets.payment.approve по
     // ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
@@ -159,6 +166,14 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
   .post(
     "/tickets",
     async ({ body, user, terminals: userTerminals, set, drizzle }) => {
+      // type_id уходит прямиком в eq() ниже: мусорная строка вместо UUID
+      // иначе доезжает до Postgres как сырая 500 "invalid input syntax for
+      // type uuid" вместо понятной 422 — стухший кэш на планшете легко
+      // присылает именно такую строку (код типа вместо его id).
+      if (!UUID_RE.test(body.type_id)) {
+        set.status = 422;
+        return { message: "type_id должен быть UUID" };
+      }
       const [type] = await drizzle
         .select()
         .from(ticket_types)
@@ -168,6 +183,13 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Тип заявки не найден" };
       }
+      // external с contractor_id = NULL — легальное состояние "фирма ещё не
+      // привязана" (см. POST/PUT /ticket_types), но заявку на него завести
+      // некому. Дешёвая проверка, до файлов — как и остальные ниже.
+      if (type.executor_kind === "external" && !type.contractor_id) {
+        set.status = 422;
+        return { message: "У типа заявки не выбрана подрядная фирма — обратитесь к администратору" };
+      }
 
       // Филиал берётся из сессии, а не из тела запроса: менеджер физически
       // не должен иметь возможности завести заявку на чужой филиал.
@@ -175,6 +197,15 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       if (!terminal_id || (userTerminals?.length && !userTerminals.includes(terminal_id))) {
         set.status = 403;
         return { message: "Филиал недоступен" };
+      }
+      // Офисная роль несёт пустой userTerminals, и тогда includes() выше не
+      // выполняется — terminal_id из тела долетает до eq() ниже непроверенным
+      // и падает сырой 500 на мусорной строке. Ветка с непустыми
+      // userTerminals уже гарантированно валидна (id из сессии), но проверяем
+      // всё равно — единообразия ради.
+      if (!UUID_RE.test(terminal_id)) {
+        set.status = 422;
+        return { message: "terminal_id должен быть UUID" };
       }
 
       let parsedDetails: unknown;
@@ -232,9 +263,15 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
 
       const ticket_id = crypto.randomUUID();
       const saved: { file_path: string; mime: string; size_bytes: number }[] = [];
+      // Суперсет saved: путь попадает сюда синхронно до Bun.write внутри
+      // saveAttachment, а не только после успешного возврата. Если запись
+      // самого файла упадёт (диск полон, EIO), saved.push ниже до этого не
+      // дойдёт — без onPath такой частично записанный файл не имел пути,
+      // по которому его можно откатить, и оставался сиротой на диске.
+      const attemptedPaths: string[] = [];
       try {
         for (const f of files) {
-          const r = await saveAttachment(f, ticket_id);
+          const r = await saveAttachment(f, ticket_id, (p) => attemptedPaths.push(p));
           if (!r.ok) {
             // Не return: файлы 1..N-1 уже лежат на диске и должны быть
             // удалены общим catch ниже, а не оставлены сиротами.
@@ -285,12 +322,25 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       } catch (e) {
         // Файлы легли раньше строк. Если транзакция упала (или один из файлов
         // партии не сохранился), на диске остаются сироты, на которые ничто
-        // не ссылается — убираем их здесь.
-        for (const s of saved) {
+        // не ссылается — убираем их здесь. attemptedPaths, а не saved: он
+        // включает и файл, на котором сама запись оборвалась (частично
+        // записанный, до re.ok никогда не дошедший).
+        for (const p of attemptedPaths) {
           try {
-            fs.unlinkSync(s.file_path);
+            fs.unlinkSync(p);
           } catch (unlinkErr) {
-            console.error("tickets: failed to unlink orphan file", s.file_path, unlinkErr);
+            console.error("tickets: failed to unlink orphan file", p, unlinkErr);
+          }
+        }
+        // Каталог заявки создаётся раньше самих файлов (см. saveAttachment) —
+        // после удаления файлов выше он либо не существовал вовсе (упали до
+        // первой записи), либо пуст и годен под rmdir. Не трогаем, если в нём
+        // всё же что-то осталось (не должно, но лучше не потерять чужой файл).
+        try {
+          fs.rmdirSync(`${uploadsBase()}/${ticket_id}`);
+        } catch (rmdirErr: any) {
+          if (rmdirErr?.code !== "ENOENT") {
+            console.error("tickets: failed to remove empty ticket dir", ticket_id, rmdirErr);
           }
         }
         if (e instanceof UploadFailedError) {
@@ -728,12 +778,29 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
   )
   .get(
     "/ticket_types",
-    async ({ drizzle }) => ({
-      data: await drizzle.select().from(ticket_types).orderBy(ticket_types.sort, ticket_types.name_ru).execute(),
-    }),
+    // По умолчанию отдаём только active: этот список рисует форму создания
+    // заявки на планшете, и POST /tickets отвергает неактивный тип 404-й —
+    // раньше планшет предлагал заведомо мёртвые типы. include_inactive нужен
+    // только экрану админки и потому проверяется отдельно, правом
+    // tickets.types.manage, а не общим tickets.create route-permission.
+    async ({ query: { include_inactive }, role, cacheController, drizzle }) => {
+      let showInactive = false;
+      if (include_inactive === "true" && role) {
+        const permissions = await cacheController.getPermissionsByRoleId(role.id);
+        showInactive = permissions.includes("tickets.types.manage");
+      }
+      return {
+        data: await drizzle
+          .select()
+          .from(ticket_types)
+          .where(showInactive ? undefined : eq(ticket_types.active, true))
+          .orderBy(ticket_types.sort, ticket_types.name_ru)
+          .execute(),
+      };
+    },
     // tickets.create, а не tickets.types.manage: список типов рисует форму
     // создания заявки на планшете филиала, а не только экран админки.
-    { permission: "tickets.create" }
+    { permission: "tickets.create", query: t.Object({ include_inactive: t.Optional(t.String()) }) }
   )
   .post(
     "/ticket_types",
@@ -762,9 +829,12 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 422;
         return { message: "contractor_id должен быть UUID" };
       }
-      if (executor_kind === "external" && !body.contractor_id) {
+      // external без фирмы — легальное состояние "фирма ещё не привязана":
+      // её подписывают уже после создания типа. А вот staff с contractor_id
+      // не имеет смысла ни на каком этапе — та же проверка, что и в PUT ниже.
+      if (executor_kind === "staff" && body.contractor_id) {
         set.status = 422;
-        return { message: "Для внешнего исполнителя нужна фирма" };
+        return { message: "Типу с исполнителем-сотрудником фирма не нужна" };
       }
 
       try {
@@ -828,9 +898,12 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return { message: "contractor_id должен быть UUID" };
       }
 
-      // executor_kind здесь не редактируется, но create-путь никогда не
-      // допускал external без фирмы или staff с фирмой — PUT не должен
-      // позволять эти же состояния через contractor_id, читая только тело
+      // executor_kind здесь не редактируется. external с пустым contractor_id
+      // — легальное состояние ("фирма ещё не привязана": её подписывают уже
+      // после создания типа, отдельным PUT/ticket_contractors) — PUT не
+      // должен блокировать даже переименование такого типа. А вот staff с
+      // contractor_id смысла не имеет ни на каком этапе — это единственная
+      // сторона инварианта, которую PUT обязан удержать, читая только тело
       // запроса без оглядки на уже сохранённый executor_kind строки.
       const [existing] = await drizzle.select().from(ticket_types).where(eq(ticket_types.id, id)).execute();
       if (!existing) {
@@ -838,10 +911,6 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return { message: "Тип не найден" };
       }
       const effectiveContractorId = body.contractor_id !== undefined ? body.contractor_id : existing.contractor_id;
-      if (existing.executor_kind === "external" && !effectiveContractorId) {
-        set.status = 422;
-        return { message: "Для внешнего исполнителя нужна фирма" };
-      }
       if (existing.executor_kind === "staff" && effectiveContractorId) {
         set.status = 422;
         return { message: "Типу с исполнителем-сотрудником фирма не нужна" };
@@ -1053,6 +1122,16 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Исполнитель не найден" };
       }
+      // Без имени бота ссылка получается вида https://t.me/?start=inv_...  —
+      // формально 200, а на деле открывает пустой t.me и никуда не ведёт.
+      // Проверяем до ротации кода: если ссылку выдать нельзя, старая ссылка
+      // должна остаться рабочей, а не сгореть вместе с несостоявшейся новой.
+      const bot = process.env.TICKETS_BOT_USERNAME;
+      if (!bot) {
+        console.error("tickets: TICKETS_BOT_USERNAME is not configured, cannot issue an invite link");
+        set.status = 500;
+        return { message: "Бот приглашений не настроен — обратитесь к администратору" };
+      }
       // Новый код на каждый запрос: старую ссылку могли переслать не туда,
       // и она перестаёт работать в тот момент, когда выписана новая.
       const [row] = await drizzle
@@ -1064,7 +1143,6 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Исполнитель не найден" };
       }
-      const bot = process.env.TICKETS_BOT_USERNAME ?? "";
       return { invite_code: row.invite_code, link: `https://t.me/${bot}?start=inv_${row.invite_code}` };
     },
     { permission: "tickets.contractors.manage" }

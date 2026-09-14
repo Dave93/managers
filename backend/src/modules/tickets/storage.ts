@@ -9,8 +9,10 @@ const MIME_EXT: Record<string, string> = {
   "image/png": "png",
 };
 
-// Generic UUID pattern (accepts all versions)
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Generic UUID pattern (accepts all versions). Shared with controller.ts —
+// see UUID_RE there for the single import site — so the two never drift
+// apart the way UUID_PATTERN and UUID_RE briefly did.
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export function extForMime(mime: string): string | null {
   // Protect against type coercion
@@ -24,7 +26,7 @@ export function uploadsBase(): string {
 
 export function attachmentPath(ticketId: string, ext: string): string {
   // Validate ticketId is a UUID to prevent path traversal attacks
-  if (typeof ticketId !== "string" || !UUID_PATTERN.test(ticketId)) {
+  if (typeof ticketId !== "string" || !UUID_RE.test(ticketId)) {
     throw new Error("attachmentPath: invalid ticket id");
   }
   return `${uploadsBase()}/${ticketId}/${randomUUID()}.${ext}`;
@@ -54,15 +56,22 @@ export function checkUpload(input: { mime: string; size: number; existingCount: 
 // Файл ложится на диск раньше строки в базе, поэтому вызывающий обязан удалить
 // его, если вставка упала — иначе на диске копятся сироты, на которые ничто
 // не ссылается. Тот же порядок и та же обязанность, что в credit_admin.
+//
+// onPath, если передан, получает итоговый путь синхронно ДО записи (Bun.write
+// ниже). Так вызывающий код узнаёт путь даже если сама запись упадёт
+// (диск полон, EIO) и может откатить частично записанный файл — раньше он
+// узнавал путь только из успешного результата и такой файл-сирота никогда
+// не попадал в список на удаление.
 export async function saveAttachment(
   file: File,
-  ticketId: string
+  ticketId: string,
+  onPath?: (filePath: string) => void
 ): Promise<{ ok: true; file_path: string; mime: string; size_bytes: number } | { ok: false; error: string }> {
   const ext = extForMime(file.type);
   if (!ext) return { ok: false, error: "только JPEG и PNG" };
   
   // Validate ticketId is a UUID
-  if (typeof ticketId !== "string" || !UUID_PATTERN.test(ticketId)) {
+  if (typeof ticketId !== "string" || !UUID_RE.test(ticketId)) {
     return { ok: false, error: "invalid ticket id" };
   }
   
@@ -70,6 +79,7 @@ export async function saveAttachment(
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
   fs.chmodSync(dir, 0o750);
   const file_path = attachmentPath(ticketId, ext);
+  onPath?.(file_path);
   await Bun.write(file_path, file);
   return { ok: true, file_path, mime: file.type, size_bytes: file.size };
 }
