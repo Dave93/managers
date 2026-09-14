@@ -4,6 +4,7 @@ import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import {
   ticket_attachments,
   ticket_comments,
+  ticket_contractors,
   ticket_events,
   ticket_types,
   ticket_work_items,
@@ -15,7 +16,7 @@ import { and, desc, eq, inArray, sql, SQLWrapper } from "drizzle-orm";
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
-import { validateDetails, type FieldDef } from "./fields";
+import { validateDetails, validateSchema, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment } from "./storage";
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
 
@@ -702,4 +703,320 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       permission: "tickets.payment.approve",
       body: t.Object({ ids: t.Array(t.String()), comment: t.String() }),
     }
+  )
+  .get(
+    "/ticket_types",
+    async ({ drizzle }) => ({
+      data: await drizzle.select().from(ticket_types).orderBy(ticket_types.sort, ticket_types.name_ru).execute(),
+    }),
+    // tickets.create, а не tickets.types.manage: список типов рисует форму
+    // создания заявки на планшете филиала, а не только экран админки.
+    { permission: "tickets.create" }
+  )
+  .post(
+    "/ticket_types",
+    async ({ body, set, drizzle }) => {
+      const schemaCheck = validateSchema(body.fields_schema);
+      if (!schemaCheck.ok) {
+        set.status = 422;
+        return { message: "Схема полей неверна", errors: schemaCheck.errors };
+      }
+
+      // executor_kind уходит напрямую в pgEnum-колонку: непроверенная строка
+      // долетела бы до Postgres как "invalid input value for enum" и упала бы
+      // сырой 500 вместо понятной 422 — тот же класс дефекта, что и с
+      // priority выше.
+      let executor_kind: "external" | "staff";
+      if (body.executor_kind === "external" || body.executor_kind === "staff") {
+        executor_kind = body.executor_kind;
+      } else {
+        set.status = 422;
+        return { message: "executor_kind должен быть external или staff" };
+      }
+      if (executor_kind === "external" && !body.contractor_id) {
+        set.status = 422;
+        return { message: "Для внешнего исполнителя нужна фирма" };
+      }
+
+      try {
+        const [row] = await drizzle
+          .insert(ticket_types)
+          .values({
+            code: body.code,
+            number_prefix: body.number_prefix,
+            name_ru: body.name_ru,
+            name_uz: body.name_uz,
+            icon: body.icon ?? null,
+            executor_kind,
+            contractor_id: body.contractor_id ?? null,
+            fields_schema: schemaCheck.schema,
+            requires_cost: body.requires_cost ?? true,
+            active: body.active ?? true,
+            sort: body.sort ?? 0,
+          })
+          .returning();
+        return row;
+      } catch (e: any) {
+        // idx_ticket_types_code — глобальный уникальный индекс: дубликат кода
+        // иначе долетает как сырая 500 от Postgres вместо понятного 409.
+        if (e?.code === "23505" || e?.cause?.code === "23505") {
+          set.status = 409;
+          return { message: `Тип с кодом «${body.code}» уже существует` };
+        }
+        throw e;
+      }
+    },
+    {
+      permission: "tickets.types.manage",
+      body: t.Object({
+        code: t.String(),
+        number_prefix: t.String(),
+        name_ru: t.String(),
+        name_uz: t.String(),
+        icon: t.Optional(t.String()),
+        executor_kind: t.String(),
+        contractor_id: t.Optional(t.String()),
+        fields_schema: t.Any(),
+        requires_cost: t.Optional(t.Boolean()),
+        active: t.Optional(t.Boolean()),
+        sort: t.Optional(t.Number()),
+      }),
+    }
+  )
+  .put(
+    "/ticket_types/:id",
+    async ({ params: { id }, body, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Тип не найден" };
+      }
+      const patch: Partial<typeof ticket_types.$inferInsert> = { updated_at: new Date().toISOString() };
+      if (body.number_prefix !== undefined) patch.number_prefix = body.number_prefix;
+      if (body.name_ru !== undefined) patch.name_ru = body.name_ru;
+      if (body.name_uz !== undefined) patch.name_uz = body.name_uz;
+      if (body.icon !== undefined) patch.icon = body.icon;
+      if (body.contractor_id !== undefined) patch.contractor_id = body.contractor_id;
+      if (body.requires_cost !== undefined) patch.requires_cost = body.requires_cost;
+      if (body.active !== undefined) patch.active = body.active;
+      if (body.sort !== undefined) patch.sort = body.sort;
+      if (body.fields_schema !== undefined) {
+        const schemaCheck = validateSchema(body.fields_schema);
+        if (!schemaCheck.ok) {
+          set.status = 422;
+          return { message: "Схема полей неверна", errors: schemaCheck.errors };
+        }
+        patch.fields_schema = schemaCheck.schema;
+      }
+      const [row] = await drizzle.update(ticket_types).set(patch).where(eq(ticket_types.id, id)).returning();
+      if (!row) {
+        set.status = 404;
+        return { message: "Тип не найден" };
+      }
+      return row;
+    },
+    {
+      permission: "tickets.types.manage",
+      body: t.Object({
+        number_prefix: t.Optional(t.String()),
+        name_ru: t.Optional(t.String()),
+        name_uz: t.Optional(t.String()),
+        icon: t.Optional(t.String()),
+        contractor_id: t.Optional(t.String()),
+        fields_schema: t.Optional(t.Any()),
+        requires_cost: t.Optional(t.Boolean()),
+        active: t.Optional(t.Boolean()),
+        sort: t.Optional(t.Number()),
+      }),
+    }
+  )
+  .get(
+    "/ticket_contractors",
+    async ({ drizzle }) => ({
+      data: await drizzle.select().from(ticket_contractors).orderBy(ticket_contractors.name).execute(),
+    }),
+    { permission: "tickets.contractors.manage" }
+  )
+  .post(
+    "/ticket_contractors",
+    async ({ body, drizzle }) => {
+      const [row] = await drizzle
+        .insert(ticket_contractors)
+        .values({ name: body.name, phone: body.phone ?? null, note: body.note ?? null })
+        .returning();
+      return row;
+    },
+    {
+      permission: "tickets.contractors.manage",
+      body: t.Object({ name: t.String(), phone: t.Optional(t.String()), note: t.Optional(t.String()) }),
+    }
+  )
+  .put(
+    "/ticket_contractors/:id",
+    async ({ params: { id }, body, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Фирма не найдена" };
+      }
+      const patch: Partial<typeof ticket_contractors.$inferInsert> = { updated_at: new Date().toISOString() };
+      if (body.name !== undefined) patch.name = body.name;
+      if (body.phone !== undefined) patch.phone = body.phone;
+      if (body.note !== undefined) patch.note = body.note;
+      if (body.is_active !== undefined) patch.is_active = body.is_active;
+      const [row] = await drizzle
+        .update(ticket_contractors)
+        .set(patch)
+        .where(eq(ticket_contractors.id, id))
+        .returning();
+      if (!row) {
+        set.status = 404;
+        return { message: "Фирма не найдена" };
+      }
+      return row;
+    },
+    {
+      permission: "tickets.contractors.manage",
+      body: t.Object({
+        name: t.Optional(t.String()),
+        phone: t.Optional(t.String()),
+        note: t.Optional(t.String()),
+        is_active: t.Optional(t.Boolean()),
+      }),
+    }
+  )
+  .get(
+    "/ticket_executors",
+    async ({ query: { contractor_id }, set, drizzle }) => {
+      // Значение уходит прямиком в eq() ниже: мусорная строка вместо UUID
+      // иначе доезжает до Postgres как сырая 500, а не понятная 422.
+      if (contractor_id !== undefined && !UUID_RE.test(contractor_id)) {
+        set.status = 422;
+        return { message: "contractor_id должен быть UUID" };
+      }
+      const where = contractor_id ? [eq(ticket_executors.contractor_id, contractor_id)] : [];
+      return {
+        data: await drizzle
+          .select()
+          .from(ticket_executors)
+          .where(and(...where))
+          .orderBy(ticket_executors.full_name)
+          .execute(),
+      };
+    },
+    { permission: "tickets.contractors.manage", query: t.Object({ contractor_id: t.Optional(t.String()) }) }
+  )
+  .post(
+    "/ticket_executors",
+    async ({ body, set, drizzle }) => {
+      // kind уходит напрямую в pgEnum-колонку — та же причина проверки, что
+      // и у executor_kind в POST /ticket_types выше.
+      let kind: "external" | "staff";
+      if (body.kind === "external" || body.kind === "staff") {
+        kind = body.kind;
+      } else {
+        set.status = 422;
+        return { message: "kind должен быть external или staff" };
+      }
+      // Ограничение ticket_executors_kind_target в БД требует ровно одного
+      // из contractor_id/user_id. Проверяем обе стороны здесь, а не только
+      // отсутствие нужного поля: лишнее поле иначе уронит insert этим же
+      // ограничением как сырую 500 вместо понятной 422.
+      if (kind === "external") {
+        if (!body.contractor_id) {
+          set.status = 422;
+          return { message: "Внешнему исполнителю нужна фирма" };
+        }
+        if (body.user_id) {
+          set.status = 422;
+          return { message: "Внешнему исполнителю нельзя указывать учётную запись" };
+        }
+      } else {
+        if (!body.user_id) {
+          set.status = 422;
+          return { message: "Сотруднику нужна учётная запись" };
+        }
+        if (body.contractor_id) {
+          set.status = 422;
+          return { message: "Сотруднику нельзя указывать фирму" };
+        }
+      }
+      const [row] = await drizzle
+        .insert(ticket_executors)
+        .values({
+          kind,
+          contractor_id: kind === "external" ? body.contractor_id! : null,
+          user_id: kind === "staff" ? body.user_id! : null,
+          full_name: body.full_name,
+          phone: body.phone ?? null,
+          lang: body.lang ?? "ru",
+        })
+        .returning();
+      return row;
+    },
+    {
+      permission: "tickets.contractors.manage",
+      body: t.Object({
+        kind: t.String(),
+        contractor_id: t.Optional(t.String()),
+        user_id: t.Optional(t.String()),
+        full_name: t.String(),
+        phone: t.Optional(t.String()),
+        lang: t.Optional(t.String()),
+      }),
+    }
+  )
+  .put(
+    "/ticket_executors/:id",
+    async ({ params: { id }, body, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      const patch: Partial<typeof ticket_executors.$inferInsert> = { updated_at: new Date().toISOString() };
+      if (body.full_name !== undefined) patch.full_name = body.full_name;
+      if (body.phone !== undefined) patch.phone = body.phone;
+      if (body.lang !== undefined) patch.lang = body.lang;
+      if (body.is_active !== undefined) patch.is_active = body.is_active;
+      const [row] = await drizzle
+        .update(ticket_executors)
+        .set(patch)
+        .where(eq(ticket_executors.id, id))
+        .returning();
+      if (!row) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      return row;
+    },
+    {
+      permission: "tickets.contractors.manage",
+      body: t.Object({
+        full_name: t.Optional(t.String()),
+        phone: t.Optional(t.String()),
+        lang: t.Optional(t.String()),
+        is_active: t.Optional(t.Boolean()),
+      }),
+    }
+  )
+  .post(
+    "/ticket_executors/:id/invite",
+    async ({ params: { id }, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      // Новый код на каждый запрос: старую ссылку могли переслать не туда,
+      // и она перестаёт работать в тот момент, когда выписана новая.
+      const [row] = await drizzle
+        .update(ticket_executors)
+        .set({ invite_code: sql`gen_random_uuid()`, invite_used_at: null, updated_at: new Date().toISOString() })
+        .where(eq(ticket_executors.id, id))
+        .returning({ invite_code: ticket_executors.invite_code, full_name: ticket_executors.full_name });
+      if (!row) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      const bot = process.env.TICKETS_BOT_USERNAME ?? "";
+      return { invite_code: row.invite_code, link: `https://t.me/${bot}?start=inv_${row.invite_code}` };
+    },
+    { permission: "tickets.contractors.manage" }
   );
