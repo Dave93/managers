@@ -19,6 +19,16 @@ import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment } from "./storage";
 
 const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const MAX_LIST_LIMIT = 200;
+
+// Файл сохранённого вложения нужно откатить, если что-то после него — ещё
+// одно сохранение или сама транзакция — не удалось. Бросаем этот класс из
+// цикла сохранения, чтобы `return` не обошёл общий catch и не оставил
+// файл сиротой, но при этом сохранить исходные 422 и сообщение для клиента.
+class UploadFailedError extends Error {}
+
 export const ticketsController = new Elysia({ name: "@api/tickets" })
   .use(ctx)
   .post(
@@ -55,6 +65,19 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return { message: "Поля заполнены неверно", errors: detailsCheck.errors };
       }
 
+      // Явный список допустимых значений: опечатка вроде "Urgent" или "high"
+      // не должна молча стать обычным приоритетом — это уже четвёртый случай
+      // такой немой подмены в этом плане (T3 details, T4 qty/unit, T5 size).
+      let priority: "normal" | "urgent";
+      if (body.priority === undefined) {
+        priority = "normal";
+      } else if (body.priority === "normal" || body.priority === "urgent") {
+        priority = body.priority;
+      } else {
+        set.status = 422;
+        return { message: "priority должен быть normal или urgent" };
+      }
+
       const files = (Array.isArray(body.photos) ? body.photos : body.photos ? [body.photos] : []) as File[];
       if (files.length === 0) {
         set.status = 422;
@@ -88,8 +111,9 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         for (const f of files) {
           const r = await saveAttachment(f, ticket_id);
           if (!r.ok) {
-            set.status = 422;
-            return { message: r.error };
+            // Не return: файлы 1..N-1 уже лежат на диске и должны быть
+            // удалены общим catch ниже, а не оставлены сиротами.
+            throw new UploadFailedError(r.error);
           }
           saved.push({ file_path: r.file_path, mime: r.mime, size_bytes: r.size_bytes });
         }
@@ -102,7 +126,7 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
               type_id: type.id,
               terminal_id,
               organization_id: terminal.organization_id,
-              priority: body.priority === "urgent" ? "urgent" : "normal",
+              priority,
               details: detailsCheck.details,
               description: body.description?.trim() || null,
               created_by: user!.id,
@@ -134,12 +158,19 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
 
         return { ...created, number: ticketNumber(type.number_prefix, created.seq) };
       } catch (e) {
-        // Файлы легли раньше строк. Если транзакция упала, на диске остаются
-        // сироты, на которые ничто не ссылается — убираем их здесь.
+        // Файлы легли раньше строк. Если транзакция упала (или один из файлов
+        // партии не сохранился), на диске остаются сироты, на которые ничто
+        // не ссылается — убираем их здесь.
         for (const s of saved) {
           try {
             fs.unlinkSync(s.file_path);
-          } catch {}
+          } catch (unlinkErr) {
+            console.error("tickets: failed to unlink orphan file", s.file_path, unlinkErr);
+          }
+        }
+        if (e instanceof UploadFailedError) {
+          set.status = 422;
+          return { message: e.message };
         }
         console.error("tickets: create failed", e);
         set.status = 500;
@@ -161,7 +192,20 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
   )
   .get(
     "/tickets",
-    async ({ query: { limit, offset, filters }, terminals: userTerminals, drizzle }) => {
+    async ({ query: { limit, offset, filters }, terminals: userTerminals, set, drizzle }) => {
+      // +limit/+offset без проверки превращают мусорную строку в NaN, который
+      // доезжает до drizzle и падает сырой ошибкой Postgres вместо 422.
+      const limitNum = Number(limit);
+      if (!Number.isInteger(limitNum) || limitNum < 1 || limitNum > MAX_LIST_LIMIT) {
+        set.status = 422;
+        return { message: `limit должен быть целым числом от 1 до ${MAX_LIST_LIMIT}` };
+      }
+      const offsetNum = Number(offset);
+      if (!Number.isInteger(offsetNum) || offsetNum < 0) {
+        set.status = 422;
+        return { message: "offset должен быть неотрицательным целым числом" };
+      }
+
       const where: (SQLWrapper | undefined)[] = filters ? parseFilterFields(filters, tickets, {}) : [];
       // Скоупинг по филиалам сессии. Пустой массив у офисной роли означает
       // "все филиалы" — тот же смысл, что в остальных модулях.
@@ -199,8 +243,8 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         .leftJoin(ticket_executors, eq(tickets.assigned_executor_id, ticket_executors.id))
         .where(and(...where))
         .orderBy(desc(tickets.created_at))
-        .limit(+limit)
-        .offset(+offset)
+        .limit(limitNum)
+        .offset(offsetNum)
         .execute();
 
       return {
@@ -222,6 +266,12 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
   .get(
     "/tickets/:id",
     async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+      // Не-UUID в params.id иначе долетает до драйвера как "invalid input
+      // syntax for type uuid" — сырая 500 вместо предназначенной 404.
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
@@ -259,6 +309,10 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
   .get(
     "/tickets/attachments/:id/file",
     async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Файл не найден" };
+      }
       const [row] = await drizzle
         .select({ file_path: ticket_attachments.file_path, mime: ticket_attachments.mime, terminal_id: tickets.terminal_id })
         .from(ticket_attachments)
