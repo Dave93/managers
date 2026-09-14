@@ -1,4 +1,5 @@
 import { ctx } from "@backend/context";
+import type { DrizzleDB } from "@backend/lib/db";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import {
   ticket_attachments,
@@ -16,7 +17,7 @@ import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
 import { validateDetails, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment } from "./storage";
-import { allowedFrom } from "./state";
+import { allowedFrom, targetStatus, type TicketStatus } from "./state";
 
 const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
 
@@ -29,6 +30,40 @@ const MAX_LIST_LIMIT = 200;
 // цикла сохранения, чтобы `return` не обошёл общий catch и не оставил
 // файл сиротой, но при этом сохранить исходные 422 и сообщение для клиента.
 class UploadFailedError extends Error {}
+
+// Общий строитель скоупа для переходов статуса: id + (опционально) допустимые
+// исходные статусы + филиалы сессии. Используется и в самом UPDATE, и в
+// диагностическом SELECT ниже (notFoundOrConflict) — если эти два места
+// когда-нибудь разойдутся, один переход сможет закрыть чужую заявку, а
+// другой — перестать видеть свою.
+function scopedTicketWhere(id: string, userTerminals: string[] | undefined, statusFilter?: TicketStatus[]): SQLWrapper[] {
+  const where: SQLWrapper[] = [eq(tickets.id, id)];
+  if (statusFilter) where.push(inArray(tickets.status, statusFilter));
+  if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+  return where;
+}
+
+// Ноль обновлённых строк значит "не найдена" или "не в допустимом статусе" —
+// разные ответы, и второй нельзя выдавать для заявки, которую пользователь
+// вообще не должен видеть (иначе это подтверждает её существование в чужом
+// филиале). Различаем повторным SELECT в том же скоупе, но без фильтра по
+// статусу.
+async function notFoundOrConflict(
+  drizzle: DrizzleDB,
+  id: string,
+  userTerminals: string[] | undefined,
+  conflictMessage: string
+): Promise<{ status: 404 | 409; body: { message: string } }> {
+  const [ticket] = await drizzle
+    .select({ id: tickets.id })
+    .from(tickets)
+    .where(and(...scopedTicketWhere(id, userTerminals)))
+    .execute();
+  if (!ticket) {
+    return { status: 404, body: { message: "Заявка не найдена" } };
+  }
+  return { status: 409, body: { message: conflictMessage } };
+}
 
 export const ticketsController = new Elysia({ name: "@api/tickets" })
   .use(ctx)
@@ -347,11 +382,15 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         // UPDATE заявку успевают вернуть в работу с другого планшета. Область
         // видимости по филиалам — тоже в WHERE самого UPDATE, а не проверкой
         // постфактум: иначе можно успеть закрыть чужую заявку до проверки.
-        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("accept"))];
-        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const where = scopedTicketWhere(id, userTerminals, allowedFrom("accept"));
         const updated = await tx
           .update(tickets)
-          .set({ status: "closed", closed_at: new Date().toISOString(), closed_by: user!.id, updated_at: new Date().toISOString() })
+          .set({
+            status: targetStatus("accept"),
+            closed_at: new Date().toISOString(),
+            closed_by: user!.id,
+            updated_at: new Date().toISOString(),
+          })
           .where(and(...where))
           .returning();
         if (updated.length === 0) return null;
@@ -360,19 +399,14 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       });
 
       if (!result) {
-        // Ноль обновлённых строк значит "не найдена" или "не в том статусе" —
-        // это разные ответы, и второй нельзя выдавать для заявки, которую
-        // пользователь вообще не должен видеть (иначе это подтверждает её
-        // существование в чужом филиале).
-        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
-        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
-        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
-        if (!ticket) {
-          set.status = 404;
-          return { message: "Заявка не найдена" };
-        }
-        set.status = 409;
-        return { message: "Заявку можно принять только из состояния «сдана»" };
+        const { status, body } = await notFoundOrConflict(
+          drizzle,
+          id,
+          userTerminals,
+          "Заявку можно принять только из состояния «сдана»"
+        );
+        set.status = status;
+        return body;
       }
       return result;
     },
@@ -390,12 +424,11 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return { message: "Нужен комментарий: без него исполнитель не поймёт, что переделывать" };
       }
       const result = await drizzle.transaction(async (tx) => {
-        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("reopen"))];
-        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const where = scopedTicketWhere(id, userTerminals, allowedFrom("reopen"));
         const updated = await tx
           .update(tickets)
           .set({
-            status: "in_progress",
+            status: targetStatus("reopen"),
             done_at: null,
             reopen_count: sql`${tickets.reopen_count} + 1`,
             updated_at: new Date().toISOString(),
@@ -419,15 +452,14 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return updated[0];
       });
       if (!result) {
-        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
-        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
-        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
-        if (!ticket) {
-          set.status = 404;
-          return { message: "Заявка не найдена" };
-        }
-        set.status = 409;
-        return { message: "Вернуть в работу можно только сданную заявку" };
+        const { status, body } = await notFoundOrConflict(
+          drizzle,
+          id,
+          userTerminals,
+          "Вернуть в работу можно только сданную заявку"
+        );
+        set.status = status;
+        return body;
       }
       return result;
     },
@@ -440,13 +472,15 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      // Пустая или пробельная строка после trim — это отсутствие комментария,
+      // а не комментарий из пустой строки: не даём "" осесть в payload.
+      const trimmedComment = comment?.trim() || null;
       const result = await drizzle.transaction(async (tx) => {
-        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("cancel"))];
-        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const where = scopedTicketWhere(id, userTerminals, allowedFrom("cancel"));
         const updated = await tx
           .update(tickets)
           .set({
-            status: "cancelled",
+            status: targetStatus("cancel"),
             cancelled_at: new Date().toISOString(),
             cancelled_by: user!.id,
             updated_at: new Date().toISOString(),
@@ -459,20 +493,19 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           type: "cancelled",
           actor_kind: "manager",
           actor_user_id: user!.id,
-          payload: { comment: comment?.trim() ?? null },
+          payload: { comment: trimmedComment },
         });
         return updated[0];
       });
       if (!result) {
-        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
-        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
-        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
-        if (!ticket) {
-          set.status = 404;
-          return { message: "Заявка не найдена" };
-        }
-        set.status = 409;
-        return { message: "Отменить можно только новую или взятую в работу заявку" };
+        const { status, body } = await notFoundOrConflict(
+          drizzle,
+          id,
+          userTerminals,
+          "Отменить можно только новую или взятую в работу заявку"
+        );
+        set.status = status;
+        return body;
       }
       return result;
     },

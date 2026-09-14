@@ -25,3 +25,10 @@ export function allowedActions(from: TicketStatus): TicketAction[] {
 export function allowedFrom(action: TicketAction): TicketStatus[] {
   return [...(TRANSITIONS[action]?.from ?? [])];
 }
+
+// Симметрично allowedFrom: единственный источник целевого статуса действия,
+// чтобы контроллер не держал вторую копию TRANSITIONS в виде литералов в
+// .set({ status: ... }).
+export function targetStatus(action: TicketAction): TicketStatus {
+  return TRANSITIONS[action].to;
+}

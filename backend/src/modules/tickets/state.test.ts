@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { allowedActions, allowedFrom, nextStatus, type TicketAction, type TicketStatus } from "./state";
+import { allowedActions, allowedFrom, nextStatus, targetStatus, type TicketAction, type TicketStatus } from "./state";
 
 describe("машина состояний заявки", () => {
   it("проводит заявку по основному пути", () => {
@@ -63,6 +63,16 @@ describe("машина состояний заявки", () => {
       first.push("closed");
       const second = allowedFrom("cancel");
       expect(second).toEqual(["new", "in_progress"]);
+    });
+  });
+
+  describe("targetStatus", () => {
+    it("возвращает статус, в который переходит заявка при каждом действии", () => {
+      expect(targetStatus("claim")).toBe("in_progress");
+      expect(targetStatus("submit")).toBe("done");
+      expect(targetStatus("accept")).toBe("closed");
+      expect(targetStatus("reopen")).toBe("in_progress");
+      expect(targetStatus("cancel")).toBe("cancelled");
     });
   });
 });
