@@ -61,6 +61,21 @@ function assignedExecutor(input: RoutingInput): ExecutorRow | undefined {
   return input.firmExecutors.find((e) => e.id === id && reachable(e));
 }
 
+// Событие типы, для которых routeEvent ГАРАНТИРОВАННО возвращает пустой
+// список получателей — не зависят ни от ticket, ни от firmExecutors/
+// broadcast (см. case ниже). Вынесено отдельным экспортом, чтобы notify.ts
+// мог коротким замыканием пропустить четыре запроса (ticket/type/
+// firmExecutors/broadcast) ради заведомого [] — единый источник истины, а не
+// вторая копия списка типов, рискующая разойтись со switch ниже.
+// done_submitted сюда намеренно НЕ входит: сегодня он тоже даёт [], но это
+// временно (см. Task 7 в финальном ревью — Plan 3 добавит для него routing),
+// и включение его в этот набор сегодня незаметно проглотило бы завтрашний
+// список получателей.
+export const NO_RECIPIENTS_EVENT_TYPES: ReadonlySet<RoutingInput["event"]["type"]> = new Set([
+  "payment_approved",
+  "payment_rejected",
+]);
+
 export function routeEvent(input: RoutingInput): Recipient[] {
   switch (input.event.type) {
     case "created":

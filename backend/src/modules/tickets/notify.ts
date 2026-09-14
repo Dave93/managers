@@ -1,6 +1,6 @@
 import { ticket_notifications, ticket_executors, ticket_types, tickets, ticket_events } from "backend/drizzle/schema";
 import { and, eq, isNotNull } from "drizzle-orm";
-import { routeEvent, type Recipient, type RoutingInput } from "./routing";
+import { routeEvent, NO_RECIPIENTS_EVENT_TYPES, type Recipient, type RoutingInput } from "./routing";
 import { enqueueNotifications } from "./queue";
 
 export type NotificationRow = {
@@ -46,6 +46,15 @@ export async function recordNotifications(
     actorExecutorId?: string | null;
   }
 ): Promise<string[]> {
+  // payment_approved/payment_rejected гарантированно дают [] (см.
+  // NO_RECIPIENTS_EVENT_TYPES в routing.ts — подрядчик не узнаёт о денежном
+  // решении офиса из бота). Массовое утверждение оплаты бьёт этот путь до
+  // 200 раз за один вызов внутри транзакции, держащей блокировки на всех
+  // этих строках — незачем делать четыре запроса (ticket/type/firmExecutors/
+  // broadcast) на каждую ради заведомо пустого результата. Решает по-прежнему
+  // routeEvent (через названный набор), а не отсутствие вызова здесь.
+  if (NO_RECIPIENTS_EVENT_TYPES.has(input.eventType)) return [];
+
   const [ticket] = await tx
     .select({
       id: tickets.id,

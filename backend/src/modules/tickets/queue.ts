@@ -31,10 +31,30 @@ export function getTicketsQueue(): Queue {
   return queue;
 }
 
+// НЕ await'ится вызывающим кодом до конца постановки в очередь — вызывается
+// из HTTP-пути (controller.ts) ПОСЛЕ коммита транзакции, а Queue.add() ждёт
+// waitUntilReady() и, если Redis лежит, копится в offline-очереди ioredis
+// (дефолтный maxRetriesPerRequest) заметно дольше минуты, прежде чем вообще
+// отклонить промис. `await enqueueNotifications(...)` в контроллере значило
+// бы, что при лежащем Redis (он на этой машине уже перезапускался) заявка на
+// планшете менеджера висит дольше клиентского таймаута — тот жмёт "отправить"
+// повторно, и получаем два тикета с двумя наборами фото.
+//
+// Выбран fire-and-forget (`void enqueueNotifications(...)` эффективно, без
+// правки вызывающих файлов — они вне зоны этой правки), а не гонка с
+// таймаутом: строка уже закоммичена как 'pending' ДО вызова этой функции, и
+// tickets_worker.ts sweep() существует ровно для случая "Redis лежал в
+// момент постановки" — он подберёт такую строку сам в течение 2 минут, даже
+// если этот вызов вообще не вернётся. Гонка с таймаутом добавила бы таймер и
+// AbortController ради результата, который sweep() и так даёт бесплатно.
+//
+// Функция остаётся `async` и возвращает Promise<void> ради обратной
+// совместимости сигнатуры — просто ничего не ждёт внутри, поэтому
+// возвращается (и разрешается) почти немедленно вне зависимости от Redis.
 export async function enqueueNotifications(notificationIds: string[]): Promise<void> {
   if (notificationIds.length === 0) return;
   const q = getTicketsQueue();
-  await Promise.all(
+  void Promise.all(
     notificationIds.map((id) =>
       q.add("deliver", { notificationId: id }, { ...jobOptions, jobId: id }).catch((e) => {
         // Постановка не удалась — строка в базе осталась pending, её подберёт
