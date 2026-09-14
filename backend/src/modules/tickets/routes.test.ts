@@ -264,7 +264,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(res.status).toBe(200);
           const body = await res.json();
           const ids: string[] = body.data.map((r: { id: string }) => r.id);
-          expect(ids).toContain(mineTicketId);
+          expect(ids).toContain(mineTicketId!);
           expect(ids).not.toContain(otherTicketId);
         } finally {
           await s.cleanup();
@@ -288,8 +288,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(res.status).toBe(200);
           const body = await res.json();
           const ids: string[] = body.data.map((r: { id: string }) => r.id);
-          expect(ids).toContain(mineTicketId);
-          expect(ids).toContain(otherTicketId);
+          expect(ids).toContain(mineTicketId!);
+          expect(ids).toContain(otherTicketId!);
         } finally {
           await s.cleanup();
         }

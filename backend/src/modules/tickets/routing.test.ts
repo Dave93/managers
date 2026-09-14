@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { routeEvent, type RoutingInput } from "./routing";
+import { routeEvent, type Recipient, type RoutingInput } from "./routing";
 
 const ex = (id: string, chat: number, lang = "ru") => ({ id, tg_user_id: chat, lang, is_active: true });
 
@@ -35,7 +35,7 @@ describe("routeEvent", () => {
         { executor_id: "e2", chat_id: 222, tg_message_id: 901 },
       ],
     });
-    const edits = r.filter((x) => x.kind === "edit");
+    const edits = r.filter((x): x is Recipient & { kind: "edit" } => x.kind === "edit");
     expect(edits.map((x) => x.chat_id)).toEqual([222]);
     expect(edits[0].target_message_id).toBe(901);
     const sends = r.filter((x) => x.kind === "send");
