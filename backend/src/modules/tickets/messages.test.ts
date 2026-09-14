@@ -91,6 +91,7 @@ describe("buildMessage", () => {
     });
     expect(m.reply_markup).toBeUndefined();
     expect(m.text).toContain("Взял Азиз");
+    expect(m.text).not.toContain(", ");
   });
 
   it("assigned_other без обоих полей: сообщает что заявка уже взята", () => {
@@ -242,20 +243,55 @@ describe("buildMessage", () => {
   });
 
   it("emoji в границе 4096 не разрезает суррогатную пару", () => {
+    const TG_LIMIT = 4096;
+    const emoji = "😀"; // surrogate pair: high 0xD83D, low 0xDE00
+
+    // Prefix rendered by buildMessage before the comment text itself.
     const prefix = `🔴 Срочная · Реклама ТВ\nЧорсу · TV-000123\n\nСообщение от филиала:\n`;
     const prefixLength = prefix.length;
-    const padLength = 4096 - prefixLength - 2 - 1;
-    const comment = "х".repeat(padLength) + "😀";
-    
+
+    // clip() keeps s.substring(0, TG_LIMIT - 1), i.e. indices 0..TG_LIMIT-2.
+    // We want the emoji's high surrogate to land exactly on the last kept
+    // index (TG_LIMIT - 2), so its low surrogate is the very first unit cut.
+    const cutIndex = TG_LIMIT - 2;
+    const padLength = cutIndex - prefixLength;
+    expect(padLength).toBeGreaterThan(0);
+
+    // Padding to reach the cut, the straddling emoji, then trailing filler
+    // so the *total* message exceeds TG_LIMIT and clip() actually truncates
+    // (without the filler the message lands exactly at the limit and is
+    // returned untouched, which is what made the previous version of this
+    // test unable to fail).
+    const comment = "х".repeat(padLength) + emoji + "хвост-после-эмодзи";
+
+    // Verify the arithmetic against the real prefix instead of trusting it:
+    // the high surrogate of the emoji must sit at index `cutIndex` of the
+    // untouched (pre-clip) string.
+    const rawBeforeClip = prefix + comment;
+    expect(rawBeforeClip.length).toBeGreaterThan(TG_LIMIT);
+    expect(rawBeforeClip.charCodeAt(cutIndex)).toBe(emoji.charCodeAt(0));
+    expect(rawBeforeClip.charCodeAt(cutIndex + 1)).toBe(emoji.charCodeAt(1));
+
     const m = buildMessage({
       ...base,
       eventType: "comment",
       comment,
     });
-    
-    expect(m.text.length).toBeLessThanOrEqual(4096);
+
+    expect(m.text.length).toBeLessThanOrEqual(TG_LIMIT);
+
     const loneSurrogatePattern = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
     expect(loneSurrogatePattern.test(m.text)).toBe(false);
+
+    // The emoji must survive whole or be dropped entirely - never split.
+    // Scoped to the comment region (after the fixed prefix): the head itself
+    // starts with "🔴", whose high surrogate is the same 0xD83D unit (every
+    // codepoint in U+1F400..U+1F7FF shares it), so scanning the whole string
+    // for a lone high surrogate would false-positive on the head's own emoji.
+    const halfEmoji = emoji[0]; // lone high surrogate as a JS string
+    const commentRegion = m.text.slice(prefixLength);
+    const isHalfOnly = commentRegion.includes(halfEmoji) && !commentRegion.includes(emoji);
+    expect(isHalfOnly).toBe(false);
   });
 
   it("неизвестный eventType выбрасывает ошибку", () => {
