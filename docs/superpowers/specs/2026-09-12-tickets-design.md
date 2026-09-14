@@ -71,7 +71,9 @@
 - `name_ru`, `name_uz` varchar(255) not null
 - `icon` varchar(50) — имя иконки для плитки на планшете
 - `executor_kind` enum `ticket_executor_kind` (`external` | `staff`) not null
-- `contractor_id` uuid → ticket_contractors, nullable (обязателен при `executor_kind='external'`)
+- `contractor_id` uuid → ticket_contractors, nullable — NULL значит «фирма ещё не привязана»:
+  тип в этом состоянии виден в админке, но POST /tickets отклоняет заявку по нему 422-й,
+  пока фирму не подпишут отдельным PUT
 - `fields_schema` jsonb not null default `[]`
 - `requires_cost` boolean default true
 - `active` boolean default true
