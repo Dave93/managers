@@ -65,6 +65,24 @@ async function notFoundOrConflict(
   return { status: 409, body: { message: conflictMessage } };
 }
 
+const MAX_PAYMENT_IDS = 200;
+
+// ids приходит от офиса пачкой — финансист разом закрывает недельную стопку
+// актов чекбоксами. Любой элемент, не прошедший формат UUID, — это не
+// "пропустить эту строку и обработать остальные", а отказ всей пачки:
+// иначе он тихо выпадет из WHERE ниже, а финансист решит, что оплата по
+// нему одобрена. Это уже четвёртый узел в плане с таким классом дефекта.
+function validatePaymentIds(ids: unknown): { ok: true; ids: string[] } | { ok: false; message: string } {
+  if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_PAYMENT_IDS) {
+    return { ok: false, message: `Передайте от 1 до ${MAX_PAYMENT_IDS} заявок` };
+  }
+  const bad = ids.find((id) => typeof id !== "string" || !UUID_RE.test(id));
+  if (bad !== undefined) {
+    return { ok: false, message: `Некорректный id заявки: ${String(bad)}` };
+  }
+  return { ok: true, ids: ids as string[] };
+}
+
 export const ticketsController = new Elysia({ name: "@api/tickets" })
   .use(ctx)
   .post(
@@ -568,4 +586,105 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       return updated[0];
     },
     { permission: "tickets.list" }
+  )
+  .post(
+    "/tickets/payment/approve",
+    async ({ body: { ids }, user, terminals: userTerminals, set, drizzle }) => {
+      const idsCheck = validatePaymentIds(ids);
+      if (!idsCheck.ok) {
+        set.status = 422;
+        return { message: idsCheck.message };
+      }
+
+      // Утверждать можно только закрытую заявку, у которой сумма ещё не
+      // тронута: идемпотентность — в самом WHERE, а не отдельной проверкой
+      // до UPDATE. Повторное нажатие на уже утверждённой ничего не меняет
+      // и не пишет второе событие; статус тикета (`closed`) не трогаем —
+      // деньги идут своим путём отдельно от жизненного цикла заявки.
+      const updated = await drizzle.transaction(async (tx) => {
+        const where: SQLWrapper[] = [
+          inArray(tickets.id, idsCheck.ids),
+          eq(tickets.status, "closed"),
+          eq(tickets.payment_status, "pending"),
+        ];
+        // Офисные роли несут пустой terminals (= все филиалы), но если у
+        // сессии филиалы всё же есть — например, роль с tickets.payment.approve
+        // по ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
+        // трогать нельзя.
+        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+
+        const rows = await tx
+          .update(tickets)
+          .set({
+            payment_status: "approved",
+            payment_approved_by: user!.id,
+            payment_approved_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .where(and(...where))
+          .returning({ id: tickets.id, work_total_amount: tickets.work_total_amount });
+        for (const r of rows) {
+          await writeEvent(tx, {
+            ticket_id: r.id,
+            type: "payment_approved",
+            actor_kind: "office",
+            actor_user_id: user!.id,
+            payload: { amount: r.work_total_amount },
+          });
+        }
+        return rows;
+      });
+      return { approved: updated.length, skipped: idsCheck.ids.length - updated.length };
+    },
+    { permission: "tickets.payment.approve", body: t.Object({ ids: t.Array(t.String()) }) }
+  )
+  .post(
+    "/tickets/payment/reject",
+    async ({ body: { ids, comment }, user, terminals: userTerminals, set, drizzle }) => {
+      const idsCheck = validatePaymentIds(ids);
+      if (!idsCheck.ok) {
+        set.status = 422;
+        return { message: idsCheck.message };
+      }
+      if (!comment?.trim()) {
+        set.status = 422;
+        return { message: "Нужен комментарий с причиной отклонения" };
+      }
+
+      const updated = await drizzle.transaction(async (tx) => {
+        const where: SQLWrapper[] = [
+          inArray(tickets.id, idsCheck.ids),
+          eq(tickets.status, "closed"),
+          eq(tickets.payment_status, "pending"),
+        ];
+        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+
+        const rows = await tx
+          .update(tickets)
+          .set({
+            payment_status: "rejected",
+            payment_approved_by: user!.id,
+            payment_approved_at: new Date().toISOString(),
+            payment_comment: comment.trim(),
+            updated_at: new Date().toISOString(),
+          })
+          .where(and(...where))
+          .returning({ id: tickets.id });
+        for (const r of rows) {
+          await writeEvent(tx, {
+            ticket_id: r.id,
+            type: "payment_rejected",
+            actor_kind: "office",
+            actor_user_id: user!.id,
+            payload: { comment: comment.trim() },
+          });
+        }
+        return rows;
+      });
+      return { rejected: updated.length, skipped: idsCheck.ids.length - updated.length };
+    },
+    {
+      permission: "tickets.payment.approve",
+      body: t.Object({ ids: t.Array(t.String()), comment: t.String() }),
+    }
   );
