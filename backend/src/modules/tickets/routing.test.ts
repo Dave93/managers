@@ -42,6 +42,22 @@ describe("routeEvent", () => {
     expect(sends.map((x) => x.chat_id)).toEqual([111]);
   });
 
+  it("при захвате исполнителем, который ушёл из фирмы, только гасит кнопки", () => {
+    const r = routeEvent({
+      event: { type: "assigned", actor_kind: "executor", actor_executor_id: "e1" },
+      ticket: { id: "t1", status: "in_progress", assigned_executor_id: "e1" },
+      firmExecutors: [ex("e2", 222)], // e1 больше не в списке
+      broadcast: [
+        { executor_id: "e1", chat_id: 111, tg_message_id: 900 },
+        { executor_id: "e2", chat_id: 222, tg_message_id: 901 },
+      ],
+    });
+    // Нет send для e1 (его нет в firmExecutors)
+    expect(r.filter((x) => x.kind === "send")).toEqual([]);
+    // e2 получает edit чтобы убрать кнопку
+    expect(r.filter((x) => x.kind === "edit").map((x) => x.chat_id)).toEqual([222]);
+  });
+
   it("комментарий менеджера уходит только исполнителю", () => {
     const r = routeEvent({
       event: { type: "comment", actor_kind: "manager" },

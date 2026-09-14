@@ -27,17 +27,13 @@ export type RoutingInput = {
   broadcast: BroadcastRow[];
 };
 
-export type Recipient = {
-  executor_id: string;
-  chat_id: number;
-  lang: string;
-  kind: "send" | "edit";
-  target_message_id?: number;
-};
+export type Recipient =
+  | { executor_id: string; chat_id: number; lang: string; kind: "send" }
+  | { executor_id: string; chat_id: number; lang: string; kind: "edit"; target_message_id: number };
 
 const reachable = (e: ExecutorRow): boolean => e.is_active && typeof e.tg_user_id === "number";
 
-const send = (e: ExecutorRow): Recipient => ({
+const send = (e: ExecutorRow): Recipient & { kind: "send" } => ({
   executor_id: e.id,
   chat_id: e.tg_user_id as number,
   lang: e.lang,
@@ -46,7 +42,7 @@ const send = (e: ExecutorRow): Recipient => ({
 
 // Гашение кнопки у всех, кроме указанного исполнителя. Заявка уже не `new`,
 // и живая кнопка «Беру» у остальных — это выезд на объект, где чинить нечего.
-function editOthers(input: RoutingInput, exceptExecutorId: string | null): Recipient[] {
+function editOthers(input: RoutingInput, exceptExecutorId: string | null): (Recipient & { kind: "edit" })[] {
   const byId = new Map(input.firmExecutors.map((e) => [e.id, e]));
   return input.broadcast
     .filter((b) => b.executor_id !== exceptExecutorId && typeof b.tg_message_id === "number")
@@ -102,5 +98,10 @@ export function routeEvent(input: RoutingInput): Recipient[] {
     case "payment_approved":
     case "payment_rejected":
       return [];
+
+    default: {
+      const _exhaustive: never = input.event.type;
+      throw new Error(`routeEvent: неизвестный тип события ${_exhaustive}`);
+    }
   }
 }
