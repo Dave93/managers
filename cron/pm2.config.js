@@ -10,5 +10,10 @@ module.exports = {
       script: "iiko_document_worker.ts",
       interpreter: "bun",
     },
+    {
+      name: "office_tickets_worker",
+      script: "tickets_worker.ts",
+      interpreter: "bun",
+    },
   ],
 };
