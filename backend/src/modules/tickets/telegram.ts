@@ -1,5 +1,5 @@
 export type TgResult =
-  | { ok: true; message_id: number }
+  | { ok: true; message_id: number | null }
   | { ok: false; retryAfterMs?: number; permanent: boolean; error: string };
 
 // Разбор ответа вынесен отдельно от сети: это единственная часть, где
@@ -7,15 +7,19 @@ export type TgResult =
 // а не живым Telegram.
 export function interpretResponse(status: number, body: any): TgResult {
   if (status === 200 && body?.ok === true) {
-    return { ok: true, message_id: body.result?.message_id ?? 0 };
+    return { ok: true, message_id: body.result?.message_id ?? null };
   }
 
   const description: string = body?.description ?? `http ${status}`;
 
   // Гашение кнопки у сообщения, которое уже без кнопки, телеграм считает
-  // ошибкой. Для нас цель достигнута.
+  // ошибкой. Для нас цель достигнута. Telegram не возвращает message_id в
+  // этом ответе, поэтому отдаём null, а не 0 — 0 не валидный id сообщения,
+  // но выглядит как обычное число, и вызывающий код может по ошибке
+  // сохранить его как tg_message_id, затерев настоящий id. null явно
+  // говорит: «id не пришёл, оставь то, что уже сохранено».
   if (status === 400 && description.includes("message is not modified")) {
-    return { ok: true, message_id: 0 };
+    return { ok: true, message_id: null };
   }
 
   if (status === 429) {
