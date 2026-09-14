@@ -1,5 +1,8 @@
-import { describe, expect, it } from "bun:test";
-import { attachmentPath, checkUpload, extForMime, MAX_FILES_PER_PHASE } from "./storage";
+import { describe, expect, it, beforeAll, afterAll } from "bun:test";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import { attachmentPath, checkUpload, extForMime, MAX_FILES_PER_PHASE, uploadsBase, saveAttachment } from "./storage";
 
 describe("правила вложений", () => {
   it("знает разрешённые типы", () => {
@@ -43,14 +46,20 @@ describe("правила вложений", () => {
 });
 
 describe("защита от типов", () => {
-  it("отвергает NaN в size", () => {
+  it("отвергает NaN в size с правильным сообщением", () => {
     const r = checkUpload({ mime: "image/jpeg", size: NaN, existingCount: 0 });
     expect(r.ok).toBe(false);
+    if (r.ok === false) {
+      expect(r.error).toBe("некорректный размер файла");
+    }
   });
 
-  it("отвергает Infinity в size", () => {
+  it("отвергает Infinity в size с правильным сообщением", () => {
     const r = checkUpload({ mime: "image/jpeg", size: Infinity, existingCount: 0 });
     expect(r.ok).toBe(false);
+    if (r.ok === false) {
+      expect(r.error).toBe("некорректный размер файла");
+    }
   });
 
   it("отвергает отрицательное значение size", () => {
@@ -84,23 +93,21 @@ describe("защита от типов", () => {
   });
 });
 
-describe("защита от подмены пути", () => {
-  it("не позволяет ../ в ticketId", () => {
-    const id = "11111111-2222-3333-4444-555555555555";
-    const normal = attachmentPath(id, "jpg");
-    const dangerous = attachmentPath("../../../etc/passwd" as any, "jpg");
-    // Проверяем, что нормальный путь содержит UUID
-    expect(normal).toContain(`/${id}/`);
-    // Проверяем, что опасный путь переадресован в /invalid/ и не содержит /etc/passwd
-    expect(dangerous).toContain("/invalid/");
-    expect(dangerous).not.toContain("/etc/passwd");
+describe("защита от подмены пути в attachmentPath", () => {
+  it("выбрасывает ошибку при ../ в ticketId", () => {
+    expect(() => attachmentPath("../../../etc/passwd" as any, "jpg")).toThrow();
   });
 
-  it("не позволяет абсолютный путь в ticketId", () => {
-    const dangerous = attachmentPath("/etc/passwd" as any, "jpg");
-    // Проверяем, что абсолютный путь переадресован в /invalid/ и не содержит /etc
-    expect(dangerous).toContain("/invalid/");
-    expect(dangerous).not.toContain("/etc/passwd");
+  it("выбрасывает ошибку при абсолютном пути в ticketId", () => {
+    expect(() => attachmentPath("/etc/passwd" as any, "jpg")).toThrow();
+  });
+
+  it("выбрасывает ошибку при null в ticketId", () => {
+    expect(() => attachmentPath(null as any, "jpg")).toThrow();
+  });
+
+  it("выбрасывает ошибку при undefined в ticketId", () => {
+    expect(() => attachmentPath(undefined as any, "jpg")).toThrow();
   });
 });
 
@@ -118,5 +125,102 @@ describe("extForMime защита", () => {
   it("отвергает пустую строку", () => {
     const r = extForMime("");
     expect(r).toBeNull();
+  });
+});
+
+describe("saveAttachment", () => {
+  let tempDir: string;
+  let originalDir: string | undefined;
+
+  beforeAll(() => {
+    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "tickets-"));
+    originalDir = process.env.TICKETS_UPLOADS_DIR;
+    process.env.TICKETS_UPLOADS_DIR = tempDir;
+  });
+
+  afterAll(() => {
+    if (originalDir !== undefined) {
+      process.env.TICKETS_UPLOADS_DIR = originalDir;
+    } else {
+      delete process.env.TICKETS_UPLOADS_DIR;
+    }
+    // Remove temp directory
+    try {
+      const files = fs.readdirSync(tempDir, { recursive: true, withFileTypes: true });
+      for (const file of files.reverse()) {
+        if (file.isDirectory()) {
+          fs.rmdirSync(path.join(file.path, file.name));
+        } else {
+          fs.unlinkSync(path.join(file.path, file.name));
+        }
+      }
+      fs.rmdirSync(tempDir);
+    } catch (e) {
+      // ignore cleanup errors
+    }
+  });
+
+  it("сохраняет валидный image/png файл и возвращает метаданные", async () => {
+    const ticketId = "11111111-2222-3333-4444-555555555555";
+    const fileData = new Uint8Array([137, 80, 78, 71]); // PNG signature
+    const file = new File([fileData], "test.png", { type: "image/png" });
+    
+    const result = await saveAttachment(file, ticketId);
+    
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Проверяем метаданные
+      expect(result.mime).toBe("image/png");
+      expect(result.size_bytes).toBe(4);
+      expect(result.file_path).toContain(`/${ticketId}/`);
+      expect(result.file_path).toContain(tempDir);
+      
+      // Проверяем что файл существует на диске
+      expect(fs.existsSync(result.file_path)).toBe(true);
+      
+      // Проверяем содержимое
+      const diskData = fs.readFileSync(result.file_path);
+      expect(diskData.length).toBe(4);
+    }
+  });
+
+  it("использует расширение из MIME, не из имени файла", async () => {
+    const ticketId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const fileData = new Uint8Array([137, 80, 78, 71]); // PNG signature
+    const file = new File([fileData], "payload.exe", { type: "image/png" });
+    
+    const result = await saveAttachment(file, ticketId);
+    
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      // Расширение должно быть .png, не .exe
+      expect(result.file_path.endsWith(".png")).toBe(true);
+      expect(result.file_path.endsWith(".exe")).toBe(false);
+    }
+  });
+
+  it("отвергает недопустимый тип без записи на диск", async () => {
+    const ticketId = "11111111-2222-3333-4444-555555555555";
+    const fileData = new Uint8Array([0x25, 0x50, 0x44, 0x46]); // PDF signature
+    const file = new File([fileData], "test.pdf", { type: "application/pdf" });
+    
+    const dirBefore = fs.readdirSync(tempDir).length;
+    const result = await saveAttachment(file, ticketId);
+    const dirAfter = fs.readdirSync(tempDir).length;
+    
+    expect(result.ok).toBe(false);
+    expect(dirBefore).toBe(dirAfter); // Никаких новых файлов
+  });
+
+  it("отвергает некорректный ticketId без записи на диск", async () => {
+    const fileData = new Uint8Array([137, 80, 78, 71]); // PNG signature
+    const file = new File([fileData], "test.png", { type: "image/png" });
+    
+    const dirBefore = fs.readdirSync(tempDir).length;
+    const result = await saveAttachment(file, "../../../etc/passwd");
+    const dirAfter = fs.readdirSync(tempDir).length;
+    
+    expect(result.ok).toBe(false);
+    expect(dirBefore).toBe(dirAfter); // Никаких новых файлов
   });
 });

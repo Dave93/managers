@@ -25,9 +25,7 @@ export function uploadsBase(): string {
 export function attachmentPath(ticketId: string, ext: string): string {
   // Validate ticketId is a UUID to prevent path traversal attacks
   if (typeof ticketId !== "string" || !UUID_PATTERN.test(ticketId)) {
-    // Return a safe default path with the invalid ID hashed
-    const hash = Math.abs(ticketId.toString().split("").reduce((a, b) => a + b.charCodeAt(0), 0)) % 10000;
-    return `${uploadsBase()}/invalid/${hash}/${randomUUID()}.${ext}`;
+    throw new Error("attachmentPath: invalid ticket id");
   }
   return `${uploadsBase()}/${ticketId}/${randomUUID()}.${ext}`;
 }
@@ -37,7 +35,7 @@ export function checkUpload(input: { mime: string; size: number; existingCount: 
   | { ok: false; error: string } {
   // Protect against type coercion: validate that size and existingCount are finite numbers
   if (typeof input.size !== "number" || !Number.isFinite(input.size)) {
-    return { ok: false, error: "файл больше 10 МБ" };
+    return { ok: false, error: "некорректный размер файла" };
   }
   if (typeof input.existingCount !== "number" || !Number.isFinite(input.existingCount)) {
     return { ok: false, error: `больше ${MAX_FILES_PER_PHASE} фото на этап нельзя` };
@@ -70,6 +68,7 @@ export async function saveAttachment(
   
   const dir = `${uploadsBase()}/${ticketId}`;
   fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
+  fs.chmodSync(dir, 0o750);
   const file_path = attachmentPath(ticketId, ext);
   await Bun.write(file_path, file);
   return { ok: true, file_path, mime: file.type, size_bytes: file.size };
