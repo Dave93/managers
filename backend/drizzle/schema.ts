@@ -20,6 +20,7 @@ import {
   decimal,
   pgMaterializedView,
   date,
+  check,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -2250,6 +2251,10 @@ export const ticket_executors = pgTable(
     tg_user_id_idx: uniqueIndex("idx_ticket_executors_tg_user_id").on(table.tg_user_id),
     invite_code_idx: uniqueIndex("idx_ticket_executors_invite_code").on(table.invite_code),
     contractor_idx: index("idx_ticket_executors_contractor_id").on(table.contractor_id),
+    kind_target_check: check(
+      "ticket_executors_kind_target",
+      sql`(contractor_id IS NOT NULL) <> (user_id IS NOT NULL)`
+    ),
   })
 );
 
@@ -2289,6 +2294,9 @@ export const tickets = pgTable(
     type_idx: index("idx_tickets_type_id").on(table.type_id),
     created_at_idx: index("idx_tickets_created_at").on(table.created_at),
     executor_idx: index("idx_tickets_assigned_executor_id").on(table.assigned_executor_id),
+    payment_idx: index("idx_tickets_payment_pending")
+      .on(table.payment_status)
+      .where(sql`status = 'closed'`),
   })
 );
 
@@ -2303,7 +2311,7 @@ export const ticket_attachments = pgTable(
     size_bytes: integer("size_bytes").notNull(),
     uploaded_by_kind: ticket_actor_kind("uploaded_by_kind").notNull(),
     uploaded_by_user_id: uuid("uploaded_by_user_id"),
-    uploaded_by_executor_id: uuid("uploaded_by_executor_id"),
+    uploaded_by_executor_id: uuid("uploaded_by_executor_id").references(() => ticket_executors.id),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },
   (table) => ({
@@ -2318,7 +2326,7 @@ export const ticket_comments = pgTable(
     ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
     author_kind: ticket_actor_kind("author_kind").notNull(),
     author_user_id: uuid("author_user_id"),
-    author_executor_id: uuid("author_executor_id"),
+    author_executor_id: uuid("author_executor_id").references(() => ticket_executors.id),
     body: text("body").notNull(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },
@@ -2352,7 +2360,7 @@ export const ticket_events = pgTable(
     type: ticket_event_type("type").notNull(),
     actor_kind: ticket_actor_kind("actor_kind").notNull(),
     actor_user_id: uuid("actor_user_id"),
-    actor_executor_id: uuid("actor_executor_id"),
+    actor_executor_id: uuid("actor_executor_id").references(() => ticket_executors.id),
     payload: jsonb("payload").default({}).notNull(),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },

@@ -176,6 +176,13 @@
       "when": 1789360175225,
       "tag": "0024_tickets_core",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789360780924,
+      "tag": "0025_late_the_anarchist",
+      "breakpoints": true
     }
   ]
 }
