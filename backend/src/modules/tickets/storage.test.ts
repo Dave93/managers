@@ -149,9 +149,9 @@ describe("saveAttachment", () => {
       const files = fs.readdirSync(tempDir, { recursive: true, withFileTypes: true });
       for (const file of files.reverse()) {
         if (file.isDirectory()) {
-          fs.rmdirSync(path.join(tempDir, file.name));
+          fs.rmdirSync(path.join(file.parentPath, file.name));
         } else {
-          fs.unlinkSync(path.join(tempDir, file.name));
+          fs.unlinkSync(path.join(file.parentPath, file.name));
         }
       }
       fs.rmdirSync(tempDir);
