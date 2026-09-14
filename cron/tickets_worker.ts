@@ -1,5 +1,5 @@
 import { Queue, Worker, DelayedError, type Job } from "bullmq";
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { drizzleDb } from "@backend/lib/db";
 import {
   ticket_notifications,
@@ -49,21 +49,11 @@ const EVENT_TO_MESSAGE: Record<string, MessageEvent> = {
   cancelled: "cancelled",
 };
 
-async function deliver(job: Job, token: string) {
-  const notificationId = job.data.notificationId as string;
-
-  // Захват строки: если её уже забрал другой прогон, выходим молча.
-  const claimed = await drizzleDb
-    .update(ticket_notifications)
-    .set({ status: "sending", attempts: sql`${ticket_notifications.attempts} + 1` })
-    .where(and(eq(ticket_notifications.id, notificationId), eq(ticket_notifications.status, "pending")))
-    .returning()
-    .execute();
-  if (claimed.length === 0) return { skipped: true };
-
-  const n = claimed[0];
-
-  const [ctx] = await drizzleDb
+// Вынесено отдельной функцией только чтобы deliver() мог обернуть await в
+// try/catch, сохранив вывод типа результата (без этого пришлось бы объявлять
+// тип ctx вручную или терять типизацию через any).
+function fetchTicketContext(eventId: string) {
+  return drizzleDb
     .select({
       ticket_id: ticket_events.ticket_id,
       event_type: ticket_events.type,
@@ -83,8 +73,45 @@ async function deliver(job: Job, token: string) {
     .leftJoin(tickets, eq(ticket_events.ticket_id, tickets.id))
     .leftJoin(ticket_types, eq(tickets.type_id, ticket_types.id))
     .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
-    .where(eq(ticket_events.id, n.event_id))
+    .where(eq(ticket_events.id, eventId))
     .execute();
+}
+
+async function deliver(job: Job, token: string) {
+  const notificationId = job.data.notificationId as string;
+
+  // Захват строки: если её уже забрал другой прогон, выходим молча.
+  const claimed = await drizzleDb
+    .update(ticket_notifications)
+    .set({ status: "sending", attempts: sql`${ticket_notifications.attempts} + 1` })
+    .where(and(eq(ticket_notifications.id, notificationId), eq(ticket_notifications.status, "pending")))
+    .returning()
+    .execute();
+  if (claimed.length === 0) return { skipped: true };
+
+  const n = claimed[0];
+
+  // Этот join выполняется на КАЖДУЮ доставку — куда более вероятная точка
+  // единичного сбоя БД, чем чтения ниже. Без перехвата разовая заминка здесь
+  // навсегда хоронит строку в 'sending': следующая попытка на claim найдёт
+  // не 'pending' и молча выйдет ({skipped: true}, без throw), BullMQ
+  // посчитает job завершённым, подметалка смотрит только 'pending', а
+  // мониторинг — только 'failed'. Тот же рецепт, что и для чтения
+  // получателя/взявшего ниже: вернуть в pending и пробросить исключение,
+  // чтобы обычный retry очереди дал ещё одну попытку.
+  let ctxRows: Awaited<ReturnType<typeof fetchTicketContext>>;
+  try {
+    ctxRows = await fetchTicketContext(n.event_id);
+  } catch (e) {
+    await drizzleDb
+      .update(ticket_notifications)
+      .set({ status: "pending", last_error: (e as Error).message })
+      .where(eq(ticket_notifications.id, n.id))
+      .execute()
+      .catch(() => {});
+    throw e;
+  }
+  const [ctx] = ctxRows;
 
   if (!ctx) {
     await drizzleDb
@@ -257,6 +284,9 @@ async function deliver(job: Job, token: string) {
 async function sweep() {
   // Единственный сценарий, который очередь не закрывает: Redis лежал в момент
   // постановки, строка есть, задачи нет.
+  // ORDER BY created_at — без него при реальном затоне (больше 200 строк)
+  // LIMIT 200 мог бы каждый раз выбирать одни и те же строки, а самые
+  // старые никогда не дождались бы очереди.
   const stale = await drizzleDb
     .select({ id: ticket_notifications.id })
     .from(ticket_notifications)
@@ -266,12 +296,36 @@ async function sweep() {
         sql`${ticket_notifications.created_at} < now() - interval '2 minutes'`
       )
     )
+    .orderBy(asc(ticket_notifications.created_at))
     .limit(200)
     .execute();
   for (const row of stale) {
     await queue.add("deliver", { notificationId: row.id }, { ...jobOptions, jobId: row.id });
   }
-  return { requeued: stale.length };
+
+  // Строки в 'sending' эта подметалка (и claim в deliver()) намеренно не
+  // трогает — сбрасывать их обратно в pending рискует повторной отправкой
+  // уже ушедшего сообщения (см. комментарии в deliver()). Но застрявшая
+  // строка не должна тонуть молча: если её никто не увидит, разница между
+  // "редкий сбой" и "воркер сутки не работал" пропадает. Считаем и громко
+  // предупреждаем, не трогая статус.
+  const [{ count: stuckSending }] = await drizzleDb
+    .select({ count: sql<number>`count(*)` })
+    .from(ticket_notifications)
+    .where(
+      and(
+        eq(ticket_notifications.status, "sending"),
+        sql`${ticket_notifications.created_at} < now() - interval '15 minutes'`
+      )
+    )
+    .execute();
+  if (Number(stuckSending) > 0) {
+    console.warn(
+      `tickets worker: ${stuckSending} notification(s) stuck in 'sending' > 15 min — не сбрасываем (риск дубля), но это надо посмотреть глазами`
+    );
+  }
+
+  return { requeued: stale.length, stuckSending: Number(stuckSending) };
 }
 
 const worker = new Worker(
