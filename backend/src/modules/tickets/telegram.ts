@@ -1,0 +1,93 @@
+export type TgResult =
+  | { ok: true; message_id: number }
+  | { ok: false; retryAfterMs?: number; permanent: boolean; error: string };
+
+// Разбор ответа вынесен отдельно от сети: это единственная часть, где
+// принимается решение «ретраить или списать», и её надо проверять тестами,
+// а не живым Telegram.
+export function interpretResponse(status: number, body: any): TgResult {
+  if (status === 200 && body?.ok === true) {
+    return { ok: true, message_id: body.result?.message_id ?? 0 };
+  }
+
+  const description: string = body?.description ?? `http ${status}`;
+
+  // Гашение кнопки у сообщения, которое уже без кнопки, телеграм считает
+  // ошибкой. Для нас цель достигнута.
+  if (status === 400 && description.includes("message is not modified")) {
+    return { ok: true, message_id: 0 };
+  }
+
+  if (status === 429) {
+    const retryAfter = body?.parameters?.retry_after;
+    return {
+      ok: false,
+      permanent: false,
+      retryAfterMs: typeof retryAfter === "number" ? retryAfter * 1000 : undefined,
+      error: description,
+    };
+  }
+
+  // Пользователь заблокировал бота, чата нет, бот выкинут из чата — сколько
+  // ни повторяй, ответ не изменится.
+  const permanentMarks = [
+    "bot was blocked",
+    "chat not found",
+    "user is deactivated",
+    "bot was kicked",
+    "have no rights",
+  ];
+  const permanent =
+    (status === 400 || status === 403) && permanentMarks.some((m) => description.includes(m));
+
+  return { ok: false, permanent, error: description };
+}
+
+async function call(token: string, method: string, payload: object): Promise<TgResult> {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    let body: any = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    return interpretResponse(res.status, body);
+  } catch (e) {
+    // Сеть легла — временная ошибка, пусть очередь повторит.
+    return { ok: false, permanent: false, error: (e as Error).message };
+  }
+}
+
+export function sendMessage(
+  token: string,
+  chatId: number,
+  payload: { text: string; reply_markup?: object }
+): Promise<TgResult> {
+  return call(token, "sendMessage", {
+    chat_id: chatId,
+    text: payload.text,
+    parse_mode: "HTML",
+    reply_markup: payload.reply_markup,
+    disable_web_page_preview: true,
+  });
+}
+
+export function editMessageText(
+  token: string,
+  chatId: number,
+  messageId: number,
+  payload: { text: string; reply_markup?: object }
+): Promise<TgResult> {
+  return call(token, "editMessageText", {
+    chat_id: chatId,
+    message_id: messageId,
+    text: payload.text,
+    parse_mode: "HTML",
+    reply_markup: payload.reply_markup,
+  });
+}
