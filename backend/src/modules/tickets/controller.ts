@@ -16,6 +16,7 @@ import { and, desc, eq, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm"
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
+import { recordNotifications, enqueueNotifications } from "./notify";
 import { validateDetails, validateSchema, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment, uploadsBase, UUID_RE } from "./storage";
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
@@ -99,7 +100,7 @@ async function applyPaymentDecision(
   actorUserId: string,
   buildPayload: (row: { id: string; work_total_amount: string | null }) => Record<string, unknown>
 ): Promise<number> {
-  const updated = await drizzle.transaction(async (tx) => {
+  const { rows: updated, notificationIds } = await drizzle.transaction(async (tx) => {
     // Идемпотентность — в самом WHERE, а не отдельной проверкой до UPDATE:
     // повторное нажатие на уже утверждённой/отклонённой заявке ничего не
     // меняет и не пишет второе событие. Статус тикета (`closed`) не трогаем —
@@ -125,17 +126,32 @@ async function applyPaymentDecision(
       .set(fields)
       .where(and(...where))
       .returning({ id: tickets.id, work_total_amount: tickets.work_total_amount });
+    // Цикл может задеть много заявок одной пачкой (финансист чекает разом) —
+    // id набираются здесь и ставятся в очередь одним enqueueNotifications
+    // после коммита, а не по одному внутри цикла.
+    const notificationIds: string[] = [];
     for (const r of rows) {
-      await writeEvent(tx, {
+      const event = await writeEvent(tx, {
         ticket_id: r.id,
         type: eventType,
         actor_kind: "office",
         actor_user_id: actorUserId,
         payload: buildPayload(r),
       });
+      // routeEvent вернёт пустой список для payment_approved/payment_rejected
+      // (подрядчик не узнаёт о денежном решении офиса из бота) — вызов всё
+      // равно делается, чтобы это решало routeEvent, а не отсутствие вызова.
+      const ids = await recordNotifications(tx, {
+        eventId: event.id,
+        ticketId: r.id,
+        eventType,
+        actorKind: "office",
+      });
+      notificationIds.push(...ids);
     }
-    return rows;
+    return { rows, notificationIds };
   });
+  await enqueueNotifications(notificationIds);
   return updated.length;
 }
 
@@ -280,7 +296,7 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           saved.push({ file_path: r.file_path, mime: r.mime, size_bytes: r.size_bytes });
         }
 
-        const created = await drizzle.transaction(async (tx) => {
+        const { row: created, notificationIds } = await drizzle.transaction(async (tx) => {
           const [row] = await tx
             .insert(tickets)
             .values({
@@ -307,17 +323,24 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
             }))
           );
 
-          await writeEvent(tx, {
+          const event = await writeEvent(tx, {
             ticket_id,
             type: "created",
             actor_kind: "manager",
             actor_user_id: user!.id,
             payload: { type_code: type.code, priority: row.priority },
           });
+          const notificationIds = await recordNotifications(tx, {
+            eventId: event.id,
+            ticketId: ticket_id,
+            eventType: "created",
+            actorKind: "manager",
+          });
 
-          return row;
+          return { row, notificationIds };
         });
 
+        await enqueueNotifications(notificationIds);
         return { ...created, number: ticketNumber(type.number_prefix, created.seq) };
       } catch (e) {
         // Файлы легли раньше строк. Если транзакция упала (или один из файлов
@@ -533,8 +556,14 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           .where(and(...where))
           .returning();
         if (updated.length === 0) return null;
-        await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: "manager", actor_user_id: user!.id });
-        return updated[0];
+        const event = await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: "manager", actor_user_id: user!.id });
+        const notificationIds = await recordNotifications(tx, {
+          eventId: event.id,
+          ticketId: id,
+          eventType: "closed",
+          actorKind: "manager",
+        });
+        return { row: updated[0], notificationIds };
       });
 
       if (!result) {
@@ -547,7 +576,8 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = status;
         return body;
       }
-      return result;
+      await enqueueNotifications(result.notificationIds);
+      return result.row;
     },
     { permission: "tickets.close" }
   )
@@ -581,14 +611,20 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           author_user_id: user!.id,
           body: comment.trim(),
         });
-        await writeEvent(tx, {
+        const event = await writeEvent(tx, {
           ticket_id: id,
           type: "reopened",
           actor_kind: "manager",
           actor_user_id: user!.id,
           payload: { comment: comment.trim() },
         });
-        return updated[0];
+        const notificationIds = await recordNotifications(tx, {
+          eventId: event.id,
+          ticketId: id,
+          eventType: "reopened",
+          actorKind: "manager",
+        });
+        return { row: updated[0], notificationIds };
       });
       if (!result) {
         const { status, body } = await notFoundOrConflict(
@@ -600,7 +636,8 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = status;
         return body;
       }
-      return result;
+      await enqueueNotifications(result.notificationIds);
+      return result.row;
     },
     { permission: "tickets.close", body: t.Object({ comment: t.String() }) }
   )
@@ -627,14 +664,20 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           .where(and(...where))
           .returning();
         if (updated.length === 0) return null;
-        await writeEvent(tx, {
+        const event = await writeEvent(tx, {
           ticket_id: id,
           type: "cancelled",
           actor_kind: "manager",
           actor_user_id: user!.id,
           payload: { comment: trimmedComment },
         });
-        return updated[0];
+        const notificationIds = await recordNotifications(tx, {
+          eventId: event.id,
+          ticketId: id,
+          eventType: "cancelled",
+          actorKind: "manager",
+        });
+        return { row: updated[0], notificationIds };
       });
       if (!result) {
         const { status, body } = await notFoundOrConflict(
@@ -646,7 +689,8 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = status;
         return body;
       }
-      return result;
+      await enqueueNotifications(result.notificationIds);
+      return result.row;
     },
     { permission: "tickets.cancel", body: t.Object({ comment: t.Optional(t.String()) }) }
   )
@@ -669,20 +713,28 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         return { message: "Заявка не найдена" };
       }
 
-      return drizzle.transaction(async (tx) => {
+      const { comment, notificationIds } = await drizzle.transaction(async (tx) => {
         const [comment] = await tx
           .insert(ticket_comments)
           .values({ ticket_id: id, author_kind: "manager", author_user_id: user!.id, body: text.trim() })
           .returning();
-        await writeEvent(tx, {
+        const event = await writeEvent(tx, {
           ticket_id: id,
           type: "comment",
           actor_kind: "manager",
           actor_user_id: user!.id,
           payload: { comment_id: comment.id },
         });
-        return comment;
+        const notificationIds = await recordNotifications(tx, {
+          eventId: event.id,
+          ticketId: id,
+          eventType: "comment",
+          actorKind: "manager",
+        });
+        return { comment, notificationIds };
       });
+      await enqueueNotifications(notificationIds);
+      return comment;
     },
     { permission: "tickets.list", body: t.Object({ body: t.String() }) }
   )
