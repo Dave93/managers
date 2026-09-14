@@ -97,3 +97,80 @@ describe("validateDetails", () => {
     expect(validateDetails(SCHEMA, { tv_place: "hall", note: "x".repeat(2001) }).ok).toBe(false);
   });
 });
+
+// Fix round 1: Additional coverage and defect tests
+describe("validateSchema - additional coverage", () => {
+  it("отвергает массив как элемент схемы", () => {
+    const r = validateSchema([[] as unknown]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("отвергает нестроковый label_ru", () => {
+    const r = validateSchema([{ ...SCHEMA[1], label_ru: 123 }]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("отвергает нестроковый label_uz", () => {
+    const r = validateSchema([{ ...SCHEMA[1], label_uz: null }]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("отвергает нестроковый option value", () => {
+    const r = validateSchema([
+      {
+        ...SCHEMA[0],
+        options: [{ value: 42, label_ru: "Зал", label_uz: "Zal" }],
+      },
+    ]);
+    expect(r.ok).toBe(false);
+  });
+
+  it("отвергает не-объект в options", () => {
+    const r = validateSchema([
+      {
+        ...SCHEMA[0],
+        options: [null, { value: "hall", label_ru: "Зал", label_uz: "Zal" }],
+      },
+    ]);
+    expect(r.ok).toBe(false);
+  });
+});
+
+describe("validateDetails - additional coverage", () => {
+  it("отвергает массив как raw", () => {
+    const r = validateDetails(SCHEMA, []);
+    expect(r.ok).toBe(false);
+  });
+
+  it("требует поле, присланное объектом", () => {
+    const r = validateDetails(SCHEMA, { tv_place: { nested: "value" } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.includes("tv_place"))).toBe(true);
+    // Error should NOT be "обязательное поле" since the key is present
+    if (!r.ok) expect(r.errors.some((e) => e.includes("должно быть строкой"))).toBe(true);
+  });
+
+  it("отвергает опциональное поле, присланное объектом", () => {
+    const r = validateDetails(SCHEMA, { tv_place: "hall", note: { bad: "value" } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.includes("note"))).toBe(true);
+  });
+
+  it("отвергает поле, присланное массивом", () => {
+    const r = validateDetails(SCHEMA, { tv_place: [] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.includes("tv_place"))).toBe(true);
+  });
+
+  it("отвергает поле, присланное числом", () => {
+    const r = validateDetails(SCHEMA, { tv_place: 42 });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.includes("tv_place"))).toBe(true);
+  });
+
+  it("отвергает поле, присланное булевым", () => {
+    const r = validateDetails(SCHEMA, { tv_place: true });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.errors.some((e) => e.includes("tv_place"))).toBe(true);
+  });
+});

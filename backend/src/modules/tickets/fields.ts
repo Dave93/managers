@@ -32,7 +32,7 @@ export function validateSchema(raw: unknown): SchemaResult {
 
   raw.forEach((item, i) => {
     const where = `поле #${i + 1}`;
-    if (typeof item !== "object" || item === null) {
+    if (typeof item !== "object" || item === null || Array.isArray(item)) {
       errors.push(`${where}: не объект`);
       return;
     }
@@ -112,10 +112,22 @@ export function validateDetails(schema: FieldDef[], raw: unknown): DetailsResult
   const details: Record<string, string> = {};
   for (const f of schema) {
     const value = input[f.key];
-    if (!filled(value)) {
+
+    // Check if key is absent or has empty string value
+    const isAbsent = !Object.prototype.hasOwnProperty.call(input, f.key);
+    const isEmpty = isStr(value) && value.trim().length === 0;
+
+    if (isAbsent || isEmpty) {
       if (f.required) errors.push(`${f.key}: обязательное поле`);
       continue;
     }
+
+    // Key is present; check if it's a string
+    if (!isStr(value)) {
+      errors.push(`${f.key}: значение должно быть строкой`);
+      continue;
+    }
+
     const trimmed = value.trim();
     if (f.type === "select") {
       if (!f.options?.some((o) => o.value === trimmed)) {
