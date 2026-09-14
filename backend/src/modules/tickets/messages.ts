@@ -78,14 +78,29 @@ const esc = (s: unknown): string => {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 };
 
-// Clip on UTF-16 code-unit boundary, respecting surrogate pairs
-const clip = (s: string): string => {
+// Clip on UTF-16 code-unit boundary, respecting surrogate pairs AND HTML
+// entities. `clip()` runs on text that already went through `esc()` above —
+// a naive length cut can land in the middle of "&amp;"/"&lt;"/"&gt;" (e.g.
+// "...&am"), and Telegram answers 400 "can't parse entities" on that with
+// parse_mode: HTML.
+export const clip = (s: string): string => {
   if (s.length <= TG_LIMIT) {
     return s;
   }
   // s.length counts UTF-16 code units (what Telegram counts)
   // TG_LIMIT - 1 leaves room for ellipsis
-  let result = s.substring(0, TG_LIMIT - 1);
+  let end = TG_LIMIT - 1;
+  // Longest entity we ever produce is "&amp;" (5 chars) — scanning 5 chars
+  // back from the cut is enough to tell whether it lands inside one. A ";"
+  // found first means any entity before the cut is already closed.
+  for (let i = end - 1; i >= Math.max(0, end - 5); i--) {
+    if (s[i] === ";") break;
+    if (s[i] === "&") {
+      end = i;
+      break;
+    }
+  }
+  let result = s.substring(0, end);
   // Check if last char is a high surrogate (incomplete pair)
   const lastChar = result.charCodeAt(result.length - 1);
   if (lastChar >= 0xd800 && lastChar <= 0xdbff) {

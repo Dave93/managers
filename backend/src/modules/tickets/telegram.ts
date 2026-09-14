@@ -33,13 +33,21 @@ export function interpretResponse(status: number, body: any): TgResult {
   }
 
   // Пользователь заблокировал бота, чата нет, бот выкинут из чата — сколько
-  // ни повторяй, ответ не изменится.
+  // ни повторяй, ответ не изменится. Три нижних — тот же класс, но на
+  // edit-пути: сообщение старше 48-часового окна правки Telegram, само
+  // сообщение удалено, или его id вообще не существует. Без них такие ответы
+  // классифицировались как временные — пять бесполезных ретраев, а затем
+  // находка #1 (строка остаётся в 'pending' навсегда после исчерпания
+  // попыток, а не переходит в 'failed').
   const permanentMarks = [
     "bot was blocked",
     "chat not found",
     "user is deactivated",
     "bot was kicked",
     "have no rights",
+    "message to edit not found",
+    "message can't be edited",
+    "MESSAGE_ID_INVALID",
   ];
   const permanent =
     (status === 400 || status === 403) && permanentMarks.some((m) => description.includes(m));

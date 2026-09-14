@@ -55,6 +55,21 @@ describe("interpretResponse", () => {
     if (!r.ok) expect(r.permanent).toBe(true);
   });
 
+  it("400 «message to edit not found» — постоянная (окно правки 48ч истекло)", () => {
+    const r = interpretResponse(400, { ok: false, description: "Bad Request: message to edit not found" });
+    if (!r.ok) expect(r.permanent).toBe(true);
+  });
+
+  it("400 «message can't be edited» — постоянная", () => {
+    const r = interpretResponse(400, { ok: false, description: "Bad Request: message can't be edited" });
+    if (!r.ok) expect(r.permanent).toBe(true);
+  });
+
+  it("400 «MESSAGE_ID_INVALID» — постоянная", () => {
+    const r = interpretResponse(400, { ok: false, description: "Bad Request: MESSAGE_ID_INVALID" });
+    if (!r.ok) expect(r.permanent).toBe(true);
+  });
+
   it("400 с описанием вне списка постоянных — временная (allowlist, не denylist)", () => {
     const r = interpretResponse(400, { ok: false, description: "Bad Request: message text is empty" });
     if (!r.ok) expect(r.permanent).toBe(false);

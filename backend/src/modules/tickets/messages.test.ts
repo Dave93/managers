@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildMessage, type MessageInput } from "./messages";
+import { buildMessage, clip, type MessageInput } from "./messages";
 
 const base: MessageInput = {
   eventType: "created",
@@ -292,6 +292,29 @@ describe("buildMessage", () => {
     const commentRegion = m.text.slice(prefixLength);
     const isHalfOnly = commentRegion.includes(halfEmoji) && !commentRegion.includes(emoji);
     expect(isHalfOnly).toBe(false);
+  });
+
+  it("clip не режет HTML-сущность &amp; пополам на границе TG_LIMIT", () => {
+    // clip() работает над уже экранированным текстом (esc() выше заменяет
+    // "&" на "&amp;" и т.п.) — наивная резка по длине символов может
+    // остановиться посреди сущности ("...&am"), и Telegram отвечает 400
+    // "can't parse entities" на текст с parse_mode: HTML.
+    const TG_LIMIT = 4096;
+    // filler такой длины, что "&" в "&amp;" встаёт на индекс TG_LIMIT-3:
+    // наивный substring(0, TG_LIMIT - 1) обрезал бы ровно после "&a",
+    // оставив несданную сущность на границе.
+    const filler = "a".repeat(TG_LIMIT - 3);
+    const raw = filler + "&amp;" + "хвост-после-сущности";
+    expect(raw.length).toBeGreaterThan(TG_LIMIT);
+
+    const clipped = clip(raw);
+    expect(clipped.length).toBeLessThanOrEqual(TG_LIMIT);
+    expect(clipped.endsWith("…")).toBe(true);
+
+    const body = clipped.slice(0, -1);
+    // Оборванная сущность выглядела бы как "...&", "...&a", "...&am" или
+    // "...&amp" — без завершающей ";".
+    expect(/&[a-z]{0,4}$/.test(body)).toBe(false);
   });
 
   it("неизвестный eventType выбрасывает ошибку", () => {
