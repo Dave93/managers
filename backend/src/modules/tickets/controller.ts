@@ -16,6 +16,7 @@ import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
 import { validateDetails, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment } from "./storage";
+import { allowedFrom } from "./state";
 
 const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
 
@@ -331,6 +332,207 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       }
       set.headers["content-type"] = row.mime;
       return Bun.file(row.file_path);
+    },
+    { permission: "tickets.list" }
+  )
+  .post(
+    "/tickets/:id/close",
+    async ({ params: { id }, user, terminals: userTerminals, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      const result = await drizzle.transaction(async (tx) => {
+        // Переход проверяется тем же запросом, что и пишет: между SELECT и
+        // UPDATE заявку успевают вернуть в работу с другого планшета. Область
+        // видимости по филиалам — тоже в WHERE самого UPDATE, а не проверкой
+        // постфактум: иначе можно успеть закрыть чужую заявку до проверки.
+        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("accept"))];
+        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const updated = await tx
+          .update(tickets)
+          .set({ status: "closed", closed_at: new Date().toISOString(), closed_by: user!.id, updated_at: new Date().toISOString() })
+          .where(and(...where))
+          .returning();
+        if (updated.length === 0) return null;
+        await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: "manager", actor_user_id: user!.id });
+        return updated[0];
+      });
+
+      if (!result) {
+        // Ноль обновлённых строк значит "не найдена" или "не в том статусе" —
+        // это разные ответы, и второй нельзя выдавать для заявки, которую
+        // пользователь вообще не должен видеть (иначе это подтверждает её
+        // существование в чужом филиале).
+        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
+        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
+        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
+        if (!ticket) {
+          set.status = 404;
+          return { message: "Заявка не найдена" };
+        }
+        set.status = 409;
+        return { message: "Заявку можно принять только из состояния «сдана»" };
+      }
+      return result;
+    },
+    { permission: "tickets.close" }
+  )
+  .post(
+    "/tickets/:id/reopen",
+    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      if (!comment?.trim()) {
+        set.status = 422;
+        return { message: "Нужен комментарий: без него исполнитель не поймёт, что переделывать" };
+      }
+      const result = await drizzle.transaction(async (tx) => {
+        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("reopen"))];
+        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const updated = await tx
+          .update(tickets)
+          .set({
+            status: "in_progress",
+            done_at: null,
+            reopen_count: sql`${tickets.reopen_count} + 1`,
+            updated_at: new Date().toISOString(),
+          })
+          .where(and(...where))
+          .returning();
+        if (updated.length === 0) return null;
+        await tx.insert(ticket_comments).values({
+          ticket_id: id,
+          author_kind: "manager",
+          author_user_id: user!.id,
+          body: comment.trim(),
+        });
+        await writeEvent(tx, {
+          ticket_id: id,
+          type: "reopened",
+          actor_kind: "manager",
+          actor_user_id: user!.id,
+          payload: { comment: comment.trim() },
+        });
+        return updated[0];
+      });
+      if (!result) {
+        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
+        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
+        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
+        if (!ticket) {
+          set.status = 404;
+          return { message: "Заявка не найдена" };
+        }
+        set.status = 409;
+        return { message: "Вернуть в работу можно только сданную заявку" };
+      }
+      return result;
+    },
+    { permission: "tickets.close", body: t.Object({ comment: t.String() }) }
+  )
+  .post(
+    "/tickets/:id/cancel",
+    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      const result = await drizzle.transaction(async (tx) => {
+        const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.status, allowedFrom("cancel"))];
+        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+        const updated = await tx
+          .update(tickets)
+          .set({
+            status: "cancelled",
+            cancelled_at: new Date().toISOString(),
+            cancelled_by: user!.id,
+            updated_at: new Date().toISOString(),
+          })
+          .where(and(...where))
+          .returning();
+        if (updated.length === 0) return null;
+        await writeEvent(tx, {
+          ticket_id: id,
+          type: "cancelled",
+          actor_kind: "manager",
+          actor_user_id: user!.id,
+          payload: { comment: comment?.trim() ?? null },
+        });
+        return updated[0];
+      });
+      if (!result) {
+        const scopeWhere: SQLWrapper[] = [eq(tickets.id, id)];
+        if (userTerminals && userTerminals.length > 0) scopeWhere.push(inArray(tickets.terminal_id, userTerminals));
+        const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...scopeWhere)).execute();
+        if (!ticket) {
+          set.status = 404;
+          return { message: "Заявка не найдена" };
+        }
+        set.status = 409;
+        return { message: "Отменить можно только новую или взятую в работу заявку" };
+      }
+      return result;
+    },
+    { permission: "tickets.cancel", body: t.Object({ comment: t.Optional(t.String()) }) }
+  )
+  .post(
+    "/tickets/:id/comments",
+    async ({ params: { id }, body: { body: text }, user, terminals: userTerminals, set, drizzle }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      if (!text?.trim()) {
+        set.status = 422;
+        return { message: "Пустой комментарий" };
+      }
+      const where: SQLWrapper[] = [eq(tickets.id, id)];
+      if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+      const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...where)).execute();
+      if (!ticket) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+
+      return drizzle.transaction(async (tx) => {
+        const [comment] = await tx
+          .insert(ticket_comments)
+          .values({ ticket_id: id, author_kind: "manager", author_user_id: user!.id, body: text.trim() })
+          .returning();
+        await writeEvent(tx, {
+          ticket_id: id,
+          type: "comment",
+          actor_kind: "manager",
+          actor_user_id: user!.id,
+          payload: { comment_id: comment.id },
+        });
+        return comment;
+      });
+    },
+    { permission: "tickets.list", body: t.Object({ body: t.String() }) }
+  )
+  .post(
+    "/tickets/:id/seen",
+    async ({ params: { id }, terminals: userTerminals, drizzle, set }) => {
+      if (!UUID_RE.test(id)) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      const where: SQLWrapper[] = [eq(tickets.id, id)];
+      if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+      const updated = await drizzle
+        .update(tickets)
+        .set({ manager_seen_at: new Date().toISOString() })
+        .where(and(...where))
+        .returning({ id: tickets.id, manager_seen_at: tickets.manager_seen_at });
+      if (updated.length === 0) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      return updated[0];
     },
     { permission: "tickets.list" }
   );
