@@ -132,6 +132,28 @@ async function applyPaymentDecision(
   return updated.length;
 }
 
+// PUT на ticket_types/ticket_contractors/ticket_executors ведёт себя как
+// частичное обновление: непереданное поле не должно затираться. Три места
+// копировали этот `if (body.x !== undefined) patch.x = body.x` дословно —
+// вынесено сюда, чтобы не разойтись по одному полю так, как это едва не
+// случилось между close/reopen/cancel до Task 7.
+function buildPatch<T extends Record<string, unknown>>(body: Record<string, unknown>, fields: readonly (keyof T)[]): Partial<T> {
+  const patch: Partial<T> = {};
+  for (const f of fields) {
+    const v = body[f as string];
+    if (v !== undefined) patch[f] = v as T[typeof f];
+  }
+  return patch;
+}
+
+// 0 обновлённых строк для справочников однозначно значит "не найдена" — в
+// отличие от tickets, здесь нет статусного скоупа, который стоило бы отличать
+// отдельным SELECT (см. notFoundOrConflict выше).
+function rowOrNotFound<T>(rows: T[], notFoundMessage: string): { status: 200; body: T } | { status: 404; body: { message: string } } {
+  const row = rows[0];
+  return row ? { status: 200, body: row } : { status: 404, body: { message: notFoundMessage } };
+}
+
 export const ticketsController = new Elysia({ name: "@api/tickets" })
   .use(ctx)
   .post(
@@ -733,6 +755,13 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 422;
         return { message: "executor_kind должен быть external или staff" };
       }
+      // contractor_id уходит в eq()/insert как есть: мусорная строка иначе
+      // доезжает до Postgres сырой 500 вместо понятной 422 — та же причина,
+      // что и у guard'а contractor_id в GET /ticket_executors ниже.
+      if (body.contractor_id !== undefined && !UUID_RE.test(body.contractor_id)) {
+        set.status = 422;
+        return { message: "contractor_id должен быть UUID" };
+      }
       if (executor_kind === "external" && !body.contractor_id) {
         set.status = 422;
         return { message: "Для внешнего исполнителя нужна фирма" };
@@ -757,9 +786,13 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
           .returning();
         return row;
       } catch (e: any) {
-        // idx_ticket_types_code — глобальный уникальный индекс: дубликат кода
-        // иначе долетает как сырая 500 от Postgres вместо понятного 409.
-        if (e?.code === "23505" || e?.cause?.code === "23505") {
+        // idx_ticket_types_code — единственный уникальный индекс на таблице
+        // сегодня, но проверяем имя constraint'а, а не только код 23505:
+        // будущий уникальный индекс на этой таблице иначе тоже попадёт сюда
+        // и получит неверное сообщение "код уже существует".
+        const constraint = e?.constraint ?? e?.cause?.constraint;
+        const code = e?.code ?? e?.cause?.code;
+        if (code === "23505" && constraint === "idx_ticket_types_code") {
           set.status = 409;
           return { message: `Тип с кодом «${body.code}» уже существует` };
         }
@@ -790,15 +823,41 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Тип не найден" };
       }
-      const patch: Partial<typeof ticket_types.$inferInsert> = { updated_at: new Date().toISOString() };
-      if (body.number_prefix !== undefined) patch.number_prefix = body.number_prefix;
-      if (body.name_ru !== undefined) patch.name_ru = body.name_ru;
-      if (body.name_uz !== undefined) patch.name_uz = body.name_uz;
-      if (body.icon !== undefined) patch.icon = body.icon;
-      if (body.contractor_id !== undefined) patch.contractor_id = body.contractor_id;
-      if (body.requires_cost !== undefined) patch.requires_cost = body.requires_cost;
-      if (body.active !== undefined) patch.active = body.active;
-      if (body.sort !== undefined) patch.sort = body.sort;
+      if (body.contractor_id !== undefined && !UUID_RE.test(body.contractor_id)) {
+        set.status = 422;
+        return { message: "contractor_id должен быть UUID" };
+      }
+
+      // executor_kind здесь не редактируется, но create-путь никогда не
+      // допускал external без фирмы или staff с фирмой — PUT не должен
+      // позволять эти же состояния через contractor_id, читая только тело
+      // запроса без оглядки на уже сохранённый executor_kind строки.
+      const [existing] = await drizzle.select().from(ticket_types).where(eq(ticket_types.id, id)).execute();
+      if (!existing) {
+        set.status = 404;
+        return { message: "Тип не найден" };
+      }
+      const effectiveContractorId = body.contractor_id !== undefined ? body.contractor_id : existing.contractor_id;
+      if (existing.executor_kind === "external" && !effectiveContractorId) {
+        set.status = 422;
+        return { message: "Для внешнего исполнителя нужна фирма" };
+      }
+      if (existing.executor_kind === "staff" && effectiveContractorId) {
+        set.status = 422;
+        return { message: "Типу с исполнителем-сотрудником фирма не нужна" };
+      }
+
+      const patch = buildPatch<typeof ticket_types.$inferInsert>(body, [
+        "number_prefix",
+        "name_ru",
+        "name_uz",
+        "icon",
+        "contractor_id",
+        "requires_cost",
+        "active",
+        "sort",
+      ]);
+      patch.updated_at = new Date().toISOString();
       if (body.fields_schema !== undefined) {
         const schemaCheck = validateSchema(body.fields_schema);
         if (!schemaCheck.ok) {
@@ -807,12 +866,10 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         }
         patch.fields_schema = schemaCheck.schema;
       }
-      const [row] = await drizzle.update(ticket_types).set(patch).where(eq(ticket_types.id, id)).returning();
-      if (!row) {
-        set.status = 404;
-        return { message: "Тип не найден" };
-      }
-      return row;
+      const rows = await drizzle.update(ticket_types).set(patch).where(eq(ticket_types.id, id)).returning();
+      const result = rowOrNotFound(rows, "Тип не найден");
+      set.status = result.status;
+      return result.body;
     },
     {
       permission: "tickets.types.manage",
@@ -857,21 +914,12 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Фирма не найдена" };
       }
-      const patch: Partial<typeof ticket_contractors.$inferInsert> = { updated_at: new Date().toISOString() };
-      if (body.name !== undefined) patch.name = body.name;
-      if (body.phone !== undefined) patch.phone = body.phone;
-      if (body.note !== undefined) patch.note = body.note;
-      if (body.is_active !== undefined) patch.is_active = body.is_active;
-      const [row] = await drizzle
-        .update(ticket_contractors)
-        .set(patch)
-        .where(eq(ticket_contractors.id, id))
-        .returning();
-      if (!row) {
-        set.status = 404;
-        return { message: "Фирма не найдена" };
-      }
-      return row;
+      const patch = buildPatch<typeof ticket_contractors.$inferInsert>(body, ["name", "phone", "note", "is_active"]);
+      patch.updated_at = new Date().toISOString();
+      const rows = await drizzle.update(ticket_contractors).set(patch).where(eq(ticket_contractors.id, id)).returning();
+      const result = rowOrNotFound(rows, "Фирма не найдена");
+      set.status = result.status;
+      return result.body;
     },
     {
       permission: "tickets.contractors.manage",
@@ -915,6 +963,16 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
       } else {
         set.status = 422;
         return { message: "kind должен быть external или staff" };
+      }
+      // Оба поля уходят в eq()/insert как есть: мусорная строка вместо UUID
+      // иначе доезжает до Postgres сырой 500 вместо понятной 422.
+      if (body.contractor_id !== undefined && !UUID_RE.test(body.contractor_id)) {
+        set.status = 422;
+        return { message: "contractor_id должен быть UUID" };
+      }
+      if (body.user_id !== undefined && !UUID_RE.test(body.user_id)) {
+        set.status = 422;
+        return { message: "user_id должен быть UUID" };
       }
       // Ограничение ticket_executors_kind_target в БД требует ровно одного
       // из contractor_id/user_id. Проверяем обе стороны здесь, а не только
@@ -971,21 +1029,12 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 404;
         return { message: "Исполнитель не найден" };
       }
-      const patch: Partial<typeof ticket_executors.$inferInsert> = { updated_at: new Date().toISOString() };
-      if (body.full_name !== undefined) patch.full_name = body.full_name;
-      if (body.phone !== undefined) patch.phone = body.phone;
-      if (body.lang !== undefined) patch.lang = body.lang;
-      if (body.is_active !== undefined) patch.is_active = body.is_active;
-      const [row] = await drizzle
-        .update(ticket_executors)
-        .set(patch)
-        .where(eq(ticket_executors.id, id))
-        .returning();
-      if (!row) {
-        set.status = 404;
-        return { message: "Исполнитель не найден" };
-      }
-      return row;
+      const patch = buildPatch<typeof ticket_executors.$inferInsert>(body, ["full_name", "phone", "lang", "is_active"]);
+      patch.updated_at = new Date().toISOString();
+      const rows = await drizzle.update(ticket_executors).set(patch).where(eq(ticket_executors.id, id)).returning();
+      const result = rowOrNotFound(rows, "Исполнитель не найден");
+      set.status = result.status;
+      return result.body;
     },
     {
       permission: "tickets.contractors.manage",
@@ -1010,7 +1059,7 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         .update(ticket_executors)
         .set({ invite_code: sql`gen_random_uuid()`, invite_used_at: null, updated_at: new Date().toISOString() })
         .where(eq(ticket_executors.id, id))
-        .returning({ invite_code: ticket_executors.invite_code, full_name: ticket_executors.full_name });
+        .returning({ invite_code: ticket_executors.invite_code });
       if (!row) {
         set.status = 404;
         return { message: "Исполнитель не найден" };
