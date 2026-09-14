@@ -160,6 +160,6 @@ export function buildMessage(input: MessageInput): { text: string; reply_markup?
 
     default:
       const _exhaustive: never = input.eventType;
-      return _exhaustive;
+      throw new Error(`buildMessage: unknown eventType "${_exhaustive}"`);
   }
 }

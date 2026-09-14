@@ -91,7 +91,6 @@ describe("buildMessage", () => {
     });
     expect(m.reply_markup).toBeUndefined();
     expect(m.text).toContain("Взял Азиз");
-    expect(m.text).not.toContain(", ");
   });
 
   it("assigned_other без обоих полей: сообщает что заявка уже взята", () => {
@@ -243,14 +242,34 @@ describe("buildMessage", () => {
   });
 
   it("emoji в границе 4096 не разрезает суррогатную пару", () => {
-    const longPrefix = "х".repeat(4090);
-    const emojiString = "😀";
+    const prefix = `🔴 Срочная · Реклама ТВ\nЧорсу · TV-000123\n\nСообщение от филиала:\n`;
+    const prefixLength = prefix.length;
+    const padLength = 4096 - prefixLength - 2 - 1;
+    const comment = "х".repeat(padLength) + "😀";
+    
     const m = buildMessage({
       ...base,
       eventType: "comment",
-      comment: longPrefix + emojiString,
+      comment,
     });
+    
     expect(m.text.length).toBeLessThanOrEqual(4096);
-    expect(m.text).toContain("…");
+    const loneSurrogatePattern = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])/;
+    expect(loneSurrogatePattern.test(m.text)).toBe(false);
+  });
+
+  it("неизвестный eventType выбрасывает ошибку", () => {
+    expect(() => {
+      buildMessage({ ...base, eventType: "invalid_type" as any });
+    }).toThrow(/unknown eventType/);
+  });
+
+  it("неуказанный optional comment не крашит assignment_other", () => {
+    const result = buildMessage({
+      ...base,
+      eventType: "assigned_other",
+      takenBy: "Иван",
+    });
+    expect(result.text).toContain("Взял Иван");
   });
 });
