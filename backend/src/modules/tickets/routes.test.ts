@@ -187,6 +187,19 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     // только type_id и assigned_executor_id ссылаются наружу), поэтому
     // терминалы можно взять произвольными UUID, а не заводить реальные строки
     // terminals.
+    // Узкий помощник вместо `!`: `beforeAll` ниже гарантирует, что
+    // mineTicketId/otherTicketId определены к моменту любого it(), но эта
+    // гарантия рвётся между областью видимости beforeAll и it() — TypeScript
+    // не умеет проносить сужение через границу двух отдельных колбэков. `!`
+    // заставил бы компилятор молчать и на настоящей регрессии (например,
+    // если будущий рефакторинг beforeAll сломает порядок присваивания);
+    // must() вместо этого либо реально сужает тип, либо падает явной
+    // ошибкой "fixture … не создана", а не непонятным toContain(undefined).
+    function must<T>(v: T | undefined, name: string): T {
+      if (v === undefined) throw new Error(`fixture ${name} не создана`);
+      return v;
+    }
+
     describe("филиальный скоуп (с фикстурными заявками)", () => {
       const mineTerminal = randomUUID();
       const otherTerminal = randomUUID();
@@ -258,13 +271,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
 
       it("список видит только заявку своего филиала", async () => {
+        const mine = must(mineTicketId, "mineTicketId");
         const s = await withSession({ permissions: ["tickets.list"], terminals: [mineTerminal] });
         try {
           const res = await call("/api/tickets?limit=200&offset=0", { headers: s.headers });
           expect(res.status).toBe(200);
           const body = await res.json();
           const ids: string[] = body.data.map((r: { id: string }) => r.id);
-          expect(ids).toContain(mineTicketId!);
+          expect(ids).toContain(mine);
           expect(ids).not.toContain(otherTicketId);
         } finally {
           await s.cleanup();
@@ -282,14 +296,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
 
       it("офисная роль без ограничения по филиалу видит заявки обоих филиалов", async () => {
+        const mine = must(mineTicketId, "mineTicketId");
+        const other = must(otherTicketId, "otherTicketId");
         const s = await withSession({ permissions: ["tickets.list"] });
         try {
           const res = await call("/api/tickets?limit=200&offset=0", { headers: s.headers });
           expect(res.status).toBe(200);
           const body = await res.json();
           const ids: string[] = body.data.map((r: { id: string }) => r.id);
-          expect(ids).toContain(mineTicketId!);
-          expect(ids).toContain(otherTicketId!);
+          expect(ids).toContain(mine);
+          expect(ids).toContain(other);
         } finally {
           await s.cleanup();
         }
