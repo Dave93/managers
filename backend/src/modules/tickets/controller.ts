@@ -83,6 +83,54 @@ function validatePaymentIds(ids: unknown): { ok: true; ids: string[] } | { ok: f
   return { ok: true, ids: ids as string[] };
 }
 
+type TicketUpdate = typeof tickets.$inferInsert;
+type PaymentEventType = "payment_approved" | "payment_rejected";
+
+// approve и reject отличаются только тем, что именно пишется в tickets и в
+// payload события — сама механика (скоуп в WHERE, транзакция, событие на
+// каждую реально задетую строку) у них одна и та же. Вынесена сюда, чтобы
+// два места не расходились по одному из полей скоупа так, как это едва не
+// случилось между close/reopen/cancel до Task 7.
+async function applyPaymentDecision(
+  drizzle: DrizzleDB,
+  ids: string[],
+  userTerminals: string[] | undefined,
+  fields: Partial<TicketUpdate>,
+  eventType: PaymentEventType,
+  actorUserId: string,
+  buildPayload: (row: { id: string; work_total_amount: string | null }) => Record<string, unknown>
+): Promise<number> {
+  const updated = await drizzle.transaction(async (tx) => {
+    // Идемпотентность — в самом WHERE, а не отдельной проверкой до UPDATE:
+    // повторное нажатие на уже утверждённой/отклонённой заявке ничего не
+    // меняет и не пишет второе событие. Статус тикета (`closed`) не трогаем —
+    // деньги идут своим путём отдельно от жизненного цикла заявки.
+    const where: SQLWrapper[] = [inArray(tickets.id, ids), eq(tickets.status, "closed"), eq(tickets.payment_status, "pending")];
+    // Офисные роли несут пустой terminals (= все филиалы), но если у сессии
+    // филиалы всё же есть — например, роль с tickets.payment.approve по
+    // ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
+    // трогать нельзя.
+    if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+
+    const rows = await tx
+      .update(tickets)
+      .set(fields)
+      .where(and(...where))
+      .returning({ id: tickets.id, work_total_amount: tickets.work_total_amount });
+    for (const r of rows) {
+      await writeEvent(tx, {
+        ticket_id: r.id,
+        type: eventType,
+        actor_kind: "office",
+        actor_user_id: actorUserId,
+        payload: buildPayload(r),
+      });
+    }
+    return rows;
+  });
+  return updated.length;
+}
+
 export const ticketsController = new Elysia({ name: "@api/tickets" })
   .use(ctx)
   .post(
@@ -595,46 +643,26 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 422;
         return { message: idsCheck.message };
       }
+      // Финансист разом чекает пачку — тот же id, отмеченный дважды в одной
+      // отправке, это не два разных решения: считаем по уникальным id, иначе
+      // approved/skipped в ответе не сойдётся с тем, что реально произошло.
+      const uniqueIds = [...new Set(idsCheck.ids)];
 
-      // Утверждать можно только закрытую заявку, у которой сумма ещё не
-      // тронута: идемпотентность — в самом WHERE, а не отдельной проверкой
-      // до UPDATE. Повторное нажатие на уже утверждённой ничего не меняет
-      // и не пишет второе событие; статус тикета (`closed`) не трогаем —
-      // деньги идут своим путём отдельно от жизненного цикла заявки.
-      const updated = await drizzle.transaction(async (tx) => {
-        const where: SQLWrapper[] = [
-          inArray(tickets.id, idsCheck.ids),
-          eq(tickets.status, "closed"),
-          eq(tickets.payment_status, "pending"),
-        ];
-        // Офисные роли несут пустой terminals (= все филиалы), но если у
-        // сессии филиалы всё же есть — например, роль с tickets.payment.approve
-        // по ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
-        // трогать нельзя.
-        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
-
-        const rows = await tx
-          .update(tickets)
-          .set({
-            payment_status: "approved",
-            payment_approved_by: user!.id,
-            payment_approved_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .where(and(...where))
-          .returning({ id: tickets.id, work_total_amount: tickets.work_total_amount });
-        for (const r of rows) {
-          await writeEvent(tx, {
-            ticket_id: r.id,
-            type: "payment_approved",
-            actor_kind: "office",
-            actor_user_id: user!.id,
-            payload: { amount: r.work_total_amount },
-          });
-        }
-        return rows;
-      });
-      return { approved: updated.length, skipped: idsCheck.ids.length - updated.length };
+      const approved = await applyPaymentDecision(
+        drizzle,
+        uniqueIds,
+        userTerminals,
+        {
+          payment_status: "approved",
+          payment_approved_by: user!.id,
+          payment_approved_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+        "payment_approved",
+        user!.id,
+        (r) => ({ amount: r.work_total_amount })
+      );
+      return { approved, skipped: uniqueIds.length - approved };
     },
     { permission: "tickets.payment.approve", body: t.Object({ ids: t.Array(t.String()) }) }
   )
@@ -650,38 +678,25 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
         set.status = 422;
         return { message: "Нужен комментарий с причиной отклонения" };
       }
+      const trimmedComment = comment.trim();
+      const uniqueIds = [...new Set(idsCheck.ids)];
 
-      const updated = await drizzle.transaction(async (tx) => {
-        const where: SQLWrapper[] = [
-          inArray(tickets.id, idsCheck.ids),
-          eq(tickets.status, "closed"),
-          eq(tickets.payment_status, "pending"),
-        ];
-        if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
-
-        const rows = await tx
-          .update(tickets)
-          .set({
-            payment_status: "rejected",
-            payment_approved_by: user!.id,
-            payment_approved_at: new Date().toISOString(),
-            payment_comment: comment.trim(),
-            updated_at: new Date().toISOString(),
-          })
-          .where(and(...where))
-          .returning({ id: tickets.id });
-        for (const r of rows) {
-          await writeEvent(tx, {
-            ticket_id: r.id,
-            type: "payment_rejected",
-            actor_kind: "office",
-            actor_user_id: user!.id,
-            payload: { comment: comment.trim() },
-          });
-        }
-        return rows;
-      });
-      return { rejected: updated.length, skipped: idsCheck.ids.length - updated.length };
+      const rejected = await applyPaymentDecision(
+        drizzle,
+        uniqueIds,
+        userTerminals,
+        {
+          payment_status: "rejected",
+          payment_approved_by: user!.id,
+          payment_approved_at: new Date().toISOString(),
+          payment_comment: trimmedComment,
+          updated_at: new Date().toISOString(),
+        },
+        "payment_rejected",
+        user!.id,
+        () => ({ comment: trimmedComment })
+      );
+      return { rejected, skipped: uniqueIds.length - rejected };
     },
     {
       permission: "tickets.payment.approve",
