@@ -14,7 +14,7 @@
     "@elysiajs/openapi": "^1.4.11",
     "@elysiajs/websocket": "^0.2.8",
     "@sinclair/typebox": "^0.34.41",
-    "bullmq": "^5.61.0",
+    "bullmq": "^5.80.9",
     "dayjs": "^1.11.18",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.6",
