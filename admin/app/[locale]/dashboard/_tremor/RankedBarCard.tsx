@@ -3,9 +3,18 @@
 import React from "react";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { Card, CardContent } from "@admin/components/ui/card";
+import { cn } from "@admin/lib/utils";
 import type { OrgOption } from "./KpiAreaCard";
 
-export type BranchRow = { name: string; current: number; previous: number | null };
+export type BranchRow = {
+  name: string;
+  current: number | null;
+  previous: number | null;
+  /** 1-based position across the ranked set (franchise-network ranking only). */
+  rank?: number;
+  /** row belongs to the viewer; other branches are masked when this is false. */
+  own?: boolean;
+};
 
 type Props = {
   title: string;
@@ -49,6 +58,10 @@ const DeltaChip = ({ current, previous }: { current: number; previous: number | 
   );
 };
 
+// A row is masked when it belongs to another branch in a franchise-network
+// ranking: rank + name only, no bar, no value, no delta.
+const isMaskedRow = (r: BranchRow) => r.current == null && r.own === false;
+
 export default function RankedBarCard({
   title,
   rows,
@@ -59,11 +72,38 @@ export default function RankedBarCard({
   orgOptions,
   onOrganizationChange,
 }: Props) {
-  const sorted = React.useMemo(
-    () => [...rows].sort((a, b) => b.current - a.current),
-    [rows]
-  );
-  const max = sorted[0]?.current || 1;
+  const sorted = React.useMemo(() => {
+    const allRanked = rows.length > 0 && rows.every((r) => r.rank != null);
+    if (allRanked) {
+      return [...rows].sort((a, b) => (a.rank as number) - (b.rank as number));
+    }
+    return [...rows].sort((a, b) => (b.current ?? -Infinity) - (a.current ?? -Infinity));
+  }, [rows]);
+
+  const hasMasked = React.useMemo(() => sorted.some(isMaskedRow), [sorted]);
+
+  const max = React.useMemo(() => {
+    const values = sorted
+      .filter((r) => !isMaskedRow(r))
+      .map((r) => r.current)
+      .filter((v): v is number => v != null);
+    return values.length ? Math.max(...values) : 1;
+  }, [sorted]);
+
+  const containerRef = React.useRef<HTMLDivElement | null>(null);
+  const rowRefs = React.useRef<(HTMLDivElement | null)[]>([]);
+
+  React.useEffect(() => {
+    if (!hasMasked) return;
+    const container = containerRef.current;
+    if (!container) return;
+    const ownIndex = sorted.findIndex((r) => r.own === true);
+    const el = ownIndex >= 0 ? rowRefs.current[ownIndex] : null;
+    if (!el) return;
+    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
+    container.scrollTop = Math.max(0, target);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows]);
 
   return (
     <Card className="flex h-full flex-col">
@@ -103,23 +143,53 @@ export default function RankedBarCard({
           )}
         </div>
 
-        <div className="min-h-0 grow space-y-1 overflow-y-auto pr-1">
-          {sorted.map((r, i) => (
-            <div key={r.name} className="flex items-center gap-2 py-1">
-              <span className="w-5 shrink-0 text-right text-xs font-bold text-muted-foreground">{i + 1}</span>
-              <span className="w-28 shrink-0 truncate text-sm sm:w-36" title={r.name}>{r.name}</span>
-              <div className="relative h-5 grow overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
-                <div
-                  className="absolute inset-y-0 left-0 rounded bg-emerald-600"
-                  style={{ width: `${Math.max(2, (r.current / max) * 100)}%` }}
-                />
+        <div ref={containerRef} className="min-h-0 grow space-y-1 overflow-y-auto pr-1">
+          {sorted.map((r, i) => {
+            const rank = r.rank ?? i + 1;
+            const key = `${r.rank ?? i}-${r.name}`;
+
+            if (isMaskedRow(r)) {
+              return (
+                <div key={key} className="flex items-center gap-2 py-1 text-muted-foreground">
+                  <span className="w-5 shrink-0 text-right text-xs font-bold">{rank}</span>
+                  <span className="min-w-0 grow truncate text-sm" title={r.name}>
+                    {r.name}
+                  </span>
+                </div>
+              );
+            }
+
+            const highlightOwn = hasMasked && r.own === true;
+            return (
+              <div
+                key={key}
+                ref={(el) => {
+                  rowRefs.current[i] = el;
+                }}
+                className={cn(
+                  "flex items-center gap-2 py-1",
+                  highlightOwn && "rounded bg-emerald-50 font-semibold dark:bg-emerald-950/40"
+                )}
+              >
+                <span className="w-5 shrink-0 text-right text-xs font-bold text-muted-foreground">{rank}</span>
+                <span className="w-28 shrink-0 truncate text-sm sm:w-36" title={r.name}>
+                  {r.name}
+                </span>
+                <div className="relative h-5 grow overflow-hidden rounded bg-slate-100 dark:bg-slate-800">
+                  <div
+                    className="absolute inset-y-0 left-0 rounded bg-emerald-600"
+                    style={{ width: `${Math.max(2, ((r.current ?? 0) / max) * 100)}%` }}
+                  />
+                </div>
+                <span className="w-20 shrink-0 text-right text-xs font-bold tabular-nums">
+                  {r.current != null ? formatValue(r.current) : "—"}
+                </span>
+                <span className="w-12 shrink-0 text-right">
+                  <DeltaChip current={r.current ?? 0} previous={r.previous} />
+                </span>
               </div>
-              <span className="w-20 shrink-0 text-right text-xs font-bold tabular-nums">{formatValue(r.current)}</span>
-              <span className="w-12 shrink-0 text-right">
-                <DeltaChip current={r.current} previous={r.previous} />
-              </span>
-            </div>
-          ))}
+            );
+          })}
           {sorted.length === 0 && (
             <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
           )}

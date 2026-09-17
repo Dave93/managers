@@ -179,6 +179,8 @@ const DistributionTile = ({ title, match }: { title: string; match: string }) =>
 
 // ---- top branch tile --------------------------------------------------------
 
+type TopBranchRow = { name: string; rank: number; own: boolean; current: number | null; previous: number | null };
+
 const TopBranchTile = ({ title }: { title: string }) => {
   const { startDate, endDate, terminals } = useFilters();
   const query: { startDate: string; endDate: string; terminals?: string } = { startDate, endDate };
@@ -189,23 +191,61 @@ const TopBranchTile = ({ title }: { title: string }) => {
     queryFn: async () => {
       const res = await apiClient.api.charts["revenue-by-branches"].get({ query });
       if (res.status !== 200 || !res.data || !Array.isArray((res.data as any).data)) throw new Error("Ошибка загрузки");
-      return (res.data as any).data as { name: string; current_revenue: number; previous_revenue: number | null }[];
+      const body = res.data as {
+        data: { name: string; rank: number; own: boolean; current_revenue: number | null; previous_revenue: number | null }[];
+        masked: boolean;
+        total: number;
+      };
+      return {
+        masked: body.masked,
+        total: body.total,
+        rows: body.data.map((b): TopBranchRow => ({
+          name: b.name,
+          rank: b.rank,
+          own: b.own,
+          current: b.current_revenue == null ? null : Number(b.current_revenue),
+          previous: b.previous_revenue == null ? null : Number(b.previous_revenue),
+        })),
+      };
     },
   });
 
-  const top = [...data]
-    .map((b) => ({ name: b.name, current: Number(b.current_revenue) || 0, previous: b.previous_revenue != null ? Number(b.previous_revenue) || 0 : 0 }))
-    .sort((a, b) => b.current - a.current)[0];
+  if (data.masked) {
+    const own = [...data.rows].filter((r) => r.own).sort((a, b) => a.rank - b.rank)[0];
+    return (
+      <Card className="h-full">
+        <CardContent className="flex h-full flex-col justify-between p-4">
+          <div className="truncate text-xs text-muted-foreground">{title}</div>
+          {own && own.current != null ? (
+            <>
+              <div className="mt-1 truncate text-sm font-semibold leading-tight">{own.name}</div>
+              <div className="text-lg font-extrabold leading-tight">{compactNum(own.current)}</div>
+              <div className="mt-1.5 flex items-center justify-between gap-1">
+                <Delta current={own.current} previous={own.previous ?? 0} />
+                <span className="text-[11px] text-muted-foreground">
+                  {own.rank} из {data.total} в сети
+                </span>
+              </div>
+            </>
+          ) : (
+            <div className="mt-1 text-sm text-muted-foreground">нет данных</div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const top = [...data.rows].sort((a, b) => (b.current ?? -Infinity) - (a.current ?? -Infinity))[0];
 
   return (
     <Card className="h-full">
       <CardContent className="flex h-full flex-col justify-between p-4">
         <div className="truncate text-xs text-muted-foreground">{title}</div>
-        {top ? (
+        {top && top.current != null ? (
           <>
             <div className="mt-1 truncate text-sm font-semibold leading-tight">{top.name}</div>
             <div className="text-lg font-extrabold leading-tight">{compactNum(top.current)}</div>
-            <div className="mt-1.5"><Delta current={top.current} previous={top.previous} /></div>
+            <div className="mt-1.5"><Delta current={top.current} previous={top.previous ?? 0} /></div>
           </>
         ) : (
           <div className="mt-1 text-sm text-muted-foreground">нет данных</div>
