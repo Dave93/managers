@@ -866,7 +866,7 @@ export const chartsController = new Elysia({
                 cp.department_id,
                 cp.current_revenue,
                 pp.previous_revenue,
-                ROW_NUMBER() OVER (ORDER BY cp.current_revenue DESC, cp.name) AS rank
+                ROW_NUMBER() OVER (ORDER BY cp.current_revenue DESC NULLS LAST, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
@@ -998,7 +998,7 @@ export const chartsController = new Elysia({
                 cp.department_id,
                 cp.current_order_count,
                 pp.previous_order_count,
-                ROW_NUMBER() OVER (ORDER BY cp.current_order_count DESC, cp.name) AS rank
+                ROW_NUMBER() OVER (ORDER BY cp.current_order_count DESC NULLS LAST, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
