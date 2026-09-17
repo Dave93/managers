@@ -2,7 +2,6 @@ import { ctx } from "@backend/context";
 import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
-import * as XLSX from 'xlsx';
 import { maskRanking, resolveChartScope, terminalCondition as scopeTerminalCondition } from "./terminal-scope";
 
 type IntervalType = '1 day' | '1 week' | '1 month';
@@ -20,90 +19,10 @@ const getIntervalForTimeBucket = (interval: string): IntervalType => {
     return (['1 day', '1 week', '1 month'].includes(interval) ? interval : '1 day') as IntervalType;
 };
 
-const fetchData = async (drizzle: any, startDate: string, endDate: string, terminalList: string[] | null, interval: string) => {
-    const intervalForTimeBucket = getIntervalForTimeBucket(interval);
-
-    const result = await drizzle.execute(sql`
-        CALL get_revenue_and_order_count(
-            ${startDate}::timestamp,
-            ${endDate}::timestamp,
-            ${intervalForTimeBucket}::interval,
-            ${terminalList ? sql`ARRAY[${sql.join(terminalList.map(id => sql`${id}`), sql`, `)}]::varchar[]` : sql`NULL`}
-        )
-    `);
-
-    if (!Array.isArray(result.rows)) {
-        throw new Error("Unexpected data format: not an array");
-    }
-
-    return result.rows.map((item: { date: any; current_revenue: string; previous_revenue: string | null; current_order_count: string; previous_order_count: string | null; }) => ({
-        date: item.date,
-        current_revenue: parseFloat(item.current_revenue) || 0,
-        previous_revenue: item.previous_revenue !== null ? parseFloat(item.previous_revenue) || 0 : null,
-        current_order_count: parseInt(item.current_order_count) || 0,
-        previous_order_count: item.previous_order_count !== null ? parseInt(item.previous_order_count) || 0 : null
-    }));
-};
-
 export const chartsController = new Elysia({
     name: "@api/charts",
 })
     .use(ctx)
-    .get(
-        "/charts/revenue/export", async ({
-            query: {
-                startDate,
-                endDate,
-                terminals,
-                interval,
-            },
-            user,
-            set,
-            drizzle,
-            cacheController,
-            terminals: userTerminals,
-            role
-        }) => {
-
-        try {
-            if (!interval) {
-                interval = '1 day';
-            }
-            const scope = resolveChartScope(await cacheController.getCachedTerminals({}), terminals, userTerminals, role?.code);
-            const data = scope.restricted && scope.iikoIds.length === 0
-                ? []
-                : await fetchData(drizzle, startDate, endDate, scope.restricted ? scope.iikoIds : null, interval);
-
-            // Create a new workbook and add a worksheet
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(data);
-
-            // Add the worksheet to the workbook
-            XLSX.utils.book_append_sheet(wb, ws, "Revenue Data");
-
-            // Generate XLSX file
-            const xlsxBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-            // Set response headers
-            set.headers['Content-Disposition'] = `attachment; filename="revenue_data_${startDate}_${endDate}.xlsx"`;
-            set.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-            // Return the XLSX file
-            return xlsxBuffer;
-        } catch (error) {
-            console.error("Error exporting data:", error);
-            set.status = 500;
-            return { message: "Error exporting data" };
-        }
-    }, {
-        permission: "charts.list",
-        query: t.Object({
-            startDate: t.String(),
-            endDate: t.String(),
-            terminals: t.Optional(t.String()),
-            interval: t.Optional(t.String({ default: "1 day" }))
-        }),
-    })
     .get(
         "/charts/revenue", async ({
             query: {
