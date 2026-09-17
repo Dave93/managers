@@ -34,8 +34,11 @@ function secretMatches(received: unknown, expected: string): boolean {
 // повторы (не-2xx ответ Telegram расценивает как временный сбой и ретраит
 // апдейт бесконечно — в том числе и наши собственные сбои конфигурации или
 // сети, которые повтор не чинит).
-export const ticketsBotController = new Elysia({ name: "@api/tickets-bot" })
+// Registered on the app root (src/app.ts) with an explicit /api prefix and a
+// widened export, see the comment above ticketsControllerImpl in controller.ts.
+const ticketsBotControllerImpl = new Elysia({ name: "@api/tickets-bot", prefix: "/api" })
   .use(ctx)
+  .guard({ detail: { hide: true } })
   .post(
     "/tickets/bot/webhook",
     async ({ headers, body, drizzle, set }) => {
@@ -138,3 +141,5 @@ export const ticketsBotController = new Elysia({ name: "@api/tickets-bot" })
     },
     { body: t.Any() }
   );
+
+export const ticketsBotController = ticketsBotControllerImpl as unknown as Elysia;

@@ -177,8 +177,14 @@ function rowOrNotFound<T>(rows: T[], notFoundMessage: string): { status: 200; bo
   return row ? { status: 200, body: row } : { status: 404, body: { message: notFoundMessage } };
 }
 
-export const ticketsController = new Elysia({ name: "@api/tickets" })
+// Registered on the app root (src/app.ts) with an explicit /api prefix and a
+// widened export, same as stoplistController: inside the apiController .use()
+// chain these routes overflowed TS2589 and broke the admin type-check/build.
+// HTTP-only, no Eden consumers. The hide guard keeps them out of /openapi, as
+// the apiController guard did before the move.
+const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" })
   .use(ctx)
+  .guard({ detail: { hide: true } })
   .post(
     "/tickets",
     async ({ body, user, terminals: userTerminals, set, drizzle }) => {
@@ -1199,3 +1205,5 @@ export const ticketsController = new Elysia({ name: "@api/tickets" })
     },
     { permission: "tickets.contractors.manage" }
   );
+
+export const ticketsController = ticketsControllerImpl as unknown as Elysia;
