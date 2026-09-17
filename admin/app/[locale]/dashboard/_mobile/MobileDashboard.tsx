@@ -15,6 +15,8 @@ import LoadingAnimation from "../LoadingAnimation";
 import OrderDistributionChart from "../OrderDistributionChart";
 import MobileSourcesTrendCard from "./MobileSourcesTrendCard";
 import StoplistByDay from "../StoplistByDay";
+import RevenueByBranches from "../RevenueByBranches";
+import OrderCountByBranches from "../OrderCountByBranches";
 import CashShiftsByDay from "../CashShiftsByDay";
 import CashierRevenueTop from "../cashier-kpi/CashierRevenueTop";
 import CashierAvgCheck from "../cashier-kpi/CashierAvgCheck";
@@ -467,6 +469,8 @@ export default function MobileDashboard() {
       {/* detailed cards (full width, stacked) */}
       <div className="space-y-3">
         <CardWrap height="h-[300px]"><OrderDistributionChart /></CardWrap>
+        <CardWrap height="h-[460px]"><RevenueByBranches /></CardWrap>
+        <CardWrap height="h-[460px]"><OrderCountByBranches /></CardWrap>
         <TileBoundary><HourlyBarsCard title={t("charts.OrderHourlyHeatmapChart.title")} field="averageOrderCount" formatValue={(n) => fmt(n)} /></TileBoundary>
         <TileBoundary><HourlyBarsCard title={t("charts.OrderAmountHourlyHeatmapChart.title")} field="averageRevenue" formatValue={compactNum} /></TileBoundary>
         <TileBoundary><SimpleRankedList title="Топ блюд — количество" endpoint="popular-dishes" formatValue={(n) => fmt(n)} /></TileBoundary>
