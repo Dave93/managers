@@ -92,7 +92,7 @@ const OrderCountByBranches = () => {
   );
 
   const ownRows = React.useMemo(() => rows.filter((r) => r.own), [rows]);
-  const subtitle = data.masked ? rankSummary(ownRows, data.total) : undefined;
+  const subtitle = data.masked ? rankSummary(ownRows, data.total, { brandSelected: !!organization }) : undefined;
 
   return (
     <RankedBarCard

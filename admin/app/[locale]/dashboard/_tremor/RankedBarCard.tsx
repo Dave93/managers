@@ -87,7 +87,7 @@ export default function RankedBarCard({
       .filter((r) => !isMaskedRow(r))
       .map((r) => r.current)
       .filter((v): v is number => v != null);
-    return values.length ? Math.max(...values) : 1;
+    return (values.length ? Math.max(...values) : 0) || 1;
   }, [sorted]);
 
   const containerRef = React.useRef<HTMLDivElement | null>(null);
@@ -143,7 +143,7 @@ export default function RankedBarCard({
           )}
         </div>
 
-        <div ref={containerRef} className="min-h-0 grow space-y-1 overflow-y-auto pr-1">
+        <div ref={containerRef} className="relative min-h-0 grow space-y-1 overflow-y-auto pr-1">
           {sorted.map((r, i) => {
             const rank = r.rank ?? i + 1;
             const key = `${r.rank ?? i}-${r.name}`;
