@@ -3,7 +3,7 @@ import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import * as XLSX from 'xlsx';
-import { resolveChartScope, terminalCondition as scopeTerminalCondition } from "./terminal-scope";
+import { maskRanking, resolveChartScope, terminalCondition as scopeTerminalCondition } from "./terminal-scope";
 
 type IntervalType = '1 day' | '1 week' | '1 month';
 
@@ -813,6 +813,13 @@ export const chartsController = new Elysia({
 
         const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
         const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
+        // A restricted viewer sees the whole network ranking, with other
+        // branches' numbers masked below; with no own branch there is nothing.
+        const masked = scope.viewerRestricted;
+        if (masked && scope.ownIikoIds.length === 0) {
+            return { data: [], masked: true, total: 0, own_brands: [], debug: { sqlQueryTime: 0, apiTime: performance.now() - apiStartTime } };
+        }
+        const branchCondition = masked ? sql`` : terminalCondition;
 
         const sqlQuery = sql`
             WITH current_period AS (
@@ -834,7 +841,7 @@ export const chartsController = new Elysia({
                 WHERE
                     rda.bucket BETWEEN ${startDate}::timestamp AND ${endDate}::timestamp 
                     AND t.id IS NOT NULL 
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id, t.name
@@ -848,28 +855,34 @@ export const chartsController = new Elysia({
                     revenue_daily_aggregation rda
                 WHERE
                     rda.bucket BETWEEN (${startDate}::timestamp - INTERVAL '1 year') AND (${endDate}::timestamp - INTERVAL '1 year')
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id
             )
             SELECT 
                 cp.name,
+                cp.restaurant_group_id,
+                cp.department_id,
                 cp.current_revenue,
-                pp.previous_revenue
+                pp.previous_revenue,
+                ROW_NUMBER() OVER (ORDER BY cp.current_revenue DESC, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
                 AND cp.department_id = pp.department_id
-            ORDER BY cp.current_revenue DESC;
+            ORDER BY rank;
         `;
 
         try {
             const sqlStartTime = performance.now()
             const result = (await drizzle.execute<{
                 name: string;
-                current_revenue: string;
+                restaurant_group_id: string;
+                department_id: string;
+                current_revenue: string | null;
                 previous_revenue: string | null;
+                rank: string | number;
             }>(sqlQuery)).rows;
             const sqlEndTime = performance.now()
 
@@ -878,12 +891,19 @@ export const chartsController = new Elysia({
             if (!Array.isArray(result)) {
                 throw new Error("Unexpected data format: not an array");
             }
+            const ranking = maskRanking(result.map(item => ({
+                name: item.name,
+                rank: Number(item.rank),
+                restaurant_group_id: String(item.restaurant_group_id),
+                department_id: String(item.department_id),
+                current_revenue: item.current_revenue === null ? null : Number(item.current_revenue),
+                previous_revenue: item.previous_revenue === null ? null : Number(item.previous_revenue),
+            })), masked ? scope.ownIikoIds : null, ['current_revenue', 'previous_revenue'] as const);
             return {
-                data: result.map(item => ({
-                    name: item.name,
-                    current_revenue: parseFloat(item.current_revenue) || 0,
-                    previous_revenue: item.previous_revenue ? parseFloat(item.previous_revenue) : null
-                })),
+                data: ranking.data,
+                masked,
+                total: ranking.total,
+                own_brands: ranking.own_brands,
                 debug: {
                     sqlQueryTime: sqlEndTime - sqlStartTime,
                     apiTime: apiEndTime - apiStartTime
@@ -925,6 +945,13 @@ export const chartsController = new Elysia({
 
         const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
         const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
+        // A restricted viewer sees the whole network ranking, with other
+        // branches' numbers masked below; with no own branch there is nothing.
+        const masked = scope.viewerRestricted;
+        if (masked && scope.ownIikoIds.length === 0) {
+            return { data: [], masked: true, total: 0, own_brands: [], debug: { sqlQueryTime: 0, apiTime: performance.now() - apiStartTime } };
+        }
+        const branchCondition = masked ? sql`` : terminalCondition;
 
         const sqlQuery = sql`
             WITH current_period AS (
@@ -946,7 +973,7 @@ export const chartsController = new Elysia({
                 WHERE
                     rda.bucket BETWEEN ${startDate}::timestamp AND ${endDate}::timestamp 
                     AND t.id IS NOT NULL 
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id, t.name
@@ -960,28 +987,34 @@ export const chartsController = new Elysia({
                     revenue_daily_aggregation rda
                 WHERE
                     rda.bucket BETWEEN (${startDate}::timestamp - INTERVAL '1 year') AND (${endDate}::timestamp - INTERVAL '1 year')
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id
             )
             SELECT 
                 cp.name,
+                cp.restaurant_group_id,
+                cp.department_id,
                 cp.current_order_count,
-                pp.previous_order_count
+                pp.previous_order_count,
+                ROW_NUMBER() OVER (ORDER BY cp.current_order_count DESC, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
                 AND cp.department_id = pp.department_id
-            ORDER BY cp.current_order_count DESC;
+            ORDER BY rank;
         `;
 
         try {
             const sqlStartTime = performance.now()
             const result = (await drizzle.execute<{
                 name: string;
-                current_order_count: string;
+                restaurant_group_id: string;
+                department_id: string;
+                current_order_count: string | null;
                 previous_order_count: string | null;
+                rank: string | number;
             }>(sqlQuery)).rows;
             const sqlEndTime = performance.now()
 
@@ -990,12 +1023,19 @@ export const chartsController = new Elysia({
             if (!Array.isArray(result)) {
                 throw new Error("Unexpected data format: not an array");
             }
+            const ranking = maskRanking(result.map(item => ({
+                name: item.name,
+                rank: Number(item.rank),
+                restaurant_group_id: String(item.restaurant_group_id),
+                department_id: String(item.department_id),
+                current_order_count: item.current_order_count === null ? null : Number(item.current_order_count),
+                previous_order_count: item.previous_order_count === null ? null : Number(item.previous_order_count),
+            })), masked ? scope.ownIikoIds : null, ['current_order_count', 'previous_order_count'] as const);
             return {
-                data: result.map(item => ({
-                    name: item.name,
-                    current_order_count: parseInt(item.current_order_count) || 0,
-                    previous_order_count: item.previous_order_count ? parseInt(item.previous_order_count) : null
-                })),
+                data: ranking.data,
+                masked,
+                total: ranking.total,
+                own_brands: ranking.own_brands,
                 debug: {
                     sqlQueryTime: sqlEndTime - sqlStartTime,
                     apiTime: apiEndTime - apiStartTime

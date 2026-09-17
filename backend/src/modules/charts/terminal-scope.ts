@@ -55,3 +55,33 @@ export function terminalCondition(scope: ChartScope, column: SQL = sql`restauran
   if (scope.iikoIds.length === 0) return sql`AND false`;
   return sql`AND ${column} IN (${sql.join(scope.iikoIds.map((id) => sql`${id}`), sql`, `)})`;
 }
+
+type RankedRow<K extends string> = {
+  name: string;
+  rank: number;
+  restaurant_group_id: string;
+  department_id: string;
+} & Record<K, number | null>;
+
+export type MaskedRow<K extends string> = { name: string; rank: number; own: boolean } & Record<K, number | null>;
+
+// Branch ranking across the network. ownIikoIds null = unrestricted viewer:
+// every row is theirs. Otherwise other branches keep name and rank but lose
+// their numbers, and no row carries its ids.
+export function maskRanking<K extends string>(
+  rows: RankedRow<K>[],
+  ownIikoIds: string[] | null,
+  valueKeys: readonly K[],
+): { data: MaskedRow<K>[]; total: number; own_brands: string[] } {
+  const ownBrands = new Set<string>();
+  const data = rows.map((row) => {
+    const own = ownIikoIds === null || ownIikoIds.includes(row.restaurant_group_id);
+    if (own && ownIikoIds !== null) ownBrands.add(row.department_id);
+    const out = { name: row.name, rank: row.rank, own } as MaskedRow<K>;
+    for (const key of valueKeys) {
+      (out as Record<K, number | null>)[key] = own ? row[key] : null;
+    }
+    return out;
+  });
+  return { data, total: rows.length, own_brands: [...ownBrands] };
+}
