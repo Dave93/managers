@@ -1,4 +1,4 @@
-import { SQLWrapper, eq, inArray, ilike, gte, gt, lte, lt } from "drizzle-orm";
+import { SQLWrapper, eq, inArray, notInArray, isNull, or, ilike, gte, gt, lte, lt } from "drizzle-orm";
 import { PgTable, PgTableFn, PgTableWithColumns } from "drizzle-orm/pg-core";
 import { Type as t } from "@sinclair/typebox";
 import { Value } from "@sinclair/typebox/value";
@@ -40,6 +40,19 @@ export const parseFilterFields = (
                     // @ts-ignore
                     res.push(inArray(nativeTable[filter.field], filter.value));
                     break;
+                case "notIn":
+                    // Голый NOT IN отбрасывает строки с NULL в колонке, а от
+                    // оператора "скрыть эти значения" ждут обратного — NULL не
+                    // равен ни одному из них и должен остаться в выдаче.
+                    res.push(
+                        or(
+                            // @ts-ignore
+                            isNull(nativeTable[filter.field]),
+                            // @ts-ignore
+                            notInArray(nativeTable[filter.field], filter.value)
+                        )
+                    );
+                    break;
                 case "contains":
                     // @ts-ignore
                     res.push(ilike(nativeTable[filter.field], `%${filter.value}%`));
@@ -80,6 +93,16 @@ export const parseFilterFields = (
                 case "in":
                     // @ts-ignore
                     res.push(inArray(relations[relation][column], filter.value));
+                    break;
+                case "notIn":
+                    res.push(
+                        or(
+                            // @ts-ignore
+                            isNull(relations[relation][column]),
+                            // @ts-ignore
+                            notInArray(relations[relation][column], filter.value)
+                        )
+                    );
                     break;
                 case "contains":
                     // @ts-ignore

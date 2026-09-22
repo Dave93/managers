@@ -57,7 +57,11 @@ interface DataTableProps<TValue> {
     brandFilter?: string;
     statusFilter?: string;
     dateRange?: DateRange;
+    hideClosed?: boolean;
 }
+
+// Заказ в этих статусах уже не висит — филиал закрыл или отменил его.
+const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
 export function DataTable<TValue>({
     columns,
@@ -65,6 +69,7 @@ export function DataTable<TValue>({
     brandFilter,
     statusFilter,
     dateRange,
+    hideClosed,
 }: DataTableProps<TValue>) {
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
@@ -84,6 +89,10 @@ export function DataTable<TValue>({
         if (statusFilter && statusFilter !== "all") {
             filterArray.push({ field: "status", operator: "eq", value: statusFilter });
         }
+
+        if (hideClosed) {
+            filterArray.push({ field: "orderStatus", operator: "notIn", value: FINAL_ORDER_STATUSES });
+        }
         
         if (searchTerm) {
             filterArray.push({ field: "orderId", operator: "contains", value: searchTerm });
@@ -97,7 +106,7 @@ export function DataTable<TValue>({
             filterArray.push({ field: "date", operator: "lte", value: dayjs(dateRange.to).format('YYYY-MM-DD') });
         }
         return filterArray.length > 0 ? JSON.stringify(filterArray) : undefined;
-    }, [brandFilter, statusFilter, searchTerm, dateRange]);
+    }, [brandFilter, statusFilter, searchTerm, dateRange, hideClosed]);
 
     const { data, isLoading } = useQuery({
         queryKey: [

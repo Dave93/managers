@@ -22,7 +22,14 @@ const ordersStatusText = {
     "CookingCompleted": "Приготовление завершено",
     "Waiting": "Ожидает доставки",
     "OnWay": "В пути",
+    "Delivered": "Доставлен",
+    "Closed": "Закрыт",
+    "Cancelled": "Отменён",
 }
+
+// Закрыт/Отменён — заказ больше не висит; после ре-синка из iiko такие строки
+// гасим визуально, но не удаляем: в status/comment лежит ручная работа менеджеров.
+const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
 const getBrandBadgeVariant = (brand: string) => {
     switch (brand) {
@@ -104,7 +111,12 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         header: "Статус заказа",
         cell: ({ row }) => {
             const orderStatus = row.getValue("orderStatus") as string;
-            return ordersStatusText[orderStatus as keyof typeof ordersStatusText] || orderStatus;
+            const label = ordersStatusText[orderStatus as keyof typeof ordersStatusText] || orderStatus;
+            return FINAL_ORDER_STATUSES.includes(orderStatus) ? (
+                <span className="text-muted-foreground">{label}</span>
+            ) : (
+                label
+            );
         },
     },
     {

@@ -2,12 +2,12 @@
 
 import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { Plus, Download, Search, Filter } from "lucide-react";
+import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "./data-table";
 import { hangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { toast } from "sonner";
 import { useState, useCallback, Suspense } from "react";
@@ -15,16 +15,61 @@ import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
+import { Switch } from "@admin/components/ui/switch";
+import { Label } from "@admin/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
 import { DateRangeFilter } from "@admin/components/filters/date-range-filter/date-range-filter";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { cn } from "@admin/lib/utils";
 
+// Ответ POST /hanging-orders/refresh, по одному отчёту на бренд.
+type RefreshReport = {
+    brand: string;
+    dates: string[];
+    checked: number;
+    updated: number;
+    closed: number;
+    errors: string[];
+};
+
 function HangingOrdersContent() {
     const [searchTerm, setSearchTerm] = useState("");
     const [brandFilter, setBrandFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    // По умолчанию прячем закрытые: страница про висящие заказы, а закрытые
+    // после ре-синка перестают быть таковыми.
+    const [hideClosed, setHideClosed] = useState(true);
     const { dateRange } = useDateRangeState();
+    const queryClient = useQueryClient();
+
+    // Ночной бот пишет снимок один раз и существующие строки не обновляет, так
+    // что заказ, закрытый филиалом после снимка, висит здесь со старым статусом.
+    // Кнопка перечитывает iiko по открытым строкам за последние 3 дня.
+    const refreshFromIiko = useMutation({
+        mutationFn: async () => {
+            const { data, error } = await apiClient.api["hanging-orders"].refresh.post({
+                ...(brandFilter !== "all" && { brand: brandFilter as "chopar" | "les_ailes" }),
+                days: 3,
+            });
+            if (error) throw new Error((error.value as any)?.message ?? "Не удалось обновить статусы");
+            return data;
+        },
+        onSuccess: (result) => {
+            const reports: RefreshReport[] = (result?.data as RefreshReport[]) ?? [];
+            const updated = reports.reduce((sum, r) => sum + r.updated, 0);
+            const checked = reports.reduce((sum, r) => sum + r.checked, 0);
+            const errors = reports.flatMap((r) => r.errors);
+
+            queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
+
+            if (errors.length > 0) {
+                toast.warning(`Обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
+            } else {
+                toast.success(`Проверено ${checked} заказов, обновлено ${updated}`);
+            }
+        },
+        onError: (e: Error) => toast.error(e.message),
+    });
 
     // Query for export
     const { data: exportData, refetch } = useQuery({
@@ -37,6 +82,9 @@ function HangingOrdersContent() {
             }
             if (statusFilter !== "all") {
                 filters.push({ field: "status", operator: "eq", value: statusFilter });
+            }
+            if (hideClosed) {
+                filters.push({ field: "orderStatus", operator: "notIn", value: ["Closed", "Cancelled"] });
             }
             if (searchTerm) {
                 filters.push({ field: "orderId", operator: "contains", value: searchTerm });
@@ -140,6 +188,8 @@ function HangingOrdersContent() {
         setSearchTerm("");
         setBrandFilter("all");
         setStatusFilter("all");
+        // hideClosed намеренно не сбрасываем: если менеджер открыл закрытые,
+        // чтобы найти конкретный заказ, сброс фильтров не должен их прятать.
         // DateRange очищается через его собственный хук через URL параметры
         // Можно добавить сброс dateRange если нужно
     };
@@ -156,6 +206,17 @@ function HangingOrdersContent() {
                     </p>
                 </div>
                 <div className="flex items-center space-x-2">
+                    <CanAccess permission="hanging_orders.edit">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => refreshFromIiko.mutate()}
+                            disabled={refreshFromIiko.isPending}
+                        >
+                            <RefreshCw className={cn("h-4 w-4 mr-2", refreshFromIiko.isPending && "animate-spin")} />
+                            {refreshFromIiko.isPending ? "Обновляю…" : "Обновить из iiko"}
+                        </Button>
+                    </CanAccess>
                     <Button
                         variant="outline"
                         size="sm"
@@ -224,6 +285,18 @@ function HangingOrdersContent() {
                             </Select>
                         </div>
 
+                        {/* Скрыть закрытые */}
+                        <div className="flex items-center gap-2">
+                            <Switch
+                                id="hide-closed"
+                                checked={hideClosed}
+                                onCheckedChange={setHideClosed}
+                            />
+                            <Label htmlFor="hide-closed" className="text-sm font-medium whitespace-nowrap">
+                                Скрыть закрытые
+                            </Label>
+                        </div>
+
                         {/* Кнопка сброса */}
                         <Button variant="outline" size="sm" onClick={clearFilters} className="ml-auto">
                             Сбросить
@@ -239,6 +312,7 @@ function HangingOrdersContent() {
                     brandFilter={brandFilter}
                     statusFilter={statusFilter}
                     dateRange={dateRange || undefined}
+                    hideClosed={hideClosed}
                 />
             </div>
         </div>
