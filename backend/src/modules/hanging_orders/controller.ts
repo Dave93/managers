@@ -1,5 +1,5 @@
 import Elysia, { t } from "elysia";
-import { credentials, hangingOrders } from "@backend/../drizzle/schema";
+import { credentials, hangingOrders, organization } from "@backend/../drizzle/schema";
 import {
   InferSelectModel,
   SQLWrapper,
@@ -37,10 +37,11 @@ import dayjs from "dayjs";
 
 const IIKO_URL = "https://api-ru.iiko.services/api/1/";
 
-// Те же организации, что и в cron/get_orders_by_source.ts.
-const BRAND_ORG_ID: Record<string, string> = {
-  chopar: "664eca32-e479-4860-b1bb-56bb0cee5190",
-  les_ailes: "d955355b-c4db-3798-0163-14f6b09d000d",
+// Резолвим организацию по organization.code, а не по захардкоженному uuid:
+// id организаций на разных стендах отличаются. В БД коды — 'chopar' и 'les'.
+const BRAND_ORG_CODE: Record<string, string> = {
+  chopar: "chopar",
+  les_ailes: "les",
 };
 
 // В отличие от бота запрашиваем И финальные статусы — ровно они и нужны, чтобы
@@ -333,7 +334,7 @@ export const hangingOrdersController = new Elysia({
     "/hanging-orders/refresh",
     async ({ body: { brand, days }, drizzle }) => {
       const windowDays = days ?? 3;
-      const brands = brand ? [brand] : Object.keys(BRAND_ORG_ID);
+      const brands = brand ? [brand] : Object.keys(BRAND_ORG_CODE);
       const since = dayjs().subtract(windowDays, "day").format("YYYY-MM-DD");
 
       const summary: RefreshReport[] = [];
@@ -349,8 +350,8 @@ export const hangingOrdersController = new Elysia({
         };
         summary.push(report);
 
-        const orgId = BRAND_ORG_ID[currentBrand];
-        if (!orgId) {
+        const orgCode = BRAND_ORG_CODE[currentBrand];
+        if (!orgCode) {
           report.errors.push(`Неизвестный бренд: ${currentBrand}`);
           continue;
         }
@@ -378,13 +379,26 @@ export const hangingOrdersController = new Elysia({
         report.checked = openRows.length;
         if (openRows.length === 0) continue;
 
+        const org = await drizzle
+          .select({ id: organization.id })
+          .from(organization)
+          .where(eq(organization.code, orgCode))
+          .execute();
+
+        if (!org[0]) {
+          report.errors.push(
+            `${currentBrand}: организация с code=${orgCode} не найдена`
+          );
+          continue;
+        }
+
         const orgCreds = await drizzle
           .select({ type: credentials.type, key: credentials.key })
           .from(credentials)
           .where(
             and(
               eq(credentials.model, "organization"),
-              eq(credentials.model_id, orgId)
+              eq(credentials.model_id, org[0].id)
             )
           )
           .execute();
