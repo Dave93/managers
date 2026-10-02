@@ -75,6 +75,7 @@
     "framer-motion": "^12.23.22",
     "html-to-image": "^1.11.13",
     "html5-qrcode": "^2.3.8",
+    "leaflet": "1.9.4",
     "lucide-react": "^0.545.0",
     "million": "^3.1.11",
     "next": "15.6.0-canary.60",
@@ -92,6 +93,7 @@
     "react-error-boundary": "^6.0.0",
     "react-hook-form": "^7.64.0",
     "react-ios-time-picker": "^0.2.2",
+    "react-leaflet": "5.0.0",
     "react-redux": "^9.2.0",
     "recharts": "^3.2.1",
     "sonner": "^2.0.7",
@@ -108,6 +110,7 @@
   },
   "devDependencies": {
     "@types/file-saver": "^2.0.7",
+    "@types/leaflet": "^1.9.22",
     "@types/uuid": "^11.0.0",
     "prettier": "^3.6.2"
   },
