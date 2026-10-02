@@ -297,8 +297,6 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
-
-  // TASK-4-TESTS
   describe("inventory: синхронизация записей", () => {
     async function startedCount(w: World) {
       const m = await manager(w);
@@ -460,8 +458,6 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
-
-  // TASK-5-TESTS
   describe("inventory: отправка, возврат, отмена", () => {
     async function startedCount(w: World) {
       const m = await manager(w);
@@ -584,7 +580,122 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
+  describe("inventory: шаблоны и обзор", () => {
+    it("CRUD шаблона и состав закрыты от менеджера", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      try {
+        expect((await api(m, "GET", "/api/inventory/templates")).status).toBe(403);
+        expect((await api(m, "POST", "/api/inventory/templates", { organization_id: w.orgId, name: "x" })).status).toBe(403);
+        expect((await api(m, "GET", "/api/inventory/overview?period=" + PERIOD)).status).toBe(403);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
 
-  // TASK-6-TESTS
-  // TASK-7-TESTS
+    it("создание, состав, чтение, деактивация", async () => {
+      const w = await seedWorld();
+      const o = await office(w);
+      try {
+        const c = await api(o, "POST", "/api/inventory/templates", { organization_id: w.orgId, name: `Ежедневная ${w.tag}` });
+        expect(c.status).toBe(200);
+        const id = c.body.id;
+        const put = await api(o, "PUT", `/api/inventory/templates/${id}/items`, { product_ids: [w.p1, w.p3, w.p1] });
+        expect(put.body).toEqual({ items_count: 2 });
+        const g = await api(o, "GET", `/api/inventory/templates/${id}`);
+        expect(g.body.product_ids.sort()).toEqual([w.p1, w.p3].sort());
+        expect(g.body.items_count).toBe(2);
+        await api(o, "PATCH", `/api/inventory/templates/${id}`, { active: false });
+        const list = await api(o, "GET", `/api/inventory/templates?organization_id=${w.orgId}`);
+        expect(list.body.find((t: any) => t.id === id).active).toBe(false);
+        const del = await api(o, "DELETE", `/api/inventory/templates/${id}`);
+        expect(del.status).toBe(200);
+      } finally {
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("шаблон с инвентаризациями не удаляется — 409", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      const o = await office(w);
+      try {
+        await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const r = await api(o, "DELETE", `/api/inventory/templates/${w.templateId}`);
+        expect(r.status).toBe(409);
+        expect(r.body.error).toBe("in_use");
+      } finally {
+        await m.cleanup();
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("подсказки — товары, добавленные при пересчёте и не входящие в шаблон", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      const o = await office(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p3 });
+        const s = await api(o, "GET", `/api/inventory/templates/${w.templateId}/suggestions`);
+        expect(s.status).toBe(200);
+        expect(s.body).toEqual([{ product_id: w.p3, product_name: `Перец ${w.tag}`, times: 1 }]);
+      } finally {
+        await m.cleanup();
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("организации для редактора шаблонов", async () => {
+      const w = await seedWorld();
+      const o = await office(w);
+      try {
+        const r = await api(o, "GET", "/api/inventory/organizations");
+        expect(r.status).toBe(200);
+        expect(Array.isArray(r.body)).toBe(true);
+      } finally {
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("папки отдают группы и товары", async () => {
+      const w = await seedWorld();
+      const o = await office(w);
+      try {
+        const r = await api(o, "GET", "/api/inventory/folders");
+        expect(r.status).toBe(200);
+        expect(r.body.groups.find((g: any) => g.id === w.groupId).parent_id).not.toBeNull();
+        expect(r.body.products.find((p: any) => p.id === w.p1).parent_id).toBe(w.groupId);
+      } finally {
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("обзор показывает склад с инвентаризацией и склад без неё", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      const o = await office(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const r = await api(o, "GET", `/api/inventory/overview?period=${PERIOD}&organization_id=${w.orgId}`);
+        expect(r.status).toBe(200);
+        const mine = r.body.find((x: any) => x.store_id === w.storeId);
+        const other = r.body.find((x: any) => x.store_id === w.otherStoreId);
+        expect(mine.counts.map((x: any) => x.id)).toEqual([c.body.id]);
+        expect(other.counts).toEqual([]);
+        const bad = await api(o, "GET", "/api/inventory/overview?period=2026-10-30");
+        expect(bad.status).toBe(422);
+      } finally {
+        await m.cleanup();
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
 }
