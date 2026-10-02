@@ -11,6 +11,7 @@ import { networkMapController } from "./modules/terminals/network-map";
 import { staffBoardController } from "./modules/terminals/staff-board";
 import { ticketsController } from "./modules/tickets/controller";
 import { ticketsBotController } from "./modules/tickets/bot-controller";
+import { inventoryController } from "./modules/inventory/controller";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
 
@@ -40,6 +41,7 @@ const app = new Elysia()
   .use(staffBoardController)
   .use(ticketsController)
   .use(ticketsBotController)
+  .use(inventoryController)
   .use(apiController)
   .use(medicalController);
 
