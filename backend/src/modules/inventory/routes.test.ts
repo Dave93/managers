@@ -111,9 +111,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const helper = (w: World) => sessionFor(w, ["inventory.count"]);
   const office = (w: World) => sessionFor(w, ["inventory.count", "inventory.templates"], false);
 
+  // Холодный старт приложения на этой машине бывает дольше 60 с (видели 68 и 89 с).
   beforeAll(async () => {
     await ensureApp();
-  }, 60000);
+  }, 180000);
 
   afterAll(async () => {
     await sweepTestRoles();
@@ -298,6 +299,168 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 
   // TASK-4-TESTS
+  describe("inventory: синхронизация записей", () => {
+    async function startedCount(w: World) {
+      const m = await manager(w);
+      const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+      const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+      const lineOf = (pid: string) => d.body.lines.find((l: any) => l.product_id === pid).id as string;
+      return { m, countId: c.body.id as string, lineOf };
+    }
+    const add = (line_id: string, qty: number, id = randomUUID()) => ({
+      op: "add" as const, id, line_id, qty, client_created_at: new Date().toISOString(),
+    });
+
+    it("повтор той же пачки не создаёт дублей, итог — сумма", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        const ops = [add(lineOf(w.p1), 2.5), add(lineOf(w.p1), 3)];
+        const r1 = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops });
+        const r2 = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops });
+        expect(r1.status).toBe(200);
+        expect(r2.status).toBe(200);
+        expect(r1.body.applied.length).toBe(2);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const line = d.body.lines.find((l: any) => l.product_id === w.p1);
+        expect(line.entries.length).toBe(2);
+        expect(line.total).toBe("5.5");
+        expect(d.body.lines_done).toBe(1);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("add и delete одной записи в одной пачке — 0 живых записей", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        const a = add(lineOf(w.p1), 4);
+        const r = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [a, { op: "delete", id: a.id }] });
+        expect(r.body.applied).toEqual([a.id, a.id]);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines.find((l: any) => l.product_id === w.p1).entries.length).toBe(0);
+        const raw = await drizzleDb.select().from(schema.inventory_count_entries).where(eq(schema.inventory_count_entries.id, a.id));
+        expect(raw[0].deleted_at).not.toBeNull();
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("плохое количество и чужая строка отклоняются по одной, остальное применяется", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        const good = add(lineOf(w.p1), 1);
+        const neg = add(lineOf(w.p1), -1);
+        const many = add(lineOf(w.p1), 1.23456);
+        const foreign = add(randomUUID(), 1);
+        const r = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [good, neg, many, foreign] });
+        expect(r.status).toBe(200);
+        expect(r.body.applied).toEqual([good.id]);
+        expect(r.body.rejected).toEqual([
+          { id: neg.id, reason: "invalid_qty" },
+          { id: many.id, reason: "invalid_qty" },
+          { id: foreign.id, reason: "not_found_line" },
+        ]);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("помощник не удаляет чужую запись, менеджер удаляет", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      const h = await helper(w);
+      try {
+        const mine = add(lineOf(w.p1), 2);
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [mine] });
+        const hr = await api(h, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [{ op: "delete", id: mine.id }] });
+        expect(hr.body.rejected).toEqual([{ id: mine.id, reason: "forbidden" }]);
+        const theirs = add(lineOf(w.p2), 1);
+        await api(h, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [theirs] });
+        const mr = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [{ op: "delete", id: theirs.id }] });
+        expect(mr.body.applied).toEqual([theirs.id]);
+      } finally {
+        await m.cleanup();
+        await h.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("офис на чтении получает 403 на sync", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      const o = await office(w);
+      try {
+        const r = await api(o, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        expect(r.status).toBe(403);
+      } finally {
+        await m.cleanup();
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("товар вне шаблона добавляется один раз и помечен added", async () => {
+      const w = await seedWorld();
+      const { m, countId } = await startedCount(w);
+      const h = await helper(w);
+      try {
+        const a = await api(h, "POST", `/api/inventory/counts/${countId}/lines`, { product_id: w.p3 });
+        expect(a.status).toBe(200);
+        expect(a.body.created).toBe(true);
+        const b = await api(h, "POST", `/api/inventory/counts/${countId}/lines`, { product_id: w.p3 });
+        expect(b.body.created).toBe(false);
+        expect(b.body.line_id).toBe(a.body.line_id);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const line = d.body.lines.find((l: any) => l.product_id === w.p3);
+        expect(line.source).toBe("added");
+        expect(line.group_name).toBe("Склад / Мясные продукты");
+        const unknown = await api(h, "POST", `/api/inventory/counts/${countId}/lines`, { product_id: randomUUID() });
+        expect(unknown.status).toBe(404);
+      } finally {
+        await m.cleanup();
+        await h.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("«не считали» засчитывается в прогресс и снимается", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        const r = await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: true });
+        expect(r.status).toBe(200);
+        let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines_done).toBe(1);
+        await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: false });
+        d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines_done).toBe(0);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("поиск товаров находит по части названия", async () => {
+      const w = await seedWorld();
+      const s = await helper(w);
+      try {
+        const r = await api(s, "GET", `/api/inventory/products?q=${encodeURIComponent("Перец " + w.tag)}&limit=10`);
+        expect(r.status).toBe(200);
+        expect(r.body.map((p: any) => p.id)).toEqual([w.p3]);
+        expect(r.body[0].group_name).toBe("Склад / Мясные продукты");
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
+
   // TASK-5-TESTS
   // TASK-6-TESTS
   // TASK-7-TESTS

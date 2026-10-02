@@ -11,13 +11,16 @@ import {
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { InventoryError } from "./errors";
-import { allowedPeriods, canReopen, UUID_RE } from "./rules";
+import { allowedPeriods, canReopen, isValidQty, UUID_RE } from "./rules";
 import type {
   InventoryCountDetail,
   InventoryCountStatus,
   InventoryCountSummary,
   InventoryEntry,
   InventoryLine,
+  InventoryProduct,
+  InventorySyncOp,
+  InventorySyncResult,
   InventoryTemplateSummary,
 } from "./types";
 
@@ -54,6 +57,12 @@ export async function userNames(db: DbLike, ids: string[]): Promise<Map<string, 
   return out;
 }
 
+// Drizzle в select-полях пишет колонку без имени таблицы ("id"), и внутри
+// коррелированного подзапроса такое "id" связывается с таблицей подзапроса.
+// Поэтому внешние колонки в подзапросах — только явными квалифицированными ссылками.
+export const LINE_ID = sql.raw(`"inventory_count_lines"."id"`);
+export const TEMPLATE_ID = sql.raw(`"inventory_templates"."id"`);
+
 // Снимок строки: название, единица, папка iiko «Родитель / Папка».
 const GROUP_NAME_SQL = sql.raw(
   `case when g.id is null then 'Без группы' when gp.name is null then g.name else gp.name || ' / ' || g.name end`
@@ -76,7 +85,7 @@ export async function availableTemplates(db: DbLike, actor: Actor, storeId: stri
       name: inventory_templates.name,
       active: inventory_templates.active,
       sort: inventory_templates.sort,
-      items_count: sql<number>`(select count(*)::int from inventory_template_items ti where ti.template_id = ${inventory_templates.id})`,
+      items_count: sql<number>`(select count(*)::int from inventory_template_items ti where ti.template_id = ${TEMPLATE_ID})`,
     })
     .from(inventory_templates)
     .leftJoin(organization, eq(organization.id, inventory_templates.organization_id))
@@ -192,7 +201,7 @@ export async function summaries(db: DbLike, rows: SummaryBase[]): Promise<Invent
     .select({
       count_id: l.count_id,
       total: sql<number>`count(*)::int`,
-      done: sql<number>`(count(*) filter (where ${l.skipped} or exists (select 1 from inventory_count_entries e where e.line_id = ${l.id} and e.deleted_at is null)))::int`,
+      done: sql<number>`(count(*) filter (where ${l.skipped} or exists (select 1 from inventory_count_entries e where e.line_id = ${LINE_ID} and e.deleted_at is null)))::int`,
     })
     .from(l)
     .where(inArray(l.count_id, ids))
@@ -264,7 +273,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
       source: l.source,
       skipped: l.skipped,
       fact_qty: l.fact_qty,
-      total: sql<string>`coalesce((select sum(e.qty) from inventory_count_entries e where e.line_id = ${l.id} and e.deleted_at is null), 0)::text`,
+      total: sql<string>`coalesce((select sum(e.qty) from inventory_count_entries e where e.line_id = ${LINE_ID} and e.deleted_at is null), 0)::text`,
     })
     .from(l)
     .where(eq(l.count_id, id))
@@ -307,4 +316,136 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
 export function normalizeNumeric(v: string): string {
   if (!v.includes(".")) return v;
   return v.replace(/\.?0+$/, "") || "0";
+}
+
+export async function requireWritableDraft(tx: DbLike, actor: Actor, id: string) {
+  const row = await lockCount(tx, id);
+  const access = await storeAccess(tx, actor, row.store_id);
+  if (access !== "write") throw new InventoryError(403, "store_forbidden");
+  if (row.status !== "draft") throw new InventoryError(409, "not_draft", { status: row.status });
+  return { row, manage: canManage(actor, access) };
+}
+
+export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: InventorySyncOp[]): Promise<InventorySyncResult> {
+  return db.transaction(async (tx) => {
+    // FOR UPDATE: submit ждёт конца этой пачки, поэтому принятая запись
+    // всегда попадает в fact_qty, а пачка после submit получает 409.
+    const { manage } = await requireWritableDraft(tx, actor, id);
+    const lineRows = await tx
+      .select({ id: inventory_count_lines.id })
+      .from(inventory_count_lines)
+      .where(eq(inventory_count_lines.count_id, id));
+    const lineIds = new Set(lineRows.map((r) => r.id));
+    const result: InventorySyncResult = { applied: [], rejected: [] };
+
+    for (const op of ops) {
+      if (!UUID_RE.test(op.id)) {
+        result.rejected.push({ id: op.id, reason: "invalid_id" });
+        continue;
+      }
+      if (op.op === "add") {
+        if (!isValidQty(op.qty)) {
+          result.rejected.push({ id: op.id, reason: "invalid_qty" });
+          continue;
+        }
+        if (!lineIds.has(op.line_id)) {
+          result.rejected.push({ id: op.id, reason: "not_found_line" });
+          continue;
+        }
+        const clientAt = Number.isNaN(Date.parse(op.client_created_at)) ? new Date().toISOString() : op.client_created_at;
+        await tx
+          .insert(inventory_count_entries)
+          .values({
+            id: op.id,
+            count_id: id,
+            line_id: op.line_id,
+            qty: String(op.qty),
+            created_by: actor.userId,
+            client_created_at: clientAt,
+          })
+          .onConflictDoNothing({ target: inventory_count_entries.id });
+        result.applied.push(op.id);
+      } else {
+        const [entry] = await tx
+          .select()
+          .from(inventory_count_entries)
+          .where(and(eq(inventory_count_entries.id, op.id), eq(inventory_count_entries.count_id, id)));
+        if (!entry || entry.deleted_at) {
+          result.applied.push(op.id);
+          continue;
+        }
+        if (entry.created_by !== actor.userId && !manage) {
+          result.rejected.push({ id: op.id, reason: "forbidden" });
+          continue;
+        }
+        await tx
+          .update(inventory_count_entries)
+          .set({ deleted_at: sql`now()`, deleted_by: actor.userId })
+          .where(eq(inventory_count_entries.id, op.id));
+        result.applied.push(op.id);
+      }
+    }
+    return result;
+  });
+}
+
+export async function addLine(db: DbLike, actor: Actor, id: string, productId: string) {
+  assertUuid(productId);
+  return db.transaction(async (tx) => {
+    await requireWritableDraft(tx, actor, id);
+    const inserted = await tx.execute(sql`
+      insert into inventory_count_lines (count_id, product_id, product_name, unit_id, unit_name, group_id, group_name, source, added_by)
+      select ${id}, n.id, coalesce(n.name, ''), n."mainUnit", mu.name, g.id, ${GROUP_NAME_SQL}, 'added', ${actor.userId}
+      from nomenclature_element n
+      left join measure_unit mu on mu.id = n."mainUnit"
+      left join nomenclature_group g on g.id = n.parent_id
+      left join nomenclature_group gp on gp.id = g.parent_id
+      where n.id = ${productId} and coalesce(n.deleted, false) = false
+      on conflict (count_id, product_id) do nothing
+      returning id
+    `);
+    const newId = (inserted.rows[0] as { id: string } | undefined)?.id;
+    if (newId) {
+      await writeEvent(tx, id, "line_added", actor.userId, { product_id: productId });
+      return { line_id: newId, created: true };
+    }
+    const [existing] = await tx
+      .select({ id: inventory_count_lines.id })
+      .from(inventory_count_lines)
+      .where(and(eq(inventory_count_lines.count_id, id), eq(inventory_count_lines.product_id, productId)));
+    if (!existing) throw new InventoryError(404, "product_not_found");
+    return { line_id: existing.id, created: false };
+  });
+}
+
+export async function setSkipped(db: DbLike, actor: Actor, id: string, lineId: string, skipped: boolean) {
+  assertUuid(lineId);
+  return db.transaction(async (tx) => {
+    await requireWritableDraft(tx, actor, id);
+    const updated = await tx
+      .update(inventory_count_lines)
+      .set({ skipped, skipped_by: skipped ? actor.userId : null })
+      .where(and(eq(inventory_count_lines.id, lineId), eq(inventory_count_lines.count_id, id)))
+      .returning({ id: inventory_count_lines.id });
+    if (!updated.length) throw new InventoryError(404, "line_not_found");
+    return { ok: true as const };
+  });
+}
+
+export async function searchProducts(db: DbLike, q: string, limit: number) {
+  const term = q.trim();
+  if (term.length < 2) return [];
+  const rows = await db.execute(sql`
+    select n.id, coalesce(n.name, '') as name, mu.name as unit_name, ${GROUP_NAME_SQL} as group_name
+    from nomenclature_element n
+    left join measure_unit mu on mu.id = n."mainUnit"
+    left join nomenclature_group g on g.id = n.parent_id
+    left join nomenclature_group gp on gp.id = g.parent_id
+    where coalesce(n.deleted, false) = false
+      and n.type in ('GOODS', 'PREPARED')
+      and n.name ilike ${"%" + term + "%"}
+    order by n.name
+    limit ${Math.min(Math.max(limit, 1), 50)}
+  `);
+  return rows.rows as unknown as InventoryProduct[];
 }
