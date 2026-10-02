@@ -462,6 +462,129 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 
   // TASK-5-TESTS
+  describe("inventory: отправка, возврат, отмена", () => {
+    async function startedCount(w: World) {
+      const m = await manager(w);
+      const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+      const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+      const lineOf = (pid: string) => d.body.lines.find((l: any) => l.product_id === pid).id as string;
+      return { m, countId: c.body.id as string, lineOf };
+    }
+    const add = (line_id: string, qty: number) => ({
+      op: "add" as const, id: randomUUID(), line_id, qty, client_created_at: new Date().toISOString(),
+    });
+
+    it("незаполненные строки блокируют отправку, skip_incomplete их пропускает", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 2.5), add(lineOf(w.p1), 3)] });
+        const blocked = await api(m, "POST", `/api/inventory/counts/${countId}/submit`, {});
+        expect(blocked.status).toBe(422);
+        expect(blocked.body).toEqual({ error: "incomplete", incomplete: 1 });
+        const ok = await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        expect(ok.status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.status).toBe("submitted");
+        expect(d.body.submitted_at).not.toBeNull();
+        const p1 = d.body.lines.find((l: any) => l.product_id === w.p1);
+        const p2 = d.body.lines.find((l: any) => l.product_id === w.p2);
+        expect(Number(p1.fact_qty)).toBe(5.5);
+        expect(p2.skipped).toBe(true);
+        expect(p2.fact_qty).toBeNull();
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("после отправки sync — 409, помощник не может отправить", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      const h = await helper(w);
+      try {
+        const hs = await api(h, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        expect(hs.status).toBe(403);
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        const r = await api(h, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        expect(r.status).toBe(409);
+        expect(r.body).toEqual({ error: "not_draft", status: "submitted" });
+      } finally {
+        await m.cleanup();
+        await h.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("sync и submit одновременно: каждая принятая запись есть в fact_qty", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      const h = await helper(w);
+      try {
+        await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: true });
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        const batches = Array.from({ length: 8 }, () => [add(lineOf(w.p1), 1), add(lineOf(w.p1), 1)]);
+        await Promise.all([
+          ...batches.map((ops) => api(h, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops })),
+          api(m, "POST", `/api/inventory/counts/${countId}/submit`, {}),
+        ]);
+        const live = await drizzleDb.execute(sql`
+          select coalesce(sum(qty), 0)::numeric as s from inventory_count_entries
+          where count_id = ${countId} and deleted_at is null`);
+        const [line] = await drizzleDb
+          .select()
+          .from(schema.inventory_count_lines)
+          .where(eq(schema.inventory_count_lines.id, lineOf(w.p1)));
+        expect(Number(line.fact_qty)).toBe(Number((live.rows[0] as any).s));
+      } finally {
+        await m.cleanup();
+        await h.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("возврат в черновик очищает fact_qty, отмена освобождает место для новой", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        const re = await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        expect(re.status).toBe(200);
+        let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.status).toBe("draft");
+        expect(d.body.submitted_at).toBeNull();
+        expect(d.body.lines.every((l: any) => l.fact_qty === null)).toBe(true);
+        const cancel = await api(m, "POST", `/api/inventory/counts/${countId}/cancel`, {});
+        expect(cancel.status).toBe(200);
+        const again = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        expect(again.status).toBe(200);
+        expect(again.body.id).not.toBe(countId);
+        const events = await drizzleDb
+          .select({ type: schema.inventory_count_events.type })
+          .from(schema.inventory_count_events)
+          .where(eq(schema.inventory_count_events.count_id, countId));
+        expect(events.map((e) => e.type).sort()).toEqual(["cancelled", "created", "reopened", "submitted"]);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("отменить отправленную нельзя — 409", async () => {
+      const w = await seedWorld();
+      const { m, countId } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        const r = await api(m, "POST", `/api/inventory/counts/${countId}/cancel`, {});
+        expect(r.status).toBe(409);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
+
   // TASK-6-TESTS
   // TASK-7-TESTS
 }

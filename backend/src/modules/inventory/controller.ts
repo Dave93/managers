@@ -3,7 +3,7 @@ import { corporation_store, users_stores } from "backend/drizzle/schema";
 import { asc, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
-import { addLine, availableTemplates, createCount, listCounts, loadCount, searchProducts, setSkipped, syncEntries } from "./counts";
+import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
 import { run } from "./errors";
 import { allowedPeriods } from "./rules";
 import type { InventoryStore } from "./types";
@@ -106,6 +106,30 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
     "/inventory/products",
     async ({ query, drizzle }) => searchProducts(drizzle, query.q ?? "", Number(query.limit ?? 20)),
     { permission: "inventory.count", query: t.Object({ q: t.Optional(t.String()), limit: t.Optional(t.String()) }) }
+  )
+  .post(
+    "/inventory/counts/:id/submit",
+    async ({ params, body, user, role, drizzle, cacheController, set }) =>
+      run(set, async () =>
+        submitCount(drizzle, await actorFrom(cacheController, user, role), params.id, body?.skip_incomplete === true)
+      ),
+    {
+      permission: "inventory.count",
+      params: t.Object({ id: t.String() }),
+      body: t.Optional(t.Object({ skip_incomplete: t.Optional(t.Boolean()) })),
+    }
+  )
+  .post(
+    "/inventory/counts/:id/reopen",
+    async ({ params, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => reopenCount(drizzle, await actorFrom(cacheController, user, role), params.id, new Date())),
+    { permission: "inventory.count", params: t.Object({ id: t.String() }) }
+  )
+  .post(
+    "/inventory/counts/:id/cancel",
+    async ({ params, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => cancelCount(drizzle, await actorFrom(cacheController, user, role), params.id)),
+    { permission: "inventory.count", params: t.Object({ id: t.String() }) }
   );
 
 // Как tickets/cash_shifts: после apiController накопленный тип роутов у

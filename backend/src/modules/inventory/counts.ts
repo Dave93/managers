@@ -11,7 +11,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { InventoryError } from "./errors";
-import { allowedPeriods, canReopen, isValidQty, UUID_RE } from "./rules";
+import { allowedPeriods, canReopen, isValidQty, nextStatus, UUID_RE } from "./rules";
 import type {
   InventoryCountDetail,
   InventoryCountStatus,
@@ -448,4 +448,81 @@ export async function searchProducts(db: DbLike, q: string, limit: number) {
     limit ${Math.min(Math.max(limit, 1), 50)}
   `);
   return rows.rows as unknown as InventoryProduct[];
+}
+
+async function requireManagedCount(tx: DbLike, actor: Actor, id: string) {
+  const row = await lockCount(tx, id);
+  const access = await storeAccess(tx, actor, row.store_id);
+  if (access === "none") throw new InventoryError(403, "store_forbidden");
+  if (!canManage(actor, access)) throw new InventoryError(403, "forbidden");
+  return row;
+}
+
+export async function submitCount(db: DbLike, actor: Actor, id: string, skipIncomplete: boolean) {
+  return db.transaction(async (tx) => {
+    const row = await requireManagedCount(tx, actor, id);
+    const to = nextStatus("submit", row.status);
+    if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
+
+    const l = inventory_count_lines;
+    const incomplete = await tx
+      .select({ id: l.id })
+      .from(l)
+      .where(
+        and(
+          eq(l.count_id, id),
+          eq(l.skipped, false),
+          sql`not exists (select 1 from inventory_count_entries e where e.line_id = ${LINE_ID} and e.deleted_at is null)`
+        )
+      );
+    if (incomplete.length && !skipIncomplete) {
+      throw new InventoryError(422, "incomplete", { incomplete: incomplete.length });
+    }
+    if (incomplete.length) {
+      await tx
+        .update(l)
+        .set({ skipped: true, skipped_by: actor.userId })
+        .where(inArray(l.id, incomplete.map((x) => x.id)));
+    }
+    // Итог фиксируется в SQL: numeric без JS-float.
+    await tx.execute(sql`
+      update inventory_count_lines l set fact_qty = (
+        select coalesce(sum(e.qty), 0) from inventory_count_entries e
+        where e.line_id = l.id and e.deleted_at is null)
+      where l.count_id = ${id} and not l.skipped`);
+    await tx.execute(sql`update inventory_count_lines set fact_qty = null where count_id = ${id} and skipped`);
+    await tx
+      .update(inventory_counts)
+      .set({ status: to, submitted_by: actor.userId, submitted_at: sql`now()`, updated_at: sql`now()` })
+      .where(eq(inventory_counts.id, id));
+    await writeEvent(tx, id, "submitted", actor.userId, { auto_skipped: incomplete.length });
+    return { ok: true as const };
+  });
+}
+
+export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Date) {
+  return db.transaction(async (tx) => {
+    const row = await requireManagedCount(tx, actor, id);
+    const to = nextStatus("reopen", row.status);
+    if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
+    if (!canReopen(row.period, now)) throw new InventoryError(422, "reopen_window_closed");
+    await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
+    await tx
+      .update(inventory_counts)
+      .set({ status: to, submitted_by: null, submitted_at: null, updated_at: sql`now()` })
+      .where(eq(inventory_counts.id, id));
+    await writeEvent(tx, id, "reopened", actor.userId);
+    return { ok: true as const };
+  });
+}
+
+export async function cancelCount(db: DbLike, actor: Actor, id: string) {
+  return db.transaction(async (tx) => {
+    const row = await requireManagedCount(tx, actor, id);
+    const to = nextStatus("cancel", row.status);
+    if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
+    await tx.update(inventory_counts).set({ status: to, updated_at: sql`now()` }).where(eq(inventory_counts.id, id));
+    await writeEvent(tx, id, "cancelled", actor.userId);
+    return { ok: true as const };
+  });
 }
