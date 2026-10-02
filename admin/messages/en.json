@@ -532,5 +532,113 @@
       "traineeOfRequired": "State what the trainee trains for",
       "codeFormat": "Code: lowercase latin, digits and underscore, 2–50 characters"
     }
+  },
+  "inventory": {
+    "title": "Stock count",
+    "store": "Store",
+    "chooseStore": "Choose a store",
+    "noStores": "You are not assigned to any store. Contact the administrator.",
+    "start": "Start a stock count",
+    "template": "Template",
+    "period": "Period",
+    "create": "Start",
+    "noTemplates": "No active templates for this store",
+    "empty": "No stock counts yet",
+    "progress": "{done} of {total}",
+    "participants": "Counting: {names}",
+    "submittedBy": "Submitted by: {name}",
+    "readOnly": "Read only",
+    "back": "Back",
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "cancelled": "Cancelled"
+    },
+    "tabs": {
+      "mine": "My stores",
+      "overview": "Overview"
+    },
+    "overview": {
+      "notStarted": "Not started",
+      "organization": "Organization",
+      "all": "All",
+      "open": "Open"
+    },
+    "table": {
+      "product": "Item",
+      "unit": "Unit",
+      "fact": "Counted",
+      "search": "Search by name",
+      "filterAll": "All",
+      "filterTodo": "Not counted",
+      "filterMine": "Mine",
+      "enter": "+ enter",
+      "added": "added",
+      "skipped": "not counted",
+      "nothing": "Nothing found"
+    },
+    "line": {
+      "skip": "Not counted",
+      "unskip": "Count again",
+      "entries": "Entries",
+      "delete": "Delete",
+      "you": "You",
+      "pending": "not sent"
+    },
+    "addProduct": {
+      "button": "+ item not in the list",
+      "title": "Add an item",
+      "search": "Item name (2+ letters)",
+      "nothing": "Nothing found",
+      "offline": "Cannot add while offline"
+    },
+    "sync": {
+      "online": "online",
+      "offline": "offline",
+      "pending": "not sent: {count}",
+      "rejected": "Entries not accepted: {count}. The count was already submitted — ask the manager to reopen it.",
+      "dismiss": "Hide"
+    },
+    "submit": {
+      "button": "Submit",
+      "title": "Submit the stock count?",
+      "counted": "Counted: {count}",
+      "skipped": "Not counted: {count}",
+      "incomplete": "Empty: {count}",
+      "skipAll": "Mark empty items as “not counted” and submit",
+      "confirm": "Submit",
+      "cancel": "Go back",
+      "pendingBlock": "Wait until all entries from this device are sent",
+      "done": "Stock count submitted"
+    },
+    "reopen": "Reopen as draft",
+    "reopened": "The stock count is a draft again",
+    "cancelCount": "Cancel the stock count",
+    "cancelConfirm": "Cancel this draft? Entries stay in the history.",
+    "cancelled": "Stock count cancelled",
+    "errors": {
+      "invalidQty": "Enter a number, e.g. 2.5 or 2.5+3",
+      "generic": "Error: {message}"
+    },
+    "templates": {
+      "title": "Stock count templates",
+      "new": "New template",
+      "name": "Name",
+      "active": "Active",
+      "items": "Items",
+      "organization": "Organization",
+      "save": "Save",
+      "saved": "Saved",
+      "selected": "Selected: {count}",
+      "search": "Search item",
+      "suggestions": "Added during counts",
+      "addToTemplate": "Add to template",
+      "times": "{count} times",
+      "delete": "Delete",
+      "deleted": "Template deleted",
+      "inUse": "The template has been used — it can only be deactivated",
+      "back": "Back to templates",
+      "noSuggestions": "Nothing added yet"
+    }
   }
 }

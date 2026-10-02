@@ -495,5 +495,113 @@
       "traineeOfRequired": "Stajyor qaysi rolga o‘qishini ko‘rsating",
       "codeFormat": "Kod: lotin harflari, raqamlar va pastki chiziq, 2–50 belgi"
     }
+  },
+  "inventory": {
+    "title": "Inventarizatsiya",
+    "store": "Ombor",
+    "chooseStore": "Omborni tanlang",
+    "noStores": "Siz hech qaysi omborga biriktirilmagansiz. Administratorga murojaat qiling.",
+    "start": "Inventarizatsiyani boshlash",
+    "template": "Shablon",
+    "period": "Davr",
+    "create": "Boshlash",
+    "noTemplates": "Bu ombor uchun faol shablon yo‘q",
+    "empty": "Hozircha inventarizatsiya yo‘q",
+    "progress": "{total} dan {done}",
+    "participants": "Kiritmoqda: {names}",
+    "submittedBy": "Yubordi: {name}",
+    "readOnly": "Faqat ko‘rish",
+    "back": "Orqaga",
+    "status": {
+      "draft": "Qoralama",
+      "submitted": "Yuborilgan",
+      "cancelled": "Bekor qilingan"
+    },
+    "tabs": {
+      "mine": "Mening omborlarim",
+      "overview": "Umumiy ko‘rinish"
+    },
+    "overview": {
+      "notStarted": "Boshlanmagan",
+      "organization": "Tashkilot",
+      "all": "Hammasi",
+      "open": "Ochish"
+    },
+    "table": {
+      "product": "Pozitsiya",
+      "unit": "O‘lch.",
+      "fact": "Fakt",
+      "search": "Nomi bo‘yicha qidirish",
+      "filterAll": "Hammasi",
+      "filterTodo": "Sanalmagan",
+      "filterMine": "Meniki",
+      "enter": "+ kiritish",
+      "added": "qo‘shilgan",
+      "skipped": "sanalmadi",
+      "nothing": "Hech narsa topilmadi"
+    },
+    "line": {
+      "skip": "Sanalmadi",
+      "unskip": "Sanashga qaytarish",
+      "entries": "Yozuvlar",
+      "delete": "O‘chirish",
+      "you": "Siz",
+      "pending": "yuborilmagan"
+    },
+    "addProduct": {
+      "button": "+ ro‘yxatda yo‘q mahsulot",
+      "title": "Mahsulot qo‘shish",
+      "search": "Mahsulot nomi (kamida 2 harf)",
+      "nothing": "Hech narsa topilmadi",
+      "offline": "Internetsiz qo‘shib bo‘lmaydi"
+    },
+    "sync": {
+      "online": "onlayn",
+      "offline": "oflayn",
+      "pending": "yuborilmagan: {count}",
+      "rejected": "Qabul qilinmagan yozuvlar: {count}. Inventarizatsiya allaqachon yuborilgan — menejerdan qoralamaga qaytarishni so‘rang.",
+      "dismiss": "Yashirish"
+    },
+    "submit": {
+      "button": "Yuborish",
+      "title": "Inventarizatsiyani yuborasizmi?",
+      "counted": "Sanalgan: {count}",
+      "skipped": "Sanalmagan: {count}",
+      "incomplete": "To‘ldirilmagan: {count}",
+      "skipAll": "To‘ldirilmaganlarni «sanalmadi» deb belgilab yuborish",
+      "confirm": "Yuborish",
+      "cancel": "Qaytish",
+      "pendingBlock": "Avval bu qurilmadagi barcha yozuvlar yuborilishini kuting",
+      "done": "Inventarizatsiya yuborildi"
+    },
+    "reopen": "Qoralamaga qaytarish",
+    "reopened": "Inventarizatsiya yana qoralamada",
+    "cancelCount": "Inventarizatsiyani bekor qilish",
+    "cancelConfirm": "Qoralama bekor qilinsinmi? Yozuvlar tarixda qoladi.",
+    "cancelled": "Inventarizatsiya bekor qilindi",
+    "errors": {
+      "invalidQty": "Son kiriting, masalan 2,5 yoki 2,5+3",
+      "generic": "Xato: {message}"
+    },
+    "templates": {
+      "title": "Inventarizatsiya shablonlari",
+      "new": "Yangi shablon",
+      "name": "Nomi",
+      "active": "Faol",
+      "items": "Pozitsiyalar",
+      "organization": "Tashkilot",
+      "save": "Saqlash",
+      "saved": "Saqlandi",
+      "selected": "Tanlangan: {count}",
+      "search": "Mahsulot qidirish",
+      "suggestions": "Sanash paytida qo‘shilgan",
+      "addToTemplate": "Shablonga qo‘shish",
+      "times": "{count} marta",
+      "delete": "O‘chirish",
+      "deleted": "Shablon o‘chirildi",
+      "inUse": "Shablon ishlatilgan — uni faqat o‘chirib qo‘yish mumkin",
+      "back": "Shablonlarga",
+      "noSuggestions": "Hozircha hech narsa qo‘shilmagan"
+    }
   }
 }

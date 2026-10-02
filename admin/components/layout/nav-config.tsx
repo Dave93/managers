@@ -8,6 +8,7 @@ import {
   Banknote,
   Baby,
   Building2,
+  ClipboardList,
   Clock,
   FileText,
   GraduationCap,
@@ -71,6 +72,16 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
     { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
     { kind: "link", title: "Состав филиалов", href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
+    {
+      kind: "group",
+      title: "Инвентаризация",
+      icon: ClipboardList,
+      permission: "inventory.count",
+      items: [
+        { title: "Инвентаризации", href: p("/inventory"), permission: "inventory.count" },
+        { title: "Шаблоны инвентаризаций", href: p("/inventory/templates"), permission: "inventory.templates" },
+      ],
+    },
     {
       kind: "group",
       title: "Аттестация",
