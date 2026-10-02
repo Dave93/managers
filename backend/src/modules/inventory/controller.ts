@@ -1,8 +1,9 @@
 import { ctx } from "@backend/context";
 import { corporation_store, users_stores } from "backend/drizzle/schema";
 import { asc, eq } from "drizzle-orm";
-import Elysia from "elysia";
+import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
+import { availableTemplates, createCount, listCounts, loadCount } from "./counts";
 import { run } from "./errors";
 import { allowedPeriods } from "./rules";
 import type { InventoryStore } from "./types";
@@ -31,7 +32,34 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   )
   .get("/inventory/periods", () => ({ periods: allowedPeriods(new Date()) }), {
     permission: "inventory.count",
-  });
+  })
+  .get(
+    "/inventory/templates/available",
+    async ({ query, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => availableTemplates(drizzle, await actorFrom(cacheController, user, role), query.store_id)),
+    { permission: "inventory.count", query: t.Object({ store_id: t.String() }) }
+  )
+  .post(
+    "/inventory/counts",
+    async ({ body, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => createCount(drizzle, await actorFrom(cacheController, user, role), body, new Date())),
+    {
+      permission: "inventory.count",
+      body: t.Object({ store_id: t.String(), template_id: t.String(), period: t.String() }),
+    }
+  )
+  .get(
+    "/inventory/counts",
+    async ({ query, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => listCounts(drizzle, await actorFrom(cacheController, user, role), query.store_id)),
+    { permission: "inventory.count", query: t.Object({ store_id: t.String() }) }
+  )
+  .get(
+    "/inventory/counts/:id",
+    async ({ params, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => loadCount(drizzle, await actorFrom(cacheController, user, role), params.id, new Date())),
+    { permission: "inventory.count", params: t.Object({ id: t.String() }) }
+  );
 
 // Как tickets/cash_shifts: после apiController накопленный тип роутов у
 // предела глубины TS (TS2589), поэтому тип расширяем. Фронт ходит через

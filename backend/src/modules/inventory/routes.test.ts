@@ -163,6 +163,140 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
   });
 
+  describe("inventory: создание и чтение", () => {
+    it("available отдаёт активные шаблоны организации склада", async () => {
+      const w = await seedWorld();
+      const s = await manager(w);
+      try {
+        const r = await api(s, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
+        expect(r.status).toBe(200);
+        expect(r.body.map((t: any) => t.id)).toContain(w.templateId);
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("создаёт инвентаризацию со строками из шаблона и снимками папок", async () => {
+      const w = await seedWorld();
+      const s = await manager(w);
+      try {
+        const c = await api(s, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        expect(c.status).toBe(200);
+        expect(c.body.existing).toBe(false);
+        const r = await api(s, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(r.status).toBe(200);
+        expect(r.body.status).toBe("draft");
+        expect(r.body.access).toBe("write");
+        expect(r.body.can_manage).toBe(true);
+        expect(r.body.lines_total).toBe(2);
+        expect(r.body.lines_done).toBe(0);
+        const byProduct = Object.fromEntries(r.body.lines.map((l: any) => [l.product_id, l]));
+        expect(byProduct[w.p1].group_name).toBe("Склад / Мясные продукты");
+        expect(byProduct[w.p1].unit_name).toBe("кг");
+        expect(byProduct[w.p2].group_name).toBe("Без группы");
+        expect(byProduct[w.p1].total).toBe("0");
+        expect(byProduct[w.p1].source).toBe("template");
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("повторное и параллельное создание дают одну инвентаризацию", async () => {
+      const w = await seedWorld();
+      const s = await manager(w);
+      try {
+        const input = { store_id: w.storeId, template_id: w.templateId, period: PERIOD };
+        const [a, b] = await Promise.all([
+          api(s, "POST", "/api/inventory/counts", input),
+          api(s, "POST", "/api/inventory/counts", input),
+        ]);
+        expect(a.status).toBe(200);
+        expect(b.status).toBe(200);
+        expect(a.body.id).toBe(b.body.id);
+        const again = await api(s, "POST", "/api/inventory/counts", input);
+        expect(again.body.id).toBe(a.body.id);
+        expect(again.body.existing).toBe(true);
+        const rows = await drizzleDb.select().from(schema.inventory_counts).where(eq(schema.inventory_counts.store_id, w.storeId));
+        expect(rows.length).toBe(1);
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("недопустимый период — 422, чужой склад — 403, без inventory.manage — 403", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      const h = await helper(w);
+      try {
+        const bad = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: "2020-01-31" });
+        expect(bad.status).toBe(422);
+        expect(bad.body.error).toBe("invalid_period");
+        const foreign = await api(m, "POST", "/api/inventory/counts", { store_id: w.otherStoreId, template_id: w.templateId, period: PERIOD });
+        expect(foreign.status).toBe(403);
+        const noManage = await api(h, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        expect(noManage.status).toBe(403);
+      } finally {
+        await m.cleanup();
+        await h.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("офис без привязки читает (access: read), чужой помощник получает 403", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      const o = await office(w);
+      const stranger = await sessionFor(w, ["inventory.count"], false);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const ro = await api(o, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(ro.status).toBe(200);
+        expect(ro.body.access).toBe("read");
+        expect(ro.body.can_manage).toBe(false);
+        const denied = await api(stranger, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(denied.status).toBe(403);
+        const list = await api(m, "GET", `/api/inventory/counts?store_id=${w.storeId}`);
+        expect(list.status).toBe(200);
+        expect(list.body.map((x: any) => x.id)).toEqual([c.body.id]);
+      } finally {
+        await m.cleanup();
+        await o.cleanup();
+        await stranger.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("кривой и несуществующий id — 404", async () => {
+      const w = await seedWorld();
+      const s = await helper(w);
+      try {
+        expect((await api(s, "GET", "/api/inventory/counts/not-a-uuid")).status).toBe(404);
+        expect((await api(s, "GET", `/api/inventory/counts/${randomUUID()}`)).status).toBe(404);
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("в ответе нет учётных полей iiko", async () => {
+      const w = await seedWorld();
+      const s = await manager(w);
+      try {
+        const c = await api(s, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const r = await api(s, "GET", `/api/inventory/counts/${c.body.id}`);
+        const text = JSON.stringify(r.body).toLowerCase();
+        expect(text.includes("book")).toBe(false);
+        expect(text.includes("iiko")).toBe(false);
+      } finally {
+        await s.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
+
   // TASK-4-TESTS
   // TASK-5-TESTS
   // TASK-6-TESTS
