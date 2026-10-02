@@ -183,6 +183,13 @@
       "when": 1789360780924,
       "tag": "0025_late_the_anarchist",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790940936777,
+      "tag": "0026_inventory_counts",
+      "breakpoints": true
     }
   ]
 }

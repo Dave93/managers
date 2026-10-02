@@ -2395,3 +2395,127 @@ export const ticket_notifications = pgTable(
     pending_idx: index("idx_ticket_notifications_status").on(table.status, table.created_at),
   })
 );
+
+// ── Инвентаризации (spec 2026-10-02-inventory-counts-design.md) ──
+// Внешних ключей на users/corporation_store/nomenclature_* нет намеренно:
+// тестовая база пустая, а данные iiko синкаются отдельно.
+
+export const inventory_templates = pgTable("inventory_templates", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  organization_id: uuid("organization_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  sort: integer("sort").default(0).notNull(),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const inventory_template_items = pgTable(
+  "inventory_template_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    template_id: uuid("template_id")
+      .notNull()
+      .references(() => inventory_templates.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    template_product_uq: uniqueIndex("inventory_template_items_template_product_uq").on(t.template_id, t.product_id),
+  })
+);
+
+export const inventory_counts = pgTable(
+  "inventory_counts",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    store_id: uuid("store_id").notNull(),
+    // null у складов без организации (31 из 94 в проде, включая новые филиалы).
+    organization_id: uuid("organization_id"),
+    template_id: uuid("template_id")
+      .notNull()
+      .references(() => inventory_templates.id),
+    template_name: varchar("template_name", { length: 255 }).notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    status: varchar("status", { length: 32 }).default("draft").notNull(),
+    created_by: uuid("created_by").notNull(),
+    submitted_by: uuid("submitted_by"),
+    submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    store_period_template_uq: uniqueIndex("inventory_counts_store_period_template_uq")
+      .on(t.store_id, t.period, t.template_id)
+      .where(sql`status <> 'cancelled'`),
+    store_period_idx: index("inventory_counts_store_period_idx").on(t.store_id, t.period),
+  })
+);
+
+export const inventory_count_lines = pgTable(
+  "inventory_count_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    unit_id: uuid("unit_id"),
+    unit_name: varchar("unit_name", { length: 255 }),
+    group_id: uuid("group_id"),
+    group_name: varchar("group_name", { length: 512 }).notNull(),
+    source: varchar("source", { length: 16 }).notNull(),
+    added_by: uuid("added_by"),
+    skipped: boolean("skipped").default(false).notNull(),
+    skipped_by: uuid("skipped_by"),
+    fact_qty: numeric("fact_qty", { precision: 14, scale: 4 }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    count_product_uq: uniqueIndex("inventory_count_lines_count_product_uq").on(t.count_id, t.product_id),
+  })
+);
+
+export const inventory_count_entries = pgTable(
+  "inventory_count_entries",
+  {
+    // id генерирует устройство — это ключ идемпотентности синхронизации.
+    id: uuid("id").primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    line_id: uuid("line_id")
+      .notNull()
+      .references(() => inventory_count_lines.id, { onDelete: "cascade" }),
+    qty: numeric("qty", { precision: 14, scale: 4 }).notNull(),
+    created_by: uuid("created_by").notNull(),
+    client_created_at: timestamp("client_created_at", { withTimezone: true, mode: "string" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    deleted_at: timestamp("deleted_at", { withTimezone: true, mode: "string" }),
+    deleted_by: uuid("deleted_by"),
+  },
+  (t) => ({
+    count_idx: index("inventory_count_entries_count_idx").on(t.count_id),
+    line_idx: index("inventory_count_entries_line_idx").on(t.line_id),
+    qty_check: check("inventory_count_entries_qty_check", sql`qty >= 0`),
+  })
+);
+
+export const inventory_count_events = pgTable(
+  "inventory_count_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 32 }).notNull(),
+    user_id: uuid("user_id").notNull(),
+    payload: jsonb("payload"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    count_idx: index("inventory_count_events_count_idx").on(t.count_id),
+  })
+);
