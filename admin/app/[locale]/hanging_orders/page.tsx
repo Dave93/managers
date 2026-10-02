@@ -195,8 +195,8 @@ function HangingOrdersContent() {
     };
 
     return (
-        <div>
-            <div className="flex justify-between items-start">
+        <div className="w-full min-w-0 overflow-x-hidden">
+            <div className="flex justify-between items-start gap-2">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
                         Висячие заказы

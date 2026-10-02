@@ -1,6 +1,6 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit2Icon, Eye, Calendar } from "lucide-react";
+import { Edit2Icon, Eye } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { hangingOrders } from "@backend/../drizzle/schema";
 import { Badge } from "@admin/components/ui/badge";
@@ -62,32 +62,33 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         accessorKey: "date",
         header: "Дата",
         cell: ({ row }) => {
-            const date = row.getValue("date") as string;
-            return date ? dayjs(date).format('DD.MM.YYYY') : "";
-        },
-    },
-    {
-        accessorKey: "timestamp",
-        header: "Время",
-        cell: ({ row }) => {
-            const timestamp = row.getValue("timestamp") as string;
-            return timestamp ? (
-                <div className="flex items-center">
-                    <Calendar className="mr-1 h-3 w-3" />
-                    {dayjs(timestamp).format('HH:mm:ss')}
-                </div>
-            ) : "";
+            const { date, timestamp } = row.original;
+            if (!date) return "";
+            const time = timestamp ? dayjs(timestamp).format('HH:mm') : "";
+            return (
+                <span className="tabular-nums" title={timestamp ? dayjs(timestamp).format('DD.MM.YYYY HH:mm:ss') : undefined}>
+                    {dayjs(date).format('DD.MM.YY')}{time && ` ${time}`}
+                </span>
+            );
         },
     },
     {
         accessorKey: "orderId",
-        header: "ID заказа",
+        header: "ID",
         cell: ({ row }) => {
             const orderId = row.getValue("orderId") as string;
+            if (!orderId) return "";
             return (
-                <div className="font-mono text-sm">
-                    {orderId}
-                </div>
+                <HoverCard>
+                    <HoverCardTrigger asChild>
+                        <span className="font-mono text-xs cursor-pointer hover:underline">
+                            …{orderId.slice(-8)}
+                        </span>
+                    </HoverCardTrigger>
+                    <HoverCardContent className="w-auto">
+                        <p className="font-mono text-xs select-all">{orderId}</p>
+                    </HoverCardContent>
+                </HoverCard>
             );
         },
     },
@@ -97,18 +98,34 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         meta: {
             sticky: "left",
         },
+        cell: ({ row }) => {
+            const conception = row.getValue("conception") as string;
+            if (!conception) return "";
+            return (
+                <div className="max-w-[150px] truncate" title={conception}>
+                    {conception}
+                </div>
+            );
+        },
     },
     {
         accessorKey: "orderType",
-        header: "Тип заказа",
+        header: () => <span title="Тип заказа">Тип</span>,
+        cell: ({ row }) => {
+            const orderType = row.getValue("orderType") as string;
+            if (!orderType) return "";
+            // "Доставка курьером" распирала колонку шире всех остальных значений.
+            const short = orderType.replace(/^Доставка курьером$/, "Курьер");
+            return <span title={orderType}>{short}</span>;
+        },
     },
     {
         accessorKey: "paymentType",
-        header: "Тип оплаты",
+        header: () => <span title="Тип оплаты">Оплата</span>,
     },
     {
         accessorKey: "orderStatus",
-        header: "Статус заказа",
+        header: () => <span title="Статус заказа">Статус</span>,
         cell: ({ row }) => {
             const orderStatus = row.getValue("orderStatus") as string;
             const label = ordersStatusText[orderStatus as keyof typeof ordersStatusText] || orderStatus;
@@ -121,7 +138,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "comments",
-        header: "Комментарии филиала",
+        header: () => <span title="Комментарии филиала">Коммент.</span>,
         cell: ({ row }) => {
             const comment = row.getValue("comments") as string;
             if (!comment) return "";
@@ -129,7 +146,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
             return (
                 <HoverCard>
                     <HoverCardTrigger asChild>
-                        <div className="max-w-[200px] truncate cursor-pointer hover:underline">
+                        <div className="max-w-[120px] truncate cursor-pointer hover:underline">
                             {comment}
                         </div>
                     </HoverCardTrigger>
@@ -165,7 +182,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "receiptNumber",
-        header: "Номер чека",
+        header: () => <span title="Номер чека">Чек</span>,
     },
     {
         accessorKey: "problem",
@@ -177,7 +194,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
             return (
                 <HoverCard>
                     <HoverCardTrigger asChild>
-                        <div className="max-w-[200px] truncate cursor-pointer hover:underline">
+                        <div className="max-w-[120px] truncate cursor-pointer hover:underline">
                             {problem}
                         </div>
                     </HoverCardTrigger>
@@ -193,7 +210,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "status",
-        header: "Статус обработки",
+        header: () => <span title="Статус обработки">Обработка</span>,
         cell: ({ row }) => {
             const record = row.original;
             return (
@@ -207,11 +224,11 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "comment",
-        header: "Комментарий",
+        header: () => <span title="Комментарий менеджера">Заметка</span>,
         cell: ({ row }) => {
             const record = row.original;
             return (
-                <div className="min-w-[200px] max-w-[300px]">
+                <div className="max-w-[140px]">
                     <CommentEditor
                         recordId={record.id}
                         initialComment={record.comment}
@@ -222,7 +239,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         id: "actions",
-        header: "Действия",
+        header: () => <span className="sr-only">Действия</span>,
         cell: ({ row }) => {
             const record = row.original;
 

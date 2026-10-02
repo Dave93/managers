@@ -183,7 +183,7 @@ export function DataTable<TValue>({
 
     return (
         <div className="space-y-4">
-            <div className="rounded-md border overflow-x-auto">
+            <div className="w-full min-w-0 rounded-md border overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => {
@@ -198,10 +198,10 @@ export function DataTable<TValue>({
                                         if (isSticky) {
                                             if (header.column.id === "brand") {
                                                 currentLeft = 0;
-                                                stickyLeft = 120;
+                                                stickyLeft = 100;
                                             } else if (header.column.id === "conception") {
-                                                currentLeft = 120;
-                                                stickyLeft = 270;
+                                                currentLeft = 100;
+                                                stickyLeft = 240;
                                             }
                                         }
                                         
@@ -211,7 +211,7 @@ export function DataTable<TValue>({
                                                 className={isSticky ? "sticky z-10 bg-background border-r shadow-sm" : ""}
                                                 style={isSticky ? { 
                                                     left: `${currentLeft}px`,
-                                                    minWidth: header.column.id === "brand" ? "120px" : "150px"
+                                                    minWidth: header.column.id === "brand" ? "100px" : "140px"
                                                 } : {}}
                                             >
                                                 {header.isPlaceholder
@@ -274,7 +274,7 @@ export function DataTable<TValue>({
                                                 if (cell.column.id === "brand") {
                                                     currentLeft = 0;
                                                 } else if (cell.column.id === "conception") {
-                                                    currentLeft = 120;
+                                                    currentLeft = 100;
                                                 }
                                             }
                                             
@@ -284,7 +284,7 @@ export function DataTable<TValue>({
                                                     className={isSticky ? "sticky z-10 bg-background border-r shadow-sm" : ""}
                                                     style={isSticky ? { 
                                                         left: `${currentLeft}px`,
-                                                        minWidth: cell.column.id === "brand" ? "120px" : "150px"
+                                                        minWidth: cell.column.id === "brand" ? "100px" : "140px"
                                                     } : {}}
                                                 >
                                                     {flexRender(
