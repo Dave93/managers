@@ -83,7 +83,7 @@
 |---|---|---|
 | `id` | uuid PK | |
 | `store_id` | uuid not null | `corporation_store.id` = id склада iiko |
-| `organization_id` | uuid not null | Из `corporation_store.organization_id` |
+| `organization_id` | uuid (nullable) | Из `corporation_store.organization_id`, а у склада без организации — организация шаблона. В проде организации нет у 31 склада из 94, среди них новые филиалы (19038 Les Sampi, 19043 Les Aeroport, 21028 Chopar Scopus и др.) |
 | `template_id` | uuid not null | |
 | `template_name` | varchar(255) not null | Снимок |
 | `period` | date not null | Последний день месяца |
@@ -137,6 +137,7 @@
 | `created_at` | timestamptz | |
 
 ### Правила
+- Склад с организацией видит только шаблоны своей организации. Склад без организации видит все активные шаблоны.
 - Итог строки в `draft` — сумма `qty` живых записей (`deleted_at is null`). Строка считается «посчитанной», если у неё есть хотя бы одна живая запись или стоит `skipped`.
 - Чтобы исправить запись, её удаляют и вводят заново. Запись не редактируется, поэтому параллельные участники не затирают друг друга.
 - Если поставить `skipped` позиции с записями, нужно подтверждение, а записи сохраняются. Если поставить `skipped = false`, позиция снова считается обычной.
@@ -144,7 +145,9 @@
 
 ## 6. Права и доступ
 
-Новые права в `permissions` (миграцией): `inventory.count`, `inventory.manage`, `inventory.templates`. Привязку к ролям делает администратор вручную.
+Новые права в `permissions` заводятся сид-скриптом `backend/src/modules/inventory/seed-permissions.ts`, как в tickets: `inventory.count`, `inventory.manage`, `inventory.templates`. Привязку к ролям делает администратор вручную. Все роуты инвентаризаций стоят под `inventory.count`, поэтому офисной роли нужны оба права: `inventory.count` и `inventory.templates`.
+
+В проде 45 из 50 пользователей с ролью `manager` привязаны к складам через `users_stores` (проверено 02.10.2026). Остальных до запуска нужно привязать, иначе они не увидят свой склад.
 
 | Действие | Право |
 |---|---|
@@ -163,6 +166,9 @@
 | Метод и путь | Право | Что делает |
 |---|---|---|
 | `GET /inventory/stores` | `inventory.count` | Склады пользователя из `users_stores` |
+| `GET /inventory/periods` | `inventory.count` | Периоды, доступные для новой инвентаризации (правило 5 дней считается на сервере по Asia/Tashkent) |
+| `GET /inventory/templates/available?store_id` | `inventory.count` | Активные шаблоны для склада, нужны менеджеру при старте |
+| `GET /inventory/organizations` | `inventory.templates` | Организации для редактора шаблонов и фильтра обзора |
 | `GET /inventory/counts?store_id&period` | `inventory.count` | Список инвентаризаций склада: статус, прогресс, участники |
 | `GET /inventory/overview?period&organization_id` | `inventory.templates` | Все склады за период: статус, прогресс, отправитель, «не начата» |
 | `POST /inventory/counts` `{store_id, template_id, period}` | `inventory.manage` | Создаёт инвентаризацию и строки из шаблона. Если такая уже есть (не отменённая), возвращает существующую |
@@ -178,6 +184,8 @@
 | `PUT /inventory/templates/:id/items` `{product_ids}` | `inventory.templates` | Полная замена состава |
 | `GET /inventory/templates/:id/suggestions` | `inventory.templates` | Товары, добавленные при пересчётах по шаблону, с количеством раз |
 | `GET /inventory/folders` | `inventory.templates` | Дерево папок iiko с товарами для редактора |
+
+`GET /inventory/counts/:id` дополнительно отдаёт `viewer_id` (текущий пользователь), `access` (`write`/`read`), `can_manage` и `can_reopen`.
 
 Ни один ответ модуля не содержит учётных остатков iiko. Generic-параметр `fields` (parseSelectFields) модуль не принимает: ответы фиксированной формы.
 
@@ -197,10 +205,11 @@ type Op =
 - Ответ: `{applied: string[], rejected: [{id, reason}]}`. Причины: `not_found_line`, `forbidden` (чужую запись удалить нельзя без `inventory.manage`), `invalid_qty`.
 
 **Клиент:**
-- Очередь операций хранится в IndexedDB по `count_id`. Сначала операция ставится в очередь и сразу отражается в таблице (оптимистично), потом отправляется.
+- Очередь операций хранится в localStorage под ключом `inventory:queue:<count_id>`; если localStorage недоступен, — в памяти вкладки. При ~200 позициях объём — десятки КБ, IndexedDB не нужен. id записей генерируются пакетом `uuid`: `crypto.randomUUID` работает только на https. Сначала операция ставится в очередь и сразу отражается в таблице (оптимистично), потом отправляется.
 - Отправка: сразу после ввода, при событии `online` и по таймеру раз в 5 с, пока очередь не пуста. Отправка последовательная, по одной пачке за раз.
 - `GET /inventory/counts/:id` каждые 10 с (TanStack Query `refetchInterval`). Ответ сливается с локальной очередью: неотправленные операции накладываются поверх серверного состояния.
-- Последний ответ `GET` сохраняется в IndexedDB, поэтому таблица открывается без сети.
+- Последний ответ `GET` сохраняется в localStorage (`inventory:detail:<count_id>`) и показывается сразу при открытии.
+- Офлайн работает, пока страница ввода открыта. Перезагрузить страницу без сети нельзя: `admin/middleware.ts` на каждый переход ходит в `/api/users/me`. Service worker в этот подпроект не входит.
 - Индикаторы: «● онлайн / ○ офлайн», «не отправлено: N».
 - На 409 записи из очереди помечаются «не принято (инвентаризация отправлена)» и остаются видны этому участнику. Подсказка: «Попросите менеджера вернуть в черновик».
 - Позицию вне шаблона (`POST lines`) и «не считали» добавить без сети нельзя: кнопки неактивны, есть подсказка. Офлайн работают только записи количества.
