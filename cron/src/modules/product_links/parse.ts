@@ -4,7 +4,8 @@
 export type ExordStore = {
   user_id: number;
   name: string;
-  terminal_iiko_id: string | null;
+  store_iiko_id: string | null;
+  terminal_iiko_id: string | null; // informational only, not a key
   product_ids: string[];
 };
 
@@ -39,6 +40,11 @@ export function parsePayload(raw: unknown): ExordPayload {
       terminal = normUuid(s.terminal_iiko_id);
       if (!terminal) throw new Error(`stores[${i}].terminal_iiko_id is not a uuid`);
     }
+    let store: string | null = null;
+    if (s.store_iiko_id != null) {
+      store = normUuid(s.store_iiko_id);
+      if (!store) throw new Error(`stores[${i}].store_iiko_id is not a uuid`);
+    }
     const ids: string[] = [];
     for (const p of s.product_ids) {
       const id = normUuid(p);
@@ -48,6 +54,7 @@ export function parsePayload(raw: unknown): ExordPayload {
     return {
       user_id: Number(s.user_id),
       name: String(s.name ?? ""),
+      store_iiko_id: store,
       terminal_iiko_id: terminal,
       product_ids: ids,
     };
@@ -60,37 +67,42 @@ export function parsePayload(raw: unknown): ExordPayload {
   };
 }
 
-export type TerminalLinks = { terminal_id: string; product_ids: string[] };
+export type StoreLinks = { store_id: string; product_ids: string[] };
 
-// Maps exord stores to managers terminals.id via iiko id. Stores without an
-// iiko id, or with one we don't know, are skipped (counted in `skipped`).
-// If two stores resolve to the same terminal their products are unioned.
-export function mapToTerminals(
+export type UnknownStore = { user_id: number; name: string; store_iiko_id: string };
+
+// Maps exord stores to managers corporation_store.id (the same iiko store
+// uuid). Entries without a store id are counted in `noStore`; entries whose
+// store is missing from corporation_store are listed in `unknown`. If two
+// entries share a store their products are unioned.
+export function mapToStores(
   stores: ExordStore[],
-  terminalByIikoId: Map<string, string>
-): { rows: TerminalLinks[]; skipped: number } {
-  const byTerminal = new Map<string, Set<string>>();
-  let skipped = 0;
+  knownStoreIds: Set<string>
+): { rows: StoreLinks[]; noStore: number; unknown: UnknownStore[] } {
+  const byStore = new Map<string, Set<string>>();
+  const unknown: UnknownStore[] = [];
+  let noStore = 0;
   for (const s of stores) {
-    const terminalId = s.terminal_iiko_id
-      ? terminalByIikoId.get(s.terminal_iiko_id)
-      : undefined;
-    if (!terminalId) {
-      skipped++;
+    if (!s.store_iiko_id) {
+      noStore++;
       continue;
     }
-    const set = byTerminal.get(terminalId) ?? new Set<string>();
+    if (!knownStoreIds.has(s.store_iiko_id)) {
+      unknown.push({ user_id: s.user_id, name: s.name, store_iiko_id: s.store_iiko_id });
+      continue;
+    }
+    const set = byStore.get(s.store_iiko_id) ?? new Set<string>();
     for (const p of s.product_ids) set.add(p);
-    byTerminal.set(terminalId, set);
+    byStore.set(s.store_iiko_id, set);
   }
-  const rows = [...byTerminal].map(([terminal_id, set]) => ({
-    terminal_id,
+  const rows = [...byStore].map(([store_id, set]) => ({
+    store_id,
     product_ids: [...set].sort(),
   }));
-  return { rows, skipped };
+  return { rows, noStore, unknown };
 }
 
-export const countLinks = (rows: TerminalLinks[]) =>
+export const countLinks = (rows: StoreLinks[]) =>
   rows.reduce((n, r) => n + r.product_ids.length, 0);
 
 // Refuses to replace the table with something that looks like garbage.
@@ -98,11 +110,11 @@ export const countLinks = (rows: TerminalLinks[]) =>
 export const MAX_DROP_RATIO = 0.5;
 
 export function checkGuard(
-  rows: TerminalLinks[],
-  current: { terminals: number; links: number },
+  rows: StoreLinks[],
+  current: { stores: number; links: number },
   force = false
 ): string | null {
-  if (rows.length === 0) return "no stores mapped to a managers terminal";
+  if (rows.length === 0) return "no exord stores mapped to a managers store";
   const links = countLinks(rows);
   if (links === 0) return "all mapped stores have zero products";
   if (!force && current.links > 0 && links < current.links * (1 - MAX_DROP_RATIO)) {
