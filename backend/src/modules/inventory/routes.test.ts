@@ -766,6 +766,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
+    it("пустой список товаров филиала в exord считается как «нет данных» — без фильтра", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([]);
+      const m = await manager(w);
+      try {
+        const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
+        expect(a.body.find((t: any) => t.id === w.templateId).exord_filtered).toBe(false);
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(d.body.exord_filtered).toBe(false);
+        expect(d.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p2].sort());
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
     it("в отфильтрованную инвентаризацию нельзя добавить товар не филиала", async () => {
       const w = await seedWorld();
       await w.linkBranch([w.p1, w.p3]);

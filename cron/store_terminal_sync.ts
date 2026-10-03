@@ -32,7 +32,10 @@ async function loadOrderAggregates(): Promise<OrderAgg[]> {
            count(*)::int AS orders,
            max(open_time) AS last_order_at
     FROM orders
-    WHERE open_time >= now() - interval '90 days'
+    -- open_date_typed — ключ партиционирования гипертаблицы: без него сканируются
+    -- все чанки (EXPLAIN на проде: cost ~305k против ~72k).
+    WHERE open_date_typed >= now()::timestamp - interval '91 days'
+      AND open_time >= now() - interval '90 days'
       AND store_id IS NOT NULL
       AND restaurant_group_id IS NOT NULL
     GROUP BY store_id, restaurant_group_id`);
