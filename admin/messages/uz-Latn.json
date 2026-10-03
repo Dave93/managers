@@ -556,7 +556,8 @@
       "title": "Mahsulot qo‘shish",
       "search": "Mahsulot nomi (kamida 2 harf)",
       "nothing": "Hech narsa topilmadi",
-      "offline": "Internetsiz qo‘shib bo‘lmaydi"
+      "offline": "Internetsiz qo‘shib bo‘lmaydi",
+      "notInExord": "exord'da yo‘q"
     },
     "sync": {
       "online": "onlayn",

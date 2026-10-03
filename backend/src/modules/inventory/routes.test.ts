@@ -783,25 +783,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("в отфильтрованную инвентаризацию нельзя добавить товар не филиала", async () => {
+    it("в отфильтрованную инвентаризацию можно добавить и товар не из exord", async () => {
       const w = await seedWorld();
       await w.linkBranch([w.p1, w.p3]);
       const m = await manager(w);
       try {
         const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
-        const bad = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p2 });
-        expect(bad.status).toBe(422);
-        expect(bad.body.error).toBe("not_branch_product");
-        const ok = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p3 });
-        expect(ok.status).toBe(200);
-        expect(ok.body.created).toBe(true);
+        const off = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p2 });
+        expect(off.status).toBe(200);
+        expect(off.body.created).toBe(true);
+        const on = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p3 });
+        expect(on.status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(d.body.lines.find((l: any) => l.product_id === w.p2).source).toBe("added");
       } finally {
         await m.cleanup();
         await w.cleanup();
       }
     });
 
-    it("поиск с count_id — только товары филиала, которых нет в пересчёте", async () => {
+    it("поиск с count_id: сначала товары филиала, потом остальные с in_branch=false, без уже посчитанных", async () => {
       const w = await seedWorld();
       await w.linkBranch([w.p1, w.p3]);
       const m = await manager(w);
@@ -809,9 +810,13 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
         const scoped = await api(m, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}&count_id=${c.body.id}`);
         expect(scoped.status).toBe(200);
-        expect(scoped.body.map((p: any) => p.id)).toEqual([w.p3]);
+        expect(scoped.body.map((p: any) => [p.id, p.in_branch])).toEqual([
+          [w.p3, true],
+          [w.p2, false],
+        ]);
         const all = await api(m, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}`);
         expect(all.body.map((p: any) => p.id).sort()).toEqual([w.p1, w.p2, w.p3].sort());
+        expect(all.body.every((p: any) => p.in_branch === null)).toBe(true);
         const stranger = await sessionFor(w, ["inventory.count"], false);
         try {
           const denied = await api(stranger, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}&count_id=${c.body.id}`);

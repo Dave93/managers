@@ -98,8 +98,8 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   )
   .post(
     "/inventory/counts/:id/lines",
-    async ({ params, body, user, role, drizzle, redis, cacheController, set }) =>
-      run(set, async () => addLine(drizzle, redis, await actorFrom(cacheController, user, role), params.id, body.product_id)),
+    async ({ params, body, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => addLine(drizzle, await actorFrom(cacheController, user, role), params.id, body.product_id)),
     { permission: "inventory.count", params: t.Object({ id: t.String() }), body: t.Object({ product_id: t.String() }) }
   )
   .patch(

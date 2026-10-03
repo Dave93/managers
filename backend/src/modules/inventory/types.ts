@@ -98,6 +98,8 @@ export interface InventoryProduct {
   name: string;
   unit_name: string | null;
   group_name: string;
+  /** Поиск в инвентаризации с фильтром exord: товар филиала или нет. null — без фильтра. */
+  in_branch: boolean | null;
 }
 
 export interface InventoryFolders {

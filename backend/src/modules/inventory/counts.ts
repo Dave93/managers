@@ -439,15 +439,13 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
   });
 }
 
-export async function addLine(db: DbLike, redis: Redis, actor: Actor, id: string, productId: string) {
+// Добавить можно любой товар номенклатуры: на складе бывает то, что филиал
+// берёт мимо exord (решение 15 в §13 спеки). Офис видит такие позиции в
+// подсказках шаблона.
+export async function addLine(db: DbLike, actor: Actor, id: string, productId: string) {
   assertUuid(productId);
   return db.transaction(async (tx) => {
-    const { row } = await requireWritableDraft(tx, actor, id);
-    if (row.exord_filtered) {
-      // Пропали данные exord (null) — не блокируем менеджера, как без фильтра.
-      const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
-      if (branch && !branch.includes(productId)) throw new InventoryError(422, "not_branch_product");
-    }
+    await requireWritableDraft(tx, actor, id);
     const inserted = await tx.execute(sql`
       insert into inventory_count_lines (count_id, product_id, product_name, unit_id, unit_name, group_id, group_name, source, added_by)
       select ${id}, n.id, coalesce(n.name, ''), n."mainUnit", mu.name, g.id, ${GROUP_NAME_SQL}, 'added', ${actor.userId}
@@ -487,10 +485,10 @@ export async function setSkipped(db: DbLike, actor: Actor, id: string, lineId: s
   });
 }
 
-export type ProductScope = { only?: string[]; exclude?: string[] };
+export type ProductScope = { branch?: string[]; exclude?: string[] };
 
-// Для «+ товар не из списка» в инвентаризации с фильтром exord: только товары
-// филиала, которых ещё нет в пересчёте. Без фильтра — без ограничений.
+// Для «+ товар не из списка»: без уже посчитанных позиций; в инвентаризации с
+// фильтром exord товары филиала идут первыми и помечены in_branch.
 export async function productScope(db: DbLike, redis: Redis, actor: Actor, countId: string): Promise<ProductScope> {
   assertUuid(countId);
   const [row] = await db
@@ -499,14 +497,14 @@ export async function productScope(db: DbLike, redis: Redis, actor: Actor, count
     .where(eq(inventory_counts.id, countId));
   if (!row) throw new InventoryError(404, "not_found");
   if ((await storeAccess(db, actor, row.store_id)) === "none") throw new InventoryError(403, "store_forbidden");
-  if (!row.exord_filtered) return {};
-  const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
-  if (!branch) return {};
   const existing = await db
     .select({ product_id: inventory_count_lines.product_id })
     .from(inventory_count_lines)
     .where(eq(inventory_count_lines.count_id, countId));
-  return { only: branch, exclude: existing.map((e) => e.product_id) };
+  const exclude = existing.map((e) => e.product_id);
+  if (!row.exord_filtered) return { exclude };
+  const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
+  return branch ? { branch, exclude } : { exclude };
 }
 
 const uuidList = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
@@ -514,19 +512,20 @@ const uuidList = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), 
 export async function searchProducts(db: DbLike, q: string, limit: number, scope: ProductScope = {}) {
   const term = q.trim();
   if (term.length < 2) return [];
-  if (scope.only && scope.only.length === 0) return [];
-  const onlyF = scope.only ? sql` and n.id in (${uuidList(scope.only)})` : sql``;
+  const inBranch = scope.branch ? sql`(n.id in (${uuidList(scope.branch)}))` : sql`null::boolean`;
+  const branchFirst = scope.branch ? sql`${inBranch} desc, ` : sql``;
   const excludeF = scope.exclude?.length ? sql` and n.id not in (${uuidList(scope.exclude)})` : sql``;
   const rows = await db.execute(sql`
-    select n.id, coalesce(n.name, '') as name, mu.name as unit_name, ${GROUP_NAME_SQL} as group_name
+    select n.id, coalesce(n.name, '') as name, mu.name as unit_name, ${GROUP_NAME_SQL} as group_name,
+      ${inBranch} as in_branch
     from nomenclature_element n
     left join measure_unit mu on mu.id = n."mainUnit"
     left join nomenclature_group g on g.id = n.parent_id
     left join nomenclature_group gp on gp.id = g.parent_id
     where coalesce(n.deleted, false) = false
       and n.type in ('GOODS', 'PREPARED')
-      and n.name ilike ${"%" + term + "%"}${onlyF}${excludeF}
-    order by n.name
+      and n.name ilike ${"%" + term + "%"}${excludeF}
+    order by ${branchFirst}n.name
     limit ${Math.min(Math.max(limit, 1), 50)}
   `);
   return rows.rows as unknown as InventoryProduct[];

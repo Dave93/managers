@@ -59,7 +59,12 @@ export function AddProductDialog({ countId, online, onAdded }: { countId: string
               disabled={add.isPending}
               onClick={() => add.mutate(p.id)}
             >
-              <div className="text-sm">{p.name}</div>
+              <div className="text-sm">
+                {p.name}
+                {p.in_branch === false && (
+                  <span className="ml-2 text-xs text-yellow-600">{t("addProduct.notInExord")}</span>
+                )}
+              </div>
               <div className="text-xs text-muted-foreground">
                 {p.group_name}
                 {p.unit_name ? ` · ${p.unit_name}` : ""}

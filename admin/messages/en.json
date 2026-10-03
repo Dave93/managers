@@ -593,7 +593,8 @@
       "title": "Add an item",
       "search": "Item name (2+ letters)",
       "nothing": "Nothing found",
-      "offline": "Cannot add while offline"
+      "offline": "Cannot add while offline",
+      "notInExord": "not in exord"
     },
     "sync": {
       "online": "online",
