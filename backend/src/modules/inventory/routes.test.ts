@@ -52,6 +52,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     const p2 = randomUUID(); // без папки
     const p3 = randomUUID(); // вне шаблона
     const templateId = randomUUID();
+    const terminalId = randomUUID();
     const tag = randomUUID().slice(0, 8);
 
     await drizzleDb.insert(schema.corporation_store).values([
@@ -80,7 +81,15 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await drizzleDb.insert(schema.users_stores).values({ user_id: userId, corporation_store_id: store });
     }
 
+    // Филиал склада storeId по exord: связь склад → филиал + товары филиала.
+    async function linkBranch(productIds: string[]) {
+      await drizzleDb.insert(schema.store_terminal_links).values({ store_id: storeId, terminal_id: terminalId, orders_90d: 1 });
+      await drizzleDb.insert(schema.terminal_product_links).values({ terminal_id: terminalId, product_ids: productIds });
+    }
+
     async function cleanup() {
+      await drizzleDb.delete(schema.store_terminal_links).where(eq(schema.store_terminal_links.store_id, storeId));
+      await drizzleDb.delete(schema.terminal_product_links).where(eq(schema.terminal_product_links.terminal_id, terminalId));
       const countIds = (
         await drizzleDb
           .select({ id: schema.inventory_counts.id })
@@ -96,7 +105,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await drizzleDb.delete(schema.corporation_store).where(inArray(schema.corporation_store.id, [storeId, otherStoreId]));
     }
 
-    return { orgId, storeId, otherStoreId, unitId, groupId, p1, p2, p3, templateId, tag, bindUser, cleanup };
+    return { orgId, storeId, otherStoreId, unitId, groupId, p1, p2, p3, templateId, terminalId, tag, bindUser, linkBranch, cleanup };
   }
 
   type World = Awaited<ReturnType<typeof seedWorld>>;
@@ -693,6 +702,121 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(bad.status).toBe(422);
       } finally {
         await m.cleanup();
+        await o.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
+
+  describe("inventory: товары филиала из exord", () => {
+    // Шаблон мира = [p1, p2]; филиал склада storeId по exord = [p1, p3].
+    it("available считает позиции для склада и помечает фильтр exord", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        await w.bindUser(m.userId, w.otherStoreId);
+        const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
+        const tpl = a.body.find((t: any) => t.id === w.templateId);
+        expect(tpl.items_for_store).toBe(1);
+        expect(tpl.exord_filtered).toBe(true);
+        const b = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.otherStoreId}`);
+        const tplB = b.body.find((t: any) => t.id === w.templateId);
+        expect(tplB.items_for_store).toBe(2);
+        expect(tplB.exord_filtered).toBe(false);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("инвентаризация = шаблон ∩ товары филиала; без exord — весь шаблон", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        await w.bindUser(m.userId, w.otherStoreId);
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(d.body.exord_filtered).toBe(true);
+        expect(d.body.lines.map((l: any) => l.product_id)).toEqual([w.p1]);
+        const c2 = await api(m, "POST", "/api/inventory/counts", { store_id: w.otherStoreId, template_id: w.templateId, period: PERIOD });
+        const d2 = await api(m, "GET", `/api/inventory/counts/${c2.body.id}`);
+        expect(d2.body.exord_filtered).toBe(false);
+        expect(d2.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p2].sort());
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("филиал без пересечения с шаблоном — инвентаризация с 0 строк", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p3]);
+      const m = await manager(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        expect(c.status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(d.body.exord_filtered).toBe(true);
+        expect(d.body.lines).toEqual([]);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("в отфильтрованную инвентаризацию нельзя добавить товар не филиала", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const bad = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p2 });
+        expect(bad.status).toBe(422);
+        expect(bad.body.error).toBe("not_branch_product");
+        const ok = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p3 });
+        expect(ok.status).toBe(200);
+        expect(ok.body.created).toBe(true);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("поиск с count_id — только товары филиала, которых нет в пересчёте", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const scoped = await api(m, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}&count_id=${c.body.id}`);
+        expect(scoped.status).toBe(200);
+        expect(scoped.body.map((p: any) => p.id)).toEqual([w.p3]);
+        const all = await api(m, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}`);
+        expect(all.body.map((p: any) => p.id).sort()).toEqual([w.p1, w.p2, w.p3].sort());
+        const stranger = await sessionFor(w, ["inventory.count"], false);
+        try {
+          const denied = await api(stranger, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}&count_id=${c.body.id}`);
+          expect(denied.status).toBe(403);
+        } finally {
+          await stranger.cleanup();
+        }
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("обзор помечает склады без данных exord", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const o = await office(w);
+      try {
+        const r = await api(o, "GET", `/api/inventory/overview?period=${PERIOD}&organization_id=${w.orgId}`);
+        expect(r.body.find((x: any) => x.store_id === w.storeId).exord).toBe(true);
+        expect(r.body.find((x: any) => x.store_id === w.otherStoreId).exord).toBe(false);
+      } finally {
         await o.cleanup();
         await w.cleanup();
       }

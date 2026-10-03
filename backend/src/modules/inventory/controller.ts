@@ -3,7 +3,7 @@ import { corporation_store, users_stores } from "backend/drizzle/schema";
 import { asc, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
-import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
+import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, productScope, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
 import { run } from "./errors";
 import {
   createTemplate,
@@ -47,14 +47,14 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   })
   .get(
     "/inventory/templates/available",
-    async ({ query, user, role, drizzle, cacheController, set }) =>
-      run(set, async () => availableTemplates(drizzle, await actorFrom(cacheController, user, role), query.store_id)),
+    async ({ query, user, role, drizzle, redis, cacheController, set }) =>
+      run(set, async () => availableTemplates(drizzle, redis, await actorFrom(cacheController, user, role), query.store_id)),
     { permission: "inventory.count", query: t.Object({ store_id: t.String() }) }
   )
   .post(
     "/inventory/counts",
-    async ({ body, user, role, drizzle, cacheController, set }) =>
-      run(set, async () => createCount(drizzle, await actorFrom(cacheController, user, role), body, new Date())),
+    async ({ body, user, role, drizzle, redis, cacheController, set }) =>
+      run(set, async () => createCount(drizzle, redis, await actorFrom(cacheController, user, role), body, new Date())),
     {
       permission: "inventory.count",
       body: t.Object({ store_id: t.String(), template_id: t.String(), period: t.String() }),
@@ -98,8 +98,8 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   )
   .post(
     "/inventory/counts/:id/lines",
-    async ({ params, body, user, role, drizzle, cacheController, set }) =>
-      run(set, async () => addLine(drizzle, await actorFrom(cacheController, user, role), params.id, body.product_id)),
+    async ({ params, body, user, role, drizzle, redis, cacheController, set }) =>
+      run(set, async () => addLine(drizzle, redis, await actorFrom(cacheController, user, role), params.id, body.product_id)),
     { permission: "inventory.count", params: t.Object({ id: t.String() }), body: t.Object({ product_id: t.String() }) }
   )
   .patch(
@@ -116,8 +116,17 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   )
   .get(
     "/inventory/products",
-    async ({ query, drizzle }) => searchProducts(drizzle, query.q ?? "", Number(query.limit ?? 20)),
-    { permission: "inventory.count", query: t.Object({ q: t.Optional(t.String()), limit: t.Optional(t.String()) }) }
+    async ({ query, user, role, drizzle, redis, cacheController, set }) =>
+      run(set, async () => {
+        const scope = query.count_id
+          ? await productScope(drizzle, redis, await actorFrom(cacheController, user, role), query.count_id)
+          : {};
+        return searchProducts(drizzle, query.q ?? "", Number(query.limit ?? 20), scope);
+      }),
+    {
+      permission: "inventory.count",
+      query: t.Object({ q: t.Optional(t.String()), limit: t.Optional(t.String()), count_id: t.Optional(t.String()) }),
+    }
   )
   .post(
     "/inventory/counts/:id/submit",

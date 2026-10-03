@@ -43,6 +43,8 @@ export interface InventoryCountSummary {
   template_name: string;
   period: string;
   status: InventoryCountStatus;
+  /** Строки построены как шаблон ∩ товары филиала из exord. */
+  exord_filtered: boolean;
   created_at: string;
   submitted_at: string | null;
   submitted_by_name: string | null;
@@ -81,6 +83,12 @@ export interface InventoryTemplateSummary {
   items_count: number;
 }
 
+/** Шаблон в окне «Начать»: сколько позиций попадёт в пересчёт этого склада. */
+export interface InventoryAvailableTemplate extends InventoryTemplateSummary {
+  items_for_store: number;
+  exord_filtered: boolean;
+}
+
 export interface InventoryTemplateDetail extends InventoryTemplateSummary {
   product_ids: string[];
 }
@@ -107,6 +115,8 @@ export interface InventoryOverviewRow {
   store_id: string;
   store_name: string;
   organization_id: string | null;
+  /** Есть связь склада с филиалом и список товаров филиала в exord. */
+  exord: boolean;
   counts: InventoryCountSummary[];
 }
 

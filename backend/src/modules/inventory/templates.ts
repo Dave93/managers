@@ -196,6 +196,7 @@ export async function overview(db: DbLike, period: string, organizationId?: stri
       template_name: inventory_counts.template_name,
       period: inventory_counts.period,
       status: inventory_counts.status,
+      exord_filtered: inventory_counts.exord_filtered,
       created_at: inventory_counts.created_at,
       submitted_at: inventory_counts.submitted_at,
       submitted_by: inventory_counts.submitted_by,
@@ -211,12 +212,19 @@ export async function overview(db: DbLike, period: string, organizationId?: stri
       )
     );
   const sums = await summaries(db, rows);
+  // Есть связь склада с филиалом и запись exord о товарах филиала.
+  const exordRes: any = await db.execute(sql`
+    select s.store_id::text as store_id
+    from store_terminal_links s
+    join terminal_product_links t on t.terminal_id = s.terminal_id`);
+  const exordStores = new Set<string>((exordRes.rows ?? exordRes).map((r: any) => String(r.store_id)));
   const byStore = new Map<string, typeof sums>();
   for (const s of sums) byStore.set(s.store_id, [...(byStore.get(s.store_id) ?? []), s]);
   return stores.map((s) => ({
     store_id: s.id,
     store_name: s.name ?? "",
     organization_id: s.organization_id,
+    exord: exordStores.has(s.id),
     counts: byStore.get(s.id) ?? [],
   }));
 }

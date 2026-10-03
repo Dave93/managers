@@ -4,15 +4,21 @@ import {
   inventory_count_events,
   inventory_count_lines,
   inventory_counts,
+  inventory_template_items,
   inventory_templates,
+  nomenclature_element,
   organization,
   users,
 } from "backend/drizzle/schema";
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import type Redis from "ioredis";
+import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
+import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
 import { allowedPeriods, canReopen, isValidQty, nextStatus, UUID_RE } from "./rules";
 import type {
+  InventoryAvailableTemplate,
   InventoryCountDetail,
   InventoryCountStatus,
   InventoryCountSummary,
@@ -68,7 +74,12 @@ const GROUP_NAME_SQL = sql.raw(
   `case when g.id is null then 'Без группы' when gp.name is null then g.name else gp.name || ' / ' || g.name end`
 );
 
-export async function availableTemplates(db: DbLike, actor: Actor, storeId: string): Promise<InventoryTemplateSummary[]> {
+export async function availableTemplates(
+  db: DbLike,
+  redis: Redis,
+  actor: Actor,
+  storeId: string
+): Promise<InventoryAvailableTemplate[]> {
   assertUuid(storeId);
   const access = await storeAccess(db, actor, storeId);
   if (access === "none") throw new InventoryError(403, "store_forbidden");
@@ -91,7 +102,37 @@ export async function availableTemplates(db: DbLike, actor: Actor, storeId: stri
     .leftJoin(organization, eq(organization.id, inventory_templates.organization_id))
     .where(and(...where))
     .orderBy(asc(inventory_templates.sort), asc(inventory_templates.name));
-  return rows.map((r) => ({ ...r, organization_name: r.organization_name ?? null }));
+
+  // Сколько позиций каждого шаблона попадёт в пересчёт этого склада: те же
+  // правила, что при создании (товар есть в номенклатуре и, если есть exord, в филиале).
+  const branch = await storeProductIds(redis, db as DrizzleDB, storeId);
+  const branchSet = branch ? new Set(branch) : null;
+  const ids = rows.map((r) => r.id);
+  const items = ids.length
+    ? await db
+        .select({ template_id: inventory_template_items.template_id, product_id: inventory_template_items.product_id })
+        .from(inventory_template_items)
+        .innerJoin(nomenclature_element, eq(nomenclature_element.id, inventory_template_items.product_id))
+        .where(inArray(inventory_template_items.template_id, ids))
+    : [];
+  const forStore = new Map<string, number>();
+  for (const it of items) {
+    if (branchSet && !branchSet.has(it.product_id)) continue;
+    forStore.set(it.template_id, (forStore.get(it.template_id) ?? 0) + 1);
+  }
+  return rows.map((r) => ({
+    ...r,
+    organization_name: r.organization_name ?? null,
+    items_for_store: forStore.get(r.id) ?? 0,
+    exord_filtered: branch !== null,
+  }));
+}
+
+// Условие «товар из списка филиала» для INSERT ... SELECT по шаблону.
+function branchFilter(ids: string[] | null) {
+  if (ids === null) return sql``;
+  if (ids.length === 0) return sql` and false`;
+  return sql` and ti.product_id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`;
 }
 
 function isUniqueViolation(e: any): boolean {
@@ -115,6 +156,7 @@ async function findActive(db: DbLike, storeId: string, period: string, templateI
 
 export async function createCount(
   db: DbLike,
+  redis: Redis,
   actor: Actor,
   input: { store_id: string; template_id: string; period: string },
   now: Date
@@ -136,6 +178,7 @@ export async function createCount(
 
   const existing = await findActive(db, input.store_id, input.period, input.template_id);
   if (existing) return { id: existing.id, existing: true };
+  const branch = await storeProductIds(redis, db as DrizzleDB, input.store_id);
 
   try {
     const id = await db.transaction(async (tx) => {
@@ -148,6 +191,7 @@ export async function createCount(
           template_name: tpl.name,
           period: input.period,
           status: "draft",
+          exord_filtered: branch !== null,
           created_by: actor.userId,
         })
         .returning({ id: inventory_counts.id });
@@ -159,9 +203,13 @@ export async function createCount(
         left join measure_unit mu on mu.id = n."mainUnit"
         left join nomenclature_group g on g.id = n.parent_id
         left join nomenclature_group gp on gp.id = g.parent_id
-        where ti.template_id = ${tpl.id}
+        where ti.template_id = ${tpl.id}${branchFilter(branch)}
       `);
-      await writeEvent(tx, count.id, "created", actor.userId, { template_id: tpl.id, period: input.period });
+      await writeEvent(tx, count.id, "created", actor.userId, {
+        template_id: tpl.id,
+        period: input.period,
+        exord_filtered: branch !== null,
+      });
       return count.id;
     });
     return { id, existing: false };
@@ -177,7 +225,7 @@ export async function createCount(
 
 type SummaryBase = Pick<
   CountRow,
-  "id" | "store_id" | "template_id" | "template_name" | "period" | "status" | "created_at" | "submitted_at" | "submitted_by"
+  "id" | "store_id" | "template_id" | "template_name" | "period" | "status" | "exord_filtered" | "created_at" | "submitted_at" | "submitted_by"
 > & { store_name: string | null };
 
 const summaryColumns = {
@@ -187,6 +235,7 @@ const summaryColumns = {
   template_name: inventory_counts.template_name,
   period: inventory_counts.period,
   status: inventory_counts.status,
+  exord_filtered: inventory_counts.exord_filtered,
   created_at: inventory_counts.created_at,
   submitted_at: inventory_counts.submitted_at,
   submitted_by: inventory_counts.submitted_by,
@@ -228,6 +277,7 @@ export async function summaries(db: DbLike, rows: SummaryBase[]): Promise<Invent
     template_name: r.template_name,
     period: r.period,
     status: r.status as InventoryCountStatus,
+    exord_filtered: r.exord_filtered,
     created_at: r.created_at,
     submitted_at: r.submitted_at,
     submitted_by_name: r.submitted_by ? names.get(r.submitted_by) ?? "—" : null,
@@ -389,10 +439,15 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
   });
 }
 
-export async function addLine(db: DbLike, actor: Actor, id: string, productId: string) {
+export async function addLine(db: DbLike, redis: Redis, actor: Actor, id: string, productId: string) {
   assertUuid(productId);
   return db.transaction(async (tx) => {
-    await requireWritableDraft(tx, actor, id);
+    const { row } = await requireWritableDraft(tx, actor, id);
+    if (row.exord_filtered) {
+      // Пропали данные exord (null) — не блокируем менеджера, как без фильтра.
+      const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
+      if (branch && !branch.includes(productId)) throw new InventoryError(422, "not_branch_product");
+    }
     const inserted = await tx.execute(sql`
       insert into inventory_count_lines (count_id, product_id, product_name, unit_id, unit_name, group_id, group_name, source, added_by)
       select ${id}, n.id, coalesce(n.name, ''), n."mainUnit", mu.name, g.id, ${GROUP_NAME_SQL}, 'added', ${actor.userId}
@@ -432,9 +487,36 @@ export async function setSkipped(db: DbLike, actor: Actor, id: string, lineId: s
   });
 }
 
-export async function searchProducts(db: DbLike, q: string, limit: number) {
+export type ProductScope = { only?: string[]; exclude?: string[] };
+
+// Для «+ товар не из списка» в инвентаризации с фильтром exord: только товары
+// филиала, которых ещё нет в пересчёте. Без фильтра — без ограничений.
+export async function productScope(db: DbLike, redis: Redis, actor: Actor, countId: string): Promise<ProductScope> {
+  assertUuid(countId);
+  const [row] = await db
+    .select({ store_id: inventory_counts.store_id, exord_filtered: inventory_counts.exord_filtered })
+    .from(inventory_counts)
+    .where(eq(inventory_counts.id, countId));
+  if (!row) throw new InventoryError(404, "not_found");
+  if ((await storeAccess(db, actor, row.store_id)) === "none") throw new InventoryError(403, "store_forbidden");
+  if (!row.exord_filtered) return {};
+  const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
+  if (!branch) return {};
+  const existing = await db
+    .select({ product_id: inventory_count_lines.product_id })
+    .from(inventory_count_lines)
+    .where(eq(inventory_count_lines.count_id, countId));
+  return { only: branch, exclude: existing.map((e) => e.product_id) };
+}
+
+const uuidList = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
+
+export async function searchProducts(db: DbLike, q: string, limit: number, scope: ProductScope = {}) {
   const term = q.trim();
   if (term.length < 2) return [];
+  if (scope.only && scope.only.length === 0) return [];
+  const onlyF = scope.only ? sql` and n.id in (${uuidList(scope.only)})` : sql``;
+  const excludeF = scope.exclude?.length ? sql` and n.id not in (${uuidList(scope.exclude)})` : sql``;
   const rows = await db.execute(sql`
     select n.id, coalesce(n.name, '') as name, mu.name as unit_name, ${GROUP_NAME_SQL} as group_name
     from nomenclature_element n
@@ -443,7 +525,7 @@ export async function searchProducts(db: DbLike, q: string, limit: number) {
     left join nomenclature_group gp on gp.id = g.parent_id
     where coalesce(n.deleted, false) = false
       and n.type in ('GOODS', 'PREPARED')
-      and n.name ilike ${"%" + term + "%"}
+      and n.name ilike ${"%" + term + "%"}${onlyF}${excludeF}
     order by n.name
     limit ${Math.min(Math.max(limit, 1), 50)}
   `);
