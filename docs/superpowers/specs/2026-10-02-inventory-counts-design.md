@@ -292,3 +292,45 @@ type Op =
 - Ручная сортировка позиций в шаблоне, зоны хранения.
 - Печать и выгрузка в Excel.
 - Офлайн-добавление позиций вне шаблона.
+
+## 13. Товары филиала из exord (дополнение от 2026-10-03)
+
+Менеджер ведёт только те товары, которые его филиал использует. Источник — `terminal_product_links` (синк из exord, см. `docs/superpowers/specs/2026-10-03-product-links-sync-design.md`).
+
+### Что известно (прод, 03.10.2026)
+- `terminal_product_links`: 35 филиалов, 9192 связи, на филиал 236–306 товаров. Все 462 товара есть в `nomenclature_element`, типы `GOODS` (415) и `PREPARED` (47), неудалённые.
+- Связь склад → филиал напрямую нигде не хранится. Через подразделения iiko (`corporation_store.parentId` → `corporation_groups.departmentId`) она слишком грубая: 37–52 склада на филиал.
+- Точная связь выводится из продаж: в `orders` есть `restaurant_group_id` (= `credentials(model='terminals', type='iiko_id').key`) и `store_id`. За 30 дней у каждого из 55 активных филиалов с продажами ровно один склад (доля 100%), ни один склад не делится между филиалами. У 6 филиалов со связями exord продаж за 30 дней нет (Farhod ×2, Anhor, Asia.uz Nukus ×2, Samarqand Makon mall — закрыты или стоят).
+
+### Решения
+| # | Вопрос | Решение |
+|---|--------|---------|
+| 14 | Шаблоны при наличии exord | Остаются. Строки инвентаризации = позиции шаблона ∩ товары филиала |
+| 15 | «+ товар не из списка» | В инвентаризации с фильтром exord — только товары филиала, которых ещё нет в пересчёте. Сервер отклоняет остальные (422 `not_branch_product`) |
+| 16 | Нет данных exord по складу | Весь шаблон без фильтра + предупреждение в окне старта и пометка в обзоре |
+
+### Данные
+- `store_terminal_links(store_id uuid PK, terminal_id uuid not null, orders_90d integer not null, last_order_at timestamptz, updated_at timestamptz)` — без внешних ключей (как остальные таблицы модуля).
+- `inventory_counts.exord_filtered boolean not null default false` — снимок: строился ли список с фильтром exord.
+- Миграция `0028_store_terminal_links` (0026 — product_links из main, 0027 — таблицы инвентаризации).
+
+### Синк связи склад → филиал
+`cron/store_terminal_sync.ts`, раз в сутки (`30 3 * * *`, `flock`, лог в `/var/log/store_terminal_sync.log`), флаг `--dry-run`.
+- Заказы за 90 дней группируются по (`store_id`, `restaurant_group_id`). Для каждого склада берётся группа с наибольшим числом заказов (при равенстве — с более поздним последним заказом), группа переводится в `terminals.id` через `credentials` ⋈ `terminals`.
+- Upsert без удаления: у склада без продаж за 90 дней остаётся последняя известная связь.
+- 0 строк после расчёта — таблица не трогается, код выхода 1.
+- Карта iiko id → терминал выносится в общий модуль `cron/src/modules/terminals_by_iiko.ts` и используется обоими синками.
+
+### Бэкенд
+- `storeProductIds(redis, db, storeId): string[] | null` (`backend/src/modules/inventory/branch-products.ts`): `store_terminal_links` → `getTerminalProductIds` (Redis → Postgres). `null` — нет связи склада или нет записи exord.
+- `GET /inventory/templates/available` — у каждого шаблона `items_for_store` (сколько позиций попадёт в пересчёт этого склада) и `exord_filtered`.
+- `POST /inventory/counts` — строки из шаблона ∩ товары филиала, `exord_filtered` по факту.
+- `POST /inventory/counts/:id/lines` — при `exord_filtered` товар вне списка филиала → 422 `not_branch_product`.
+- `GET /inventory/products?q&count_id` — с `count_id` (и доступом к его складу) при `exord_filtered` ищет только товары филиала, которых нет в пересчёте.
+- `GET /inventory/overview` — у склада флаг `exord` (есть связь и запись exord).
+- `InventoryCountSummary.exord_filtered`.
+
+### Экраны
+- Окно «Начать»: у шаблона число позиций для склада; без exord — жёлтая плашка «Нет данных exord — список не отфильтрован».
+- «+ товар не из списка» передаёт `count_id`.
+- Обзор офиса: пометка «нет exord» у склада.
