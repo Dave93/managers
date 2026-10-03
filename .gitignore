@@ -13,3 +13,20 @@ cron/getProductsCookingTime
 cron/cookingdate.json
 cron/iiko_sync
 cron/get_attitional_sales
+.superpowers/
+cron/get_orders_by_source
+cron/*.bak_*
+
+# Бэкапы и артефакты сборки, которые плодятся при деплое.
+# .env.bak_* особенно важен: в нём прод-секреты.
+*.bak
+*.bak.*
+*.bak_*
+*.retired_*
+*.tsbuildinfo
+.next.bak*
+admin/.next.bak*
+cron/*.new
+cron/cash_shifts_sync
+cron/product_links_sync
+cron/dish_cost_sync

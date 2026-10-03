@@ -104,7 +104,22 @@ export function buildInternalCreditApp(db: DrizzleDb) {
       company_id: t.Optional(t.String()), brand: t.Optional(brandT), order_id: t.Optional(t.String()),
       limit: t.Optional(t.Integer({ minimum: 1, maximum: 1000 })),
       offset: t.Optional(t.Integer({ minimum: 0 })),
-    }) });
+    }) })
+    // Read-only: resolves the company behind a (brand, order_id) so the CRM-sync
+    // job (Laravel's CrmRouter::newOrder) can put a name, not just a UUID, on the
+    // deal comment for credit orders. No `logged()` — this isn't money-moving.
+    .post("/internal/credit/company-by-order", async ({ body, set }) => {
+      const [row] = await db.execute(sql`
+        SELECT h.company_id, c.name
+        FROM credit_holds h JOIN credit_companies c ON c.id = h.company_id
+        WHERE h.brand = ${body.brand} AND h.order_id = ${body.order_id}
+        LIMIT 1`);
+      if (!row) {
+        set.status = 404;
+        return { error: "not_found" };
+      }
+      return { company_id: row.company_id, name: row.name };
+    }, { body: orderRef });
 }
 
 export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {

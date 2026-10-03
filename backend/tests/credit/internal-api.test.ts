@@ -131,6 +131,23 @@ test("invalid brand and non-numeric amount are rejected by schema, never reach s
   expect(holds.length).toBe(0);
 });
 
+test("company-by-order resolves the company behind a held order", async () => {
+  await call("/internal/credit/authorize", { brand: "chopar", order_id: "s-cbo", phone: PHONE, amount: 10_000 });
+  const r = await call("/internal/credit/company-by-order", { brand: "chopar", order_id: "s-cbo" });
+  expect(r).toEqual({ company_id: companyId, name: "TEST-CREDIT-internal-api" });
+});
+
+test("company-by-order 404s for an order with no hold", async () => {
+  const res = await fetch("http://localhost/internal/credit/company-by-order", {
+    unix: SOCK,
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ brand: "chopar", order_id: "no-such-order" }),
+  } as any);
+  expect(res.status).toBe(404);
+  expect(await res.json()).toEqual({ error: "not_found" });
+});
+
 describe("startInternalCreditApp", () => {
   const STARTED_DIR = `/tmp/credit-test-dir-${process.pid}`;
   const STARTED_SOCK = `${STARTED_DIR}/nested/credit.sock`;
