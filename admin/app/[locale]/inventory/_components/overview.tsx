@@ -67,7 +67,10 @@ export function Overview() {
             r.counts.length === 0
               ? [
                   <TableRow key={r.store_id}>
-                    <TableCell>{r.store_name}</TableCell>
+                    <TableCell>
+                      {r.store_name}
+                      {!r.exord && <span className="ml-2 text-xs text-yellow-600">{t("overview.noExord")}</span>}
+                    </TableCell>
                     <TableCell className="text-muted-foreground">—</TableCell>
                     <TableCell className="text-destructive">{t("overview.notStarted")}</TableCell>
                     <TableCell />
@@ -75,7 +78,10 @@ export function Overview() {
                 ]
               : r.counts.map((c) => (
                   <TableRow key={c.id}>
-                    <TableCell>{r.store_name}</TableCell>
+                    <TableCell>
+                      {r.store_name}
+                      {!r.exord && <span className="ml-2 text-xs text-yellow-600">{t("overview.noExord")}</span>}
+                    </TableCell>
                     <TableCell>{c.template_name}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">

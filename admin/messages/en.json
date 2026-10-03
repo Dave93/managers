@@ -562,7 +562,8 @@
       "notStarted": "Not started",
       "organization": "Organization",
       "all": "All",
-      "open": "Open"
+      "open": "Open",
+      "noExord": "no exord"
     },
     "table": {
       "product": "Item",
@@ -644,6 +645,8 @@
       "inUse": "The template has been used — it can only be deactivated",
       "back": "Back to templates",
       "noSuggestions": "Nothing added yet"
-    }
+    },
+    "noExord": "No exord data — the list is not filtered by the branch's products",
+    "itemsCount": "{count} items"
   }
 }

@@ -7,6 +7,7 @@
 
 import { apiClient } from "@admin/utils/eden";
 import type {
+  InventoryAvailableTemplate,
   InventoryCountDetail,
   InventoryCountSummary,
   InventoryFolders,
@@ -42,7 +43,7 @@ export const inventoryApi = {
   stores: () => call<InventoryStore[]>(inv.stores.get()),
   periods: () => call<{ periods: string[] }>(inv.periods.get()),
   availableTemplates: (storeId: string) =>
-    call<InventoryTemplateSummary[]>(inv.templates.available.get({ query: { store_id: storeId } })),
+    call<InventoryAvailableTemplate[]>(inv.templates.available.get({ query: { store_id: storeId } })),
   listCounts: (storeId: string) => call<InventoryCountSummary[]>(inv.counts.get({ query: { store_id: storeId } })),
   createCount: (body: { store_id: string; template_id: string; period: string }) =>
     call<{ id: string; existing: boolean }>(inv.counts.post(body)),
@@ -56,7 +57,10 @@ export const inventoryApi = {
     call<{ ok: true }>(inv.counts({ id }).submit.post({ skip_incomplete: skipIncomplete })),
   reopen: (id: string) => call<{ ok: true }>(inv.counts({ id }).reopen.post({})),
   cancel: (id: string) => call<{ ok: true }>(inv.counts({ id }).cancel.post({})),
-  products: (q: string) => call<InventoryProduct[]>(inv.products.get({ query: { q, limit: "20" } })),
+  products: (q: string, countId?: string) =>
+    call<InventoryProduct[]>(
+      inv.products.get({ query: countId ? { q, limit: "20", count_id: countId } : { q, limit: "20" } })
+    ),
   overview: (period: string, organizationId?: string) =>
     call<InventoryOverviewRow[]>(
       inv.overview.get({ query: organizationId ? { period, organization_id: organizationId } : { period } })

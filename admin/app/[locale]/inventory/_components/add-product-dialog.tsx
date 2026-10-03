@@ -20,8 +20,8 @@ export function AddProductDialog({ countId, online, onAdded }: { countId: string
   }, [q]);
 
   const results = useQuery({
-    queryKey: ["inventory_products", debounced],
-    queryFn: () => inventoryApi.products(debounced),
+    queryKey: ["inventory_products", countId, debounced],
+    queryFn: () => inventoryApi.products(debounced, countId),
     enabled: open && debounced.length >= 2,
   });
 

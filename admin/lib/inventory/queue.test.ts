@@ -32,7 +32,7 @@ const L2 = "22222222-2222-4222-8222-222222222222";
 function detail(): InventoryCountDetail {
   return {
     id: "c", store_id: "s", store_name: "Склад", template_id: "t", template_name: "Месячная",
-    period: "2026-10-31", status: "draft", created_at: "", submitted_at: null, submitted_by_name: null,
+    period: "2026-10-31", status: "draft", exord_filtered: false, created_at: "", submitted_at: null, submitted_by_name: null,
     lines_total: 2, lines_done: 1, participants: ["Иван"], viewer_id: "me", access: "write",
     can_manage: true, can_reopen: false,
     lines: [

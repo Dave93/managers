@@ -63,7 +63,7 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
                 <SelectContent>
                   {(templates.data ?? []).map((tpl) => (
                     <SelectItem key={tpl.id} value={tpl.id}>
-                      {tpl.name} · {tpl.items_count}
+                      {tpl.name} · {t("itemsCount", { count: tpl.items_for_store })}
                       {tpl.organization_name ? ` · ${tpl.organization_name}` : ""}
                     </SelectItem>
                   ))}
@@ -71,6 +71,9 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
               </Select>
             )}
           </div>
+          {templates.data && templates.data.length > 0 && !templates.data[0].exord_filtered && (
+            <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">{t("noExord")}</div>
+          )}
           <div className="space-y-1">
             <div className="text-sm font-medium">{t("period")}</div>
             <Select value={period} onValueChange={setPeriod}>
