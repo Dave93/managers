@@ -96,7 +96,7 @@ export default function ManagerLayout({
                 className="w-5 h-5 mb-2 text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500"
               />
               <span className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-500">
-                {t("title")}
+                {t("navShort")}
               </span>
             </Link>
           </CanAccess>

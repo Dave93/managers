@@ -83,9 +83,12 @@ export function useCountSync(countId: string, youLabel: string) {
     flushing.current = true;
     try {
       const result = await inventoryApi.sync(countId, ops);
-      setQueue((q) => applyResult(q, result));
       setOnline(true);
-      void qc.invalidateQueries({ queryKey });
+      // Сначала свежий ответ сервера, потом чистим очередь: иначе на время
+      // перезапроса принятые записи пропадают с экрана. Двойного счёта нет —
+      // overlay() пропускает операции, чьи id уже пришли от сервера.
+      await qc.invalidateQueries({ queryKey });
+      setQueue((q) => applyResult(q, result));
     } catch (e) {
       if (e instanceof InventoryApiError && (e.status === 409 || e.status === 403)) {
         setQueue((q) => rejectAll(q, ops.map((o) => o.id), e.status === 409 ? "not_draft" : "forbidden"));

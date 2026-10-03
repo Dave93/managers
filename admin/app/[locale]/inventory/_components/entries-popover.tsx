@@ -1,5 +1,5 @@
 "use client";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import { formatQty } from "@admin/lib/inventory/qty";
@@ -19,6 +19,8 @@ export function EntriesPopover({
   onDelete: (entryId: string) => void;
 }) {
   const t = useTranslations("inventory.line");
+  const locale = useLocale();
+  const timeLocale = locale === "uz-Latn" ? "uz" : locale;
   if (line.entries.length === 0) return null;
   return (
     <Popover>
@@ -40,7 +42,7 @@ export function EntriesPopover({
         <div className="text-sm font-medium mb-2">{t("entries")}</div>
         <ul className="space-y-1">
           {line.entries.map((e) => {
-            const time = new Date(e.client_created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+            const time = new Date(e.client_created_at).toLocaleTimeString(timeLocale, { hour: "2-digit", minute: "2-digit", hour12: false });
             const deletable = editable && (canDeleteAny || e.created_by === viewerId);
             return (
               <li key={e.id} className="flex items-center justify-between gap-2 text-sm">

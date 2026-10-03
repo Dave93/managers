@@ -535,6 +535,7 @@
   },
   "inventory": {
     "title": "Stock count",
+    "navShort": "Stock",
     "store": "Store",
     "chooseStore": "Choose a store",
     "noStores": "You are not assigned to any store. Contact the administrator.",

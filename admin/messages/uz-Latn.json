@@ -498,6 +498,7 @@
   },
   "inventory": {
     "title": "Inventarizatsiya",
+    "navShort": "Qoldiq",
     "store": "Ombor",
     "chooseStore": "Omborni tanlang",
     "noStores": "Siz hech qaysi omborga biriktirilmagansiz. Administratorga murojaat qiling.",

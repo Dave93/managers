@@ -116,7 +116,7 @@ export function CountTable({
       </div>
 
       <div className="rounded-md border">
-        <div className="grid grid-cols-[1fr_3.5rem_minmax(8rem,12rem)_2.75rem] items-center gap-2 border-b bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
+        <div className="grid grid-cols-[minmax(0,1fr)_2.25rem_7.5rem_2.75rem] sm:grid-cols-[minmax(0,1fr)_3.5rem_12rem_2.75rem] items-center gap-2 border-b bg-muted/50 px-3 py-2 text-xs font-medium text-muted-foreground">
           <div>{t("table.product")}</div>
           <div>{t("table.unit")}</div>
           <div>{t("table.fact")}</div>
@@ -140,7 +140,7 @@ export function CountTable({
               g.lines.map((line) => (
                 <div
                   key={line.id}
-                  className="grid grid-cols-[1fr_3.5rem_minmax(8rem,12rem)_2.75rem] items-center gap-2 border-b px-3 min-h-[44px]"
+                  className="grid grid-cols-[minmax(0,1fr)_2.25rem_7.5rem_2.75rem] sm:grid-cols-[minmax(0,1fr)_3.5rem_12rem_2.75rem] items-center gap-2 border-b px-3 min-h-[44px]"
                 >
                   <div className="py-2 text-sm leading-tight">
                     {line.product_name}

@@ -19,6 +19,7 @@ import type {
   InventoryTemplateDetail,
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
+import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
   constructor(public status: number, public body: any) {
@@ -31,7 +32,8 @@ export class InventoryApiError extends Error {
 async function call<T>(p: Promise<any>): Promise<T> {
   const res = await p;
   if (res?.error) throw new InventoryApiError(res.error.status ?? res.status ?? 0, res.error.value ?? res.error);
-  return res?.data as T;
+  // Eden превращает строки дат в Date — возвращаем их строками (см. normalize.ts).
+  return normalizeDates(res?.data) as T;
 }
 
 const inv = (apiClient.api as any).inventory;
