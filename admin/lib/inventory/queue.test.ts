@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { InventoryCountDetail } from "@backend/modules/inventory/types";
 import {
+  appendOps,
   applyResult,
+  buildAddOps,
   classifySyncError,
   isLineDone,
   loadQueue,
@@ -184,5 +186,23 @@ describe("classifySyncError", () => {
     expect(classifySyncError(500)).toEqual({ kind: "retry" });
     expect(classifySyncError(503)).toEqual({ kind: "retry" });
     expect(classifySyncError(429)).toEqual({ kind: "retry" });
+  });
+});
+
+describe("операции создаются вне функции обновления состояния (StrictMode вызывает её дважды)", () => {
+  test("buildAddOps: по записи на значение, id из генератора, общее время", () => {
+    let n = 0;
+    const ops = buildAddOps(L1, [3, 2.5], "2026-10-03T10:00:00.000Z", () => `id-${++n}`);
+    expect(ops).toEqual([
+      { state: "pending", op: { op: "add", id: "id-1", line_id: L1, qty: 3, client_created_at: "2026-10-03T10:00:00.000Z" } },
+      { state: "pending", op: { op: "add", id: "id-2", line_id: L1, qty: 2.5, client_created_at: "2026-10-03T10:00:00.000Z" } },
+    ]);
+  });
+  test("appendOps(ops) — чистая: два вызова на той же очереди дают одинаковый результат", () => {
+    let n = 0;
+    const update = appendOps(buildAddOps(L1, [1], "t", () => `id-${++n}`));
+    const q = [add("a", L2, 5)];
+    expect(update(q)).toEqual(update(q));
+    expect(update(q).map((x) => x.op.id)).toEqual(["a", "id-1"]);
   });
 });

@@ -5,7 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { InventoryApiError, inventoryApi } from "@admin/lib/inventory-api";
 import type { InventoryCountDetail } from "@backend/modules/inventory/types";
 import {
+  appendOps,
   applyResult,
+  buildAddOps,
   cacheDetail,
   classifySyncError,
   loadCachedDetail,
@@ -124,7 +126,8 @@ export function useCountSync(countId: string, youLabel: string) {
       succeeded = true;
       setFailures(0);
       setAuthExpired(false);
-      setQueue((q) => applyResult(q, result, Date.now()));
+      const confirmedAt = Date.now();
+      setQueue((q) => applyResult(q, result, confirmedAt));
       void qc.invalidateQueries({ queryKey });
     } catch (e) {
       const status = e instanceof InventoryApiError ? e.status : 0;
@@ -166,24 +169,17 @@ export function useCountSync(countId: string, youLabel: string) {
     };
   }, []);
 
+  // Операции создаются здесь, а не внутри функции обновления: в StrictMode она
+  // вызывается дважды, и uuidv4() внутри дал бы две копии записей.
   const addEntries = useCallback(
     (lineId: string, values: number[]) => {
-      const now = new Date().toISOString();
-      setQueue((q) => [
-        ...q,
-        ...values.map(
-          (qty): QueuedOp => ({
-            state: "pending",
-            op: { op: "add", id: uuidv4(), line_id: lineId, qty, client_created_at: now },
-          })
-        ),
-      ]);
+      setQueue(appendOps(buildAddOps(lineId, values, new Date().toISOString(), uuidv4)));
     },
     [setQueue]
   );
 
   const deleteEntry = useCallback(
-    (id: string) => setQueue((q) => [...q, { state: "pending", op: { op: "delete", id } }]),
+    (id: string) => setQueue(appendOps([{ state: "pending", op: { op: "delete", id } }])),
     [setQueue]
   );
 

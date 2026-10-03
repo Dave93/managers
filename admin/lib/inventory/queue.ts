@@ -45,6 +45,20 @@ export function saveQueue(kv: KV, countId: string, q: QueuedOp[]): void {
   }
 }
 
+// Операции создаются ДО setState: React в StrictMode вызывает функцию
+// обновления дважды, и uuid внутри неё дал бы две разные копии записей.
+export function buildAddOps(lineId: string, values: number[], nowIso: string, newId: () => string): QueuedOp[] {
+  return values.map((qty) => ({
+    state: "pending",
+    op: { op: "add", id: newId(), line_id: lineId, qty, client_created_at: nowIso },
+  }));
+}
+
+/** Чистая функция обновления очереди: добавляет заранее созданные операции. */
+export function appendOps(ops: QueuedOp[]): (q: QueuedOp[]) => QueuedOp[] {
+  return (q) => [...q, ...ops];
+}
+
 export function pendingOps(q: QueuedOp[]): InventorySyncOp[] {
   return q.filter((x) => x.state === "pending").map((x) => x.op);
 }
