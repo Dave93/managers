@@ -57,7 +57,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
       run(set, async () => createCount(drizzle, redis, await actorFrom(cacheController, user, role), body, new Date())),
     {
       permission: "inventory.count",
-      body: t.Object({ store_id: t.String(), template_id: t.String(), period: t.String() }),
+      body: t.Object({ store_id: t.String(), template_id: t.Optional(t.String()), period: t.String() }),
     }
   )
   .get(

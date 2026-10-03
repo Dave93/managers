@@ -82,7 +82,7 @@ export function Overview() {
                       {r.store_name}
                       {!r.exord && <span className="ml-2 text-xs text-yellow-600">{t("overview.noExord")}</span>}
                     </TableCell>
-                    <TableCell>{c.template_name}</TableCell>
+                    <TableCell>{c.template_id ? c.template_name : t("branchAll")}</TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <StatusBadge status={c.status} />

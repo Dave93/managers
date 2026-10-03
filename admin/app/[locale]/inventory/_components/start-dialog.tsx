@@ -9,6 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { periodLabel } from "@admin/lib/inventory/periods";
 
+// Сентинел для «Все товары филиала» в Select (SelectItem не принимает пустой value).
+const BRANCH = "__branch__";
+
 export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated: (id: string) => void }) {
   const t = useTranslations("inventory");
   const locale = useLocale();
@@ -16,22 +19,33 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
   const [templateId, setTemplateId] = useState("");
   const [period, setPeriod] = useState("");
 
-  const templates = useQuery({
+  const options = useQuery({
     queryKey: ["inventory_available_templates", storeId],
     queryFn: () => inventoryApi.availableTemplates(storeId),
     enabled: open && !!storeId,
   });
   const periods = useQuery({ queryKey: ["inventory_periods"], queryFn: inventoryApi.periods, enabled: open });
 
+  const templates = options.data?.templates;
+  const branch = options.data?.branch;
+  // По умолчанию — все товары филиала, если exord есть; иначе единственный шаблон.
   useEffect(() => {
-    if (templates.data?.length === 1) setTemplateId(templates.data[0].id);
-  }, [templates.data]);
+    if (!options.data) return;
+    setTemplateId((cur) => {
+      if (cur) return cur;
+      if (options.data.branch.available) return BRANCH;
+      return options.data.templates.length === 1 ? options.data.templates[0].id : "";
+    });
+  }, [options.data]);
   useEffect(() => {
     if (periods.data?.periods.length) setPeriod((p) => p || periods.data!.periods[0]);
   }, [periods.data]);
 
   const create = useMutation({
-    mutationFn: () => inventoryApi.createCount({ store_id: storeId, template_id: templateId, period }),
+    mutationFn: () =>
+      inventoryApi.createCount(
+        templateId === BRANCH ? { store_id: storeId, period } : { store_id: storeId, template_id: templateId, period }
+      ),
     onSuccess: (r) => {
       setOpen(false);
       onCreated(r.id);
@@ -53,7 +67,7 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
         <div className="space-y-4">
           <div className="space-y-1">
             <div className="text-sm font-medium">{t("template")}</div>
-            {templates.data && templates.data.length === 0 ? (
+            {templates && templates.length === 0 && !branch?.available ? (
               <div className="text-sm text-muted-foreground">{t("noTemplates")}</div>
             ) : (
               <Select value={templateId} onValueChange={setTemplateId}>
@@ -61,7 +75,11 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
                   <SelectValue placeholder={t("template")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {(templates.data ?? []).map((tpl) => (
+                  <SelectItem value={BRANCH} disabled={!branch?.available}>
+                    {t("branchAll")} ·{" "}
+                    {branch?.available ? t("itemsCount", { count: branch.items_for_store }) : t("branchUnavailable")}
+                  </SelectItem>
+                  {(templates ?? []).map((tpl) => (
                     <SelectItem key={tpl.id} value={tpl.id}>
                       {tpl.name} · {t("itemsCount", { count: tpl.items_for_store })}
                       {tpl.organization_name ? ` · ${tpl.organization_name}` : ""}
@@ -71,7 +89,7 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
               </Select>
             )}
           </div>
-          {templates.data && templates.data.length > 0 && !templates.data[0].exord_filtered && (
+          {branch && !branch.available && (
             <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">{t("noExord")}</div>
           )}
           <div className="space-y-1">

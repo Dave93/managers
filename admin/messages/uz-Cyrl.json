@@ -623,6 +623,8 @@
       "noSuggestions": "Ҳозирча ҳеч нарса қўшилмаган"
     },
     "noExord": "exord маълумотлари йўқ — рўйхат филиал маҳсулотлари бўйича фильтрланмаган",
-    "itemsCount": "{count} та"
+    "itemsCount": "{count} та",
+    "branchAll": "Филиалнинг барча маҳсулотлари",
+    "branchUnavailable": "exord маълумотлари йўқ"
   }
 }

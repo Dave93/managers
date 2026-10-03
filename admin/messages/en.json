@@ -648,6 +648,8 @@
       "noSuggestions": "Nothing added yet"
     },
     "noExord": "No exord data — the list is not filtered by the branch's products",
-    "itemsCount": "{count} items"
+    "itemsCount": "{count} items",
+    "branchAll": "All branch products",
+    "branchUnavailable": "no exord data"
   }
 }

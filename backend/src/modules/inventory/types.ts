@@ -39,7 +39,8 @@ export interface InventoryCountSummary {
   id: string;
   store_id: string;
   store_name: string;
-  template_id: string;
+  /** null — «Все товары филиала» (без шаблона). */
+  template_id: string | null;
   template_name: string;
   period: string;
   status: InventoryCountStatus;
@@ -87,6 +88,13 @@ export interface InventoryTemplateSummary {
 export interface InventoryAvailableTemplate extends InventoryTemplateSummary {
   items_for_store: number;
   exord_filtered: boolean;
+}
+
+/** Ответ GET /inventory/templates/available. */
+export interface InventoryStartOptions {
+  /** «Все товары филиала»: доступно, только если у склада есть список exord. */
+  branch: { available: boolean; items_for_store: number };
+  templates: InventoryAvailableTemplate[];
 }
 
 export interface InventoryTemplateDetail extends InventoryTemplateSummary {

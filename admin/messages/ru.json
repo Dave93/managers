@@ -678,6 +678,8 @@
       "noSuggestions": "Пока ничего не добавляли"
     },
     "noExord": "Нет данных exord — список не отфильтрован по товарам филиала",
-    "itemsCount": "{count} поз."
+    "itemsCount": "{count} поз.",
+    "branchAll": "Все товары филиала",
+    "branchUnavailable": "нет данных exord"
   }
 }

@@ -180,7 +180,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       try {
         const r = await api(s, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
         expect(r.status).toBe(200);
-        expect(r.body.map((t: any) => t.id)).toContain(w.templateId);
+        expect(r.body.templates.map((t: any) => t.id)).toContain(w.templateId);
       } finally {
         await s.cleanup();
         await w.cleanup();
@@ -717,11 +717,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       try {
         await w.bindUser(m.userId, w.otherStoreId);
         const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
-        const tpl = a.body.find((t: any) => t.id === w.templateId);
+        const tpl = a.body.templates.find((t: any) => t.id === w.templateId);
         expect(tpl.items_for_store).toBe(1);
         expect(tpl.exord_filtered).toBe(true);
         const b = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.otherStoreId}`);
-        const tplB = b.body.find((t: any) => t.id === w.templateId);
+        const tplB = b.body.templates.find((t: any) => t.id === w.templateId);
         expect(tplB.items_for_store).toBe(2);
         expect(tplB.exord_filtered).toBe(false);
       } finally {
@@ -772,7 +772,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       try {
         const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
-        expect(a.body.find((t: any) => t.id === w.templateId).exord_filtered).toBe(false);
+        expect(a.body.templates.find((t: any) => t.id === w.templateId).exord_filtered).toBe(false);
+        expect(a.body.branch).toEqual({ available: false, items_for_store: 0 });
         const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
         const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
         expect(d.body.exord_filtered).toBe(false);
@@ -840,6 +841,69 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(r.body.find((x: any) => x.store_id === w.otherStoreId).exord).toBe(false);
       } finally {
         await o.cleanup();
+        await w.cleanup();
+      }
+    });
+  });
+
+  describe("inventory: «Все товары филиала» без шаблона", () => {
+    // Филиал склада storeId по exord = [p1, p3]; шаблон мира = [p1, p2].
+    it("available отдаёт пункт «все товары филиала» с числом позиций", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        await w.bindUser(m.userId, w.otherStoreId);
+        const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
+        expect(a.body.branch).toEqual({ available: true, items_for_store: 2 });
+        const b = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.otherStoreId}`);
+        expect(b.body.branch).toEqual({ available: false, items_for_store: 0 });
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("создание без шаблона — все товары филиала, повтор не создаёт дубль, шаблонная живёт рядом", async () => {
+      const w = await seedWorld();
+      await w.linkBranch([w.p1, w.p3]);
+      const m = await manager(w);
+      try {
+        const input = { store_id: w.storeId, period: PERIOD };
+        const [x, y] = await Promise.all([
+          api(m, "POST", "/api/inventory/counts", input),
+          api(m, "POST", "/api/inventory/counts", input),
+        ]);
+        expect(x.status).toBe(200);
+        expect(y.body.id).toBe(x.body.id);
+        const d = await api(m, "GET", `/api/inventory/counts/${x.body.id}`);
+        expect(d.body.template_id).toBeNull();
+        expect(d.body.template_name).toBe("Все товары филиала");
+        expect(d.body.exord_filtered).toBe(true);
+        expect(d.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p3].sort());
+        expect(d.body.lines.find((l: any) => l.product_id === w.p1).group_name).toBe("Склад / Мясные продукты");
+        const again = await api(m, "POST", "/api/inventory/counts", input);
+        expect(again.body).toEqual({ id: x.body.id, existing: true });
+        const tpl = await api(m, "POST", "/api/inventory/counts", { ...input, template_id: w.templateId });
+        expect(tpl.status).toBe(200);
+        expect(tpl.body.id).not.toBe(x.body.id);
+        const list = await api(m, "GET", `/api/inventory/counts?store_id=${w.storeId}`);
+        expect(list.body.length).toBe(2);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("без данных exord создать «все товары филиала» нельзя — 422", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      try {
+        const r = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, period: PERIOD });
+        expect(r.status).toBe(422);
+        expect(r.body.error).toBe("no_branch_products");
+      } finally {
+        await m.cleanup();
         await w.cleanup();
       }
     });

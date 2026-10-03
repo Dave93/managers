@@ -611,6 +611,8 @@
       "noSuggestions": "Hozircha hech narsa qo‘shilmagan"
     },
     "noExord": "exord ma'lumotlari yo‘q — ro‘yxat filial mahsulotlari bo‘yicha filtrlanmagan",
-    "itemsCount": "{count} ta"
+    "itemsCount": "{count} ta",
+    "branchAll": "Filialning barcha mahsulotlari",
+    "branchUnavailable": "exord ma'lumotlari yo‘q"
   }
 }

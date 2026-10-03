@@ -15,7 +15,7 @@ export function CountCard({ count }: { count: InventoryCountSummary }) {
       className="block rounded-lg border p-4 min-h-[44px] hover:bg-muted/50 active:bg-muted transition-colors"
     >
       <div className="flex items-center justify-between gap-2">
-        <div className="font-medium">{count.template_name}</div>
+        <div className="font-medium">{count.template_id ? count.template_name : t("branchAll")}</div>
         <StatusBadge status={count.status} />
       </div>
       <div className="mt-1 text-sm text-muted-foreground">{periodLabel(count.period, locale)}</div>

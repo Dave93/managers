@@ -2433,9 +2433,8 @@ export const inventory_counts = pgTable(
     store_id: uuid("store_id").notNull(),
     // null у складов без организации (31 из 94 в проде, включая новые филиалы).
     organization_id: uuid("organization_id"),
-    template_id: uuid("template_id")
-      .notNull()
-      .references(() => inventory_templates.id),
+    // null — «Все товары филиала» (без шаблона, список из exord; §13 спеки).
+    template_id: uuid("template_id").references(() => inventory_templates.id),
     template_name: varchar("template_name", { length: 255 }).notNull(),
     period: date("period", { mode: "string" }).notNull(),
     status: varchar("status", { length: 32 }).default("draft").notNull(),
@@ -2452,6 +2451,9 @@ export const inventory_counts = pgTable(
       .on(t.store_id, t.period, t.template_id)
       .where(sql`status <> 'cancelled'`),
     store_period_idx: index("inventory_counts_store_period_idx").on(t.store_id, t.period),
+    store_period_branch_uq: uniqueIndex("inventory_counts_store_period_branch_uq")
+      .on(t.store_id, t.period)
+      .where(sql`template_id is null and status <> 'cancelled'`),
   })
 );
 

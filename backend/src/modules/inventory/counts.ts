@@ -19,6 +19,7 @@ import { InventoryError } from "./errors";
 import { allowedPeriods, canReopen, isValidQty, nextStatus, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
+  InventoryStartOptions,
   InventoryCountDetail,
   InventoryCountStatus,
   InventoryCountSummary,
@@ -79,7 +80,7 @@ export async function availableTemplates(
   redis: Redis,
   actor: Actor,
   storeId: string
-): Promise<InventoryAvailableTemplate[]> {
+): Promise<InventoryStartOptions> {
   assertUuid(storeId);
   const access = await storeAccess(db, actor, storeId);
   if (access === "none") throw new InventoryError(403, "store_forbidden");
@@ -120,13 +121,26 @@ export async function availableTemplates(
     if (branchSet && !branchSet.has(it.product_id)) continue;
     forStore.set(it.template_id, (forStore.get(it.template_id) ?? 0) + 1);
   }
-  return rows.map((r) => ({
+  const templates = rows.map((r) => ({
     ...r,
     organization_name: r.organization_name ?? null,
     items_for_store: forStore.get(r.id) ?? 0,
     exord_filtered: branch !== null,
   }));
+  const branchItems = branch
+    ? (
+        await db
+          .select({ n: sql<number>`count(*)::int` })
+          .from(nomenclature_element)
+          .where(sql`${nomenclature_element.id} in (${uuidList(branch)})`)
+      )[0].n
+    : 0;
+  return { branch: { available: branch !== null, items_for_store: branchItems }, templates };
 }
+
+export const BRANCH_COUNT_NAME = "Все товары филиала";
+
+const uuidList = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
 
 // Условие «товар из списка филиала» для INSERT ... SELECT по шаблону.
 function branchFilter(ids: string[] | null) {
@@ -139,7 +153,7 @@ function isUniqueViolation(e: any): boolean {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
-async function findActive(db: DbLike, storeId: string, period: string, templateId: string) {
+async function findActive(db: DbLike, storeId: string, period: string, templateId: string | null) {
   const [row] = await db
     .select({ id: inventory_counts.id })
     .from(inventory_counts)
@@ -147,22 +161,25 @@ async function findActive(db: DbLike, storeId: string, period: string, templateI
       and(
         eq(inventory_counts.store_id, storeId),
         eq(inventory_counts.period, period),
-        eq(inventory_counts.template_id, templateId),
+        templateId ? eq(inventory_counts.template_id, templateId) : isNull(inventory_counts.template_id),
         ne(inventory_counts.status, "cancelled")
       )
     );
   return row ?? null;
 }
 
+// template_id не задан — «Все товары филиала»: строки = список филиала из exord
+// (только товары, которые есть в номенклатуре). Без exord такой пересчёт не имеет смысла.
 export async function createCount(
   db: DbLike,
   redis: Redis,
   actor: Actor,
-  input: { store_id: string; template_id: string; period: string },
+  input: { store_id: string; template_id?: string; period: string },
   now: Date
 ): Promise<{ id: string; existing: boolean }> {
   assertUuid(input.store_id);
-  assertUuid(input.template_id);
+  if (input.template_id !== undefined) assertUuid(input.template_id);
+  const templateId = input.template_id ?? null;
   const access = await storeAccess(db, actor, input.store_id);
   if (!canManage(actor, access)) throw new InventoryError(403, "forbidden");
   if (!allowedPeriods(now).includes(input.period)) {
@@ -170,15 +187,33 @@ export async function createCount(
   }
   const [store] = await db.select().from(corporation_store).where(eq(corporation_store.id, input.store_id));
   if (!store) throw new InventoryError(404, "store_not_found");
-  const [tpl] = await db.select().from(inventory_templates).where(eq(inventory_templates.id, input.template_id));
-  if (!tpl || !tpl.active) throw new InventoryError(422, "template_unavailable");
-  if (store.organization_id && store.organization_id !== tpl.organization_id) {
-    throw new InventoryError(422, "template_unavailable");
+  let tpl: typeof inventory_templates.$inferSelect | null = null;
+  if (templateId) {
+    const [row] = await db.select().from(inventory_templates).where(eq(inventory_templates.id, templateId));
+    if (!row || !row.active) throw new InventoryError(422, "template_unavailable");
+    if (store.organization_id && store.organization_id !== row.organization_id) {
+      throw new InventoryError(422, "template_unavailable");
+    }
+    tpl = row;
   }
 
-  const existing = await findActive(db, input.store_id, input.period, input.template_id);
+  const existing = await findActive(db, input.store_id, input.period, templateId);
   if (existing) return { id: existing.id, existing: true };
   const branch = await storeProductIds(redis, db as DrizzleDB, input.store_id);
+  if (!tpl && !branch) throw new InventoryError(422, "no_branch_products");
+
+  const lineSource = tpl
+    ? sql`from inventory_template_items ti
+        join nomenclature_element n on n.id = ti.product_id
+        left join measure_unit mu on mu.id = n."mainUnit"
+        left join nomenclature_group g on g.id = n.parent_id
+        left join nomenclature_group gp on gp.id = g.parent_id
+        where ti.template_id = ${tpl.id}${branchFilter(branch)}`
+    : sql`from nomenclature_element n
+        left join measure_unit mu on mu.id = n."mainUnit"
+        left join nomenclature_group g on g.id = n.parent_id
+        left join nomenclature_group gp on gp.id = g.parent_id
+        where n.id in (${uuidList(branch!)})`;
 
   try {
     const id = await db.transaction(async (tx) => {
@@ -186,9 +221,9 @@ export async function createCount(
         .insert(inventory_counts)
         .values({
           store_id: input.store_id,
-          organization_id: store.organization_id ?? tpl.organization_id,
-          template_id: tpl.id,
-          template_name: tpl.name,
+          organization_id: store.organization_id ?? tpl?.organization_id ?? null,
+          template_id: tpl?.id ?? null,
+          template_name: tpl?.name ?? BRANCH_COUNT_NAME,
           period: input.period,
           status: "draft",
           exord_filtered: branch !== null,
@@ -198,15 +233,10 @@ export async function createCount(
       await tx.execute(sql`
         insert into inventory_count_lines (count_id, product_id, product_name, unit_id, unit_name, group_id, group_name, source)
         select ${count.id}, n.id, coalesce(n.name, ''), n."mainUnit", mu.name, g.id, ${GROUP_NAME_SQL}, 'template'
-        from inventory_template_items ti
-        join nomenclature_element n on n.id = ti.product_id
-        left join measure_unit mu on mu.id = n."mainUnit"
-        left join nomenclature_group g on g.id = n.parent_id
-        left join nomenclature_group gp on gp.id = g.parent_id
-        where ti.template_id = ${tpl.id}${branchFilter(branch)}
+        ${lineSource}
       `);
       await writeEvent(tx, count.id, "created", actor.userId, {
-        template_id: tpl.id,
+        template_id: tpl?.id ?? null,
         period: input.period,
         exord_filtered: branch !== null,
       });
@@ -216,7 +246,7 @@ export async function createCount(
   } catch (e) {
     // Гонка двух «Начать»: частичный уникальный индекс отбил вторую вставку.
     if (isUniqueViolation(e)) {
-      const row = await findActive(db, input.store_id, input.period, input.template_id);
+      const row = await findActive(db, input.store_id, input.period, templateId);
       if (row) return { id: row.id, existing: true };
     }
     throw e;
@@ -506,8 +536,6 @@ export async function productScope(db: DbLike, redis: Redis, actor: Actor, count
   const branch = await storeProductIds(redis, db as DrizzleDB, row.store_id);
   return branch ? { branch, exclude } : { exclude };
 }
-
-const uuidList = (ids: string[]) => sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `);
 
 export async function searchProducts(db: DbLike, q: string, limit: number, scope: ProductScope = {}) {
   const term = q.trim();

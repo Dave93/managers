@@ -7,7 +7,7 @@
 
 import { apiClient } from "@admin/utils/eden";
 import type {
-  InventoryAvailableTemplate,
+  InventoryStartOptions,
   InventoryCountDetail,
   InventoryCountSummary,
   InventoryFolders,
@@ -43,9 +43,10 @@ export const inventoryApi = {
   stores: () => call<InventoryStore[]>(inv.stores.get()),
   periods: () => call<{ periods: string[] }>(inv.periods.get()),
   availableTemplates: (storeId: string) =>
-    call<InventoryAvailableTemplate[]>(inv.templates.available.get({ query: { store_id: storeId } })),
+    call<InventoryStartOptions>(inv.templates.available.get({ query: { store_id: storeId } })),
   listCounts: (storeId: string) => call<InventoryCountSummary[]>(inv.counts.get({ query: { store_id: storeId } })),
-  createCount: (body: { store_id: string; template_id: string; period: string }) =>
+  /** Без template_id — «Все товары филиала». */
+  createCount: (body: { store_id: string; template_id?: string; period: string }) =>
     call<{ id: string; existing: boolean }>(inv.counts.post(body)),
   getCount: (id: string) => call<InventoryCountDetail>(inv.counts({ id }).get()),
   sync: (id: string, ops: InventorySyncOp[]) => call<InventorySyncResult>(inv.counts({ id }).entries.sync.post({ ops })),
