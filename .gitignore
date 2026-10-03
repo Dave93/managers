@@ -28,4 +28,5 @@ cron/*.bak_*
 admin/.next.bak*
 cron/*.new
 cron/cash_shifts_sync
+cron/product_links_sync
 cron/dish_cost_sync

@@ -2395,3 +2395,25 @@ export const ticket_notifications = pgTable(
     pending_idx: index("idx_ticket_notifications_status").on(table.status, table.created_at),
   })
 );
+
+// exord → managers: which products each branch (terminal) orders.
+// Replaced wholesale by cron/product_links_sync.ts; spec:
+// docs/superpowers/specs/2026-10-03-product-links-sync-design.md
+export const terminal_product_links = pgTable("terminal_product_links", {
+  terminal_id: uuid("terminal_id").primaryKey().notNull(),
+  product_ids: uuid("product_ids").array().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const product_links_meta = pgTable("product_links_meta", {
+  id: integer("id").primaryKey().notNull().default(1),
+  version: text("version").notNull(),
+  generated_at: timestamp("generated_at", { withTimezone: true, mode: "string" }),
+  terminals_count: integer("terminals_count").notNull(),
+  links_count: integer("links_count").notNull(),
+  synced_at: timestamp("synced_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
