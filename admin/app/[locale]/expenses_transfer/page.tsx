@@ -5,10 +5,13 @@ import { reportsColumns } from "./columns";
 import { InternalTransferFilters } from "./internal_filter";
 import Back from "../manager_reports/Back";
 
+import { ReportSwitcher } from "../manager_reports/ReportSwitcher";
+
 export default function OutgoingListPage() {
   return (
     <div>
       <Back />
+      <ReportSwitcher />
       <div className="flex justify-between">
         <h2 className="text-3xl font-bold tracking-tight">
           Внутреннее перемещение (Расход)

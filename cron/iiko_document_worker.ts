@@ -1,6 +1,8 @@
 import { Worker } from "bullmq";
 import dayjs from "dayjs";
-import { IikoDictionariesService } from "./iiko_sync";
+// Расширение обязательно: рядом лежит скомпилированный бинарник ./iiko_sync,
+// который crontab запускает ночью, и без ".ts" резолвер выбирает его.
+import { IikoDictionariesService } from "./iiko_sync.ts";
 import client from "./src/redis";
 
 // Имя должно совпадать с producer в backend/src/modules/iiko_sync/controllers.ts

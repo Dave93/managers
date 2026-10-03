@@ -3,6 +3,7 @@
   "version": "1.0.44",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:http": "PROJECT_PREFIX=managers_test_ DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/tickets/routes.test.ts",
     "dev": "bun run --watch src/index.ts",
     "start": "bun run ./src/index.ts"
   },
@@ -13,7 +14,7 @@
     "@elysiajs/openapi": "^1.4.11",
     "@elysiajs/websocket": "^0.2.8",
     "@sinclair/typebox": "^0.34.41",
-    "bullmq": "^5.61.0",
+    "bullmq": "^5.80.9",
     "dayjs": "^1.11.18",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.6",

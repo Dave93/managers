@@ -17,6 +17,20 @@ const RETRY_DELAY = 5000; // 5 seconds
 const tokenManager = TokenManager.getInstance();
 let client: Client | null = null;
 // Helper functions
+// iiko OLAP sometimes returns "" for numeric/timestamp fields. Postgres rejects
+// "" for numeric/timestamp ("invalid input syntax"), which would throw on the
+// whole chunk insert. Coerce empty/blank values to null so the row still lands.
+const num = (v: any) => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  return v;
+};
+const ts = (v: any) => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "string" && v.trim() === "") return null;
+  return v;
+};
+
 const chunkArray = (arr, size) =>
   Array.from({ length: Math.ceil(arr.length / size) }, (_, i) =>
     arr.slice(i * size, i * size + size)
@@ -121,20 +135,20 @@ export async function main(lastDate: string, db: DB) {
         if (report["Storned"] !== true && report["DishDiscountSumInt"] > 0 && (report["DishType"] == "DISH" || report["DishType"] == "MODIFIER")) {
           insertData.push({
             id: report["UniqOrderId.Id"],
-            openTime: report.OpenTime,
+            openTime: ts(report.OpenTime),
             openDateTyped: report["OpenDate.Typed"],
-            closeTime: report.CloseTime,
-            deliveryActualTime: report["Delivery.ActualTime"],
-            deliveryBillTime: report["Delivery.BillTime"],
-            deliveryCloseTime: report["Delivery.CloseTime"],
+            closeTime: ts(report.CloseTime),
+            deliveryActualTime: ts(report["Delivery.ActualTime"]),
+            deliveryBillTime: ts(report["Delivery.BillTime"]),
+            deliveryCloseTime: ts(report["Delivery.CloseTime"]),
             deliveryCustomerPhone: report["Delivery.CustomerPhone"],
             deliveryEmail: report["Delivery.Email"],
             deliveryId: report["Delivery.Id"],
             isDelivery: report["Delivery.IsDelivery"],
             deliveryNumber: report["Delivery.Number"],
             deliveryPhone: report["Delivery.Phone"],
-            deliveryPrintTime: report["Delivery.PrintTime"],
-            deliverySendTime: report["Delivery.SendTime"],
+            deliveryPrintTime: ts(report["Delivery.PrintTime"]),
+            deliverySendTime: ts(report["Delivery.SendTime"]),
             deliveryServiceType: report["Delivery.ServiceType"],
             deliverySourceKey: report["Delivery.SourceKey"],
             deliveryWayDuration: report["Delivery.WayDuration"],
@@ -143,42 +157,44 @@ export async function main(lastDate: string, db: DB) {
             deletedWithWriteoff: report.DeletedWithWriteoff,
             department: report.Department,
             departmentId: report["Department.Id"],
-            discountPercent: report.DiscountPercent,
-            discountSum: report.DiscountSum,
-            dishAmountInt: report.DishAmountInt,
-            dishDiscountSumInt: report.DishDiscountSumInt,
+            discountPercent: num(report.DiscountPercent),
+            discountSum: num(report.DiscountSum),
+            dishAmountInt: num(report.DishAmountInt),
+            dishDiscountSumInt: num(report.DishDiscountSumInt),
             externalNumber: report.ExternalNumber,
-            fiscalChequeNumber: report.FiscalChequeNumber,
+            fiscalChequeNumber: num(report.FiscalChequeNumber),
             hourClose: report.HourClose,
             hourOpen: report.HourOpen,
-            increasePercent: report.IncreasePercent,
+            increasePercent: num(report.IncreasePercent),
             jurName: report.JurName,
             monthOpen: report.Mounth,
             orderDeleted: report.OrderDeleted,
             orderDiscountType: report["OrderDiscount.Type"],
-            orderNum: report.OrderNum,
+            orderNum: num(report.OrderNum),
             orderServiceType: report.OrderServiceType,
             orderType: report.OrderType,
             orderTypeId: report["OrderType.Id"],
             originName: report.OriginName,
             payTypesCombo: report["PayTypes.Combo"],
-            prechequeTime: report.PrechequeTime,
+            prechequeTime: ts(report.PrechequeTime),
             priceCategory: report.PriceCategory,
             quarterOpen: report.QuarterOpen,
             restaurantSectionId: report["RestaurantSection.Id"],
             restaurantGroup: report.RestorauntGroup,
             restaurantGroupId: report["RestorauntGroup.Id"],
-            sessionNum: report.SessionNum,
+            sessionNum: num(report.SessionNum),
             storeId: report["Store.Id"],
             storeName: report["Store.Name"],
             storeTo: report.StoreTo,
-            tableNum: report.TableNum,
+            tableNum: num(report.TableNum),
             uniqOrderIdId: report["UniqOrderId.Id"],
             weekInMonthOpen: report.WeekInMonthOpen,
             weekInYearOpen: report.WeekInYearOpen,
             yearOpen: report.YearOpen,
             cashRegisterName: report.CashRegisterName,
-            cashRegisterNumber: report["CashRegisterName.Number"]
+            cashRegisterNumber: num(report["CashRegisterName.Number"]),
+            dishType: report.DishType,
+            storned: report.Storned != null ? String(report.Storned) : null
           });
         }
       }
@@ -186,6 +202,25 @@ export async function main(lastDate: string, db: DB) {
       console.error('Error inserting data:', error);
       process.exit(1);
     }
+
+    // iiko OLAP returns a separate row per DishType (DISH, MODIFIER) for the same
+    // order. The primary key is (id, open_date_typed), so those rows collide and
+    // onConflictDoNothing would keep only one — dropping the rest of the order's
+    // revenue. Merge per order, summing the additive numeric fields, so each order
+    // is a single row carrying its full revenue.
+    const mergedByOrder = new Map<string, any>();
+    for (const row of insertData) {
+      const key = `${row.id}|${row.openDateTyped}`;
+      const existing = mergedByOrder.get(key);
+      if (!existing) {
+        mergedByOrder.set(key, { ...row });
+      } else {
+        existing.dishDiscountSumInt = (Number(existing.dishDiscountSumInt) || 0) + (Number(row.dishDiscountSumInt) || 0);
+        existing.discountSum = (Number(existing.discountSum) || 0) + (Number(row.discountSum) || 0);
+        existing.dishAmountInt = (Number(existing.dishAmountInt) || 0) + (Number(row.dishAmountInt) || 0);
+      }
+    }
+    insertData = Array.from(mergedByOrder.values());
 
     const chunkedData = chunkArray(insertData, CHUNK_SIZE);
     for (const chunk of chunkedData) {

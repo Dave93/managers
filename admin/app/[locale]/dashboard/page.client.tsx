@@ -15,6 +15,8 @@ import LoadingAnimation from "./LoadingAnimation";
 // import RevenueByBranches from "./RevenueByBranches";
 // import OrderCountByBranches from "./OrderCountByBranches";
 import { cn } from "@admin/lib/utils";
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import MobileDashboard from "./_mobile/MobileDashboard";
 import RevenueChart from "./RevenueChart";
 import RevenueByBranches from "./RevenueByBranches";
 import OrderCountChart from "./OrderCountChart";
@@ -29,6 +31,12 @@ import BasketAdditionalSales from "./BasketAdditionalSales";
 import BasketAdditionalSalesBySource from "./BasketAdditionalSalesBySource";
 import BasketAdditionalSalesBySourceGroup from "./BasketAdditionalSalesBySourceGroup";
 import BasketAdditionalSalesTrendChart from "./BasketAdditionalSalesTrendChart";
+import StoplistByDay from "./StoplistByDay";
+import CashShiftsByDay from "./CashShiftsByDay";
+import CashierRevenueTop from "./cashier-kpi/CashierRevenueTop";
+import CashierAvgCheck from "./cashier-kpi/CashierAvgCheck";
+import CashierOrdersPerHour from "./cashier-kpi/CashierOrdersPerHour";
+import CashierDailyTrend from "./cashier-kpi/CashierDailyTrend";
 
 
 const ErrorFallback = ({ error }: { error: Error }) => (
@@ -39,7 +47,11 @@ const ErrorFallback = ({ error }: { error: Error }) => (
 );
 
 const ChartWrapper = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-    <div className={cn("h-[400px]", className)}>
+    // min-w-0 lets the grid/flex track shrink below the chart's intrinsic width
+    // (default min-width:auto otherwise forces the column wider than a phone
+    // viewport → horizontal overflow). Charts (recharts/nivo) are responsive and
+    // fill the resulting width; wide tables scroll via their own container.
+    <div className={cn("min-w-0 h-[360px] md:h-[400px]", className)}>
         <ErrorBoundary FallbackComponent={ErrorFallback}>
             <Suspense fallback={<LoadingAnimation />}>{children}</Suspense>
         </ErrorBoundary>
@@ -48,53 +60,77 @@ const ChartWrapper = ({ children, className }: { children: React.ReactNode, clas
 
 
 export default function ChartsPageClient() {
+    const isMobile = useIsMobile();
+
+    if (isMobile) {
+        return <MobileDashboard />;
+    }
+
     return (
         <>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <RevenueChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <RevenueByBranches />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <OrderCountChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <OrderCountByBranches />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <AverageCheckChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <OrderHourlyHeatmapChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <OrderDistributionChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <OrderAmountHourlyHeatmapChart />
             </ChartWrapper>
 
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <PopularDishesChart />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <PopularDishesByPrice />
             </ChartWrapper>
-            <ChartWrapper className="col-span-4 h-[600px]">
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[480px] md:h-[600px]">
                 <ProductCookingTime />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2 h-[650px]">
+            <ChartWrapper className="md:col-span-2 h-[520px] md:h-[650px]">
                 <BasketAdditionalSales />
             </ChartWrapper>
-            <ChartWrapper className="col-span-2">
+            <ChartWrapper className="md:col-span-2">
                 <BasketAdditionalSalesBySource />
             </ChartWrapper>
-            <ChartWrapper className="col-span-4 h-[600px]">
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[480px] md:h-[600px]">
                 <BasketAdditionalSalesBySourceGroup />
             </ChartWrapper>
-            <ChartWrapper className="col-span-4">
+            <ChartWrapper className="md:col-span-2 lg:col-span-4">
                 <BasketAdditionalSalesTrendChart />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-[480px] md:h-[600px]">
+                <StoplistByDay />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4 h-auto md:h-auto">
+                <CashShiftsByDay />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierRevenueTop />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierAvgCheck />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2">
+                <CashierOrdersPerHour />
+            </ChartWrapper>
+            <ChartWrapper className="md:col-span-2 lg:col-span-4">
+                <CashierDailyTrend />
             </ChartWrapper>
         </>
     )

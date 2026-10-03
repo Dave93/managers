@@ -1,5 +1,6 @@
 import {
   pgTable,
+  bigint,
   pgEnum,
   uuid,
   varchar,
@@ -18,7 +19,8 @@ import {
   pgView,
   decimal,
   pgMaterializedView,
-  date
+  date,
+  check,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -567,6 +569,7 @@ export const users = pgTable(
     tg_id: varchar("tg_id", { length: 250 }),
     organization_id: uuid("organization_id"),
     attestation_pin_hash: varchar("attestation_pin_hash", { length: 255 }),
+    department: varchar("department", { length: 50 }),
   },
   (table) => {
     return {
@@ -1479,11 +1482,82 @@ export const asrabox_stock_history = pgTable(
   }
 );
 
+export const ordersBySource = pgTable('orders_by_source', {
+  date: date('date').notNull(),
+  terminalId: varchar('terminal_id', { length: 255 }).notNull(),
+  organizationId: varchar('organization_id', { length: 255 }).notNull(),
+  source: varchar('source', { length: 255 }).notNull(),
+  orderCount: integer('order_count').notNull().default(0),
+  totalRevenue: numeric('total_revenue').notNull().default('0'),
+}, (table) => [
+  primaryKey({ columns: [table.date, table.terminalId, table.organizationId, table.source] }),
+  index('idx_orders_by_source_date').on(table.date),
+]);
+// Справочник должностей персонала филиалов.
+//
+// Не путать с `positions` по соседству: та таблица описывает ВАКАНСИЮ (зарплатная
+// вилка, привязка к филиалу, требования) и живёт в найме. Здесь — сама роль в
+// смене: повар, кассир, менеджер. Одна строка справочника может стоять за сотней
+// вакансий и за сотней людей.
+//
+// Стажёрские роли лежат тут же отдельными строками, а не выводятся из флага.
+// Причина в данных: «Стажер повар» и «Стажер кассир» — это то, как должность
+// пишет сам бизнес, и оба экрана (карта сети, состав филиалов) уже считают
+// «Стажёр-повар» отдельной ролью. Флаг is_trainee при этом остаётся: он говорит,
+// что роль временная, а trainee_of_code — кем человек станет, когда стажировка
+// закончится. Перевод стажёра в штат = смена staff_role_id на trainee_of_code.
+export const staff_roles = pgTable(
+  "staff_roles",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    code: varchar("code", { length: 50 }).notNull(),
+    name_ru: varchar("name_ru", { length: 150 }).notNull(),
+    name_uz: varchar("name_uz", { length: 150 }).notNull(),
+    /** kitchen | front | management | other — те же четыре группы, что у parsePosition. */
+    group_key: varchar("group_key", { length: 20 }).notNull(),
+    is_trainee: boolean("is_trainee").default(false).notNull(),
+    /** code роли, на которую учится стажёр; null у нестажёрских ролей. */
+    trainee_of_code: varchar("trainee_of_code", { length: 50 }),
+    /**
+     * Поисковые слова роли: то, чем работа называется в жизни, а не в канонe.
+     * Канонизация строк должностей убрала «(салатчица+мойка)» из 46 записей —
+     * данных это не потеряло, но кадровик, который ищет «салатчица», перестал
+     * находить кого бы то ни было. Сюда HR дописывает такие слова сам.
+     *
+     * null и пустой массив означают одно и то же — синонимов нет.
+     */
+    synonyms: text("synonyms").array(),
+    sort: integer("sort").default(0).notNull(),
+    active: boolean("active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [uniqueIndex("staff_roles_code_key").on(table.code)]
+);
+
 export const employees = pgTable("employees", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   first_name: varchar("first_name", { length: 100 }).notNull(),
   last_name: varchar("last_name", { length: 100 }).notNull(),
+  /**
+   * Свободная строка должности — остаётся ведущей для всех, кто её уже читает
+   * (фильтр аттестации по ilike, паспорт стажёра, колонка в админке). После
+   * появления полей ниже она перестаёт быть источником структуры и становится
+   * её отпечатком: собирается по одному шаблону «Роль[ N разряд][ смена]».
+   */
   position: varchar("position", { length: 150 }),
+  /** Роль из справочника. null — строка ещё не разобрана (см. parsePosition). */
+  staff_role_id: uuid("staff_role_id").references(() => staff_roles.id),
+  /** Разряд 1..3; null — в должности разряда нет, и это нормально. */
+  grade: integer("grade"),
+  /** "day" | "night"; null — смена не указана (у охраны и няни её нет вовсе). */
+  shift: varchar("shift", { length: 10 }),
+  /** Дублирует staff_roles.is_trainee, чтобы считать стажёров без join. */
+  is_trainee: boolean("is_trainee"),
   terminal_id: uuid("terminal_id").notNull(),
   pin_hash: text("pin_hash"),
   external_id: varchar("external_id", { length: 100 }),
@@ -1541,7 +1615,7 @@ export const attestation_test_attempts = pgTable("attestation_test_attempts", {
   test_id: uuid("test_id").notNull(),
   employee_id: uuid("employee_id").notNull(),
   terminal_id: uuid("terminal_id").notNull(),
-  launched_by_user_id: uuid("launched_by_user_id").notNull(),
+  launched_by_user_id: uuid("launched_by_user_id"),
   started_at: timestamp("started_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
@@ -1551,6 +1625,7 @@ export const attestation_test_attempts = pgTable("attestation_test_attempts", {
   passed: boolean("passed"),
   expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }),
   question_ids: jsonb("question_ids").notNull(),
+  source: varchar("source", { length: 10 }).default("kiosk").notNull(), // kiosk | miniapp
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
@@ -1604,3 +1679,719 @@ export const medical_exams = pgTable("medical_exams", {
     .defaultNow()
     .notNull(),
 });
+
+// ==== B2B credit (spec docs/superpowers/specs/2026-07-30-b2b-credit-design.md) ====
+export const credit_company_status = pgEnum("credit_company_status", [
+  "active", "suspended", "pending_verification",
+]);
+export const credit_brand = pgEnum("credit_brand", ["chopar", "les"]);
+export const credit_hold_state = pgEnum("credit_hold_state", [
+  "held", "captured", "voided", "expired",
+]);
+export const credit_entry_type = pgEnum("credit_entry_type", [
+  // 'amend' = a change to a still-held hold's amount (entry amount = the delta).
+  // Distinct from 'adjustment' (a manual change to posted debt) because
+  // reconciliation sums adjustment into expected_posted and must not see amends.
+  "authorize", "capture", "void", "refund", "payment", "adjustment", "amend",
+]);
+export const credit_document_type = pgEnum("credit_document_type", [
+  "contract", "inn_cert", "guarantee_letter", "other",
+]);
+
+export const credit_companies = pgTable("credit_companies", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  name: text("name").notNull(),
+  inn: text("inn"),
+  phone: text("phone"),
+  status: credit_company_status("status").default("pending_verification").notNull(),
+  limit_total: bigint("limit_total", { mode: "number" }).default(0).notNull(),
+  limit_daily: bigint("limit_daily", { mode: "number" }).default(0).notNull(),
+  limit_monthly: bigint("limit_monthly", { mode: "number" }).default(0).notNull(),
+  overdue: boolean("overdue").default(false).notNull(),
+  verified_by: uuid("verified_by"),
+  verified_at: timestamp("verified_at", { precision: 5, withTimezone: true }),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_company_documents = pgTable("credit_company_documents", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  type: credit_document_type("type").default("other").notNull(),
+  file_path: text("file_path").notNull(),
+  doc_number: text("doc_number"),
+  doc_date: timestamp("doc_date", { precision: 5, withTimezone: true }),
+  uploaded_by: uuid("uploaded_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_company_phones = pgTable("credit_company_phones", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  phone: text("phone").notNull(),
+  employee_name: text("employee_name"),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_phone_uniq: uniqueIndex("credit_phone_uniq").on(t.phone),
+}));
+
+export const credit_accounts = pgTable("credit_accounts", {
+  company_id: uuid("company_id").primaryKey().notNull().references(() => credit_companies.id),
+  posted: bigint("posted", { mode: "number" }).default(0).notNull(),
+  reserved: bigint("reserved", { mode: "number" }).default(0).notNull(),
+  version: integer("version").default(0).notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+});
+
+export const credit_periods = pgTable("credit_periods", {
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  period_key: text("period_key").notNull(), // 'YYYY-MM-DD' day | 'YYYY-MM' month
+  spent: bigint("spent", { mode: "number" }).default(0).notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.company_id, t.period_key] }),
+}));
+
+export const credit_holds = pgTable("credit_holds", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  brand: credit_brand("brand").notNull(),
+  order_id: text("order_id").notNull(),
+  order_number: text("order_number"),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  state: credit_hold_state("state").default("held").notNull(),
+  period_day_key: text("period_day_key").notNull(),
+  period_month_key: text("period_month_key").notNull(),
+  expires_at: timestamp("expires_at", { precision: 5, withTimezone: true }).notNull(),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_hold_order_uniq: uniqueIndex("credit_hold_order_uniq").on(t.brand, t.order_id),
+}));
+
+export const credit_entries = pgTable("credit_entries", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  hold_id: uuid("hold_id"),
+  brand: credit_brand("brand"),
+  order_id: text("order_id"),
+  order_number: text("order_number"),
+  entry_type: credit_entry_type("entry_type").notNull(),
+  amount: bigint("amount", { mode: "number" }).notNull(), // signed
+  balance_after: bigint("balance_after", { mode: "number" }).notNull(), // posted+reserved after op
+  period_day_key: text("period_day_key"),
+  period_month_key: text("period_month_key"),
+  meta: jsonb("meta"),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  credit_entries_company_created: index("credit_entries_company_created").on(t.company_id, t.created_at.desc()),
+  // One entry per (order, operation) — the idempotency gate behind every
+  // "replay = ok, no second debit" path in service.ts.
+  //
+  // PARTIAL, and written as an explicit whitelist rather than `<> 'amend'`: an
+  // order may legally be amended many times, so amend entries must not be gated.
+  // The whitelist form (instead of excluding the new value) is what lets this
+  // index be created in the SAME transaction that adds 'amend' to the enum —
+  // postgres refuses to use a newly added enum value in the transaction that
+  // created it.
+  //
+  // TWO THINGS MUST BE KEPT IN SYNC WITH THIS PREDICATE:
+  // 1. Any FUTURE credit_entry_type value is a conscious decision — add it here
+  //    to keep it under the uniqueness gate, or deliberately leave it out. Doing
+  //    nothing means it silently escapes the gate, i.e. that operation loses its
+  //    "replay = ok, no second debit" guarantee with no error anywhere.
+  // 2. service.ts's ENTRY_OP_CONFLICT_TARGET, which repeats this predicate
+  //    character-for-character. Postgres will not infer a PARTIAL index as an
+  //    ON CONFLICT arbiter unless the statement restates its predicate; a
+  //    mismatch raises 42P10 at plan time and every capture/void/refund fails.
+  credit_entries_op_uniq: uniqueIndex("credit_entries_op_uniq").on(t.brand, t.order_id, t.entry_type)
+    .where(sql`entry_type IN ('authorize','capture','void','refund','payment','adjustment')`),
+}));
+
+export const credit_payments = pgTable("credit_payments", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  company_id: uuid("company_id").notNull().references(() => credit_companies.id),
+  amount: bigint("amount", { mode: "number" }).notNull(),
+  doc_number: text("doc_number"),
+  doc_date: timestamp("doc_date", { precision: 5, withTimezone: true }),
+  note: text("note"),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { precision: 5, withTimezone: true }).defaultNow().notNull(),
+}, (t) => ({
+  // The payment document is the only natural key a bank transfer has: this is
+  // what makes applyPayment replay-safe against a double-submitted admin form.
+  // Partial because doc_number stays nullable (legacy/manual entries) — and a
+  // NULL doc_number therefore has NO replay protection, which is why the admin
+  // UI must always send one.
+  credit_payment_doc_uniq: uniqueIndex("credit_payment_doc_uniq").on(t.company_id, t.doc_number)
+    .where(sql`doc_number IS NOT NULL`),
+}));
+
+// ===================== TRAINEE PASSPORT =====================
+export const passport_module_status = pgEnum("passport_module_status", ["draft", "review", "published"]);
+export const passport_verification_type = pgEnum("passport_verification_type", ["quiz", "observation", "quiz_observation", "quiz_observation_photo", "dual"]);
+export const passport_enrollment_status = pgEnum("passport_enrollment_status", ["active", "completed", "failed", "paused"]);
+export const passport_signoff_action = pgEnum("passport_signoff_action", ["material_opened", "quiz_passed", "quiz_failed", "observed", "observation_declined", "recheck_passed", "recheck_failed", "level_set", "level_rolled_back", "stamp_issued"]);
+export const passport_stamp_type = pgEnum("passport_stamp_type", ["module_cert", "universal_chopar", "universal_les", "probation_passed"]);
+
+export const passport_programs = pgTable("passport_programs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  position: varchar("position", { length: 100 }).notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_modules = pgTable("passport_modules", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).default("").notNull(),
+  brand: varchar("brand", { length: 20 }), // null | 'chopar' | 'les'
+  owner_department: varchar("owner_department", { length: 50 }).notNull(),
+  status: passport_module_status("status").default("draft").notNull(),
+  // Orthogonal to status: retires a module from the trainee feed and from the
+  // default curriculum listing WITHOUT touching history. The soft alternative
+  // to unpublish, which is refused once any trainee has progress on it.
+  active: boolean("active").default(true).notNull(),
+  version: integer("version").default(1).notNull(),
+  exam_test_id: uuid("exam_test_id"), // -> attestation_tests
+  parent_module_id: uuid("parent_module_id"), // root of the version chain (new-version fork)
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_program_modules = pgTable("passport_program_modules", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  program_id: uuid("program_id").notNull().references(() => passport_programs.id),
+  module_id: uuid("module_id").notNull().references(() => passport_modules.id),
+  sort: integer("sort").default(0).notNull(),
+  required: boolean("required").default(true).notNull(),
+  deadline_days: integer("deadline_days"),
+}, (t) => [uniqueIndex("UQ_passport_prog_mod").on(t.program_id, t.module_id)]);
+
+export const passport_topics = pgTable("passport_topics", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  module_id: uuid("module_id").notNull().references(() => passport_modules.id),
+  sort: integer("sort").default(0).notNull(),
+  title_ru: varchar("title_ru", { length: 255 }).notNull(),
+  title_uz: varchar("title_uz", { length: 255 }).default("").notNull(),
+  step_ru: text("step_ru").default("").notNull(),
+  step_uz: text("step_uz").default("").notNull(),
+  key_point_ru: text("key_point_ru").default("").notNull(),
+  key_point_uz: text("key_point_uz").default("").notNull(),
+  reason_ru: text("reason_ru").default("").notNull(),
+  reason_uz: text("reason_uz").default("").notNull(),
+  video_id: uuid("video_id"), // -> passport_media
+  verification_type: passport_verification_type("verification_type").default("quiz_observation").notNull(),
+  quiz_test_id: uuid("quiz_test_id"), // -> attestation_tests
+  observation_checklist: jsonb("observation_checklist"), // {items:[{ru,uz}], questions:[{ru,uz}]}
+  active: boolean("active").default(true).notNull(),
+}, (t) => [
+  // Every read of a topic list is "the ACTIVE topics of these modules": the
+  // trainee /me feed and the HR progress matrix both do
+  // module_id IN (...) AND active. Without this the table had only its PK and
+  // both did a seq scan. Partial on `active` because a retired topic is never
+  // in the answer.
+  index("IX_passport_topics_module").on(t.module_id).where(sql`active`),
+]);
+
+export const passport_enrollments = pgTable("passport_enrollments", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  employee_id: uuid("employee_id").notNull().references(() => employees.id),
+  program_id: uuid("program_id").notNull().references(() => passport_programs.id),
+  terminal_id: uuid("terminal_id").notNull(),
+  status: passport_enrollment_status("status").default("active").notNull(),
+  started_at: timestamp("started_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  probation_deadline: timestamp("probation_deadline", { withTimezone: true, mode: "string" }),
+  completed_at: timestamp("completed_at", { withTimezone: true, mode: "string" }),
+  created_by_user_id: uuid("created_by_user_id").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_invites = pgTable("passport_invites", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(), // сам токен инвайта
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  created_by_user_id: uuid("created_by_user_id").notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+  used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_tg_bindings = pgTable("passport_tg_bindings", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  telegram_id: bigint("telegram_id", { mode: "number" }).notNull(),
+  employee_id: uuid("employee_id").references(() => employees.id), // стажёр
+  user_id: uuid("user_id"), // наставник/аудитор -> users
+  first_name: varchar("first_name", { length: 255 }).default("").notNull(),
+  lang: varchar("lang", { length: 2 }).default("ru").notNull(), // ru | uz
+  banned: boolean("banned").default(false).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("UQ_passport_tg").on(t.telegram_id)]);
+
+export const passport_topic_progress = pgTable("passport_topic_progress", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  topic_id: uuid("topic_id").notNull().references(() => passport_topics.id),
+  level: integer("level").default(0).notNull(), // 0..4
+  quiz_attempt_id: uuid("quiz_attempt_id"),
+  observed_by_user_id: uuid("observed_by_user_id"),
+  observed_at: timestamp("observed_at", { withTimezone: true, mode: "string" }),
+  observation_answers: jsonb("observation_answers"),
+  photo_path: varchar("photo_path", { length: 500 }),
+  recheck_due_at: timestamp("recheck_due_at", { withTimezone: true, mode: "string" }),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [uniqueIndex("UQ_passport_progress").on(t.enrollment_id, t.topic_id)]);
+
+export const passport_signoffs = pgTable("passport_signoffs", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  topic_id: uuid("topic_id"),
+  module_id: uuid("module_id"),
+  action: passport_signoff_action("action").notNull(),
+  actor_user_id: uuid("actor_user_id"),
+  actor_employee_id: uuid("actor_employee_id"),
+  terminal_id: uuid("terminal_id"),
+  ip: varchar("ip", { length: 64 }),
+  meta: jsonb("meta"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+}, (t) => [index("IX_passport_signoffs_enr").on(t.enrollment_id, t.created_at)]);
+
+export const passport_stamps = pgTable("passport_stamps", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull().references(() => passport_enrollments.id),
+  employee_id: uuid("employee_id").notNull(),
+  type: passport_stamp_type("type").notNull(),
+  module_id: uuid("module_id"),
+  issued_by_user_id: uuid("issued_by_user_id"), // null = автомат
+  manual_comment: text("manual_comment"),
+  valid_until: timestamp("valid_until", { withTimezone: true, mode: "string" }),
+  issued_at: timestamp("issued_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_qr_tokens = pgTable("passport_qr_tokens", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  enrollment_id: uuid("enrollment_id").notNull(),
+  topic_id: uuid("topic_id").notNull(),
+  expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+  used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+  used_by_user_id: uuid("used_by_user_id"),
+  trainee_ip: varchar("trainee_ip", { length: 64 }),
+});
+
+export const passport_rechecks = pgTable("passport_rechecks", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  topic_progress_id: uuid("topic_progress_id").notNull().references(() => passport_topic_progress.id),
+  assigned_to_user_id: uuid("assigned_to_user_id").notNull(),
+  origin: varchar("origin", { length: 10 }).default("random").notNull(), // random | manual
+  due_at: timestamp("due_at", { withTimezone: true, mode: "string" }).notNull(),
+  result: varchar("result", { length: 10 }), // null | passed | failed
+  resolved_at: timestamp("resolved_at", { withTimezone: true, mode: "string" }),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_flags = pgTable("passport_flags", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  type: varchar("type", { length: 50 }).notNull(),
+  subject_user_id: uuid("subject_user_id"),
+  enrollment_id: uuid("enrollment_id"),
+  meta: jsonb("meta"),
+  resolved: boolean("resolved").default(false).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const passport_media = pgTable("passport_media", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  title: varchar("title", { length: 255 }).default("").notNull(),
+  file_path: varchar("file_path", { length: 500 }).notNull(),
+  status: varchar("status", { length: 20 }).default("ready").notNull(),
+  transcode_error: text("transcode_error"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+// Stop-list history (fed by Laravel ProcessActualizeStopList webhooks, 2026-08)
+// stoplist_events is a TimescaleDB hypertable (see drizzle/timescale_stoplist.sql —
+// create_hypertable + continuous aggregate are applied out-of-band, same as the
+// other hypertables in timescale_scripts.sql).
+// ---------------------------------------------------------------------------
+
+export const stoplist_events = pgTable(
+  "stoplist_events",
+  {
+    id: uuid("id").defaultRandom().notNull(),
+    event_at: timestamp("event_at", { withTimezone: true, mode: "string" }).notNull(),
+    brand: text("brand").notNull(), // 'chopar' | 'les'
+    terminal_id: integer("terminal_id").notNull(),
+    terminal_name: text("terminal_name"),
+    product_id: integer("product_id").notNull(),
+    product_name: text("product_name"),
+    action: text("action").notNull(), // 'stop' | 'release'
+    balance: doublePrecision("balance"),
+    date_add: timestamp("date_add", { withTimezone: true, mode: "string" }),
+    // iiko terminalGroup uuid — joins credentials(model='terminals', type='iiko_id')
+    // to reach the managers terminals a manager is bound to.
+    terminal_iiko_id: uuid("terminal_iiko_id"),
+    recorded_at: timestamp("recorded_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      brand_term_prod_event_idx: index(
+        "idx_stoplist_events_brand_term_prod_event_at"
+      ).on(table.brand, table.terminal_id, table.product_id, table.event_at),
+      event_at_idx: index("idx_stoplist_events_event_at").on(table.event_at),
+    };
+  }
+);
+
+// One row per continuous stop period; ended_at IS NULL = currently stopped.
+// A partial unique index (uq_stoplist_intervals_open, created in
+// timescale_stoplist.sql) guarantees a single open interval per position.
+export const stoplist_intervals = pgTable(
+  "stoplist_intervals",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    brand: text("brand").notNull(),
+    terminal_id: integer("terminal_id").notNull(),
+    terminal_name: text("terminal_name"),
+    product_id: integer("product_id").notNull(),
+    product_name: text("product_name"),
+    started_at: timestamp("started_at", { withTimezone: true, mode: "string" }).notNull(),
+    ended_at: timestamp("ended_at", { withTimezone: true, mode: "string" }),
+    last_balance: doublePrecision("last_balance"),
+    // iiko terminalGroup uuid — joins credentials(model='terminals', type='iiko_id').
+    terminal_iiko_id: uuid("terminal_iiko_id"),
+  },
+  (table) => {
+    return {
+      open_lookup_idx: index("idx_stoplist_intervals_open_lookup").on(
+        table.brand,
+        table.terminal_id,
+        table.product_id,
+        table.ended_at
+      ),
+      started_at_idx: index("idx_stoplist_intervals_started_at").on(table.started_at),
+      iiko_ended_idx: index("idx_stoplist_intervals_iiko_ended").on(
+        table.terminal_iiko_id,
+        table.ended_at
+      ),
+    };
+  }
+);
+
+// ---- Кассовые смены iiko (виджет «Кассовые смены» на дашборде) -------------
+// Наполняет cron/cash_shifts_sync раз в сутки из resto v2/cashshifts/list.
+// id — id смены в iiko. terminal_id = null, если точка продаж не привязана к
+// терминалу через corporation/groups → credentials(model='terminals', type='iiko_id').
+export const cash_shifts = pgTable(
+  "cash_shifts",
+  {
+    id: uuid("id").primaryKey().notNull(),
+    terminal_id: uuid("terminal_id"),
+    iiko_group_id: uuid("iiko_group_id"),
+    iiko_group_name: text("iiko_group_name"),
+    point_of_sale_id: uuid("point_of_sale_id").notNull(),
+    cash_reg_number: integer("cash_reg_number").notNull(),
+    cash_register_name: text("cash_register_name"),
+    session_number: integer("session_number").notNull(),
+    open_at: timestamp("open_at", { withTimezone: true, mode: "string" }).notNull(),
+    close_at: timestamp("close_at", { withTimezone: true, mode: "string" }),
+    business_date: date("business_date", { mode: "string" }).notNull(),
+    status: text("status").notNull(),
+    responsible_user_id: uuid("responsible_user_id"),
+    responsible_user_name: text("responsible_user_name"),
+    manager_id: uuid("manager_id"),
+    manager_name: text("manager_name"),
+    pay_orders: numeric("pay_orders", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_cash: numeric("sales_cash", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_card: numeric("sales_card", { precision: 18, scale: 2 }).default("0").notNull(),
+    sales_credit: numeric("sales_credit", { precision: 18, scale: 2 }).default("0").notNull(),
+    pay_in: numeric("pay_in", { precision: 18, scale: 2 }).default("0").notNull(),
+    pay_out: numeric("pay_out", { precision: 18, scale: 2 }).default("0").notNull(),
+    cash_diff: numeric("cash_diff", { precision: 18, scale: 2 }).default("0").notNull(),
+    synced_at: timestamp("synced_at", { withTimezone: true, mode: "string" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => {
+    return {
+      business_date_idx: index("idx_cash_shifts_business_date").on(table.business_date),
+      terminal_date_idx: index("idx_cash_shifts_terminal_date").on(
+        table.terminal_id,
+        table.business_date
+      ),
+    };
+  }
+);
+
+// Кассиры смены из OLAP SALES (SessionID × Cashier.Id). Пересобирается целиком
+// для каждой синкнутой смены.
+export const cash_shift_cashiers = pgTable(
+  "cash_shift_cashiers",
+  {
+    shift_id: uuid("shift_id")
+      .notNull()
+      .references(() => cash_shifts.id, { onDelete: "cascade" }),
+    cashier_id: uuid("cashier_id").notNull(),
+    cashier_name: text("cashier_name").notNull(),
+    cashier_code: text("cashier_code"),
+    orders_count: integer("orders_count").notNull(),
+    revenue: numeric("revenue", { precision: 18, scale: 2 }).notNull(),
+  },
+  (table) => {
+    return {
+      pk: primaryKey({ columns: [table.shift_id, table.cashier_id] }),
+    };
+  }
+);
+
+export const ticket_status = pgEnum("ticket_status", [
+  "new",
+  "in_progress",
+  "done",
+  "closed",
+  "cancelled",
+]);
+
+export const ticket_priority = pgEnum("ticket_priority", ["normal", "urgent"]);
+
+export const ticket_executor_kind = pgEnum("ticket_executor_kind", ["external", "staff"]);
+
+export const ticket_attachment_phase = pgEnum("ticket_attachment_phase", ["problem", "result"]);
+
+export const ticket_payment_status = pgEnum("ticket_payment_status", [
+  "pending",
+  "approved",
+  "rejected",
+]);
+
+export const ticket_actor_kind = pgEnum("ticket_actor_kind", [
+  "manager",
+  "executor",
+  "office",
+  "system",
+]);
+
+export const ticket_event_type = pgEnum("ticket_event_type", [
+  "created",
+  "assigned",
+  "comment",
+  "done_submitted",
+  "reopened",
+  "closed",
+  "cancelled",
+  "payment_approved",
+  "payment_rejected",
+]);
+
+export const ticket_notification_kind = pgEnum("ticket_notification_kind", ["send", "edit"]);
+
+export const ticket_notification_status = pgEnum("ticket_notification_status", [
+  "pending",
+  "sending",
+  "sent",
+  "failed",
+]);
+
+export const ticket_contractors = pgTable("ticket_contractors", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  phone: varchar("phone", { length: 50 }),
+  note: text("note"),
+  is_active: boolean("is_active").default(true).notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const ticket_types = pgTable(
+  "ticket_types",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    code: varchar("code", { length: 50 }).notNull(),
+    number_prefix: varchar("number_prefix", { length: 5 }).notNull(),
+    name_ru: varchar("name_ru", { length: 255 }).notNull(),
+    name_uz: varchar("name_uz", { length: 255 }).notNull(),
+    icon: varchar("icon", { length: 50 }),
+    executor_kind: ticket_executor_kind("executor_kind").notNull(),
+    contractor_id: uuid("contractor_id").references(() => ticket_contractors.id),
+    fields_schema: jsonb("fields_schema").default([]).notNull(),
+    requires_cost: boolean("requires_cost").default(true).notNull(),
+    active: boolean("active").default(true).notNull(),
+    sort: integer("sort").default(0).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    code_idx: uniqueIndex("idx_ticket_types_code").on(table.code),
+  })
+);
+
+export const ticket_executors = pgTable(
+  "ticket_executors",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    kind: ticket_executor_kind("kind").notNull(),
+    contractor_id: uuid("contractor_id").references(() => ticket_contractors.id),
+    user_id: uuid("user_id"),
+    full_name: varchar("full_name", { length: 255 }).notNull(),
+    phone: varchar("phone", { length: 50 }),
+    tg_user_id: bigint("tg_user_id", { mode: "number" }),
+    lang: varchar("lang", { length: 10 }).default("ru").notNull(),
+    invite_code: uuid("invite_code").defaultRandom().notNull(),
+    invite_used_at: timestamp("invite_used_at", { withTimezone: true, mode: "string" }),
+    is_active: boolean("is_active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    tg_user_id_idx: uniqueIndex("idx_ticket_executors_tg_user_id").on(table.tg_user_id),
+    invite_code_idx: uniqueIndex("idx_ticket_executors_invite_code").on(table.invite_code),
+    contractor_idx: index("idx_ticket_executors_contractor_id").on(table.contractor_id),
+    kind_target_check: check(
+      "ticket_executors_kind_target",
+      sql`(contractor_id IS NOT NULL) <> (user_id IS NOT NULL)`
+    ),
+  })
+);
+
+export const tickets = pgTable(
+  "tickets",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    seq: serial("seq").notNull(),
+    type_id: uuid("type_id").references(() => ticket_types.id).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    status: ticket_status("status").default("new").notNull(),
+    priority: ticket_priority("priority").default("normal").notNull(),
+    details: jsonb("details").default({}).notNull(),
+    description: text("description"),
+    created_by: uuid("created_by").notNull(),
+    assigned_executor_id: uuid("assigned_executor_id").references(() => ticket_executors.id),
+    assigned_at: timestamp("assigned_at", { withTimezone: true, mode: "string" }),
+    done_at: timestamp("done_at", { withTimezone: true, mode: "string" }),
+    closed_at: timestamp("closed_at", { withTimezone: true, mode: "string" }),
+    cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "string" }),
+    closed_by: uuid("closed_by"),
+    cancelled_by: uuid("cancelled_by"),
+    reopen_count: integer("reopen_count").default(0).notNull(),
+    work_total_amount: numeric("work_total_amount", { precision: 14, scale: 2 }),
+    payment_status: ticket_payment_status("payment_status").default("pending").notNull(),
+    payment_approved_by: uuid("payment_approved_by"),
+    payment_approved_at: timestamp("payment_approved_at", { withTimezone: true, mode: "string" }),
+    payment_comment: text("payment_comment"),
+    manager_seen_at: timestamp("manager_seen_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    terminal_idx: index("idx_tickets_terminal_id").on(table.terminal_id),
+    status_idx: index("idx_tickets_status").on(table.status),
+    type_idx: index("idx_tickets_type_id").on(table.type_id),
+    created_at_idx: index("idx_tickets_created_at").on(table.created_at),
+    executor_idx: index("idx_tickets_assigned_executor_id").on(table.assigned_executor_id),
+    payment_idx: index("idx_tickets_payment_pending")
+      .on(table.payment_status)
+      .where(sql`status = 'closed'`),
+  })
+);
+
+export const ticket_attachments = pgTable(
+  "ticket_attachments",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    phase: ticket_attachment_phase("phase").notNull(),
+    file_path: text("file_path").notNull(),
+    mime: varchar("mime", { length: 100 }).notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    uploaded_by_kind: ticket_actor_kind("uploaded_by_kind").notNull(),
+    uploaded_by_user_id: uuid("uploaded_by_user_id"),
+    uploaded_by_executor_id: uuid("uploaded_by_executor_id").references(() => ticket_executors.id),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_attachments_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_comments = pgTable(
+  "ticket_comments",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    author_kind: ticket_actor_kind("author_kind").notNull(),
+    author_user_id: uuid("author_user_id"),
+    author_executor_id: uuid("author_executor_id").references(() => ticket_executors.id),
+    body: text("body").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_comments_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_work_items = pgTable(
+  "ticket_work_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    position: integer("position").notNull(),
+    title: text("title").notNull(),
+    qty: numeric("qty", { precision: 10, scale: 2 }).default("1").notNull(),
+    unit: varchar("unit", { length: 20 }),
+    amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_work_items_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_events = pgTable(
+  "ticket_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    ticket_id: uuid("ticket_id").references(() => tickets.id).notNull(),
+    type: ticket_event_type("type").notNull(),
+    actor_kind: ticket_actor_kind("actor_kind").notNull(),
+    actor_user_id: uuid("actor_user_id"),
+    actor_executor_id: uuid("actor_executor_id").references(() => ticket_executors.id),
+    payload: jsonb("payload").default({}).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    ticket_idx: index("idx_ticket_events_ticket_id").on(table.ticket_id),
+  })
+);
+
+export const ticket_notifications = pgTable(
+  "ticket_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    event_id: uuid("event_id").references(() => ticket_events.id).notNull(),
+    channel: varchar("channel", { length: 20 }).default("telegram").notNull(),
+    recipient_executor_id: uuid("recipient_executor_id").references(() => ticket_executors.id),
+    recipient_chat_id: bigint("recipient_chat_id", { mode: "number" }).notNull(),
+    kind: ticket_notification_kind("kind").default("send").notNull(),
+    target_message_id: bigint("target_message_id", { mode: "number" }),
+    status: ticket_notification_status("status").default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    last_error: text("last_error"),
+    tg_message_id: bigint("tg_message_id", { mode: "number" }),
+    sent_at: timestamp("sent_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (table) => ({
+    dedupe_idx: uniqueIndex("idx_ticket_notifications_dedupe").on(
+      table.event_id,
+      table.recipient_chat_id,
+      table.kind
+    ),
+    pending_idx: index("idx_ticket_notifications_status").on(table.status, table.created_at),
+  })
+);

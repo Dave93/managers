@@ -3,9 +3,12 @@ import React, { useState } from "react";
 import { DataTable } from "./data-table";
 import { OlapFilters } from "./olap_filters";
 
+import { ReportSwitcher } from "../manager_reports/ReportSwitcher";
+
 export default function ReportsListPage() {
   return (
     <div className="w-full overflow-hidden">
+      <ReportSwitcher />
       <div className="flex justify-between">
         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
           Акт Реализации

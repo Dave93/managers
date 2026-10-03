@@ -1,0 +1,1685 @@
+{
+  "ch_dough": [
+    {
+      "sort": 0,
+      "title_ru": "Подготовка станции теста к смене",
+      "title_uz": "Xamir stansiyasini smenaga tayyorlash",
+      "step_ru": "Вымой руки, надень чистый фартук и перчатки. Протри стол и весы, проверь исправность весов. Открой холодильник теста, пересчитай шары, посмотри стикеры и отбери те, что по ФИФО идут первыми. Выставь на стол посыпку, скребок, соусный половник и мерные ёмкости по техкарте станции.",
+      "step_uz": "Qo'lingni yuv, toza fartuk va qo'lqop kiy. Stol va tarozini arting, tarozi sozligini tekshir. Xamir sovutgichini och, sharlarni sanab chiq, stikerlarga qara va FIFO bo'yicha birinchi ketadiganlarini ajratib ol. Stolga sepma un, skrebok, sous cho'michi va texkartadagi o'lchov idishlarini qo'y.",
+      "key_point_ru": "Шар с просроченным или отсутствующим стикером на стол не идёт — сразу отложи его менеджеру на списание.",
+      "key_point_uz": "Muddati o'tgan yoki stikeri yo'q xamir shari stolga chiqmaydi — uni darrov menejerga spisaniyaga ber.",
+      "reason_ru": "Тесто без стикера невозможно отследить: пустишь в работу — получишь кислую пиццу и жалобу гостя, а ёмкость всё равно уйдёт в списание.",
+      "reason_uz": "Stikersiz xamirni kuzatib bo'lmaydi: ishga qo'ysang pitsa nordon chiqadi va mehmon shikoyat qiladi, idish baribir spisaniyaga ketadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Вымыл руки и надел чистый фартук до начала работы",
+            "uz": "Ish boshlashdan oldin qo'lini yuvdi va toza fartuk kiydi"
+          },
+          {
+            "ru": "Отобрал шары теста по ФИФО, проверил стикеры",
+            "uz": "Xamir sharlarini FIFO bo'yicha oldi, stikerlarni tekshirdi"
+          },
+          {
+            "ru": "Протёр стол и проверил весы",
+            "uz": "Stolni artdi va tarozini tekshirdi"
+          },
+          {
+            "ru": "Выставил инвентарь станции по техкарте",
+            "uz": "Stansiya jihozlarini texkarta bo'yicha qo'ydi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что сделаешь, если на ёмкости с тестом нет стикера?",
+            "uz": "Xamir idishida stiker bo'lmasa nima qilasan?"
+          },
+          {
+            "ru": "Почему шары берут по ФИФО, а не любой сверху?",
+            "uz": "Nega xamir sharlari FIFO bo'yicha olinadi, ustidagisi emas?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Расстойка и проверка теста",
+      "title_uz": "Xamirni yetiltirish va tekshirish",
+      "step_ru": "Достань нужное количество шаров из холодильника заранее — за время, указанное в техкарте. Разложи их в лотки, не сминая, накрой. Держи при температуре расстойки по техкарте. Перед раскаткой проверь шар: он должен быть мягкий, ровный, без корки и без резкого кислого запаха.",
+      "step_uz": "Kerakli miqdordagi sharlarni sovutgichdan oldindan — texkartada ko'rsatilgan vaqtda ol. Ularni lotokka ezmasdan ter, ustini yop. Texkartadagi yetiltirish haroratida ushla. Yoyishdan oldin sharni tekshir: yumshoq, tekis, qatqaloqsiz va keskin nordon hidsiz bo'lishi kerak.",
+      "key_point_ru": "Не доставай на расстойку больше, чем уйдёт за пик. Перестоявшее тесто рвётся и обратно в холодильник не возвращается.",
+      "key_point_uz": "Pik vaqtida ketadiganidan ko'p shar chiqarma. Ortiqcha turgan xamir yirtiladi va sovutgichga qaytarilmaydi.",
+      "reason_ru": "Перестоявший шар рвётся при растяжке, пицца выходит с дырой и горелым соусом — переделка в пик тормозит всю кухню, а продукт уходит в списание.",
+      "reason_uz": "Ortiqcha turgan shar yoyganda yirtiladi, pitsa teshik va kuygan sous bilan chiqadi — pikda qayta tayyorlash butun oshxonani ushlab qoladi, mahsulot esa spisaniyaga ketadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Достал на расстойку столько шаров, сколько уйдёт за пик",
+            "uz": "Yetiltirishga pikda ketadigan miqdorda shar chiqardi"
+          },
+          {
+            "ru": "Лотки накрыты, тесто не заветрено",
+            "uz": "Lotoklar yopilgan, xamir qotib qolmagan"
+          },
+          {
+            "ru": "Проверил шар на ощупь и запах перед раскаткой",
+            "uz": "Yoyishdan oldin sharni qo'li va hidi bilan tekshirdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "По каким признакам поймёшь, что тесто перестояло?",
+            "uz": "Xamir ortiqcha turganini qaysi belgilardan bilasan?"
+          },
+          {
+            "ru": "Сколько тесто должно стоять до раскатки и откуда ты это берёшь?",
+            "uz": "Xamir yoyishdan oldin qancha turishi kerak va buni qayerdan bilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Раскатка основы",
+      "title_uz": "Xamir asosini yoyish",
+      "step_ru": "Присыпь стол посыпкой по норме. Положи шар, раздави центр пальцами от середины к краю, оставь бортик. Растяни основу на руках или раскатай до диаметра, указанного в техкарте под этот размер пиццы. Переложи на сетку или лопату, проверь толщину — центр ровный, без дыр.",
+      "step_uz": "Stolga me'yorda un sep. Sharni qo'y, o'rtasidan chetiga qarab barmoq bilan bos, chetida bortik qoldir. Asosni qo'lda cho'z yoki texkartada shu o'lchamdagi pitsa uchun ko'rsatilgan diametrgacha yoy. Setka yoki kurakka ko'chir, qalinligini tekshir — o'rtasi tekis, teshiksiz.",
+      "key_point_ru": "Лишняя посыпка на подине печи горит и даёт горький привкус; дырка в центре — сквозной прогар соуса.",
+      "key_point_uz": "Ortiqcha un pechning tagida kuyadi va achchiq ta'm beradi; o'rtadagi teshikdan sous oqib ketadi.",
+      "reason_ru": "Основа не по диаметру — гость получает не тот вес и объём, что заказал, а филиал теряет и продукт, и повторный заказ.",
+      "reason_uz": "Diametri noto'g'ri asos — mehmon buyurtma qilgan og'irlik va hajmni olmaydi, filial ham mahsulotdan, ham takroriy buyurtmadan ayriladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Присыпал стол по норме, без избытка муки",
+            "uz": "Stolga me'yorda un sepdi, ortiqcha emas"
+          },
+          {
+            "ru": "Основа раскатана до диаметра из техкарты",
+            "uz": "Asos texkartadagi diametrgacha yoyilgan"
+          },
+          {
+            "ru": "Бортик сохранён, центр без дыр",
+            "uz": "Bortik saqlangan, o'rtasi teshiksiz"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Какой диаметр у основы для каждого размера пиццы и где это написано?",
+            "uz": "Har bir o'lcham pitsa uchun asos diametri qancha va bu qayerda yozilgan?"
+          },
+          {
+            "ru": "Чем опасна лишняя мука на подине печи?",
+            "uz": "Pech tagidagi ortiqcha un nimasi bilan xavfli?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Соус и топпинг",
+      "title_uz": "Sous va topping",
+      "step_ru": "Налей соус мерным половником — граммовку возьми из техкарты, разгони по спирали от центра, край не заливай. Взвесь сыр и топпинги на весах, разложи по всей площади ровным слоем. Порядок укладки ингредиентов держи как в техкарте пиццы.",
+      "step_uz": "Sousni o'lchov cho'mich bilan quy — grammajni texkartadan ol, o'rtasidan spiral qilib yoy, chetiga quyma. Pishloq va toppinglarni tarozida tort, butun yuzaga bir tekis tashla. Ingredientlarni terish tartibini pitsa texkartasidagidek ushla.",
+      "key_point_ru": "Работай в перчатках и не трогай готовые ингредиенты голой рукой; каждый компонент — на весы, не «на глаз».",
+      "key_point_uz": "Qo'lqopda ishla, tayyor ingredientlarni yalang qo'l bilan ushlama; har bir komponentni tarozida tort, «ko'z bilan» emas.",
+      "reason_ru": "Порция на глаз даёт разброс: одному гостю густо, другому пусто — и себестоимость уплывает; жалоба на недовес приходит с фото.",
+      "reason_uz": "«Ko'z bilan» solingan porsiya har xil chiqadi: birovga ko'p, birovga oz — o'zannasi ham buziladi; kam solingani uchun shikoyat rasm bilan keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Соус отмерен половником, не «на глаз»",
+            "uz": "Sous cho'mich bilan o'lchandi, «ko'z bilan» emas"
+          },
+          {
+            "ru": "Сыр и топпинги взвешены на весах",
+            "uz": "Pishloq va toppinglar tarozida tortildi"
+          },
+          {
+            "ru": "Работал в перчатках с готовыми ингредиентами",
+            "uz": "Tayyor ingredientlar bilan qo'lqopda ishladi"
+          },
+          {
+            "ru": "Порядок укладки как в техкарте",
+            "uz": "Terish tartibi texkartadagidek"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько граммов соуса и сыра идёт на средний размер?",
+            "uz": "O'rtacha o'lchamga necha gramm sous va pishloq ketadi?"
+          },
+          {
+            "ru": "Почему топпинг раскладывают до края, а не кучей в центре?",
+            "uz": "Nega topping chetigacha teriladi, o'rtaga uyib emas?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Выпечка и выемка пиццы",
+      "title_uz": "Pitsani pechda pishirish va olish",
+      "step_ru": "Проверь, что печь вышла на температуру из техкарты. Посади пиццу лопатой ровно, без сдвига топпинга. Засеки время выпечки по техкарте. Достань лопатой, поставь на решётку, оцени низ: корж пропечён, борт золотой, сыр расплавлен полностью. Режь ножом-колесом на нужное число кусков и отдавай на упаковку сразу.",
+      "step_uz": "Pech texkartadagi haroratga chiqqanini tekshir. Pitsani kurak bilan tekis joyla, toppingni surib yubormay. Texkartadagi pishirish vaqtini hisobla. Kurak bilan ol, panjaraga qo'y, tagini ko'r: xamir pishgan, borti oltin rang, pishloq to'liq erigan. G'ildirak-pichoq bilan kerakli bo'lakka kes va darrov qadoqlashga ber.",
+      "key_point_ru": "Лопата и устье печи раскалены — работай в термоперчатке и не наклоняйся лицом к устью.",
+      "key_point_uz": "Kurak va pech og'zi qizib turadi — termoqo'lqopda ishla, yuzingni pech og'ziga egma.",
+      "reason_ru": "Недопечённая пицца с сырым низом — возврат и жалоба; передержанная горчит. Ожог о печь снимает повара со смены в самый пик.",
+      "reason_uz": "Tagi xom pitsa — qaytarish va shikoyat; ortiqcha turgani achchiq bo'ladi. Pechdan kuysang, eng pik vaqtida smenadan chiqib qolasan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил температуру печи перед посадкой",
+            "uz": "Joylashdan oldin pech haroratini tekshirdi"
+          },
+          {
+            "ru": "Работает в термоперчатке у устья печи",
+            "uz": "Pech og'zida termoqo'lqopda ishlaydi"
+          },
+          {
+            "ru": "Проверил низ и борт перед нарезкой",
+            "uz": "Kesishdan oldin tagini va bortini tekshirdi"
+          },
+          {
+            "ru": "Пицца ушла на упаковку сразу после нарезки",
+            "uz": "Pitsa kesilgach darrov qadoqlashga ketdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "На какой температуре и сколько минут печётся пицца?",
+            "uz": "Pitsa qanday haroratda va necha daqiqa pishadi?"
+          },
+          {
+            "ru": "Как понять, что пицца готова, не разрезая её?",
+            "uz": "Pitsani kesmasdan pishganini qanday bilasan?"
+          }
+        ]
+      }
+    }
+  ],
+  "ch_snacks": [
+    {
+      "sort": 0,
+      "title_ru": "Открытие станции снеков",
+      "title_uz": "Snek stansiyasini ochish",
+      "step_ru": "Проверь уровень масла во фритюре — он должен быть между метками; долей до нормы холодным маслом до включения. Осмотри масло: тёмное, с горелой крошкой и резким запахом — на замену. Включи фритюр, выставь температуру по техкарте. Достань корзины, шумовку, весы, соусники и проверь, что они чистые и сухие.",
+      "step_uz": "Frityurdagi yog' darajasini tekshir — belgilar orasida bo'lishi kerak; yetmasa yoqishdan oldin sovuq yog' qo'shib to'ldir. Yog'ni ko'zdan kechir: qoraygan, kuygan uvoqli va keskin hidli bo'lsa — almashtirishga. Frityurni yoq, texkarta bo'yicha harorat qo'y. Setka, shumovka, tarozi, sous idishlarini chiqar va toza-quruqligini tekshir.",
+      "key_point_ru": "Никогда не доливай масло в раскалённый фритюр и не опускай мокрую корзину — масло выстрелит.",
+      "key_point_uz": "Qizigan frityurga hech qachon yog' quyma va ho'l setkani tushirma — yog' otilib chiqadi.",
+      "reason_ru": "Капля воды в горячем масле даёт выброс на метр — это ожог лица и рук. Старое масло даёт горечь и тёмную корку, гость такое возвращает.",
+      "reason_uz": "Qaynoq yog'ga tushgan bir tomchi suv bir metrga otiladi — bu yuz va qo'l kuyishi. Eski yog' achchiq ta'm va qora qatqaloq beradi, mehmon buni qaytaradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил уровень масла до включения фритюра",
+            "uz": "Frityurni yoqishdan oldin yog' darajasini tekshirdi"
+          },
+          {
+            "ru": "Оценил состояние масла: цвет, запах, крошка",
+            "uz": "Yog' holatini baholadi: rang, hid, uvoq"
+          },
+          {
+            "ru": "Выставил температуру по техкарте",
+            "uz": "Texkarta bo'yicha harorat qo'ydi"
+          },
+          {
+            "ru": "Инвентарь станции чистый и сухой",
+            "uz": "Stansiya jihozlari toza va quruq"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что сделаешь, если масло потемнело раньше срока замены?",
+            "uz": "Yog' almashtirish muddatidan oldin qorayib qolsa nima qilasan?"
+          },
+          {
+            "ru": "Почему нельзя опускать мокрую корзину во фритюр?",
+            "uz": "Nega ho'l setkani frityurga tushirib bo'lmaydi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Жарка снеков во фритюре",
+      "title_uz": "Sneklarni frityurda qovurish",
+      "step_ru": "Возьми продукт из морозильника по ФИФО, не размораживай, если техкарта этого не требует. Стряхни лёд и крошку. Взвесь порцию до граммовки из техкарты. Опусти корзину в масло медленно, от себя. Засеки таймер на время из техкарты. Подними корзину, дай маслу стечь, встряхни, посоли по норме и отдай сразу.",
+      "step_uz": "Mahsulotni muzlatgichdan FIFO bo'yicha ol, texkarta talab qilmasa eritma. Muz va uvoqni qoq. Porsiyani texkartadagi grammajgacha tort. Setkani yog'ga sekin, o'zingdan nari tushir. Texkartadagi vaqtga taymer qo'y. Setkani ko'tar, yog'i oqib tushsin, silkit, me'yorda tuz sep va darrov ber.",
+      "key_point_ru": "Не перегружай корзину — продукт слипается и жарится неравномерно. Между разными позициями стряхивай крошку из масла шумовкой.",
+      "key_point_uz": "Setkani ortiqcha to'ldirma — mahsulot yopishib, notekis qovuriladi. Har xil pozitsiya orasida yog'dagi uvoqni shumovka bilan olib tashla.",
+      "reason_ru": "Недожаренный снек внутри холодный — это и жалоба, и риск отравления. Крошка на дне фритюра горит и портит вкус следующей партии.",
+      "reason_uz": "Ichi sovuq qolgan snek — ham shikoyat, ham zaharlanish xavfi. Frityur tagidagi uvoq kuyib, keyingi partiyaning ta'mini buzadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Взял продукт по ФИФО, стряхнул лёд",
+            "uz": "Mahsulotni FIFO bo'yicha oldi, muzini qoqdi"
+          },
+          {
+            "ru": "Взвесил порцию на весах",
+            "uz": "Porsiyani tarozida tortdi"
+          },
+          {
+            "ru": "Ставил таймер на каждую закладку",
+            "uz": "Har bir yuklashga taymer qo'ydi"
+          },
+          {
+            "ru": "Корзина загружена без перегруза",
+            "uz": "Setka ortiqcha to'ldirilmagan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько минут жарится каждая позиция снеков?",
+            "uz": "Har bir snek pozitsiyasi necha daqiqa qovuriladi?"
+          },
+          {
+            "ru": "Что будет, если положить в корзину двойную порцию?",
+            "uz": "Setkaga ikki barobar porsiya solsang nima bo'ladi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Тостер, соусы и сборка снеков",
+      "title_uz": "Toster, souslar va sneklarni yig'ish",
+      "step_ru": "Прогрей тостер до режима из техкарты. Заложи лепёшку или булочку на время из техкарты, не оставляй без присмотра. Готовый продукт бери перчаткой или щипцами. Собери снек по техкарте, соус налей мерным дозатором. Соусники держи в холоде и меняй по сроку.",
+      "step_uz": "Tosterni texkartadagi rejimgacha qizdir. Non yoki bulochkani texkartadagi vaqtga sol, qarovsiz qoldirma. Tayyor mahsulotni qo'lqop yoki qisqich bilan ol. Snekni texkarta bo'yicha yig', sousni o'lchov dozator bilan quy. Sous idishlarini sovuqda ushla va muddati bo'yicha almashtir.",
+      "key_point_ru": "Перчатка для готового продукта — отдельная; после сырого продукта перчатки меняй и мой руки.",
+      "key_point_uz": "Tayyor mahsulot uchun qo'lqop alohida; xom mahsulotdan keyin qo'lqopni almashtir va qo'lingni yuv.",
+      "reason_ru": "Сырое и готовое через одни перчатки — это кросс-контаминация и отравление гостя. Соус, простоявший в тепле, скисает и портит всю партию.",
+      "reason_uz": "Xom va tayyorni bitta qo'lqop bilan ushlash — kross-kontaminatsiya va mehmonning zaharlanishi. Issiqda turgan sous achib, butun partiyani buzadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Сменил перчатки при переходе от сырого к готовому",
+            "uz": "Xomdan tayyorga o'tishda qo'lqopni almashtirdi"
+          },
+          {
+            "ru": "Тостер не оставлен без присмотра",
+            "uz": "Toster qarovsiz qoldirilmadi"
+          },
+          {
+            "ru": "Соус налит дозатором по норме",
+            "uz": "Sous dozator bilan me'yorda quyildi"
+          },
+          {
+            "ru": "Соусники стоят в холоде, срок не вышел",
+            "uz": "Sous idishlari sovuqda turibdi, muddati o'tmagan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Когда нужно менять перчатки на станции?",
+            "uz": "Stansiyada qo'lqopni qachon almashtirish kerak?"
+          },
+          {
+            "ru": "Сколько держится открытый соус и как ты это отслеживаешь?",
+            "uz": "Ochilgan sous qancha turadi va buni qanday kuzatasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Фильтрация масла и закрытие станции",
+      "title_uz": "Yog'ni filtrlash va stansiyani yopish",
+      "step_ru": "После пика выключи фритюр и дай маслу остыть до безопасной температуры. Слей масло через фильтр, вычисти дно ванны от нагара. Залей отфильтрованное масло обратно, долей до метки. Запиши фильтрацию в журнал. Вымой корзины, шумовку, солонки и сетки, протри корпус фритюра насухо.",
+      "step_uz": "Pikdan keyin frityurni o'chir va yog' xavfsiz haroratgacha sovusin. Yog'ni filtr orqali quy, vanna tagini kuyindidan tozala. Filtrlangan yog'ni qaytar, belgigacha to'ldir. Filtrlashni jurnalga yoz. Setkalar, shumovka, tuzdon va panjaralarni yuv, frityur korpusini quruq arting.",
+      "key_point_ru": "Не сливай горячее масло — только после остывания и только в предназначенную ёмкость. Мокрые корзины в горячую ванну не ставь.",
+      "key_point_uz": "Issiq yog'ni quyma — faqat sovigach va faqat maxsus idishga. Ho'l setkani issiq vannaga qo'yma.",
+      "reason_ru": "Нефильтрованное масло темнеет вдвое быстрее — расход растёт, а вкус портится. Слив горячего масла — самый частый тяжёлый ожог на кухне.",
+      "reason_uz": "Filtrlanmagan yog' ikki barobar tez qorayadi — sarf oshadi, ta'm buziladi. Issiq yog'ni quyish — oshxonadagi eng ko'p uchraydigan og'ir kuyish sababi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Фритюр выключен и остыл до слива",
+            "uz": "Frityur o'chirilgan va quyishdan oldin sovigan"
+          },
+          {
+            "ru": "Масло слито через фильтр, дно очищено",
+            "uz": "Yog' filtr orqali quyildi, tagi tozalandi"
+          },
+          {
+            "ru": "Уровень масла долит до метки",
+            "uz": "Yog' darajasi belgigacha to'ldirildi"
+          },
+          {
+            "ru": "Корзины, солонки и сетки вымыты",
+            "uz": "Setka, tuzdon va panjaralar yuvildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как часто фильтруется масло и кто это отмечает?",
+            "uz": "Yog' qancha vaqtda bir filtrlanadi va buni kim belgilaydi?"
+          },
+          {
+            "ru": "Почему нельзя сливать масло сразу после выключения?",
+            "uz": "Nega yog'ni o'chirgandan keyin darrov quyib bo'lmaydi?"
+          }
+        ]
+      }
+    }
+  ],
+  "ch_prep": [
+    {
+      "sort": 0,
+      "title_ru": "План заготовки на смену",
+      "title_uz": "Smenaga zagotovka rejasi",
+      "step_ru": "Утром сними остатки заготовок в холодильнике. Сверь с планом на день и с загрузкой прошлого пика. Посчитай, сколько чего доготовить до 12:00 и до 17:00. Объёмы бери из техкарты заготовок, а не по памяти. Согласуй список со старшим поваром и начинай с того, что дольше готовится.",
+      "step_uz": "Ertalab sovutgichdagi zagotovka qoldig'ini sanab ol. Kunlik reja va o'tgan pik yuklamasi bilan solishtir. Soat 12:00 va 17:00 gacha nima qancha tayyorlash kerakligini hisobla. Hajmni xotiradan emas, zagotovka texkartasidan ol. Ro'yxatni bosh oshpaz bilan kelish va eng uzoq tayyorlanadiganidan boshla.",
+      "key_point_ru": "Заготовку считают под пик, а не «побольше на всякий случай» — лишнее не переживёт срок годности.",
+      "key_point_uz": "Zagotovka pikka qarab hisoblanadi, «ehtiyot uchun ko'proq» emas — ortig'i yaroqlilik muddatidan o'tib ketadi.",
+      "reason_ru": "Не хватило заготовки в пик — заказы стоят и уходят в отказ. Наготовил лишнего — всё это через день уйдёт в списание.",
+      "reason_uz": "Pikda zagotovka yetmasa buyurtmalar to'xtaydi va bekor bo'ladi. Ortiqcha tayyorlasang, bir kundan keyin hammasi spisaniyaga ketadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Снял остатки заготовок перед началом смены",
+            "uz": "Smena boshida zagotovka qoldig'ini sanadi"
+          },
+          {
+            "ru": "Объёмы взяты из техкарты, а не по памяти",
+            "uz": "Hajm xotiradan emas, texkartadan olindi"
+          },
+          {
+            "ru": "План согласован со старшим поваром",
+            "uz": "Reja bosh oshpaz bilan kelishildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как ты считаешь, сколько заготовки нужно на вечерний пик?",
+            "uz": "Kechki pikka qancha zagotovka kerakligini qanday hisoblaysan?"
+          },
+          {
+            "ru": "Что делать с заготовкой, которая не ушла за смену?",
+            "uz": "Smenada ketmagan zagotovkani nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Нарезка и раздельные доски",
+      "title_uz": "To'g'rash va alohida taxtalar",
+      "step_ru": "Возьми доску и нож того цвета, что закреплён за продуктом: сырое мясо, овощи и готовое — раздельно. Вымой и обсуши овощи. Режь по форме и размеру из техкарты: одинаковая нарезка — одинаковая прожарка. Собирай нарезку в чистый гастроном, не выше края.",
+      "step_uz": "Mahsulotga biriktirilgan rangdagi taxta va pichoqni ol: xom go'sht, sabzavot va tayyor mahsulot — alohida. Sabzavotni yuv va quriting. Texkartadagi shakl va o'lchamda to'g'ra: bir xil to'g'ralgan mahsulot bir xil pishadi. To'g'ralganini toza gastronomga yig', chetidan oshirma.",
+      "key_point_ru": "Одна доска на сырое и готовое — прямое нарушение и штраф по санитарным нормам. Нож веди от себя, пальцы подгибай.",
+      "key_point_uz": "Xom va tayyorga bitta taxta ishlatish — sanitariya normasini to'g'ridan-to'g'ri buzish va jarima. Pichoqni o'zingdan nari yurgiz, barmoqlaringni buk.",
+      "reason_ru": "Кросс-контаминация даёт сальмонеллу в готовом блюде — это отравление гостя и закрытие филиала проверкой. Разнокалиберная нарезка горит с краёв и остаётся сырой внутри.",
+      "reason_uz": "Kross-kontaminatsiya tayyor taomga salmonella olib keladi — mehmon zaharlanadi, tekshiruv filialni yopadi. Har xil o'lchamda to'g'ralgani cheti kuyib, ichi xom qoladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Взял доску и нож по цветовой маркировке",
+            "uz": "Rang belgisi bo'yicha taxta va pichoq oldi"
+          },
+          {
+            "ru": "Овощи вымыты и обсушены до нарезки",
+            "uz": "Sabzavot to'g'rashdan oldin yuvildi va quritildi"
+          },
+          {
+            "ru": "Нарезка ровная, по размеру из техкарты",
+            "uz": "To'g'ralgani tekis, texkartadagi o'lchamda"
+          },
+          {
+            "ru": "Гастроном чистый, заполнен не выше края",
+            "uz": "Gastronom toza, chetidan oshirilmagan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Какая доска для сырого мяса, какая для овощей?",
+            "uz": "Xom go'sht uchun qaysi taxta, sabzavot uchun qaysi?"
+          },
+          {
+            "ru": "Что случится, если резать готовый продукт на доске из-под сырого?",
+            "uz": "Xomdan keyin o'sha taxtada tayyor mahsulot kessang nima bo'ladi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Маркировка и сроки годности",
+      "title_uz": "Markirovka va yaroqlilik muddatlari",
+      "step_ru": "На каждую готовую заготовку клей стикер: наименование, дата и время изготовления, срок годности, твоя смена. Пиши разборчиво. Ставь ёмкость в холодильник так, чтобы стикер читался спереди. Раз в смену обходи полки и вынимай всё, у чего срок вышел.",
+      "step_uz": "Har bir tayyor zagotovkaga stiker yopishtir: nomi, tayyorlangan sana va vaqti, yaroqlilik muddati, sening smenang. Tushunarli yoz. Idishni sovutgichga stiker oldindan ko'rinadigan qilib qo'y. Smenada bir marta javonlarni aylanib chiq va muddati o'tganini olib tashla.",
+      "key_point_ru": "Стикер клеится сразу, а не «потом» — через час ты уже не вспомнишь точное время.",
+      "key_point_uz": "Stiker «keyin» emas, darrov yopishtiriladi — bir soatdan keyin aniq vaqtni eslay olmaysan.",
+      "reason_ru": "Ёмкость без стикера идёт в списание целиком, даже если продукт хороший, — и это твоя недостача. Просрочка в работе — это отравление и красная зона по дисциплине.",
+      "reason_uz": "Stikersiz idish mahsuloti yaxshi bo'lsa ham butunlay spisaniyaga ketadi — bu sening kamomading. Muddati o'tgan mahsulot ishda — bu zaharlanish va intizom bo'yicha qizil zona.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Стикер наклеен сразу после изготовления",
+            "uz": "Stiker tayyorlangandan keyin darrov yopishtirildi"
+          },
+          {
+            "ru": "На стикере есть дата, время и срок",
+            "uz": "Stikerda sana, vaqt va muddat bor"
+          },
+          {
+            "ru": "Стикеры читаются спереди, ёмкости не поставлены задом",
+            "uz": "Stikerlar oldindan o'qiladi, idishlar teskari qo'yilmagan"
+          },
+          {
+            "ru": "Просроченное вынуто с полки",
+            "uz": "Muddati o'tgani javondan olindi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что пишут на стикере и зачем там время, а не только дата?",
+            "uz": "Stikerda nima yoziladi va nega faqat sana emas, vaqt ham kerak?"
+          },
+          {
+            "ru": "Нашёл ёмкость без стикера — твои действия?",
+            "uz": "Stikersiz idish topding — nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Вакууматор и хранение заготовок",
+      "title_uz": "Vakuumator va zagotovkani saqlash",
+      "step_ru": "Проверь, что камера вакууматора сухая и уплотнитель чистый. Уложи продукт в пакет, не заходя за линию запайки. Выбери режим по плотности продукта. Запусти цикл, дождись запайки, проверь шов на герметичность. Наклей стикер и убери в холодильник при 0…+4°C: сырое вниз, готовое вверх.",
+      "step_uz": "Vakuumator kamerasi quruq va zichlagichi tozaligini tekshir. Mahsulotni paketga sol, kavsharlash chizig'idan oshirma. Mahsulot zichligiga qarab rejim tanla. Siklni ishga tushir, kavsharlanishini kut, chok germetikligini tekshir. Stiker yopishtir va 0…+4°C da sovutgichga qo'y: xom pastga, tayyor yuqoriga.",
+      "key_point_ru": "Мокрый или жирный край пакета не запаяется — шов разойдётся, и продукт испортится незаметно.",
+      "key_point_uz": "Paketning ho'l yoki yog'li cheti kavsharlanmaydi — chok ochiladi va mahsulot bilinmay ayniydi.",
+      "reason_ru": "Разошедшийся вакуум даёт скрытую порчу: снаружи целый пакет, внутри уже опасный продукт. Сырое над готовым — стекает и заражает всю полку.",
+      "reason_uz": "Ochilgan vakuum yashirin ayniyshni beradi: tashqaridan paket but, ichida esa allaqachon xavfli mahsulot. Xom mahsulot tayyorning ustida tursa, sizib butun javonni zararlaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Край пакета сухой и чистый до запайки",
+            "uz": "Kavsharlashdan oldin paket cheti quruq va toza"
+          },
+          {
+            "ru": "Шов проверен на герметичность",
+            "uz": "Chok germetikligi tekshirildi"
+          },
+          {
+            "ru": "Стикер наклеен на вакуумный пакет",
+            "uz": "Vakuum paketga stiker yopishtirildi"
+          },
+          {
+            "ru": "Сырое лежит ниже готового, температура 0…+4°C",
+            "uz": "Xom mahsulot tayyordan pastda, harorat 0…+4°C"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как проверить, что пакет запаялся правильно?",
+            "uz": "Paket to'g'ri kavsharlanganini qanday tekshirasan?"
+          },
+          {
+            "ru": "Почему сырое хранят на нижних полках?",
+            "uz": "Nega xom mahsulot pastki javonlarda saqlanadi?"
+          }
+        ]
+      }
+    }
+  ],
+  "ch_equipment": [
+    {
+      "sort": 0,
+      "title_ru": "Проверка оборудования перед открытием",
+      "title_uz": "Ochilishdan oldin jihozlarni tekshirish",
+      "step_ru": "К 9:00 обойди станции: печь, фритюр, тостер, вакууматор, холодильники, морозильники, весы. Включи каждое и убедись, что оно выходит на режим. Сними и запиши температуры холодильников и морозильников. Осмотри шнуры и вилки на повреждения. Всё нерабочее сразу запиши и сообщи менеджеру.",
+      "step_uz": "Soat 9:00 gacha stansiyalarni aylanib chiq: pech, frityur, toster, vakuumator, sovutgich, muzlatgich, tarozi. Har birini yoq va rejimga chiqishiga ishonch hosil qil. Sovutgich va muzlatgich haroratini o'lchab yozib qo'y. Shnur va vilkalarni shikast bormi deb ko'r. Ishlamayotganini darrov yozib, menejerga ayt.",
+      "key_point_ru": "Оборудование с оголённым проводом или искрящей вилкой не включают — сначала мастер, потом работа.",
+      "key_point_uz": "Simi ochilgan yoki vilkasi uchqun chiqarayotgan jihoz yoqilmaydi — avval usta, keyin ish.",
+      "reason_ru": "Холодильник, простоявший ночь в плюсе, — это вся полка продукта в списание. Найденная утром поломка чинится до пика, найденная в 13:00 останавливает кухню.",
+      "reason_uz": "Tun bo'yi plyusda turgan sovutgich — butun javondagi mahsulot spisaniyaga. Ertalab topilgan nosozlik pikkacha tuzatiladi, soat 13:00 da topilgani oshxonani to'xtatadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Обошёл и включил всё оборудование до открытия",
+            "uz": "Ochilishdan oldin barcha jihozni aylanib chiqdi va yoqdi"
+          },
+          {
+            "ru": "Записал температуры холодильников и морозильников",
+            "uz": "Sovutgich va muzlatgich haroratini yozib qo'ydi"
+          },
+          {
+            "ru": "Осмотрел шнуры и вилки",
+            "uz": "Shnur va vilkalarni ko'zdan kechirdi"
+          },
+          {
+            "ru": "Сообщил менеджеру о неисправном оборудовании",
+            "uz": "Nosoz jihoz haqida menejerga aytdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Какие температуры должны быть в холодильнике и морозильнике?",
+            "uz": "Sovutgich va muzlatgichda qanday harorat bo'lishi kerak?"
+          },
+          {
+            "ru": "Что сделаешь, если утром морозильник показывает не ту температуру?",
+            "uz": "Ertalab muzlatgich noto'g'ri harorat ko'rsatsa nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Печь для пиццы",
+      "title_uz": "Pitsa pechi",
+      "step_ru": "Включи печь заранее — ей нужно время на выход в режим, оно указано в техкарте. Выстави температуру верха и низа по техкарте, скорость конвейера — тоже. Проверь, что подина чистая, без нагара и муки. В смену подметай подину скребком между партиями. Выключай печь по регламенту закрытия и дай ей остыть до чистки.",
+      "step_uz": "Pechni oldindan yoq — rejimga chiqishi uchun vaqt kerak, u texkartada ko'rsatilgan. Texkarta bo'yicha ust va past haroratini, konveyer tezligini qo'y. Pech tagi toza, kuyindi va unsizligini tekshir. Smena davomida partiyalar orasida tagini skrebok bilan tozalab tur. Pechni yopish reglamenti bo'yicha o'chir va tozalashdan oldin sovusin.",
+      "key_point_ru": "Не чисти горячую подину влажной тряпкой и не лезь в устье рукой без термоперчатки.",
+      "key_point_uz": "Qizigan pech tagini ho'l latta bilan tozalama va termoqo'lqopsiz pech og'ziga qo'l suqma.",
+      "reason_ru": "Печь, не вышедшая на режим, даёт сырой низ у первых пицц — это переделка и опоздание заказов. Нагар на подине дымит и даёт горечь всей партии.",
+      "reason_uz": "Rejimga chiqmagan pech birinchi pitsalarning tagini xom qoldiradi — qayta tayyorlash va buyurtmalar kechikishi. Tagidagi kuyindi tutaydi va butun partiyaga achchiq ta'm beradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Печь включена заранее и вышла на режим",
+            "uz": "Pech oldindan yoqilgan va rejimga chiqqan"
+          },
+          {
+            "ru": "Температура и скорость выставлены по техкарте",
+            "uz": "Harorat va tezlik texkarta bo'yicha qo'yilgan"
+          },
+          {
+            "ru": "Подина чистится между партиями",
+            "uz": "Pech tagi partiyalar orasida tozalanadi"
+          },
+          {
+            "ru": "У печи работает в термоперчатке",
+            "uz": "Pech oldida termoqo'lqopda ishlaydi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "За сколько печь выходит на рабочую температуру?",
+            "uz": "Pech ishchi haroratga qancha vaqtda chiqadi?"
+          },
+          {
+            "ru": "Почему подину чистят сухим скребком, а не мокрой тряпкой?",
+            "uz": "Nega pech tagi ho'l latta bilan emas, quruq skrebok bilan tozalanadi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Фритюр и тостер: безопасная работа",
+      "title_uz": "Frityur va toster: xavfsiz ishlash",
+      "step_ru": "Перед включением фритюра проверь уровень масла и что ванна установлена ровно. Держи рядом сухое полотенце и не ставь мокрую посуду над маслом. У тостера проверь чистоту ленты и поддон от крошек. Загружай тостер по норме, не докладывай сверху. Выключай оба аппарата по регламенту и мой только после остывания.",
+      "step_uz": "Frityurni yoqishdan oldin yog' darajasini va vanna tekis o'rnatilganini tekshir. Yoningda quruq sochiq tursin, yog' ustiga ho'l idish qo'yma. Tosterda tasma tozaligini va uvoq tagligini tekshir. Tosterni me'yorda yukla, ustidan qo'shma. Ikkala apparatni reglament bo'yicha o'chir va faqat sovigach yuv.",
+      "key_point_ru": "Воду и лёд рядом с работающим фритюром не держи. У тостера не поправляй продукт рукой — только щипцами.",
+      "key_point_uz": "Ishlayotgan frityur yonida suv va muz saqlama. Tosterdagi mahsulotni qo'l bilan to'g'rilama — faqat qisqich bilan.",
+      "reason_ru": "Выброс масла с рабочего фритюра — ожог второй степени, и человек уходит на больничный. Крошки в поддоне тостера тлеют и дают дым на всю кухню.",
+      "reason_uz": "Ishlayotgan frityurdan otilgan yog' — ikkinchi darajali kuyish, xodim kasallik varaqasiga chiqadi. Toster tagligidagi uvoqlar cho'g'lanib, butun oshxonani tutunga to'ldiradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Уровень масла проверен до включения",
+            "uz": "Yoqishdan oldin yog' darajasi tekshirildi"
+          },
+          {
+            "ru": "Рядом с фритюром нет воды и мокрой посуды",
+            "uz": "Frityur yonida suv va ho'l idish yo'q"
+          },
+          {
+            "ru": "Поддон тостера очищен от крошек",
+            "uz": "Toster tagligi uvoqdan tozalandi"
+          },
+          {
+            "ru": "Продукт из тостера достаёт щипцами",
+            "uz": "Tosterdan mahsulotni qisqich bilan oladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что делать, если масло во фритюре загорелось?",
+            "uz": "Frityurdagi yog' yonib ketsa nima qilasan?"
+          },
+          {
+            "ru": "Почему тостер нельзя перегружать?",
+            "uz": "Nega tosterni ortiqcha yuklab bo'lmaydi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Мойка оборудования и закрытие смены",
+      "title_uz": "Jihozlarni yuvish va smenani yopish",
+      "step_ru": "Отключи оборудование от сети перед мойкой. Разбери съёмные части, замочи и вымой моющим по инструкции, ополосни и высуши. Протри вытяжку от жирового налёта, мармитные столы и наружные поверхности холодильников. Собери мусор, закрой контейнеры крышками. Проверь, что полы и стены на 10 см от пола чистые. Оставь станцию сухой.",
+      "step_uz": "Yuvishdan oldin jihozni tarmoqdan uz. Yechiladigan qismlarni ajrat, ivitib, yuvish vositasi bilan ko'rsatma bo'yicha yuv, chayqab quriting. So'rg'ichni yog' qatlamidan arting, marmit stollari va sovutgichlarning tashqi yuzasini tozala. Chiqindini yig', konteynerlarni qopqog'i bilan yop. Pol va poldan 10 sm balandlikkacha devor toza ekanini tekshir. Stansiyani quruq qoldir.",
+      "key_point_ru": "Мыть включённое или горячее оборудование нельзя — удар током или ожог. Электрические блоки водой не заливай.",
+      "key_point_uz": "Yoqilgan yoki issiq jihozni yuvish mumkin emas — tok uradi yoki kuyasan. Elektr bloklarga suv quyma.",
+      "reason_ru": "Жировой налёт на вытяжке — это и штраф на проверке, и настоящий риск пожара. Мокрая станция к утру даёт плесень и запах, который чувствуют гости.",
+      "reason_uz": "So'rg'ichdagi yog' qatlami — tekshiruvda jarima va haqiqiy yong'in xavfi. Ho'l qoldirilgan stansiya ertalabga mog'or va mehmon sezadigan hid beradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Оборудование отключено от сети перед мойкой",
+            "uz": "Yuvishdan oldin jihoz tarmoqdan uzildi"
+          },
+          {
+            "ru": "Съёмные части разобраны и высушены",
+            "uz": "Yechiladigan qismlar ajratildi va quritildi"
+          },
+          {
+            "ru": "Вытяжка без жирового налёта",
+            "uz": "So'rg'ichda yog' qatlami yo'q"
+          },
+          {
+            "ru": "Мусорные контейнеры закрыты крышками",
+            "uz": "Chiqindi konteynerlari qopqoq bilan yopilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Почему нельзя мыть оборудование, не отключив его?",
+            "uz": "Nega jihozni tarmoqdan uzmasdan yuvib bo'lmaydi?"
+          },
+          {
+            "ru": "Как часто моется вытяжка и по каким признакам видно, что пора?",
+            "uz": "So'rg'ich qancha vaqtda yuviladi va vaqti kelganini qaysi belgidan bilasan?"
+          }
+        ]
+      }
+    }
+  ],
+  "les_snacks": [
+    {
+      "sort": 0,
+      "title_ru": "Открытие станции снеков",
+      "title_uz": "Snek stansiyasini ochish",
+      "step_ru": "Проверь уровень масла во фритюрах по метке, долей холодным маслом до включения. Оцени цвет и запах масла. Включи фритюры и выставь температуру по техкарте отдельно для картофеля и для панированных позиций. Проверь весы, сетки, солонки и щипцы — они должны быть чистые и сухие. Достань продукт из морозильника по ФИФО.",
+      "step_uz": "Frityurlardagi yog' darajasini belgiga qarab tekshir, yetmasa yoqishdan oldin sovuq yog' qo'sh. Yog' rangi va hidini baho. Frityurlarni yoq va texkarta bo'yicha kartoshka hamda panirovkali pozitsiyalar uchun haroratni alohida qo'y. Tarozi, setka, tuzdon va qisqichlarni tekshir — toza va quruq bo'lsin. Mahsulotni muzlatgichdan FIFO bo'yicha ol.",
+      "key_point_ru": "У картофеля фри и панированных позиций разные ванны и разное масло — не смешивай их.",
+      "key_point_uz": "Kartoshka fri va panirovkali pozitsiyalar uchun vannalar va yog' alohida — ularni aralashtirma.",
+      "reason_ru": "Крошка панировки в картофельной ванне даёт тёмный горелый фри и жалобу; масло темнеет вдвое быстрее и расход растёт.",
+      "reason_uz": "Kartoshka vannasidagi panirovka uvog'i frini qora va kuygan qilib chiqaradi, mehmon shikoyat qiladi; yog' ikki barobar tez qorayadi va sarf oshadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Уровень масла проверен и долит до включения",
+            "uz": "Yog' darajasi tekshirildi va yoqishdan oldin to'ldirildi"
+          },
+          {
+            "ru": "Температура выставлена отдельно по ваннам",
+            "uz": "Harorat vannalar bo'yicha alohida qo'yildi"
+          },
+          {
+            "ru": "Весы, сетки и солонки чистые и сухие",
+            "uz": "Tarozi, setka va tuzdonlar toza va quruq"
+          },
+          {
+            "ru": "Продукт взят из морозильника по ФИФО",
+            "uz": "Mahsulot muzlatgichdan FIFO bo'yicha olindi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Почему картофель и панированные позиции жарятся в разных ваннах?",
+            "uz": "Nega kartoshka va panirovkali pozitsiyalar alohida vannalarda qovuriladi?"
+          },
+          {
+            "ru": "Какая температура в каждой ванне и откуда ты её берёшь?",
+            "uz": "Har bir vannada qanday harorat bo'ladi va buni qayerdan olasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Жарка снеков и картофеля фри",
+      "title_uz": "Snek va kartoshka fri qovurish",
+      "step_ru": "Взвесь порцию на весах до граммовки из техкарты. Стряхни лёд, продукт не мочи. Опусти корзину медленно, от себя. Поставь таймер на время из техкарты — для каждой позиции своё. После подъёма дай маслу стечь, встряхни, посоли из солонки по норме и отдай сразу на раздачу.",
+      "step_uz": "Porsiyani tarozida texkartadagi grammajgacha tort. Muzni qoq, mahsulotni ho'llama. Setkani sekin, o'zingdan nari tushir. Texkartadagi vaqtga taymer qo'y — har pozitsiyaning o'z vaqti bor. Ko'targandan keyin yog'i oqib tushsin, silkit, tuzdondan me'yorda tuz sep va darrov razdachaga ber.",
+      "key_point_ru": "Не грузи корзину выше отметки и не жарь две позиции в одной корзине — время у них разное.",
+      "key_point_uz": "Setkani belgidan yuqori yuklama va bitta setkada ikki xil pozitsiya qovurma — ularning vaqti har xil.",
+      "reason_ru": "Недожаренная курица внутри сырая — это отравление, а не просто жалоба. Пережаренный фри сухой и горький, гость его не доедает и не возвращается.",
+      "reason_uz": "Ichi xom qolgan tovuq — bu shunchaki shikoyat emas, zaharlanish. Ortiqcha qovurilgan fri quruq va achchiq bo'ladi, mehmon uni yeb tugatmaydi va qaytib kelmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Порция взвешена на весах",
+            "uz": "Porsiya tarozida tortildi"
+          },
+          {
+            "ru": "На каждую закладку поставлен таймер",
+            "uz": "Har bir yuklashga taymer qo'yildi"
+          },
+          {
+            "ru": "В одной корзине только одна позиция",
+            "uz": "Bitta setkada faqat bitta pozitsiya"
+          },
+          {
+            "ru": "Соль насыпана из солонки по норме",
+            "uz": "Tuz tuzdondan me'yorda sepildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько времени жарится каждая позиция?",
+            "uz": "Har bir pozitsiya qancha vaqt qovuriladi?"
+          },
+          {
+            "ru": "Как проверить, что курица прожарилась внутри?",
+            "uz": "Tovuqning ichi pishganini qanday tekshirasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Морозильник и хранение по стандарту",
+      "title_uz": "Muzlatgich va standart bo'yicha saqlash",
+      "step_ru": "Проверь и запиши температуру морозильника. Складывай продукт в нужной последовательности: по видам, тяжёлое вниз, вскрытое — в стрейч. Клей стикер с датой вскрытия. Ставь новое за старым, бери всегда переднее. Раз в смену протирай полки и убирай наледь и просыпь.",
+      "step_uz": "Muzlatgich haroratini tekshir va yozib qo'y. Mahsulotni kerakli ketma-ketlikda ter: turlari bo'yicha, og'iri pastga, ochilgani — streychda. Ochilgan sanasi bilan stiker yopishtir. Yangisini eskisining orqasiga qo'y, doim oldingisini ol. Smenada bir marta javonlarni arting, muz va to'kilganini tozala.",
+      "key_point_ru": "Вскрытая коробка без стрейча и стикера — это уже нарушение, даже если продукт лежит один час.",
+      "key_point_uz": "Streych va stikersiz ochilgan quti — mahsulot bir soat turgan bo'lsa ham allaqachon buzilish.",
+      "reason_ru": "Без стрейча продукт обветривается и покрывается ледяной коркой — панировка отваливается при жарке. Без стикера ты не докажешь срок, и вся упаковка уйдёт в списание.",
+      "reason_uz": "Streychsiz mahsulot shamollab, muz qatqalog'i bilan qoplanadi — qovurganda panirovka ko'chib tushadi. Stikersiz muddatni isbotlay olmaysan va butun qadoq spisaniyaga ketadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Температура морозильника снята и записана",
+            "uz": "Muzlatgich harorati o'lchandi va yozildi"
+          },
+          {
+            "ru": "Вскрытые упаковки в стрейче и со стикером",
+            "uz": "Ochilgan qadoqlar streychda va stiker bilan"
+          },
+          {
+            "ru": "Новое уложено за старым, ФИФО соблюдён",
+            "uz": "Yangisi eskisining orqasiga terildi, FIFO bajarildi"
+          },
+          {
+            "ru": "Полки без наледи и просыпи",
+            "uz": "Javonlarda muz va to'kilgan mahsulot yo'q"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "В каком порядке складывают продукт в морозильнике?",
+            "uz": "Muzlatgichga mahsulot qanday tartibda teriladi?"
+          },
+          {
+            "ru": "Зачем вскрытую упаковку заматывают в стрейч?",
+            "uz": "Ochilgan qadoq nega streychga o'raladi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Масло: уровень, фильтрация, замена",
+      "title_uz": "Yog': daraja, filtrlash, almashtirish",
+      "step_ru": "Следи за уровнем масла в течение смены и доливай до метки, когда фритюр остыл. После пика отфильтруй масло: слей через фильтр, вычисти дно от нагара, залей обратно. Отметь фильтрацию в журнале. Если масло тёмное, пенится, дымит или пахнет горелым — меняй полностью, не дожидаясь графика.",
+      "step_uz": "Smena davomida yog' darajasini kuzat va frityur sovigach belgigacha to'ldir. Pikdan keyin yog'ni filtrla: filtr orqali quy, tagini kuyindidan tozala, qaytarib sol. Filtrlashni jurnalga belgila. Yog' qorayib, ko'pirib, tutab yoki kuygan hid bersa — grafikni kutmasdan to'liq almashtir.",
+      "key_point_ru": "Долив и слив — только на остывшем фритюре. Отработку сливай в предназначенную ёмкость, не в раковину.",
+      "key_point_uz": "To'ldirish va quyish — faqat sovigan frityurda. Ishlatilgan yog'ni rakovinaga emas, maxsus idishga quy.",
+      "reason_ru": "Масло ниже метки перегревается и дымит, тэн выгорает — ремонт за счёт филиала. Пережаренное масло даёт горечь во всех позициях сразу, и жалобы идут пачкой.",
+      "reason_uz": "Belgidan past yog' qizib ketadi va tutaydi, ten kuyadi — ta'mirlash filial hisobidan. Ortiqcha qizigan yog' barcha pozitsiyalarga birdan achchiq ta'm beradi va shikoyatlar to'p-to'p keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Уровень масла держится у метки в течение смены",
+            "uz": "Smena davomida yog' darajasi belgida turibdi"
+          },
+          {
+            "ru": "Фильтрация сделана после пика и отмечена",
+            "uz": "Filtrlash pikdan keyin bajarildi va belgilandi"
+          },
+          {
+            "ru": "Дно ванны очищено от нагара",
+            "uz": "Vanna tagi kuyindidan tozalandi"
+          },
+          {
+            "ru": "Отработка слита в отдельную ёмкость",
+            "uz": "Ishlatilgan yog' alohida idishga quyildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "По каким признакам масло идёт на замену досрочно?",
+            "uz": "Yog' muddatidan oldin qaysi belgilarga ko'ra almashtiriladi?"
+          },
+          {
+            "ru": "Что будет, если жарить при уровне масла ниже метки?",
+            "uz": "Yog' darajasi belgidan past bo'lsa qovursang nima bo'ladi?"
+          }
+        ]
+      }
+    }
+  ],
+  "les_burger": [
+    {
+      "sort": 0,
+      "title_ru": "Подготовка бургерной станции",
+      "title_uz": "Burger stansiyasini tayyorlash",
+      "step_ru": "Вымой руки, надень чистые перчатки. Протри стол сборки и мармит. Проверь температуру мармита — горячее держится выше +60°C. Расставь соусники, овощи и сыр в холодной части станции, каждый в своей ёмкости со стикером. Проверь, что дозаторы соусов исправны и выдают норму. Разложи упаковку и обёртки под рукой.",
+      "step_uz": "Qo'lingni yuv, toza qo'lqop kiy. Yig'ish stoli va marmitni arting. Marmit haroratini tekshir — issiq mahsulot +60°C dan yuqorida turadi. Sous idishlari, sabzavot va pishloqni stansiyaning sovuq qismiga, har birini o'z idishida stiker bilan tergin. Sous dozatorlari soz va me'yor berayotganini tekshir. Qadoqlash va o'ramlarni qo'l ostiga qo'y.",
+      "key_point_ru": "Овощи и сыр стоят только в охлаждаемой части — не на тёплом столе рядом с мармитом.",
+      "key_point_uz": "Sabzavot va pishloq faqat sovutiladigan qismda turadi — marmit yonidagi iliq stolda emas.",
+      "reason_ru": "Тёплые овощи текут и делают булку мокрой, бургер разваливается в руках у гостя. Мармит ниже +60°C — это зона размножения бактерий, а не хранение.",
+      "reason_uz": "Iliq sabzavot suv chiqaradi va nonni ho'l qiladi, burger mehmonning qo'lida to'kiladi. +60°C dan past marmit — saqlash emas, bakteriya ko'payadigan zona.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Температура мармита проверена, выше +60°C",
+            "uz": "Marmit harorati tekshirildi, +60°C dan yuqori"
+          },
+          {
+            "ru": "Овощи и сыр в охлаждаемой части, со стикерами",
+            "uz": "Sabzavot va pishloq sovutiladigan qismda, stikerlar bilan"
+          },
+          {
+            "ru": "Дозаторы соусов проверены",
+            "uz": "Sous dozatorlari tekshirildi"
+          },
+          {
+            "ru": "Руки вымыты, перчатки чистые",
+            "uz": "Qo'l yuvilgan, qo'lqop toza"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "При какой температуре держат горячее на мармите и почему?",
+            "uz": "Marmitda issiq mahsulot qanday haroratda ushlanadi va nega?"
+          },
+          {
+            "ru": "Что сделаешь, если овощи на станции согрелись?",
+            "uz": "Stansiyadagi sabzavot isib qolsa nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Булочка: хранение, срок, тостирование",
+      "title_uz": "Bulochka: saqlash, muddat, tosterlash",
+      "step_ru": "Бери булочку по ФИФО и смотри срок годности на упаковке. Отбраковывай мятые, сухие и подсохшие. Разрежь пополам, положи срезом на тостер, режим и время возьми из техкарты. Готовую половинку сразу собирай — остывшая и подсохшая булка идёт в брак, а не обратно на стол.",
+      "step_uz": "Bulochkani FIFO bo'yicha ol va qadoqdagi yaroqlilik muddatiga qara. Ezilgan, quruq va qotib qolganini brakka chiqar. Ikkiga kes, kesilgan tomonini tosterga qo'y, rejim va vaqtni texkartadan ol. Tayyor yarmini darrov yig' — sovib qotgan non stolga qaytmaydi, brakka ketadi.",
+      "key_point_ru": "Просроченную булочку не «дотостируешь» — она списывается целиком, даже если выглядит нормально.",
+      "key_point_uz": "Muddati o'tgan bulochkani «qaytadan tosterlab» bo'lmaydi — ko'rinishi yaxshi bo'lsa ham butunlay spisaniyaga ketadi.",
+      "reason_ru": "Непрожаренная булка размокает от соуса за минуту доставки, и гость получает кашу. Просрочка в сборке — красная зона: штраф и риск для здоровья.",
+      "reason_uz": "Tosterlanmagan non yetkazib berish davomida sousdan bir daqiqada bo'kadi va mehmonga bo'tqa boradi. Muddati o'tgan mahsulot yig'ishda — qizil zona: jarima va sog'liq uchun xavf.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Булочка взята по ФИФО, срок проверен",
+            "uz": "Bulochka FIFO bo'yicha olindi, muddati tekshirildi"
+          },
+          {
+            "ru": "Мятые и подсохшие отбракованы",
+            "uz": "Ezilgan va qotib qolganlari brakka chiqarildi"
+          },
+          {
+            "ru": "Тостируется по режиму из техкарты",
+            "uz": "Texkartadagi rejim bo'yicha tosterlanadi"
+          },
+          {
+            "ru": "Тостированная булка идёт в сборку сразу",
+            "uz": "Tosterlangan non darrov yig'ishga ketadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько живёт булочка после вскрытия упаковки?",
+            "uz": "Qadoq ochilgandan keyin bulochka qancha turadi?"
+          },
+          {
+            "ru": "Зачем булку тостируют, а не кладут холодной?",
+            "uz": "Non nega sovuq qo'yilmay, tosterlanadi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Сборка бургера по техкарте",
+      "title_uz": "Burgerni texkarta bo'yicha yig'ish",
+      "step_ru": "Возьми тостированную нижнюю половину. Клади ингредиенты строго в порядке из техкарты. Соус выдавливай дозатором по норме, ровным кругом, не за край. Котлету или курицу бери с мармита щипцами. Накрой верхней половиной, слегка прижми. Собирай бургер за то время, что заложено в стандарте.",
+      "step_uz": "Tosterlangan pastki yarmini ol. Ingredientlarni qat'iy texkartadagi tartibda tashla. Sousni dozator bilan me'yorda, tekis aylana qilib chiqar, chetidan oshirma. Kotlet yoki tovuqni marmitdan qisqich bilan ol. Ustki yarmi bilan yop, sekin bos. Burgerni standartda belgilangan vaqt ichida yig'.",
+      "key_point_ru": "Порядок слоёв — не украшение: соус под мясом держит булку сухой, влажное сверху течёт наружу.",
+      "key_point_uz": "Qatlamlar tartibi bezak emas: go'sht ostidagi sous nonni quruq saqlaydi, ho'l narsa ustda bo'lsa tashqariga oqadi.",
+      "reason_ru": "Перепутанный порядок — бургер течёт, обёртка промокает, и фото такого бургера уходит в отзыв. Порция соуса на глаз — либо сухо, либо гость весь в соусе.",
+      "reason_uz": "Tartib buzilsa burger oqadi, o'ram ho'l bo'ladi, shunday burgerning rasmi izohga tushadi. «Ko'z bilan» solingan sous — yo quruq, yo mehmonning ustiboshi sousda.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Слои уложены в порядке из техкарты",
+            "uz": "Qatlamlar texkartadagi tartibda terildi"
+          },
+          {
+            "ru": "Соус выдавлен дозатором, не за край",
+            "uz": "Sous dozator bilan chiqarildi, chetidan oshmagan"
+          },
+          {
+            "ru": "Мясо взято с мармита щипцами",
+            "uz": "Go'sht marmitdan qisqich bilan olindi"
+          },
+          {
+            "ru": "Бургер собран без задержки",
+            "uz": "Burger kechiktirilmay yig'ildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Назови порядок слоёв в бургере и почему он такой.",
+            "uz": "Burgerdagi qatlamlar tartibini ayt va nega aynan shunday."
+          },
+          {
+            "ru": "Сколько граммов соуса идёт на один бургер?",
+            "uz": "Bitta burgerga necha gramm sous ketadi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Лестер: сборка позиции",
+      "title_uz": "Lester: pozitsiyani yig'ish",
+      "step_ru": "Прогрей лепёшку на тостере по режиму из техкарты. Выложи начинку по центру полосой, граммовку каждого компонента возьми из техкарты и взвешивай. Соус — дозатором. Заверни плотно: подверни край, потом бока, скрути и положи швом вниз. Обрежь и упакуй в обёртку сразу.",
+      "step_uz": "Nonni tosterda texkartadagi rejim bo'yicha isit. Ichligini o'rtaga chiziq qilib tashla, har bir komponentning grammajini texkartadan ol va tarozida tort. Sous — dozator bilan. Zich o'ra: avval chetini buk, keyin yon tomonlarini, o'rab, chok tomonini pastga qilib qo'y. Kesib, darrov o'ramga qadoqla.",
+      "key_point_ru": "Не перегружай начинкой — переполненный ролл рвётся при заворачивании и разваливается у гостя.",
+      "key_point_uz": "Ichligini ortiqcha solma — to'lib ketgan roll o'raganda yirtiladi va mehmonning qo'lida to'kiladi.",
+      "reason_ru": "Рваный ролл нельзя отдать: переделка съедает продукт и время в пик. Швом вверх — упаковка раскрывается по дороге, и заказ приезжает разобранным.",
+      "reason_uz": "Yirtilgan rollni berib bo'lmaydi: qayta tayyorlash pik vaqtida mahsulot va vaqtni yeydi. Chok tomoni yuqorida bo'lsa, qadoq yo'lda ochilib, buyurtma to'kilib boradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Лепёшка прогрета по режиму",
+            "uz": "Non rejim bo'yicha isitildi"
+          },
+          {
+            "ru": "Компоненты взвешены по граммовке",
+            "uz": "Komponentlar grammaj bo'yicha tortildi"
+          },
+          {
+            "ru": "Ролл завёрнут плотно, швом вниз",
+            "uz": "Roll zich o'ralgan, chok tomoni pastda"
+          },
+          {
+            "ru": "Упакован сразу после сборки",
+            "uz": "Yig'ilgandan keyin darrov qadoqlandi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько граммов начинки идёт в Лестер?",
+            "uz": "Lesterga necha gramm ichlik ketadi?"
+          },
+          {
+            "ru": "Почему ролл кладут швом вниз?",
+            "uz": "Roll nega chok tomoni pastga qo'yiladi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Отдача и контроль времени сборки",
+      "title_uz": "Berish va yig'ish vaqtini nazorat qilish",
+      "step_ru": "Смотри на экран заказов и собирай в порядке очереди, не перескакивая. Сверь собранный бургер с составом в заказе, включая модификаторы «без лука», «двойной сыр». Заверни в обёртку под позицию. Передай на раздачу горячим и назови номер заказа вслух. Не держи собранный бургер на столе дольше времени, отведённого стандартом.",
+      "step_uz": "Buyurtma ekraniga qara va navbat bo'yicha yig', sakrab o'tma. Yig'ilgan burgerni buyurtmadagi tarkib bilan solishtir, «piyozsiz», «ikki hissa pishloq» kabi modifikatorlarni ham. Pozitsiyaga mos o'ramga o'ra. Razdachaga issiq holda uzat va buyurtma raqamini ovoz chiqarib ayt. Yig'ilgan burgerni standartda belgilangan vaqtdan ortiq stolda ushlama.",
+      "key_point_ru": "Проверяй модификаторы до сборки, а не после — переделка бургера из-за лука стоит целой порции.",
+      "key_point_uz": "Modifikatorlarni yig'ishdan keyin emas, oldin tekshir — piyoz uchun burgerni qayta yig'ish butun bir porsiyaga tushadi.",
+      "reason_ru": "Бургер, простоявший на столе, остывает и раскисает — это возврат и потерянный гость. Ошибка в составе при аллергии на компонент — это уже не жалоба, а вызов скорой.",
+      "reason_uz": "Stolda turib qolgan burger sovib bo'kadi — bu qaytarish va yo'qotilgan mehmon. Komponentga allergiya bo'lganda tarkibdagi xato shikoyat emas, tez yordam chaqirishga olib keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Собирает по очереди с экрана заказов",
+            "uz": "Buyurtma ekrani bo'yicha navbat bilan yig'adi"
+          },
+          {
+            "ru": "Модификаторы сверены до сборки",
+            "uz": "Modifikatorlar yig'ishdan oldin solishtirildi"
+          },
+          {
+            "ru": "Бургер передан на раздачу горячим",
+            "uz": "Burger razdachaga issiq uzatildi"
+          },
+          {
+            "ru": "Номер заказа назван вслух",
+            "uz": "Buyurtma raqami ovoz chiqarib aytildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что сделаешь, если в заказе стоит «без соуса», а ты уже налил?",
+            "uz": "Buyurtmada «soussiz» yozilgan bo'lsa-yu, sen sous quyib bo'lgan bo'lsang nima qilasan?"
+          },
+          {
+            "ru": "Сколько бургер может стоять на столе до выдачи?",
+            "uz": "Burger berilgunicha stolda qancha turishi mumkin?"
+          }
+        ]
+      }
+    }
+  ],
+  "les_meat": [
+    {
+      "sort": 0,
+      "title_ru": "Приём и хранение сырой курицы",
+      "title_uz": "Xom tovuqni qabul qilish va saqlash",
+      "step_ru": "Прими курицу и сразу проверь: температуру при приёмке, целостность упаковки, дату и срок на маркировке, запах. Занеси в холодильник за время, отведённое стандартом. Разложи на нижних полках при 0…+4°C, в закрытых гастроёмкостях, ничего не ставь над готовым продуктом. Наклей стикер приёмки и выставь по ФИФО.",
+      "step_uz": "Tovuqni qabul qilib, darrov tekshir: qabul paytidagi harorat, qadoq butunligi, markirovkadagi sana va muddat, hid. Standartda belgilangan vaqt ichida sovutgichga kirit. Pastki javonlarga 0…+4°C da, yopiq gastroidishlarda tergin, tayyor mahsulot ustiga hech narsa qo'yma. Qabul stikerini yopishtir va FIFO bo'yicha joylashtir.",
+      "key_point_ru": "Курица не стоит в тепле «пока разгружаем» — холодовая цепь не должна прерываться ни на одном шаге.",
+      "key_point_uz": "Tovuq «tushirib bo'lguncha» issiqda turmaydi — sovuq zanjir birorta bosqichda ham uzilmasligi kerak.",
+      "reason_ru": "Курица, полежавшая в тепле полчаса, уже размножила бактерии, и никакая жарка это не исправит — это отравление гостей и разбирательство для филиала.",
+      "reason_uz": "Yarim soat issiqda turgan tovuqda bakteriya allaqachon ko'paygan, uni hech qanday qovurish tuzatmaydi — bu mehmonlarning zaharlanishi va filial uchun tergov.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил температуру и упаковку при приёмке",
+            "uz": "Qabulda harorat va qadoqni tekshirdi"
+          },
+          {
+            "ru": "Курица убрана в холод сразу, без простоя",
+            "uz": "Tovuq kechiktirilmay sovuqqa olindi"
+          },
+          {
+            "ru": "Хранится на нижних полках при 0…+4°C",
+            "uz": "Pastki javonlarda 0…+4°C da saqlanadi"
+          },
+          {
+            "ru": "Стикер приёмки наклеен, ФИФО соблюдён",
+            "uz": "Qabul stikeri yopishtirilgan, FIFO bajarilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Какая температура должна быть у курицы при приёмке?",
+            "uz": "Qabul paytida tovuq harorati qanday bo'lishi kerak?"
+          },
+          {
+            "ru": "Почему сырую курицу нельзя ставить на верхнюю полку?",
+            "uz": "Nega xom tovuqni yuqori javonga qo'yib bo'lmaydi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Разделка курицы и кросс-контаминация",
+      "title_uz": "Tovuqni bo'lish va kross-kontaminatsiya",
+      "step_ru": "Надень перчатки и фартук для сырого. Возьми доску и нож, закреплённые за сырым мясом. Разделай тушку на части по схеме из техкарты, вес частей проверяй на весах. Готовые части складывай в чистые гастроёмкости. После разделки вымой доску, нож и стол, смени перчатки и вымой руки.",
+      "step_uz": "Xom mahsulot uchun qo'lqop va fartuk kiy. Xom go'shtga biriktirilgan taxta va pichoqni ol. Tanani texkartadagi sxema bo'yicha qismlarga ajrat, qismlarning og'irligini tarozida tekshir. Tayyor qismlarni toza gastroidishlarga sol. Bo'lib bo'lgach taxta, pichoq va stolni yuv, qo'lqopni almashtir va qo'lingni yuv.",
+      "key_point_ru": "Нож веди от себя, пальцы свободной руки подогни. Мокрая доска скользит — подложи под неё влажную салфетку.",
+      "key_point_uz": "Pichoqni o'zingdan nari yurgiz, bo'sh qo'ling barmoqlarini buk. Ho'l taxta sirg'anadi — tagiga nam salfetka qo'y.",
+      "reason_ru": "Порез на разделке — это смена без повара и кровь рядом с продуктом. Доска из-под сырой курицы, попавшая на овощи, — прямой путь к сальмонелле у гостя.",
+      "reason_uz": "Bo'lish paytida kesilish — smena oshpazsiz qoladi va mahsulot yonida qon bo'ladi. Xom tovuqdan keyin sabzavotga o'tgan taxta — mehmondagi salmonellaga to'g'ridan-to'g'ri yo'l.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Использует доску и нож для сырого мяса",
+            "uz": "Xom go'sht uchun taxta va pichoq ishlatadi"
+          },
+          {
+            "ru": "Нож ведёт от себя, пальцы подогнуты",
+            "uz": "Pichoqni o'zidan nari yurgizadi, barmoqlari bukilgan"
+          },
+          {
+            "ru": "После разделки вымыл доску, нож и стол",
+            "uz": "Bo'lgandan keyin taxta, pichoq va stolni yuvdi"
+          },
+          {
+            "ru": "Сменил перчатки и вымыл руки",
+            "uz": "Qo'lqopni almashtirdi va qo'lini yuvdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что делаешь сразу после того, как закончил разделку сырой курицы?",
+            "uz": "Xom tovuqni bo'lib bo'lgach darrov nima qilasan?"
+          },
+          {
+            "ru": "Чем опасна одна доска на курицу и на овощи?",
+            "uz": "Tovuq va sabzavotga bitta taxta ishlatish nimasi bilan xavfli?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Маринование курицы",
+      "title_uz": "Tovuqni marinovka qilish",
+      "step_ru": "Взвесь курицу и отмерь маринад строго по техкарте — на вес продукта, а не на глаз. Перемешай так, чтобы маринад покрыл каждый кусок. Закрой ёмкость, наклей стикер: дата, время, срок маринования. Поставь в холодильник при 0…+4°C на время из техкарты. На столе курица не маринуется никогда.",
+      "step_uz": "Tovuqni tortib, marinadni qat'iy texkarta bo'yicha o'lcha — mahsulot og'irligiga qarab, «ko'z bilan» emas. Marinad har bir bo'lakni qoplaydigan qilib aralashtir. Idishni yop, stiker yopishtir: sana, vaqt, marinovka muddati. 0…+4°C da sovutgichga texkartadagi vaqtga qo'y. Tovuq hech qachon stolda marinovka qilinmaydi.",
+      "key_point_ru": "Маринование идёт только в холоде и только заданное время: недодержал — вкуса нет, передержал — мясо расползается.",
+      "key_point_uz": "Marinovka faqat sovuqda va faqat belgilangan vaqt davomida bo'ladi: kam ushlasang ta'm yo'q, ko'p ushlasang go'sht tarqab ketadi.",
+      "reason_ru": "Курица, маринующаяся при комнатной температуре, — это готовая бактериальная среда. Нарушенное время маринования гость чувствует сразу: мясо пресное или ватное.",
+      "reason_uz": "Xona haroratida marinovka qilinayotgan tovuq — tayyor bakteriya muhiti. Marinovka vaqti buzilganini mehmon darrov sezadi: go'sht bemaza yoki paxtaday bo'ladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Маринад отмерен по весу продукта",
+            "uz": "Marinad mahsulot og'irligiga qarab o'lchandi"
+          },
+          {
+            "ru": "Ёмкость закрыта, стикер с датой и временем наклеен",
+            "uz": "Idish yopilgan, sana va vaqtli stiker yopishtirilgan"
+          },
+          {
+            "ru": "Маринуется в холодильнике, не на столе",
+            "uz": "Sovutgichda marinovka qilinadi, stolda emas"
+          },
+          {
+            "ru": "Время маринования соблюдено",
+            "uz": "Marinovka vaqtiga rioya qilindi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько времени маринуется курица и где это записано?",
+            "uz": "Tovuq qancha vaqt marinovka qilinadi va bu qayerda yozilgan?"
+          },
+          {
+            "ru": "Почему нельзя оставить маринующуюся курицу на столе на час?",
+            "uz": "Marinovkadagi tovuqni nega bir soat stolda qoldirib bo'lmaydi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Панировка курицы",
+      "title_uz": "Tovuqni panirovka qilish",
+      "step_ru": "Достань замаринованную курицу из холодильника порцией на ближайшую партию, остальное оставь в холоде. Обваляй в панировочной смеси по схеме из техкарты — сухая, влажная, сухая, если так предписано. Стряхни лишнее. Складывай на решётку в один слой. Панировочную смесь просеивай и меняй по регламенту.",
+      "step_uz": "Marinovka qilingan tovuqni sovutgichdan eng yaqin partiyaga yetadigan miqdorda ol, qolganini sovuqda qoldir. Texkartadagi sxema bo'yicha panirovka aralashmasiga bot — talab qilinsa quruq, ho'l, yana quruq. Ortiqchasini qoq. Panjaraga bir qatlam qilib tergin. Panirovka aralashmasini elab tur va reglament bo'yicha almashtir.",
+      "key_point_ru": "Одна рука для влажного, вторая для сухого — иначе руки залипают и панировка комкуется.",
+      "key_point_uz": "Bir qo'l ho'l uchun, ikkinchisi quruq uchun — aks holda qo'ling yopishib, panirovka uyum bo'lib qoladi.",
+      "reason_ru": "Комки панировки отваливаются в масло, горят и пачкают весь фритюр. Курица, вынутая из холода задолго до жарки, теряет холодовую цепь и становится небезопасной.",
+      "reason_uz": "Panirovka uyumlari yog'ga tushib kuyadi va butun frityurni iflos qiladi. Qovurishdan ancha oldin sovuqdan chiqarilgan tovuq sovuq zanjirni yo'qotadi va xavfli bo'lib qoladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Достаёт из холода только порцию на партию",
+            "uz": "Sovuqdan faqat bir partiyaga yetadigan miqdorni oladi"
+          },
+          {
+            "ru": "Панирует по схеме из техкарты",
+            "uz": "Texkartadagi sxema bo'yicha panirovka qiladi"
+          },
+          {
+            "ru": "Одна рука сухая, вторая влажная",
+            "uz": "Bir qo'li quruq, ikkinchisi ho'l"
+          },
+          {
+            "ru": "Панированное лежит в один слой на решётке",
+            "uz": "Panirovkalangani panjarada bir qatlam yotibdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как часто меняют панировочную смесь?",
+            "uz": "Panirovka aralashmasi qancha vaqtda almashtiriladi?"
+          },
+          {
+            "ru": "Почему нельзя запанировать сразу всю курицу на смену?",
+            "uz": "Nega butun smenaga yetadigan tovuqni birdan panirovka qilib bo'lmaydi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Жарка курицы и контроль прожарки",
+      "title_uz": "Tovuqni qovurish va pishganini nazorat qilish",
+      "step_ru": "Убедись, что масло вышло на температуру из техкарты. Опусти корзину медленно, загружай не выше отметки. Поставь таймер на время из техкарты для этой позиции. После подъёма дай стечь маслу. Проверь прожарку: сок прозрачный, у кости нет розового, температура в центре — по норме техкарты. Переложи на мармит или отдавай сразу.",
+      "step_uz": "Yog' texkartadagi haroratga chiqqaniga ishonch hosil qil. Setkani sekin tushir, belgidan yuqori yuklama. Shu pozitsiya uchun texkartadagi vaqtga taymer qo'y. Ko'targandan keyin yog'i oqib tushsin. Pishganini tekshir: shirasi tiniq, suyak yonida pushti joy yo'q, markazdagi harorat texkarta me'yorida. Marmitga ko'chir yoki darrov ber.",
+      "key_point_ru": "Время в таймере не сокращают, даже если очередь стоит. Курицу проверяют в самом толстом куске партии, а не в мелком.",
+      "key_point_uz": "Navbat turgan bo'lsa ham taymerdagi vaqt qisqartirilmaydi. Tovuq partiyaning eng yo'g'on bo'lagidan tekshiriladi, maydasidan emas.",
+      "reason_ru": "Сырая внутри курица — это сальмонелла и больница для гостя, а для филиала разбирательство. Перегруженная корзина роняет температуру масла, и вся партия выходит непрожаренной.",
+      "reason_uz": "Ichi xom tovuq — mehmon uchun salmonella va kasalxona, filial uchun tergov. Ortiqcha yuklangan setka yog' haroratini tushiradi va butun partiya xom chiqadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Масло на рабочей температуре до закладки",
+            "uz": "Yuklashdan oldin yog' ishchi haroratda"
+          },
+          {
+            "ru": "Корзина загружена не выше отметки",
+            "uz": "Setka belgidan yuqori yuklanmagan"
+          },
+          {
+            "ru": "Таймер поставлен и не сокращён",
+            "uz": "Taymer qo'yilgan va qisqartirilmagan"
+          },
+          {
+            "ru": "Прожарка проверена в толстом куске",
+            "uz": "Pishganligi yo'g'on bo'lakdan tekshirildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как ты убедишься, что курица прожарилась?",
+            "uz": "Tovuq pishganiga qanday ishonch hosil qilasan?"
+          },
+          {
+            "ru": "Что делать, если в пик очередь, а таймер ещё не дошёл?",
+            "uz": "Pikda navbat turibdi-yu, taymer hali tugamagan bo'lsa nima qilasan?"
+          }
+        ]
+      }
+    }
+  ],
+  "les_prep": [
+    {
+      "sort": 0,
+      "title_ru": "Заготовка под пик",
+      "title_uz": "Pikka zagotovka",
+      "step_ru": "Сними остатки заготовок и полуфабрикатов до 10:00. Сверь с планом на день и посмотри, что вчера кончалось раньше времени. Посчитай объёмы под пики 12:00–15:00 и 17:00–20:00. Нормы бери из техкарты. Начинай с позиций, у которых длинный цикл — маринование, разморозка по стандарту.",
+      "step_uz": "Soat 10:00 gacha zagotovka va yarim tayyor mahsulot qoldig'ini sanab ol. Kunlik reja bilan solishtir va kecha nima vaqtidan oldin tugaganini ko'r. 12:00–15:00 va 17:00–20:00 piklariga hajmni hisobla. Me'yorni texkartadan ol. Sikli uzun pozitsiyalardan boshla — marinovka, standart bo'yicha eritish.",
+      "key_point_ru": "Размораживай только в холодильнике по стандарту, никогда в воде и не на столе.",
+      "key_point_uz": "Faqat sovutgichda, standart bo'yicha erit, hech qachon suvda yoki stolda emas.",
+      "reason_ru": "Разморозка на столе выводит продукт в опасную зону температур — снаружи он уже тёплый, внутри ещё лёд. Не рассчитал заготовку — в пик кухня встаёт и заказы отменяются.",
+      "reason_uz": "Stolda eritish mahsulotni xavfli harorat zonasiga olib chiqadi — tashqarisi allaqachon iliq, ichi hali muz. Zagotovkani hisoblamasang, pikda oshxona to'xtaydi va buyurtmalar bekor bo'ladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Остатки сняты до начала заготовки",
+            "uz": "Zagotovka boshlanishidan oldin qoldiq sanaldi"
+          },
+          {
+            "ru": "Объёмы посчитаны под оба пика",
+            "uz": "Hajm ikkala pik uchun hisoblandi"
+          },
+          {
+            "ru": "Разморозка идёт в холодильнике",
+            "uz": "Eritish sovutgichda ketmoqda"
+          },
+          {
+            "ru": "Начал с позиций с длинным циклом",
+            "uz": "Sikli uzun pozitsiyalardan boshladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как правильно разморозить продукт и за сколько?",
+            "uz": "Mahsulotni qanday va qancha vaqtda to'g'ri eritish kerak?"
+          },
+          {
+            "ru": "Что такое опасная зона температур?",
+            "uz": "Xavfli harorat zonasi nima?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Овощи и соусы",
+      "title_uz": "Sabzavot va souslar",
+      "step_ru": "Вымой овощи, обсуши, убери порченые части. Режь на доске для овощей, форму и толщину бери из техкарты. Соусы разводи и порционируй мерной ёмкостью по техкарте, не переливай в чужую тару без стикера. Раскладывай в гастроёмкости под станцию, закрывай крышкой и сразу убирай в холод.",
+      "step_uz": "Sabzavotni yuv, quriting, chirigan joylarini olib tashla. Sabzavot taxtasida to'g'ra, shakl va qalinlikni texkartadan ol. Souslarni texkarta bo'yicha o'lchov idishi bilan tayyorla va porsiyala, stikersiz begona idishga quyma. Stansiya uchun gastroidishlarga tergin, qopqog'ini yop va darrov sovuqqa qo'y.",
+      "key_point_ru": "Мокрые овощи в закрытой ёмкости киснут за пару часов — обсушивай перед укладкой.",
+      "key_point_uz": "Yopiq idishdagi ho'l sabzavot bir necha soatda achib qoladi — terishdan oldin quritib ol.",
+      "reason_ru": "Скисшая нарезка портит бургер целиком, и заметит это уже гость. Соус в безымянной таре никто не идентифицирует — он уходит в списание вместе с ёмкостью.",
+      "reason_uz": "Achigan to'g'ram butun burgerni buzadi va buni birinchi bo'lib mehmon sezadi. Nomsiz idishdagi sousni hech kim taniy olmaydi — idishi bilan spisaniyaga ketadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Овощи вымыты и обсушены",
+            "uz": "Sabzavot yuvildi va quritildi"
+          },
+          {
+            "ru": "Нарезка на доске для овощей, по техкарте",
+            "uz": "To'g'rash sabzavot taxtasida, texkarta bo'yicha"
+          },
+          {
+            "ru": "Соусы разведены мерной ёмкостью",
+            "uz": "Souslar o'lchov idishi bilan tayyorlandi"
+          },
+          {
+            "ru": "Ёмкости закрыты и убраны в холод",
+            "uz": "Idishlar yopildi va sovuqqa olindi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Почему нарезанные овощи нельзя оставлять открытыми на столе?",
+            "uz": "To'g'ralgan sabzavotni nega stolda ochiq qoldirib bo'lmaydi?"
+          },
+          {
+            "ru": "Что сделаешь, если нашёл соус в таре без стикера?",
+            "uz": "Stikersiz idishdagi sousni topsang nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Маркировка и сроки",
+      "title_uz": "Markirovka va muddatlar",
+      "step_ru": "На каждую заготовку клей стикер: что внутри, дата и время, срок годности, смена. Клей на видное место, спереди ёмкости. При постановке в холодильник ставь новое за старым. Раз в смену пройди по полкам, проверь сроки, просроченное вынь и оформи списание через менеджера.",
+      "step_uz": "Har bir zagotovkaga stiker yopishtir: ichida nima, sana va vaqt, yaroqlilik muddati, smena. Ko'rinadigan joyga, idishning old tomoniga yopishtir. Sovutgichga qo'yayotganda yangisini eskisining orqasiga qo'y. Smenada bir marta javonlarni aylanib chiq, muddatlarni tekshir, muddati o'tganini ol va menejer orqali spisaniyani rasmiylashtir.",
+      "key_point_ru": "Стикер пишется в момент закладки, а не в конце смены по памяти.",
+      "key_point_uz": "Stiker smena oxirida xotiradan emas, mahsulot solingan payt yoziladi.",
+      "reason_ru": "Ёмкость без читаемого стикера списывается целиком — это прямая недостача на смене. Просроченный продукт, ушедший в блюдо, — красная зона и увольнение при повторе.",
+      "reason_uz": "O'qib bo'lmaydigan stikerli idish butunlay spisaniyaga ketadi — bu smenadagi to'g'ridan-to'g'ri kamomad. Muddati o'tgan mahsulot taomga ketsa — qizil zona va takrorlansa ishdan bo'shatish.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Стикер наклеен в момент закладки",
+            "uz": "Stiker mahsulot solingan payt yopishtirildi"
+          },
+          {
+            "ru": "На стикере дата, время, срок и смена",
+            "uz": "Stikerda sana, vaqt, muddat va smena bor"
+          },
+          {
+            "ru": "Новое ставится за старым",
+            "uz": "Yangisi eskisining orqasiga qo'yiladi"
+          },
+          {
+            "ru": "Просроченное вынуто и оформлено на списание",
+            "uz": "Muddati o'tgani olindi va spisaniyaga rasmiylashtirildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Кто оформляет списание и как ты об этом сообщаешь?",
+            "uz": "Spisaniyani kim rasmiylashtiradi va sen bu haqda qanday xabar berasan?"
+          },
+          {
+            "ru": "Зачем на стикере указывать смену?",
+            "uz": "Stikerda smenani ko'rsatish nega kerak?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Вакуум и хранение заготовок",
+      "title_uz": "Vakuum va zagotovkani saqlash",
+      "step_ru": "Проверь чистоту и сухость камеры вакууматора и уплотнителя. Заложи продукт в пакет, край запайки держи сухим и чистым. Выбери режим по продукту, запусти цикл, проверь шов. Наклей стикер и убери в холодильник: сырое вниз, готовое вверх, ничего на полу. Раз в смену протирай полки и ручки холодильника.",
+      "step_uz": "Vakuumator kamerasi va zichlagichining toza-quruqligini tekshir. Mahsulotni paketga sol, kavsharlanadigan chetini quruq va toza ushla. Mahsulotga qarab rejim tanla, siklni ishga tushir, chokni tekshir. Stiker yopishtir va sovutgichga qo'y: xom pastga, tayyor yuqoriga, polda hech narsa turmasin. Smenada bir marta javon va sovutgich dastalarini arting.",
+      "key_point_ru": "Вакуум сам по себе срок не удлиняет — срок берётся из стандарта и пишется на стикере.",
+      "key_point_uz": "Vakuumning o'zi muddatni uzaytirmaydi — muddat standartdan olinadi va stikerga yoziladi.",
+      "reason_ru": "Пакет с разошедшимся швом даёт скрытую порчу — снаружи ничего не видно, внутри уже опасно. Продукт на полу — санитарное нарушение, фиксируется на любой проверке.",
+      "reason_uz": "Choki ochilgan paket yashirin ayniyshni beradi — tashqaridan bilinmaydi, ichida esa xavfli. Polda turgan mahsulot — sanitariya buzilishi, har qanday tekshiruvda qayd etiladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Край пакета сухой, шов проверен",
+            "uz": "Paket cheti quruq, chok tekshirildi"
+          },
+          {
+            "ru": "Стикер со сроком по стандарту",
+            "uz": "Standart bo'yicha muddatli stiker"
+          },
+          {
+            "ru": "Сырое ниже готового, на полу ничего нет",
+            "uz": "Xom mahsulot tayyordan pastda, polda hech narsa yo'q"
+          },
+          {
+            "ru": "Полки и ручки холодильника протёрты",
+            "uz": "Javon va sovutgich dastalari artildi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Продлевает ли вакуум срок годности?",
+            "uz": "Vakuum yaroqlilik muddatini uzaytiradimi?"
+          },
+          {
+            "ru": "Почему нельзя ставить ящики с продуктом на пол?",
+            "uz": "Mahsulotli qutilarni nega polga qo'yib bo'lmaydi?"
+          }
+        ]
+      }
+    }
+  ],
+  "les_equipment": [
+    {
+      "sort": 0,
+      "title_ru": "Проверка оборудования перед открытием",
+      "title_uz": "Ochilishdan oldin jihozlarni tekshirish",
+      "step_ru": "К 9:00 проверь по списку: фритюры, тостер, вакууматор, мармит, холодильники, морозильники, весы. Включи и убедись, что каждое выходит на режим. Сними температуры холодильных камер и запиши. Проверь весы контрольным грузом. Осмотри провода, вилки и заземление. Всё неисправное занеси в журнал и сообщи менеджеру до пика.",
+      "step_uz": "Soat 9:00 gacha ro'yxat bo'yicha tekshir: frityurlar, toster, vakuumator, marmit, sovutgichlar, muzlatgichlar, tarozi. Yoqib, har biri rejimga chiqishiga ishonch hosil qil. Sovutish kameralari haroratini o'lchab yozib qo'y. Tarozini nazorat yuk bilan tekshir. Sim, vilka va yerga ulanishni ko'zdan kechir. Nosozini jurnalga yoz va pikkacha menejerga ayt.",
+      "key_point_ru": "Неисправные весы — это не мелочь: порции плывут, а вместе с ними себестоимость и вкус.",
+      "key_point_uz": "Nosoz tarozi mayda gap emas: porsiyalar suzib ketadi, u bilan birga o'zanna ham, ta'm ham buziladi.",
+      "reason_ru": "Поломка, найденная в 9:00, чинится до наплыва; найденная в 13:00 останавливает станцию на весь пик. Холодильник, простоявший ночь в тепле, — это списание целой камеры.",
+      "reason_uz": "Soat 9:00 da topilgan nosozlik oqim boshlanguncha tuzatiladi; 13:00 da topilgani stansiyani butun pik davomida to'xtatadi. Tun bo'yi issiqda turgan sovutgich — butun kameraning spisaniyasi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил всё оборудование по списку до 9:00",
+            "uz": "9:00 gacha barcha jihozni ro'yxat bo'yicha tekshirdi"
+          },
+          {
+            "ru": "Записал температуры холодильных камер",
+            "uz": "Sovutish kameralari haroratini yozdi"
+          },
+          {
+            "ru": "Проверил весы контрольным грузом",
+            "uz": "Tarozini nazorat yuk bilan tekshirdi"
+          },
+          {
+            "ru": "Внёс неисправности в журнал и сообщил менеджеру",
+            "uz": "Nosozliklarni jurnalga yozdi va menejerga aytdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что проверяешь на кухне первым делом в 9:00?",
+            "uz": "Soat 9:00 da oshxonada birinchi navbatda nimani tekshirasan?"
+          },
+          {
+            "ru": "Куда записывается неисправное оборудование?",
+            "uz": "Nosoz jihoz qayerga yoziladi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Фритюр: эксплуатация и уход",
+      "title_uz": "Frityur: ishlatish va parvarish",
+      "step_ru": "Проверь уровень масла до включения и долей холодным. Выстави температуру по техкарте под позицию. В смену снимай крошку шумовкой. После пика сделай фильтрацию: остуди, слей через фильтр, вычисти дно, залей обратно, отметь в журнале. Отработку сливай только в предназначенную ёмкость.",
+      "step_uz": "Yoqishdan oldin yog' darajasini tekshir va sovuq yog' qo'sh. Pozitsiyaga qarab texkarta bo'yicha harorat qo'y. Smena davomida uvoqni shumovka bilan olib tur. Pikdan keyin filtrlash qil: sovut, filtr orqali quy, tagini tozala, qaytarib sol, jurnalga belgila. Ishlatilgan yog'ni faqat maxsus idishga quy.",
+      "key_point_ru": "Горящее масло никогда не тушат водой — только крышкой или порошковым огнетушителем, сбив питание.",
+      "key_point_uz": "Yonayotgan yog' hech qachon suv bilan o'chirilmaydi — faqat qopqoq yoki kukunli o't o'chirgich bilan, tokni uzib.",
+      "reason_ru": "Вода в горящем масле даёт огненный столб до потолка — это пожар кухни, а не локальный инцидент. Нефильтрованное масло чернеет вдвое быстрее и портит вкус всех позиций сразу.",
+      "reason_uz": "Yonayotgan yog'ga tushgan suv shiftgacha olov ustuni beradi — bu mahalliy hodisa emas, oshxona yong'ini. Filtrlanmagan yog' ikki barobar tez qorayadi va barcha pozitsiyalarning ta'mini birdan buzadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Уровень масла проверен до включения",
+            "uz": "Yoqishdan oldin yog' darajasi tekshirildi"
+          },
+          {
+            "ru": "Крошка снимается шумовкой в течение смены",
+            "uz": "Smena davomida uvoq shumovka bilan olinadi"
+          },
+          {
+            "ru": "Фильтрация сделана и отмечена в журнале",
+            "uz": "Filtrlash bajarildi va jurnalga belgilandi"
+          },
+          {
+            "ru": "Знает, где огнетушитель и как им пользоваться",
+            "uz": "O't o'chirgich qayerdaligini va undan qanday foydalanishni biladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Чем тушат загоревшееся масло?",
+            "uz": "Yonib ketgan yog' nima bilan o'chiriladi?"
+          },
+          {
+            "ru": "Как часто фильтруют масло на твоей станции?",
+            "uz": "Sening stansiyangda yog' qancha vaqtda bir filtrlanadi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Тостер, мармит, вакууматор",
+      "title_uz": "Toster, marmit, vakuumator",
+      "step_ru": "Тостер: очисти ленту и поддон от крошек, прогрей до режима, загружай по норме, доставай щипцами. Мармит: залей воду до отметки, если модель водяная, выведи на температуру выше +60°C, проверь термометром, не держи продукт дольше срока по стандарту. Вакууматор: сухая камера, чистый уплотнитель, режим по продукту, проверка шва.",
+      "step_uz": "Toster: tasma va tagligini uvoqdan tozala, rejimgacha qizdir, me'yorda yukla, qisqich bilan ol. Marmit: modeli suvli bo'lsa belgigacha suv quy, +60°C dan yuqori haroratga chiqar, termometr bilan tekshir, mahsulotni standartdagi muddatdan ortiq ushlama. Vakuumator: kamera quruq, zichlagich toza, rejim mahsulotga mos, chok tekshirilgan.",
+      "key_point_ru": "Мармит — не подогрев остывшего, а удержание горячего. Остывшее на мармите не «оживает», оно списывается.",
+      "key_point_uz": "Marmit sovigan mahsulotni isitish emas, issig'ini ushlab turish uchun. Marmitda sovigan mahsulot «tirilmaydi», spisaniyaga ketadi.",
+      "reason_ru": "Продукт между +4°C и +60°C размножает бактерии по нарастающей — это и есть опасная зона. Крошки в тостере тлеют и дают дым и запах гари на весь зал.",
+      "reason_uz": "+4°C va +60°C orasidagi mahsulotda bakteriya tobora tez ko'payadi — xavfli zona shu. Tosterdagi uvoqlar cho'g'lanib, butun zalga tutun va kuyindi hidini beradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Поддон и лента тостера очищены",
+            "uz": "Toster taglik va tasmasi tozalandi"
+          },
+          {
+            "ru": "Температура мармита проверена термометром",
+            "uz": "Marmit harorati termometr bilan tekshirildi"
+          },
+          {
+            "ru": "Продукт на мармите не старше срока по стандарту",
+            "uz": "Marmitdagi mahsulot standart muddatidan oshmagan"
+          },
+          {
+            "ru": "Камера вакууматора сухая, шов проверен",
+            "uz": "Vakuumator kamerasi quruq, chok tekshirilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Какая опасная зона температур и почему она так называется?",
+            "uz": "Xavfli harorat zonasi qanaqa va nega shunday ataladi?"
+          },
+          {
+            "ru": "Сколько продукт может стоять на мармите?",
+            "uz": "Mahsulot marmitda qancha turishi mumkin?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Мойка и закрытие кухни",
+      "title_uz": "Yuvish va oshxonani yopish",
+      "step_ru": "Отключи оборудование от сети. Разбери съёмные части, замочи, вымой по инструкции, ополосни, высуши. Протри вытяжку от жирового налёта, мармитные столы, наружные и внутренние поверхности холодильников. Вымой полы и стены на высоту 10 см от пола. Вынеси мусор, закрой контейнеры. Оставь станции сухими и проверь, что всё выключено.",
+      "step_uz": "Jihozni tarmoqdan uz. Yechiladigan qismlarni ajrat, ivit, ko'rsatma bo'yicha yuv, chayqa, quriting. So'rg'ichni yog' qatlamidan, marmit stollarini, sovutgichlarning ichki va tashqi yuzasini arting. Pol va poldan 10 sm balandlikkacha devorni yuv. Chiqindini chiqar, konteynerlarni yop. Stansiyalarni quruq qoldir va hamma narsa o'chirilganini tekshir.",
+      "key_point_ru": "Ничего не мой под напряжением и не заливай электрические блоки водой. Горячее — только после остывания.",
+      "key_point_uz": "Tok ulangan holda hech narsani yuvma va elektr bloklarga suv quyma. Issiq jihoz — faqat sovigach.",
+      "reason_ru": "Жировой налёт на вытяжке загорается от одной искры — это пожар всей кухни. Оборудование, оставленное включённым на ночь, — либо пожар, либо счёт за электричество и сгоревший тэн.",
+      "reason_uz": "So'rg'ichdagi yog' qatlami bitta uchqundan yonadi — bu butun oshxona yong'ini. Kechasi yoqilgan qolgan jihoz — yo yong'in, yo elektr hisobi va kuygan ten.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Оборудование обесточено перед мойкой",
+            "uz": "Yuvishdan oldin jihoz toksizlantirildi"
+          },
+          {
+            "ru": "Вытяжка и мармитные столы без жирового налёта",
+            "uz": "So'rg'ich va marmit stollarida yog' qatlami yo'q"
+          },
+          {
+            "ru": "Полы и стены на 10 см от пола вымыты",
+            "uz": "Pol va poldan 10 sm balandlikkacha devor yuvildi"
+          },
+          {
+            "ru": "Всё выключено, станции сухие",
+            "uz": "Hammasi o'chirilgan, stansiyalar quruq"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что проверяешь последним перед уходом с кухни?",
+            "uz": "Oshxonadan chiqishdan oldin oxirgi bo'lib nimani tekshirasan?"
+          },
+          {
+            "ru": "Почему жир на вытяжке опасен?",
+            "uz": "So'rg'ichdagi yog' nega xavfli?"
+          }
+        ]
+      }
+    }
+  ]
+}

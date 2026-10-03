@@ -1,0 +1,720 @@
+{
+  "mgr_it": [
+    {
+      "sort": 0,
+      "title_ru": "iiko: касса, кухня, стоп-лист",
+      "title_uz": "iiko: kassa, oshxona, stop-list",
+      "step_ru": "Открой смену в iiko под своим логином. Проверь, что заказ с кассы уходит на кухонный экран и печатается на кухне. Найди в iiko раздел стоп-листа: посмотри, что стоит в стопе с прошлой смены, и сними то, что уже приготовили. Если продукт заканчивается — поставь его в стоп сам и сразу напиши в группу «стоп-лист». В конце смены закрой смену в iiko.",
+      "step_uz": "iiko'ga o'z login'ing bilan kirib smenani och. Kassadagi buyurtma oshxona ekraniga tushayotganini va oshxonada chop etilayotganini tekshir. iiko'dagi stop-list bo'limini top: o'tgan smenadan nima stopda turganini ko'r, tayyor bo'lganini stopdan chiqar. Mahsulot tugab qolayotgan bo'lsa — o'zing stopga qo'y va darhol «stop-list» guruhiga yoz. Smena oxirida iiko'da smenani yop.",
+      "key_point_ru": "Стоп-лист в iiko и сообщение в группу — это два разных действия, и нужны оба. Колл-центр не видит твой iiko, он видит только группу. И наоборот: написал в группу, но не поставил в стоп — сайт и приложение продолжат продавать.",
+      "key_point_uz": "iiko'dagi stop-list va guruhga xabar — bu ikki alohida ish, ikkalasi ham kerak. Koll-markaz sening iiko'ngni ko'rmaydi, u faqat guruhni ko'radi. Aksincha ham: guruhga yozib, stopga qo'ymasang — sayt va ilova mahsulotni sotishda davom etadi.",
+      "reason_ru": "Заказ на продукт, которого нет, — это не «мелочь». Гость уже заплатил, курьер уже выехал, а собрать нечего: возврат, жалоба, компенсация и минус к оценке филиала. Один непоставленный стоп в пик стоит десятка отменённых заказов.",
+      "reason_uz": "Yo'q mahsulotga tushgan buyurtma — «mayda ish» emas. Mehmon pul to'lagan, kuryer yo'lga chiqqan, yig'ishga esa hech narsa yo'q: qaytarish, shikoyat, kompensatsiya va filialga minus. Pik vaqtida qo'yilmagan bitta stop o'nlab bekor qilingan buyurtmaga tushadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Открыл смену в iiko под своим логином, не под чужим", "uz": "iiko'da smenani o'z login'i bilan ochdi, birovnikida emas"},
+          {"ru": "Проверил печать заказа на кухне до открытия зала", "uz": "Zal ochilishidan oldin buyurtma oshxonada chop etilishini tekshirdi"},
+          {"ru": "Поставил продукт в стоп в iiko и написал в группу «стоп-лист»", "uz": "Mahsulotni iiko'da stopga qo'ydi va «stop-list» guruhiga yozdi"},
+          {"ru": "Снял с стопа то, что уже приготовили, а не оставил висеть", "uz": "Tayyor bo'lgan mahsulotni stopdan chiqardi, osilgancha qoldirmadi"},
+          {"ru": "Закрыл смену в iiko в конце дня", "uz": "Kun oxirida iiko'da smenani yopdi"}
+        ],
+        "questions": [
+          {"ru": "Соуса осталось на 5 порций. Что ставишь в стоп и кому сообщаешь?", "uz": "Sousdan 5 porsiyaga qolgan. Nimani stopga qo'yasan va kimga xabar berasan?"},
+          {"ru": "Заказ с кассы не появился на кухонном экране. Твои действия по шагам?", "uz": "Kassadagi buyurtma oshxona ekraniga chiqmadi. Qadam-baqadam nima qilasan?"},
+          {"ru": "Почему нельзя работать в iiko под логином другого сотрудника?", "uz": "Nega iiko'da boshqa xodimning login'i ostida ishlash mumkin emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Arryt: доставка и курьеры",
+      "title_uz": "Arryt: yetkazib berish va kuryerlar",
+      "step_ru": "Открой Arryt и посмотри, кто из курьеров сейчас на смене и где они. Когда заказ готов — передай его курьеру и отметь выдачу в Arryt. Следи за заказами, которые долго висят без курьера: подними их вручную и позвони курьеру. Если курьера нет вообще — сообщи в группу доставки до того, как заказ просрочится, а не после.",
+      "step_uz": "Arryt'ni ochib, hozir qaysi kuryerlar smenada va qayerdaligini ko'r. Buyurtma tayyor bo'lganda — kuryerga ber va Arryt'da berilganini belgila. Uzoq vaqt kuryersiz osilib turgan buyurtmalarni kuzat: qo'lda ko'tar va kuryerga qo'ng'iroq qil. Kuryer umuman yo'q bo'lsa — buyurtma kechikmasidan oldin dostavka guruhiga xabar ber, kechikkandan keyin emas.",
+      "key_point_ru": "Отмечай выдачу курьеру в тот момент, когда он реально забрал пакет, а не заранее «чтобы не забыть». Заказ, отмеченный как выданный, но лежащий на полке, для системы уже в пути — никто его не ищет.",
+      "key_point_uz": "Kuryerga berilganini u haqiqatan paketni olgan paytda belgila, «esdan chiqmasin» deb oldindan emas. Berilgan deb belgilangan, lekin javonda yotgan buyurtma tizim uchun allaqachon yo'lda — uni hech kim qidirmaydi.",
+      "reason_ru": "Время доставки — один из показателей, по которым оценивают филиал. Заказ, потерянный между кухней и курьером, гость получает холодным через полтора часа и больше не заказывает.",
+      "reason_uz": "Yetkazish vaqti — filial baholanadigan ko'rsatkichlardan biri. Oshxona bilan kuryer o'rtasida yo'qolgan buyurtmani mehmon bir yarim soatdan keyin sovuq holda oladi va boshqa buyurtma bermaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Знает, где в Arryt посмотреть список курьеров на смене", "uz": "Arryt'da smenadagi kuryerlar ro'yxatini qayerdan ko'rishni biladi"},
+          {"ru": "Отмечает выдачу в момент передачи пакета курьеру", "uz": "Paketni kuryerga bergan paytda belgilaydi"},
+          {"ru": "Заметил зависший заказ без курьера и поднял его", "uz": "Kuryersiz osilib qolgan buyurtmani payqadi va ko'tardi"},
+          {"ru": "Сообщил в группу доставки до просрочки, а не после", "uz": "Kechikkuncha emas, undan oldin dostavka guruhiga xabar berdi"}
+        ],
+        "questions": [
+          {"ru": "Заказ готов 15 минут, свободных курьеров нет. Что делаешь?", "uz": "Buyurtma 15 daqiqadan beri tayyor, bo'sh kuryer yo'q. Nima qilasan?"},
+          {"ru": "Почему нельзя отметить выдачу заранее, пока курьер едет в филиал?", "uz": "Kuryer filialga kelayotganda oldindan berilgan deb belgilash nega mumkin emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "EXSZORT: заявки на склад и снабжение",
+      "title_uz": "EXSZORT: omborga buyurtma va ta'minot",
+      "step_ru": "Посмотри остатки по филиалу и сравни с тем, что реально стоит на складе. Составь заявку в EXSZORT на нужные позиции с запасом на день пика, а не «впритык». Отправь заявку в срок, установленный снабжением. Когда склад приехал — прими по накладной: каждую позицию по количеству и качеству, и только потом подпиши. Расхождение или брак фиксируй сразу, при водителе.",
+      "step_uz": "Filial qoldiqlarini ko'r va omborda haqiqatan turgan mahsulot bilan solishtir. EXSZORT'da kerakli pozitsiyalarga zayavka tuz — pik kuniga zaxira bilan, «tiqma-tiq» emas. Zayavkani ta'minot belgilagan muddatda yubor. Ombor kelganda — nakladnoy bo'yicha qabul qil: har bir pozitsiyani soni va sifati bo'yicha tekshir, keyingina imzola. Nomuvofiqlik yoki brakni darhol, haydovchi oldida qayd et.",
+      "key_point_ru": "Подпись на накладной закрывает вопрос. После того как машина уехала, доказать недостачу или испорченный товар практически невозможно — это уже твоя недостача.",
+      "key_point_uz": "Nakladnoydagi imzo masalani yopadi. Mashina ketgandan keyin kam chiqqanini yoki buzuq tovarni isbotlash deyarli imkonsiz — bu endi sening kamomading.",
+      "reason_ru": "Заявка с ошибкой означает стоп-лист в пик и потерянную выручку, а принятый не глядя брак — это списание, которое режет твой KPI и деньги филиала.",
+      "reason_uz": "Xato zayavka pik vaqtida stop-list va yo'qotilgan savdo demakdir, ko'rmasdan qabul qilingan brak esa — spisaniye, u sening KPI'ngni va filial pulini yeydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Сверил остатки на складе с цифрами в системе перед заявкой", "uz": "Zayavkadan oldin ombordagi qoldiqni tizimdagi raqam bilan solishtirdi"},
+          {"ru": "Отправил заявку в установленный срок", "uz": "Zayavkani belgilangan muddatda yubordi"},
+          {"ru": "Пересчитал и осмотрел каждую позицию до подписи накладной", "uz": "Nakladnoyni imzolashdan oldin har bir pozitsiyani sanadi va ko'zdan kechirdi"},
+          {"ru": "Зафиксировал расхождение при водителе, а не после отъезда", "uz": "Nomuvofiqlikni haydovchi ketgandan keyin emas, uning oldida qayd etdi"}
+        ],
+        "questions": [
+          {"ru": "Привезли на 3 короба меньше, чем в накладной. Что делаешь до подписи?", "uz": "Nakladnoyda yozilganidan 3 quti kam keldi. Imzolashdan oldin nima qilasan?"},
+          {"ru": "Как понять, сколько заказывать на выходные, а сколько на будний день?", "uz": "Dam olish kuniga qancha, oddiy kunga qancha buyurtma berishni qanday aniqlaysan?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Яндекс и агрегаторы",
+      "title_uz": "Yandeks va agregatorlar",
+      "step_ru": "Заказы Яндекса приходят в тот же поток, что и свои, но собирать их надо в фирменную упаковку агрегатора и отдавать курьеру Яндекса по номеру заказа. Если продукт в стопе — убедись, что он снят с витрины агрегатора, а не только в iiko. Перед закрытием филиала закрывай приём заказов агрегатора заранее, чтобы не остаться с заказом, который некому готовить.",
+      "step_uz": "Yandeks buyurtmalari o'z buyurtmalar oqimiga tushadi, lekin ularni agregatorning firma qadog'iga yig'ish va Yandeks kuryeriga buyurtma raqami bo'yicha berish kerak. Mahsulot stopda bo'lsa — u faqat iiko'da emas, agregator vitrinasidan ham olinganiga ishonch hosil qil. Filial yopilishidan oldin agregator buyurtmalarini oldindan yop, aks holda tayyorlaydigan odam qolmagan buyurtma bilan qolasan.",
+      "key_point_ru": "Стоп-лист в iiko не всегда автоматически закрывает позицию у агрегатора. Проверь витрину глазами: если позиция там ещё продаётся, заказ придёт, и отказ пойдёт в рейтинг филиала.",
+      "key_point_uz": "iiko'dagi stop har doim ham agregatordagi pozitsiyani avtomatik yopmaydi. Vitrinani ko'zing bilan tekshir: agar pozitsiya u yerda hali sotilayotgan bo'lsa, buyurtma keladi, rad javob esa filial reytingiga yoziladi.",
+      "reason_ru": "Отказ по заказу агрегатора бьёт по рейтингу площадки, а не только по одному гостю: филиал падает в выдаче и теряет поток заказов на недели вперёд.",
+      "reason_uz": "Agregator buyurtmasidan bosh tortish bitta mehmonga emas, platforma reytingiga uriladi: filial ro'yxatda pastga tushadi va haftalar davomida buyurtma oqimini yo'qotadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Отличает заказ агрегатора от своего и собирает в нужную упаковку", "uz": "Agregator buyurtmasini o'zinikidan ajratadi va kerakli qadoqqa yig'adi"},
+          {"ru": "Отдаёт заказ курьеру Яндекса, сверив номер заказа", "uz": "Buyurtmani Yandeks kuryeriga raqamini solishtirib beradi"},
+          {"ru": "Проверил витрину агрегатора после постановки продукта в стоп", "uz": "Mahsulotni stopga qo'ygach agregator vitrinasini tekshirdi"},
+          {"ru": "Закрыл приём заказов агрегатора заранее до закрытия филиала", "uz": "Filial yopilishidan oldin agregator buyurtmalarini oldindan yopdi"}
+        ],
+        "questions": [
+          {"ru": "Пришёл заказ Яндекса на продукт, которого нет. Твои действия?", "uz": "Yandeksdan yo'q mahsulotga buyurtma keldi. Nima qilasan?"},
+          {"ru": "Чем отличается работа с заказом агрегатора от обычной доставки?", "uz": "Agregator buyurtmasi bilan ishlash oddiy dostavkadan nimasi bilan farq qiladi?"}
+        ]
+      }
+    }
+  ],
+  "mgr_hr": [
+    {
+      "sort": 0,
+      "title_ru": "Workly: отпечаток, опоздания, смены",
+      "title_uz": "Workly: barmoq izi, kechikish, smenalar",
+      "step_ru": "Приходи в филиал минимум за 15 минут до начала смены и отмечайся в Workly ровно в своё время. Утром на пятиминутке проверь Workly по всей смене: кто отметился, кто опоздал, кто не пришёл. В конце дня убедись, что каждый отметился на выход — и ты сам тоже. Если у сотрудника не считался палец, не отмечай за него: пиши HR в тот же день.",
+      "step_uz": "Filialga smena boshlanishidan kamida 15 daqiqa oldin kel va Workly'da aynan o'z vaqtingda belgilan. Ertalabki yig'ilishda butun smena bo'yicha Workly'ni tekshir: kim belgilandi, kim kechikdi, kim kelmadi. Kun oxirida har bir xodim chiqishga belgilanganiga ishonch hosil qil — o'zing ham. Xodimning barmog'i o'qilmasa, uning o'rniga belgilama: o'sha kuniyoq HR'ga yoz.",
+      "key_point_ru": "Ушёл домой без отпечатка на выход — день не засчитан, ни тебе, ни сотруднику. Восстанавливают это только через HR и только по факту, а не задним числом «на словах».",
+      "key_point_uz": "Chiqishda belgilanmay uyga ketding — kun hisoblanmaydi, na senga, na xodimga. Buni faqat HR orqali va faqat dalil asosida tiklashadi, keyin «og'zaki» emas.",
+      "reason_ru": "Workly — это основание для зарплаты. Каждая опоздавшая минута удерживается, а неотмеченный день превращается в спор между сотрудником и бухгалтерией, который разбирать придётся тебе.",
+      "reason_uz": "Workly — oylikning asosi. Har bir kechikkan daqiqa ushlab qolinadi, belgilanmagan kun esa xodim bilan buxgalteriya o'rtasidagi bahsga aylanadi, uni esa sen hal qilasan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Отметился в Workly сам, вовремя, без напоминания", "uz": "Workly'da o'zi, o'z vaqtida, eslatmasdan belgilandi"},
+          {"ru": "Проверил отметки всей смены утром", "uz": "Ertalab butun smena belgilarini tekshirdi"},
+          {"ru": "Не отмечал сотрудника за него самого", "uz": "Xodimning o'rniga belgilamadi"},
+          {"ru": "Проверил отметки на выход в конце дня", "uz": "Kun oxirida chiqish belgilarini tekshirdi"}
+        ],
+        "questions": [
+          {"ru": "У повара не срабатывает отпечаток третий день. Что делаешь?", "uz": "Oshpazning barmoq izi uchinchi kundan beri o'qilmayapti. Nima qilasan?"},
+          {"ru": "Сотрудник ушёл домой, не отметившись. Как это исправляется?", "uz": "Xodim belgilanmay uyga ketdi. Buni qanday tuzatiladi?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "График смен, выходные, переработки",
+      "title_uz": "Smena grafigi, dam olish kunlari, qo'shimcha soatlar",
+      "step_ru": "Составляй график на месяц исходя из продаж: на пики и выходные ставь больше людей, в спад — меньше. Любое изменение графика сначала согласуй с HR и только потом объявляй сотруднику. Переработки и подмены записывай в тот же день, с датой и часами. Когда кто-то заболел или взял выходной, решение ищи сам: перестановка внутри смены, а не «филиал без человека».",
+      "step_uz": "Grafikni oylik savdo hajmidan kelib chiqib tuz: pik va dam olish kunlariga ko'proq odam, tushkunlikka kamroq. Grafikdagi har qanday o'zgarishni avval HR bilan kelish, keyingina xodimga ayt. Qo'shimcha soat va almashuvni o'sha kuniyoq sana va soati bilan yozib qo'y. Kimdir kasal bo'lsa yoki dam olsa — yechimni o'zing top: smena ichida qayta taqsimlash, «filial odamsiz» emas.",
+      "key_point_ru": "График, изменённый без HR, в зарплату не попадёт: человек отработал, а деньги ему не начислили. Переработку, записанную «потом вспомню», не восстановит никто.",
+      "key_point_uz": "HR'siz o'zgartirilgan grafik oylikka tushmaydi: odam ishladi, puli esa hisoblanmadi. «Keyin eslayman» deb yozilmagan qo'shimcha soatni hech kim tiklamaydi.",
+      "reason_ru": "Люди уходят не от нагрузки, а от несправедливости в графике и неоплаченных часов. Текучка — прямой минус в оценке менеджера и постоянный поиск новых рук вместо работы.",
+      "reason_uz": "Odamlar yukdan emas, grafikdagi adolatsizlik va to'lanmagan soatlardan ketadi. Kadrlar almashinuvi — menejer bahosiga to'g'ridan-to'g'ri minus va ish o'rniga doimiy odam qidirish.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "График на месяц составлен с учётом пиков и выходных", "uz": "Oylik grafik pik va dam olish kunlarini hisobga olib tuzilgan"},
+          {"ru": "Изменение графика согласовано с HR до объявления сотруднику", "uz": "Grafik o'zgarishi xodimga aytilishidan oldin HR bilan kelishilgan"},
+          {"ru": "Переработки записаны в день, когда они были", "uz": "Qo'shimcha soatlar o'sha kuniyoq yozib qo'yilgan"},
+          {"ru": "При невыходе сотрудника нашёл замену внутри смены", "uz": "Xodim kelmaganda smena ichidan almashtiruvchi topdi"}
+        ],
+        "questions": [
+          {"ru": "Кассир заболел в субботу утром. Как закрываешь смену?", "uz": "Kassir shanba ertalab kasal bo'lib qoldi. Smenani qanday yopasan?"},
+          {"ru": "Повар отработал два лишних часа в пик. Что делаешь, чтобы это оплатили?", "uz": "Oshpaz pik vaqtida ikki soat ortiqcha ishladi. Bu to'lanishi uchun nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Ведомость и дополнительные выплаты",
+      "title_uz": "Vedomost va qo'shimcha to'lovlar",
+      "step_ru": "Когда приходит ведомость, сверь по каждому сотруднику: отработанные дни, часы, удержания, надбавки. Только после сверки давай подписывать. Дополнительные выплаты — переработки, подмены, надбавка за наставничество — подавай списком заранее, до расчёта, а не после выдачи денег. Оценивай возможности сотрудника и вовремя поднимай вопрос о повышении оклада: это твоя ответственность, а не HR.",
+      "step_uz": "Vedomost kelganda har bir xodim bo'yicha solishtir: ishlagan kunlar, soatlar, ushlab qolishlar, ustamalar. Faqat solishtirgandan keyin imzolashga ber. Qo'shimcha to'lovlarni — qo'shimcha soat, almashuv, nastavnik ustamasi — hisob-kitobdan oldin ro'yxat qilib ber, pul berilgandan keyin emas. Xodimning imkoniyatini baholab, oyligini oshirish masalasini o'z vaqtida ko'tar: bu HR'ning emas, sening mas'uliyating.",
+      "key_point_ru": "После того как ведомость закрыта и деньги выданы, правки не делаются — ошибку переносят на следующий месяц или не признают вовсе. Сверять надо до, а не после.",
+      "key_point_uz": "Vedomost yopilib, pul berilgandan keyin tuzatish kiritilmaydi — xato keyingi oyga o'tkaziladi yoki umuman tan olinmaydi. Solishtirish keyin emas, oldin bo'lishi kerak.",
+      "reason_ru": "Обсуждение зарплат между сотрудниками запрещено, и держится этот порядок только на одном: если человек получил ровно то, что отработал, ему нечего обсуждать. Одна ошибка в ведомости разносит доверие по всей смене.",
+      "reason_uz": "Xodimlar o'rtasida oylikni muhokama qilish taqiqlangan, bu tartib esa faqat bitta narsaga tayanadi: odam ishlaganini to'liq olgan bo'lsa, muhokama qiladigan gapi qolmaydi. Vedomostdagi bitta xato butun smenadagi ishonchni buzadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Сверил ведомость по дням и часам до подписания", "uz": "Imzolashdan oldin vedomostni kun va soatlar bo'yicha solishtirdi"},
+          {"ru": "Подал список доп. выплат до расчёта", "uz": "Qo'shimcha to'lovlar ro'yxatini hisob-kitobdan oldin berdi"},
+          {"ru": "Нашёл и исправил расхождение до выдачи денег", "uz": "Pul berilishidan oldin nomuvofiqlikni topdi va tuzatdi"},
+          {"ru": "Не обсуждает суммы одних сотрудников с другими", "uz": "Bir xodimning summasini boshqalar bilan muhokama qilmaydi"}
+        ],
+        "questions": [
+          {"ru": "Сотрудник говорит, что ему не оплатили два дня. Как проверяешь?", "uz": "Xodim ikki kuni to'lanmaganini aytyapti. Qanday tekshirasan?"},
+          {"ru": "Когда нужно подавать переработки, чтобы они попали в расчёт?", "uz": "Qo'shimcha soatlar hisob-kitobga tushishi uchun ularni qachon berish kerak?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Оформление, увольнение, медкнижки",
+      "title_uz": "Rasmiylashtirish, ishdan bo'shatish, tibbiy daftarcha",
+      "step_ru": "О вакансии предупреждай HR минимум за 10 дней, а не в день, когда человек уже ушёл. Новому сотруднику в первые дни оформи договор и заведи медкнижку, храни их в отдельной папке филиала. Первые 3 дня покажи ему филиал, процесс и меню — это твоя работа, не «пусть сам смотрит». При увольнении или ротации оформи выход через HR и отдай медкнижку человеку на руки.",
+      "step_uz": "Vakansiya haqida HR'ni kamida 10 kun oldin ogohlantir, odam ketib bo'lgan kuni emas. Yangi xodimga dastlabki kunlarda shartnoma rasmiylashtir va tibbiy daftarcha och, ularni filialning alohida papkasida sakla. Birinchi 3 kun unga filialni, ish jarayonini va menyuni ko'rsat — bu sening ishing, «o'zi ko'raversin» emas. Ishdan bo'shashda yoki rotatsiyada chiqishni HR orqali rasmiylashtir va tibbiy daftarchani odamning qo'liga ber.",
+      "key_point_ru": "Медкнижки уволенных в филиале не хранятся — отдал в руки в день ухода. И наоборот: сотрудник без действующей медкнижки к продуктам не допускается, даже на один день, даже в пик.",
+      "key_point_uz": "Ishdan bo'shaganlarning tibbiy daftarchasi filialda saqlanmaydi — ketgan kuni qo'liga beriladi. Aksincha: amaldagi tibbiy daftarchasi yo'q xodim mahsulotga bir kunga ham, pik vaqtida ham qo'yilmaydi.",
+      "reason_ru": "СЭС проверяет медкнижки в первую очередь, и один человек без книжки — это штраф на филиал и вопрос лично к менеджеру. А чужая медкнижка в твоём сейфе — это документ, который человеку нужен для следующей работы.",
+      "reason_uz": "SES birinchi navbatda tibbiy daftarchalarni tekshiradi, daftarchasiz bitta odam — filialga jarima va bevosita menejerga savol. Seyfingdagi begona tibbiy daftarcha esa — odamga keyingi ishi uchun kerak bo'lgan hujjat.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Папка филиала с договорами и медкнижками в порядке и на месте", "uz": "Shartnoma va tibbiy daftarchalar papkasi tartibda va joyida"},
+          {"ru": "Заявку на вакансию подал заранее, а не постфактум", "uz": "Vakansiyaga zayavkani oldindan berdi, ish ketgandan keyin emas"},
+          {"ru": "Провёл новичка по филиалу и объяснил процесс в первые дни", "uz": "Yangi xodimga dastlabki kunlarda filialni ko'rsatdi va jarayonni tushuntirdi"},
+          {"ru": "Отдал медкнижку уволившемуся на руки", "uz": "Ishdan bo'shagan xodimning tibbiy daftarchasini qo'liga berdi"}
+        ],
+        "questions": [
+          {"ru": "У повара закончилась медкнижка, а сегодня пик. Пускаешь на смену?", "uz": "Oshpazning tibbiy daftarchasi tugadi, bugun esa pik. Smenaga qo'yasanmi?"},
+          {"ru": "За сколько дней предупреждаешь HR о том, что нужен новый человек?", "uz": "Yangi odam kerakligi haqida HR'ni necha kun oldin ogohlantirasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Коммерческая тайна и материальная ответственность",
+      "title_uz": "Tijorat siri va moddiy javobgarlik",
+      "step_ru": "Данные филиала — выручка, себестоимость, рецептуры, техкарты, условия договоров, зарплаты — наружу не выходят. Не фотографируй и не выкладывай ничего из филиала без разрешения маркетинга. Подписывая договор о материальной ответственности, пойми, за что именно отвечаешь: касса, склад, оборудование. Всё, что передаёшь другому человеку, передавай пересчётом и под подпись.",
+      "step_uz": "Filial ma'lumotlari — savdo, tannarx, retseptura, texkarta, shartnoma shartlari, oyliklar — tashqariga chiqmaydi. Marketing ruxsatisiz filialdan hech narsani suratga olma va joylashtirma. Moddiy javobgarlik shartnomasini imzolayotganda aynan nimaga javob berishingni tushun: kassa, ombor, jihoz. Boshqa odamga topshirayotgan hamma narsani sanab va imzo bilan topshir.",
+      "key_point_ru": "Разглашение коммерческой тайны — красная зона: увольнение, без предупреждений и процентов. Это касается и переписки в личных чатах, и скриншотов отчётов «просто показать другу».",
+      "key_point_uz": "Tijorat sirini oshkor qilish — qizil zona: ogohlantirishsiz va foizsiz ishdan bo'shatish. Bu shaxsiy chatdagi yozishmaga ham, «shunchaki do'stimga ko'rsataman» degan hisobot skrinshotiga ham taalluqli.",
+      "reason_ru": "Пересчёт при передаче защищает в первую очередь тебя: недостача ищет того, кто последний расписался. Без подписи предыдущей смены её найдут у тебя.",
+      "reason_uz": "Topshirishda sanash birinchi navbatda seni himoya qiladi: kamomad oxirgi imzo qo'yganni qidiradi. Oldingi smenaning imzosi bo'lmasa, uni sendan topishadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Не выносит цифры выручки и техкарты за пределы рабочих групп", "uz": "Savdo raqamlari va texkartani ishchi guruhlardan tashqariga chiqarmaydi"},
+          {"ru": "Не снимает фото и видео в филиале без разрешения маркетинга", "uz": "Marketing ruxsatisiz filialda foto va video olmaydi"},
+          {"ru": "Передаёт кассу и склад пересчётом и под подпись", "uz": "Kassa va omborni sanab, imzo bilan topshiradi"},
+          {"ru": "Знает, за какое имущество отвечает лично", "uz": "Qaysi mol-mulkka shaxsan javob berishini biladi"}
+        ],
+        "questions": [
+          {"ru": "Знакомый просит скинуть техкарту или цифры продаж. Что отвечаешь?", "uz": "Tanishing texkarta yoki savdo raqamlarini so'rayapti. Nima deysan?"},
+          {"ru": "Ты сдаёшь смену другому менеджеру. Что делаешь до того, как уйти?", "uz": "Smenani boshqa menejerga topshiryapsan. Ketishdan oldin nima qilasan?"}
+        ]
+      }
+    }
+  ],
+  "mgr_finance": [
+    {
+      "sort": 0,
+      "title_ru": "Z-отчёт и ежедневный отчёт в Excel",
+      "title_uz": "Z-hisobot va kunlik Excel hisoboti",
+      "step_ru": "После закрытия кассы сними Z-отчёт с кассового аппарата. Сверь его с выручкой в iiko и с наличными в кассе: наличные, карта, онлайн — по каждому виду отдельно. Занеси данные в ежедневный Excel-отчёт: выручка, количество чеков, средний чек. Отправь отчёт в бухгалтерию до 13:00 следующего дня. Расхождение не «выравнивай» — впиши как есть и объясни причину.",
+      "step_uz": "Kassani yopgach kassa apparatidan Z-hisobotni ol. Uni iiko'dagi savdo va kassadagi naqd pul bilan solishtir: naqd, karta, onlayn — har biri alohida. Ma'lumotni kunlik Excel hisobotiga kirit: savdo, chek soni, o'rtacha chek. Hisobotni ertasi kuni soat 13:00 gacha buxgalteriyaga yubor. Nomuvofiqlikni «tekislama» — borini yoz va sababini tushuntir.",
+      "key_point_ru": "Отчёт после 13:00 считается несданным, даже если цифры идеальные. И подгонять расхождение под ноль хуже, чем показать минус: подгонку видно по кассе и по iiko, и это уже не ошибка, а сокрытие.",
+      "key_point_uz": "13:00 dan keyingi hisobot raqamlari mukammal bo'lsa ham topshirilmagan hisoblanadi. Nomuvofiqlikni nolga moslashtirish esa minusni ko'rsatishdan yomonroq: moslashtirish kassa va iiko'dan ko'rinadi, bu endi xato emas, yashirish.",
+      "reason_ru": "Ежедневный отчёт — единственный способ поймать проблему на следующий день, а не через месяц на инвентаризации. Расхождение в 50 тысяч сегодня находят за час, то же расхождение через месяц не находят вообще.",
+      "reason_uz": "Kunlik hisobot — muammoni bir oydan keyin inventarizatsiyada emas, ertasiga topishning yagona yo'li. Bugungi 50 ming farq bir soatda topiladi, o'sha farq bir oydan keyin umuman topilmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Снял Z-отчёт после закрытия кассы, а не в середине дня", "uz": "Z-hisobotni kun o'rtasida emas, kassa yopilgandan keyin oldi"},
+          {"ru": "Сверил наличные, карту и онлайн по отдельности", "uz": "Naqd, karta va onlaynni alohida-alohida solishtirdi"},
+          {"ru": "Заполнил Excel-отчёт полностью: выручка, чеки, средний чек", "uz": "Excel hisobotini to'liq to'ldirdi: savdo, cheklar, o'rtacha chek"},
+          {"ru": "Отправил отчёт до 13:00 следующего дня", "uz": "Hisobotni ertasi kuni 13:00 gacha yubordi"},
+          {"ru": "Расхождение показал как есть, с объяснением", "uz": "Nomuvofiqlikni boricha, izohi bilan ko'rsatdi"}
+        ],
+        "questions": [
+          {"ru": "В кассе на 80 тысяч меньше, чем по Z-отчёту. Что пишешь в отчёте?", "uz": "Kassada Z-hisobotdagidan 80 ming kam. Hisobotda nima yozasan?"},
+          {"ru": "До какого времени отправляешь вчерашний отчёт и куда?", "uz": "Kechagi hisobotni soat nechagacha va qayerga yuborasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Касса, терминалы Uzcard/Humo и QR-код",
+      "title_uz": "Kassa, Uzcard/Humo terminallari va QR-kod",
+      "step_ru": "Утром проверь кассовый аппарат и оба терминала: включены, есть связь, есть чековая лента. Проверь, что QR-код для оплаты на месте, чистый, не заклеен и ведёт на нужный счёт филиала. Проведи пробную оплату, если терминал вчера сбоил. При поломке звони в бухгалтерию сразу, не «доработаем день на наличке».",
+      "step_uz": "Ertalab kassa apparatini va ikkala terminalni tekshir: yoqilgan, aloqa bor, chek lentasi bor. To'lov uchun QR-kod joyida, toza, ustiga narsa yopishtirilmagan va filialning kerakli hisobiga olib borishini tekshir. Kecha terminal nosozlik qilgan bo'lsa, sinov to'lovini o'tkaz. Buzilsa darhol buxgalteriyaga qo'ng'iroq qil, «kunni naqd bilan tugatamiz» emas.",
+      "key_point_ru": "QR-код проверяй не только на наличие, но и куда он ведёт. Чужой или старый QR на стойке — это выручка, которая уходит мимо филиала, и обнаруживается это только в конце месяца.",
+      "key_point_uz": "QR-kodni faqat bor-yo'qligini emas, qayerga olib borishini ham tekshir. Peshtaxtadagi begona yoki eski QR — filialdan yonlab ketayotgan savdo, buni esa faqat oy oxirida bilib qolishadi.",
+      "reason_ru": "Неработающий терминал в пик — это очередь, отменённые заказы и наличка, которую потом никто не сведёт. Час простоя терминала в обед стоит дороже, чем весь вечер.",
+      "reason_uz": "Pik vaqtida ishlamayotgan terminal — navbat, bekor qilingan buyurtmalar va keyin hech kim to'g'rilay olmaydigan naqd pul. Tushlikda terminalning bir soat turishi butun kechkidan qimmatroq.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Проверил кассовый аппарат и оба терминала до открытия", "uz": "Ochilishdan oldin kassa apparati va ikkala terminalni tekshirdi"},
+          {"ru": "Убедился, что чековой ленты хватит на день", "uz": "Chek lentasi kunga yetishiga ishonch hosil qildi"},
+          {"ru": "Проверил QR-код: на месте, читается, ведёт на счёт филиала", "uz": "QR-kodni tekshirdi: joyida, o'qiladi, filial hisobiga olib boradi"},
+          {"ru": "При сбое сообщил в бухгалтерию сразу", "uz": "Nosozlikda darhol buxgalteriyaga xabar berdi"}
+        ],
+        "questions": [
+          {"ru": "Терминал Humo не проводит оплату в 13:00. Что делаешь по шагам?", "uz": "Soat 13:00 da Humo terminali to'lovni o'tkazmayapti. Qadam-baqadam nima qilasan?"},
+          {"ru": "Как проверить, что QR-код на стойке — именно ваш?", "uz": "Peshtaxtadagi QR-kod aynan sizniki ekanini qanday tekshirasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Виды чеков и правило «без чека нельзя»",
+      "title_uz": "Chek turlari va «cheksiz mumkin emas» qoidasi",
+      "step_ru": "Разберись, какие чеки выходят в филиале: фискальный чек гостю, чек оплаты картой с терминала, чек возврата, служебный чек. Гость получает фискальный чек на каждый заказ — на месте, на вынос, на доставку. Проверяй в течение дня, что кассир не отдаёт продукт мимо кассы. Возврат оформляй только через кассу, чеком возврата, и записывай причину.",
+      "step_uz": "Filialda qanday cheklar chiqishini o'rgan: mehmonga fiskal chek, terminaldan karta to'lovi cheki, qaytarish cheki, xizmat cheki. Mehmon har bir buyurtmaga fiskal chek oladi — joyida, olib ketishga, dostavkaga. Kun davomida kassir mahsulotni kassadan chetlab bermayotganini tekshir. Qaytarishni faqat kassa orqali, qaytarish cheki bilan rasmiylashtir va sababini yozib qo'y.",
+      "key_point_ru": "«Без чека» — это красная зона, а не мелкое нарушение: 30 процентов с первого раза и увольнение при повторе. Отдал продукт без чека «своим» или «на пробу» — это то же самое нарушение.",
+      "key_point_uz": "«Cheksiz» — mayda qoidabuzarlik emas, qizil zona: birinchi martasiga 30 foiz, takrorlansa ishdan bo'shatish. «O'zimizniki» yoki «tatib ko'rishga» deb cheksiz berilgan mahsulot ham xuddi shu qoidabuzarlik.",
+      "reason_ru": "Продукт, ушедший без чека, не списан и не продан — он просто исчез. В конце месяца это превращается в недостачу, которую вешают на смену целиком, включая тех, кто ничего не брал.",
+      "reason_uz": "Cheksiz ketgan mahsulot na spisaniyega tushgan, na sotilgan — u shunchaki yo'qolgan. Oy oxirida bu kamomadga aylanadi va butun smenaga, hech narsa olmaganlarga ham yoziladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Каждый заказ пробит через кассу, гость получил чек", "uz": "Har bir buyurtma kassadan o'tkazilgan, mehmon chek olgan"},
+          {"ru": "Различает фискальный чек и чек терминала", "uz": "Fiskal chekni terminal chekidan ajratadi"},
+          {"ru": "Возврат оформлен чеком возврата с записанной причиной", "uz": "Qaytarish sababi yozilgan qaytarish cheki bilan rasmiylashtirilgan"},
+          {"ru": "Проверял кассу в течение смены, а не только на закрытии", "uz": "Kassani faqat yopishda emas, smena davomida ham tekshirdi"}
+        ],
+        "questions": [
+          {"ru": "Гость просит не пробивать чек и заплатить наличными. Твой ответ?", "uz": "Mehmon chek urmasdan naqd to'lashni so'rayapti. Javobing?"},
+          {"ru": "Что бывает за отпуск продукта без чека в первый раз и при повторе?", "uz": "Mahsulotni cheksiz berish uchun birinchi marta va takrorlanganda nima bo'ladi?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Договоры и документы, приходящие в филиал",
+      "title_uz": "Filialga keladigan shartnoma va hujjatlar",
+      "step_ru": "Каждый документ, пришедший на объект — письмо, договор, акт, предписание — принимай, регистрируй дату получения и в тот же день передавай в соответствующий департамент. Ничего не подписывай по своему решению: сначала согласование, потом подпись. Копию оставляй в папке филиала. Устные договорённости с арендодателем или поставщиком фиксируй письмом, иначе их не было.",
+      "step_uz": "Obyektga kelgan har bir hujjatni — xat, shartnoma, dalolatnoma, ko'rsatma — qabul qil, olingan sanasini qayd et va o'sha kuniyoq tegishli departamentga yetkaz. O'z bilganingcha hech narsani imzolama: avval kelishuv, keyin imzo. Nusxasini filial papkasida qoldir. Ijarachi yoki yetkazib beruvchi bilan og'zaki kelishuvni xat bilan qayd et, aks holda u bo'lmagan hisoblanadi.",
+      "key_point_ru": "Подпись менеджера на документе связывает всю компанию. Самая частая ошибка — расписаться в акте проверяющего «просто чтобы отстали»: подпись означает согласие с тем, что там написано.",
+      "key_point_uz": "Menejerning hujjatdagi imzosi butun kompaniyani bog'laydi. Eng ko'p uchraydigan xato — tekshiruvchining dalolatnomasiga «qutulish uchun» imzo qo'yish: imzo u yerda yozilganiga rozilik bildirish demakdir.",
+      "reason_ru": "Документ, пролежавший неделю в ящике менеджера, обычно оказывается сроком на три дня. Штраф за просроченный ответ платит компания, а объясняет его тот, у кого документ лежал.",
+      "reason_uz": "Menejerning tortmasida bir hafta yotgan hujjat odatda uch kunlik muddatli chiqadi. Kechikkan javob uchun jarimani kompaniya to'laydi, izohini esa hujjat kimda yotgan bo'lsa, o'sha beradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Записывает дату получения на каждом входящем документе", "uz": "Har bir kelgan hujjatga olingan sanani yozib qo'yadi"},
+          {"ru": "Передал документ в департамент в день получения", "uz": "Hujjatni olingan kuniyoq departamentga yetkazdi"},
+          {"ru": "Ничего не подписал без согласования", "uz": "Kelishuvsiz hech narsani imzolamadi"},
+          {"ru": "Копии хранятся в папке филиала, а не в личном телефоне", "uz": "Nusxalar shaxsiy telefonda emas, filial papkasida saqlanadi"}
+        ],
+        "questions": [
+          {"ru": "Курьер привёз договор и просит подписать сейчас. Что делаешь?", "uz": "Kuryer shartnoma keltirdi va hozir imzolashni so'rayapti. Nima qilasan?"},
+          {"ru": "Почему нельзя подписывать акт проверяющего сразу на месте?", "uz": "Tekshiruvchining dalolatnomasini joyida darhol imzolash nega mumkin emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Коммунальные платежи, счётчики, проверки госорганов",
+      "title_uz": "Kommunal to'lovlar, hisoblagichlar, davlat tekshiruvi",
+      "step_ru": "Знай по филиалу все коммунальные позиции: свет, газ, вода, мусор, интернет, телефония — где счётчик, какие показания, кто поставщик. Снимай показания в установленный день и передавай в бухгалтерию. Когда приходит инспектор — налоговая, СЭС, пожарные, коммунальщики — узнай цель визита, представься, сообщи руководству и дай только то, что запрошено. Ни один документ не подписывай сам.",
+      "step_uz": "Filial bo'yicha barcha kommunal pozitsiyalarni bil: svet, gaz, suv, chiqindi, internet, telefoniya — hisoblagich qayerda, ko'rsatkich qancha, yetkazib beruvchi kim. Ko'rsatkichlarni belgilangan kuni olib buxgalteriyaga yubor. Inspektor kelganda — soliq, SES, yong'in xavfsizligi, kommunal — tashrif maqsadini bil, o'zingni tanishtir, rahbariyatga xabar ber va faqat so'ralganini ber. Hech qanday hujjatni o'zing imzolama.",
+      "key_point_ru": "Первое действие при проверке — звонок руководству, а не разговор с инспектором. Второе — записать, кто пришёл и по какому вопросу. Подпись — только после согласования, и это не обсуждается.",
+      "key_point_uz": "Tekshiruvdagi birinchi ish — inspektor bilan suhbat emas, rahbariyatga qo'ng'iroq. Ikkinchisi — kim kelgani va qaysi masalada kelganini yozib olish. Imzo — faqat kelishilgandan keyin, bu muhokama qilinmaydi.",
+      "reason_ru": "Испорченный или не снятый счётчик превращается в начисление по нормативу — филиал платит за то, чего не потратил, каждый месяц. А подписанный сгоряча акт проверки закрывает возможность оспорить штраф.",
+      "reason_uz": "Buzilgan yoki ko'rsatkichi olinmagan hisoblagich norma bo'yicha hisoblashga aylanadi — filial har oy sarflamagan narsasiga to'laydi. Shosha-pisha imzolangan tekshiruv dalolatnomasi esa jarimani e'tiroz bildirish imkonini yopadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Показывает, где находятся счётчики света, газа и воды", "uz": "Svet, gaz va suv hisoblagichlari qayerdaligini ko'rsatadi"},
+          {"ru": "Снял показания в установленный день и передал в бухгалтерию", "uz": "Ko'rsatkichlarni belgilangan kuni olib buxgalteriyaga yubordi"},
+          {"ru": "При визите проверяющего сначала сообщил руководству", "uz": "Tekshiruvchi kelganda avval rahbariyatga xabar berdi"},
+          {"ru": "Записал ФИО проверяющего и цель визита", "uz": "Tekshiruvchining F.I.Sh. va tashrif maqsadini yozib oldi"}
+        ],
+        "questions": [
+          {"ru": "Пришёл инспектор СЭС и просит подписать акт. Что делаешь?", "uz": "SES inspektori keldi va dalolatnomani imzolashni so'rayapti. Nima qilasan?"},
+          {"ru": "Счётчик воды не крутится вторую неделю. Кому и когда сообщаешь?", "uz": "Suv hisoblagichi ikkinchi haftadan beri aylanmayapti. Kimga va qachon xabar berasan?"}
+        ]
+      }
+    }
+  ],
+  "mgr_control": [
+    {
+      "sort": 0,
+      "title_ru": "Ежедневный остаток (остатки)",
+      "title_uz": "Kunlik qoldiq (ostatka)",
+      "step_ru": "В конце смены пройди по складу, холодильникам и морозильникам и пересчитай остатки по списку — руками, не «на глаз». Занеси цифры в форму остатков и сравни с расчётным остатком в системе. Разницу по каждой позиции посмотри отдельно: где-то это списание, где-то непробитый чек, где-то ошибка приёмки. Сдай остаток до ухода со смены.",
+      "step_uz": "Smena oxirida ombor, sovutgich va muzlatgichlarni aylanib, ro'yxat bo'yicha qoldiqni qo'l bilan sana — «ko'z bilan chamalab» emas. Raqamlarni qoldiq formasiga kirit va tizimdagi hisoblangan qoldiq bilan solishtir. Har bir pozitsiyadagi farqni alohida ko'r: biri spisaniye, biri urilmagan chek, biri qabulda qilingan xato. Qoldiqni smenadan ketishdan oldin topshir.",
+      "key_point_ru": "Остаток снимается на конец смены, а не «примерно вчера вечером». И считать надо всё, включая то, чего заведомо много: недостача чаще всего прячется именно в позициях, которые никто не пересчитывает.",
+      "key_point_uz": "Qoldiq smena oxiriga olinadi, «taxminan kecha kechqurun» emas. Sanashda hammasini, ko'p ekani aniq bo'lgan narsani ham sana: kamomad ko'pincha aynan hech kim sanamaydigan pozitsiyalarda yashiringan bo'ladi.",
+      "reason_ru": "Ежедневный остаток — единственный способ поймать проблему на одну смену, а не на месяц. Разницу за один день ещё можно разобрать по камерам и чекам, разницу за месяц — уже нет, и она просто становится недостачей.",
+      "reason_uz": "Kunlik qoldiq — muammoni bir oyga emas, bir smenaga qamashning yagona yo'li. Bir kunlik farqni kamera va cheklar bo'yicha ochish mumkin, bir oylikni — yo'q, u shunchaki kamomadga aylanadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Пересчитал остатки физически, а не переписал вчерашние цифры", "uz": "Qoldiqni jismonan sanadi, kechagi raqamni ko'chirmadi"},
+          {"ru": "Проверил и склад, и холодильники, и морозильники", "uz": "Omborni ham, sovutgich va muzlatgichlarni ham tekshirdi"},
+          {"ru": "Сравнил факт с системой и нашёл расхождения", "uz": "Faktni tizim bilan solishtirdi va farqlarni topdi"},
+          {"ru": "Сдал остаток до окончания смены", "uz": "Qoldiqni smena tugagunga qadar topshirdi"}
+        ],
+        "questions": [
+          {"ru": "По системе 40 булок, по факту 33. С чего начинаешь разбор?", "uz": "Tizimda 40 ta bulochka, aslida 33 ta. Tekshiruvni nimadan boshlaysan?"},
+          {"ru": "Почему остаток нельзя снимать утром следующего дня?", "uz": "Qoldiqni nega ertasi kuni ertalab olib bo'lmaydi?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Списание: как, когда, сколько",
+      "title_uz": "Spisaniye: qanday, qachon, qancha",
+      "step_ru": "Списывай сразу, как продукт стал непригоден: истёк срок, испортился, ошибка приготовления, брак поставки. В акте укажи позицию, количество, причину и кто списал. Продукт до списания не выбрасывай — покажи, сфотографируй, потом утилизируй. Раз в неделю смотри, какие позиции списываются чаще всего, и убирай причину: не тот заказ, не та заготовка, не тот срок.",
+      "step_uz": "Mahsulot yaroqsiz bo'lgan zahoti spisaniye qil: muddati o'tdi, buzildi, tayyorlashda xato, yetkazishda brak. Aktda pozitsiya, miqdor, sabab va kim spisat qilganini ko'rsat. Spisaniyegacha mahsulotni tashlab yuborma — ko'rsat, suratga ol, keyin yo'q qil. Haftada bir marta qaysi pozitsiyalar tez-tez spisaniyega tushayotganini ko'r va sababini yo'qot: noto'g'ri buyurtma, noto'g'ri zagotovka, noto'g'ri muddat.",
+      "key_point_ru": "Списание, оформленное «в конце месяца всё вместе», — не списание, а попытка закрыть недостачу. Оформляется в день события, с фото, до утилизации.",
+      "key_point_uz": "«Oy oxirida hammasini birga» rasmiylashtirilgan spisaniye — spisaniye emas, kamomadni yopishga urinish. U voqea kuni, foto bilan, yo'q qilishdan oldin rasmiylashtiriladi.",
+      "reason_ru": "Списание — это деньги филиала, выброшенные в мусор, и по нему оценивают менеджера напрямую: выше 5 процентов — ноль баллов, ниже 1 процента — максимум. Каждый лишний процент списания вычитается из твоей же премии.",
+      "reason_uz": "Spisaniye — axlatga tashlangan filial puli, va menejer bevosita shu bo'yicha baholanadi: 5 foizdan yuqori — nol ball, 1 foizdan past — maksimal. Har bir ortiqcha foiz spisaniye sening mukofotingdan ayiriladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Оформил списание в день, когда продукт стал непригоден", "uz": "Spisaniyeni mahsulot yaroqsiz bo'lgan kuni rasmiylashtirdi"},
+          {"ru": "В акте указаны позиция, количество, причина и подпись", "uz": "Aktda pozitsiya, miqdor, sabab va imzo ko'rsatilgan"},
+          {"ru": "Продукт сфотографирован до утилизации", "uz": "Mahsulot yo'q qilinishidan oldin suratga olingan"},
+          {"ru": "Знает свой процент списания за месяц и его причины", "uz": "Oylik spisaniye foizini va uning sabablarini biladi"}
+        ],
+        "questions": [
+          {"ru": "Повар пережарил партию и уже выбросил её. Как оформишь?", "uz": "Oshpaz bir partiyani kuydirib, allaqachon tashlab yubordi. Qanday rasmiylashtirasan?"},
+          {"ru": "Соус списывается каждую неделю. Что будешь менять?", "uz": "Sous har hafta spisaniyega tushyapti. Nimani o'zgartirasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Месячный отчёт и инвентаризация",
+      "title_uz": "Oylik hisobot va inventarizatsiya",
+      "step_ru": "В конце месяца проведи полную инвентаризацию: пересчёт всего склада двумя людьми, один считает, второй записывает. Сведи фактические остатки с движением за месяц: приход, продажи, списание. Разбери каждое крупное расхождение отдельно и напиши по нему объяснение. Сдай месячный отчёт во внутренний контроль в установленный срок, вместе с актами списаний за месяц.",
+      "step_uz": "Oy oxirida to'liq inventarizatsiya o'tkaz: butun omborni ikki kishi sanaydi, biri sanaydi, ikkinchisi yozadi. Haqiqiy qoldiqni oylik harakat bilan solishtir: kirim, sotuv, spisaniye. Har bir yirik nomuvofiqlikni alohida ko'r va unga izoh yoz. Oylik hisobotni belgilangan muddatda, oylik spisaniye aktlari bilan birga ichki nazoratga topshir.",
+      "key_point_ru": "Считают двое, и считает не тот, кто отвечает за этот участок. Инвентаризация, проведённая одним человеком по своей же зоне, ничего не проверяет.",
+      "key_point_uz": "Ikki kishi sanaydi, sanovchi esa shu uchastkaga javob beradigan odam bo'lmaydi. Bir odam o'z zonasini o'zi sanagan inventarizatsiya hech narsani tekshirmaydi.",
+      "reason_ru": "Месячный отчёт показывает, куда реально уходят продукты и деньги филиала за 30 дней. Если он сдан кое-как, в следующем месяце ты работаешь вслепую и объясняешь недостачу, причин которой уже не восстановить.",
+      "reason_uz": "Oylik hisobot 30 kun ichida filial mahsuloti va puli qayerga ketganini ko'rsatadi. U qandaydir qilib topshirilsa, keyingi oy ko'r-ko'rona ishlaysan va sababini tiklab bo'lmaydigan kamomadga izoh berasan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Инвентаризацию проводили двое, считал не ответственный за зону", "uz": "Inventarizatsiyani ikki kishi o'tkazdi, zonaga mas'ul bo'lmagan odam sanadi"},
+          {"ru": "Сведены приход, продажи и списание за месяц", "uz": "Oylik kirim, sotuv va spisaniye solishtirilgan"},
+          {"ru": "По каждому крупному расхождению написано объяснение", "uz": "Har bir yirik nomuvofiqlikka izoh yozilgan"},
+          {"ru": "Отчёт сдан в срок вместе с актами списаний", "uz": "Hisobot spisaniye aktlari bilan birga muddatida topshirilgan"}
+        ],
+        "questions": [
+          {"ru": "Инвентаризация показала минус по мясу на 2 миллиона. Твои шаги?", "uz": "Inventarizatsiya go'sht bo'yicha 2 million minus ko'rsatdi. Qadamlaring?"},
+          {"ru": "Почему нельзя, чтобы зону считал тот, кто за неё отвечает?", "uz": "Zonani unga mas'ul odam sanashi nega mumkin emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Внутренний аудит и разбор расхождений",
+      "title_uz": "Ichki audit va nomuvofiqliklarni tahlil qilish",
+      "step_ru": "Когда приезжает внутренний аудит, покажи всё, что просят: остатки, акты, папку документов, склад, холодильники. Замечания записывай сразу и с датой, к которой исправишь. Не спорь с требованиями аудита на месте — несогласие идёт через BRM, письменно. После проверки пройди по каждому пункту сам и закрой его до следующего визита.",
+      "step_uz": "Ichki audit kelganda so'ralgan hamma narsani ko'rsat: qoldiqlar, aktlar, hujjatlar papkasi, ombor, sovutgichlar. Izohlarni darhol va tuzatish sanasi bilan yozib ol. Audit talablari bilan joyida bahslashma — norozilik BRM orqali, yozma ravishda bildiriladi. Tekshiruvdan keyin har bir bandni o'zing ko'rib chiq va keyingi tashrifgacha yop.",
+      "key_point_ru": "Один и тот же пункт во втором акте подряд — это уже не замечание, а дисциплинарный вопрос. Закрывай замечания до следующей проверки, а не к ней.",
+      "key_point_uz": "Ketma-ket ikkinchi aktdagi bir xil band — bu endi izoh emas, intizomiy masala. Izohlarni keyingi tekshiruvga emas, undan oldin yop.",
+      "reason_ru": "Аудит смотрит на филиал глазами гостя и проверяющего одновременно, и находит то, к чему ты уже привык и перестал замечать. Замечание, закрытое сразу, стоит один вечер работы, то же замечание через месяц — процент от премии.",
+      "reason_uz": "Audit filialga bir vaqtda mehmon va tekshiruvchi ko'zi bilan qaraydi va sen ko'nikib, payqamay qo'ygan narsani topadi. Darhol yopilgan izoh bir kechalik ishga tushadi, o'sha izoh bir oydan keyin — mukofotdan foizga.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Предоставил документы и зоны по запросу аудита без задержки", "uz": "Audit so'roviga hujjat va zonalarni kechiktirmay taqdim etdi"},
+          {"ru": "Записал каждое замечание с датой устранения", "uz": "Har bir izohni bartaraf etish sanasi bilan yozib oldi"},
+          {"ru": "Не вступал в спор с аудитором на месте", "uz": "Auditor bilan joyida bahsga kirishmadi"},
+          {"ru": "Замечания прошлой проверки закрыты", "uz": "O'tgan tekshiruv izohlari yopilgan"}
+        ],
+        "questions": [
+          {"ru": "Ты не согласен с замечанием аудита. Как правильно возразить?", "uz": "Audit izohiga qo'shilmayapsan. To'g'ri e'tirozni qanday bildirasan?"},
+          {"ru": "Одно и то же замечание вышло второй раз подряд. Чем это грозит?", "uz": "Bir xil izoh ketma-ket ikkinchi marta chiqdi. Bu nima bilan tugaydi?"}
+        ]
+      }
+    }
+  ],
+  "safety": [
+    {
+      "sort": 0,
+      "title_ru": "Безопасная смена: пол, электрика, проходы",
+      "title_uz": "Xavfsiz smena: pol, elektr, o'tish yo'llari",
+      "step_ru": "Перед началом работы посмотри свою зону: сухой ли пол, не торчит ли провод, свободен ли проход к выходу. Пролитое вытирай сразу, а не «после заказа» — и ставь знак «мокрый пол», пока сохнет. Не носи коробки выше уровня глаз и не бери груз, который не можешь поднять один. Работай в закрытой нескользящей обуви, тапочки на смену не надевают.",
+      "step_uz": "Ishni boshlashdan oldin o'z zonangni ko'r: pol quruqmi, sim chiqib turmaganmi, chiqish yo'li ochiqmi. To'kilganini «buyurtmadan keyin» emas, darhol art — quriguncha «ho'l pol» belgisini qo'y. Qutilarni ko'z sathidan baland ko'tarma va yolg'iz ko'tara olmaydigan yukni olma. Yopiq, sirpanmaydigan oyoq kiyimda ishla, smenaga shippak kiyilmaydi.",
+      "key_point_ru": "Мокрый пол на кухне — самая частая травма в фаст-фуде, и опаснее всего он у фритюра и плиты: падение там означает не ушиб, а ожог. Вытирай сразу, даже если руки заняты и очередь.",
+      "key_point_uz": "Ho'l pol oshxonadagi eng ko'p uchraydigan jarohat sababi, eng xavflisi esa frityur va plita yonida: u yerda yiqilish lat yeyish emas, kuyish demakdir. Qo'ling band va navbat bo'lsa ham darhol art.",
+      "reason_ru": "Грубое нарушение техники безопасности — красная зона в дисциплинарке. Но дело не в проценте: человек с ожогом или переломом уходит со смены в больницу, а его работу в пик делят остальные.",
+      "reason_uz": "Mehnat xavfsizligi qoidalarini qo'pol buzish — intizom jadvalidagi qizil zona. Gap foizda emas: kuygan yoki suyagi singan odam smenadan kasalxonaga ketadi, uning ishini esa pik vaqtida qolganlar bo'lishib oladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Работает в закрытой нескользящей обуви", "uz": "Yopiq, sirpanmaydigan oyoq kiyimda ishlaydi"},
+          {"ru": "Вытер пролитое сразу и поставил знак «мокрый пол»", "uz": "To'kilganini darhol artdi va «ho'l pol» belgisini qo'ydi"},
+          {"ru": "Проход к выходу и к щиту свободен от коробок", "uz": "Chiqish va elektr shchitiga o'tish yo'li qutilardan bo'sh"},
+          {"ru": "Тяжёлый груз поднимает вдвоём или тележкой", "uz": "Og'ir yukni ikki kishi yoki arava bilan ko'taradi"}
+        ],
+        "questions": [
+          {"ru": "Разлили масло у фритюра, а на кассе очередь. Что делаешь первым?", "uz": "Frityur yonida yog' to'kildi, kassada esa navbat. Birinchi nima qilasan?"},
+          {"ru": "Почему нельзя ставить коробки в проходе, даже на полчаса?", "uz": "Nega o'tish yo'liga yarim soatga ham quti qo'yish mumkin emas?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Горячее: фритюр, печь, тостер, кипяток",
+      "title_uz": "Issiq: frityur, pech, toster, qaynoq suv",
+      "step_ru": "К фритюру подходи в сухих руках и сухих перчатках. Продукт опускай медленно, от себя, корзиной, а не бросай. Замену и фильтрацию масла делай только на остывшем аппарате — никогда на горячем. У печи и тостера бери противни только прихваткой, и предупреждай вслух «горячее», когда несёшь. Кипяток и горячие соусы не переливай через голову или руку другого человека.",
+      "step_uz": "Frityurga quruq qo'l va quruq qo'lqop bilan yaqinlash. Mahsulotni sekin, o'zingdan nariga, savat bilan tushir, tashlama. Yog'ni almashtirish va filtrlashni faqat sovigan apparatda qil — hech qachon issig'ida. Pech va tosterdan patnisni faqat prixvatka bilan ol va olib yurayotganda ovoz chiqarib «issiq» deb ogohlantir. Qaynoq suv va issiq souslarni boshqa odamning boshi yoki qo'li ustidan quyma.",
+      "key_point_ru": "Вода в горячем масле взрывается брызгами на два метра. Именно поэтому мокрые перчатки, мокрый продукт из-под крана и мокрая корзина у фритюра запрещены — ошибка стоит лица и рук.",
+      "key_point_uz": "Issiq yog'ga tushgan suv ikki metrga sachrab portlaydi. Aynan shuning uchun ho'l qo'lqop, jo'mrak tagidan olingan ho'l mahsulot va ho'l savat frityur yonida taqiqlanadi — xato yuz va qo'lga tushadi.",
+      "reason_ru": "Ожог маслом — самая тяжёлая травма на кухне, заживает неделями и оставляет след навсегда. Все правила вокруг фритюра существуют ровно из-за одного: горячее масло не прощает спешки.",
+      "reason_uz": "Yog' kuydirishi oshxonadagi eng og'ir jarohat, u haftalab tuzaladi va umrbod iz qoldiradi. Frityur atrofidagi barcha qoidalar bitta sababdan: issiq yog' shoshqaloqlikni kechirmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Опускает продукт во фритюр медленно и от себя", "uz": "Mahsulotni frityurga sekin va o'zidan nariga tushiradi"},
+          {"ru": "Руки и перчатки сухие, продукт без наледи и воды", "uz": "Qo'l va qo'lqop quruq, mahsulotda muz va suv yo'q"},
+          {"ru": "Фильтрует и меняет масло только на остывшем аппарате", "uz": "Yog'ni faqat sovigan apparatda filtrlaydi va almashtiradi"},
+          {"ru": "Берёт противни прихваткой и предупреждает «горячее»", "uz": "Patnisni prixvatka bilan oladi va «issiq» deb ogohlantiradi"}
+        ],
+        "questions": [
+          {"ru": "Продукт достали из морозилки, на нём наледь. Можно во фритюр?", "uz": "Mahsulot muzlatgichdan olindi, ustida muz bor. Frityurga tushirsa bo'ladimi?"},
+          {"ru": "Что делать в первую минуту, если обжёг руку маслом?", "uz": "Qo'ling yog'da kuysa, birinchi daqiqada nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Ножи, слайсер, вакууматор, мясорубка",
+      "title_uz": "Pichoq, slayser, vakuum apparati, go'sht maydalagich",
+      "step_ru": "Режь только острым ножом на устойчивой доске, пальцы держи согнутыми. Нож не оставляй в раковине и не передавай из рук в руки — клади на стол. При работе со слайсером и мясорубкой пользуйся толкателем, не пальцами. Перед мойкой или чисткой любого аппарата отключи его от сети, а не только выключи кнопкой. Падающий нож не лови.",
+      "step_uz": "Faqat o'tkir pichoq bilan, ustida turgan doskada kes, barmoqlaringni bukib ushla. Pichoqni rakovinada qoldirma va qo'ldan qo'lga uzatma — stolga qo'y. Slayser va go'sht maydalagichda ishlaganda barmoq emas, itargich ishlat. Har qanday apparatni yuvish yoki tozalashdan oldin uni tugmadan o'chirish emas, tarmoqdan uz. Tushayotgan pichoqni ushlab qolma.",
+      "key_point_ru": "Тупой нож опаснее острого: он соскальзывает вместо того, чтобы резать. И самое частое серьёзное ранение — не при резке, а при мойке: рука лезет в мыльную воду, где лежит лезвие.",
+      "key_point_uz": "O'tmas pichoq o'tkiridan xavfliroq: u kesish o'rniga sirg'anib ketadi. Eng ko'p uchraydigan jiddiy jarohat esa kesishda emas, yuvishda: qo'l tig' yotgan sovunli suvga kiradi.",
+      "reason_ru": "Аппарат, выключенный кнопкой, но включённый в розетку, может запуститься от случайного нажатия во время мойки. Пальцы в слайсере и мясорубке не восстанавливаются.",
+      "reason_uz": "Tugmadan o'chirilgan, lekin rozetkadan uzilmagan apparat yuvish paytida tasodifiy bosishdan ishga tushishi mumkin. Slayser va maydalagichga tushgan barmoq tiklanmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Режет на устойчивой доске, пальцы согнуты", "uz": "Qimirlamaydigan doskada kesadi, barmoqlari bukilgan"},
+          {"ru": "Не оставляет ножи в раковине с водой", "uz": "Pichoqlarni suvli rakovinada qoldirmaydi"},
+          {"ru": "Использует толкатель на слайсере и мясорубке", "uz": "Slayser va maydalagichda itargichdan foydalanadi"},
+          {"ru": "Отключает аппарат от розетки перед чисткой", "uz": "Tozalashdan oldin apparatni rozetkadan uzadi"}
+        ],
+        "questions": [
+          {"ru": "Нож соскользнул и падает со стола. Что делаешь?", "uz": "Pichoq sirg'anib stoldan tushyapti. Nima qilasan?"},
+          {"ru": "Порезал палец во время смены. Порядок действий?", "uz": "Smena vaqtida barmog'ingni kesib olding. Nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Пожар и ЧП: что делать в первые минуты",
+      "title_uz": "Yong'in va favqulodda holat: dastlabki daqiqalar",
+      "step_ru": "Найди на своей смене огнетушитель, электрощит, аварийный выход и знай их расположение наизусть. Загоревшееся масло водой не тушат — только крышкой, кошмой или порошковым огнетушителем. При задымлении сначала выводи гостей к выходу, потом звони 101 и руководству. Отключи газ и электрику на щите, если можешь сделать это безопасно. Эвакуационный выход держи свободным всю смену.",
+      "step_uz": "O'z smenangda o't o'chirgich, elektr shchiti va zaxira chiqishni top va joyini yoddan bil. Yonayotgan yog'ni suv bilan o'chirilmaydi — faqat qopqoq, kigiz yoki kukunli o't o'chirgich bilan. Tutun chiqsa avval mehmonlarni chiqishga olib chiq, keyin 101 ga va rahbariyatga qo'ng'iroq qil. Xavfsiz qila olsang, shchitdan gaz va elektrni uz. Evakuatsiya chiqishini butun smena davomida bo'sh sakla.",
+      "key_point_ru": "Вода в горящее масло — это столб пламени до потолка, а не тушение. И второе: сначала люди, потом имущество, всегда, даже если кажется, что успеешь сохранить и то и другое.",
+      "key_point_uz": "Yonayotgan yog'ga suv — o'chirish emas, shiftgacha ko'tarilgan olov ustuni. Ikkinchisi: avval odamlar, keyin mol-mulk, har doim, ikkalasini ham saqlab qolaman deb o'ylasang ham.",
+      "reason_ru": "На кухне с фритюрами и газом пожар растёт за минуты, и первые две минуты решают всё. Заставленный коробками аварийный выход — это не замечание проверяющего, а закрытая дорога для тех, кто в зале.",
+      "reason_uz": "Frityur va gaz bor oshxonada yong'in daqiqalar ichida kattalashadi, dastlabki ikki daqiqa hammasini hal qiladi. Quti bilan to'sib qo'yilgan zaxira chiqish — tekshiruvchining izohi emas, zaldagi odamlar uchun yopilgan yo'l.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Показал огнетушитель, электрощит и аварийный выход без подсказки", "uz": "O't o'chirgich, elektr shchiti va zaxira chiqishni eslatmasdan ko'rsatdi"},
+          {"ru": "Аварийный выход свободен, ничем не заставлен", "uz": "Zaxira chiqish bo'sh, hech narsa bilan to'silmagan"},
+          {"ru": "Знает, что горящее масло водой не тушат", "uz": "Yonayotgan yog'ni suv bilan o'chirilmasligini biladi"},
+          {"ru": "Называет порядок: люди, звонок 101, отключение щита", "uz": "Tartibni aytadi: odamlar, 101 ga qo'ng'iroq, shchitni uzish"}
+        ],
+        "questions": [
+          {"ru": "Загорелось масло во фритюре. Твои действия по порядку?", "uz": "Frityurdagi yog' yonib ketdi. Tartib bo'yicha nima qilasan?"},
+          {"ru": "Где в вашем филиале огнетушитель и аварийный выход?", "uz": "Sizning filialda o't o'chirgich va zaxira chiqish qayerda?"}
+        ]
+      }
+    }
+  ],
+  "sanitation": [
+    {
+      "sort": 0,
+      "title_ru": "Мытьё рук: когда и как",
+      "title_uz": "Qo'l yuvish: qachon va qanday",
+      "step_ru": "Мой руки в начале смены, после туалета, после мусора, после сырого мяса или курицы, после уборки, после телефона и после перерыва. Мочи руки, намыль до локтя, три не меньше 20 секунд — ладони, между пальцами, ногти, большие пальцы. Смой и вытри одноразовым полотенцем, не фартуком. Перчатки надевай только на чистые сухие руки.",
+      "step_uz": "Qo'lni smena boshida, hojatxonadan keyin, chiqindidan keyin, xom go'sht yoki tovuqdan keyin, tozalashdan keyin, telefondan keyin va tanaffusdan keyin yuv. Qo'lni ho'lla, tirsakkacha sovunla, kamida 20 soniya ishqala — kaft, barmoqlar orasi, tirnoq tagi, bosh barmoq. Chayib, bir martalik sochiq bilan quritib ol, fartuk bilan emas. Qo'lqopni faqat toza va quruq qo'lga kiy.",
+      "key_point_ru": "Перчатки не заменяют мытьё рук. Грязные руки в перчатке остаются грязными, а сама перчатка меняется при каждой смене продукта — с сырого на готовое обязательно.",
+      "key_point_uz": "Qo'lqop qo'l yuvish o'rnini bosmaydi. Qo'lqop ichidagi iflos qo'l iflosligicha qoladi, qo'lqopning o'zi esa har mahsulot almashganda o'zgartiriladi — xomdan tayyorga o'tishda albatta.",
+      "reason_ru": "Кишечная инфекция в фаст-фуде почти всегда приходит через руки: человек трогает сырую курицу, потом булку, и гость через шесть часов оказывается в больнице. 20 секунд с мылом — это буквально разница между обычной сменой и отравлением на весь филиал.",
+      "reason_uz": "Fast-fudda ichak infeksiyasi deyarli har doim qo'l orqali keladi: odam xom tovuqni ushlaydi, keyin bulochkani, mehmon esa olti soatdan keyin kasalxonada bo'ladi. Sovun bilan 20 soniya — bu oddiy smena bilan butun filialga tarqagan zaharlanish o'rtasidagi farq.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Вымыл руки в начале смены до того, как надел перчатки", "uz": "Qo'lqop kiyishdan oldin smena boshida qo'lini yuvdi"},
+          {"ru": "Вымыл руки после туалета и после выноса мусора", "uz": "Hojatxonadan va chiqindini chiqargandan keyin qo'lini yuvdi"},
+          {"ru": "Трёт руки не меньше 20 секунд, включая между пальцами", "uz": "Qo'lini kamida 20 soniya, barmoqlar orasini ham ishqalaydi"},
+          {"ru": "Вытирает руки одноразовым полотенцем, не фартуком и не тряпкой", "uz": "Qo'lini fartuk yoki latta emas, bir martalik sochiq bilan quritadi"},
+          {"ru": "Сменил перчатки при переходе с сырого на готовое", "uz": "Xomdan tayyorga o'tishda qo'lqopni almashtirdi"}
+        ],
+        "questions": [
+          {"ru": "Назови пять моментов, когда обязательно моют руки.", "uz": "Qo'l albatta yuviladigan beshta holatni ayt."},
+          {"ru": "Ты в перчатках потрогал телефон и возвращаешься к продуктам. Что делаешь?", "uz": "Qo'lqopda telefonni ushlading va mahsulotga qaytyapsan. Nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Спецодежда, ногти, украшения",
+      "title_uz": "Maxsus kiyim, tirnoq, taqinchoqlar",
+      "step_ru": "На смену выходи в чистой глаженой форме, в фартуке, в головном уборе — берете, чепчике или кепке — волосы полностью убраны. Ногти коротко подстрижены, без лака и наращивания. Кольца, часы, браслеты, серьги перед сменой снимай и убирай в шкафчик. Обувь сменная, закрытая, чистая. Форму не носи домой и не работай в уличной одежде.",
+      "step_uz": "Smenaga toza, dazmollangan formada, fartukda, bosh kiyimda — beret, chepchik yoki kepkada — soch to'liq yig'ilgan holda chiq. Tirnoq kalta olingan, laksiz va o'stirilmagan. Uzuk, soat, bilaguzuk, sirg'ani smenadan oldin yechib shkafga qo'y. Oyoq kiyim almashtiriladigan, yopiq, toza. Formani uyga kiyib ketma va ko'cha kiyimida ishlama.",
+      "key_point_ru": "Кольцо и часы — не про красоту, а про то, что под ними скапливается влага и грязь, которую не смывает мыло. Ноготь с лаком опасен вдвойне: лак откалывается прямо в продукт.",
+      "key_point_uz": "Uzuk va soat — chiroy masalasi emas: ular tagida sovun yuvib ketolmaydigan nam va kir yig'iladi. Lakli tirnoq ikki barobar xavfli: lak to'g'ridan-to'g'ri mahsulotga ko'chib tushadi.",
+      "reason_ru": "Волос или скол лака в еде — это жалоба, возврат, пост в соцсетях и проверка. Плюс нарушение внешнего вида — это зелёная зона дисциплинарки: предупреждение, а при повторе процент.",
+      "reason_uz": "Ovqatdan chiqqan soch yoki ko'chgan lak — shikoyat, qaytarish, ijtimoiy tarmoqdagi post va tekshiruv. Bundan tashqari tashqi ko'rinish talabini buzish — intizom jadvalidagi yashil zona: ogohlantirish, takrorlansa foiz.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Форма чистая и глаженая, фартук на месте", "uz": "Forma toza va dazmollangan, fartuk joyida"},
+          {"ru": "Головной убор надет, волосы полностью убраны", "uz": "Bosh kiyim kiyilgan, soch to'liq yig'ilgan"},
+          {"ru": "Ногти короткие, без лака", "uz": "Tirnoqlar kalta, laksiz"},
+          {"ru": "Кольца, часы и браслеты сняты и убраны в шкафчик", "uz": "Uzuk, soat va bilaguzuklar yechilib shkafga qo'yilgan"},
+          {"ru": "Обувь сменная, закрытая и чистая", "uz": "Oyoq kiyim almashtirilgan, yopiq va toza"}
+        ],
+        "questions": [
+          {"ru": "Почему на кухне нельзя работать в кольце, даже обручальном?", "uz": "Oshxonada nega uzuk, hatto nikoh uzugida ham ishlash mumkin emas?"},
+          {"ru": "Пришёл на смену в грязной футболке. Что делаешь?", "uz": "Smenaga kir futbolkada kelding. Nima qilasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Разделочные доски, ножи и кросс-контаминация",
+      "title_uz": "Kesish taxtalari, pichoqlar va kross-kontaminatsiya",
+      "step_ru": "Для сырого мяса, курицы, рыбы, овощей и готовой продукции используй разные доски и разные ножи по маркировке. После сырого продукта доску и нож не протирай тряпкой, а мой с моющим средством и просушивай. Сырое всегда храни ниже готового, никогда над ним. Между сырым и готовым мой руки и меняй перчатки.",
+      "step_uz": "Xom go'sht, tovuq, baliq, sabzavot va tayyor mahsulot uchun markirovkasi bo'yicha alohida doska va alohida pichoq ishlat. Xom mahsulotdan keyin doska va pichoqni latta bilan artma, yuvish vositasi bilan yuv va quritib qo'y. Xomni har doim tayyordan pastda sakla, hech qachon ustida emas. Xom bilan tayyor orasida qo'lni yuv va qo'lqopni almashtir.",
+      "key_point_ru": "Одной доски «просто протёртой» между курицей и салатом достаточно, чтобы сальмонелла попала в готовое блюдо. Тряпка не моет, она размазывает — доска идёт в мойку целиком.",
+      "key_point_uz": "Tovuq bilan salat orasida «shunchaki artilgan» bitta doskaning o'zi salmonellaning tayyor taomga tushishi uchun yetarli. Latta yuvmaydi, u yoyadi — doska butunlay yuvishga ketadi.",
+      "reason_ru": "Кросс-контаминация — это не «нарушение пункта», а отравленный гость: сырая курица не проходит термообработку, если её бактерии попали в салат или в булку. По дисциплинарке это тянет на 20 процентов, но настоящая цена — скорая у гостя и закрытый филиал.",
+      "reason_uz": "Kross-kontaminatsiya — «bandni buzish» emas, zaharlangan mehmon: xom tovuq bakteriyasi salat yoki bulochkaga tushsa, u issiqlik ishlovidan o'tmaydi. Intizom jadvali bo'yicha bu 20 foizga tortadi, haqiqiy narxi esa — mehmonga chaqirilgan tez yordam va yopilgan filial.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Берёт доску и нож по маркировке под конкретный продукт", "uz": "Aniq mahsulot uchun markirovka bo'yicha doska va pichoq oladi"},
+          {"ru": "После сырого моет доску и нож, а не протирает тряпкой", "uz": "Xomdan keyin doska va pichoqni artmaydi, yuvadi"},
+          {"ru": "Сырое лежит в холодильнике ниже готового", "uz": "Xom mahsulot sovutgichda tayyordan pastda turadi"},
+          {"ru": "Сменил перчатки и вымыл руки при переходе к готовому", "uz": "Tayyorga o'tishda qo'lqopni almashtirdi va qo'lini yuvdi"}
+        ],
+        "questions": [
+          {"ru": "Что случится, если резать салат на доске из-под сырой курицы?", "uz": "Xom tovuq turgan doskada salat kesilsa nima bo'ladi?"},
+          {"ru": "Почему сырое мясо хранят на нижней полке холодильника?", "uz": "Xom go'sht nega sovutgichning pastki javonida saqlanadi?"}
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Температура: холодовая цепь и горячая линия",
+      "title_uz": "Harorat: sovuq zanjir va issiq chiziq",
+      "step_ru": "Проверяй температуру холодильников и морозильников в начале смены и записывай в журнал. Холодильник держит 0…+4 °C, морозильник минус 18 °C и ниже. Готовое горячее на мармите держи выше +60 °C. Продукт, привезённый со склада, убирай в холод сразу, а не «после того как разберём». Если температура вышла за норму — не жди, сообщи менеджеру и старшему повару прямо сейчас.",
+      "step_uz": "Sovutgich va muzlatgichlar haroratini smena boshida tekshir va jurnalga yoz. Sovutgich 0…+4 °C, muzlatgich minus 18 °C va undan past bo'ladi. Marmitdagi tayyor issiq taomni +60 °C dan yuqorida sakla. Ombordan kelgan mahsulotni «keyin joylashtiramiz» demay, darhol sovuqqa qo'y. Harorat me'yordan chiqsa — kutma, hoziroq menejer va bosh oshpazga xabar ber.",
+      "key_point_ru": "От +5 до +60 °C — опасная зона, в ней бактерии удваиваются каждые 20 минут. Продукт, простоявший в этой зоне больше двух часов, уже не спасает ни холодильник, ни разогрев.",
+      "key_point_uz": "+5 dan +60 °C gacha — xavfli zona, unda bakteriyalar har 20 daqiqada ikki barobar ko'payadi. Bu zonada ikki soatdan ortiq turgan mahsulotni na sovutgich, na qayta qizdirish qutqaradi.",
+      "reason_ru": "Продукт из сломанного холодильника выглядит нормально и пахнет нормально — на вид отличить его невозможно. Именно поэтому решает термометр и журнал, а не нос: отравление начинается там, где кто-то решил «вроде холодный, сойдёт».",
+      "reason_uz": "Buzilgan sovutgichdagi mahsulot ko'rinishdan ham, hidi bo'yicha ham normal bo'ladi — ko'z bilan ajratib bo'lmaydi. Aynan shuning uchun burun emas, termometr va jurnal hal qiladi: zaharlanish kimdir «sovuqqa o'xshaydi, bo'laveradi» degan joydan boshlanadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Снял температуру холодильников в начале смены и записал", "uz": "Smena boshida sovutgichlar haroratini oldi va yozib qo'ydi"},
+          {"ru": "Называет норму для холодильника, морозильника и мармита", "uz": "Sovutgich, muzlatgich va marmit me'yorini aytadi"},
+          {"ru": "Убрал привезённый продукт в холод сразу", "uz": "Kelgan mahsulotni darhol sovuqqa qo'ydi"},
+          {"ru": "При отклонении температуры сообщил, а не оставил «до вечера»", "uz": "Harorat chetlashganda «kechgacha» qoldirmay xabar berdi"}
+        ],
+        "questions": [
+          {"ru": "При какой температуре хранится куриное филе и что сделаешь, если холодильник показывает +8?", "uz": "Tovuq filesi qanday haroratda saqlanadi va sovutgich +8 ko'rsatsa nima qilasan?"},
+          {"ru": "Почему опасная зона — это именно от +5 до +60 градусов?", "uz": "Nega aynan +5 dan +60 gradusgacha xavfli zona hisoblanadi?"}
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Сроки годности, маркировка, FIFO",
+      "title_uz": "Yaroqlilik muddati, markirovka, FIFO",
+      "step_ru": "На каждую вскрытую упаковку и каждую заготовку клей стикер: что это, дата и время изготовления, срок до какого. Ставь новое сзади, старое вперёд — продавай сначала то, что раньше истечёт. В начале смены пройди холодильники и проверь даты. Всё, у чего вышел срок или нет стикера, — не в работу, а в списание с оформлением.",
+      "step_uz": "Har bir ochilgan qadoq va har bir zagotovkaga stiker yopishtir: nima ekani, tayyorlangan sana va vaqti, qaysi muddatgacha. Yangisini orqaga, eskisini oldinga qo'y — avval muddati oldin tugaydiganini sot. Smena boshida sovutgichlarni aylanib sanalarni tekshir. Muddati o'tgan yoki stikeri yo'q hamma narsa — ishga emas, rasmiylashtirilgan spisaniyega.",
+      "key_point_ru": "Продукт без стикера считается просроченным, даже если ты точно помнишь, что открыл его сегодня утром. Память не документ, и следующая смена твою память не унаследует.",
+      "key_point_uz": "Stikeri yo'q mahsulot muddati o'tgan hisoblanadi, uni bugun ertalab ochganingni aniq eslasang ham. Xotira hujjat emas, keyingi smena sening xotirangni meros qilib olmaydi.",
+      "reason_ru": "FIFO придумали не ради порядка на полке, а потому что при обратном порядке старое уходит в мусор, а списание — это деньги филиала и минус в оценке. А просрочка, попавшая гостю, — это уже не деньги, а его здоровье.",
+      "reason_uz": "FIFO javondagi tartib uchun emas, teskari tartibda eski mahsulot axlatga ketgani uchun o'ylab topilgan, spisaniye esa — filial puli va bahoga minus. Mehmonga tushgan muddati o'tgan mahsulot esa allaqachon pul emas, uning sog'lig'i.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Наклеил стикер на вскрытую упаковку сразу, с датой и временем", "uz": "Ochilgan qadoqqa sana va vaqt bilan darhol stiker yopishtirdi"},
+          {"ru": "Ставит новое сзади, берёт в работу старое", "uz": "Yangisini orqaga qo'yadi, ishga eskisini oladi"},
+          {"ru": "Проверил даты в холодильниках в начале смены", "uz": "Smena boshida sovutgichlardagi sanalarni tekshirdi"},
+          {"ru": "Просроченное убрал из работы и оформил списание", "uz": "Muddati o'tganini ishdan chiqarib spisaniye rasmiylashtirdi"}
+        ],
+        "questions": [
+          {"ru": "Нашёл в холодильнике заготовку без стикера. Что с ней делаешь?", "uz": "Sovutgichdan stikersiz zagotovka topding. Uni nima qilasan?"},
+          {"ru": "Пришёл свежий товар, а старый ещё не кончился. Куда что ставишь?", "uz": "Yangi tovar keldi, eskisi hali tugamagan. Nimani qayerga qo'yasan?"}
+        ]
+      }
+    },
+    {
+      "sort": 5,
+      "title_ru": "Уборка, дезинфекция, мусор, медкнижка",
+      "title_uz": "Tozalash, dezinfeksiya, chiqindi, tibbiy daftarcha",
+      "step_ru": "Убирай своё рабочее место по графику, а не только в конце смены: столы, инвентарь, ручки холодильников, полы. Дезинфицируй поверхности тем средством и в той концентрации, что указаны, — не «побольше для надёжности». Мусор выноси до того, как бак переполнился, бак держи с крышкой и с пакетом. После мусора мой руки. Медкнижку проходи вовремя, не дожидаясь окончания срока.",
+      "step_uz": "Ish joyingni faqat smena oxirida emas, grafik bo'yicha tozala: stollar, inventar, sovutgich dastalari, pol. Yuzalarni ko'rsatilgan vosita va ko'rsatilgan konsentratsiyada dezinfeksiya qil — «ishonchli bo'lsin deb ko'proq» emas. Chiqindini bak to'lib ketmasdan oldin chiqar, bakni qopqoqli va paketli sakla. Chiqindidan keyin qo'lingni yuv. Tibbiy daftarchani muddati tugashini kutmay, o'z vaqtida o't.",
+      "key_point_ru": "Открытый мусорный бак на кухне — прямая дорога для мух и запаха, и это первое, что видит проверка. Второе, что она смотрит, — журнал дератизации и дезинфекции: он должен вестись каждый раз, а не заполняться перед визитом.",
+      "key_point_uz": "Oshxonadagi ochiq chiqindi baki pashsha va hid uchun to'g'ridan-to'g'ri yo'l, tekshiruv birinchi ko'radigan narsa ham shu. Ikkinchisi — deratizatsiya va dezinfeksiya jurnali: u tashrifdan oldin to'ldirilmay, har safar yuritilishi kerak.",
+      "reason_ru": "Грызуны и насекомые заводятся не от грязи вообще, а от конкретных вещей: крошки под оборудованием, открытый мусор, коробки на полу. А сотрудник с просроченной медкнижкой на смене — это основание закрыть филиал, независимо от того, насколько там чисто.",
+      "reason_uz": "Kemiruvchi va hasharotlar umuman iflosdan emas, aniq narsalardan paydo bo'ladi: jihoz tagidagi ushoq, ochiq chiqindi, polda yotgan qutilar. Muddati o'tgan tibbiy daftarcha bilan smenada turgan xodim esa — u yer qanchalik toza bo'lishidan qat'i nazar, filialni yopish uchun asos.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {"ru": "Убирает рабочее место по графику в течение смены", "uz": "Ish joyini smena davomida grafik bo'yicha tozalaydi"},
+          {"ru": "Разводит дезсредство по инструкции, а не на глаз", "uz": "Dezvositani ko'z bilan chamalab emas, yo'riqnoma bo'yicha eritadi"},
+          {"ru": "Бак с крышкой и пакетом, вынесен до переполнения", "uz": "Bak qopqoqli va paketli, to'lib ketmasdan chiqarilgan"},
+          {"ru": "Вымыл руки после работы с мусором", "uz": "Chiqindi bilan ishlagandan keyin qo'lini yuvdi"},
+          {"ru": "Медкнижка действующая, срок не истёк", "uz": "Tibbiy daftarcha amalda, muddati o'tmagan"}
+        ],
+        "questions": [
+          {"ru": "Куда чаще всего забывают заглянуть при уборке кухни?", "uz": "Oshxonani tozalashda ko'pincha qayerga qarash esdan chiqadi?"},
+          {"ru": "Через сколько дней истекает твоя медкнижка и что сделаешь заранее?", "uz": "Tibbiy daftarchang necha kundan keyin tugaydi va oldindan nima qilasan?"}
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,1602 @@
+{
+  "onboarding": [
+    {
+      "sort": 0,
+      "title_ru": "Первый день: приход и отметка в Workly",
+      "title_uz": "Birinchi kun: kelish va Workly'da belgilanish",
+      "step_ru": "Приходи в филиал не позже чем за 15 минут до начала смены. Переоденься в раздевалке, надень чистую форму и бейдж. Отметься в Workly отпечатком ровно в начале смены. В конце смены отметься ещё раз, перед тем как уйти домой.",
+      "step_uz": "Smenang boshlanishidan kamida 15 daqiqa oldin filialga kel. Kiyinish xonasida kiyimingni almashtir, toza forma va beyj kiy. Smena boshida Workly'ga barmoq izi bilan belgilan. Smena oxirida uyga ketishdan oldin yana belgilan.",
+      "key_point_ru": "Отметка в Workly ставится в форме, а не «по дороге»: сначала переоделся, потом отпечаток. Вечерний отпечаток так же обязателен, как утренний.",
+      "key_point_uz": "Workly'ga formada belgilanasan, «yo'l-yo'lakay» emas: avval kiyimni almashtir, keyin barmoq izi. Kechki belgilanish ham xuddi ertalabkidek majburiy.",
+      "reason_ru": "Каждая опоздавшая минута удерживается из надбавки, а если вечером не отметился — день вообще не засчитан как рабочий.",
+      "reason_uz": "Har bir kechikkan daqiqa ustamadan ushlab qolinadi, kechqurun belgilanmasang esa — kun umuman ish kuni hisoblanmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Пришёл до начала смены и успел переодеться без спешки",
+            "uz": "Smena boshlanishidan oldin keldi va shoshilmasdan kiyim almashtirdi"
+          },
+          {
+            "ru": "Отметился в Workly уже в форме и с бейджем",
+            "uz": "Workly'ga formada va beyj bilan belgilandi"
+          },
+          {
+            "ru": "Знает, где раздевалка, его шкафчик и где висит график",
+            "uz": "Kiyinish xonasi, o'z shkafchasi va grafik qayerdaligini biladi"
+          },
+          {
+            "ru": "Поставил вечерний отпечаток перед уходом",
+            "uz": "Ketishdan oldin kechki barmoq izini qo'ydi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты опоздал на десять минут. Что делаешь и кому говоришь?",
+            "uz": "O'n daqiqa kechikding. Nima qilasan va kimga aytasan?"
+          },
+          {
+            "ru": "Забыл отметиться вечером и вспомнил дома. Что будет и что делать?",
+            "uz": "Kechqurun belgilanishni unutding, uyda esladingmi? Nima bo'ladi va nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Кто в филиале за что отвечает",
+      "title_uz": "Filialda kim nima uchun javobgar",
+      "step_ru": "Запомни менеджера смены — все вопросы идёшь решать к нему. Узнай, кто старший повар, кто на кассе, кто на раздаче, кто на зале. Проблему по продуктам неси старшему повару, проблему по гостю и деньгам — менеджеру. В рабочие группы пиши только по делу и отвечай быстро.",
+      "step_uz": "Smena menejerini eslab qol — barcha savol bilan unga borasan. Bosh oshpaz kim, kassada kim, razdachada kim, zalda kim — bilib ol. Mahsulot muammosini bosh oshpazga, mehmon va pul muammosini menejerga olib bor. Ish guruhlariga faqat ish yuzasidan yoz va tez javob ber.",
+      "key_point_ru": "Через голову менеджера к руководству не обращаются. Любой вопрос — сначала менеджеру смены.",
+      "key_point_uz": "Menejerning boshi ustidan rahbariyatga murojaat qilinmaydi. Har qanday masala — avval smena menejeriga.",
+      "reason_ru": "Когда каждый бежит со своим вопросом наверх, менеджер не знает обстановки на филиале и проблема решается вдвое дольше.",
+      "reason_uz": "Har kim o'z savoli bilan yuqoriga yugursa, menejer filialdagi holatni bilmay qoladi va muammo ikki barobar uzoq hal bo'ladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Называет менеджера смены и старшего повара по имени",
+            "uz": "Smena menejeri va bosh oshpazni ismi bilan aytadi"
+          },
+          {
+            "ru": "Обратился с вопросом к менеджеру, а не к случайному сотруднику",
+            "uz": "Savol bilan tasodifiy xodimga emas, menejerga murojaat qildi"
+          },
+          {
+            "ru": "Знает, в какой рабочей группе что пишут",
+            "uz": "Qaysi ish guruhida nima yozilishini biladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты увидел, что продукт испорчен. Кому говоришь первым?",
+            "uz": "Mahsulot buzilganini ko'rding. Birinchi kimga aytasan?"
+          },
+          {
+            "ru": "Гость просит позвать «главного». Твои действия?",
+            "uz": "Mehmon «kattani» chaqirishni so'rayapti. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Ритм дня филиала: открытие, пики, закрытие",
+      "title_uz": "Filial kunining ritmi: ochilish, pik, yopilish",
+      "step_ru": "Знай график: филиал работает с 10:00 до 22:00, доставка может закрыться на 15 минут раньше. К 10:00 всё должно быть готово к гостям. Держи в голове два пика — обед 12:00–16:00 и вечер 17:00–20:00. После обеденного пика вместе со сменой проверь запасы и подготовься к вечернему.",
+      "step_uz": "Grafikni bil: filial 10:00 dan 22:00 gacha ishlaydi, dostavka 15 daqiqa oldinroq yopilishi mumkin. 10:00 ga qadar hammasi mehmonlarga tayyor bo'lishi kerak. Ikkita pikni yodda tut — tushlik 12:00–16:00 va kechki 17:00–20:00. Tushlik pikidan keyin smena bilan birga zaxirani tekshir va kechki pikka tayyorlan.",
+      "key_point_ru": "Готовность к 10:00 — это не «начал готовиться в 10:00». В десять уже стоишь на позиции и можешь принять первого гостя.",
+      "key_point_uz": "10:00 ga tayyorlik — bu «10:00 da tayyorlana boshladim» degani emas. Soat o'nda allaqachon pozitsiyangda turasan va birinchi mehmonni qabul qila olasan.",
+      "reason_ru": "Гость, который пришёл в 10:05 и десять минут ждёт, пока включат кассу, больше не придёт — а первый час формирует утреннюю выручку.",
+      "reason_uz": "10:05 da kelib, kassa yoqilishini o'n daqiqa kutgan mehmon boshqa kelmaydi — birinchi soat esa ertalabki savdoni belgilaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "К открытию стоит на своей позиции, а не доделывает подготовку",
+            "uz": "Ochilishga o'z pozitsiyasida turadi, tayyorgarlikni tugatmaydi"
+          },
+          {
+            "ru": "Называет часы обеденного и вечернего пика",
+            "uz": "Tushlik va kechki pik soatlarini aytadi"
+          },
+          {
+            "ru": "После обеденного пика проверил свою зону и пополнил запас",
+            "uz": "Tushlik pikidan keyin o'z zonasini tekshirdi va zaxirani to'ldirdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Во сколько филиал должен быть полностью готов к гостям?",
+            "uz": "Filial mehmonlarga soat nechada to'liq tayyor bo'lishi kerak?"
+          },
+          {
+            "ru": "Что ты делаешь в промежутке между двумя пиками?",
+            "uz": "Ikki pik orasidagi vaqtda nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Что нельзя с первого дня",
+      "title_uz": "Birinchi kundanoq mumkin bo'lmagan ishlar",
+      "step_ru": "Убери телефон в шкафчик — в рабочее время им не пользуются. Ешь только в отведённом месте и только в перерыв. Продукцию Chopar и Les Ailes на смене не ешь. Не садись с знакомыми в зале в рабочее время. Ничего о филиале, выручке и внутренних правилах не рассказывай за пределами работы.",
+      "step_uz": "Telefoningni shkafchaga qo'y — ish vaqtida undan foydalanilmaydi. Faqat belgilangan joyda va faqat tanaffusda ovqatlan. Smenada Chopar va Les Ailes mahsulotini yemaysan. Ish vaqtida zalda tanish-bilishlar bilan o'tirma. Filial, savdo va ichki qoidalar haqida ish tashqarisida hech kimga gapirma.",
+      "key_point_ru": "Съесть продукт «просто попробовать» — это не мелочь, а нарушение жёлтой зоны с выговором. Спрашивать разрешения нужно заранее, а не после.",
+      "key_point_uz": "Mahsulotni «shunchaki tatib ko'rish» uchun yeyish — arzimas ish emas, bu sariq zona buzilishi va hayfsan. Ruxsatni oldindan so'rash kerak, keyin emas.",
+      "reason_ru": "Телефон в руках и еда на рабочем месте видны и гостю, и камере — это зелёная зона с предупреждением, а при повторе снимается процент надбавки.",
+      "reason_uz": "Qo'ldagi telefon va ish joyidagi ovqat mehmonga ham, kameraga ham ko'rinadi — bu ogohlantirishli yashil zona, takrorlansa ustamadan foiz olinadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Телефон убран, за смену ни разу не доставал его в зале",
+            "uz": "Telefon yig'ib qo'yilgan, smena davomida zalda bir marta ham olmadi"
+          },
+          {
+            "ru": "Ел только в отведённом месте и в перерыв",
+            "uz": "Faqat belgilangan joyda va tanaffusda ovqatlandi"
+          },
+          {
+            "ru": "Не разговаривал со знакомыми, стоя на позиции",
+            "uz": "Pozitsiyada turib tanish-bilishlari bilan gaplashmadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Друг зашёл в филиал и зовёт посидеть. Что ответишь?",
+            "uz": "Do'sting filialga kirib, o'tirishga chaqiryapti. Nima deysan?"
+          },
+          {
+            "ru": "Знакомый спрашивает, сколько филиал делает выручки в день. Что скажешь?",
+            "uz": "Tanishing filial kuniga qancha savdo qilishini so'rayapti. Nima deysan?"
+          }
+        ]
+      }
+    }
+  ],
+  "appearance": [
+    {
+      "sort": 0,
+      "title_ru": "Форма и внешний вид перед сменой",
+      "title_uz": "Smenadan oldin forma va tashqi ko'rinish",
+      "step_ru": "Надень чистую выглаженную форму и бейдж. На голову — бахилу или фирменную кепку, цветные кепки не носят. Обувь только закрытая и сменная, тапочки запрещены. Волосы убраны, борода подстрижена, ногти коротко острижены, без лака. Кольца, часы и браслеты сними и убери в шкафчик.",
+      "step_uz": "Toza, dazmollangan forma va beyj kiy. Boshingga baxila yoki firma kepka, rangli kepka kiyilmaydi. Oyoq kiyim faqat yopiq va almashtiriladigan, tapochka taqiqlanadi. Soch yig'ilgan, soqol olingan, tirnoq kalta va laksiz. Uzuk, soat va bilaguzukni yechib shkafchaga qo'y.",
+      "key_point_ru": "Проверь себя до выхода на позицию, а не после замечания менеджера. Если внешний вид не по стандарту — на смену не допустят.",
+      "key_point_uz": "O'zingni pozitsiyaga chiqishdan oldin tekshir, menejerning tanbehidan keyin emas. Tashqi ko'rinish standartga mos bo'lmasa — smenaga qo'yilmaysan.",
+      "reason_ru": "Кольцо или длинный ноготь попадают в еду, а мятая форма у кассы — первое, что видит гость и запоминает про весь бренд.",
+      "reason_uz": "Uzuk yoki uzun tirnoq ovqatga tushadi, kassadagi g'ijim forma esa — mehmon birinchi ko'radigan va butun brend haqida eslab qoladigan narsa.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Форма чистая и выглаженная, бейдж на месте",
+            "uz": "Forma toza va dazmollangan, beyj joyida"
+          },
+          {
+            "ru": "Головной убор надет, волосы полностью убраны",
+            "uz": "Bosh kiyim kiyilgan, soch to'liq yig'ilgan"
+          },
+          {
+            "ru": "Ногти короткие, украшений на руках нет",
+            "uz": "Tirnoq kalta, qo'lda taqinchoq yo'q"
+          },
+          {
+            "ru": "Обувь закрытая и сменная",
+            "uz": "Oyoq kiyim yopiq va almashtirilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Форма испачкалась в середине смены. Твои действия?",
+            "uz": "Forma smena o'rtasida iflos bo'ldi. Nima qilasan?"
+          },
+          {
+            "ru": "Почему нельзя работать в кольце и с часами?",
+            "uz": "Nega uzuk va soat bilan ishlash mumkin emas?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Раздевалка и личные вещи",
+      "title_uz": "Kiyinish xonasi va shaxsiy narsalar",
+      "step_ru": "Всю уличную одежду и обувь убирай в свой шкафчик, ничего не оставляй на скамейке и на полу. Форму вешай, а не складывай комом. Сменную обувь держи чистой. Перед уходом закрой шкафчик и оставь раздевалку такой, чтобы в неё можно было завести проверяющего.",
+      "step_uz": "Barcha ko'cha kiyimi va oyoq kiyimni o'z shkafchangga qo'y, skameyka va polda hech narsa qoldirma. Formani osib qo'y, g'ijimlab tashlama. Almashtiriladigan oyoq kiyimni toza saqla. Ketishdan oldin shkafchani yop va kiyinish xonasini tekshiruvchini olib kirsa bo'ladigan holatda qoldir.",
+      "key_point_ru": "Раздевалка входит в ежедневный чек-лист чистоты филиала наравне с залом. Её проверяют так же, как санузел.",
+      "key_point_uz": "Kiyinish xonasi filialning kunlik tozalik chek-listiga zal bilan bir qatorda kiradi. Uni ham hojatxona kabi tekshirishadi.",
+      "reason_ru": "Беспорядок на рабочем месте — это зелёная зона: предупреждение, а при повторе минус процент надбавки. Плюс в чужой куче вещей легко теряются свои.",
+      "reason_uz": "Ish joyidagi tartibsizlik — yashil zona: ogohlantirish, takrorlansa ustamadan foiz. Bundan tashqari, birovning uyumida o'z narsang oson yo'qoladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Шкафчик закрыт, вещи внутри, на скамейке пусто",
+            "uz": "Shkafcha yopiq, narsalar ichida, skameyka bo'sh"
+          },
+          {
+            "ru": "Сменная обувь чистая и стоит на своём месте",
+            "uz": "Almashtiriladigan oyoq kiyim toza va o'z joyida"
+          },
+          {
+            "ru": "Форма висит, а не лежит комом",
+            "uz": "Forma osilgan, g'ijimlanib yotmagan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Кто проверяет раздевалку и как часто?",
+            "uz": "Kiyinish xonasini kim va qanchalik tez-tez tekshiradi?"
+          },
+          {
+            "ru": "Куда ты денешь мокрую куртку в дождь?",
+            "uz": "Yomg'irda ho'l kurtkani qayerga qo'yasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Опоздания, перерывы, уход с рабочего места",
+      "title_uz": "Kechikish, tanaffus va ish joyini tark etish",
+      "step_ru": "Планируй дорогу так, чтобы быть на месте заранее. Если опаздываешь — сразу позвони менеджеру, не пиши после смены. Перерыв бери только с разрешения менеджера и только когда позицию есть кому закрыть. Уходя с позиции даже на пять минут, скажи, куда и на сколько.",
+      "step_uz": "Yo'lni oldindan yetib boradigan qilib rejalashtir. Kechikayotgan bo'lsang — darrov menejerga qo'ng'iroq qil, smenadan keyin yozma. Tanaffusni faqat menejer ruxsati bilan va pozitsiyani yopadigan odam bo'lganda ol. Pozitsiyadan besh daqiqaga chiqsang ham, qayerga va qancha vaqtga ketayotganingni ayt.",
+      "key_point_ru": "Предупредить об опоздании до начала смены и поставить менеджера перед фактом после — разные вещи. Первое решаемо, второе нет.",
+      "key_point_uz": "Kechikish haqida smena boshlanishidan oldin ogohlantirish va keyin menejerni tayyor holat oldiga qo'yish — ikki xil narsa. Birinchisini hal qilsa bo'ladi, ikkinchisini yo'q.",
+      "reason_ru": "Пустая касса в пик — это очередь, которая расходится: гости уходят к соседям, а смена теряет выручку за весь час.",
+      "reason_uz": "Pik vaqtidagi bo'sh kassa — tarqalib ketadigan navbat: mehmonlar qo'shnilarga ketadi, smena esa butun soatlik savdoni yo'qotadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Предупредил менеджера об опоздании заранее, а не постфактум",
+            "uz": "Kechikish haqida menejerni oldindan ogohlantirdi, keyin emas"
+          },
+          {
+            "ru": "Перед перерывом передал позицию и предупредил менеджера",
+            "uz": "Tanaffusdan oldin pozitsiyani topshirdi va menejerni ogohlantirdi"
+          },
+          {
+            "ru": "За смену ни разу не оставил позицию без предупреждения",
+            "uz": "Smena davomida pozitsiyani ogohlantirmasdan bir marta ham tashlab ketmadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты понял в дороге, что опоздаешь на 20 минут. Что делаешь?",
+            "uz": "Yo'lda 20 daqiqa kechikishingni tushunding. Nima qilasan?"
+          },
+          {
+            "ru": "Пик, очередь, тебе нужно выйти. Как поступишь?",
+            "uz": "Pik, navbat, chiqishing kerak. Qanday yo'l tutasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Три зоны нарушений: зелёная, жёлтая, красная",
+      "title_uz": "Uch zona buzilish: yashil, sariq, qizil",
+      "step_ru": "Выучи, что относится к какой зоне. Зелёная — опоздание, телефон, форма, беспорядок, еда не в том месте: предупреждение и 5%. Жёлтая — санитария, грубость с гостем, нарушение технологии, ошибка в кассе, поедание продукции: 10–20% и выговор. Красная — алкоголь, пробитие без чека, кража, брань, грубое нарушение техники безопасности, разглашение: вплоть до увольнения.",
+      "step_uz": "Qaysi buzilish qaysi zonaga tegishli ekanini yodla. Yashil — kechikish, telefon, forma, tartibsizlik, noto'g'ri joyda ovqatlanish: ogohlantirish va 5%. Sariq — sanitariya, mehmon bilan qo'pol muomala, texnologiya buzilishi, kassadagi xato, mahsulot yeyish: 10–20% va hayfsan. Qizil — mast holda kelish, cheksiz urish, o'g'irlik, so'kinish, mehnat xavfsizligini qo'pol buzish, sir oshkor qilish: ishdan bo'shatishgacha.",
+      "key_point_ru": "Взыскание идёт из надбавки, базовая зарплата не трогается, но по каждому случаю составляют акт и берут объяснительную. Повтор одного и того же нарушения всегда утяжеляет меру.",
+      "key_point_uz": "Jarima ustamadan olinadi, asosiy maoshga tegilmaydi, lekin har bir holat bo'yicha dalolatnoma tuziladi va tushuntirish xati olinadi. Bir xil buzilish takrorlansa, chora doim og'irlashadi.",
+      "reason_ru": "Кража и пробитие заказа без чека — красная зона: первое нарушение стоит 30% или выговора, повтор означает увольнение без обсуждения.",
+      "reason_uz": "O'g'irlik va buyurtmani cheksiz o'tkazish — qizil zona: birinchi buzilish 30% yoki hayfsan, takrorlanishi esa muhokamasiz ishdan bo'shatish demakdir.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Относит названное нарушение к правильной зоне",
+            "uz": "Aytilgan buzilishni to'g'ri zonaga kiritadi"
+          },
+          {
+            "ru": "Знает, что взыскание берётся с надбавки, а не с оклада",
+            "uz": "Jarima ustamadan olinishini, maoshdan emasligini biladi"
+          },
+          {
+            "ru": "Понимает, что повтор нарушения усиливает меру",
+            "uz": "Buzilish takrorlansa chora kuchayishini tushunadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "К какой зоне относится грубость с гостем и что за неё бывает?",
+            "uz": "Mehmon bilan qo'pol muomala qaysi zonaga kiradi va uning oqibati nima?"
+          },
+          {
+            "ru": "Назови три нарушения из красной зоны.",
+            "uz": "Qizil zonadagi uchta buzilishni ayt."
+          }
+        ]
+      }
+    }
+  ],
+  "storage_fifo": [
+    {
+      "sort": 0,
+      "title_ru": "Приёмка склада: количество и качество",
+      "title_uz": "Ombor qabuli: son va sifat",
+      "step_ru": "Встречай поставку вместе с менеджером или старшим поваром. Пересчитай каждую позицию и сверь с накладной. Осмотри упаковку: вздутия, подтёки, разрывы, лёд внутри замороженного — повод не принимать. Проверь срок годности на каждой партии. Замороженное и охлаждённое убирай в холод первым, сухое — потом.",
+      "step_uz": "Yetkazib berishni menejer yoki bosh oshpaz bilan birga kutib ol. Har bir pozitsiyani sanab, nakladnoyga solishtir. Qadoqni ko'zdan kechir: shishgan, oqqan, yirtilgan, muzlatilgan mahsulot ichida muz bo'lsa — qabul qilmaslikka asos. Har bir partiyaning yaroqlilik muddatini tekshir. Muzlatilgan va sovutilgan mahsulotni birinchi bo'lib sovuqqa joyla, quruqni keyin.",
+      "key_point_ru": "Считай и проверяй до подписи, а не после. Подписанная накладная означает, что ты согласен и с количеством, и с качеством.",
+      "key_point_uz": "Imzodan oldin sana va tekshir, keyin emas. Imzolangan nakladnoy — sen ham songa, ham sifatga rozisan degani.",
+      "reason_ru": "Недостачу или просрочку, принятую под подпись, потом вешают на филиал: продукт всё равно спишут, а деньги за него уже ушли.",
+      "reason_uz": "Imzo bilan qabul qilingan kamomad yoki muddati o'tgan mahsulot keyin filial zimmasiga tushadi: mahsulot baribir hisobdan chiqariladi, puli esa allaqachon to'langan.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Пересчитал позиции и сверил с накладной до подписи",
+            "uz": "Imzodan oldin pozitsiyalarni sanab, nakladnoyga solishtirdi"
+          },
+          {
+            "ru": "Проверил сроки годности на партиях",
+            "uz": "Partiyalardagi yaroqlilik muddatini tekshirdi"
+          },
+          {
+            "ru": "Замороженное убрал в холод сразу, а не оставил в зоне приёмки",
+            "uz": "Muzlatilganni darrov sovuqqa joyladi, qabul zonasida qoldirmadi"
+          },
+          {
+            "ru": "Показал менеджеру повреждённую упаковку, а не спрятал её",
+            "uz": "Shikastlangan qadoqni yashirmay, menejerga ko'rsatdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Пришла коробка со вздутой упаковкой. Что делаешь?",
+            "uz": "Shishgan qadoqli quti keldi. Nima qilasan?"
+          },
+          {
+            "ru": "По накладной 10 упаковок, по факту 8. Твои действия?",
+            "uz": "Nakladnoyda 10 ta qadoq, aslida 8 ta. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Маркировка и стикеры",
+      "title_uz": "Markirovka va stikerlar",
+      "step_ru": "Каждый вскрытый и каждый заготовленный продукт получает стикер. На стикере — что это, дата и время вскрытия или заготовки, срок годности. Клей стикер на видное место, а не на дно. Продукт без стикера использовать нельзя — покажи его старшему повару.",
+      "step_uz": "Har bir ochilgan va har bir tayyorlangan mahsulotga stiker yopishtiriladi. Stikerda — nima ekani, ochilgan yoki tayyorlangan sana va vaqti, yaroqlilik muddati. Stikerni ko'rinadigan joyga yopishtir, tagiga emas. Stikersiz mahsulotni ishlatib bo'lmaydi — uni bosh oshpazga ko'rsat.",
+      "key_point_ru": "Стикер клеится в момент вскрытия, а не «потом, когда будет время». Через два часа никто уже не вспомнит точное время.",
+      "key_point_uz": "Stiker ochilgan zahoti yopishtiriladi, «keyin, vaqt bo'lganda» emas. Ikki soatdan keyin aniq vaqtni hech kim eslay olmaydi.",
+      "reason_ru": "Немаркированный продукт при проверке считается просроченным и списывается целиком — вместе с ним списывается и рабочее время того, кто его готовил.",
+      "reason_uz": "Markirovkasiz mahsulot tekshiruvda muddati o'tgan hisoblanadi va butunlay hisobdan chiqariladi — u bilan birga uni tayyorlagan odamning ish vaqti ham yo'qqa chiqadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Наклеил стикер сразу после вскрытия упаковки",
+            "uz": "Qadoqni ochgan zahoti stiker yopishtirdi"
+          },
+          {
+            "ru": "На стикере заполнены дата, время и срок",
+            "uz": "Stikerda sana, vaqt va muddat to'ldirilgan"
+          },
+          {
+            "ru": "В его холодильнике нет ни одной ёмкости без стикера",
+            "uz": "Uning sovutgichida stikersiz bironta idish yo'q"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Нашёл в холодильнике контейнер без стикера. Что с ним делать?",
+            "uz": "Sovutgichda stikersiz idish topding. U bilan nima qilasan?"
+          },
+          {
+            "ru": "Что обязательно должно быть написано на стикере?",
+            "uz": "Stikerda albatta nima yozilgan bo'lishi kerak?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "ФИФО на полке, в холодильнике и морозильнике",
+      "title_uz": "Javonda, sovutgichda va muzlatgichda FIFO",
+      "step_ru": "Ставь новый приход назад или вниз, а старый выдвигай вперёд. Берёшь всегда то, что стоит первым — у него ближе срок. Раскладывай по маркировке полок, чтобы каждый продукт стоял на своём месте. Держи одинаковые продукты в одном месте, не создавай второй «запас» в углу.",
+      "step_uz": "Yangi kelgan mahsulotni orqaga yoki pastga qo'y, eskisini oldinga chiqar. Doim oldinda turganini olasan — uning muddati yaqinroq. Javon markirovkasi bo'yicha joyla, har bir mahsulot o'z joyida tursin. Bir xil mahsulotni bir joyda saqla, burchakda ikkinchi «zaxira» yaratma.",
+      "key_point_ru": "ФИФО — это работа при выкладке, а не при выдаче. Если положил новое вперёд, ты уже создал просрочку, даже если сегодня всё продалось.",
+      "key_point_uz": "FIFO — bu joylashda qilinadigan ish, berishda emas. Yangisini oldinga qo'ygan bo'lsang, bugun hammasi sotilgan bo'lsa ham, muddati o'tishini allaqachon yaratding.",
+      "reason_ru": "Спрятанная в глубине полки старая партия однажды дойдёт до гостя — и это уже не списание, а отравление и жёлтая зона по санитарии.",
+      "reason_uz": "Javon tubida yashiringan eski partiya bir kun mehmonga yetib boradi — bu endi hisobdan chiqarish emas, balki zaharlanish va sanitariya bo'yicha sariq zona.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Новый приход поставил за старым, а не сверху",
+            "uz": "Yangi kelgan mahsulotni eskisining ustiga emas, orqasiga qo'ydi"
+          },
+          {
+            "ru": "Берёт продукт с переднего края, не роется вглубь",
+            "uz": "Mahsulotni old tomondan oladi, ichkarini titmaydi"
+          },
+          {
+            "ru": "Продукты стоят по маркировке полок",
+            "uz": "Mahsulotlar javon markirovkasi bo'yicha turibdi"
+          },
+          {
+            "ru": "В холодильнике нет постороннего запаха и подтёков",
+            "uz": "Sovutgichda begona hid va oqindi yo'q"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Что означает ФИФО своими словами?",
+            "uz": "FIFO nimani anglatadi, o'z so'zing bilan ayt."
+          },
+          {
+            "ru": "Пришла новая партия соуса, старая ещё не кончилась. Как разложишь?",
+            "uz": "Sousning yangi partiyasi keldi, eskisi hali tugamagan. Qanday joylaysan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Сроки годности, списание и стоп-лист",
+      "title_uz": "Yaroqlilik muddati, hisobdan chiqarish va stop-list",
+      "step_ru": "Проверяй сроки каждое утро и после обеденного пика. Продукт с истёкшим сроком сразу убирай из работы и передавай менеджеру на списание — не «дожить до вечера». Если продукт заканчивается, скажи менеджеру до того, как он кончился совсем: тогда позицию успеют поставить в стоп-лист и предупредить колл-центр.",
+      "step_uz": "Muddatlarni har kuni ertalab va tushlik pikidan keyin tekshir. Muddati o'tgan mahsulotni darrov ishdan chiqar va hisobdan chiqarish uchun menejerga topshir — «kechgacha yetadi» dema. Mahsulot tugayotgan bo'lsa, butunlay tugashidan oldin menejerga ayt: shunda pozitsiyani stop-listga qo'yib, kol-markazni ogohlantirishga ulguradilar.",
+      "key_point_ru": "Про заканчивающийся продукт сообщают заранее и по нему сначала закрывают офлайн-заказы. Молчать до последней порции нельзя.",
+      "key_point_uz": "Tugayotgan mahsulot haqida oldindan xabar beriladi va u bo'yicha avval oflayn buyurtmalar yopiladi. Oxirgi porsiyagacha jim turish mumkin emas.",
+      "reason_ru": "Если колл-центр не знает про стоп, он продолжит принимать заказы на позицию, которой нет — и филиал получит отменённые заказы и жалобы вместо продаж.",
+      "reason_uz": "Kol-markaz stop haqida bilmasa, yo'q pozitsiyaga buyurtma qabul qilaveradi — filial esa savdo o'rniga bekor qilingan buyurtmalar va shikoyatlar oladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил сроки утром и после пика, а не только утром",
+            "uz": "Muddatlarni faqat ertalab emas, pikdan keyin ham tekshirdi"
+          },
+          {
+            "ru": "Просроченное убрал из работы сразу и передал менеджеру",
+            "uz": "Muddati o'tganini darrov ishdan chiqarib menejerga topshirdi"
+          },
+          {
+            "ru": "Сообщил о заканчивающейся позиции до того, как она кончилась",
+            "uz": "Tugayotgan pozitsiya haqida u tugashidan oldin xabar berdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты видишь, что соус закончится через час. Что делаешь?",
+            "uz": "Sous bir soatdan keyin tugashini ko'ryapsan. Nima qilasan?"
+          },
+          {
+            "ru": "Что происходит, если о стопе не предупредили колл-центр?",
+            "uz": "Stop haqida kol-markaz ogohlantirilmasa nima bo'ladi?"
+          }
+        ]
+      }
+    }
+  ],
+  "cash_register": [
+    {
+      "sort": 0,
+      "title_ru": "Открытие кассовой смены",
+      "title_uz": "Kassa smenasini ochish",
+      "step_ru": "Перед открытием проверь, что НКМ и терминалы Uzcard и Humo включены, подключены и печатают. Прогони пробный чек по инструкции на твоём аппарате. Проверь, есть ли чековая лента и запасной рулон. Пересчитай разменный остаток вместе с менеджером и распишись. Протри столешницу и приведи кассовую зону в порядок до первого гостя.",
+      "step_uz": "Ochishdan oldin NKM va Uzcard, Humo terminallari yoqilgan, ulangan va chop etayotganini tekshir. O'z apparating yo'riqnomasi bo'yicha sinov chekini o'tkaz. Chek lentasi va zaxira rulon borligini tekshir. Maydalash qoldig'ini menejer bilan birga sanab, imzo qo'y. Birinchi mehmongacha stolustini arting va kassa zonasini tartibga keltir.",
+      "key_point_ru": "Проблему с терминалом или лентой решают до открытия, а не при госте с картой в руке. Если аппарат не печатает, сразу говори менеджеру.",
+      "key_point_uz": "Terminal yoki lenta muammosi ochilishdan oldin hal qilinadi, qo'lida karta bilan turgan mehmon oldida emas. Apparat chop etmayotgan bo'lsa, darrov menejerga ayt.",
+      "reason_ru": "Касса, которая не печатает в пик, останавливает всю очередь: люди уходят, а заказы приходится проводить наспех и с ошибками.",
+      "reason_uz": "Pik vaqtida chop etmaydigan kassa butun navbatni to'xtatadi: odamlar ketadi, buyurtmalarni esa shoshib va xato bilan o'tkazishga to'g'ri keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил НКМ и оба терминала до открытия",
+            "uz": "NKM va ikkala terminalni ochilishdan oldin tekshirdi"
+          },
+          {
+            "ru": "Убедился, что есть запасной рулон чековой ленты",
+            "uz": "Zaxira chek lentasi rulon borligiga ishonch hosil qildi"
+          },
+          {
+            "ru": "Пересчитал разменный остаток при менеджере",
+            "uz": "Maydalash qoldig'ini menejer oldida sanadi"
+          },
+          {
+            "ru": "Кассовая зона чистая, столешница не липкая",
+            "uz": "Kassa zonasi toza, stolusti yopishqoq emas"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Терминал Uzcard не отвечает за пять минут до открытия. Твои действия?",
+            "uz": "Ochilishdan besh daqiqa oldin Uzcard terminali javob bermayapti. Nima qilasan?"
+          },
+          {
+            "ru": "Закончилась чековая лента при госте. Что делаешь?",
+            "uz": "Mehmon oldida chek lentasi tugadi. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Приём заказа и чек: правило «БЕЗ ЧЕКА не отдаём»",
+      "title_uz": "Buyurtma qabul qilish va chek: «CHEKSIZ bermaymiz» qoidasi",
+      "step_ru": "Повтори заказ гостю вслух до того, как пробить. Проведи каждую позицию через кассу — ничего «мимо». Назови сумму, прими оплату, пробей чек и отдай его гостю вместе с заказом. Ни одна порция не уходит из филиала без пробитого чека, даже для сотрудника и даже «за наличные без сдачи».",
+      "step_uz": "Chekni urishdan oldin buyurtmani mehmonga ovoz chiqarib takrorla. Har bir pozitsiyani kassadan o'tkaz — hech narsa «yonidan» ketmasin. Summani ayt, to'lovni qabul qil, chekni chiqar va buyurtma bilan birga mehmonga ber. Chek urilmagan bironta porsiya filialdan chiqmaydi — xodim uchun ham, «naqd, qaytimsiz» bo'lsa ham.",
+      "key_point_ru": "Заказ пробивают до выдачи, а не после. Сначала чек — потом продукт в руки гостю.",
+      "key_point_uz": "Chek berishdan oldin uriladi, keyin emas. Avval chek — keyin mahsulot mehmon qo'liga.",
+      "reason_ru": "Пробитый без чека заказ — это красная зона: 30% в первый раз и увольнение при повторе. Ошибка в расчёте — жёлтая зона и 20%.",
+      "reason_uz": "Cheksiz o'tkazilgan buyurtma — qizil zona: birinchi safar 30%, takrorlansa ishdan bo'shatish. Hisobdagi xato — sariq zona va 20%.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Повторил состав заказа гостю до пробития",
+            "uz": "Chekni urishdan oldin buyurtma tarkibini mehmonga takrorladi"
+          },
+          {
+            "ru": "Каждая позиция прошла через кассу",
+            "uz": "Har bir pozitsiya kassadan o'tdi"
+          },
+          {
+            "ru": "Чек отдан гостю в руки вместе с заказом",
+            "uz": "Chek buyurtma bilan birga mehmon qo'liga berildi"
+          },
+          {
+            "ru": "Ни один заказ за смену не ушёл без чека",
+            "uz": "Smena davomida bironta buyurtma cheksiz ketmadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Коллега просит собрать ему еду «без чека, потом посчитаем». Что отвечаешь?",
+            "uz": "Hamkasbing «cheksiz yig'ib ber, keyin hisoblashamiz» deyapti. Nima deysan?"
+          },
+          {
+            "ru": "Ты понял, что пробил лишнюю позицию. Что делать?",
+            "uz": "Ortiqcha pozitsiyani urib yuborganingni tushunding. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Оплата картой, QR и наличными",
+      "title_uz": "Karta, QR va naqd bilan to'lov",
+      "step_ru": "Спроси у гостя способ оплаты до пробития. При оплате картой проводи операцию на терминале по инструкции на твоём аппарате и дождись слипа об успешной операции. При оплате по QR дождись подтверждения на экране, а не на телефоне гостя. Наличные пересчитывай при госте и сдачу называй вслух. Купюру гостя держи на виду, пока не выдал сдачу.",
+      "step_uz": "To'lov usulini chekni urishdan oldin mehmondan so'ra. Karta bilan to'lovda amaliyotni o'z apparating yo'riqnomasi bo'yicha terminalda o'tkaz va muvaffaqiyatli amaliyot slipini kut. QR orqali to'lovda tasdiqni mehmon telefonida emas, ekranda kut. Naqd pulni mehmon oldida sanab ol, qaytimni ovoz chiqarib ayt. Qaytimni bergunicha mehmon banknotini ko'rinadigan joyda ushla.",
+      "key_point_ru": "Подтверждение оплаты — это чек или слип с твоего терминала, а не картинка на телефоне гостя. Скриншот об оплате ничего не подтверждает.",
+      "key_point_uz": "To'lov tasdig'i — bu sening terminalingdagi chek yoki slip, mehmon telefonidagi rasm emas. To'lov haqidagi skrinshot hech narsani tasdiqlamaydi.",
+      "reason_ru": "Отданный заказ по непроведённой оплате — это недостача в кассе к концу смены, и закрывать её будет тот, кто стоял на кассе.",
+      "reason_uz": "O'tmagan to'lov bo'yicha berilgan buyurtma — smena oxirida kassadagi kamomad, uni esa kassada turgan odam yopadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Спросил способ оплаты до пробития чека",
+            "uz": "Chekni urishdan oldin to'lov usulini so'radi"
+          },
+          {
+            "ru": "Дождался подтверждения на терминале, а не поверил телефону гостя",
+            "uz": "Mehmon telefoniga ishonmay, terminaldagi tasdiqni kutdi"
+          },
+          {
+            "ru": "Пересчитал наличные при госте и назвал сдачу вслух",
+            "uz": "Naqd pulni mehmon oldida sanadi va qaytimni ovoz chiqarib aytdi"
+          },
+          {
+            "ru": "Купюра лежала на виду до выдачи сдачи",
+            "uz": "Qaytim berilgunicha banknot ko'rinib turdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость показывает скриншот об оплате, но терминал операцию не видит. Твои действия?",
+            "uz": "Mehmon to'lov skrinshotini ko'rsatyapti, terminal esa amaliyotni ko'rmayapti. Nima qilasan?"
+          },
+          {
+            "ru": "Гость говорит, что дал 100 тысяч, а ты помнишь 50. Как поступишь?",
+            "uz": "Mehmon 100 ming berdim deyapti, sen esa 50 ming eslaysan. Qanday yo'l tutasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Что кассиру запрещено делать с деньгами",
+      "title_uz": "Kassirga pul bilan qilish taqiqlangan ishlar",
+      "step_ru": "Из кассы деньги не берут ни на что и ни на минуту. Размен для посторонних, обмен валюты, «одолжить до вечера» — запрещено полностью. Свои деньги в денежный ящик не клади. Если гость просит разменять — вежливо откажи и объясни, что касса этим не занимается. По любой нестандартной ситуации с деньгами зови менеджера.",
+      "step_uz": "Kassadan pul hech narsaga va hech bir daqiqaga olinmaydi. Begonalarga maydalash, valyuta almashtirish, «kechgacha qarz olish» — butunlay taqiqlangan. O'z pulingni pul qutisiga solma. Mehmon maydalashni so'rasa — xushmuomala rad et va kassa bu ish bilan shug'ullanmasligini tushuntir. Pul bilan bog'liq har qanday g'ayrioddiy holatda menejerni chaqir.",
+      "key_point_ru": "Даже возврат своих же денег через кассу считается операцией: любое движение денег идёт только через менеджера и под камерой.",
+      "key_point_uz": "Hatto o'z pulingni kassa orqali qaytarish ham amaliyot hisoblanadi: pulning har qanday harakati faqat menejer orqali va kamera ostida bo'ladi.",
+      "reason_ru": "Взятые из кассы деньги — это кража независимо от того, вернул ты их или нет: красная зона и увольнение.",
+      "reason_uz": "Kassadan olingan pul — qaytarganing yoki qaytarmaganingdan qat'i nazar o'g'irlik: qizil zona va ishdan bo'shatish.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Отказал в размене вежливо и без спора",
+            "uz": "Maydalashni bahssiz va xushmuomala rad etdi"
+          },
+          {
+            "ru": "Личных денег в денежном ящике нет",
+            "uz": "Pul qutisida shaxsiy pul yo'q"
+          },
+          {
+            "ru": "Позвал менеджера при нестандартной ситуации с оплатой",
+            "uz": "To'lov bo'yicha g'ayrioddiy holatda menejerni chaqirdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость просит разменять 200 тысяч. Что отвечаешь?",
+            "uz": "Mehmon 200 mingni maydalashni so'rayapti. Nima deysan?"
+          },
+          {
+            "ru": "Тебе не хватает мелочи на сдачу. Как решаешь?",
+            "uz": "Qaytimga mayda pul yetmayapti. Qanday hal qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Закрытие кассы и Z-отчёт",
+      "title_uz": "Kassani yopish va Z-hisobot",
+      "step_ru": "В конце смены сними Z-отчёт по инструкции на твоём аппарате. Пересчитай наличные и сверь с отчётом при менеджере. Все действия с деньгами выполняй в зоне видимости камеры. Расхождение не скрывай — сразу назови сумму менеджеру. Данные Z-отчёта уходят в бухгалтерию до 13:00 следующего дня, поэтому отчёт должен быть снят и передан в тот же вечер.",
+      "step_uz": "Smena oxirida o'z apparating yo'riqnomasi bo'yicha Z-hisobotni ol. Naqd pulni sanab, menejer oldida hisobot bilan solishtir. Pul bilan bog'liq barcha amallarni kamera ko'radigan joyda bajar. Farqni yashirma — summani darrov menejerga ayt. Z-hisobot ma'lumoti ertasi kuni soat 13:00 gacha buxgalteriyaga jo'natiladi, shuning uchun hisobot o'sha kechasi olinib topshirilishi shart.",
+      "key_point_ru": "Пересчёт и Z-отчёт делаются в кадре и при менеджере. Считать деньги в подсобке или в раздевалке нельзя даже честному кассиру.",
+      "key_point_uz": "Sanash va Z-hisobot kamera oldida va menejer huzurida qilinadi. Pulni yordamchi xonada yoki kiyinish xonasida sanash halol kassirga ham mumkin emas.",
+      "reason_ru": "Если пересчёт не попал на камеру, при расхождении нечем подтвердить твою правоту — и вопрос закрывают не в твою пользу.",
+      "reason_uz": "Sanash kameraga tushmagan bo'lsa, farq chiqqanda haqligingni tasdiqlaydigan narsa qolmaydi — masala esa sening foydangga hal bo'lmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Снял Z-отчёт и передал данные в тот же вечер",
+            "uz": "Z-hisobotni oldi va ma'lumotni o'sha kechasi topshirdi"
+          },
+          {
+            "ru": "Считал деньги в зоне камеры и при менеджере",
+            "uz": "Pulni kamera zonasida va menejer oldida sanadi"
+          },
+          {
+            "ru": "Сверил наличные с отчётом и назвал результат вслух",
+            "uz": "Naqd pulni hisobot bilan solishtirdi va natijani ovoz chiqarib aytdi"
+          },
+          {
+            "ru": "Кассовая зона убрана, лента заряжена на завтра",
+            "uz": "Kassa zonasi yig'ishtirilgan, lenta ertaga uchun solingan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "В кассе на 30 тысяч меньше, чем по отчёту. Твои действия?",
+            "uz": "Kassada hisobotga qaraganda 30 ming kam. Nima qilasan?"
+          },
+          {
+            "ru": "До какого времени данные Z-отчёта должны уйти в бухгалтерию?",
+            "uz": "Z-hisobot ma'lumoti buxgalteriyaga qaysi vaqtgacha yuborilishi kerak?"
+          }
+        ]
+      }
+    }
+  ],
+  "service_guests": [
+    {
+      "sort": 0,
+      "title_ru": "Встреча гостя и приветствие",
+      "title_uz": "Mehmonni kutib olish va salomlashish",
+      "step_ru": "Заметь гостя, когда он ещё идёт к кассе, и поздоровайся первым. Смотри в глаза, улыбнись, говори спокойно и не кричи через зал. Если ты занят другим гостем, кивни новому — покажи, что его увидели. Отдавая заказ, поблагодари и попрощайся.",
+      "step_uz": "Mehmonni u hali kassaga kelayotganida payqa va birinchi bo'lib salomlash. Ko'ziga qarab, tabassum bilan, xotirjam gapir, zal bo'ylab baqirma. Boshqa mehmon bilan band bo'lsang, yangisiga bosh irg'a — uni ko'rganingni bildir. Buyurtmani berayotib rahmat ayt va xayrlash.",
+      "key_point_ru": "Приветствие звучит до того, как гость сам начал говорить. Ждать, пока он обратится первым, значит уже опоздать.",
+      "key_point_uz": "Salomlashish mehmon o'zi gap boshlashidan oldin aytiladi. U birinchi murojaat qilishini kutish — allaqachon kechikish demak.",
+      "reason_ru": "Грубое или безразличное общение с гостем — жёлтая зона и минус 20% надбавки, а гость просто уходит к соседям и не возвращается.",
+      "reason_uz": "Mehmon bilan qo'pol yoki befarq muomala — sariq zona va ustamadan 20%, mehmon esa shunchaki qo'shnilarga ketadi va qaytmaydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Поздоровался с гостем до того, как тот подошёл к кассе",
+            "uz": "Mehmon kassaga yetib kelishidan oldin u bilan salomlashdi"
+          },
+          {
+            "ru": "Смотрит в глаза и говорит спокойным голосом",
+            "uz": "Ko'ziga qarab, xotirjam ovozda gapiradi"
+          },
+          {
+            "ru": "Показал жестом новому гостю, что его заметили",
+            "uz": "Yangi mehmonga ishora bilan uni payqaganini bildirdi"
+          },
+          {
+            "ru": "Поблагодарил и попрощался при выдаче заказа",
+            "uz": "Buyurtmani berayotib rahmat aytdi va xayrlashdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "У кассы очередь, к тебе подходит ещё один гость. Что делаешь?",
+            "uz": "Kassada navbat bor, yana bir mehmon kelyapti. Nima qilasan?"
+          },
+          {
+            "ru": "Гость раздражён с порога. Как начнёшь разговор?",
+            "uz": "Mehmon eshikdanoq asabiy. Suhbatni qanday boshlaysan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Доп-продажа: предложить, а не навязать",
+      "title_uz": "Qo'shimcha savdo: taklif qil, majburlama",
+      "step_ru": "Держи в голове, что сегодня предлагаем к каждому основному блюду. Предлагай конкретно: назови позицию, а не спрашивай «что-нибудь ещё?». Предлагай один раз, спокойно. Если гость отказался — прими отказ сразу и переходи к оплате. Свою дневную доп-продажу разбирай с менеджером.",
+      "step_uz": "Bugun har bir asosiy taomga nima taklif qilinishini yodda tut. Aniq taklif qil: «yana biror narsa?» deb so'rama, pozitsiya nomini ayt. Bir marta va xotirjam taklif qil. Mehmon rad etsa — rad javobini darrov qabul qil va to'lovga o't. Kunlik qo'shimcha savdongni menejer bilan tahlil qil.",
+      "key_point_ru": "Конкретное предложение работает, общий вопрос — нет. «Соус к картошке?» продаётся, «что-нибудь ещё?» — не продаётся.",
+      "key_point_uz": "Aniq taklif ishlaydi, umumiy savol — yo'q. «Kartoshkaga sous?» sotiladi, «yana biror narsa?» sotilmaydi.",
+      "reason_ru": "Доп-продажа — это средний чек филиала: с ней смена выполняет план без единого лишнего гостя, без неё план приходится добирать очередями.",
+      "reason_uz": "Qo'shimcha savdo — bu filialning o'rtacha cheki: u bilan smena bitta ham ortiqcha mehmonsiz rejani bajaradi, usiz rejani navbat bilan to'ldirishga to'g'ri keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Предложил конкретную позицию, а не «что-нибудь ещё»",
+            "uz": "«Yana biror narsa» emas, aniq pozitsiyani taklif qildi"
+          },
+          {
+            "ru": "Предложил один раз и принял отказ без давления",
+            "uz": "Bir marta taklif qildi va rad javobini bosim o'tkazmay qabul qildi"
+          },
+          {
+            "ru": "Знает, что предлагается к каждому основному блюду сегодня",
+            "uz": "Bugun har bir asosiy taomga nima taklif qilinishini biladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость берёт только пиццу. Что предложишь и какими словами?",
+            "uz": "Mehmon faqat pitsa olyapti. Nima va qanday so'z bilan taklif qilasan?"
+          },
+          {
+            "ru": "Гость отказался от предложения дважды. Предложишь третий раз?",
+            "uz": "Mehmon taklifni ikki marta rad etdi. Uchinchi marta taklif qilasanmi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Жалоба гостя: принять и решить",
+      "title_uz": "Mehmon shikoyati: qabul qilish va hal qilish",
+      "step_ru": "Выслушай гостя до конца, не перебивай и не спорь. Извинись за ситуацию, а не за «то, что он так думает». Уточни детали: что заказал, что не так, когда. Позови менеджера сразу, если речь о качестве еды, деньгах или повторной ошибке. Скажи гостю, что именно ты сделаешь и когда. Передай менеджеру информацию для отчёта по жалобам.",
+      "step_uz": "Mehmonni oxirigacha eshit, gapini bo'lma va bahslashma. Vaziyat uchun uzr so'ra, «u shunday o'ylagani» uchun emas. Tafsilotni aniqla: nima buyurtma qilgan, nimasi noto'g'ri, qachon. Gap ovqat sifati, pul yoki takroriy xato haqida bo'lsa — darrov menejerni chaqir. Mehmonga aynan nima qilishingni va qachon qilishingni ayt. Shikoyatlar hisoboti uchun ma'lumotni menejerga topshir.",
+      "key_point_ru": "Компенсацию назначает менеджер, а не кассир. Твоя задача — принять жалобу правильно и не обещать того, что не в твоей власти.",
+      "key_point_uz": "Kompensatsiyani menejer belgilaydi, kassir emas. Sening vazifang — shikoyatni to'g'ri qabul qilish va qo'lingdan kelmaydigan narsani va'da qilmaslik.",
+      "reason_ru": "Обещание, которое филиал не выполнит, превращает одну жалобу в две — и вторая уходит уже в колл-центр и маркетинг.",
+      "reason_uz": "Filial bajarmaydigan va'da bitta shikoyatni ikkitaga aylantiradi — ikkinchisi esa allaqachon kol-markaz va marketingga boradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Дослушал гостя, ни разу не перебив",
+            "uz": "Mehmonni bir marta ham bo'lmasdan oxirigacha eshitdi"
+          },
+          {
+            "ru": "Извинился и уточнил детали заказа",
+            "uz": "Uzr so'radi va buyurtma tafsilotini aniqladi"
+          },
+          {
+            "ru": "Позвал менеджера, а не решал вопрос о деньгах сам",
+            "uz": "Pul masalasini o'zi hal qilmay, menejerni chaqirdi"
+          },
+          {
+            "ru": "Сказал гостю конкретный срок решения",
+            "uz": "Mehmonga hal qilishning aniq muddatini aytdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость жалуется, что ждёт заказ двадцать минут. Твои действия?",
+            "uz": "Mehmon buyurtmani yigirma daqiqa kutayotganidan shikoyat qilyapti. Nima qilasan?"
+          },
+          {
+            "ru": "Гость требует вернуть деньги. Что ты можешь пообещать сам?",
+            "uz": "Mehmon pulni qaytarishni talab qilyapti. O'zing nimani va'da qila olasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Стоп-лист: как сказать гостю, что позиции нет",
+      "title_uz": "Stop-list: mehmonga pozitsiya yo'qligini qanday aytish",
+      "step_ru": "Перед сменой узнай у менеджера или старшего повара, что сегодня в стоп-листе. Сообщи гостю об отсутствии позиции до того, как он оплатил, а не после. Скажи прямо и коротко, извинись и сразу предложи замену из похожих. Если позиция кончилась при тебе — немедленно сообщи менеджеру, чтобы её поставили в стоп и предупредили колл-центр.",
+      "step_uz": "Smenadan oldin menejer yoki bosh oshpazdan bugun stop-listda nima borligini bil. Pozitsiya yo'qligini mehmonga u to'lovni amalga oshirishdan oldin ayt, keyin emas. To'g'ridan-to'g'ri va qisqa ayt, uzr so'ra va darrov shunga o'xshash almashtiruvni taklif qil. Pozitsiya sening oldingda tugasa — darrov menejerga xabar ber, uni stopga qo'yib, kol-markazni ogohlantirsinlar.",
+      "key_point_ru": "Отсутствие позиции сообщают вместе с готовой заменой. «Этого нет» без предложения оставляет гостя один на один с проблемой.",
+      "key_point_uz": "Pozitsiya yo'qligi tayyor almashtiruv bilan birga aytiladi. Taklifsiz «bu yo'q» degan gap mehmonni muammo bilan yolg'iz qoldiradi.",
+      "reason_ru": "Гость, который узнал о стопе после оплаты, уходит с возвратом и жалобой вместо заказа — и это уже вопрос к филиалу, а не к кухне.",
+      "reason_uz": "To'lovdan keyin stop haqida bilgan mehmon buyurtma o'rniga pul qaytarish va shikoyat bilan ketadi — bu endi oshxonaga emas, filialga savol.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Знает актуальный стоп-лист до начала смены",
+            "uz": "Smena boshlanishidan oldin dolzarb stop-listni biladi"
+          },
+          {
+            "ru": "Предупредил гостя об отсутствии позиции до оплаты",
+            "uz": "To'lovdan oldin mehmonni pozitsiya yo'qligidan ogohlantirdi"
+          },
+          {
+            "ru": "Сразу предложил конкретную замену",
+            "uz": "Darrov aniq almashtiruvni taklif qildi"
+          },
+          {
+            "ru": "Сообщил менеджеру о закончившейся позиции",
+            "uz": "Tugagan pozitsiya haqida menejerga xabar berdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость заказал позицию из стоп-листа. Что говоришь?",
+            "uz": "Mehmon stop-listdagi pozitsiyani buyurtma qildi. Nima deysan?"
+          },
+          {
+            "ru": "Кто должен узнать о стопе кроме гостя и зачем?",
+            "uz": "Stop haqida mehmondan tashqari kim bilishi kerak va nima uchun?"
+          }
+        ]
+      }
+    }
+  ],
+  "products_promos": [
+    {
+      "sort": 0,
+      "title_ru": "Знай меню: состав, размеры, острота",
+      "title_uz": "Menyuni bil: tarkib, o'lcham, achchiqlik",
+      "step_ru": "Выучи меню обоих брендов: названия, состав, размеры порций и цену. Знай, где есть острое, где свинина отсутствует, где орехи. На вопрос гостя отвечай по составу, а не «вроде бы». Если не знаешь — уточни у старшего повара, а не гадай. Новые позиции разбирай с менеджером в день их появления.",
+      "step_uz": "Ikkala brend menyusini yodla: nomlari, tarkibi, porsiya o'lchami va narxi. Qayerda achchiq bor, qayerda yong'oq bor — bilib ol. Mehmon savoliga «shekilli» deb emas, tarkib bo'yicha javob ber. Bilmasang — taxmin qilma, bosh oshpazdan aniqla. Yangi pozitsiyalarni paydo bo'lgan kuniyoq menejer bilan ko'rib chiq.",
+      "key_point_ru": "Про аллергены и острое отвечают точно или не отвечают вовсе. Неуверенный ответ здесь опаснее, чем «сейчас уточню».",
+      "key_point_uz": "Allergen va achchiqlik haqida yo aniq javob beriladi, yo umuman javob berilmaydi. Bu yerda ishonchsiz javob «hozir aniqlayman» degandan xavfliroq.",
+      "reason_ru": "Гость с аллергией, которому ответили наугад, попадает в больницу — а филиал получает жалобу, проверку и разбор с руководством.",
+      "reason_uz": "Taxminiy javob olgan allergiyali mehmon kasalxonaga tushadi — filial esa shikoyat, tekshiruv va rahbariyat bilan tahlilga duch keladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Называет состав любой позиции по просьбе наставника",
+            "uz": "Ustoz so'raganda istalgan pozitsiya tarkibini aytadi"
+          },
+          {
+            "ru": "Отличает острые позиции от неострых",
+            "uz": "Achchiq pozitsiyalarni achchiq emasidan ajratadi"
+          },
+          {
+            "ru": "При незнании ушёл уточнять, а не придумал ответ",
+            "uz": "Bilmaganda javob to'qimay, aniqlashga bordi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость спрашивает, есть ли в блюде орехи. Ты не уверен. Что делаешь?",
+            "uz": "Mehmon taomda yong'oq bor-yo'qligini so'rayapti. Ishonching yo'q. Nima qilasan?"
+          },
+          {
+            "ru": "Назови три самые острые позиции меню.",
+            "uz": "Menyudagi eng achchiq uchta pozitsiyani ayt."
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Акции: как объяснить и как применить",
+      "title_uz": "Aksiyalar: qanday tushuntirish va qo'llash",
+      "step_ru": "Перед сменой узнай, какие акции действуют сегодня и до какого числа. Запомни условия целиком: на что распространяется, на что нет, сочетается ли с другими скидками. Объясняй гостю условие до пробития, а не после. Проводи акцию на кассе по инструкции, не считай скидку в уме и не давай её «от себя».",
+      "step_uz": "Smenadan oldin bugun qaysi aksiyalar amal qilishini va qaysi sanagacha ekanini bil. Shartlarni to'liq yodla: nimaga tegishli, nimaga emas, boshqa chegirmalar bilan qo'shiladimi. Mehmonga shartni chekni urishdan oldin tushuntir, keyin emas. Aksiyani kassada yo'riqnoma bo'yicha o'tkaz, chegirmani xayolan hisoblama va «o'zingdan» berma.",
+      "key_point_ru": "Акцию проводят через кассу, иначе это не скидка, а недостача. Скидка «от себя» — это деньги филиала, отданные без основания.",
+      "key_point_uz": "Aksiya kassa orqali o'tkaziladi, aks holda bu chegirma emas, kamomad. «O'zingdan» berilgan chegirma — asossiz berilgan filial puli.",
+      "reason_ru": "Неверно объяснённая акция превращается в спор у кассы и жалобу в маркетинг, а по итогам акции филиал сдаёт отчёт с искажёнными цифрами.",
+      "reason_uz": "Noto'g'ri tushuntirilgan aksiya kassa oldida bahsga va marketingga shikoyatga aylanadi, aksiya yakunida esa filial buzilgan raqamlar bilan hisobot topshiradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Перечисляет действующие сегодня акции и их сроки",
+            "uz": "Bugun amal qilayotgan aksiyalarni va muddatlarini sanab beradi"
+          },
+          {
+            "ru": "Объяснил условие акции до пробития чека",
+            "uz": "Aksiya shartini chekni urishdan oldin tushuntirdi"
+          },
+          {
+            "ru": "Провёл акцию через кассу, а не пересчитал вручную",
+            "uz": "Aksiyani qo'lda hisoblamay, kassa orqali o'tkazdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость требует применить акцию, которая уже закончилась. Что делаешь?",
+            "uz": "Mehmon allaqachon tugagan aksiyani qo'llashni talab qilyapti. Nima qilasan?"
+          },
+          {
+            "ru": "Можно ли сложить две акции на один заказ? Как узнать?",
+            "uz": "Bitta buyurtmaga ikkita aksiyani qo'shsa bo'ladimi? Buni qanday bilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Промо-стойка и рекламные материалы",
+      "title_uz": "Promo-stend va reklama materiallari",
+      "step_ru": "Держи стойку с промо-продукцией чистой: без жирных пятен, пыли и мусора. Меню и стикеры должны быть без грязи и не порванные. Проверяй, что на стойке стоит актуальное промо, а не прошлый месяц. Просроченные и повреждённые материалы снимай и говори менеджеру — их заказывают в маркетинге.",
+      "step_uz": "Promo mahsulot turadigan stendni toza saqla: yog'li dog', chang va axlatsiz. Menyu va stikerlar iflos va yirtiq bo'lmasin. Stendda o'tgan oyniki emas, dolzarb promo turganini tekshir. Muddati o'tgan va shikastlangan materiallarni olib tashla va menejerga ayt — ular marketingdan buyurtma qilinadi.",
+      "key_point_ru": "Старое промо снимают в тот же день, когда акция закончилась. Стойка с прошедшей акцией обещает гостю то, чего он уже не получит.",
+      "key_point_uz": "Eski promo aksiya tugagan kuniyoq olib tashlanadi. O'tgan aksiyali stend mehmonga u endi ololmaydigan narsani va'da qiladi.",
+      "reason_ru": "Липкая стойка и выцветшее меню у кассы работают против бренда сильнее, чем любая реклама — гость судит о кухне по тому, что видит перед собой.",
+      "reason_uz": "Kassa oldidagi yopishqoq stend va o'chgan menyu brendga har qanday reklamadan ko'ra kuchliroq zarar beradi — mehmon oshxona haqida ko'zi ko'rgan narsaga qarab hukm qiladi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Промо-стойка чистая, без жирных пятен и мусора",
+            "uz": "Promo-stend toza, yog'li dog' va axlatsiz"
+          },
+          {
+            "ru": "Меню без грязи, пыли и разрывов",
+            "uz": "Menyu iflos, changli va yirtiq emas"
+          },
+          {
+            "ru": "На стойке только актуальное промо",
+            "uz": "Stendda faqat dolzarb promo turibdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Акция закончилась вчера, материалы ещё стоят. Твои действия?",
+            "uz": "Aksiya kecha tugadi, materiallar hali turibdi. Nima qilasan?"
+          },
+          {
+            "ru": "Порвался ценник на промо. Кому и как сообщишь?",
+            "uz": "Promodagi narx varaqasi yirtildi. Kimga va qanday xabar berasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Чего нельзя делать с продукцией и рекламой",
+      "title_uz": "Mahsulot va reklama bilan qilish mumkin bo'lmagan ishlar",
+      "step_ru": "Продукцию Chopar и Les Ailes на смене не ешь и не бери с собой без оформления. Свою рекламу филиала не делай: посты, объявления, листовки — только через маркетинг. Фото и видео в филиале без разрешения маркетинга не снимай и не выкладывай. Внутренние цифры, рецептуру и документы наружу не выноси.",
+      "step_uz": "Smenada Chopar va Les Ailes mahsulotini yema va rasmiylashtirmasdan olib ketma. Filialning o'z reklamangni qilma: post, e'lon, varaqa — faqat marketing orqali. Marketing ruxsatisiz filialda foto va video olma hamda joylashtirma. Ichki raqam, retsept va hujjatlarni tashqariga chiqarma.",
+      "key_point_ru": "Съёмка в зале касается не только тебя: в кадр попадают гости, оборудование и рабочие процессы. Разрешение спрашивают заранее.",
+      "key_point_uz": "Zalda suratga olish faqat senga tegishli emas: kadrga mehmonlar, jihozlar va ish jarayonlari tushadi. Ruxsat oldindan so'raladi.",
+      "reason_ru": "Поедание продукции на смене — жёлтая зона и 20% с выговором, а разглашение внутренней информации — красная зона и увольнение.",
+      "reason_uz": "Smenada mahsulot yeyish — sariq zona, 20% va hayfsan, ichki ma'lumotni oshkor qilish esa — qizil zona va ishdan bo'shatish.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "За смену не съел ни одной позиции из продажи",
+            "uz": "Smena davomida sotuvdagi bironta pozitsiyani yemadi"
+          },
+          {
+            "ru": "Не снимал видео в зале для соцсетей",
+            "uz": "Ijtimoiy tarmoq uchun zalda video olmadi"
+          },
+          {
+            "ru": "Не обсуждал выручку и внутренние правила при гостях",
+            "uz": "Mehmonlar oldida savdo va ichki qoidalarni muhokama qilmadi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты хочешь снять сторис о новой позиции. Что нужно сделать сначала?",
+            "uz": "Yangi pozitsiya haqida stories olmoqchisan. Avval nima qilish kerak?"
+          },
+          {
+            "ru": "Почему нельзя есть продукцию в рабочее время?",
+            "uz": "Nega ish vaqtida mahsulot yeyish mumkin emas?"
+          }
+        ]
+      }
+    }
+  ],
+  "packing_delivery": [
+    {
+      "sort": 0,
+      "title_ru": "Станция упаковки: собрать заказ по чеку",
+      "title_uz": "Qadoqlash stansiyasi: chek bo'yicha buyurtma yig'ish",
+      "step_ru": "Возьми чек и собирай строго по нему, позиция за позицией. Перед закрытием пакета проверь состав ещё раз по чеку вслух. Горячее и холодное клади раздельно. Соусы, приборы и салфетки клади по количеству позиций, а не «на глаз». Закрой упаковку так, чтобы она не открылась в дороге, и прикрепи чек к заказу.",
+      "step_uz": "Chekni ol va qat'iy uning bo'yicha, pozitsiyama-pozitsiya yig'. Paketni yopishdan oldin tarkibni chek bo'yicha yana bir bor ovoz chiqarib tekshir. Issiq va sovuqni alohida joyla. Sous, asbob va salfetkani «chamalab» emas, pozitsiya soniga qarab sol. Qadoqni yo'lda ochilmaydigan qilib yop va chekni buyurtmaga biriktir.",
+      "key_point_ru": "Проверка по чеку делается до закрытия пакета, а не после. Открывать собранный заказ обратно — потерянные минуты в пик.",
+      "key_point_uz": "Chek bo'yicha tekshiruv paketni yopishdan oldin qilinadi, keyin emas. Yig'ilgan buyurtmani qayta ochish — pik vaqtidagi yo'qotilgan daqiqalar.",
+      "reason_ru": "Забытая позиция в доставке возвращается жалобой и компенсацией: филиал отдаёт блюдо второй раз и платит за курьера.",
+      "reason_uz": "Dostavkada unutilgan pozitsiya shikoyat va kompensatsiya bo'lib qaytadi: filial taomni ikkinchi marta beradi va kuryer uchun ham to'laydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Собирал заказ, держа чек перед глазами",
+            "uz": "Buyurtmani chekni ko'z oldida ushlab yig'di"
+          },
+          {
+            "ru": "Проверил состав по чеку до закрытия упаковки",
+            "uz": "Qadoqni yopishdan oldin tarkibni chek bo'yicha tekshirdi"
+          },
+          {
+            "ru": "Горячее и холодное упаковано раздельно",
+            "uz": "Issiq va sovuq alohida qadoqlangan"
+          },
+          {
+            "ru": "Соусы и приборы вложены по количеству позиций",
+            "uz": "Sous va asboblar pozitsiya soniga qarab solingan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "В пик тебе дают два заказа сразу. Как не перепутать?",
+            "uz": "Pik vaqtida senga birdan ikkita buyurtma berishdi. Qanday adashmaysan?"
+          },
+          {
+            "ru": "Ты закрыл пакет и вспомнил про соус. Что делаешь?",
+            "uz": "Paketni yopding va sousni esladingmi. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Доставка и самовывоз идут первыми",
+      "title_uz": "Dostavka va samovivoz birinchi bo'ladi",
+      "step_ru": "Заказы на доставку и самовывоз ставь в работу первыми. Как только заказ принят, сразу выясни у менеджера, кто и когда его забирает — вопрос с курьером решается заранее, а не когда еда уже остыла. Готовый заказ держи в зоне выдачи, а не на общем столе. Если курьер задерживается, сообщи менеджеру, не жди молча.",
+      "step_uz": "Dostavka va samovivoz buyurtmalarini birinchi bo'lib ishga qo'y. Buyurtma qabul qilinishi bilanoq menejerdan uni kim va qachon olib ketishini aniqla — kuryer masalasi ovqat sovuganda emas, oldindan hal qilinadi. Tayyor buyurtmani umumiy stolda emas, berish zonasida ushla. Kuryer kechiksa, jim kutma, menejerga xabar ber.",
+      "key_point_ru": "Приоритет доставки означает готовить раньше, а не выдавать быстрее. Заказ, приготовленный в очередь со всеми, уже опоздал.",
+      "key_point_uz": "Dostavka ustuvorligi tezroq berishni emas, oldinroq tayyorlashni anglatadi. Hamma bilan navbatda tayyorlangan buyurtma allaqachon kechikkan.",
+      "reason_ru": "Остывший заказ, который час ждал курьера, гость получает как испорченный — жалоба уходит и на филиал, и на службу доставки.",
+      "reason_uz": "Kuryerni bir soat kutgan sovuq buyurtmani mehmon buzilgan deb qabul qiladi — shikoyat filialga ham, dostavka xizmatiga ham tushadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Поставил доставку в работу раньше заказов в зале",
+            "uz": "Dostavkani zaldagi buyurtmalardan oldin ishga qo'ydi"
+          },
+          {
+            "ru": "Уточнил у менеджера, кто забирает заказ",
+            "uz": "Menejerdan buyurtmani kim olib ketishini aniqladi"
+          },
+          {
+            "ru": "Готовый заказ стоит в зоне выдачи, а не на общем столе",
+            "uz": "Tayyor buyurtma umumiy stolda emas, berish zonasida turibdi"
+          },
+          {
+            "ru": "Сообщил менеджеру о задержке курьера",
+            "uz": "Kuryer kechikkanini menejerga aytdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Курьер не приехал, заказ готов 15 минут. Твои действия?",
+            "uz": "Kuryer kelmadi, buyurtma 15 daqiqadan beri tayyor. Nima qilasan?"
+          },
+          {
+            "ru": "Почему доставку готовят раньше, чем заказ гостя в зале?",
+            "uz": "Nega dostavka zaldagi mehmon buyurtmasidan oldin tayyorlanadi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Выдача заказа гостю",
+      "title_uz": "Buyurtmani mehmonga berish",
+      "step_ru": "Назови номер заказа громко и чётко. Перед выдачей проговори гостю состав по чеку. Подавай на чистом подносе без пятен и капель воды. Отдавая, скажи, где взять салфетки и соусы. Если гость забирает с собой — проверь, что упаковка закрыта и ручки пакета выдержат вес.",
+      "step_uz": "Buyurtma raqamini baland va aniq ayt. Berishdan oldin mehmonga tarkibni chek bo'yicha aytib chiq. Dog'siz va suv tomchisiz toza podnosda uzat. Berayotib salfetka va souslarni qayerdan olishni ayt. Mehmon o'zi bilan olib ketayotgan bo'lsa — qadoq yopiqligini va paket dastasi og'irlikka chidashini tekshir.",
+      "key_point_ru": "Состав проговаривается при госте, пока он ещё у стойки. Ошибку, найденную дома, исправить уже нечем.",
+      "key_point_uz": "Tarkib mehmon hali stend oldida turganida aytib chiqiladi. Uyda topilgan xatoni tuzatishning iloji qolmaydi.",
+      "reason_ru": "Порванный пакет на выходе из филиала — это уроненный заказ и гость, которому нужно готовить всё заново за счёт филиала.",
+      "reason_uz": "Filial eshigida yirtilgan paket — tushib ketgan buyurtma va filial hisobidan qaytadan tayyorlab beriladigan mehmon degani.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Назвал номер заказа так, что слышно в зале",
+            "uz": "Buyurtma raqamini zalda eshitiladigan qilib aytdi"
+          },
+          {
+            "ru": "Проговорил состав гостю до того, как тот ушёл",
+            "uz": "Mehmon ketishidan oldin unga tarkibni aytib chiqdi"
+          },
+          {
+            "ru": "Поднос чистый, без пятен и капель",
+            "uz": "Podnos toza, dog' va tomchisiz"
+          },
+          {
+            "ru": "Проверил, что пакет закрыт и не порвётся",
+            "uz": "Paket yopiq va yirtilmasligini tekshirdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Гость уже ушёл и вернулся: не хватает позиции. Что делаешь?",
+            "uz": "Mehmon ketib qaytib keldi: bir pozitsiya yetishmayapti. Nima qilasan?"
+          },
+          {
+            "ru": "Как ты убеждаешься, что отдал правильный заказ?",
+            "uz": "To'g'ri buyurtmani berganingga qanday ishonch hosil qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Напитки, соусы и расходники на станции",
+      "title_uz": "Ichimlik, sous va stansiyadagi sarf materiallari",
+      "step_ru": "Размещай напитки по инструкции: своё место, своя полка, этикеткой вперёд. Следи, чтобы зона напитков была сухой и без липких следов. Пополняй стаканы, крышки, трубочки, салфетки и соусы до того, как они кончились. Открытые соусы держи с маркировкой и в холоде. Пустую тару убирай сразу, не копи под столом.",
+      "step_uz": "Ichimliklarni yo'riqnoma bo'yicha joyla: o'z joyi, o'z javoni, yorlig'i oldinga qaragan holda. Ichimlik zonasi quruq va yopishqoq izsiz bo'lishini kuzat. Stakan, qopqoq, naycha, salfetka va souslarni tugashidan oldin to'ldir. Ochilgan souslarni markirovka bilan va sovuqda saqla. Bo'sh idishni darrov yig'ishtir, stol tagida yig'ma.",
+      "key_point_ru": "Пополняй в спокойное время, а не в пик. То, чего хватает в 11 утра, кончится ровно в середине очереди.",
+      "key_point_uz": "Tinch vaqtda to'ldir, pik vaqtida emas. Ertalab soat 11 da yetadigan narsa aynan navbat o'rtasida tugaydi.",
+      "reason_ru": "Липкая зона напитков попадает в ежедневный чек-лист чистоты как нарушение, а пустой диспенсер в пик останавливает выдачу на всю очередь.",
+      "reason_uz": "Yopishqoq ichimlik zonasi kunlik tozalik chek-listiga buzilish bo'lib tushadi, pik vaqtidagi bo'sh dispenser esa butun navbat uchun berishni to'xtatadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Напитки стоят по инструкции, этикетками вперёд",
+            "uz": "Ichimliklar yo'riqnoma bo'yicha, yorliqlari oldinga qarab turibdi"
+          },
+          {
+            "ru": "Зона напитков сухая и не липкая",
+            "uz": "Ichimlik zonasi quruq va yopishqoq emas"
+          },
+          {
+            "ru": "Пополнил расходники до начала пика",
+            "uz": "Sarf materiallarini pik boshlanishidan oldin to'ldirdi"
+          },
+          {
+            "ru": "Открытые соусы промаркированы и стоят в холоде",
+            "uz": "Ochilgan souslar markirovkalangan va sovuqda turibdi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Когда правильно пополнять стаканы и салфетки?",
+            "uz": "Stakan va salfetkani qachon to'ldirish to'g'ri?"
+          },
+          {
+            "ru": "Открыл новое ведро соуса. Что делаешь до того, как поставить его в работу?",
+            "uz": "Yangi chelak sous ochding. Uni ishga qo'yishdan oldin nima qilasan?"
+          }
+        ]
+      }
+    }
+  ],
+  "hall_cleanliness": [
+    {
+      "sort": 0,
+      "title_ru": "Фасад: первое, что видит гость",
+      "title_uz": "Fasad: mehmon birinchi ko'radigan narsa",
+      "step_ru": "Начинай обход с улицы. Протри стёкла окон и двери — особенно ручки и нижнюю часть двери, где следы обуви. Проверь перила, подмети брусчатку и кафель у входа. Урны на улице опустоши до того, как они заполнятся: держи их не больше чем на две трети. Убери окурки и мусор вдоль фасада.",
+      "step_uz": "Aylanishni ko'chadan boshla. Deraza oynalari va eshiklarni art — ayniqsa dastalar va oyoq izi qoladigan eshikning pastki qismini. Panjaralarni tekshir, kirish oldidagi bruschatka va kafelni supur. Ko'chadagi axlat qutilarini to'lishidan oldin bo'shat: ular uchdan ikki qismidan ortiq to'lmasin. Fasad bo'ylab qoldiq va axlatni yig'ishtir.",
+      "key_point_ru": "Фасад проверяют не один раз утром, а в течение дня. К вечеру дверные ручки и стекло у входа успевают запачкаться заново.",
+      "key_point_uz": "Fasad faqat ertalab bir marta emas, kun davomida tekshiriladi. Kechga borib eshik dastalari va kirish oynasi yana iflos bo'lishga ulguradi.",
+      "reason_ru": "Гость решает, заходить ли, ещё на улице: грязная дверь и переполненная урна отправляют его к соседнему заведению до того, как он увидел меню.",
+      "reason_uz": "Mehmon kirish-kirmaslikni hali ko'chadayoq hal qiladi: iflos eshik va to'lib ketgan axlat quti uni menyuni ko'rishidan oldin qo'shni joyga jo'natadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Стёкла и дверные ручки чистые, без отпечатков",
+            "uz": "Oynalar va eshik dastalari toza, barmoq izisiz"
+          },
+          {
+            "ru": "Нижняя часть двери без следов обуви",
+            "uz": "Eshikning pastki qismi oyoq izisiz"
+          },
+          {
+            "ru": "Урны заполнены не больше чем на две трети",
+            "uz": "Axlat qutilar uchdan ikki qismidan ortiq to'lmagan"
+          },
+          {
+            "ru": "Брусчатка и кафель у входа подметены",
+            "uz": "Kirish oldidagi bruschatka va kafel supurilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Сколько раз за смену проверяют фасад?",
+            "uz": "Smena davomida fasad necha marta tekshiriladi?"
+          },
+          {
+            "ru": "Урна на улице заполнена наполовину. Опустошишь или подождёшь?",
+            "uz": "Ko'chadagi axlat quti yarmigacha to'lgan. Bo'shatasanmi yoki kutasanmi?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Торговый зал: свет, воздух, атмосфера",
+      "title_uz": "Savdo zali: yorug'lik, havo, muhit",
+      "step_ru": "Проверь, что освещение зала работает полностью, без перегоревших ламп. Убедись, что температура в норме и кондиционер работает. Проверь диспенсер ароматизатора и уровень заправки. Включи музыку на рабочей громкости и проверь колонки. Полей и осмотри цветы, убери сухие листья. Проверь, что мониторы включены и показывают то, что нужно.",
+      "step_uz": "Zal yoritilishi to'liq ishlayotganini, kuygan lampa yo'qligini tekshir. Harorat me'yorida va konditsioner ishlayotganiga ishonch hosil qil. Aromatizator dispenserini va to'ldirilganlik darajasini tekshir. Musiqani ish balandligida yoq va kolonkalarni tekshir. Gullarni sug'or, ko'zdan kechir, quruq barglarni ol. Monitorlar yoqilgan va kerakli narsani ko'rsatayotganini tekshir.",
+      "key_point_ru": "Перегоревшая лампа, пустой ароматизатор и молчащая колонка не чинятся сами: заметил — сразу говори менеджеру, он подаёт заявку.",
+      "key_point_uz": "Kuygan lampa, bo'sh aromatizator va jim kolonka o'zi tuzalmaydi: payqadingmi — darrov menejerga ayt, u zayavka beradi.",
+      "reason_ru": "Полутёмный зал с жарой и тишиной гости просто не выбирают для еды на месте — заказы уходят на вынос, а посадочные места стоят пустыми.",
+      "reason_uz": "Yarim qorong'i, issiq va jimjit zalni mehmonlar joyida ovqatlanish uchun tanlamaydi — buyurtmalar olib ketishga o'tadi, o'rindiqlar esa bo'sh turadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Все лампы в зале горят",
+            "uz": "Zaldagi barcha lampalar yonib turibdi"
+          },
+          {
+            "ru": "Кондиционер работает, в зале не душно",
+            "uz": "Konditsioner ishlayapti, zalda dim emas"
+          },
+          {
+            "ru": "Музыка играет на рабочей громкости",
+            "uz": "Musiqa ish balandligida yangramoqda"
+          },
+          {
+            "ru": "Цветы политы, сухих листьев нет",
+            "uz": "Gullar sug'orilgan, quruq barg yo'q"
+          },
+          {
+            "ru": "Мониторы включены и показывают актуальное",
+            "uz": "Monitorlar yoqilgan va dolzarb narsani ko'rsatmoqda"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Перегорела лампа над столиком. Твои действия?",
+            "uz": "Stol ustidagi lampa kuydi. Nima qilasan?"
+          },
+          {
+            "ru": "Гость просит сделать музыку тише. Как поступишь?",
+            "uz": "Mehmon musiqani pasaytirishni so'rayapti. Qanday yo'l tutasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Столы, стулья и посадочные места",
+      "title_uz": "Stollar, stullar va o'rindiqlar",
+      "step_ru": "Обходи зал регулярно, не жди, пока попросят. Убирай подносы и мусор со стола сразу, как гость ушёл. Протирай столешницу до сухого, без разводов и липких следов. Проверяй стулья: шатается или сломан — убери из зала и скажи менеджеру. Задвигай стулья и выравнивай столы после каждой уборки.",
+      "step_uz": "Zalni muntazam aylan, so'rashlarini kutma. Mehmon ketishi bilan podnos va axlatni stoldan darrov yig'ishtir. Stol ustini quruq bo'lguncha, dog' va yopishqoq izsiz art. Stullarni tekshir: qimirlayotgan yoki singan bo'lsa — zaldan olib chiq va menejerga ayt. Har yig'ishtirishdan keyin stullarni suray va stollarni tekisla.",
+      "key_point_ru": "Стол вытирают насухо. Мокрый стол с разводами гость считает грязным точно так же, как стол с крошками.",
+      "key_point_uz": "Stol quruq artiladi. Dog'li ho'l stolni mehmon xuddi ushoqli stol kabi iflos deb hisoblaydi.",
+      "reason_ru": "Сломанный стул — это не только вид зала, это травма гостя и разбирательство, за которое отвечает филиал.",
+      "reason_uz": "Singan stul — bu faqat zalning ko'rinishi emas, mehmonning jarohati va filial javob beradigan tekshiruv.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Убрал стол в течение минуты после ухода гостя",
+            "uz": "Mehmon ketgach bir daqiqa ichida stolni yig'ishtirdi"
+          },
+          {
+            "ru": "Столешница вытерта насухо, без разводов",
+            "uz": "Stol usti quruq artilgan, dog'siz"
+          },
+          {
+            "ru": "Стулья задвинуты, столы выровнены",
+            "uz": "Stullar surilgan, stollar tekislangan"
+          },
+          {
+            "ru": "Шатающийся стул убран из зала",
+            "uz": "Qimirlayotgan stul zaldan olib chiqilgan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты нашёл шатающийся стул. Что делаешь?",
+            "uz": "Qimirlayotgan stul topding. Nima qilasan?"
+          },
+          {
+            "ru": "Зал полный, ждут свободный стол. Как ускоришь уборку?",
+            "uz": "Zal to'la, bo'sh stol kutishyapti. Yig'ishtirishni qanday tezlashtirasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Санузел по часовому чек-листу",
+      "title_uz": "Hojatxona soatlik chek-list bo'yicha",
+      "step_ru": "Проверяй санузел каждый час и расписывайся в чек-листе на двери. Двери и ручки — без грязи, следов обуви и подтёков. Стены и плитка — чистые, межплиточные швы без грязи. Пол сухой, без разводов и посторонних предметов, плинтус без грязи и жвачки. Унитаз и раковина — без пятен и разводов, краны без следов мыла.",
+      "step_uz": "Hojatxonani har soatda tekshir va eshikdagi chek-listga imzo qo'y. Eshik va dastalar — iflos, oyoq izi va oqindisiz. Devor va kafel — toza, kafel oralig'idagi choklar iflos emas. Pol quruq, dog'siz va begona narsasiz, plintus iflos va saqichsiz. Unitaz va rakovina — dog'siz, kranlar sovun izisiz.",
+      "key_point_ru": "Подпись в чек-листе ставится после реальной проверки, а не в конце смены за все часы сразу. Мокрый пол — это ещё и риск падения гостя.",
+      "key_point_uz": "Chek-listga imzo haqiqiy tekshiruvdan keyin qo'yiladi, smena oxirida barcha soatlar uchun birdan emas. Ho'l pol — bu yana mehmon yiqilish xavfi ham.",
+      "reason_ru": "Санузел — единственное место, по которому гость судит о кухне, которую не видит: грязный туалет означает для него грязную кухню.",
+      "reason_uz": "Hojatxona — mehmon ko'rmaydigan oshxona haqida hukm chiqaradigan yagona joy: iflos hojatxona uning uchun iflos oshxona degani.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Проверил санузел по часовому чек-листу и расписался",
+            "uz": "Hojatxonani soatlik chek-list bo'yicha tekshirdi va imzo qo'ydi"
+          },
+          {
+            "ru": "Пол сухой, посторонних предметов нет",
+            "uz": "Pol quruq, begona narsa yo'q"
+          },
+          {
+            "ru": "Унитаз и раковина без пятен и разводов",
+            "uz": "Unitaz va rakovina dog'siz"
+          },
+          {
+            "ru": "Двери и ручки без следов обуви и подтёков",
+            "uz": "Eshik va dastalar oyoq izi hamda oqindisiz"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Как часто проверяется санузел и где это фиксируется?",
+            "uz": "Hojatxona qanchalik tez-tez tekshiriladi va qayerda qayd etiladi?"
+          },
+          {
+            "ru": "Ты помыл пол, он мокрый. Что нужно сделать до ухода?",
+            "uz": "Polni yuvding, u ho'l. Ketishdan oldin nima qilish kerak?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 4,
+      "title_ru": "Расходники санузла: диспенсеры, держатели, урны",
+      "title_uz": "Hojatxona sarf materiallari: dispenserlar, ushlagichlar, axlat qutilar",
+      "step_ru": "Проверяй, что в диспенсере есть жидкое мыло, а в диспенсере для полотенец — бумага. Держатель туалетной бумаги должен быть заполнен, запас держи рядом. Урну для туалетной бумаги и урну для полотенец опустошай при заполнении на две трети. Сами урны держи чистыми снаружи: без подтёков, пятен и пыли.",
+      "step_uz": "Dispenserda suyuq sovun, salfetka dispenserida qog'oz borligini tekshir. Hojatxona qog'ozi ushlagichi to'ldirilgan bo'lsin, zaxirani yonida saqla. Hojatxona qog'ozi va qog'oz sochiq uchun axlat qutilarni uchdan ikki qismi to'lganda bo'shat. Axlat qutilarning o'zini tashqi tomondan toza tut: oqindi, dog' va changsiz.",
+      "key_point_ru": "Две трети — это правило, а не «пока лезет». Урну опустошают до того, как мусор виден сверху.",
+      "key_point_uz": "Uchdan ikki — bu qoida, «sig'guncha» emas. Axlat quti ichidagi axlat tepadan ko'rinishidan oldin bo'shatiladi.",
+      "reason_ru": "Урна, заполненная больше чем на две трети, и пустой диспенсер мыла — гость видит грязь и не возвращается, а санитарная проверка фиксирует нарушение.",
+      "reason_uz": "Uchdan ikkidan ortiq to'lgan axlat quti va bo'sh sovun dispenseri — mehmon iflosni ko'radi va qaytmaydi, sanitariya tekshiruvi esa buzilishni qayd etadi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "В диспенсере есть мыло, в держателе — бумага",
+            "uz": "Dispenserda sovun bor, ushlagichda — qog'oz"
+          },
+          {
+            "ru": "Урны заполнены не более чем на две трети",
+            "uz": "Axlat qutilar uchdan ikki qismidan ortiq to'lmagan"
+          },
+          {
+            "ru": "Урны чистые снаружи, без подтёков",
+            "uz": "Axlat qutilar tashqi tomondan toza, oqindisiz"
+          },
+          {
+            "ru": "Запас бумаги и мыла есть в филиале и он знает, где он",
+            "uz": "Filialda qog'oz va sovun zaxirasi bor va u qayerdaligini biladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "На сколько можно заполнять урну и почему именно так?",
+            "uz": "Axlat qutini qanchagacha to'ldirish mumkin va nima uchun aynan shunday?"
+          },
+          {
+            "ru": "Кончилось мыло, запаса нет. Твои действия?",
+            "uz": "Sovun tugadi, zaxira yo'q. Nima qilasan?"
+          }
+        ]
+      }
+    }
+  ],
+  "kids_area": [
+    {
+      "sort": 0,
+      "title_ru": "Приём ребёнка и возврат родителю",
+      "title_uz": "Bolani qabul qilish va ota-onaga qaytarish",
+      "step_ru": "Принимай ребёнка только от взрослого, который его привёл. Запиши имя ребёнка, возраст и контакт родителя. Проверь, что ребёнок подходит по возрасту и росту для площадки, и объясни правила родителю. Обувь снимается, носки обязательны. Отдавай ребёнка только тому взрослому, который его привёл, — никому другому и без исключений.",
+      "step_uz": "Bolani faqat uni olib kelgan kattadan qabul qil. Bolaning ismi, yoshi va ota-onasining aloqa raqamini yozib ol. Bola maydoncha uchun yosh va bo'y bo'yicha mos kelishini tekshir, ota-onaga qoidalarni tushuntir. Oyoq kiyim yechiladi, paypoq shart. Bolani faqat uni olib kelgan kattaga qaytar — boshqa hech kimga va istisnosiz.",
+      "key_point_ru": "Возраст и рост проверяются на входе, а не после того, как ребёнок уже играет. Отдавать ребёнка «старшему брату» или соседу нельзя, даже если ребёнок его знает.",
+      "key_point_uz": "Yosh va bo'y kirishda tekshiriladi, bola o'ynay boshlaganidan keyin emas. Bolani «katta akasi» yoki qo'shniga berish mumkin emas, bola uni tanisa ham.",
+      "reason_ru": "Ребёнок, отданный не тому взрослому, — это уже не жалоба, а происшествие с полицией, и отвечать за него будет филиал и лично тот, кто отдал.",
+      "reason_uz": "Bolani noto'g'ri odamga berish — bu endi shikoyat emas, politsiya aralashadigan hodisa, uning uchun filial va shaxsan bergan odam javob beradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Записал имя ребёнка, возраст и контакт родителя",
+            "uz": "Bolaning ismi, yoshi va ota-onasining raqamini yozdi"
+          },
+          {
+            "ru": "Проверил возраст и рост до входа на площадку",
+            "uz": "Maydonchaga kirishdan oldin yosh va bo'yni tekshirdi"
+          },
+          {
+            "ru": "Объяснил правила родителю, а не только ребёнку",
+            "uz": "Qoidalarni faqat bolaga emas, ota-onaga ham tushuntirdi"
+          },
+          {
+            "ru": "Отдал ребёнка тому же взрослому, который привёл",
+            "uz": "Bolani olib kelgan kattaning o'ziga qaytardi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "За ребёнком пришёл подросток и говорит, что это его брат. Что делаешь?",
+            "uz": "Bolani olib ketgani o'smir keldi va bu mening ukam deyapti. Nima qilasan?"
+          },
+          {
+            "ru": "Ребёнок явно старше по росту, чем допускает горка. Твои действия?",
+            "uz": "Bola bo'yi bo'yicha gorkaga ruxsat etilganidan katta. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 1,
+      "title_ru": "Осмотр площадки до открытия и в течение дня",
+      "title_uz": "Maydonchani ochilishdan oldin va kun davomida ko'zdan kechirish",
+      "step_ru": "До открытия обойди всю площадку. Проверь крепления, сетки, поручни и мягкие покрытия на разрывы и расшатанность. Осмотри горку и лестницы: нет ли трещин, торчащих болтов, острых краёв. Собери посторонние предметы: монеты, мелкие детали, еду, стекло. Повторяй осмотр несколько раз за смену и после каждой большой группы детей. Неисправность — площадку закрываем и сообщаем менеджеру.",
+      "step_uz": "Ochilishdan oldin butun maydonchani aylanib chiq. Mahkamlagichlar, to'rlar, tutqichlar va yumshoq qoplamalarni yirtilish va bo'shashganlikka tekshir. Gorka va zinapoyalarni ko'zdan kechir: yoriq, chiqib turgan bolt, o'tkir qirra yo'qmi. Begona narsalarni yig': tanga, mayda detal, ovqat, shisha. Ko'zdan kechirishni smenada bir necha marta va har katta bolalar guruhidan keyin takrorla. Nosozlik bo'lsa — maydonchani yopamiz va menejerga xabar beramiz.",
+      "key_point_ru": "Сломанный элемент не «доживает до вечера»: площадка закрывается сразу, даже если очередь из детей.",
+      "key_point_uz": "Singan qism «kechgacha turmaydi»: bolalar navbat kutayotgan bo'lsa ham, maydoncha darrov yopiladi.",
+      "reason_ru": "Торчащий болт или порванная сетка — это травма ребёнка через десять минут, а не когда-нибудь потом.",
+      "reason_uz": "Chiqib turgan bolt yoki yirtilgan to'r — bu qachondir emas, o'n daqiqadan keyin bo'ladigan bola jarohati.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Обошёл площадку до открытия, а не после прихода детей",
+            "uz": "Maydonchani bolalar kelgandan keyin emas, ochilishdan oldin aylandi"
+          },
+          {
+            "ru": "Проверил крепления, сетки и покрытие руками",
+            "uz": "Mahkamlagich, to'r va qoplamani qo'li bilan tekshirdi"
+          },
+          {
+            "ru": "Собрал мелкие посторонние предметы",
+            "uz": "Mayda begona narsalarni yig'di"
+          },
+          {
+            "ru": "Повторил осмотр в середине смены",
+            "uz": "Smena o'rtasida ko'zdan kechirishni takrorladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ты нашёл торчащий болт на горке в час пик. Что делаешь?",
+            "uz": "Pik vaqtida gorkada chiqib turgan bolt topding. Nima qilasan?"
+          },
+          {
+            "ru": "Что именно ты ищешь на полу площадки при осмотре?",
+            "uz": "Ko'zdan kechirishda maydoncha polidan aynan nimani qidirasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 2,
+      "title_ru": "Гигиена игровой зоны",
+      "title_uz": "O'yin zonasi gigiyenasi",
+      "step_ru": "Протирай поручни, ручки, столики и часто трогаемые поверхности несколько раз за смену. Мягкие модули и маты протирай по графику, шарики в сухом бассейне мой по установленному порядку. Еду и напитки на площадку не пускай — для этого есть столы в зале. Следи, чтобы дети играли в носках, а обувь стояла на стеллаже. Заболевшего ребёнка с явными признаками простуды на площадку не принимай и скажи родителю.",
+      "step_uz": "Tutqich, dastalar, stolchalar va tez-tez ushlanadigan yuzalarni smenada bir necha marta art. Yumshoq modul va matlarni jadval bo'yicha art, quruq basseyndagi sharlarni belgilangan tartibda yuv. Maydonchaga ovqat va ichimlik kiritma — buning uchun zalda stollar bor. Bolalar paypoqda o'ynashini, oyoq kiyim javonda turishini kuzat. Shamollash alomatlari aniq bo'lgan kasal bolani maydonchaga qabul qilma va ota-onaga ayt.",
+      "key_point_ru": "Еда на площадке — это не только грязь: кусок в сухом бассейне ребёнок находит и съедает через час.",
+      "key_point_uz": "Maydonchadagi ovqat — bu faqat iflos emas: quruq basseyndagi bo'lakni bola bir soatdan keyin topib yeydi.",
+      "reason_ru": "Через поручни и шарики инфекция расходится по всем детям за одну смену, а родители связывают болезнь именно с вашим филиалом.",
+      "reason_uz": "Tutqich va sharlar orqali infeksiya bir smenada barcha bolalarga tarqaladi, ota-onalar esa kasallikni aynan sizning filialingiz bilan bog'laydi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Протёр поручни и часто трогаемые поверхности за смену",
+            "uz": "Smena davomida tutqich va tez ushlanadigan yuzalarni artdi"
+          },
+          {
+            "ru": "На площадке нет еды и напитков",
+            "uz": "Maydonchada ovqat va ichimlik yo'q"
+          },
+          {
+            "ru": "Дети играют в носках, обувь на стеллаже",
+            "uz": "Bolalar paypoqda o'ynayapti, oyoq kiyim javonda"
+          },
+          {
+            "ru": "Мягкие модули обработаны по графику",
+            "uz": "Yumshoq modullar jadval bo'yicha tozalangan"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Родитель даёт ребёнку сок и заводит на площадку. Что скажешь?",
+            "uz": "Ota-ona bolaga sharbat berib maydonchaga olib kiryapti. Nima deysan?"
+          },
+          {
+            "ru": "Ребёнок кашляет и у него течёт нос. Твои действия?",
+            "uz": "Bola yo'talyapti va burni oqyapti. Nima qilasan?"
+          }
+        ]
+      }
+    },
+    {
+      "sort": 3,
+      "title_ru": "Травма и потерявшийся ребёнок",
+      "title_uz": "Jarohat va yo'qolgan bola",
+      "step_ru": "При травме сразу останови игру рядом и не оставляй ребёнка одного. Позови менеджера — он решает, вызывать ли скорую. Найди родителя и расскажи, что произошло, без домыслов. Не давай ребёнку лекарств и ничем его не мажь. Если ребёнок потерялся: закрой выход с площадки, сообщи менеджеру, назови приметы охране и персоналу, оставайся на месте с остальными детьми. Обо всех случаях расскажи менеджеру для записи.",
+      "step_uz": "Jarohat bo'lsa, yonidagi o'yinni darrov to'xtat va bolani yolg'iz qoldirma. Menejerni chaqir — tez yordam chaqirish yoki chaqirmaslikni u hal qiladi. Ota-onani top va nima bo'lganini taxminsiz aytib ber. Bolaga dori berma va hech narsa surtma. Bola yo'qolsa: maydonchadan chiqishni yop, menejerga xabar ber, belgilarini qorovul va xodimlarga ayt, qolgan bolalar bilan joyingda tur. Barcha holatlarni yozib qo'yish uchun menejerga aytib ber.",
+      "key_point_ru": "Ты не лечишь и не оцениваешь тяжесть травмы — ты зовёшь менеджера и родителя. Любую мазь или таблетку даёт только родитель.",
+      "key_point_uz": "Sen davolamaysan va jarohat og'irligini baholamaysan — menejer va ota-onani chaqirasan. Har qanday malham yoki dorini faqat ota-ona beradi.",
+      "reason_ru": "Самодеятельность с лекарством превращает царапину в претензию к филиалу, а уход с площадки на поиски оставляет без присмотра ещё десять детей.",
+      "reason_uz": "Dori bilan o'zboshimchalik tirnalgan joyni filialga da'voga aylantiradi, qidirish uchun maydonchani tashlab ketish esa yana o'nta bolani nazoratsiz qoldiradi.",
+      "verification_type": "observation",
+      "quiz_test_id": null,
+      "observation_checklist": {
+        "items": [
+          {
+            "ru": "Не оставил травмированного ребёнка одного",
+            "uz": "Jarohatlangan bolani yolg'iz qoldirmadi"
+          },
+          {
+            "ru": "Сразу позвал менеджера и нашёл родителя",
+            "uz": "Darrov menejerni chaqirdi va ota-onani topdi"
+          },
+          {
+            "ru": "Не давал ребёнку никаких лекарств",
+            "uz": "Bolaga hech qanday dori bermadi"
+          },
+          {
+            "ru": "Знает, где выход с площадки и как его перекрыть",
+            "uz": "Maydonchadan chiqish qayerdaligini va uni qanday yopishni biladi"
+          }
+        ],
+        "questions": [
+          {
+            "ru": "Ребёнок упал и плачет, колено разбито. Твои первые три действия?",
+            "uz": "Bola yiqildi va yig'layapti, tizzasi shilingan. Birinchi uchta harakating?"
+          },
+          {
+            "ru": "Ты не видишь одного ребёнка на площадке. Что делаешь сначала?",
+            "uz": "Maydonchada bitta bolani ko'rmayapsan. Avval nima qilasan?"
+          }
+        ]
+      }
+    }
+  ]
+}

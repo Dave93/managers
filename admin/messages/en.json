@@ -187,7 +187,31 @@
       "active": "Active",
       "added": "Employee added",
       "updated": "Employee updated",
-      "selectTerminal": "Select branch"
+      "selectTerminal": "Select branch",
+      "role": "Role",
+      "selectRole": "Select a role",
+      "roleRequired": "Pick a role — the position is composed from it",
+      "roleInactive": "(inactive)",
+      "traineeMark": "trainee",
+      "traineeBadge": "trainee",
+      "grade": "Grade",
+      "shift": "Shift",
+      "shiftDay": "Day",
+      "shiftNight": "Night",
+      "notSpecified": "Not specified",
+      "positionPreview": "Position",
+      "positionPreviewEmpty": "will be composed from the role",
+      "groups": {
+        "kitchen": "Kitchen",
+        "front": "Front of house",
+        "management": "Management",
+        "other": "Other"
+      },
+      "addEmployee": "Add employee",
+      "addToBranch": "Add an employee to {branch}",
+      "roleSearch": "Search role",
+      "roleNotFound": "No such role",
+      "roleWholeGroup": "whole group"
     },
     "kiosk": {
       "pickTest": "Choose a test",
@@ -259,6 +283,118 @@
       "invalid": "PIN must be 4-6 digits",
       "search": "Search (login/name)",
       "confirmReset": "Reset this manager's PIN?"
+    }
+  },
+  "passport": {
+    "enrollments": {
+      "title": "Enrollments",
+      "subtitle": "Who is training now, whose probation is running out, and who still needs a QR invite.",
+      "newEnrollment": "Start an enrollment",
+      "filterStatus": "Status",
+      "statusLive": "Running now",
+      "statusAll": "All",
+      "statusActive": "In progress",
+      "statusPaused": "Paused",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "filterTerminal": "Branch",
+      "allTerminals": "All branches",
+      "filterProgram": "Programme",
+      "allPrograms": "All programmes",
+      "oneEmployee": "Filtered to one employee",
+      "metricTotal": "total",
+      "metricLive": "running",
+      "metricWarning": "due soon",
+      "metricOverdue": "overdue",
+      "metricScope": "“Total” covers the whole filter; the deadline counters cover only the rows on this page."
+    },
+    "title": "Trainee passport",
+    "nav": {
+      "curriculum": "Training programs",
+      "enrollments": "Enrollments",
+      "matrix": "Matrix",
+      "mentors": "Mentors"
+    },
+    "levels": {
+      "l0": "Not started",
+      "l1": "Watched",
+      "l2": "Did it",
+      "l3": "On their own",
+      "l4": "Teaches"
+    },
+    "moduleStatus": {
+      "draft": "Draft",
+      "review": "In review",
+      "published": "Published"
+    },
+    "enrollmentStatus": {
+      "active": "In progress",
+      "completed": "Completed",
+      "failed": "Failed",
+      "paused": "Paused"
+    },
+    "deadline": {
+      "ok": "On time",
+      "warning": "Due soon",
+      "overdue": "Overdue"
+    },
+    "curriculum": {
+      "title": "Training program builder",
+      "subtitle": "Programme → modules → topics. Content is authored in two languages: a module without the Uzbek version cannot be published.",
+      "newProgram": "Programme",
+      "newModule": "Module",
+      "program": "Programme",
+      "editProgram": "Edit",
+      "programsLoading": "loading…",
+      "noPrograms": "No programmes yet",
+      "search": "Search modules",
+      "showRetired": "Show retired modules",
+      "metricTotal": "total",
+      "metricPublished": "published",
+      "metricReview": "in review",
+      "metricRetired": "retired",
+      "loadingModules": "Loading modules…",
+      "inProgram": "In programme",
+      "unattached": "Not linked to a programme",
+      "modulesGroup": "Modules",
+      "emptyProgramHr": "This programme has no modules yet. Pick a module below and press “Link to programme”.",
+      "emptyProgram": "This programme has no modules yet. Only HR can link a module.",
+      "noModules": "No modules yet.",
+      "allAttached": "Every module is linked to the programme.",
+      "emptySelection": "No module selected",
+      "emptySelectionHint": "Pick a module in the tree on the left to see its status, publication readiness and available actions. The amber RU/UZ marks show where a translation is missing — that is exactly what blocks publication.",
+      "programsDenied": "The programme list is unavailable: it requires the “passport.matrix.view” permission, which your role does not have. Your department’s modules are shown as a flat list — linking them to programmes is done by HR.",
+      "noDepartment": "Your account has no department set, so no modules are shown at all. Ask HR to set the department on your user profile — the rule is server-side and deliberately fail-closed."
+    },
+    "matrix": {
+      "title": "Progress matrix",
+      "subtitle": "Who is where and what is late. Rows are trainees, columns are the modules of their programme.",
+      "filterBrand": "Brand",
+      "allBrands": "Both brands",
+      "filterTerminal": "Branch",
+      "allTerminals": "All branches",
+      "filterProgram": "Programme",
+      "allPrograms": "All programmes",
+      "filterPosition": "Position",
+      "allPositions": "All positions",
+      "filterStatus": "Status",
+      "statusLive": "Running now",
+      "statusAll": "All",
+      "statusActive": "In progress",
+      "statusPaused": "Paused",
+      "statusCompleted": "Completed",
+      "statusFailed": "Failed",
+      "reset": "Reset filters",
+      "metricTotal": "total",
+      "metricLive": "running",
+      "metricOverdue": "overdue modules",
+      "metricAwaiting": "awaiting observation",
+      "metricCompleted30": "completed in 30 days"
+    },
+    "mentors": {
+      "title": "Mentors",
+      "subtitle": "Binding a branch manager to a Telegram account — without it they cannot open the passport miniapp.",
+      "newBinding": "Bind a mentor"
     }
   },
   "medical": {
@@ -334,6 +470,67 @@
       "branch": "Branch",
       "all": "All",
       "reset": "Reset"
+    }
+  },
+  "staffRoles": {
+    "title": "Staff roles",
+    "new": "New role",
+    "add": "New role",
+    "edit": "Edit role",
+    "submit": "Save",
+    "added": "Role added",
+    "updated": "Role updated",
+    "traineeBadge": "trainee",
+    "deactivate": "Deactivate role",
+    "deactivateConfirm": "Deactivate",
+    "deactivateBusyWarning": "{count} people hold this role. It will disappear from the dropdowns but stay on them.",
+    "deactivateFreeHint": "Nobody holds this role. It will disappear from the dropdowns; the record stays and can be switched back on.",
+    "deactivated": "Role deactivated",
+    "deactivatedWithPeople": "Role deactivated, {count} people kept it",
+    "columns": {
+      "active": "Active",
+      "name": "Name",
+      "code": "Code",
+      "group": "Group",
+      "employeesCount": "People",
+      "sort": "Order",
+      "actions": "Actions",
+      "synonyms": "Search words"
+    },
+    "filters": {
+      "search": "Search (name or code)",
+      "all": "All",
+      "activeYes": "Active",
+      "activeNo": "Inactive",
+      "reset": "Reset"
+    },
+    "groups": {
+      "kitchen": "Kitchen",
+      "front": "Front of house",
+      "management": "Management",
+      "other": "Other"
+    },
+    "fields": {
+      "code": "Code",
+      "codeHint": "Lowercase latin, digits and underscore, 2–50 characters. Fixed afterwards.",
+      "codeLocked": "The code is read-only: the catalogue is seeded by it and trainee roles point at it.",
+      "nameRu": "Name (RU)",
+      "nameRuHint": "The Russian name is what the employee's position string is built from. A rename that would make that string read as a different role is rejected with an explanation; a safe one is applied and rewrites those people's positions. The old name is kept as a search word.",
+      "nameUz": "Name (UZ)",
+      "group": "Group",
+      "sort": "Order",
+      "sortHint": "Lower number means higher in the dropdowns.",
+      "isTrainee": "Trainee role",
+      "traineeOf": "Trains for",
+      "traineeOfHint": "What the person becomes after the traineeship. Moving them onto staff is switching the role to this one.",
+      "active": "Active",
+      "synonyms": "Search words",
+      "synonymsPlaceholder": "салатчица, мойка",
+      "synonymsHint": "What the job is called in real life. Searching for a word listed here finds everyone in this role even if the job title never mentions it. Enter or comma adds a word."
+    },
+    "errors": {
+      "traineeOfRequired": "State what the trainee trains for",
+      "codeFormat": "Code: lowercase latin, digits and underscore, 2–50 characters"
     }
   }
 }

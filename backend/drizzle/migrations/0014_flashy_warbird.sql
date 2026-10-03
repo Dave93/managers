@@ -1,0 +1,1 @@
+ALTER TABLE "users" ADD COLUMN "department" varchar(50);

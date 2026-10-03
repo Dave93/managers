@@ -168,11 +168,8 @@ export function DataTable<TData, TValue>() {
   const columnHelper = createColumnHelper();
 
   const [globalFilter, setGlobalFilter] = useState("");
-  const [showDetails, setShowDetails] = useState(false);
-
-  useEffect(() => {
-    setShowDetails(!isMobile);
-  }, [isMobile]);
+  // Article column is collapsed (hidden) by default; a toggle reveals it.
+  const [showArticle, setShowArticle] = useState(false);
 
   const columns = useMemo(() => {
     let cols: ColumnDef<Stoplist, TValue>[] = [
@@ -189,6 +186,8 @@ export function DataTable<TData, TValue>() {
       {
         accessorKey: "unit",
         header: "Единица измерения",
+        enablePinning: true,
+        size: 110,
       },
       // @ts-ignore
       columnHelper.group({
@@ -252,8 +251,7 @@ export function DataTable<TData, TValue>() {
         top: ["name"],
       },
       columnVisibility: {
-        supplierProductArticle: showDetails,
-        unit: showDetails,
+        supplierProductArticle: showArticle,
       },
     },
     enablePinning: true,
@@ -273,7 +271,7 @@ export function DataTable<TData, TValue>() {
 
   useEffect(() => {
     table.setColumnPinning({
-      left: ["name"],
+      left: ["name", "unit"],
     });
   }, [table]);
 
@@ -393,13 +391,22 @@ export function DataTable<TData, TValue>() {
 
   return (
     <div className="space-y-4">
-      <input
-        type="text"
-        placeholder="Поиск по названию..."
-        value={globalFilter}
-        onChange={(e) => setGlobalFilter(e.target.value)}
-        className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-      />
+      <div className="flex items-center gap-2">
+        <input
+          type="text"
+          placeholder="Поиск по названию..."
+          value={globalFilter}
+          onChange={(e) => setGlobalFilter(e.target.value)}
+          className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        />
+        <button
+          type="button"
+          onClick={() => setShowArticle((v) => !v)}
+          className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
+        >
+          {showArticle ? "Скрыть артикул" : "Артикул"}
+        </button>
+      </div>
 
       {/* Mobile: Card view */}
       {isMobile ? (

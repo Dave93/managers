@@ -1,0 +1,5 @@
+ALTER TABLE "ticket_attachments" ADD CONSTRAINT "ticket_attachments_uploaded_by_executor_id_ticket_executors_id_fk" FOREIGN KEY ("uploaded_by_executor_id") REFERENCES "public"."ticket_executors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ticket_comments" ADD CONSTRAINT "ticket_comments_author_executor_id_ticket_executors_id_fk" FOREIGN KEY ("author_executor_id") REFERENCES "public"."ticket_executors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "ticket_events" ADD CONSTRAINT "ticket_events_actor_executor_id_ticket_executors_id_fk" FOREIGN KEY ("actor_executor_id") REFERENCES "public"."ticket_executors"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "idx_tickets_payment_pending" ON "tickets" USING btree ("payment_status") WHERE status = 'closed';--> statement-breakpoint
+ALTER TABLE "ticket_executors" ADD CONSTRAINT "ticket_executors_kind_target" CHECK ((contractor_id IS NOT NULL) <> (user_id IS NOT NULL));

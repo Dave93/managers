@@ -1,0 +1,1970 @@
+/* Trainee passport miniapp — visual system.
+ *
+ * Lineage: the deployed les_training_miniapp is the house reference for a
+ * Telegram miniapp here (graphite canvas, card list, floating pill panel), so
+ * the surfaces, radii and the red action colour are shared with it. What is NOT
+ * copied is its content furniture — this product is a credential, not a video
+ * library.
+ *
+ * Two deliberate departures from the reference:
+ *   1. Saturated red is reserved for the ONE action on a screen. Status glyphs
+ *      are low-contrast tinted tiles (the dark-empty-state idiom: a quiet glyph,
+ *      generous space, colour only where a finger should go).
+ *   2. Tap targets are 52px, not 48. The audience is line staff mid-shift, with
+ *      wet or gloved hands, on 5-6" phones.
+ *
+ * No web font: system-ui only. A font file is a second request on branch wifi
+ * that drops, and Cyrillic + Uzbek Latin coverage is already guaranteed by the
+ * device stack.
+ */
+
+:root {
+  /* Surfaces — house graphite. */
+  --bg: #121214;
+  --bg-2: #1c1c20;
+  --bg-3: #26262c;
+  --line: #ffffff14;
+
+  --text: #fff;
+  --muted: #ffffff8f;
+
+  /* Action / brand. Shared by both brands this app serves. */
+  --primary: #fc004a;
+  --primary-glow: #fd004a80;
+  --warn: #faaf04;
+
+  /* Level vocabulary, kept byte-identical in meaning to the office admin's
+   * matrix (admin/app/[locale]/passport/matrix/_components/level.tsx):
+   * 1 «увидел» slate, 2 «сделал» amber, 3 «сам» emerald, 4 «учит» violet.
+   * Unused by C1's shell; declared here so C2 cannot invent a second palette. */
+  --lvl-1: #cbd5e1;
+  --lvl-2: #fcd34d;
+  --lvl-3: #6ee7b7;
+  --lvl-4: #c4b5fd;
+  --overdue: #f87171;
+
+  --r-card: 18px;
+  --r-glyph: 26px;
+
+  color-scheme: dark;
+  -webkit-font-smoothing: antialiased;
+  font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  overscroll-behavior: none;
+}
+
+body {
+  /* The vh line is a FALLBACK, not a duplicate: an older WebView that does not
+     know svh drops that declaration and keeps this one. Without it the whole
+     rule is discarded and .screen--center collapses to content height, so
+     every status screen stops being centred. Same pairing on .screen below. */
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 3px;
+}
+
+/* ---------- screens ---------- */
+
+.screen {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* fallback for WebViews without svh — see body above */
+  min-height: 100svh;
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.22s ease-out, transform 0.22s ease-out;
+  padding-left: max(20px, env(safe-area-inset-left));
+  padding-right: max(20px, env(safe-area-inset-right));
+  /* Room for the floating language pill so it never covers the last line. */
+  padding-bottom: calc(92px + env(safe-area-inset-bottom));
+}
+
+.screen-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.screen--center {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding-top: 32px;
+}
+
+.screen--top {
+  align-items: stretch;
+  padding-top: calc(18px + env(safe-area-inset-top));
+}
+
+/* ---------- status screen ---------- */
+
+.glyph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  margin-bottom: 6px;
+  border-radius: var(--r-glyph);
+}
+
+.glyph svg {
+  width: 30px;
+  height: 30px;
+}
+
+.glyph--danger {
+  color: var(--primary);
+  background: #fc004a1a;
+  box-shadow: inset 0 0 0 1px #fc004a2e;
+}
+
+.glyph--warn {
+  color: var(--warn);
+  background: #faaf0421;
+  box-shadow: inset 0 0 0 1px #faaf0433;
+}
+
+.glyph--neutral {
+  color: #ffffffd1;
+  background: #ffffff0f;
+  box-shadow: inset 0 0 0 1px #ffffff1a;
+}
+
+.status-title {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  max-width: 340px;
+  text-wrap: balance;
+}
+
+.status-body {
+  margin: 0;
+  max-width: 330px;
+  color: var(--muted);
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.btn-primary {
+  min-height: 52px;
+  min-width: 200px;
+  margin-top: 14px;
+  padding: 0 30px;
+  border: none;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 28px -10px var(--primary-glow);
+  transition: transform 0.15s ease-out, box-shadow 0.15s ease-out;
+}
+
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 6px 16px -10px var(--primary-glow);
+}
+
+/* ---------- passport / mentor placeholder ---------- */
+
+.chip {
+  align-self: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+  padding: 16px;
+  box-shadow: 0 10px 24px -18px #000000b3;
+}
+
+.card-body {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+}
+
+.card-note {
+  margin: 12px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* ---------- loading ---------- */
+
+.sk-head {
+  padding: 4px 2px 18px;
+}
+
+.sk-bar,
+.sk-tile {
+  border-radius: 8px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-2) 25%,
+    var(--bg-3) 37%,
+    var(--bg-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s infinite;
+}
+
+.sk-bar--title {
+  width: 56%;
+  height: 26px;
+  margin-bottom: 10px;
+}
+
+.sk-bar--sub {
+  width: 34%;
+  height: 14px;
+}
+
+.sk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sk-tile {
+  height: 76px;
+  border-radius: var(--r-card);
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: 0 0;
+  }
+}
+
+/* The slow-network line, revealed WITHOUT JavaScript.
+ *
+ * `animation-delay` is doing the work a setTimeout used to: main.ts sits
+ * behind the deferred telegram.org fetch, so on an unreachable SDK host no JS
+ * timer of ours ever starts and the skeleton would shimmer in silence. The
+ * animation is declarative, so the browser runs it regardless.
+ *
+ * `forwards` is load bearing — without it the line would flash and vanish back
+ * to opacity 0 the moment the animation ends. */
+.loading-hint {
+  margin: 22px 0 0;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  opacity: 0;
+  animation: hint-in 0.3s ease-out 8s forwards;
+}
+
+/* Both languages ship in the markup; exactly one is displayed. Defaulting the
+   `ru` span to visible means a browser that somehow matches neither selector
+   still shows a sentence rather than an empty line. */
+.loading-hint [data-lang] {
+  display: none;
+}
+
+.loading-hint [data-lang="ru"],
+[lang="ru"] .loading-hint [data-lang="ru"] {
+  display: inline;
+}
+
+[lang="uz"] .loading-hint [data-lang="ru"] {
+  display: none;
+}
+
+[lang="uz"] .loading-hint [data-lang="uz"] {
+  display: inline;
+}
+
+.loading-hint[hidden] {
+  display: none;
+}
+
+@keyframes hint-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* ---------- language pill ---------- */
+
+.lang-panel {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  gap: 2px;
+  padding: 4px;
+  transform: translateX(-50%);
+  border: 1px solid #ffffff1a;
+  border-radius: 999px;
+  background: #1c1c20e6;
+  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(16px);
+  box-shadow: 0 12px 28px -14px #000c;
+}
+
+.lang-panel[hidden] {
+  display: none;
+}
+
+.lang-panel button {
+  min-width: 62px;
+  /* 52, not 44, to match the rule stated at the top of this file. On most
+     status screens this pill is the only thing on the page you can tap. */
+  min-height: 52px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.lang-panel button.active {
+  background: #ffffff17;
+  color: var(--text);
+}
+
+/* Vestibular safety, and a free battery win on cheap phones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ---------- passport (C2) ----------
+ *
+ * The level palette below is NOT redeclared here: it is the --lvl-* vocabulary
+ * C1 put in :root, which is the office admin's matrix palette. One data-l
+ * attribute carries the level from the renderer to the paint, so a level can
+ * never be coloured in two places and drift.
+ *
+ * Everything that carries meaning carries it TWICE — a word and a colour —
+ * because this screen is read in a kitchen: bad light, a phone held at arm's
+ * length, and one hand busy.
+ */
+
+.pp-head {
+  padding: 2px 2px 18px;
+}
+
+.pp-title {
+  margin: 0;
+  font-size: 25px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
+}
+
+.pp-sub {
+  display: block;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+/* ---------- progress ring ---------- */
+
+.ring-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+}
+
+.ring {
+  position: relative;
+  flex: none;
+  width: 88px;
+  height: 88px;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ring circle {
+  fill: none;
+  stroke-width: 9;
+}
+
+.ring-track {
+  stroke: var(--bg-3);
+}
+
+.ring-fill {
+  stroke: var(--lvl-3);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease-out;
+}
+
+.ring-pct {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.ring-side {
+  min-width: 0;
+}
+
+.ring-count {
+  display: block;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.ring-caption {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.35;
+}
+
+/* ---------- deadline strip ---------- */
+
+.strip {
+  margin-top: 10px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+}
+
+/* The value can be «просрочено на 12 дней». Rather than let it squeeze the
+ * label into two ragged lines, it wraps onto its own line and stays right. */
+.strip-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  margin-bottom: 10px;
+}
+
+.strip-label {
+  color: var(--muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
+
+.strip-value {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.strip-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.strip-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.5s ease-out;
+}
+
+.strip[data-state="ok"] .strip-value {
+  color: var(--lvl-3);
+}
+.strip[data-state="ok"] .strip-bar i {
+  background: var(--lvl-3);
+}
+.strip[data-state="warn"] .strip-value {
+  color: var(--lvl-2);
+}
+.strip[data-state="warn"] .strip-bar i {
+  background: var(--lvl-2);
+}
+.strip[data-state="over"] .strip-value {
+  color: var(--overdue);
+}
+.strip[data-state="over"] .strip-bar i {
+  background: var(--overdue);
+}
+
+.overdue-note {
+  display: block;
+  margin: 12px 2px 0;
+  color: var(--overdue);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ---------- sections ---------- */
+
+.pp-block {
+  margin-top: 24px;
+}
+
+.sec-title {
+  margin: 0 2px 10px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.empty-note {
+  display: block;
+  padding: 2px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---------- module card ---------- */
+
+.mod {
+  margin-bottom: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+  overflow: hidden;
+}
+
+.mod-btn {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 14px;
+  border: none;
+  background: none;
+  text-align: left;
+}
+
+button.mod-btn {
+  cursor: pointer;
+}
+
+.mod-idx {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--bg-3);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.mod-idx[data-done="1"] {
+  background: #6ee7b71f;
+  color: var(--lvl-3);
+}
+
+.mod-idx svg {
+  width: 16px;
+  height: 16px;
+}
+
+.mod-main {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mod-title {
+  font-size: 16.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+/* Chips wrap instead of squeezing: Uzbek Latin runs ~20% longer than Russian
+ * and «Kechikib topshirildi» must not shove the title into two characters.
+ * They also drop the shell's uppercase: «ПРОСРОЧЕНО НА 12 ДНЕЙ» shouts at a
+ * trainee who is already late, and uppercase Cyrillic at 11px is the hardest
+ * thing on this screen to read in a dim kitchen. ::first-letter keeps the
+ * dictionary strings usable mid-sentence elsewhere (the strip reuses them). */
+.mod-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mod-meta .chip {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.mod-meta .chip::first-letter {
+  text-transform: uppercase;
+}
+
+.mod-bar {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  overflow: hidden;
+}
+
+.mod-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--lvl-3);
+  transition: width 0.4s ease-out;
+}
+
+.mod-count {
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+.mod-chev {
+  flex: none;
+  margin-top: 3px;
+  color: var(--muted);
+  transition: transform 0.2s ease-out;
+}
+
+.mod-chev svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.mod[data-open="1"] .mod-chev {
+  transform: rotate(180deg);
+}
+
+/* Chips: the deadline vocabulary. `chip--calm` is deliberately colourless —
+ * a date nobody is late for is not news. */
+.chip--calm {
+  color: var(--muted);
+  background: #ffffff0f;
+}
+
+.chip--warn {
+  color: var(--lvl-2);
+  background: #fcd34d1f;
+}
+
+.chip--over {
+  color: var(--overdue);
+  background: #f871711f;
+}
+
+.chip--done {
+  color: var(--lvl-3);
+  background: #6ee7b71f;
+}
+
+/* Finished, but finished late: dashed, not solid red — the same disagreement
+ * the admin matrix draws on purpose, so the trainee is not sent chasing a
+ * module that is already closed. */
+.chip--late {
+  color: var(--muted);
+  background: none;
+  border: 1px dashed #f8717166;
+}
+
+.chip--brand {
+  color: var(--muted);
+  background: #ffffff0f;
+  /* The column holds 'chopar' / 'les' lowercase; these are brand names. */
+  text-transform: capitalize;
+  letter-spacing: 0;
+}
+
+/* ---------- topics ---------- */
+
+.topics {
+  margin: 0;
+  padding: 0 14px 8px 14px;
+  list-style: none;
+}
+
+.tp {
+  position: relative;
+}
+
+/* The rail: one line down the middle of the level nodes, so the order of the
+ * topics is visible before a single word is read. */
+.tp::before {
+  content: "";
+  position: absolute;
+  left: 14px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--bg-3);
+}
+
+.tp:first-child::before {
+  top: 50%;
+}
+
+.tp:last-child::before {
+  bottom: 50%;
+}
+
+.tp:only-child::before {
+  display: none;
+}
+
+.tp-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 5px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+button.tp-inner {
+  cursor: pointer;
+}
+
+.tp-node {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  /* Opaque, so the rail runs behind the nodes and not through them. */
+  background: var(--bg-2);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tp-node svg {
+  width: 15px;
+  height: 15px;
+}
+
+.tp-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.tp-title {
+  display: block;
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+/* The one thing on this screen the trainee cannot fix by themselves. */
+.tp-hint {
+  display: block;
+  margin-top: 2px;
+  color: var(--lvl-2);
+  font-size: 12px;
+}
+
+/* The current row above level 0, where the chip is busy naming the level. Same
+ * slot as .tp-hint, the accent colour instead of amber: this one says "here",
+ * not "waiting". */
+.tp-hint--now {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.tp-chip {
+  flex: none;
+  max-width: 40%;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: right;
+}
+
+/* Level → colour, in exactly one place. */
+.tp-node[data-l="0"],
+.tp-chip[data-l="0"] {
+  color: var(--muted);
+}
+
+.tp-node[data-l="0"] {
+  border-style: dashed;
+}
+
+.tp-node[data-l="1"],
+.tp-chip[data-l="1"] {
+  color: var(--lvl-1);
+}
+
+.tp-node[data-l="2"],
+.tp-chip[data-l="2"] {
+  color: var(--lvl-2);
+}
+
+.tp-node[data-l="3"],
+.tp-chip[data-l="3"] {
+  color: var(--lvl-3);
+}
+
+.tp-node[data-l="4"],
+.tp-chip[data-l="4"] {
+  color: var(--lvl-4);
+}
+
+.tp[data-state="done"] .tp-node {
+  background: #6ee7b71a;
+}
+
+/* Locked reads as "not yet", never as "broken": dimmed, but still legible in
+ * bad light — 0.62, not the 0.4 that would make it unreadable on a cheap
+ * screen at arm's length. */
+.tp[data-state="locked"] {
+  opacity: 0.62;
+}
+
+.tp[data-state="locked"] .tp-node,
+.tp[data-state="locked"] .tp-chip {
+  color: var(--muted);
+}
+
+/* Only the NODE undoes the dashed level-0 border. The chip has no border of
+ * its own, so naming it here resolved border-style against a `medium` default
+ * and drew a 3px currentColor box around «Откроется позже» — the one boxed
+ * element on the screen, wrapped around the one thing that is not tappable,
+ * and with border-box it was eating 6px out of a chip already capped at 40%
+ * of a 360px phone. */
+.tp[data-state="locked"] .tp-node {
+  border-style: solid;
+}
+
+/* Where you are. The only saturated accent on the screen, and there is exactly
+ * one of these at a time. */
+.tp[data-state="current"] .tp-node {
+  color: var(--primary);
+  background: #fc004a1f;
+  box-shadow: 0 0 0 4px #fc004a1a;
+}
+
+/* Scoped to level 0, which is the only level where the label is «Ваш шаг».
+ * Unscoped, a current topic that has been opened (C3 sets level 1) would paint
+ * the LEVEL WORD «Увидел» in #fc004a — the red family this screen reserves for
+ * being late. Above level 0 the chip keeps its own level colour and the node
+ * carries the accent on its own. */
+.tp[data-state="current"] .tp-chip[data-l="0"] {
+  color: var(--primary);
+}
+
+.tp[data-state="current"] .tp-title {
+  font-weight: 600;
+}
+
+/* ---------- stamps ---------- */
+
+.stamps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stamp {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+}
+
+.stamp-glyph {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #c4b5fd1f;
+  color: var(--lvl-4);
+}
+
+.stamp-glyph svg {
+  width: 20px;
+  height: 20px;
+}
+
+.stamp-body {
+  min-width: 0;
+}
+
+.stamp-title {
+  display: block;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.stamp-sub {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* ---------- topic + quiz (C3) ----------
+ *
+ * Same rules as above, and one more that this half of the app makes literal:
+ * exactly ONE saturated action per screen. A topic offers one next move, a
+ * question offers one way forward, and the confirmation offers one send. When a
+ * screen genuinely has two moves — a passed quiz on a topic that still needs a
+ * mentor — the second is a ghost button, so the finger still knows where to go
+ * without reading.
+ *
+ * Nothing here uses --primary to carry MEANING. Red on this screen is a place
+ * to tap; a result says what it is in a word and in the level palette (green
+ * «сдан», amber «пока не сдано»), because red already means "you are late" two
+ * screens away and the same colour cannot mean two things in a kitchen.
+ */
+
+.btn-ghost {
+  min-height: 52px;
+  margin-top: 10px;
+  padding: 0 24px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #ffffff0a;
+  color: var(--text);
+  font-size: 15.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease-out;
+}
+
+.btn-ghost:active {
+  background: #ffffff17;
+}
+
+/* Full width inside a screen's action foot; auto width when centred on an
+   outcome screen (.screen--center sets align-items: center). */
+.tp-foot .btn-primary,
+.tp-foot .btn-ghost,
+.q-foot .btn-primary,
+.q-foot .btn-ghost {
+  width: 100%;
+  min-width: 0;
+}
+
+/* ---------- back ---------- */
+
+.backbar {
+  display: flex;
+  margin: 0 -12px 8px;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  /* 52px of height, but visually just a word: the padding is the tap target. */
+  min-height: 52px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.back-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ---------- topic head ---------- */
+
+.tp-crumb {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.tp-h {
+  margin: 4px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.4px;
+  overflow-wrap: anywhere;
+}
+
+.tp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  margin-top: 8px;
+}
+
+/* The level word, in the level colour — the same data-l → colour mapping the
+   passport rows use, so «Увидел» is the same grey in both places. */
+.tp-level {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.tp-level[data-l="0"] {
+  color: var(--muted);
+}
+.tp-level[data-l="1"] {
+  color: var(--lvl-1);
+}
+.tp-level[data-l="2"] {
+  color: var(--lvl-2);
+}
+.tp-level[data-l="3"] {
+  color: var(--lvl-3);
+}
+.tp-level[data-l="4"] {
+  color: var(--lvl-4);
+}
+
+.tp-wait {
+  color: var(--lvl-2);
+  font-size: 13px;
+}
+
+/* ---------- video note ---------- */
+
+.vid-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: var(--r-card);
+  color: var(--muted);
+}
+
+.vid-glyph {
+  display: flex;
+  flex: none;
+}
+
+.vid-glyph svg {
+  width: 22px;
+  height: 22px;
+}
+
+.vid-text {
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+/* ---------- TWI card ---------- */
+
+.twi-card {
+  margin-top: 16px;
+  padding: 0;
+}
+
+.twi {
+  padding: 14px 16px;
+}
+
+.twi + .twi {
+  border-top: 1px solid var(--line);
+}
+
+.twi-label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* pre-line, and it is load bearing: HR types these fields as short numbered
+   lines, and collapsing the newlines is how a checklist stops reading as a
+   checklist. Same fix the storefront needed for product descriptions. */
+.twi-body {
+  margin: 0;
+  font-size: 15.5px;
+  line-height: 1.55;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+/* The key point is the one line that gets somebody hurt or a dish remade, so it
+   is the one block with a surface of its own — weight, not colour, because the
+   colours here are already spoken for. */
+.twi--key {
+  background: #ffffff08;
+}
+
+.twi--key .twi-label {
+  color: var(--text);
+}
+
+.twi--key .twi-body {
+  font-weight: 600;
+}
+
+/* ---------- topic foot ---------- */
+
+.tp-foot {
+  display: flex;
+  flex-direction: column;
+  /* Pushed to the bottom of the viewport when the material is short, so the one
+     action sits where a thumb rests rather than floating mid-screen. */
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.tp-rule {
+  margin: 0 2px 12px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.next-card {
+  margin-bottom: 14px;
+}
+
+.next-title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+/* ---------- mentor screen ---------- */
+
+.mentor-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0 18px;
+  text-align: center;
+}
+
+.show-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.show-label {
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.show-topic {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.show-module {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.show-chip {
+  /* .chip centres itself; inside this left-aligned card it must not. */
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 4px 10px;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.show-card .card-note {
+  align-self: stretch;
+}
+
+/* ---------- quiz ---------- */
+
+.screen--quiz {
+  gap: 0;
+}
+
+.q-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 -12px;
+}
+
+.q-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.q-clock {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #ffffff0f;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.q-clock[data-over="1"] {
+  background: #fcd34d1f;
+  color: var(--lvl-2);
+}
+
+/* One segment per question: how much is left is a shape, not a sentence. */
+.q-segs {
+  display: flex;
+  gap: 4px;
+  margin: 10px 0 20px;
+}
+
+.q-segs i {
+  flex: 1;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  transition: background 0.2s ease-out;
+}
+
+.q-segs i[data-state="done"] {
+  background: var(--lvl-3);
+}
+
+.q-segs i[data-state="now"] {
+  background: var(--text);
+}
+
+.q-text {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -0.2px;
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.q-hint {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.opts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* Big, and the whole row is the target: this is read at arm's length with one
+   thumb, so the option is a slab rather than a radio button with a label. */
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 60px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--bg-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease-out, border-color 0.15s ease-out,
+    transform 0.12s ease-out;
+}
+
+.opt:active {
+  transform: scale(0.99);
+}
+
+/* Chosen is NOT the action colour: nothing has been sent yet, and painting a
+   selection red would say "done" a screen too early. White is enough contrast
+   to find in bad light. */
+.opt[data-on="1"] {
+  border-color: #ffffff59;
+  background: #ffffff14;
+}
+
+.opt-box {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1.5px solid #ffffff4d;
+  color: var(--bg);
+}
+
+/* Round for "one answer", square for "several" — the shape says the rule
+   before the hint line is read. */
+.opt-box--single {
+  border-radius: 50%;
+}
+
+.opt-box--multi {
+  border-radius: 8px;
+}
+
+.opt[data-on="1"] .opt-box {
+  border-color: var(--text);
+  background: var(--text);
+}
+
+.opt-box svg {
+  width: 16px;
+  height: 16px;
+  stroke-width: 2.6;
+}
+
+.opt-text {
+  font-size: 16px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.q-foot {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 24px;
+}
+
+.q-foot--stack {
+  flex-direction: column;
+  gap: 0;
+}
+
+.q-foot .btn-ghost,
+.q-foot .btn-primary {
+  margin-top: 0;
+}
+
+.q-foot--stack .btn-primary {
+  margin-top: 12px;
+}
+
+.q-rule {
+  margin: 0 2px 4px;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+/* Frozen while the answers are being sent. Dimmed rather than hidden: the
+ * screen must not reflow under a thumb that is already on its way down. */
+.back-btn:disabled,
+.rev-row:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* ---------- confirmation ---------- */
+
+.q-confirm-title {
+  margin: 14px 0 0;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+
+.tally {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: baseline;
+  margin-top: 10px;
+}
+
+.tally-main {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.tally[data-all="1"] .tally-main {
+  color: var(--lvl-3);
+}
+
+.tally-warn {
+  color: var(--lvl-2);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.rev {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rev-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 8px 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.rev-idx {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: 1.5px dashed var(--muted);
+  border-radius: 50%;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.rev-row[data-on="1"] .rev-idx {
+  border-style: solid;
+  border-color: var(--lvl-3);
+  background: #6ee7b71a;
+  color: var(--lvl-3);
+}
+
+.rev-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.35;
+  /* Two lines is enough to recognise a question you have just read. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.rev-row[data-on="0"] .rev-text {
+  color: var(--muted);
+}
+
+/* ---------- result ---------- */
+
+.glyph--good {
+  color: var(--lvl-3);
+  background: #6ee7b71a;
+  box-shadow: inset 0 0 0 1px #6ee7b733;
+}
+
+.score {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.score-value {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+  font-variant-numeric: tabular-nums;
+  color: var(--lvl-2);
+}
+
+.score[data-ok="1"] .score-value {
+  color: var(--lvl-3);
+}
+
+.score-need {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ---------- mentor: the queue and the trainee card (C4) ---------- */
+
+/* Section heading with its own count. Taken from the queue boards this screen
+ * was drawn against: the number belongs NEXT to the label, not inside the
+ * rows, so "how many people are waiting for me" is answered before any
+ * scrolling happens. */
+.m-sec {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.m-sec .sec-title {
+  margin-bottom: 0;
+}
+
+.m-sec-n {
+  min-width: 22px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--primary);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+/* Where the signature happens. Not a warning and not an error — a rule — so it
+ * is a quiet card with an accent rail rather than an amber alert box, which on
+ * this screen would read as "something is wrong with this trainee". */
+.m-note {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--primary);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+  /* Explicit, because the empty-queue screen is .screen--center: without this
+     the note inherits centred text there and reads as a different component
+     from the identical note on the card. */
+  text-align: left;
+}
+
+.m-note--slim {
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.m-note--slim .m-note-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #ffffffd6;
+}
+
+.m-note-glyph {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--primary);
+}
+
+.m-note-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.m-note-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.m-note-title {
+  font-size: 14.5px;
+  font-weight: 650;
+  line-height: 1.45;
+}
+
+.m-note-why {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ---- the queue list ---- */
+
+.qp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* One row per person, and it is a card rather than a divided list row: the
+ * whole thing is the tap target, and a card makes that obvious with no
+ * affordance drawn on top of it. */
+.qp {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  min-height: 52px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease-out, transform 0.16s ease-out;
+}
+
+.qp:active {
+  background: var(--bg-3);
+  transform: scale(0.99);
+}
+
+/* Initials, not a photo: there is no photo in the payload and a generic
+ * silhouette in every row would be twelve identical grey blobs. Two letters
+ * are the only thing on this screen that differs at a glance. */
+.qp-ava {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: var(--bg-3);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+/* The ONE colour cue about urgency, and it never carries the meaning alone —
+ * the chip below spells the same thing in words, because a colour is exactly
+ * what a cheap screen in a bright kitchen loses first. */
+.qp[data-urgency="overdue"] .qp-ava {
+  background: #f8717118;
+  color: var(--overdue);
+  box-shadow: inset 0 0 0 1px #f8717140;
+}
+
+.qp[data-urgency="warning"] .qp-ava {
+  background: #faaf0418;
+  color: var(--warn);
+  box-shadow: inset 0 0 0 1px #faaf0440;
+}
+
+.qp-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.qp-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.qp-name {
+  font-size: 16.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  min-width: 0;
+  /* Wraps to two lines rather than ellipsising. The name IS the row: at 360px
+     the one-line version cut «AHMADJONOVA ZUL…», and two people whose
+     surnames start alike is exactly the case a queue has to tell apart. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* How many topics this person has waiting. Rendered only above 1, where it
+ * stops being a restatement of the line underneath. */
+.qp-n {
+  flex: 0 0 auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.qp-meta {
+  color: var(--muted);
+  font-size: 12.5px;
+  line-height: 1.35;
+  /* Two lines for the same reason: the branch name is the half an HQ user
+     actually needs, and it is the half that was being cut off the end. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.qp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 2px 0 1px;
+}
+
+.qp-chips .chip {
+  align-self: flex-start;
+}
+
+/* Two titles at most, then «и ещё N». Clamped rather than truncated with an
+ * ellipsis on one line: the second title is often the one that tells the
+ * mentor which corner of the kitchen to walk to. */
+.qp-topics {
+  color: #ffffffb8;
+  font-size: 13.5px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.qp-chev {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  margin-top: 12px;
+  color: #ffffff5c;
+}
+
+.qp-chev svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ---- the trainee card ---- */
+
+.m-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.m-ava {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 18px;
+  background: var(--bg-3);
+  color: var(--text);
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.m-head-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.m-head .pp-title {
+  font-size: 23px;
+}
+
+.m-prog {
+  margin-bottom: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+}
+
+.m-prog-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.m-prog-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.m-prog-count {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.m-prog-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: #ffffff12;
+  overflow: hidden;
+}
+
+.m-prog-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--lvl-3);
+  transition: width 0.3s ease-out;
+}
+
+/* What this visit is for. Deliberately louder than the module list below it:
+ * these are the rows the queue sent the mentor here to look at. */
+.m-wait {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.m-wait-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--lvl-2);
+  border-radius: var(--r-card);
+  background: var(--bg-2);
+}
+
+.m-wait-glyph {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  color: var(--lvl-2);
+}
+
+.m-wait-glyph svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.m-wait-body {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.m-wait-title {
+  font-size: 15.5px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
+.m-wait-mod {
+  color: var(--muted);
+  font-size: 12.5px;
+}

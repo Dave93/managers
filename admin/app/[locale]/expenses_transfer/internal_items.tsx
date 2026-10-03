@@ -41,6 +41,10 @@ const columns: ColumnDef<InternalTransferItemsListDto, any>[] = [
   {
     accessorKey: "amount",
     header: "Количество",
+    cell: ({ row }: any) => {
+      const v = (row.original as any).amount;
+      return v != null && v !== "" ? Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 4 }) : "";
+    },
   },
 ];
 

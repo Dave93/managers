@@ -5,3 +5,12 @@
   .dark .bg-red-600 {
     background-color: #dc2626 !important;
   }
+/* Allow vertical sticky thead on the page: outer wrapper handles horizontal scroll,
+   table-container's own overflow is removed so the page is the y-scroll context. */
+.incoming-sticky-wrapper {
+  max-height: calc(100vh - 12rem);
+  overflow: auto;
+}
+.incoming-sticky-wrapper [data-slot="table-container"] {
+  overflow: visible !important;
+}

@@ -57,7 +57,7 @@ export default function TerminalsFilter() {
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger className="border flex items-center justify-between px-3 relative rounded-md w-[300px]">
+      <PopoverTrigger className="border flex items-center justify-between px-3 relative rounded-md w-full sm:w-[300px]">
         {selectedTerminal
           ? terminals.find((t: any) => t.id === selectedTerminal)?.name
           : "Все терминалы"}

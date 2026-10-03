@@ -48,13 +48,20 @@ import { useQuery } from "@tanstack/react-query";
 import { DateRange } from "react-day-picker";
 import dayjs from "dayjs";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+
 interface DataTableProps<TValue> {
     columns: ColumnDef<typeof hangingOrders.$inferSelect, TValue>[];
     searchTerm?: string;
     brandFilter?: string;
     statusFilter?: string;
     dateRange?: DateRange;
+    hideClosed?: boolean;
 }
+
+// Заказ в этих статусах уже не висит — филиал закрыл или отменил его.
+const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
 export function DataTable<TValue>({
     columns,
@@ -62,11 +69,14 @@ export function DataTable<TValue>({
     brandFilter,
     statusFilter,
     dateRange,
+    hideClosed,
 }: DataTableProps<TValue>) {
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 10,
     });
+    const isMobileHook = useIsMobile();
+
 
     // Create filters based on all filter parameters
     const filters = useMemo(() => {
@@ -78,6 +88,10 @@ export function DataTable<TValue>({
         
         if (statusFilter && statusFilter !== "all") {
             filterArray.push({ field: "status", operator: "eq", value: statusFilter });
+        }
+
+        if (hideClosed) {
+            filterArray.push({ field: "orderStatus", operator: "notIn", value: FINAL_ORDER_STATUSES });
         }
         
         if (searchTerm) {
@@ -92,7 +106,7 @@ export function DataTable<TValue>({
             filterArray.push({ field: "date", operator: "lte", value: dayjs(dateRange.to).format('YYYY-MM-DD') });
         }
         return filterArray.length > 0 ? JSON.stringify(filterArray) : undefined;
-    }, [brandFilter, statusFilter, searchTerm, dateRange]);
+    }, [brandFilter, statusFilter, searchTerm, dateRange, hideClosed]);
 
     const { data, isLoading } = useQuery({
         queryKey: [
@@ -151,9 +165,25 @@ export function DataTable<TValue>({
         getPaginationRowModel: getPaginationRowModel(),
     });
 
+    if (isMobileHook) {
+        const mobileRows = (data?.data ?? []) as any[];
+        return (
+            <AutoMobileCards
+                rows={mobileRows}
+                columns={columns as any[]}
+                isLoading={isLoading}
+                onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+                onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+                canPrev={pageIndex > 0}
+                canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+                page={pageIndex}
+            />
+        );
+    }
+
     return (
         <div className="space-y-4">
-            <div className="rounded-md border overflow-x-auto">
+            <div className="w-full min-w-0 rounded-md border overflow-x-auto">
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => {
@@ -168,10 +198,10 @@ export function DataTable<TValue>({
                                         if (isSticky) {
                                             if (header.column.id === "brand") {
                                                 currentLeft = 0;
-                                                stickyLeft = 120;
+                                                stickyLeft = 100;
                                             } else if (header.column.id === "conception") {
-                                                currentLeft = 120;
-                                                stickyLeft = 270;
+                                                currentLeft = 100;
+                                                stickyLeft = 240;
                                             }
                                         }
                                         
@@ -181,7 +211,7 @@ export function DataTable<TValue>({
                                                 className={isSticky ? "sticky z-10 bg-background border-r shadow-sm" : ""}
                                                 style={isSticky ? { 
                                                     left: `${currentLeft}px`,
-                                                    minWidth: header.column.id === "brand" ? "120px" : "150px"
+                                                    minWidth: header.column.id === "brand" ? "100px" : "140px"
                                                 } : {}}
                                             >
                                                 {header.isPlaceholder
@@ -244,7 +274,7 @@ export function DataTable<TValue>({
                                                 if (cell.column.id === "brand") {
                                                     currentLeft = 0;
                                                 } else if (cell.column.id === "conception") {
-                                                    currentLeft = 120;
+                                                    currentLeft = 100;
                                                 }
                                             }
                                             
@@ -254,7 +284,7 @@ export function DataTable<TValue>({
                                                     className={isSticky ? "sticky z-10 bg-background border-r shadow-sm" : ""}
                                                     style={isSticky ? { 
                                                         left: `${currentLeft}px`,
-                                                        minWidth: cell.column.id === "brand" ? "120px" : "150px"
+                                                        minWidth: cell.column.id === "brand" ? "100px" : "140px"
                                                     } : {}}
                                                 >
                                                     {flexRender(

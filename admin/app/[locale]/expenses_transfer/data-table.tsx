@@ -43,6 +43,9 @@ import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/
 import { InternalItemsTable } from "./internal_items";
 import dayjs from "dayjs";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { MobileReportCards } from "@admin/components/mobile/MobileReportCards";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<InternalTransferListDto, TValue>[];
 }
@@ -80,6 +83,8 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 100,
   });
+  const isMobileHook = useIsMobile();
+
 
   const filters = useMemo(() => {
     let res: {
@@ -184,6 +189,30 @@ export function DataTable<TData, TValue>({
       left: ["name"],
     });
   }, [table]);
+
+  if (isMobileHook) {
+    const mobileRows = (data?.data ?? []) as any[];
+    return (
+      <MobileReportCards
+        rows={mobileRows}
+        isLoading={isLoading}
+        render={(r: any) => ({
+          primary: r.documentNumber ?? "—",
+          secondary: r.dateIncoming ? dayjs(r.dateIncoming).format("DD.MM.YYYY HH:mm") : "",
+          fields: [
+            { label: "Из", value: r.fromStoreName ?? "—" },
+            { label: "В", value: r.toStoreName ?? "—" },
+          ],
+          details: <InternalItemsTable invoiceId={r.id} invoiceDate={r.dateIncoming} />,
+        })}
+        onPrev={() => setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))}
+        onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+        canPrev={pageIndex > 0}
+        canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : mobileRows.length === pageSize}
+        page={pageIndex}
+      />
+    );
+  }
 
   return (
     <div className="space-y-4">

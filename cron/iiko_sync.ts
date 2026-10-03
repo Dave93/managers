@@ -44,7 +44,30 @@ dayjs.extend(timezone);
 export class IikoDictionariesService {
   constructor(private readonly redis: Redis) { }
 
+  private currentToken: string | null = null;
+
+  async authenticate(force = false): Promise<string> {
+    if (this.currentToken && !force) return this.currentToken;
+    const res = await fetch(
+      `https://les-ailes-co-co.iiko.it/resto/api/auth?login=${process.env.IIKO_LOGIN}&pass=${process.env.IIKO_PASSWORD}`,
+      { method: "GET" }
+    );
+    const token = (await res.text()).trim();
+    if (!res.ok || !/^[0-9a-f-]{30,40}$/i.test(token)) {
+      throw new Error(
+        `[auth] failed, status ${res.status}, body: ${token.slice(0, 120)}`
+      );
+    }
+    console.log(`[auth] got iiko token${force ? " (re-auth)" : ""}`);
+    this.currentToken = token;
+    return token;
+  }
+
   async fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 5): Promise<Response> {
+    // Re-auth is not a retry: a token that expired mid-run should not eat the budget
+    // reserved for network failures, and gating it on attempt < maxRetries meant the
+    // last attempt threw HTTP 401 instead of refreshing the token.
+    let reauths = 0;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
         const controller = new AbortController();
@@ -52,6 +75,21 @@ export class IikoDictionariesService {
         console.log(`[fetchWithRetry] Attempt ${attempt}/${maxRetries} for ${url.split("?")[0]}`);
         const response = await fetch(url, { method: options.method || "GET", headers: options.headers, body: options.body, signal: controller.signal });
         clearTimeout(timeoutId);
+        if (response.status === 401 && reauths < 2) {
+          reauths++;
+          const urlKey = url.match(/[?&]key=([^&]*)/)?.[1];
+          const fresh =
+            urlKey && this.currentToken && urlKey !== this.currentToken
+              ? this.currentToken
+              : await this.authenticate(true);
+          console.warn(`[fetchWithRetry] 401 for ${url.split("?")[0]}, re-authenticating and retrying`);
+          url = url.replace(/([?&]key=)[^&]*/, `$1${fresh}`);
+          attempt--;
+          continue;
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status} for ${url.split("?")[0]}`);
+        }
         console.log(`[fetchWithRetry] Success for ${url.split("?")[0]}, status: ${response.status}`);
         return response;
       } catch (e) {
@@ -113,14 +151,7 @@ export class IikoDictionariesService {
   }
 
   async getIikoDictionariesFromIiko() {
-    const response = await this.fetchWithRetry(
-      `https://les-ailes-co-co.iiko.it/resto/api/auth?login=${process.env.IIKO_LOGIN}&pass=${process.env.IIKO_PASSWORD}`,
-      {
-        method: "GET",
-      }
-    );
-
-    const token = await response.text();
+    const token = await this.authenticate(true);
 
     // console.log("token", token);
 
@@ -431,119 +462,146 @@ export class IikoDictionariesService {
     const toDate = dayjs()
       .format("YYYY-MM-DD");
 
-    // const fromDate = "2024-08-01";
-    // const toDate = "2024-08-07";
     console.log("fromDate", fromDate);
     console.log("toDate", toDate);
-    const response = await this.fetchWithRetry(
-      `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/olap?key=${token}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reportType: "TRANSACTIONS",
-          buildSummary: "true",
-          groupByRowFields: [],
-          groupByColFields: [
-            "DateTime.DateTyped",
-            "Session.Group",
-            "TransactionType",
-            "Product.Type",
-            "Product.Name",
-            "Product.Id",
-            "Product.Num",
-            "Product.MeasureUnit",
-            "Store",
-          ],
-          aggregateFields: ["Amount.Out", "Amount"],
-          filters: {
-            "DateTime.DateTyped": {
-              filterType: "DateRange",
-              from: fromDate,
-              to: toDate,
-              includeLow: true,
-              includeHigh: true,
-            },
-            TransactionType: {
-              filterType: "IncludeValues",
-              values: ["SESSION_WRITEOFF"],
-            },
-            "Product.Type": {
-              filterType: "IncludeValues",
-              values: ["GOODS", "PREPARED", "DISH"],
-            },
-          },
-        }),
-      }
-    );
 
-    const reportOlap = await response.json();
-
-    // console.log("reportOlap", reportOlap);
+    // OLAP cannot build this window in one request once it grows past ~3 weeks: at
+    // month end (start of month minus 10 days) it is 35+ days and every attempt died
+    // on the 600s fetch timeout, so report_olap stopped filling after 2026-08-13.
+    // Walk it in 7-day chunks - the size backfill_olap.ts already uses - and
+    // delete/insert per chunk so one bad chunk cannot take out the rest.
+    const CHUNK_DAYS = 7;
+    const windowEnd = dayjs(toDate);
+    let chunkStart = dayjs(fromDate);
 
     console.log("started report olap db inserting");
     console.time("report_olap_db_inserting");
-    try {
-      // console.time('deleting');
-      await drizzleDb
-        .delete(report_olap)
-        .where(
-          and(
-            gte(report_olap.dateTime, new Date(fromDate).toISOString()),
-            lte(report_olap.dateTime, new Date(toDate).toISOString()),
-          )
-        )
-        .execute();
-      // console.timeEnd('deleting');
 
-    } catch (e) {
-      console.log("olaps deleting error", e);
-      process.exit(1);
-    }
+    while (!chunkStart.isAfter(windowEnd)) {
+      let chunkEnd = chunkStart.add(CHUNK_DAYS - 1, "day");
+      if (chunkEnd.isAfter(windowEnd)) chunkEnd = windowEnd;
 
-    console.log("reportOlaps count: ", reportOlap.data.length);
-    const insertItems = [];
+      const chunkFrom = chunkStart.format("YYYY-MM-DD");
+      const chunkTo = chunkEnd.format("YYYY-MM-DD");
+      // iiko treats the TRANSACTIONS DateRange high bound as EXCLUSIVE despite
+      // includeHigh:true. The old single-window request survived that because the
+      // next run overlapped it; disjoint chunks do not, so ask for one day past.
+      const apiTo = chunkEnd.add(1, "day").format("YYYY-MM-DD");
 
-    for (const reportOlaps of reportOlap.data) {
-      // For DISH use DishAmountInt.Amount, for GOODS/PREPARED use Amount.Out
-      const amount = reportOlaps["Product.Type"] === "DISH"
-        ? reportOlaps["Amount"]
-        : reportOlaps["Amount.Out"];
-      insertItems.push({
-        id: reportOlaps.id,
-        dateTime: reportOlaps["DateTime.DateTyped"],
-        productId: reportOlaps["Product.Id"],
-        productName: reportOlaps["Product.Name"],
-        productType: reportOlaps["Product.Type"],
-        sessionGroup: reportOlaps["Session.Group"],
-        transactionType: reportOlaps["TransactionType"],
-        amauntOut: amount,
-        productNum: reportOlaps["Product.Num"],
-        productUnit: reportOlaps["Product.MeasureUnit"],
-        store: reportOlaps["Store"],
-      });
-    }
+      try {
+        const response = await this.fetchWithRetry(
+          `https://les-ailes-co-co.iiko.it/resto/api/v2/reports/olap?key=${token}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              reportType: "TRANSACTIONS",
+              buildSummary: "true",
+              groupByRowFields: [],
+              groupByColFields: [
+                "DateTime.DateTyped",
+                "Session.Group",
+                "TransactionType",
+                "Product.Type",
+                "Product.Name",
+                "Product.Id",
+                "Product.Num",
+                "Product.MeasureUnit",
+                "Store",
+              ],
+              aggregateFields: ["Amount.Out", "Amount"],
+              filters: {
+                "DateTime.DateTyped": {
+                  filterType: "DateRange",
+                  from: chunkFrom,
+                  to: apiTo,
+                  includeLow: true,
+                  includeHigh: true,
+                },
+                TransactionType: {
+                  filterType: "IncludeValues",
+                  values: ["SESSION_WRITEOFF"],
+                },
+                "Product.Type": {
+                  filterType: "IncludeValues",
+                  values: ["GOODS", "PREPARED", "DISH"],
+                },
+              },
+            }),
+          }
+        );
 
-    let chukedItems = chunk(insertItems, 1000);
-    try {
-      for (const reportOlaps of chukedItems) {
-        // console.time('chunk_adding');
-        // console.log('reportOlaps ', reportOlaps)
+        if (!response.ok) {
+          throw new Error(`Error fetching report olap: ${response.status} ${response.statusText}`);
+        }
+
+        const reportOlap = await response.json();
+
+        if (!Array.isArray(reportOlap?.data)) {
+          throw new Error(`Unexpected report olap response shape: ${JSON.stringify(reportOlap).slice(0, 500)}`);
+        }
+
+        console.log(`[report_olap] ${chunkFrom} -> ${chunkTo}: got ${reportOlap.data.length} rows`);
+
+        // Nothing came back: leave whatever is already stored alone rather than
+        // wiping a day on a bad response.
+        if (reportOlap.data.length === 0) {
+          chunkStart = chunkEnd.add(1, "day");
+          continue;
+        }
+
+        // dateTime holds Tashkent midnight, i.e. 19:00Z of the previous day.
+        // new Date("YYYY-MM-DD") is UTC midnight, so an unpinned lower bound sat 5h
+        // too late and never matched the first day of the window: that day survived
+        // the DELETE and was inserted again on every run.
         await drizzleDb
-          .insert(report_olap)
-          .values(reportOlaps)
+          .delete(report_olap)
+          .where(
+            and(
+              gte(report_olap.dateTime, new Date(chunkFrom + "T00:00:00+05:00").toISOString()),
+              lte(report_olap.dateTime, new Date(chunkTo + "T23:59:59+05:00").toISOString()),
+            )
+          )
           .execute();
-        // console.timeEnd('chunk_adding');
+
+        const insertItems = [];
+        for (const reportOlaps of reportOlap.data) {
+          // For DISH use DishAmountInt.Amount, for GOODS/PREPARED use Amount.Out
+          const amount = reportOlaps["Product.Type"] === "DISH"
+            ? reportOlaps["Amount"]
+            : reportOlaps["Amount.Out"];
+          insertItems.push({
+            id: reportOlaps.id,
+            dateTime: reportOlaps["DateTime.DateTyped"],
+            productId: reportOlaps["Product.Id"],
+            productName: reportOlaps["Product.Name"],
+            productType: reportOlaps["Product.Type"],
+            sessionGroup: reportOlaps["Session.Group"],
+            transactionType: reportOlaps["TransactionType"],
+            amauntOut: amount,
+            productNum: reportOlaps["Product.Num"],
+            productUnit: reportOlaps["Product.MeasureUnit"],
+            store: reportOlaps["Store"],
+          });
+        }
+
+        for (const batch of chunk(insertItems, 1000)) {
+          await drizzleDb
+            .insert(report_olap)
+            .values(batch)
+            .execute();
+        }
+
+        console.log(`[report_olap] ${chunkFrom} -> ${chunkTo}: inserted ${insertItems.length}`);
+      } catch (e) {
+        console.error(`[report_olap] ${chunkFrom} -> ${chunkTo} failed:`, e);
       }
 
-      // console.log("reportOlaps", reportOlaps);
-
-
-    } catch (error) {
-      console.error("Error:", error);
+      chunkStart = chunkEnd.add(1, "day");
     }
+
     console.timeEnd("report_olap_db_inserting");
     console.log("Finished report olap db inserting");
   }
@@ -625,7 +683,9 @@ export class IikoDictionariesService {
 
             .update(writeoff)
             .set({
-              dateIncoming: write_off.dateIncoming,
+              // dateIncoming intentionally excluded: it's the hypertable
+              // partition column, updating it violates the chunk's check
+              // constraint (row would need to move to a different chunk).
               documentNumber: write_off.documentNumber,
               status: write_off.status,
               conceptionId: write_off.conceptionId,

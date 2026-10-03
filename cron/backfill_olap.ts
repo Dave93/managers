@@ -119,7 +119,10 @@ async function processRange(token: string, from: dayjs.Dayjs, to: dayjs.Dayjs): 
   const fromStr = from.format("YYYY-MM-DD");
   const toStr = to.format("YYYY-MM-DD");
 
-  const reportOlap = await fetchOlapForRange(token, fromStr, toStr);
+  // iiko treats the TRANSACTIONS DateRange high bound as EXCLUSIVE despite
+  // includeHigh:true — request one day past the chunk so the last day lands.
+  const apiToStr = to.add(1, "day").format("YYYY-MM-DD");
+  const reportOlap = await fetchOlapForRange(token, fromStr, apiToStr);
 
   // Debug: log response structure on first call
   if (!(processRange as any)._logged) {
@@ -144,8 +147,11 @@ async function processRange(token: string, from: dayjs.Dayjs, to: dayjs.Dayjs): 
     .delete(report_olap)
     .where(
       and(
-        gte(report_olap.dateTime, new Date(fromStr).toISOString()),
-        lte(report_olap.dateTime, new Date(toStr + "T23:59:59").toISOString())
+        // report_olap.dateTime holds Tashkent midnight (=19:00Z prev day). Parsing a
+        // bare "YYYY-MM-DD" as UTC put the lower bound 5h late, so the first day of
+        // every range survived the DELETE and got inserted again. Pin the offset.
+        gte(report_olap.dateTime, new Date(fromStr + "T00:00:00+05:00").toISOString()),
+        lte(report_olap.dateTime, new Date(toStr + "T23:59:59+05:00").toISOString())
       )
     )
     .execute();

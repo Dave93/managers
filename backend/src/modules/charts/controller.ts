@@ -2,7 +2,7 @@ import { ctx } from "@backend/context";
 import dayjs from "dayjs";
 import { sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
-import * as XLSX from 'xlsx';
+import { maskRanking, resolveChartScope, terminalCondition as scopeTerminalCondition } from "./terminal-scope";
 
 type IntervalType = '1 day' | '1 week' | '1 month';
 
@@ -19,85 +19,10 @@ const getIntervalForTimeBucket = (interval: string): IntervalType => {
     return (['1 day', '1 week', '1 month'].includes(interval) ? interval : '1 day') as IntervalType;
 };
 
-const fetchData = async (drizzle: any, startDate: string, endDate: string, terminals: string | undefined, interval: string) => {
-    const terminalList = terminals?.split(',') || null;
-    const intervalForTimeBucket = getIntervalForTimeBucket(interval);
-
-    const result = await drizzle.execute(sql`
-        CALL get_revenue_and_order_count(
-            ${startDate}::timestamp,
-            ${endDate}::timestamp,
-            ${intervalForTimeBucket}::interval,
-            ${terminalList ? sql`ARRAY[${sql.join(terminalList)}]::varchar[]` : sql`NULL`}
-        )
-    `);
-
-    if (!Array.isArray(result.rows)) {
-        throw new Error("Unexpected data format: not an array");
-    }
-
-    return result.rows.map((item: { date: any; current_revenue: string; previous_revenue: string | null; current_order_count: string; previous_order_count: string | null; }) => ({
-        date: item.date,
-        current_revenue: parseFloat(item.current_revenue) || 0,
-        previous_revenue: item.previous_revenue !== null ? parseFloat(item.previous_revenue) || 0 : null,
-        current_order_count: parseInt(item.current_order_count) || 0,
-        previous_order_count: item.previous_order_count !== null ? parseInt(item.previous_order_count) || 0 : null
-    }));
-};
-
 export const chartsController = new Elysia({
     name: "@api/charts",
 })
     .use(ctx)
-    .get(
-        "/charts/revenue/export", async ({
-            query: {
-                startDate,
-                endDate,
-                terminals,
-                interval,
-            },
-            user,
-            set,
-            drizzle,
-        }) => {
-
-        try {
-            if (!interval) {
-                interval = '1 day';
-            }
-            const data = await fetchData(drizzle, startDate, endDate, terminals, interval);
-
-            // Create a new workbook and add a worksheet
-            const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.json_to_sheet(data);
-
-            // Add the worksheet to the workbook
-            XLSX.utils.book_append_sheet(wb, ws, "Revenue Data");
-
-            // Generate XLSX file
-            const xlsxBuffer = XLSX.write(wb, { type: "buffer", bookType: "xlsx" });
-
-            // Set response headers
-            set.headers['Content-Disposition'] = `attachment; filename="revenue_data_${startDate}_${endDate}.xlsx"`;
-            set.headers['Content-Type'] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-
-            // Return the XLSX file
-            return xlsxBuffer;
-        } catch (error) {
-            console.error("Error exporting data:", error);
-            set.status = 500;
-            return { message: "Error exporting data" };
-        }
-    }, {
-        permission: "charts.list",
-        query: t.Object({
-            startDate: t.String(),
-            endDate: t.String(),
-            terminals: t.Optional(t.String()),
-            interval: t.Optional(t.String({ default: "1 day" }))
-        }),
-    })
     .get(
         "/charts/revenue", async ({
             query: {
@@ -111,26 +36,15 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
         const apiStartTime = performance.now()
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
         const aggregationTable = getAggregationTable(interval!);
         const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
 
@@ -218,22 +132,14 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
             const apiStartTime = performance.now();
 
             const cachedTerminals = await cacheController.getCachedTerminals({});
-            let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-            if (userTerminals && userTerminals.length > 0) {
-                currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-            }
-            const terminalList = currentTerminals.map(terminal => {
-                const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-                return credentials?.key;
-            }).filter(id => id !== null);
-            const terminalCondition = terminalList.length > 0
-                ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-                : sql``;
+            const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+            const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
             const aggregationTable = getAggregationTable(interval);
             const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
             const previousPeriodOffset = interval === '1 week' ? sql`INTERVAL '52 weeks'` : sql`INTERVAL '1 year'`;
@@ -322,7 +228,8 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
             const apiStartTime = performance.now();
 
@@ -331,19 +238,8 @@ export const chartsController = new Elysia({
 
             const cachedTerminals = await cacheController.getCachedTerminals({});
 
-            let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-            if (userTerminals && userTerminals.length > 0) {
-                currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-            }
-
-            const terminalList = currentTerminals.map(terminal => {
-                const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-                return credentials?.key;
-            }).filter(id => id !== null);
-
-            const terminalCondition = terminalList.length > 0
-                ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-                : sql``;
+            const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+            const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
             const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
 
             const previousPeriodOffset = interval === '1 week' ? sql`INTERVAL '52 weeks'` : sql`INTERVAL '1 year'`;
@@ -436,25 +332,15 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
 
         const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
 
@@ -577,25 +463,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
 
         const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
 
@@ -682,25 +558,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
 
 
         const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
@@ -773,25 +639,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
 
 
         const organizationCondition = organizationId ? sql`AND department_id = ${organizationId}` : sql``;
@@ -866,27 +722,23 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
         console.time('api')
         const apiStartTime = performance.now()
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
+        // A restricted viewer sees the whole network ranking, with other
+        // branches' numbers masked below; with no own branch there is nothing.
+        const masked = scope.viewerRestricted;
+        if (masked && scope.ownIikoIds.length === 0) {
+            return { data: [], masked: true, total: 0, own_brands: [], debug: { sqlQueryTime: 0, apiTime: performance.now() - apiStartTime } };
         }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const branchCondition = masked ? sql`` : terminalCondition;
 
         const sqlQuery = sql`
             WITH current_period AS (
@@ -908,7 +760,7 @@ export const chartsController = new Elysia({
                 WHERE
                     rda.bucket BETWEEN ${startDate}::timestamp AND ${endDate}::timestamp 
                     AND t.id IS NOT NULL 
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id, t.name
@@ -922,28 +774,34 @@ export const chartsController = new Elysia({
                     revenue_daily_aggregation rda
                 WHERE
                     rda.bucket BETWEEN (${startDate}::timestamp - INTERVAL '1 year') AND (${endDate}::timestamp - INTERVAL '1 year')
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id
             )
             SELECT 
                 cp.name,
+                cp.restaurant_group_id,
+                cp.department_id,
                 cp.current_revenue,
-                pp.previous_revenue
+                pp.previous_revenue,
+                ROW_NUMBER() OVER (ORDER BY cp.current_revenue DESC NULLS LAST, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
                 AND cp.department_id = pp.department_id
-            ORDER BY cp.current_revenue DESC;
+            ORDER BY rank;
         `;
 
         try {
             const sqlStartTime = performance.now()
             const result = (await drizzle.execute<{
                 name: string;
-                current_revenue: string;
+                restaurant_group_id: string;
+                department_id: string;
+                current_revenue: string | null;
                 previous_revenue: string | null;
+                rank: string | number;
             }>(sqlQuery)).rows;
             const sqlEndTime = performance.now()
 
@@ -952,12 +810,19 @@ export const chartsController = new Elysia({
             if (!Array.isArray(result)) {
                 throw new Error("Unexpected data format: not an array");
             }
+            const ranking = maskRanking(result.map(item => ({
+                name: item.name,
+                rank: Number(item.rank),
+                restaurant_group_id: String(item.restaurant_group_id),
+                department_id: String(item.department_id),
+                current_revenue: item.current_revenue === null ? null : Number(item.current_revenue),
+                previous_revenue: item.previous_revenue === null ? null : Number(item.previous_revenue),
+            })), masked ? scope.ownIikoIds : null, ['current_revenue', 'previous_revenue'] as const);
             return {
-                data: result.map(item => ({
-                    name: item.name,
-                    current_revenue: parseFloat(item.current_revenue) || 0,
-                    previous_revenue: item.previous_revenue ? parseFloat(item.previous_revenue) : null
-                })),
+                data: ranking.data,
+                masked,
+                total: ranking.total,
+                own_brands: ranking.own_brands,
                 debug: {
                     sqlQueryTime: sqlEndTime - sqlStartTime,
                     apiTime: apiEndTime - apiStartTime
@@ -989,26 +854,23 @@ export const chartsController = new Elysia({
             set,
             drizzle,
             cacheController,
-            terminals: userTerminals
+            terminals: userTerminals,
+            role
         }) => {
         console.time('api')
         const apiStartTime = performance.now()
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restaurant_group_id`);
+        // A restricted viewer sees the whole network ranking, with other
+        // branches' numbers masked below; with no own branch there is nothing.
+        const masked = scope.viewerRestricted;
+        if (masked && scope.ownIikoIds.length === 0) {
+            return { data: [], masked: true, total: 0, own_brands: [], debug: { sqlQueryTime: 0, apiTime: performance.now() - apiStartTime } };
         }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restaurant_group_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const branchCondition = masked ? sql`` : terminalCondition;
 
         const sqlQuery = sql`
             WITH current_period AS (
@@ -1030,7 +892,7 @@ export const chartsController = new Elysia({
                 WHERE
                     rda.bucket BETWEEN ${startDate}::timestamp AND ${endDate}::timestamp 
                     AND t.id IS NOT NULL 
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id, t.name
@@ -1044,28 +906,34 @@ export const chartsController = new Elysia({
                     revenue_daily_aggregation rda
                 WHERE
                     rda.bucket BETWEEN (${startDate}::timestamp - INTERVAL '1 year') AND (${endDate}::timestamp - INTERVAL '1 year')
-                    ${terminalCondition}
+                    ${branchCondition}
                     ${organization ? sql`AND rda.department_id = ${organization}` : sql``}
                 GROUP BY 
                     rda.restaurant_group_id, rda.department_id
             )
             SELECT 
                 cp.name,
+                cp.restaurant_group_id,
+                cp.department_id,
                 cp.current_order_count,
-                pp.previous_order_count
+                pp.previous_order_count,
+                ROW_NUMBER() OVER (ORDER BY cp.current_order_count DESC NULLS LAST, cp.name) AS rank
             FROM current_period cp
             LEFT JOIN previous_period pp 
                 ON cp.restaurant_group_id = pp.restaurant_group_id 
                 AND cp.department_id = pp.department_id
-            ORDER BY cp.current_order_count DESC;
+            ORDER BY rank;
         `;
 
         try {
             const sqlStartTime = performance.now()
             const result = (await drizzle.execute<{
                 name: string;
-                current_order_count: string;
+                restaurant_group_id: string;
+                department_id: string;
+                current_order_count: string | null;
                 previous_order_count: string | null;
+                rank: string | number;
             }>(sqlQuery)).rows;
             const sqlEndTime = performance.now()
 
@@ -1074,12 +942,19 @@ export const chartsController = new Elysia({
             if (!Array.isArray(result)) {
                 throw new Error("Unexpected data format: not an array");
             }
+            const ranking = maskRanking(result.map(item => ({
+                name: item.name,
+                rank: Number(item.rank),
+                restaurant_group_id: String(item.restaurant_group_id),
+                department_id: String(item.department_id),
+                current_order_count: item.current_order_count === null ? null : Number(item.current_order_count),
+                previous_order_count: item.previous_order_count === null ? null : Number(item.previous_order_count),
+            })), masked ? scope.ownIikoIds : null, ['current_order_count', 'previous_order_count'] as const);
             return {
-                data: result.map(item => ({
-                    name: item.name,
-                    current_order_count: parseInt(item.current_order_count) || 0,
-                    previous_order_count: item.previous_order_count ? parseInt(item.previous_order_count) : null
-                })),
+                data: ranking.data,
+                masked,
+                total: ranking.total,
+                own_brands: ranking.own_brands,
                 debug: {
                     sqlQueryTime: sqlEndTime - sqlStartTime,
                     apiTime: apiEndTime - apiStartTime
@@ -1110,25 +985,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND restoraunt_group IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`restoraunt_group`);
         // Создаем временные интервалы по 5 минут до 4 часов
         const sqlQuery = sql`
             WITH cooking_stats AS (
@@ -1245,24 +1110,16 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
-        console.log('terminalIds', terminalList)
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`terminal_id`);
+        console.log('terminalIds', scope.iikoIds)
         const organizationCondition = organization ? sql`AND organization_id = ${organization}` : sql``;
         const sqlQuery = sql`
             SELECT
@@ -1331,23 +1188,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`terminal_id`);
 
         const organizationCondition = organization
             ? sql`AND organization_id = ${organization}`
@@ -1420,23 +1269,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`terminal_id`);
 
         const organizationCondition = organization
             ? sql`AND organization_id = ${organization}`
@@ -1532,23 +1373,15 @@ export const chartsController = new Elysia({
         set,
         drizzle,
         cacheController,
-        terminals: userTerminals
+        terminals: userTerminals,
+        role
     }) => {
         const apiStartTime = performance.now();
 
         const cachedTerminals = await cacheController.getCachedTerminals({});
 
-        let currentTerminals = cachedTerminals.filter(terminal => terminals ? terminals.includes(terminal.id) : true);
-        if (userTerminals && userTerminals.length > 0) {
-            currentTerminals = currentTerminals.filter(terminal => userTerminals.includes(terminal.id));
-        }
-        const terminalList = currentTerminals.map(terminal => {
-            const credentials = terminal.credentials.find(cred => cred.type === 'iiko_id');
-            return credentials?.key;
-        }).filter(id => id !== null);
-        const terminalCondition = terminalList.length > 0
-            ? sql`AND terminal_id IN (${sql.raw(terminalList.map(id => `'${id}'`).join(','))})`
-            : sql``;
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`terminal_id`);
 
         const organizationCondition = organization
             ? sql`AND organization_id = ${organization}`
@@ -1611,4 +1444,30 @@ export const chartsController = new Elysia({
             terminals: t.Optional(t.String()),
             organization: t.Optional(t.String()),
         }),
+    })
+    .get('/charts/orders-by-source', async ({ query: { startDate, endDate, organization, terminals }, set, drizzle, cacheController, terminals: userTerminals, role }) => {
+        const orgCondition = organization ? sql`AND organization_id = ${organization}` : sql``;
+        const cachedTerminals = await cacheController.getCachedTerminals({});
+        const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
+        const terminalCondition = scopeTerminalCondition(scope, sql`terminal_id`);
+        const sqlQuery = sql`
+            SELECT source AS name, SUM(order_count)::int AS order_count, SUM(total_revenue)::numeric AS total_revenue
+            FROM orders_by_source
+            WHERE date >= ${startDate}::date AND date <= ${endDate}::date
+            ${orgCondition}
+            ${terminalCondition}
+            GROUP BY source ORDER BY total_revenue DESC
+        `;
+        try {
+            const result = await drizzle.execute(sqlQuery);
+            if (!Array.isArray(result.rows)) throw new Error('Unexpected data format');
+            return { data: result.rows.map((row) => ({ name: String(row.name), orderCount: Number(row.order_count) || 0, totalRevenue: Number(row.total_revenue) || 0 })) };
+        } catch (error) {
+            console.error('Error fetching orders by source:', error);
+            set.status = 500;
+            return { message: 'Error fetching orders by source', error: String(error) };
+        }
+    }, {
+        permission: 'charts.list',
+        query: t.Object({ startDate: t.String(), endDate: t.String(), organization: t.Optional(t.String()), terminals: t.Optional(t.String()) }),
     })

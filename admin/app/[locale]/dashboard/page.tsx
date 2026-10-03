@@ -5,7 +5,7 @@ import ChartsPageClient from "./page.client";
 
 function DashboardContent() {
     return (
-        <div className="p-4 space-y-6">
+        <div className="p-4 space-y-6 overflow-x-hidden">
             <div className="sticky top-16 z-10">
                 <FilterPanel />
             </div>

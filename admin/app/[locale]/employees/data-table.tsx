@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select";
+import RoleFilter from "./role-filter";
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -53,6 +54,14 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   // filter state (search/position debounced ~300ms)
   const [search, setSearch] = useState("");
   const [position, setPosition] = useState("");
+  // Роль и свободный текст — РАЗНЫЕ параметры, а не один на двоих.
+  //
+  // Раньше список ролей писал название в ?position=, а тот ищет подстрокой:
+  // «Повар» приводил 205 человек вместо 95. Теперь список шлёт ?staff_role_id=
+  // с точным совпадением, а текстовое поле осталось для «ночь» и «2 разряд»,
+  // которых в списке ролей нет. Гасить друг друга им больше незачем: вместе
+  // они и означают «повара в ночь».
+  const [roleIds, setRoleIds] = useState<string[]>([]);
   const [terminalId, setTerminalId] = useState("");
   const [active, setActive] = useState("");
   const [debSearch, setDebSearch] = useState("");
@@ -67,9 +76,10 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
     return () => clearTimeout(id);
   }, [position]);
   // any filter change → back to first page
+  const roleParam = roleIds.join(",");
   useEffect(() => {
     setPagination((p) => ({ ...p, pageIndex: 0 }));
-  }, [debSearch, debPosition, terminalId, active]);
+  }, [debSearch, debPosition, roleParam, terminalId, active]);
 
   const { data: terminalsData } = useQuery({
     queryKey: ["terminals_cached"],
@@ -88,6 +98,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
         search: debSearch,
         terminalId,
         position: debPosition,
+        staff_role_id: roleParam,
         active,
       },
     ],
@@ -99,6 +110,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
           ...(debSearch ? { search: debSearch } : {}),
           ...(terminalId ? { terminal_id: terminalId } : {}),
           ...(debPosition ? { position: debPosition } : {}),
+          ...(roleParam ? { staff_role_id: roleParam } : {}),
           ...(active ? { active } : {}),
         },
       });
@@ -109,6 +121,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   const resetFilters = () => {
     setSearch("");
     setPosition("");
+    setRoleIds([]);
     setTerminalId("");
     setActive("");
   };
@@ -155,6 +168,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
             ))}
           </SelectContent>
         </Select>
+        <RoleFilter value={roleIds} onChange={setRoleIds} />
         <Input
           placeholder={t("position")}
           value={position}

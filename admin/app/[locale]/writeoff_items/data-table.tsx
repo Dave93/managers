@@ -7,6 +7,7 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
+  getFilteredRowModel,
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
@@ -15,7 +16,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -39,15 +39,23 @@ import {
 } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 
-import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
 
+import { useIsMobile } from "@admin/utils/use-is-mobile";
+import { MobileReportCards } from "@admin/components/mobile/MobileReportCards";
+
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
 }
+
+// Date-column keys look like "2026_05_17" (no suffix in writeoff data).
+const DATE_KEY_RE = /^\d{4}_\d{2}_\d{2}$/;
+
+const formatQty = (value: number) =>
+  Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 }).format(value);
 
 const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
   const isPinned = column.getIsPinned();
@@ -66,6 +74,11 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
     right: isPinned === "right" ? `${column.getAfter("right")}px` : undefined,
     position: isPinned ? "sticky" : "relative",
     width: column.getSize(),
+    minWidth: isPinned ? column.getSize() : undefined,
+    maxWidth: isPinned ? column.getSize() : undefined,
+    overflow: isPinned ? "hidden" : undefined,
+    textOverflow: isPinned ? "ellipsis" : undefined,
+    whiteSpace: isPinned ? "nowrap" : undefined,
     zIndex: isPinned ? 1 : 0,
   };
 };
@@ -74,6 +87,7 @@ export function DataTable<TData, TValue>() {
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const productType = useStoplistFilterStore((state) => state.productType);
+  const isMobileHook = useIsMobile();
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -117,10 +131,10 @@ export function DataTable<TData, TValue>() {
         value: productType.split("/"),
       });
     }
-    // console.log(date);
+
     return JSON.stringify(res);
   }, [date, storeId, productType]);
-  // console.log("date", date);
+
   const { data, isLoading } = useQuery({
     enabled: !!date,
     queryKey: [
@@ -139,7 +153,6 @@ export function DataTable<TData, TValue>() {
           filters,
         },
       });
-      // console.log("data", data);
       return data;
     },
   });
@@ -156,12 +169,17 @@ export function DataTable<TData, TValue>() {
 
   const columnHelper = createColumnHelper();
 
+  const [globalFilter, setGlobalFilter] = useState("");
+  // Article column collapsed (hidden) by default; a toggle reveals it.
+  const [showArticle, setShowArticle] = useState(false);
+
   const columns = useMemo(() => {
     let cols: ColumnDef<Stoplist, TValue>[] = [
       {
         accessorKey: "name",
         header: "Название",
         enablePinning: true,
+        size: 150,
       },
       {
         accessorKey: "supplierProductArticle",
@@ -170,22 +188,56 @@ export function DataTable<TData, TValue>() {
       {
         accessorKey: "unit",
         header: "Единица измерения",
+        enablePinning: true,
+        size: 110,
       },
+      // @ts-ignore
+      columnHelper.group({
+        id: "group",
+        header: () => <span style={{ color: "red" }}>Всего</span>,
+        // @ts-ignore
+        columns: [
+          // @ts-ignore
+          columnHelper.accessor("totalBase", {
+            header: () => <span style={{ color: "red" }}></span>,
+            cell: ({ row: { original } }) => {
+              let res = 0;
+              // @ts-ignore
+              Object.keys(original).forEach((key) => {
+                if (DATE_KEY_RE.test(key)) {
+                  // @ts-ignore
+                  res += +original[key];
+                }
+              });
+              return <span>{formatQty(res)}</span>;
+            },
+          }),
+        ],
+      }),
     ];
 
     if (date && date.from && date.to) {
       let from = dayjs(date.from);
       let to = dayjs(date.to).add(1, "day");
       for (var m = from; m.isBefore(to); m = m.add(1, "day")) {
-        cols.push({
-          accessorKey: m.format("YYYY_MM_DD"),
-          header: m.format("DD.MM.YYYY"),
-          enablePinning: true,
-          cell: (info) =>
-            info.getValue()
-              ? (Math.round(+info.getValue() * 1000) / 1000).toFixed(3)
-              : "",
-        });
+        cols.push(
+          // @ts-ignore
+          columnHelper.group({
+            id: m.format("YYYY-MM-DD"),
+            header: m.format("DD.MM.YYYY"),
+            // @ts-ignore
+            columns: [
+              // @ts-ignore
+              columnHelper.accessor(m.format("YYYY_MM_DD"), {
+                header: () => "",
+                cell: (info) =>
+                  info.getValue()
+                    ? (Math.round(+info.getValue() * 1000) / 1000).toFixed(3)
+                    : "",
+              }),
+            ],
+          })
+        );
       }
     }
     return cols;
@@ -198,29 +250,136 @@ export function DataTable<TData, TValue>() {
     pageCount: 1000000,
     state: {
       pagination,
+      globalFilter,
       rowPinning: {
         top: ["name"],
+      },
+      columnVisibility: {
+        supplierProductArticle: showArticle,
       },
     },
     enablePinning: true,
     enableRowPinning: true,
     enableColumnPinning: true,
     onPaginationChange: setPagination,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: (row, _columnId, filterValue) => {
+      const name = String(row.getValue("name") ?? "").toLowerCase();
+      return name.includes(String(filterValue).toLowerCase());
+    },
     getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
     manualPagination: true,
     getPaginationRowModel: getPaginationRowModel(),
   });
 
   useEffect(() => {
     table.setColumnPinning({
-      left: ["name"],
+      left: ["name", "unit"],
     });
   }, [table]);
 
+  // Mobile rows, filtered by the same search box.
+  const mobileRows = useMemo(() => {
+    const rows = (data?.data ?? []) as any[];
+    if (!globalFilter) return rows;
+    return rows.filter((row: any) =>
+      String(row.name ?? "").toLowerCase().includes(globalFilter.toLowerCase())
+    );
+  }, [data, globalFilter]);
+
+  const searchInput = (
+    <div className="flex items-center gap-2">
+      <input
+        type="text"
+        placeholder="Поиск по названию..."
+        value={globalFilter}
+        onChange={(e) => setGlobalFilter(e.target.value)}
+        className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+      />
+      <button
+        type="button"
+        onClick={() => setShowArticle((v) => !v)}
+        className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
+      >
+        {showArticle ? "Скрыть артикул" : "Артикул"}
+      </button>
+    </div>
+  );
+
+  if (isMobileHook) {
+    return (
+      <div className="space-y-4">
+        {searchInput}
+        <MobileReportCards
+          rows={mobileRows}
+          isLoading={isLoading}
+          render={(r: any) => ({
+            primary: r.name ?? "—",
+            secondary: r.supplierProductArticle ?? "",
+            fields: [
+              {
+                label: "Всего",
+                value: (() => {
+                  const t = Object.keys(r)
+                    .filter((k: string) => DATE_KEY_RE.test(k))
+                    .reduce((s: number, k: string) => s + Number((r as any)[k] || 0), 0);
+                  return t ? `${formatQty(t)} ${r.unit ?? ""}`.trim() : "—";
+                })(),
+              },
+            ],
+            details: (() => {
+              const entries = Object.keys(r)
+                .filter((k: string) => DATE_KEY_RE.test(k) && Number((r as any)[k]))
+                .map((k: string) => {
+                  const [y, mm, dd] = k.split("_");
+                  return {
+                    date: `${dd}.${mm}.${y}`,
+                    sortKey: `${y}${mm}${dd}`,
+                    value: Number((r as any)[k]),
+                  };
+                })
+                .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+              if (!entries.length) return null;
+              return (
+                <div className="space-y-1">
+                  {entries.map((e, i) => (
+                    <div
+                      key={i}
+                      className="flex justify-between border-b border-dashed border-slate-200 pb-1 last:border-0 dark:border-slate-700"
+                    >
+                      <span className="text-muted-foreground">{e.date}</span>
+                      <span className="font-medium tabular-nums">
+                        {formatQty(e.value)} {r.unit ?? ""}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })(),
+          })}
+          onPrev={() =>
+            setPagination((p) => ({ ...p, pageIndex: Math.max(0, p.pageIndex - 1) }))
+          }
+          onNext={() => setPagination((p) => ({ ...p, pageIndex: p.pageIndex + 1 }))}
+          canPrev={pageIndex > 0}
+          canNext={
+            data?.total
+              ? (pageIndex + 1) * pageSize < data.total
+              : mobileRows.length === pageSize
+          }
+          page={pageIndex}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="rounded-md border relative ">
-        <Table>
+      {searchInput}
+
+      <div className="rounded-md border relative overflow-x-auto">
+        <Table className="min-w-[600px]">
           <TableHeader className="bg-slate-600 dark:bg-slate-100 z-20 sticky top-16">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
@@ -250,7 +409,7 @@ export function DataTable<TData, TValue>() {
               <TableRow>
                 <TableCell
                   colSpan={columns.length}
-                  className="h-24 text-center relative "
+                  className="h-24 text-center relative"
                 >
                   <div
                     role="status"
@@ -302,10 +461,7 @@ export function DataTable<TData, TValue>() {
               ))
             ) : (
               <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
+                <TableCell colSpan={columns.length} className="h-24 text-center">
                   No results.
                 </TableCell>
               </TableRow>
@@ -313,12 +469,12 @@ export function DataTable<TData, TValue>() {
           </TableBody>
         </Table>
       </div>
-      {/* <div className="h-2" /> */}
-      <div className="flex h-24 items-center justify-between pb-4 px-2">
-        <div className="flex-1 text-sm text-muted-foreground"></div>
-        <div className="flex items-center space-x-6 lg:space-x-8">
+
+      {/* Pagination */}
+      <div className="flex flex-wrap gap-3 items-center justify-between pb-4 px-2 py-4">
+        <div className="flex items-center gap-2">
           <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium">Rows per page</p>
+            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
             <Select
               value={`${table.getState().pagination.pageSize}`}
               onValueChange={(value) => {
@@ -326,9 +482,7 @@ export function DataTable<TData, TValue>() {
               }}
             >
               <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
-                />
+                <SelectValue placeholder={table.getState().pagination.pageSize} />
               </SelectTrigger>
               <SelectContent side="top">
                 {[10, 20, 30, 40, 50, 100, 200].map((pageSize) => (
@@ -340,7 +494,7 @@ export function DataTable<TData, TValue>() {
             </Select>
           </div>
         </div>
-        <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+        <div className="flex items-center justify-center text-sm font-medium whitespace-nowrap">
           Page {table.getState().pagination.pageIndex + 1} of{" "}
           {table.getPageCount()}
         </div>

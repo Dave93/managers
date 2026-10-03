@@ -48,6 +48,7 @@ export const RefundFilters = () => {
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
+  const storeId = useStoplistFilterStore((state) => state.storeId);
 
   const [usersStoresData, setUsersStoresData] = useState<
     (typeof corporation_store.$inferSelect)[]
@@ -58,6 +59,9 @@ export const RefundFilters = () => {
 
     if (data && Array.isArray(data)) {
       setUsersStoresData(data);
+      if (data.length > 0 && !useStoplistFilterStore.getState().storeId) {
+        setStoreId(data[0].id);
+      }
     }
   };
 
@@ -159,6 +163,7 @@ export const RefundFilters = () => {
         onValueChange={(value) => {
           setStoreId(value);
         }}
+        value={storeId}
       >
         <SelectTrigger className="max-w-xs">
           <SelectValue placeholder="Склады" />

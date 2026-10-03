@@ -1,5 +1,4 @@
-import { DebugInfo } from "@admin/components/charts/DebugInfo";
-import { Card, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
+import ChartCard from "./_tremor/ChartCard";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 import { apiClient } from "@admin/utils/eden";
 import { useSuspenseQuery } from "@tanstack/react-query";
@@ -128,12 +127,7 @@ const PopularDishesChart = () => {
   };
 
   return (
-    <div className="w-full h-[400px]">
-      <Card className="h-full flex flex-col">
-        <CardHeader className="pb-0">
-          <CardTitle>{t('charts.PopularDishesByPrice.title')}</CardTitle>
-        </CardHeader>
-        <CardContent className="p-2 grow flex flex-col">
+    <ChartCard title={t('charts.PopularDishesByPrice.title')} bodyClassName="-mx-2">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={topDishes}
@@ -155,17 +149,10 @@ const PopularDishesChart = () => {
               />
               <Tooltip labelStyle={{ color: 'black' }} contentStyle={{ backgroundColor: 'white' }} formatter={(value) => currencyFormat.format(Number(value))} />
               <Legend />
-              <Bar dataKey="value" fill="#8884d8" name={t('charts.PopularDishesByPrice.salesAmount')} />
+              <Bar dataKey="value" fill="#16a34a" name={t('charts.PopularDishesByPrice.salesAmount')} radius={[0, 4, 4, 0]} />
             </BarChart>
           </ResponsiveContainer>
-          {data && 'debug' in data && data.debug && (
-            <div className="flex justify-end">
-              <DebugInfo sqlQueryTime={data.debug.sqlQueryTime} apiTime={data.debug.apiTime} />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+    </ChartCard>
   );
 };
 

@@ -10,6 +10,7 @@ import {
     CardHeader,
     CardTitle,
 } from "@admin/components/ui/card";
+import ChartCard from "./_tremor/ChartCard";
 import { organizations } from "@admin/lib/organizations";
 import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
@@ -468,39 +469,13 @@ const BasketAdditionalSalesBySourceGroup = () => {
 
     return (
         <div className="space-y-4">
-            <Card>
-                <CardHeader className="flex flex-col items-stretch space-y-0 border-b pb-2 sm:flex-row">
-                    <div className="flex flex-1 flex-col justify-center px-6 py-2">
-                        <CardTitle className="text-sm font-medium">
-                            {t("title")}
-                        </CardTitle>
-                    </div>
-                    {!terminals && (
-                        <div className="flex mt-2 sm:mt-0">
-                            <button
-                                data-active={!organization || organization.length == 0}
-                                className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                                onClick={() => setOrganization("")}
-                            >
-                                <span className="text-sm font-bold leading-none">{t('all')}</span>
-                            </button>
-                            {organizations.map((org) => {
-                                return (
-                                    <button
-                                        key={org.id}
-                                        data-active={organization === org.id}
-                                        className="relative z-30 flex flex-1 flex-col justify-center gap-1 border-t p-2 text-left even:border-l data-[active=true]:bg-muted/50 sm:border-l sm:border-t-0"
-                                        onClick={() => setOrganization(org.id)}
-                                    >
-                                        <span className="text-sm font-bold leading-none">
-                                            {org.label}
-                                        </span>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                    <div className="flex space-x-2 mt-2 sm:mt-0 justify-end px-6 py-2">
+            <ChartCard
+                title={t("title")}
+                organization={organization}
+                orgOptions={!terminals ? organizations : undefined}
+                onOrganizationChange={setOrganization}
+                headerRight={
+                    <>
                         <Button
                             variant="outline"
                             size="sm"
@@ -509,34 +484,27 @@ const BasketAdditionalSalesBySourceGroup = () => {
                         >
                             {t("exportToCSV")}
                         </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setIsModalOpen(true)}
-                        >
+                        <Button variant="outline" size="sm" onClick={() => setIsModalOpen(true)}>
                             {t("fullScreen")}
                         </Button>
+                    </>
+                }
+                bodyClassName="overflow-auto"
+            >
+                <div className="space-y-4">
+                    <div className="px-2">
+                        <SearchInput value={searchQuery} onChange={setSearchQuery} />
                     </div>
-                </CardHeader>
-                <CardContent>
-                    <div className="space-y-4">
-                        <div className="px-2">
-                            <SearchInput
-                                value={searchQuery}
-                                onChange={setSearchQuery}
-                            />
-                        </div>
-                        <BasketSalesBySourceGroupTable
-                            data={data}
-                            searchQuery={searchQuery}
-                            sortField={sortField}
-                            sortDirection={sortDirection}
-                            onSort={handleSort}
-                            getFilteredData={getFilteredData}
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+                    <BasketSalesBySourceGroupTable
+                        data={data}
+                        searchQuery={searchQuery}
+                        sortField={sortField}
+                        sortDirection={sortDirection}
+                        onSort={handleSort}
+                        getFilteredData={getFilteredData}
+                    />
+                </div>
+            </ChartCard>
 
             <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
                 <DialogContent className="max-w-5xl h-[80vh] flex flex-col">

@@ -9,13 +9,13 @@ import {
     parseAsString,
     useQueryState,
 } from "nuqs";
-import { Card, CardAction, CardContent, CardHeader, CardTitle } from "@admin/components/ui/card";
-import { DebugInfo } from "@admin/components/charts/DebugInfo";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { ChartExportButton, useChartExport } from "@admin/components/charts/chart-export";
 import { HeatmapChartClient } from "./HeatmapChartClient";
+import ChartCard from "./_tremor/ChartCard";
+import { useIsMobile } from "@admin/utils/use-is-mobile";
 
 const fetchHourlyHeatmapData = async (
     startDate: string,
@@ -53,6 +53,7 @@ const fetchHourlyHeatmapData = async (
 
 const OrderHourlyHeatmapChart = () => {
     const t = useTranslations();
+    const isMobile = useIsMobile();
     const [terminals] = useQueryState("terminals", parseAsString);
     const { dateRange } = useDateRangeState();
     const { startDate, endDate } = React.useMemo(() => {
@@ -103,26 +104,26 @@ const OrderHourlyHeatmapChart = () => {
     const { ref: exportRef, exportPng, exporting } = useChartExport();
 
     return (
-        <Card ref={exportRef} className="h-full flex flex-col">
-            <CardHeader className="pb-0">
-                <CardTitle>{t('charts.OrderHourlyHeatmapChart.title')}</CardTitle>
-                <CardAction>
-                    <ChartExportButton
-                        exporting={exporting}
-                        onExport={() =>
-                            exportPng(
-                                `orders-hourly-heatmap_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}`
-                            )
-                        }
-                    />
-                </CardAction>
-            </CardHeader>
-            <CardContent className="p-6 pt-0 grow flex flex-col">
+        <ChartCard
+            title={t('charts.OrderHourlyHeatmapChart.title')}
+            cardRef={exportRef}
+            headerRight={
+                <ChartExportButton
+                    exporting={exporting}
+                    onExport={() =>
+                        exportPng(
+                            `orders-hourly-heatmap_${format(startDate, "yyyy-MM-dd")}_${format(endDate, "yyyy-MM-dd")}`
+                        )
+                    }
+                />
+            }
+        >
                 <HeatmapChartClient
                     data={formattedData}
+                    enableLabels={!isMobile}
                     margin={{ top: 5, right: 0, bottom: 40, left: 50 }}
                     valueFormat=" >-.2s"
-                    forceSquare={true}
+                    forceSquare={!isMobile}
                     axisRight={null}
                     axisBottom={null}
                     axisLeft={{
@@ -175,13 +176,7 @@ const OrderHourlyHeatmapChart = () => {
                         </div>
                     )}
                 />
-                {data && 'debug' in data && data.debug && (
-                    <div className="flex justify-end" data-export-ignore>
-                        <DebugInfo sqlQueryTime={data.debug.sqlQueryTime} apiTime={data.debug.apiTime} />
-                    </div>
-                )}
-            </CardContent>
-        </Card>
+        </ChartCard>
     );
 };
 

@@ -57,6 +57,10 @@ export function InvoiceItemsTable<TData, TValue>({
         {
           accessorKey: "amount",
           header: "Количество",
+          cell: ({ row }: any) => {
+            const v = (row.original as any).amount;
+            return v != null && v !== "" ? Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 4 }) : "";
+          },
         },
       ];
     } else {
@@ -72,6 +76,10 @@ export function InvoiceItemsTable<TData, TValue>({
         {
           accessorKey: "amount",
           header: "Количество",
+          cell: ({ row }: any) => {
+            const v = (row.original as any).amount;
+            return v != null && v !== "" ? Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 4 }) : "";
+          },
         },
         {
           accessorKey: "sum",
@@ -115,7 +123,7 @@ export function InvoiceItemsTable<TData, TValue>({
           offset: (pageIndex * pageSize).toString(),
           filters: JSON.stringify(filters),
           fields:
-            "id,actualAmount,amount,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
+            "id,actualAmount,amount,sum,productId,invoiceincomingdate,productName,supplierProductArticle,unit",
         },
       });
       return data;

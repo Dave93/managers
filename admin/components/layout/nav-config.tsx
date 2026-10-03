@@ -11,12 +11,15 @@ import {
   Clock,
   FileText,
   GraduationCap,
+  IdCard,
   LayoutDashboard,
+  MapPinned,
   Settings2,
   Stethoscope,
   Store,
   Target,
   Users,
+  UsersRound,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
@@ -53,11 +56,21 @@ export function buildNav(locale: string): NavEntry[] {
         { title: "Статус", href: p("/system/reports_status"), permission: "reports_status.list" },
         { title: "Группы продуктов", href: p("/system/product_groups"), permission: "product_groups.list" },
         { title: "Внешние партнёры", href: p("/system/external-partners"), permission: "external_partners.list" },
+        { title: "Кредитные компании", href: p("/system/credit-companies"), permission: "credit.list" },
+        // Справочник ролей в смене (staff_roles), из которого форма сотрудника
+        // собирает должность. Живёт в настройках, а не в HR: рядом с «Должность»
+        // (/hr/position) его бы приняли за ту же сущность, а это вакансия —
+        // вилка, филиал, требования. Последним пунктом и по той же причине,
+        // по которой он не первый: экран заводится раз в год.
+        { title: "Роли сотрудников", href: p("/system/staff-roles"), permission: "employees.list" },
       ],
     },
     { kind: "link", title: "Организации", href: p("/organization/organizations"), icon: Building2, permission: "organizations.list" },
     { kind: "link", title: "Филиалы", href: p("/organization/terminals"), icon: Store, permission: "terminals.list" },
     { kind: "link", title: "Кассы", href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
+    { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
+    { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
+    { kind: "link", title: "Состав филиалов", href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
     {
       kind: "group",
       title: "Аттестация",
@@ -65,11 +78,25 @@ export function buildNav(locale: string): NavEntry[] {
       permission: "attestation_layout",
       items: [
         { title: "Тесты", href: p("/attestation/tests"), permission: "tests.list" },
-        { title: "Сотрудники", href: p("/attestation/employees"), permission: "employees.list" },
         { title: "Аналитика", href: p("/attestation/analytics"), permission: "attestation.analytics" },
         { title: "Пройти тест", href: p("/attestation/kiosk"), permission: "attestation.run" },
         { title: "Мой PIN", href: p("/attestation/pin"), permission: "attestation_layout" },
         { title: "PIN менеджеров", href: p("/attestation/manager-pins"), permission: "attestation.manage_pins" },
+      ],
+    },
+    {
+      kind: "group",
+      title: "Паспорт стажёра",
+      icon: IdCard,
+      permission: "passport_layout",
+      items: [
+        { title: "Программы обучения", href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
+        { title: "Стажировки", href: p("/passport/enrollments"), permission: "passport.enrollments.manage" },
+        { title: "Матрица", href: p("/passport/matrix"), permission: "passport.matrix.view" },
+        // passport.mentors.manage is seeded by stage-1b task B2; until then this
+        // item is filtered out for everyone, which is the intended fail-closed
+        // default for a page whose backend does not exist yet.
+        { title: "Наставники", href: p("/passport/mentors"), permission: "passport.mentors.manage" },
       ],
     },
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },

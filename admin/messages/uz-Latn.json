@@ -150,7 +150,31 @@
       "active": "Faol",
       "added": "Xodim qo'shildi",
       "updated": "Xodim yangilandi",
-      "selectTerminal": "Filialni tanlang"
+      "selectTerminal": "Filialni tanlang",
+      "role": "Rol",
+      "selectRole": "Rolni tanlang",
+      "roleRequired": "Rolni tanlang — lavozim shundan yig‘iladi",
+      "roleInactive": "(faol emas)",
+      "traineeMark": "stajyor",
+      "traineeBadge": "stajyor",
+      "grade": "Razryad",
+      "shift": "Smena",
+      "shiftDay": "Kunduzi",
+      "shiftNight": "Tunda",
+      "notSpecified": "Ko‘rsatilmagan",
+      "positionPreview": "Lavozim",
+      "positionPreviewEmpty": "roldan yig‘iladi",
+      "groups": {
+        "kitchen": "Oshxona",
+        "front": "Zal",
+        "management": "Boshqaruv",
+        "other": "Boshqa"
+      },
+      "addEmployee": "Xodim qo'shish",
+      "addToBranch": "{branch} filialiga xodim qo'shish",
+      "roleSearch": "Rolni qidirish",
+      "roleNotFound": "Rol topilmadi",
+      "roleWholeGroup": "butun guruh"
     },
     "kiosk": {
       "pickTest": "Testni tanlang",
@@ -222,6 +246,118 @@
       "invalid": "PIN 4-6 raqam bo'lishi kerak",
       "search": "Qidiruv (login/F.I.Sh.)",
       "confirmReset": "Bu menejer PINini tozalansinmi?"
+    }
+  },
+  "passport": {
+    "enrollments": {
+      "title": "Stajirovkalar",
+      "subtitle": "Hozir kim o‘qimoqda, kimning sinov muddati tugayapti va kimga QR-taklifnoma kerak.",
+      "newEnrollment": "Stajirovkani boshlash",
+      "filterStatus": "Holat",
+      "statusLive": "Hozir davom etmoqda",
+      "statusAll": "Hammasi",
+      "statusActive": "Davom etmoqda",
+      "statusPaused": "To‘xtatilgan",
+      "statusCompleted": "Yakunlangan",
+      "statusFailed": "O‘tmadi",
+      "filterTerminal": "Filial",
+      "allTerminals": "Barcha filiallar",
+      "filterProgram": "Dastur",
+      "allPrograms": "Barcha dasturlar",
+      "oneEmployee": "Bitta xodim bo‘yicha",
+      "metricTotal": "jami",
+      "metricLive": "davom etmoqda",
+      "metricWarning": "muddat yaqin",
+      "metricOverdue": "muddati o‘tgan",
+      "metricScope": "«Jami» — butun filtr bo‘yicha; muddat hisoblagichlari faqat shu sahifadagi qatorlar bo‘yicha."
+    },
+    "title": "Stajyor pasporti",
+    "nav": {
+      "curriculum": "O'quv dasturlari",
+      "enrollments": "Stajirovkalar",
+      "matrix": "Matritsa",
+      "mentors": "Murabbiylar"
+    },
+    "levels": {
+      "l0": "Boshlanmagan",
+      "l1": "Ko'rdi",
+      "l2": "Bajardi",
+      "l3": "Mustaqil",
+      "l4": "O'rgatadi"
+    },
+    "moduleStatus": {
+      "draft": "Qoralama",
+      "review": "Tekshiruvda",
+      "published": "Chop etilgan"
+    },
+    "enrollmentStatus": {
+      "active": "Davom etmoqda",
+      "completed": "Yakunlangan",
+      "failed": "O'tmadi",
+      "paused": "To'xtatilgan"
+    },
+    "deadline": {
+      "ok": "Muddatida",
+      "warning": "Muddat yaqin",
+      "overdue": "Muddati o'tgan"
+    },
+    "curriculum": {
+      "title": "O'quv dasturlari konstruktori",
+      "subtitle": "Dastur → modullar → mavzular. Kontent bir vaqtda ikki tilda yuritiladi: o‘zbekcha versiyasiz modul chop etilmaydi.",
+      "newProgram": "Dastur",
+      "newModule": "Modul",
+      "program": "Dastur",
+      "editProgram": "Tahrir",
+      "programsLoading": "yuklanmoqda…",
+      "noPrograms": "Hozircha dasturlar yo‘q",
+      "search": "Modullar bo‘yicha qidiruv",
+      "showRetired": "Muomaladan chiqarilganlarni ko‘rsatish",
+      "metricTotal": "jami",
+      "metricPublished": "chop etilgan",
+      "metricReview": "tekshiruvda",
+      "metricRetired": "chiqarilgan",
+      "loadingModules": "Modullar yuklanmoqda…",
+      "inProgram": "Dasturda",
+      "unattached": "Dasturga bog‘lanmagan",
+      "modulesGroup": "Modullar",
+      "emptyProgramHr": "Bu dasturda hali modullar yo‘q. Quyidan modul tanlab, «Dasturga bog‘lash» tugmasini bosing.",
+      "emptyProgram": "Bu dasturda hali modullar yo‘q. Modulni faqat HR bog‘lay oladi.",
+      "noModules": "Hozircha modullar yo‘q.",
+      "allAttached": "Barcha modullar dasturga bog‘langan.",
+      "emptySelection": "Modul tanlanmagan",
+      "emptySelectionHint": "Modulning holati, chop etishga tayyorligi va mavjud amallarini ko‘rish uchun chapdagi daraxtdan modul tanlang. Sariq RU/UZ belgilari tarjima yetishmayotgan joyni ko‘rsatadi — aynan shu chop etishni to‘xtatadi.",
+      "programsDenied": "Dasturlar ro‘yxati mavjud emas: u «passport.matrix.view» huquqini talab qiladi, sizning rolingizda esa bu huquq yo‘q. Departamentingiz modullari tekis ro‘yxat sifatida ko‘rsatilgan — dasturga bog‘lashni HR bajaradi.",
+      "noDepartment": "Hisobingizda departament ko‘rsatilmagan, shuning uchun modullar umuman ko‘rsatilmaydi. HR dan foydalanuvchi profilida departamentni belgilashni so‘rang — bu qoida server tomonida va ataylab yopiq."
+    },
+    "matrix": {
+      "title": "Progress matritsasi",
+      "subtitle": "Kim qayerda va nimasi kechikkan. Qatorlar — stajyorlar, ustunlar — ularning dasturi modullari.",
+      "filterBrand": "Brend",
+      "allBrands": "Ikkala brend",
+      "filterTerminal": "Filial",
+      "allTerminals": "Barcha filiallar",
+      "filterProgram": "Dastur",
+      "allPrograms": "Barcha dasturlar",
+      "filterPosition": "Lavozim",
+      "allPositions": "Barcha lavozimlar",
+      "filterStatus": "Holat",
+      "statusLive": "Hozir davom etmoqda",
+      "statusAll": "Hammasi",
+      "statusActive": "Davom etmoqda",
+      "statusPaused": "To‘xtatilgan",
+      "statusCompleted": "Yakunlangan",
+      "statusFailed": "O‘tmadi",
+      "reset": "Filtrlarni tozalash",
+      "metricTotal": "jami",
+      "metricLive": "davom etmoqda",
+      "metricOverdue": "kechikkan modullar",
+      "metricAwaiting": "kuzatuv kutmoqda",
+      "metricCompleted30": "30 kunda yakunlangan"
+    },
+    "mentors": {
+      "title": "Ustozlar",
+      "subtitle": "Boshqaruvchini Telegram akkauntiga bog‘lash: busiz u pasport mini-ilovasiga umuman kira olmaydi.",
+      "newBinding": "Ustozni bog‘lash"
     }
   },
   "medical": {
@@ -297,6 +433,67 @@
       "branch": "Filial",
       "all": "Barchasi",
       "reset": "Tozalash"
+    }
+  },
+  "staffRoles": {
+    "title": "Xodim rollari",
+    "new": "Yangi rol",
+    "add": "Yangi rol",
+    "edit": "Rolni tahrirlash",
+    "submit": "Saqlash",
+    "added": "Rol qo‘shildi",
+    "updated": "Rol yangilandi",
+    "traineeBadge": "stajyor",
+    "deactivate": "Rolni faolsizlantirish",
+    "deactivateConfirm": "Faolsizlantirish",
+    "deactivateBusyWarning": "Bu rolda {count} kishi turibdi. Rol ro‘yxatlardan yo‘qoladi, lekin ularda saqlanadi.",
+    "deactivateFreeHint": "Bu rolda hech kim yo‘q. Rol ro‘yxatlardan yo‘qoladi; yozuv saqlanadi va qayta yoqilishi mumkin.",
+    "deactivated": "Rol faolsizlantirildi",
+    "deactivatedWithPeople": "Rol faolsizlantirildi, unda {count} kishi qoldi",
+    "columns": {
+      "active": "Faol",
+      "name": "Nomi",
+      "code": "Kod",
+      "group": "Guruh",
+      "employeesCount": "Odamlar",
+      "sort": "Tartib",
+      "actions": "Amallar",
+      "synonyms": "Qidiruv so'zlari"
+    },
+    "filters": {
+      "search": "Qidiruv (nomi yoki kodi)",
+      "all": "Hammasi",
+      "activeYes": "Faol",
+      "activeNo": "Faol emas",
+      "reset": "Tozalash"
+    },
+    "groups": {
+      "kitchen": "Oshxona",
+      "front": "Zal",
+      "management": "Boshqaruv",
+      "other": "Boshqa"
+    },
+    "fields": {
+      "code": "Kod",
+      "codeHint": "Lotin harflari, raqamlar va pastki chiziq, 2–50 belgi. Keyin o‘zgarmaydi.",
+      "codeLocked": "Kod tahrirlanmaydi: ma’lumotnoma shu bo‘yicha to‘ldiriladi va stajyor rollari unga bog‘liq.",
+      "nameRu": "Nomi (RU)",
+      "nameRuHint": "Xodim lavozimi satri ruscha nomdan yig'iladi. Satr boshqa rol kabi o'qiladigan nom rad etiladi va sabab tushuntiriladi; xavfsizi qo'llanadi va shu odamlarning lavozimlari qayta yoziladi. Eski nom qidiruv so'zlariga qo'shiladi.",
+      "nameUz": "Nomi (UZ)",
+      "group": "Guruh",
+      "sort": "Tartib",
+      "sortHint": "Raqam kichik bo‘lsa, rol ro‘yxatda yuqoriroq turadi.",
+      "isTrainee": "Stajyor roli",
+      "traineeOf": "Qaysi rolga o‘qiydi",
+      "traineeOfHint": "Stajirovkadan keyin odam kim bo‘ladi. Shtatga o‘tkazish — rolni shunga almashtirish.",
+      "active": "Faol",
+      "synonyms": "Qidiruv so'zlari",
+      "synonymsPlaceholder": "салатчица, мойка",
+      "synonymsHint": "Ishning hayotdagi nomi. Bu yerdagi so'z bo'yicha qidirilganda, lavozim satrida bunday so'z bo'lmasa ham, shu roldagi xodimlar topiladi. Enter yoki vergul so'z qo'shadi."
+    },
+    "errors": {
+      "traineeOfRequired": "Stajyor qaysi rolga o‘qishini ko‘rsating",
+      "codeFormat": "Kod: lotin harflari, raqamlar va pastki chiziq, 2–50 belgi"
     }
   }
 }
