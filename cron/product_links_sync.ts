@@ -21,11 +21,11 @@ import { product_links_meta, terminal_product_links } from "backend/drizzle/sche
 import { sql } from "drizzle-orm";
 import { invalidateProductLinksCache } from "@backend/modules/product_links/service";
 import client from "./src/redis";
+import { loadTerminalByIikoId } from "./src/modules/terminals_by_iiko";
 import {
   checkGuard,
   countLinks,
   mapToTerminals,
-  normUuid,
   parsePayload,
   type ExordPayload,
 } from "./src/modules/product_links/parse";
@@ -51,23 +51,6 @@ async function fetchPayload(): Promise<ExordPayload> {
   });
   if (!res.ok) throw new Error(`exord responded ${res.status}`);
   return parsePayload(await res.json());
-}
-
-// iiko terminal uuid -> managers terminals.id. Joined to terminals because
-// credentials also keeps rows of deleted terminals (same iiko key twice).
-async function loadTerminalByIikoId(): Promise<Map<string, string>> {
-  const res: any = await drizzleDb.execute(sql`
-    SELECT c.key, t.id AS terminal_id
-    FROM credentials c
-    JOIN terminals t ON t.id::text = c.model_id
-    WHERE c.model = 'terminals' AND c.type = 'iiko_id'`);
-  const rows: any[] = Array.isArray(res) ? res : res?.rows ?? [];
-  const map = new Map<string, string>();
-  for (const r of rows) {
-    const key = normUuid(r.key);
-    if (key) map.set(key, String(r.terminal_id));
-  }
-  return map;
 }
 
 async function main() {

@@ -2439,6 +2439,8 @@ export const inventory_counts = pgTable(
     template_name: varchar("template_name", { length: 255 }).notNull(),
     period: date("period", { mode: "string" }).notNull(),
     status: varchar("status", { length: 32 }).default("draft").notNull(),
+    // Снимок: строки построены как шаблон ∩ товары филиала из exord (§13 спеки).
+    exord_filtered: boolean("exord_filtered").default(false).notNull(),
     created_by: uuid("created_by").notNull(),
     submitted_by: uuid("submitted_by"),
     submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
@@ -2540,4 +2542,15 @@ export const product_links_meta = pgTable("product_links_meta", {
   synced_at: timestamp("synced_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
+});
+
+// Склад iiko → филиал (terminals.id), выведено из продаж (orders.store_id +
+// restaurant_group_id) суточным cron/store_terminal_sync.ts. Без внешних ключей,
+// как остальные таблицы инвентаризации. Spec: inventory-counts-design.md §13.
+export const store_terminal_links = pgTable("store_terminal_links", {
+  store_id: uuid("store_id").primaryKey().notNull(),
+  terminal_id: uuid("terminal_id").notNull(),
+  orders_90d: integer("orders_90d").notNull(),
+  last_order_at: timestamp("last_order_at", { withTimezone: true, mode: "string" }),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
 });
