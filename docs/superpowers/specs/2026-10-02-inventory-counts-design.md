@@ -299,7 +299,7 @@ type Op =
 
 ### Что известно (прод, 03.10.2026)
 - `terminal_product_links`: 35 филиалов, 9192 связи, на филиал 236–306 товаров. Все 462 товара есть в `nomenclature_element`, типы `GOODS` (415) и `PREPARED` (47), неудалённые.
-- Связь склад → филиал напрямую нигде не хранится. Через подразделения iiko (`corporation_store.parentId` → `corporation_groups.departmentId`) она слишком грубая: 37–52 склада на филиал.
+- Прямая связь склад → филиал есть только частично: `credentials(model='terminals', type='iiko_store_id')` заполнен у 48 из 72 активных филиалов и в 3 случаях расходится с продажами (поправка от 03.10.2026). Через подразделения iiko (`corporation_store.parentId` → `corporation_groups.departmentId`) она слишком грубая: 37–52 склада на филиал.
 - Точная связь выводится из продаж: в `orders` есть `restaurant_group_id` (= `credentials(model='terminals', type='iiko_id').key`) и `store_id`. За 30 дней у каждого из 55 активных филиалов с продажами ровно один склад (доля 100%), ни один склад не делится между филиалами. У 6 филиалов со связями exord продаж за 30 дней нет (Farhod ×2, Anhor, Asia.uz Nukus ×2, Samarqand Makon mall — закрыты или стоят).
 
 ### Решения
@@ -342,4 +342,13 @@ type Op =
 - Повтор без дубля — частичный уникальный индекс `(store_id, period) WHERE template_id IS NULL AND status <> 'cancelled'`. Шаблонная инвентаризация того же склада и периода может жить рядом.
 - `POST /inventory/counts` без `template_id`; без exord — 422 `no_branch_products`. `GET /inventory/templates/available` → `{ branch: { available, items_for_store }, templates: [...] }`.
 - Миграция `0029_branch_counts`. Подсказки «Добавляли при пересчёте» такие инвентаризации не учитывают (нет шаблона).
+
+### Ручное сопоставление магазинов exord (дополнение)
+- Причина «нет exord» у многих складов — данные exord: из 74 магазинов у 38 не заполнен `terminal_iiko_id`, у «Chopar-Чимган» указан неизвестный managers id (`878daca9-…` вместо `44eb5de4-…`). Синк сопоставлял только 35.
+- Страница офиса «Сопоставление exord» (`/<locale>/inventory/exord`, право `product_links.manage`): все магазины из последнего ответа exord, статус («по iiko id», «вручную», «сохранено, применится при синке», «не сопоставлен»), выбор филиала с подсказкой по названию (бренд учитывается, кириллица транслитерируется), «Сбросить».
+- `exord_store_overrides(exord_user_id PK, terminal_id unique, updated_by, updated_at)` — ручное сопоставление важнее `terminal_iiko_id`. Один филиал — один магазин: 409 `terminal_taken` с названием занявшего магазина.
+- `exord_stores` — снимок последнего ответа exord (название, iiko id, число товаров, итоговый филиал, источник), пишет `product_links_sync` на каждом прогоне.
+- `product_links_meta.mapping_hash` — отпечаток сопоставления: синк переписывает связи, если он изменился, даже при той же версии exord.
+- Миграция `0030_exord_store_overrides`. API: `GET /inventory/exord-stores`, `PUT /inventory/exord-stores/:userId { terminal_id | null }`.
+- Правильное место исправления — exord (источник правды); ручное сопоставление — для случаев, когда это быстро не сделать.
 
