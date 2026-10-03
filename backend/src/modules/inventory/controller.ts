@@ -5,7 +5,6 @@ import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
 import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, productScope, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
 import { run } from "./errors";
-import { listExordStores, setExordOverride } from "./exord-stores";
 import {
   createTemplate,
   deleteTemplate,
@@ -211,21 +210,6 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
     "/inventory/overview",
     async ({ query, drizzle, set }) => run(set, async () => overview(drizzle, query.period, query.organization_id)),
     { permission: "inventory.templates", query: t.Object({ period: t.String(), organization_id: t.Optional(t.String()) }) }
-  )
-  .get("/inventory/exord-stores", async ({ drizzle }) => listExordStores(drizzle), {
-    permission: "product_links.manage",
-  })
-  .put(
-    "/inventory/exord-stores/:userId",
-    async ({ params, body, user, role, drizzle, cacheController, set }) =>
-      run(set, async () =>
-        setExordOverride(drizzle, await actorFrom(cacheController, user, role), params.userId, body.terminal_id)
-      ),
-    {
-      permission: "product_links.manage",
-      params: t.Object({ userId: t.Numeric() }),
-      body: t.Object({ terminal_id: t.Union([t.String(), t.Null()]) }),
-    }
   );
 
 // Как tickets/cash_shifts: после apiController накопленный тип роутов у

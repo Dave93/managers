@@ -1,6 +1,6 @@
 {
-  "id": "d01e933c-5367-4f9c-933d-331da301a6d9",
-  "prevId": "25ba3663-d5cf-495f-b263-9d861abc4d10",
+  "id": "c6b0cc2b-dbfe-4901-b554-b3e8f0b4985c",
+  "prevId": "aea0e047-013b-4605-b2a4-dfd4aac0174c",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3426,7 +3426,7 @@
           "name": "template_id",
           "type": "uuid",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "template_name": {
           "name": "template_name",
@@ -3533,6 +3533,28 @@
             }
           ],
           "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "inventory_counts_store_period_branch_uq": {
+          "name": "inventory_counts_store_period_branch_uq",
+          "columns": [
+            {
+              "expression": "store_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "period",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "template_id is null and status <> 'cancelled'",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -7423,8 +7445,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "terminals_count": {
-          "name": "terminals_count",
+        "stores_count": {
+          "name": "stores_count",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
@@ -8883,8 +8905,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.store_terminal_links": {
-      "name": "store_terminal_links",
+    "public.store_product_links": {
+      "name": "store_product_links",
       "schema": "",
       "columns": {
         "store_id": {
@@ -8893,23 +8915,11 @@
           "primaryKey": true,
           "notNull": true
         },
-        "terminal_id": {
-          "name": "terminal_id",
-          "type": "uuid",
+        "product_ids": {
+          "name": "product_ids",
+          "type": "uuid[]",
           "primaryKey": false,
           "notNull": true
-        },
-        "orders_90d": {
-          "name": "orders_90d",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_order_at": {
-          "name": "last_order_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
         },
         "updated_at": {
           "name": "updated_at",

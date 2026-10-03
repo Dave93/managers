@@ -41,10 +41,11 @@ CREATE TABLE "inventory_counts" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"store_id" uuid NOT NULL,
 	"organization_id" uuid,
-	"template_id" uuid NOT NULL,
+	"template_id" uuid,
 	"template_name" varchar(255) NOT NULL,
 	"period" date NOT NULL,
 	"status" varchar(32) DEFAULT 'draft' NOT NULL,
+	"exord_filtered" boolean DEFAULT false NOT NULL,
 	"created_by" uuid NOT NULL,
 	"submitted_by" uuid,
 	"submitted_at" timestamp with time zone,
@@ -82,4 +83,5 @@ CREATE INDEX "inventory_count_events_count_idx" ON "inventory_count_events" USIN
 CREATE UNIQUE INDEX "inventory_count_lines_count_product_uq" ON "inventory_count_lines" USING btree ("count_id","product_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "inventory_counts_store_period_template_uq" ON "inventory_counts" USING btree ("store_id","period","template_id") WHERE status <> 'cancelled';--> statement-breakpoint
 CREATE INDEX "inventory_counts_store_period_idx" ON "inventory_counts" USING btree ("store_id","period");--> statement-breakpoint
+CREATE UNIQUE INDEX "inventory_counts_store_period_branch_uq" ON "inventory_counts" USING btree ("store_id","period") WHERE template_id is null and status <> 'cancelled';--> statement-breakpoint
 CREATE UNIQUE INDEX "inventory_template_items_template_product_uq" ON "inventory_template_items" USING btree ("template_id","product_id");

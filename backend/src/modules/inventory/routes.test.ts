@@ -52,7 +52,6 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     const p2 = randomUUID(); // без папки
     const p3 = randomUUID(); // вне шаблона
     const templateId = randomUUID();
-    const terminalId = randomUUID();
     const tag = randomUUID().slice(0, 8);
 
     await drizzleDb.insert(schema.corporation_store).values([
@@ -81,15 +80,13 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await drizzleDb.insert(schema.users_stores).values({ user_id: userId, corporation_store_id: store });
     }
 
-    // Филиал склада storeId по exord: связь склад → филиал + товары филиала.
+    // Товары склада storeId по exord (store_product_links, ключ — iiko store id).
     async function linkBranch(productIds: string[]) {
-      await drizzleDb.insert(schema.store_terminal_links).values({ store_id: storeId, terminal_id: terminalId, orders_90d: 1 });
-      await drizzleDb.insert(schema.terminal_product_links).values({ terminal_id: terminalId, product_ids: productIds });
+      await drizzleDb.insert(schema.store_product_links).values({ store_id: storeId, product_ids: productIds });
     }
 
     async function cleanup() {
-      await drizzleDb.delete(schema.store_terminal_links).where(eq(schema.store_terminal_links.store_id, storeId));
-      await drizzleDb.delete(schema.terminal_product_links).where(eq(schema.terminal_product_links.terminal_id, terminalId));
+      await drizzleDb.delete(schema.store_product_links).where(eq(schema.store_product_links.store_id, storeId));
       const countIds = (
         await drizzleDb
           .select({ id: schema.inventory_counts.id })
@@ -105,7 +102,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await drizzleDb.delete(schema.corporation_store).where(inArray(schema.corporation_store.id, [storeId, otherStoreId]));
     }
 
-    return { orgId, storeId, otherStoreId, unitId, groupId, p1, p2, p3, templateId, terminalId, tag, bindUser, linkBranch, cleanup };
+    return { orgId, storeId, otherStoreId, unitId, groupId, p1, p2, p3, templateId, tag, bindUser, linkBranch, cleanup };
   }
 
   type World = Awaited<ReturnType<typeof seedWorld>>;
@@ -905,87 +902,6 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       } finally {
         await m.cleanup();
         await w.cleanup();
-      }
-    });
-  });
-
-  describe("exord: ручное сопоставление магазинов", () => {
-    async function seedExord() {
-      const orgId = randomUUID();
-      const t1 = randomUUID();
-      const t2 = randomUUID();
-      const tag = randomUUID().slice(0, 8);
-      const base = 900000000 + Math.floor(Math.random() * 90000000);
-      const [u1, u2, u3] = [base, base + 1, base + 2];
-      await drizzleDb.insert(schema.terminals).values([
-        { id: t1, name: `Филиал A ${tag}`, latitude: 41.3, longitude: 69.2, organization_id: orgId, active: true },
-        { id: t2, name: `Филиал B ${tag}`, latitude: 41.3, longitude: 69.2, organization_id: orgId, active: true },
-      ]);
-      await drizzleDb.insert(schema.exord_stores).values([
-        { exord_user_id: u1, name: `exord A ${tag}`, terminal_iiko_id: randomUUID(), product_count: 10, terminal_id: t1, source: "iiko" },
-        { exord_user_id: u2, name: `exord B ${tag}`, terminal_iiko_id: null, product_count: 20, terminal_id: null, source: null },
-        { exord_user_id: u3, name: `exord C ${tag}`, terminal_iiko_id: randomUUID(), product_count: 30, terminal_id: null, source: null },
-      ]);
-      async function cleanup() {
-        await drizzleDb.delete(schema.exord_store_overrides).where(inArray(schema.exord_store_overrides.exord_user_id, [u1, u2, u3]));
-        await drizzleDb.delete(schema.exord_stores).where(inArray(schema.exord_stores.exord_user_id, [u1, u2, u3]));
-        await drizzleDb.delete(schema.terminals).where(inArray(schema.terminals.id, [t1, t2]));
-      }
-      return { t1, t2, u1, u2, u3, tag, cleanup };
-    }
-    const put = (s: Session, userId: number, terminal_id: string | null) =>
-      api(s, "PUT", `/api/inventory/exord-stores/${userId}`, { terminal_id });
-
-    it("закрыто без права product_links.manage", async () => {
-      const s = await withSession({ permissions: ["inventory.count", "inventory.templates"] });
-      try {
-        expect((await api(s, "GET", "/api/inventory/exord-stores")).status).toBe(403);
-      } finally {
-        await s.cleanup();
-      }
-    });
-
-    it("список магазинов exord с филиалами и списком активных филиалов", async () => {
-      const e = await seedExord();
-      const s = await withSession({ permissions: ["product_links.manage"] });
-      try {
-        const r = await api(s, "GET", "/api/inventory/exord-stores");
-        expect(r.status).toBe(200);
-        const a = r.body.stores.find((x: any) => x.exord_user_id === e.u1);
-        expect(a).toMatchObject({ name: `exord A ${e.tag}`, product_count: 10, terminal_id: e.t1, terminal_name: `Филиал A ${e.tag}`, source: "iiko", override_terminal_id: null });
-        const b = r.body.stores.find((x: any) => x.exord_user_id === e.u2);
-        expect(b).toMatchObject({ terminal_id: null, source: null, override_terminal_id: null });
-        expect(r.body.terminals.map((t: any) => t.id)).toEqual(expect.arrayContaining([e.t1, e.t2]));
-      } finally {
-        await s.cleanup();
-        await e.cleanup();
-      }
-    });
-
-    it("сохранение, конфликт занятого филиала, сброс", async () => {
-      const e = await seedExord();
-      const s = await withSession({ permissions: ["product_links.manage"] });
-      try {
-        const ok = await put(s, e.u2, e.t2);
-        expect(ok.status).toBe(200);
-        let r = await api(s, "GET", "/api/inventory/exord-stores");
-        expect(r.body.stores.find((x: any) => x.exord_user_id === e.u2).override_terminal_id).toBe(e.t2);
-        const takenByIiko = await put(s, e.u3, e.t1);
-        expect(takenByIiko.status).toBe(409);
-        expect(takenByIiko.body).toMatchObject({ error: "terminal_taken", by: `exord A ${e.tag}` });
-        const takenByOverride = await put(s, e.u3, e.t2);
-        expect(takenByOverride.status).toBe(409);
-        expect(takenByOverride.body.by).toBe(`exord B ${e.tag}`);
-        expect((await put(s, e.u2, e.t2)).status).toBe(200);
-        const reset = await put(s, e.u2, null);
-        expect(reset.status).toBe(200);
-        r = await api(s, "GET", "/api/inventory/exord-stores");
-        expect(r.body.stores.find((x: any) => x.exord_user_id === e.u2).override_terminal_id).toBeNull();
-        const unknown = await put(s, e.u3, randomUUID());
-        expect(unknown.status).toBe(404);
-      } finally {
-        await s.cleanup();
-        await e.cleanup();
       }
     });
   });

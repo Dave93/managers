@@ -1,7 +1,7 @@
 /**
  * Sync the "which branch orders which products" reference from exord into
- * managers (terminal_product_links + product_links_meta), then drop the Redis
- * read cache.
+ * managers (store_product_links + product_links_meta), keyed by iiko store
+ * uuid (= corporation_store.id), then drop the Redis read cache.
  *
  * Usage (from /home/davr/managers/cron, env from ./.env):
  *   ./product_links_sync              # fetch from exord, swap tables if changed
@@ -17,17 +17,14 @@
  */
 import { readFileSync } from "node:fs";
 import { drizzleDb } from "@backend/lib/db";
-import { createHash } from "node:crypto";
-import { exord_store_overrides, exord_stores, product_links_meta, terminal_product_links } from "backend/drizzle/schema";
+import { product_links_meta, store_product_links } from "backend/drizzle/schema";
 import { sql } from "drizzle-orm";
 import { invalidateProductLinksCache } from "@backend/modules/product_links/service";
 import client from "./src/redis";
-import { loadTerminalByIikoId } from "./src/modules/terminals_by_iiko";
 import {
   checkGuard,
   countLinks,
-  mapToTerminals,
-  mappingFingerprint,
+  mapToStores,
   parsePayload,
   type ExordPayload,
 } from "./src/modules/product_links/parse";
@@ -55,39 +52,43 @@ async function fetchPayload(): Promise<ExordPayload> {
   return parsePayload(await res.json());
 }
 
-// Ручные сопоставления «магазин exord → филиал» из админки (важнее iiko id).
-async function loadOverrides(): Promise<Map<number, string>> {
-  const rows = await drizzleDb
-    .select({ user_id: exord_store_overrides.exord_user_id, terminal_id: exord_store_overrides.terminal_id })
-    .from(exord_store_overrides);
-  return new Map(rows.map((r) => [r.user_id, r.terminal_id]));
+// Every iiko store uuid we know (corporation_store.id).
+async function loadKnownStoreIds(): Promise<Set<string>> {
+  const res: any = await drizzleDb.execute(sql`SELECT id FROM corporation_store`);
+  const rows: any[] = Array.isArray(res) ? res : res?.rows ?? [];
+  return new Set(rows.map((r) => String(r.id).toLowerCase()));
 }
 
 async function main() {
   const payload = await fetchPayload();
-  const mapped = mapToTerminals(payload.stores, await loadTerminalByIikoId(), await loadOverrides());
+  const mapped = mapToStores(payload.stores, await loadKnownStoreIds());
   const links = countLinks(mapped.rows);
-  const mappingHash = createHash("sha1").update(mappingFingerprint(mapped.assignments)).digest("hex");
 
-  const metaRes: any = await drizzleDb.execute(
-    sql`SELECT version, terminals_count, links_count, mapping_hash FROM product_links_meta WHERE id = 1`
-  );
-  const meta = (Array.isArray(metaRes) ? metaRes : metaRes?.rows ?? [])[0];
+  // Compare against what is actually stored, not the meta row: right after
+  // the terminal -> store switch the meta still describes the old table.
+  const curRes: any = await drizzleDb.execute(sql`
+    SELECT (SELECT version FROM product_links_meta WHERE id = 1) AS version,
+           count(*)::int AS stores,
+           coalesce(sum(cardinality(product_ids)), 0)::int AS links
+    FROM store_product_links`);
+  const current = (Array.isArray(curRes) ? curRes : curRes?.rows ?? [])[0] ?? {
+    version: null,
+    stores: 0,
+    links: 0,
+  };
   log(
     `exord version=${payload.version} stores=${payload.stores.length} ` +
-      `mapped=${mapped.rows.length} skipped=${mapped.skipped} links=${links}`
+      `mapped=${mapped.rows.length} no_store=${mapped.noStore} unknown_store=${mapped.unknown.length} links=${links}`
   );
-
-  // Снимок магазинов для страницы «Сопоставление exord» — на каждом прогоне,
-  // чтобы офис видел актуальный список, даже если таблица связей не меняется.
-  if (!DRY) await writeStoreSnapshot(mapped.assignments);
+  for (const u of mapped.unknown) {
+    log(`WARN store not in corporation_store: user_id=${u.user_id} "${u.name}" ${u.store_iiko_id}`);
+  }
 
   if (
     !FORCE &&
-    meta &&
-    meta.version === payload.version &&
-    meta.terminals_count === mapped.rows.length &&
-    meta.mapping_hash === mappingHash
+    current.version === payload.version &&
+    current.stores === mapped.rows.length &&
+    current.links === links
   ) {
     log("unchanged, nothing to do");
     return;
@@ -95,7 +96,7 @@ async function main() {
 
   const refusal = checkGuard(
     mapped.rows,
-    { terminals: meta?.terminals_count ?? 0, links: meta?.links_count ?? 0 },
+    { stores: current.stores, links: current.links },
     FORCE
   );
   if (refusal) throw new Error(`refusing to replace data: ${refusal}`);
@@ -106,9 +107,9 @@ async function main() {
   }
 
   await drizzleDb.transaction(async (tx) => {
-    await tx.delete(terminal_product_links);
+    await tx.delete(store_product_links);
     for (let i = 0; i < mapped.rows.length; i += 100) {
-      await tx.insert(terminal_product_links).values(mapped.rows.slice(i, i + 100));
+      await tx.insert(store_product_links).values(mapped.rows.slice(i, i + 100));
     }
     await tx
       .insert(product_links_meta)
@@ -116,23 +117,21 @@ async function main() {
         id: 1,
         version: payload.version,
         generated_at: payload.generated_at,
-        terminals_count: mapped.rows.length,
+        stores_count: mapped.rows.length,
         links_count: links,
-        mapping_hash: mappingHash,
       })
       .onConflictDoUpdate({
         target: product_links_meta.id,
         set: {
           version: payload.version,
           generated_at: payload.generated_at,
-          terminals_count: mapped.rows.length,
+          stores_count: mapped.rows.length,
           links_count: links,
-          mapping_hash: mappingHash,
           synced_at: sql`now()`,
         },
       });
   });
-  log(`replaced: ${mapped.rows.length} terminals, ${links} links`);
+  log(`replaced: ${mapped.rows.length} stores, ${links} links`);
 
   // The tables are already swapped; a Redis hiccup only means stale reads
   // until the 15 min TTL runs out.
@@ -145,24 +144,6 @@ async function main() {
   } catch (e) {
     log(`WARN redis cache not cleared: ${(e as Error).message}`);
   }
-}
-
-async function writeStoreSnapshot(assignments: ReturnType<typeof mapToTerminals>["assignments"]) {
-  await drizzleDb.transaction(async (tx) => {
-    await tx.delete(exord_stores);
-    for (let i = 0; i < assignments.length; i += 100) {
-      await tx.insert(exord_stores).values(
-        assignments.slice(i, i + 100).map((a) => ({
-          exord_user_id: a.user_id,
-          name: a.name,
-          terminal_iiko_id: a.terminal_iiko_id,
-          product_count: a.product_count,
-          terminal_id: a.terminal_id,
-          source: a.source,
-        }))
-      );
-    }
-  });
 }
 
 main()

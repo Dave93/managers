@@ -295,60 +295,34 @@ type Op =
 
 ## 13. Товары филиала из exord (дополнение от 2026-10-03)
 
-Менеджер ведёт только те товары, которые его филиал использует. Источник — `terminal_product_links` (синк из exord, см. `docs/superpowers/specs/2026-10-03-product-links-sync-design.md`).
+Менеджер ведёт только те товары, которые его склад получает по exord. Источник — `store_product_links` (синк из exord, ключ — iiko store id склада = `corporation_store.id`; см. `docs/superpowers/specs/2026-10-03-product-links-sync-design.md`).
 
-### Что известно (прод, 03.10.2026)
-- `terminal_product_links`: 35 филиалов, 9192 связи, на филиал 236–306 товаров. Все 462 товара есть в `nomenclature_element`, типы `GOODS` (415) и `PREPARED` (47), неудалённые.
-- Прямая связь склад → филиал есть только частично: `credentials(model='terminals', type='iiko_store_id')` заполнен у 48 из 72 активных филиалов и в 3 случаях расходится с продажами (поправка от 03.10.2026). Через подразделения iiko (`corporation_store.parentId` → `corporation_groups.departmentId`) она слишком грубая: 37–52 склада на филиал.
-- Точная связь выводится из продаж: в `orders` есть `restaurant_group_id` (= `credentials(model='terminals', type='iiko_id').key`) и `store_id`. За 30 дней у каждого из 55 активных филиалов с продажами ровно один склад (доля 100%), ни один склад не делится между филиалами. У 6 филиалов со связями exord продаж за 30 дней нет (Farhod ×2, Anhor, Asia.uz Nukus ×2, Samarqand Makon mall — закрыты или стоят).
+### История решения
+- Сначала exord отдавал товары по терминалу (`terminal_product_links`), и связь склад → филиал приходилось выводить из продаж (`store_terminal_links`), а неверные/пустые `terminal_iiko_id` в exord (38 из 74 магазинов, у «Chopar-Чимган» чужой id) — править ручным сопоставлением.
+- 03.10.2026 exord стал присылать `store_iiko_id` для каждого магазина, синк в main перешёл на `store_product_links` (коммит 7bad3c5). На проде: 74 склада, 19 721 связь, все 74 магазина сопоставлены. Склад-посредник, cron `store_terminal_sync` и ручное сопоставление убраны из ветки.
 
 ### Решения
 | # | Вопрос | Решение |
 |---|--------|---------|
-| 14 | Шаблоны при наличии exord | Остаются. Строки инвентаризации = позиции шаблона ∩ товары филиала |
-| 15 | «+ товар не из списка» | Пересмотрено после ревью (на данных: «Месячная Les» в Ташкенте 14 из 116, «Персонал» и закупки мимо exord пропадали бы совсем). Ищет по всей номенклатуре без уже посчитанных позиций; в инвентаризации с фильтром exord товары филиала идут первыми, остальные помечены «не в exord». Добавить можно любой товар |
+| 14 | Шаблоны при наличии exord | Остаются. Строки инвентаризации = позиции шаблона ∩ товары склада |
+| 15 | «+ товар не из списка» | Ищет по всей номенклатуре без уже посчитанных позиций; в инвентаризации с фильтром exord товары склада первыми, остальные помечены «не в exord». Добавить можно любой товар (на складе бывают закупки мимо exord — «Персонал», хозтовары) |
 | 16 | Нет данных exord по складу | Весь шаблон без фильтра + предупреждение в окне старта и пометка в обзоре |
+| 17 | «Все товары филиала» | Инвентаризация без шаблона: строки = товары склада из exord, первый пункт в окне «Начать», по умолчанию; без exord недоступен |
 
 ### Данные
-- `store_terminal_links(store_id uuid PK, terminal_id uuid not null, orders_90d integer not null, last_order_at timestamptz, updated_at timestamptz)` — без внешних ключей (как остальные таблицы модуля).
-- `inventory_counts.exord_filtered boolean not null default false` — снимок: строился ли список с фильтром exord.
-- Миграция `0028_store_terminal_links` (0026 — product_links из main, 0027 — таблицы инвентаризации).
-
-### Синк связи склад → филиал
-`cron/store_terminal_sync.ts`, раз в сутки (`30 3 * * *`, `flock`, лог в `/var/log/store_terminal_sync.log`), флаг `--dry-run`.
-- Заказы за 90 дней группируются по (`store_id`, `restaurant_group_id`). Для каждого склада берётся группа с наибольшим числом заказов (при равенстве — с более поздним последним заказом), группа переводится в `terminals.id` через `credentials` ⋈ `terminals`.
-- Upsert без удаления: у склада без продаж за 90 дней остаётся последняя известная связь.
-- 0 строк после расчёта — таблица не трогается, код выхода 1.
-- Карта iiko id → терминал выносится в общий модуль `cron/src/modules/terminals_by_iiko.ts` и используется обоими синками.
+- `inventory_counts.exord_filtered boolean` — снимок: строился ли список с фильтром exord.
+- `inventory_counts.template_id` может быть `null` — «Все товары филиала» (`template_name = «Все товары филиала»`, в интерфейсе локализуется). Повтор без дубля — частичный уникальный индекс `(store_id, period) WHERE template_id IS NULL AND status <> 'cancelled'`.
+- Все таблицы инвентаризации — одна миграция `0028_inventory` (0026, 0027 — product links из main).
 
 ### Бэкенд
-- `storeProductIds(redis, db, storeId): string[] | null` (`backend/src/modules/inventory/branch-products.ts`): `store_terminal_links` → `getTerminalProductIds` (Redis → Postgres). `null` — нет связи склада или нет записи exord.
-- `GET /inventory/templates/available` — у каждого шаблона `items_for_store` (сколько позиций попадёт в пересчёт этого склада) и `exord_filtered`.
-- `POST /inventory/counts` — строки из шаблона ∩ товары филиала, `exord_filtered` по факту.
-- `POST /inventory/counts/:id/lines` — любой товар номенклатуры (решение 15).
-- `GET /inventory/products?q&count_id` — с `count_id` (и доступом к его складу) без позиций, которые уже в пересчёте; при `exord_filtered` товары филиала первыми, поле `in_branch` (`true`/`false`; без фильтра — `null`).
-- Пустой список товаров филиала в exord считается как «нет данных» (без фильтра).
-- `GET /inventory/overview` — у склада флаг `exord` (есть связь и запись exord).
-- `InventoryCountSummary.exord_filtered`.
+- `storeProductIds(redis, db, storeId)` (`branch-products.ts`) = `getStoreProductIds` из модуля product_links (Redis → Postgres); пустой список считается как «нет данных».
+- `GET /inventory/templates/available` → `{ branch: { available, items_for_store }, templates: [{…, items_for_store, exord_filtered}] }`.
+- `POST /inventory/counts` — с `template_id`: шаблон ∩ товары склада; без него — товары склада (без exord — 422 `no_branch_products`).
+- `POST /inventory/counts/:id/lines` — любой товар номенклатуры.
+- `GET /inventory/products?q&count_id` — без позиций, которые уже в пересчёте; при `exord_filtered` товары склада первыми, поле `in_branch`.
+- `GET /inventory/overview` — у склада флаг `exord` (непустая строка в `store_product_links`).
 
 ### Экраны
-- Окно «Начать»: у шаблона число позиций для склада; без exord — жёлтая плашка «Нет данных exord — список не отфильтрован».
-- «+ товар не из списка» передаёт `count_id`; товар не из exord помечен «не в exord».
+- Окно «Начать»: «Все товары филиала · N поз.» первым, у шаблонов число позиций для склада; без exord — плашка «Нет данных exord — список не отфильтрован».
+- «+ товар не из списка»: товар не из exord помечен «не в exord».
 - Обзор офиса: пометка «нет exord» у склада.
-
-### «Все товары филиала» без шаблона (дополнение)
-- В окне «Начать» первым пунктом — «Все товары филиала · N поз.» (выбран по умолчанию). Без данных exord пункт неактивен («нет данных exord»).
-- `inventory_counts.template_id` может быть `null`: `template_name = «Все товары филиала»` (в интерфейсе локализуется), `exord_filtered = true`, строки — товары филиала из exord, которые есть в номенклатуре.
-- Повтор без дубля — частичный уникальный индекс `(store_id, period) WHERE template_id IS NULL AND status <> 'cancelled'`. Шаблонная инвентаризация того же склада и периода может жить рядом.
-- `POST /inventory/counts` без `template_id`; без exord — 422 `no_branch_products`. `GET /inventory/templates/available` → `{ branch: { available, items_for_store }, templates: [...] }`.
-- Миграция `0029_branch_counts`. Подсказки «Добавляли при пересчёте» такие инвентаризации не учитывают (нет шаблона).
-
-### Ручное сопоставление магазинов exord (дополнение)
-- Причина «нет exord» у многих складов — данные exord: из 74 магазинов у 38 не заполнен `terminal_iiko_id`, у «Chopar-Чимган» указан неизвестный managers id (`878daca9-…` вместо `44eb5de4-…`). Синк сопоставлял только 35.
-- Страница офиса «Сопоставление exord» (`/<locale>/inventory/exord`, право `product_links.manage`): все магазины из последнего ответа exord, статус («по iiko id», «вручную», «сохранено, применится при синке», «не сопоставлен»), выбор филиала с подсказкой по названию (бренд учитывается, кириллица транслитерируется), «Сбросить».
-- `exord_store_overrides(exord_user_id PK, terminal_id unique, updated_by, updated_at)` — ручное сопоставление важнее `terminal_iiko_id`. Один филиал — один магазин: 409 `terminal_taken` с названием занявшего магазина.
-- `exord_stores` — снимок последнего ответа exord (название, iiko id, число товаров, итоговый филиал, источник), пишет `product_links_sync` на каждом прогоне.
-- `product_links_meta.mapping_hash` — отпечаток сопоставления: синк переписывает связи, если он изменился, даже при той же версии exord.
-- Миграция `0030_exord_store_overrides`. API: `GET /inventory/exord-stores`, `PUT /inventory/exord-stores/:userId { terminal_id | null }`.
-- Правильное место исправления — exord (источник правды); ручное сопоставление — для случаев, когда это быстро не сделать.
-

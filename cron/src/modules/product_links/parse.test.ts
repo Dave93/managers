@@ -1,9 +1,20 @@
 import { describe, test, expect } from "bun:test";
-import { checkGuard, mapToTerminals, mappingFingerprint, normUuid, parsePayload } from "./parse";
+import { checkGuard, mapToStores, normUuid, parsePayload } from "./parse";
 
 const T1 = "8088a57a-59e4-455a-a44c-b8bf4f485832";
+const S1 = "21006000-0000-4000-8000-000000000001";
+const S2 = "21006000-0000-4000-8000-000000000002";
 const P1 = "11111111-1111-4111-8111-111111111111";
 const P2 = "22222222-2222-4222-8222-222222222222";
+
+const store = (o: Record<string, unknown>) => ({
+  user_id: 1,
+  name: "A",
+  store_iiko_id: S1,
+  terminal_iiko_id: null,
+  product_ids: [],
+  ...o,
+});
 
 const payload = (stores: any[]) => ({
   version: "abc",
@@ -12,24 +23,30 @@ const payload = (stores: any[]) => ({
 });
 
 describe("parsePayload", () => {
-  test("lowercases ids, keeps null terminals", () => {
+  test("lowercases ids, keeps null store/terminal", () => {
     const p = parsePayload(
       payload([
-        { user_id: 1, name: "A", terminal_iiko_id: T1.toUpperCase(), product_ids: [P1.toUpperCase()] },
-        { user_id: 2, name: "B", terminal_iiko_id: null, product_ids: [] },
+        store({ store_iiko_id: S1.toUpperCase(), terminal_iiko_id: T1.toUpperCase(), product_ids: [P1.toUpperCase()] }),
+        store({ user_id: 2, store_iiko_id: null }),
       ])
     );
+    expect(p.stores[0].store_iiko_id).toBe(S1);
     expect(p.stores[0].terminal_iiko_id).toBe(T1);
     expect(p.stores[0].product_ids).toEqual([P1]);
-    expect(p.stores[1].terminal_iiko_id).toBeNull();
+    expect(p.stores[1].store_iiko_id).toBeNull();
+  });
+  test("store_iiko_id may be absent (old payload) and reads as null", () => {
+    const { store_iiko_id, ...old } = store({});
+    expect(parsePayload(payload([old])).stores[0].store_iiko_id).toBeNull();
   });
   test.each([
     [null],
     [{}],
     [{ version: "x" }],
-    [payload([{ user_id: 1, name: "A", terminal_iiko_id: "nope", product_ids: [] }])],
-    [payload([{ user_id: 1, name: "A", terminal_iiko_id: T1, product_ids: ["{bad}"] }])],
-    [payload([{ user_id: 1, name: "A", terminal_iiko_id: T1, product_ids: "x" }])],
+    [payload([store({ store_iiko_id: "nope" })])],
+    [payload([store({ terminal_iiko_id: "nope" })])],
+    [payload([store({ product_ids: ["{bad}"] })])],
+    [payload([store({ product_ids: "x" })])],
   ])("rejects broken payload %#", (raw) => {
     expect(() => parsePayload(raw)).toThrow();
   });
@@ -38,83 +55,57 @@ describe("parsePayload", () => {
   });
 });
 
-describe("mapToTerminals", () => {
-  const map = new Map([[T1, "term-1"]]);
-  test("unions duplicates, skips unknown", () => {
-    const { rows, skipped } = mapToTerminals(
-      [
-        { user_id: 1, name: "A", terminal_iiko_id: T1, product_ids: [P2, P1] },
-        { user_id: 2, name: "A2", terminal_iiko_id: T1, product_ids: [P1] },
-        { user_id: 3, name: "C", terminal_iiko_id: null, product_ids: [P1] },
-        { user_id: 4, name: "D", terminal_iiko_id: "9".repeat(8) + "-0000-4000-8000-000000000000", product_ids: [P1] },
-      ],
-      map
+describe("mapToStores", () => {
+  const known = new Set([S1, S2]);
+  const parse = (stores: any[]) => parsePayload(payload(stores)).stores;
+
+  test("maps known stores, counts no-store, lists unknown", () => {
+    const unknownId = "99999999-0000-4000-8000-000000000000";
+    const { rows, noStore, unknown } = mapToStores(
+      parse([
+        store({ product_ids: [P2, P1] }),
+        store({ user_id: 3, name: "NoStore", store_iiko_id: null, product_ids: [P1] }),
+        store({ user_id: 4, name: "Gone", store_iiko_id: unknownId, product_ids: [P1] }),
+      ]),
+      known
     );
-    expect(rows).toEqual([{ terminal_id: "term-1", product_ids: [P1, P2] }]);
-    expect(skipped).toBe(2);
+    expect(rows).toEqual([{ store_id: S1, product_ids: [P1, P2] }]);
+    expect(noStore).toBe(1);
+    expect(unknown).toEqual([{ user_id: 4, name: "Gone", store_iiko_id: unknownId }]);
+  });
+  test("unions entries that share a store", () => {
+    const { rows } = mapToStores(
+      parse([store({ product_ids: [P1] }), store({ user_id: 2, product_ids: [P2, P1] })]),
+      known
+    );
+    expect(rows).toEqual([{ store_id: S1, product_ids: [P1, P2] }]);
+  });
+  test("shared terminal does not merge different stores", () => {
+    const { rows } = mapToStores(
+      parse([
+        store({ terminal_iiko_id: T1, product_ids: [P1] }),
+        store({ user_id: 2, store_iiko_id: S2, terminal_iiko_id: T1, product_ids: [P2] }),
+      ]),
+      known
+    );
+    expect(rows.map((r) => r.store_id).sort()).toEqual([S1, S2]);
   });
 });
 
 describe("checkGuard", () => {
-  const rows = [{ terminal_id: "t", product_ids: [P1, P2] }];
+  const rows = [{ store_id: S1, product_ids: [P1, P2] }];
   test("empty is refused", () => {
-    expect(checkGuard([], { terminals: 0, links: 0 })).toMatch(/no stores/);
-    expect(checkGuard([{ terminal_id: "t", product_ids: [] }], { terminals: 0, links: 0 })).toMatch(/zero/);
+    expect(checkGuard([], { stores: 0, links: 0 })).toMatch(/no exord stores/);
+    expect(checkGuard([{ store_id: S1, product_ids: [] }], { stores: 0, links: 0 })).toMatch(/zero/);
   });
   test("first sync passes", () => {
-    expect(checkGuard(rows, { terminals: 0, links: 0 })).toBeNull();
+    expect(checkGuard(rows, { stores: 0, links: 0 })).toBeNull();
   });
   test("big drop refused unless forced", () => {
-    expect(checkGuard(rows, { terminals: 1, links: 10 })).toMatch(/dropped/);
-    expect(checkGuard(rows, { terminals: 1, links: 10 }, true)).toBeNull();
+    expect(checkGuard(rows, { stores: 1, links: 10 })).toMatch(/dropped/);
+    expect(checkGuard(rows, { stores: 1, links: 10 }, true)).toBeNull();
   });
   test("small drop passes", () => {
-    expect(checkGuard(rows, { terminals: 1, links: 3 })).toBeNull();
-  });
-});
-
-describe("ручное сопоставление магазинов exord", () => {
-  const map = new Map([[T1, "term-1"]]);
-  const stores = [
-    { user_id: 1, name: "A", terminal_iiko_id: T1, product_ids: [P1] },
-    { user_id: 3, name: "C", terminal_iiko_id: null, product_ids: [P2] },
-    { user_id: 4, name: "D", terminal_iiko_id: "9".repeat(8) + "-0000-4000-8000-000000000000", product_ids: [P1, P2] },
-  ];
-
-  test("ручное сопоставление важнее iiko id и подхватывает магазины без iiko id", () => {
-    const r = mapToTerminals(stores, map, new Map([[4, "term-4"], [3, "term-3"]]));
-    expect(r.rows).toEqual([
-      { terminal_id: "term-1", product_ids: [P1] },
-      { terminal_id: "term-3", product_ids: [P2] },
-      { terminal_id: "term-4", product_ids: [P1, P2] },
-    ]);
-    expect(r.skipped).toBe(0);
-    expect(r.assignments).toEqual([
-      { user_id: 1, name: "A", terminal_iiko_id: T1, product_count: 1, terminal_id: "term-1", source: "iiko" },
-      { user_id: 3, name: "C", terminal_iiko_id: null, product_count: 1, terminal_id: "term-3", source: "override" },
-      { user_id: 4, name: "D", terminal_iiko_id: "99999999-0000-4000-8000-000000000000", product_count: 2, terminal_id: "term-4", source: "override" },
-    ]);
-  });
-
-  test("override перебивает и известный iiko id", () => {
-    const r = mapToTerminals(stores.slice(0, 1), map, new Map([[1, "term-x"]]));
-    expect(r.rows).toEqual([{ terminal_id: "term-x", product_ids: [P1] }]);
-    expect(r.assignments[0].source).toBe("override");
-  });
-
-  test("без сопоставления — terminal_id null и source null", () => {
-    const r = mapToTerminals(stores, map);
-    expect(r.assignments.map((a) => [a.user_id, a.terminal_id, a.source])).toEqual([
-      [1, "term-1", "iiko"],
-      [3, null, null],
-      [4, null, null],
-    ]);
-  });
-
-  test("отпечаток меняется вместе с сопоставлением и не зависит от порядка магазинов", () => {
-    const a = mapToTerminals(stores, map).assignments;
-    const b = mapToTerminals(stores, map, new Map([[3, "term-3"]])).assignments;
-    expect(mappingFingerprint(a)).not.toBe(mappingFingerprint(b));
-    expect(mappingFingerprint([...b].reverse())).toBe(mappingFingerprint(b));
+    expect(checkGuard(rows, { stores: 1, links: 3 })).toBeNull();
   });
 });

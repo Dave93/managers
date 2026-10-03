@@ -650,27 +650,6 @@
     "noExord": "No exord data — the list is not filtered by the branch's products",
     "itemsCount": "{count} items",
     "branchAll": "All branch products",
-    "branchUnavailable": "no exord data",
-    "exord": {
-      "title": "exord mapping",
-      "hint": "Stores sent by exord and managers branches. A manual mapping overrides the iiko id from exord and applies on the next sync (within 15 minutes).",
-      "syncedAt": "Last sync: {date}",
-      "store": "exord store",
-      "products": "Products",
-      "status": "Status",
-      "terminal": "managers branch",
-      "statusIiko": "by iiko id",
-      "statusOverride": "manual",
-      "statusNone": "not mapped",
-      "pending": "saved, applies on next sync",
-      "choose": "Choose a branch",
-      "suggested": "suggested by name",
-      "save": "Save",
-      "reset": "Reset",
-      "saved": "Saved",
-      "taken": "The branch is already taken by “{by}”",
-      "empty": "The exord sync has not written the store list yet",
-      "menu": "exord mapping"
-    }
+    "branchUnavailable": "no exord data"
   }
 }

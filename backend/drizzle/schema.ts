@@ -2524,11 +2524,22 @@ export const inventory_count_events = pgTable(
   })
 );
 
-// exord → managers: which products each branch (terminal) orders.
-// Replaced wholesale by cron/product_links_sync.ts; spec:
+// exord → managers: which products each branch (warehouse) orders.
+// Keyed by iiko store uuid (corporation_store.id). Replaced wholesale by
+// cron/product_links_sync.ts; spec:
 // docs/superpowers/specs/2026-10-03-product-links-sync-design.md
+// terminal_product_links is the previous terminal-keyed table, no longer
+// written; kept for rollback.
 export const terminal_product_links = pgTable("terminal_product_links", {
   terminal_id: uuid("terminal_id").primaryKey().notNull(),
+  product_ids: uuid("product_ids").array().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
+    .defaultNow()
+    .notNull(),
+});
+
+export const store_product_links = pgTable("store_product_links", {
+  store_id: uuid("store_id").primaryKey().notNull(),
   product_ids: uuid("product_ids").array().notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .defaultNow()
@@ -2539,49 +2550,9 @@ export const product_links_meta = pgTable("product_links_meta", {
   id: integer("id").primaryKey().notNull().default(1),
   version: text("version").notNull(),
   generated_at: timestamp("generated_at", { withTimezone: true, mode: "string" }),
-  terminals_count: integer("terminals_count").notNull(),
+  stores_count: integer("stores_count").notNull(),
   links_count: integer("links_count").notNull(),
-  // Отпечаток сопоставления магазинов exord → филиалы (с учётом ручных).
-  mapping_hash: text("mapping_hash"),
   synced_at: timestamp("synced_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
-});
-
-// Склад iiko → филиал (terminals.id), выведено из продаж (orders.store_id +
-// restaurant_group_id) суточным cron/store_terminal_sync.ts. Без внешних ключей,
-// как остальные таблицы инвентаризации. Spec: inventory-counts-design.md §13.
-export const store_terminal_links = pgTable("store_terminal_links", {
-  store_id: uuid("store_id").primaryKey().notNull(),
-  terminal_id: uuid("terminal_id").notNull(),
-  orders_90d: integer("orders_90d").notNull(),
-  last_order_at: timestamp("last_order_at", { withTimezone: true, mode: "string" }),
-  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
-});
-
-// Ручное сопоставление «магазин exord → филиал managers» из админки: важнее
-// terminal_iiko_id из exord. Применяет cron/product_links_sync.ts.
-export const exord_store_overrides = pgTable(
-  "exord_store_overrides",
-  {
-    exord_user_id: integer("exord_user_id").primaryKey().notNull(),
-    terminal_id: uuid("terminal_id").notNull(),
-    updated_by: uuid("updated_by"),
-    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
-  },
-  (t) => ({
-    terminal_uq: uniqueIndex("exord_store_overrides_terminal_uq").on(t.terminal_id),
-  })
-);
-
-// Снимок магазинов из последнего ответа exord (без списков товаров): что
-// прислал exord и куда это попало. Пишет cron/product_links_sync.ts.
-export const exord_stores = pgTable("exord_stores", {
-  exord_user_id: integer("exord_user_id").primaryKey().notNull(),
-  name: text("name").notNull(),
-  terminal_iiko_id: uuid("terminal_iiko_id"),
-  product_count: integer("product_count").notNull(),
-  terminal_id: uuid("terminal_id"),
-  source: varchar("source", { length: 16 }),
-  seen_at: timestamp("seen_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
 });

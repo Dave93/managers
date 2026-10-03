@@ -194,29 +194,15 @@
     {
       "idx": 27,
       "version": "7",
-      "when": 1791009941598,
-      "tag": "0027_inventory_counts",
+      "when": 1791026152833,
+      "tag": "0027_store_product_links",
       "breakpoints": true
     },
     {
       "idx": 28,
       "version": "7",
-      "when": 1791010215160,
-      "tag": "0028_store_terminal_links",
-      "breakpoints": true
-    },
-    {
-      "idx": 29,
-      "version": "7",
-      "when": 1791020391539,
-      "tag": "0029_branch_counts",
-      "breakpoints": true
-    },
-    {
-      "idx": 30,
-      "version": "7",
-      "when": 1791023470578,
-      "tag": "0030_exord_store_overrides",
+      "when": 1791027129152,
+      "tag": "0028_inventory",
       "breakpoints": true
     }
   ]

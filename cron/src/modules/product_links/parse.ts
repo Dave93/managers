@@ -4,7 +4,8 @@
 export type ExordStore = {
   user_id: number;
   name: string;
-  terminal_iiko_id: string | null;
+  store_iiko_id: string | null;
+  terminal_iiko_id: string | null; // informational only, not a key
   product_ids: string[];
 };
 
@@ -39,6 +40,11 @@ export function parsePayload(raw: unknown): ExordPayload {
       terminal = normUuid(s.terminal_iiko_id);
       if (!terminal) throw new Error(`stores[${i}].terminal_iiko_id is not a uuid`);
     }
+    let store: string | null = null;
+    if (s.store_iiko_id != null) {
+      store = normUuid(s.store_iiko_id);
+      if (!store) throw new Error(`stores[${i}].store_iiko_id is not a uuid`);
+    }
     const ids: string[] = [];
     for (const p of s.product_ids) {
       const id = normUuid(p);
@@ -48,6 +54,7 @@ export function parsePayload(raw: unknown): ExordPayload {
     return {
       user_id: Number(s.user_id),
       name: String(s.name ?? ""),
+      store_iiko_id: store,
       terminal_iiko_id: terminal,
       product_ids: ids,
     };
@@ -60,67 +67,42 @@ export function parsePayload(raw: unknown): ExordPayload {
   };
 }
 
-export type TerminalLinks = { terminal_id: string; product_ids: string[] };
+export type StoreLinks = { store_id: string; product_ids: string[] };
 
-// Куда попал каждый магазин exord: снимок для страницы «Сопоставление exord».
-export type StoreAssignment = {
-  user_id: number;
-  name: string;
-  terminal_iiko_id: string | null;
-  product_count: number;
-  terminal_id: string | null;
-  source: "override" | "iiko" | null;
-};
+export type UnknownStore = { user_id: number; name: string; store_iiko_id: string };
 
-// Maps exord stores to managers terminals.id. A manual override (exord
-// user_id → terminal, set by the office in the admin) wins over the store's
-// iiko id, so a wrong or missing iiko id in exord can be fixed from managers.
-// Otherwise the iiko id is used; stores that resolve to nothing are skipped.
-// If two stores resolve to the same terminal their products are unioned.
-export function mapToTerminals(
+// Maps exord stores to managers corporation_store.id (the same iiko store
+// uuid). Entries without a store id are counted in `noStore`; entries whose
+// store is missing from corporation_store are listed in `unknown`. If two
+// entries share a store their products are unioned.
+export function mapToStores(
   stores: ExordStore[],
-  terminalByIikoId: Map<string, string>,
-  overrides: Map<number, string> = new Map()
-): { rows: TerminalLinks[]; skipped: number; assignments: StoreAssignment[] } {
-  const byTerminal = new Map<string, Set<string>>();
-  const assignments: StoreAssignment[] = [];
-  let skipped = 0;
+  knownStoreIds: Set<string>
+): { rows: StoreLinks[]; noStore: number; unknown: UnknownStore[] } {
+  const byStore = new Map<string, Set<string>>();
+  const unknown: UnknownStore[] = [];
+  let noStore = 0;
   for (const s of stores) {
-    const override = overrides.get(s.user_id);
-    const byIiko = s.terminal_iiko_id ? terminalByIikoId.get(s.terminal_iiko_id) : undefined;
-    const terminalId = override ?? byIiko ?? null;
-    assignments.push({
-      user_id: s.user_id,
-      name: s.name,
-      terminal_iiko_id: s.terminal_iiko_id,
-      product_count: s.product_ids.length,
-      terminal_id: terminalId,
-      source: override ? "override" : byIiko ? "iiko" : null,
-    });
-    if (!terminalId) {
-      skipped++;
+    if (!s.store_iiko_id) {
+      noStore++;
       continue;
     }
-    const set = byTerminal.get(terminalId) ?? new Set<string>();
+    if (!knownStoreIds.has(s.store_iiko_id)) {
+      unknown.push({ user_id: s.user_id, name: s.name, store_iiko_id: s.store_iiko_id });
+      continue;
+    }
+    const set = byStore.get(s.store_iiko_id) ?? new Set<string>();
     for (const p of s.product_ids) set.add(p);
-    byTerminal.set(terminalId, set);
+    byStore.set(s.store_iiko_id, set);
   }
-  const rows = [...byTerminal]
-    .map(([terminal_id, set]) => ({ terminal_id, product_ids: [...set].sort() }))
-    .sort((a, b) => a.terminal_id.localeCompare(b.terminal_id));
-  return { rows, skipped, assignments };
+  const rows = [...byStore].map(([store_id, set]) => ({
+    store_id,
+    product_ids: [...set].sort(),
+  }));
+  return { rows, noStore, unknown };
 }
 
-// Отпечаток сопоставления: синк переписывает таблицу, если он изменился,
-// даже когда версия exord та же (офис поменял ручное сопоставление).
-export function mappingFingerprint(assignments: StoreAssignment[]): string {
-  return assignments
-    .map((a) => `${a.user_id}:${a.terminal_id ?? "-"}`)
-    .sort()
-    .join(",");
-}
-
-export const countLinks = (rows: TerminalLinks[]) =>
+export const countLinks = (rows: StoreLinks[]) =>
   rows.reduce((n, r) => n + r.product_ids.length, 0);
 
 // Refuses to replace the table with something that looks like garbage.
@@ -128,11 +110,11 @@ export const countLinks = (rows: TerminalLinks[]) =>
 export const MAX_DROP_RATIO = 0.5;
 
 export function checkGuard(
-  rows: TerminalLinks[],
-  current: { terminals: number; links: number },
+  rows: StoreLinks[],
+  current: { stores: number; links: number },
   force = false
 ): string | null {
-  if (rows.length === 0) return "no stores mapped to a managers terminal";
+  if (rows.length === 0) return "no exord stores mapped to a managers store";
   const links = countLinks(rows);
   if (links === 0) return "all mapped stores have zero products";
   if (!force && current.links > 0 && links < current.links * (1 - MAX_DROP_RATIO)) {

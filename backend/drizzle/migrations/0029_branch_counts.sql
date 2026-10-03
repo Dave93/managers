@@ -1,2 +1,0 @@
-ALTER TABLE "inventory_counts" ALTER COLUMN "template_id" DROP NOT NULL;--> statement-breakpoint
-CREATE UNIQUE INDEX "inventory_counts_store_period_branch_uq" ON "inventory_counts" USING btree ("store_id","period") WHERE template_id is null and status <> 'cancelled';

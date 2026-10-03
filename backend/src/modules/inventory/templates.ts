@@ -212,11 +212,9 @@ export async function overview(db: DbLike, period: string, organizationId?: stri
       )
     );
   const sums = await summaries(db, rows);
-  // Есть связь склада с филиалом и запись exord о товарах филиала.
+  // У склада есть непустой список товаров из exord (store_product_links).
   const exordRes: any = await db.execute(sql`
-    select s.store_id::text as store_id
-    from store_terminal_links s
-    join terminal_product_links t on t.terminal_id = s.terminal_id`);
+    select store_id::text as store_id from store_product_links where cardinality(product_ids) > 0`);
   const exordStores = new Set<string>((exordRes.rows ?? exordRes).map((r: any) => String(r.store_id)));
   const byStore = new Map<string, typeof sums>();
   for (const s of sums) byStore.set(s.store_id, [...(byStore.get(s.store_id) ?? []), s]);
