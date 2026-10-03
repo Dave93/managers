@@ -3,6 +3,7 @@ import { apiController } from "./controllers";
 import { medicalController } from "./modules/medical/controller";
 import { iikoSyncController } from "./modules/iiko_sync/controllers";
 import { stoplistController } from "./modules/stoplist/controller";
+import { productLinksController } from "./modules/product_links/controller";
 import { cashShiftsController } from "./modules/cash_shifts/controller";
 import { creditAdminController } from "./modules/credit_admin/controller";
 import { passportController } from "./modules/passport/controller";
@@ -31,6 +32,7 @@ const app = new Elysia()
   // moved here from apiController's chain for the same reason (see comment
   // above creditAdminControllerImpl in modules/credit_admin/controller.ts).
   .use(iikoSyncController)
+  .use(productLinksController)
   .use(stoplistController)
   .use(cashShiftsController)
   .use(creditAdminController)
