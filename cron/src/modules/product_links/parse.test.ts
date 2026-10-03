@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { checkGuard, mapToTerminals, normUuid, parsePayload } from "./parse";
+import { checkGuard, mapToTerminals, mappingFingerprint, normUuid, parsePayload } from "./parse";
 
 const T1 = "8088a57a-59e4-455a-a44c-b8bf4f485832";
 const P1 = "11111111-1111-4111-8111-111111111111";
@@ -70,5 +70,51 @@ describe("checkGuard", () => {
   });
   test("small drop passes", () => {
     expect(checkGuard(rows, { terminals: 1, links: 3 })).toBeNull();
+  });
+});
+
+describe("ручное сопоставление магазинов exord", () => {
+  const map = new Map([[T1, "term-1"]]);
+  const stores = [
+    { user_id: 1, name: "A", terminal_iiko_id: T1, product_ids: [P1] },
+    { user_id: 3, name: "C", terminal_iiko_id: null, product_ids: [P2] },
+    { user_id: 4, name: "D", terminal_iiko_id: "9".repeat(8) + "-0000-4000-8000-000000000000", product_ids: [P1, P2] },
+  ];
+
+  test("ручное сопоставление важнее iiko id и подхватывает магазины без iiko id", () => {
+    const r = mapToTerminals(stores, map, new Map([[4, "term-4"], [3, "term-3"]]));
+    expect(r.rows).toEqual([
+      { terminal_id: "term-1", product_ids: [P1] },
+      { terminal_id: "term-3", product_ids: [P2] },
+      { terminal_id: "term-4", product_ids: [P1, P2] },
+    ]);
+    expect(r.skipped).toBe(0);
+    expect(r.assignments).toEqual([
+      { user_id: 1, name: "A", terminal_iiko_id: T1, product_count: 1, terminal_id: "term-1", source: "iiko" },
+      { user_id: 3, name: "C", terminal_iiko_id: null, product_count: 1, terminal_id: "term-3", source: "override" },
+      { user_id: 4, name: "D", terminal_iiko_id: "99999999-0000-4000-8000-000000000000", product_count: 2, terminal_id: "term-4", source: "override" },
+    ]);
+  });
+
+  test("override перебивает и известный iiko id", () => {
+    const r = mapToTerminals(stores.slice(0, 1), map, new Map([[1, "term-x"]]));
+    expect(r.rows).toEqual([{ terminal_id: "term-x", product_ids: [P1] }]);
+    expect(r.assignments[0].source).toBe("override");
+  });
+
+  test("без сопоставления — terminal_id null и source null", () => {
+    const r = mapToTerminals(stores, map);
+    expect(r.assignments.map((a) => [a.user_id, a.terminal_id, a.source])).toEqual([
+      [1, "term-1", "iiko"],
+      [3, null, null],
+      [4, null, null],
+    ]);
+  });
+
+  test("отпечаток меняется вместе с сопоставлением и не зависит от порядка магазинов", () => {
+    const a = mapToTerminals(stores, map).assignments;
+    const b = mapToTerminals(stores, map, new Map([[3, "term-3"]])).assignments;
+    expect(mappingFingerprint(a)).not.toBe(mappingFingerprint(b));
+    expect(mappingFingerprint([...b].reverse())).toBe(mappingFingerprint(b));
   });
 });

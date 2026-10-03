@@ -17,7 +17,8 @@
  */
 import { readFileSync } from "node:fs";
 import { drizzleDb } from "@backend/lib/db";
-import { product_links_meta, terminal_product_links } from "backend/drizzle/schema";
+import { createHash } from "node:crypto";
+import { exord_store_overrides, exord_stores, product_links_meta, terminal_product_links } from "backend/drizzle/schema";
 import { sql } from "drizzle-orm";
 import { invalidateProductLinksCache } from "@backend/modules/product_links/service";
 import client from "./src/redis";
@@ -26,6 +27,7 @@ import {
   checkGuard,
   countLinks,
   mapToTerminals,
+  mappingFingerprint,
   parsePayload,
   type ExordPayload,
 } from "./src/modules/product_links/parse";
@@ -53,13 +55,22 @@ async function fetchPayload(): Promise<ExordPayload> {
   return parsePayload(await res.json());
 }
 
+// Ручные сопоставления «магазин exord → филиал» из админки (важнее iiko id).
+async function loadOverrides(): Promise<Map<number, string>> {
+  const rows = await drizzleDb
+    .select({ user_id: exord_store_overrides.exord_user_id, terminal_id: exord_store_overrides.terminal_id })
+    .from(exord_store_overrides);
+  return new Map(rows.map((r) => [r.user_id, r.terminal_id]));
+}
+
 async function main() {
   const payload = await fetchPayload();
-  const mapped = mapToTerminals(payload.stores, await loadTerminalByIikoId());
+  const mapped = mapToTerminals(payload.stores, await loadTerminalByIikoId(), await loadOverrides());
   const links = countLinks(mapped.rows);
+  const mappingHash = createHash("sha1").update(mappingFingerprint(mapped.assignments)).digest("hex");
 
   const metaRes: any = await drizzleDb.execute(
-    sql`SELECT version, terminals_count, links_count FROM product_links_meta WHERE id = 1`
+    sql`SELECT version, terminals_count, links_count, mapping_hash FROM product_links_meta WHERE id = 1`
   );
   const meta = (Array.isArray(metaRes) ? metaRes : metaRes?.rows ?? [])[0];
   log(
@@ -67,7 +78,17 @@ async function main() {
       `mapped=${mapped.rows.length} skipped=${mapped.skipped} links=${links}`
   );
 
-  if (!FORCE && meta && meta.version === payload.version && meta.terminals_count === mapped.rows.length) {
+  // Снимок магазинов для страницы «Сопоставление exord» — на каждом прогоне,
+  // чтобы офис видел актуальный список, даже если таблица связей не меняется.
+  if (!DRY) await writeStoreSnapshot(mapped.assignments);
+
+  if (
+    !FORCE &&
+    meta &&
+    meta.version === payload.version &&
+    meta.terminals_count === mapped.rows.length &&
+    meta.mapping_hash === mappingHash
+  ) {
     log("unchanged, nothing to do");
     return;
   }
@@ -97,6 +118,7 @@ async function main() {
         generated_at: payload.generated_at,
         terminals_count: mapped.rows.length,
         links_count: links,
+        mapping_hash: mappingHash,
       })
       .onConflictDoUpdate({
         target: product_links_meta.id,
@@ -105,6 +127,7 @@ async function main() {
           generated_at: payload.generated_at,
           terminals_count: mapped.rows.length,
           links_count: links,
+          mapping_hash: mappingHash,
           synced_at: sql`now()`,
         },
       });
@@ -122,6 +145,24 @@ async function main() {
   } catch (e) {
     log(`WARN redis cache not cleared: ${(e as Error).message}`);
   }
+}
+
+async function writeStoreSnapshot(assignments: ReturnType<typeof mapToTerminals>["assignments"]) {
+  await drizzleDb.transaction(async (tx) => {
+    await tx.delete(exord_stores);
+    for (let i = 0; i < assignments.length; i += 100) {
+      await tx.insert(exord_stores).values(
+        assignments.slice(i, i + 100).map((a) => ({
+          exord_user_id: a.user_id,
+          name: a.name,
+          terminal_iiko_id: a.terminal_iiko_id,
+          product_count: a.product_count,
+          terminal_id: a.terminal_id,
+          source: a.source,
+        }))
+      );
+    }
+  });
 }
 
 main()

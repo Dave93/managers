@@ -62,19 +62,41 @@ export function parsePayload(raw: unknown): ExordPayload {
 
 export type TerminalLinks = { terminal_id: string; product_ids: string[] };
 
-// Maps exord stores to managers terminals.id via iiko id. Stores without an
-// iiko id, or with one we don't know, are skipped (counted in `skipped`).
+// Куда попал каждый магазин exord: снимок для страницы «Сопоставление exord».
+export type StoreAssignment = {
+  user_id: number;
+  name: string;
+  terminal_iiko_id: string | null;
+  product_count: number;
+  terminal_id: string | null;
+  source: "override" | "iiko" | null;
+};
+
+// Maps exord stores to managers terminals.id. A manual override (exord
+// user_id → terminal, set by the office in the admin) wins over the store's
+// iiko id, so a wrong or missing iiko id in exord can be fixed from managers.
+// Otherwise the iiko id is used; stores that resolve to nothing are skipped.
 // If two stores resolve to the same terminal their products are unioned.
 export function mapToTerminals(
   stores: ExordStore[],
-  terminalByIikoId: Map<string, string>
-): { rows: TerminalLinks[]; skipped: number } {
+  terminalByIikoId: Map<string, string>,
+  overrides: Map<number, string> = new Map()
+): { rows: TerminalLinks[]; skipped: number; assignments: StoreAssignment[] } {
   const byTerminal = new Map<string, Set<string>>();
+  const assignments: StoreAssignment[] = [];
   let skipped = 0;
   for (const s of stores) {
-    const terminalId = s.terminal_iiko_id
-      ? terminalByIikoId.get(s.terminal_iiko_id)
-      : undefined;
+    const override = overrides.get(s.user_id);
+    const byIiko = s.terminal_iiko_id ? terminalByIikoId.get(s.terminal_iiko_id) : undefined;
+    const terminalId = override ?? byIiko ?? null;
+    assignments.push({
+      user_id: s.user_id,
+      name: s.name,
+      terminal_iiko_id: s.terminal_iiko_id,
+      product_count: s.product_ids.length,
+      terminal_id: terminalId,
+      source: override ? "override" : byIiko ? "iiko" : null,
+    });
     if (!terminalId) {
       skipped++;
       continue;
@@ -83,11 +105,19 @@ export function mapToTerminals(
     for (const p of s.product_ids) set.add(p);
     byTerminal.set(terminalId, set);
   }
-  const rows = [...byTerminal].map(([terminal_id, set]) => ({
-    terminal_id,
-    product_ids: [...set].sort(),
-  }));
-  return { rows, skipped };
+  const rows = [...byTerminal]
+    .map(([terminal_id, set]) => ({ terminal_id, product_ids: [...set].sort() }))
+    .sort((a, b) => a.terminal_id.localeCompare(b.terminal_id));
+  return { rows, skipped, assignments };
+}
+
+// Отпечаток сопоставления: синк переписывает таблицу, если он изменился,
+// даже когда версия exord та же (офис поменял ручное сопоставление).
+export function mappingFingerprint(assignments: StoreAssignment[]): string {
+  return assignments
+    .map((a) => `${a.user_id}:${a.terminal_id ?? "-"}`)
+    .sort()
+    .join(",");
 }
 
 export const countLinks = (rows: TerminalLinks[]) =>

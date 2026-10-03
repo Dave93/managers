@@ -80,6 +80,7 @@ export function buildNav(locale: string): NavEntry[] {
       items: [
         { title: "Инвентаризации", href: p("/inventory"), permission: "inventory.count" },
         { title: "Шаблоны инвентаризаций", href: p("/inventory/templates"), permission: "inventory.templates" },
+        { title: "Сопоставление exord", href: p("/inventory/exord"), permission: "product_links.manage" },
       ],
     },
     {

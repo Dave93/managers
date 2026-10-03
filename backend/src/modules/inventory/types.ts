@@ -134,3 +134,23 @@ export interface InventoryErrorBody {
   error: string;
   [k: string]: unknown;
 }
+
+export interface ExordStoreRow {
+  exord_user_id: number;
+  name: string;
+  terminal_iiko_id: string | null;
+  product_count: number;
+  /** Куда магазин попал при последнем синке. */
+  terminal_id: string | null;
+  terminal_name: string | null;
+  source: "iiko" | "override" | null;
+  /** Сохранённое ручное сопоставление (применится при ближайшем синке). */
+  override_terminal_id: string | null;
+}
+
+export interface ExordStoresResponse {
+  synced_at: string | null;
+  stores: ExordStoreRow[];
+  terminals: { id: string; name: string }[];
+}
+

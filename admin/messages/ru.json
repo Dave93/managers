@@ -680,6 +680,27 @@
     "noExord": "Нет данных exord — список не отфильтрован по товарам филиала",
     "itemsCount": "{count} поз.",
     "branchAll": "Все товары филиала",
-    "branchUnavailable": "нет данных exord"
+    "branchUnavailable": "нет данных exord",
+    "exord": {
+      "title": "Сопоставление exord",
+      "hint": "Магазины, которые прислал exord, и филиалы managers. Ручное сопоставление важнее iiko id из exord и применяется при ближайшем синке (до 15 минут).",
+      "syncedAt": "Последний синк: {date}",
+      "store": "Магазин в exord",
+      "products": "Товаров",
+      "status": "Статус",
+      "terminal": "Филиал managers",
+      "statusIiko": "по iiko id",
+      "statusOverride": "вручную",
+      "statusNone": "не сопоставлен",
+      "pending": "сохранено, применится при синке",
+      "choose": "Выберите филиал",
+      "suggested": "предложено по названию",
+      "save": "Сохранить",
+      "reset": "Сбросить",
+      "saved": "Сохранено",
+      "taken": "Филиал уже занят магазином «{by}»",
+      "empty": "Синк exord ещё не записал список магазинов",
+      "menu": "Сопоставление exord"
+    }
   }
 }

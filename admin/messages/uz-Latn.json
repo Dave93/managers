@@ -613,6 +613,27 @@
     "noExord": "exord ma'lumotlari yo‘q — ro‘yxat filial mahsulotlari bo‘yicha filtrlanmagan",
     "itemsCount": "{count} ta",
     "branchAll": "Filialning barcha mahsulotlari",
-    "branchUnavailable": "exord ma'lumotlari yo‘q"
+    "branchUnavailable": "exord ma'lumotlari yo‘q",
+    "exord": {
+      "title": "exord moslashtirish",
+      "hint": "exord yuborgan do‘konlar va managers filiallari. Qo‘lda moslashtirish exord'dagi iiko id'dan ustun va keyingi sinxronlashda (15 daqiqagacha) qo‘llanadi.",
+      "syncedAt": "Oxirgi sinxronlash: {date}",
+      "store": "exord'dagi do‘kon",
+      "products": "Mahsulotlar",
+      "status": "Holat",
+      "terminal": "managers filiali",
+      "statusIiko": "iiko id bo‘yicha",
+      "statusOverride": "qo‘lda",
+      "statusNone": "moslashtirilmagan",
+      "pending": "saqlandi, sinxronlashda qo‘llanadi",
+      "choose": "Filialni tanlang",
+      "suggested": "nom bo‘yicha taklif",
+      "save": "Saqlash",
+      "reset": "Bekor qilish",
+      "saved": "Saqlandi",
+      "taken": "Filial «{by}» do‘koni bilan band",
+      "empty": "exord sinxronlashi hali do‘konlar ro‘yxatini yozmagan",
+      "menu": "exord moslashtirish"
+    }
   }
 }

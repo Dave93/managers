@@ -7,6 +7,7 @@
 
 import { apiClient } from "@admin/utils/eden";
 import type {
+  ExordStoresResponse,
   InventoryStartOptions,
   InventoryCountDetail,
   InventoryCountSummary,
@@ -67,6 +68,12 @@ export const inventoryApi = {
       inv.overview.get({ query: organizationId ? { period, organization_id: organizationId } : { period } })
     ),
   organizations: () => call<{ id: string; name: string }[]>(inv.organizations.get()),
+  exordStores: {
+    list: () => call<ExordStoresResponse>(inv["exord-stores"].get()),
+    /** terminalId = null — сбросить ручное сопоставление. */
+    set: (userId: number, terminalId: string | null) =>
+      call<{ ok: true }>(inv["exord-stores"]({ userId }).put({ terminal_id: terminalId })),
+  },
   folders: () => call<InventoryFolders>(inv.folders.get()),
   templates: {
     list: (organizationId?: string) =>
