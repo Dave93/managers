@@ -85,7 +85,9 @@ function CountScreen({ id }: { id: string }) {
         online={sync.online}
         pendingCount={sync.pendingCount}
         rejectedCount={sync.rejectedCount}
+        authExpired={sync.authExpired}
         onDismissRejected={sync.dismissRejected}
+        onResendRejected={sync.resendRejected}
       />
       <CountTable
         detail={detail}

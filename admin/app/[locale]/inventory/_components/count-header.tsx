@@ -10,13 +10,17 @@ export function CountHeader({
   online,
   pendingCount,
   rejectedCount,
+  authExpired,
   onDismissRejected,
+  onResendRejected,
 }: {
   detail: OverlayDetail;
   online: boolean;
   pendingCount: number;
   rejectedCount: number;
+  authExpired: boolean;
   onDismissRejected: () => void;
+  onResendRejected: () => void;
 }) {
   const t = useTranslations("inventory");
   const locale = useLocale();
@@ -41,12 +45,26 @@ export function CountHeader({
         </span>
         {pendingCount > 0 && <span className="text-sm text-orange-600">{t("sync.pending", { count: pendingCount })}</span>}
       </div>
+      {authExpired && (
+        <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">{t("sync.auth")}</div>
+      )}
       {rejectedCount > 0 && (
         <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm flex items-start justify-between gap-3">
-          <span>{t("sync.rejected", { count: rejectedCount })}</span>
-          <Button variant="ghost" size="sm" onClick={onDismissRejected}>
-            {t("sync.dismiss")}
-          </Button>
+          <span>
+            {detail.status === "draft" && detail.access === "write"
+              ? t("sync.rejectedDraft", { count: rejectedCount })
+              : t("sync.rejected", { count: rejectedCount })}
+          </span>
+          <div className="flex shrink-0 gap-1">
+            {detail.status === "draft" && detail.access === "write" && (
+              <Button size="sm" onClick={onResendRejected}>
+                {t("sync.resend")}
+              </Button>
+            )}
+            <Button variant="ghost" size="sm" onClick={onDismissRejected}>
+              {t("sync.dismiss")}
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -584,7 +584,9 @@
       "entries": "Entries",
       "delete": "Delete",
       "you": "You",
-      "pending": "not sent"
+      "pending": "not sent",
+      "rejected": "not accepted",
+      "skipConfirm": "This item has entries. Mark it as “not counted”? These entries will not be included in the result."
     },
     "addProduct": {
       "button": "+ item not in the list",
@@ -598,7 +600,10 @@
       "offline": "offline",
       "pending": "not sent: {count}",
       "rejected": "Entries not accepted: {count}. The count was already submitted — ask the manager to reopen it.",
-      "dismiss": "Hide"
+      "dismiss": "Hide",
+      "rejectedDraft": "Entries not accepted: {count}. The count is a draft again — you can send them again.",
+      "resend": "Send again",
+      "auth": "Session expired — sign in again. Entries are kept on this device and will be sent after you sign in."
     },
     "submit": {
       "button": "Submit",

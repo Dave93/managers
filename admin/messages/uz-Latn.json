@@ -547,7 +547,9 @@
       "entries": "Yozuvlar",
       "delete": "O‘chirish",
       "you": "Siz",
-      "pending": "yuborilmagan"
+      "pending": "yuborilmagan",
+      "rejected": "qabul qilinmadi",
+      "skipConfirm": "Pozitsiyada yozuvlar bor. «Sanalmadi» deb belgilansinmi? Bu yozuvlar natijaga kirmaydi."
     },
     "addProduct": {
       "button": "+ ro‘yxatda yo‘q mahsulot",
@@ -561,7 +563,10 @@
       "offline": "oflayn",
       "pending": "yuborilmagan: {count}",
       "rejected": "Qabul qilinmagan yozuvlar: {count}. Inventarizatsiya allaqachon yuborilgan — menejerdan qoralamaga qaytarishni so‘rang.",
-      "dismiss": "Yashirish"
+      "dismiss": "Yashirish",
+      "rejectedDraft": "Qabul qilinmagan yozuvlar: {count}. Inventarizatsiya yana qoralamada — ularni qayta yuborish mumkin.",
+      "resend": "Qayta yuborish",
+      "auth": "Sessiya tugadi — qaytadan kiring. Yozuvlar shu qurilmada saqlangan va kirgandan keyin yuboriladi."
     },
     "submit": {
       "button": "Yuborish",

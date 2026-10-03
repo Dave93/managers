@@ -21,7 +21,7 @@ export function EntriesPopover({
   const t = useTranslations("inventory.line");
   const locale = useLocale();
   const timeLocale = locale === "uz-Latn" ? "uz" : locale;
-  if (line.entries.length === 0) return null;
+  if (line.entries.length === 0 && line.rejected.length === 0) return null;
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -30,7 +30,7 @@ export function EntriesPopover({
           className="min-w-[44px] min-h-[44px] px-2 text-left tabular-nums font-medium"
           aria-label={t("entries")}
         >
-          {formatQty(line.total)}
+          {line.entries.length > 0 ? formatQty(line.total) : <span className="text-destructive line-through">{formatQty(line.rejected[0]?.qty)}</span>}
           {line.entries.length > 1 && (
             <span className="ml-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1 text-xs">
               {line.entries.length}
@@ -63,6 +63,11 @@ export function EntriesPopover({
               </li>
             );
           })}
+          {line.rejected.map((e) => (
+            <li key={e.id} className="text-sm text-destructive">
+              <span className="line-through tabular-nums">{formatQty(e.qty)}</span> — {t("rejected")}
+            </li>
+          ))}
         </ul>
       </PopoverContent>
     </Popover>

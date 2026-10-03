@@ -187,7 +187,13 @@ export function CountTable({
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem disabled={!online} onClick={() => onSkip(line.id, !line.skipped)}>
+                          <DropdownMenuItem
+                            disabled={!online}
+                            onClick={() => {
+                              if (!line.skipped && line.entries.length > 0 && !window.confirm(t("line.skipConfirm"))) return;
+                              onSkip(line.id, !line.skipped);
+                            }}
+                          >
                             {line.skipped ? t("line.unskip") : t("line.skip")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>

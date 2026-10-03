@@ -1,6 +1,20 @@
 import { describe, expect, test } from "bun:test";
 import type { InventoryCountDetail } from "@backend/modules/inventory/types";
-import { applyResult, isLineDone, loadQueue, overlay, pendingOps, rejectAll, saveQueue, type KV, type QueuedOp } from "./queue";
+import {
+  applyResult,
+  classifySyncError,
+  isLineDone,
+  loadQueue,
+  overlay,
+  pendingOps,
+  pruneConfirmed,
+  rejectAll,
+  rejectedAddCount,
+  retryRejected,
+  saveQueue,
+  type KV,
+  type QueuedOp,
+} from "./queue";
 
 function memoryKV(): KV & { data: Map<string, string> } {
   const data = new Map<string, string>();
@@ -57,15 +71,19 @@ describe("очередь в KV", () => {
 });
 
 describe("applyResult / rejectAll", () => {
-  test("применённые уходят, отклонённые помечаются", () => {
+  test("применённые становятся confirmed с временем, отклонённые помечаются", () => {
     const q = [add("a", L1, 1), add("b", L1, -1), add("c", L2, 2)];
-    const next = applyResult(q, { applied: ["a"], rejected: [{ id: "b", reason: "invalid_qty" }] });
-    expect(next).toEqual([{ ...add("b", L1, -1), state: "rejected", reason: "invalid_qty" }, add("c", L2, 2)]);
+    const next = applyResult(q, { applied: ["a"], rejected: [{ id: "b", reason: "invalid_qty" }] }, 1000);
+    expect(next).toEqual([
+      { ...add("a", L1, 1), state: "confirmed", confirmedAt: 1000 },
+      { ...add("b", L1, -1), state: "rejected", reason: "invalid_qty" },
+      add("c", L2, 2),
+    ]);
     expect(pendingOps(next).map((o) => o.id)).toEqual(["c"]);
   });
-  test("add и delete с одним id уходят вместе", () => {
+  test("add и delete с одним id подтверждаются вместе", () => {
     const q = [add("a", L1, 1), del("a")];
-    expect(applyResult(q, { applied: ["a", "a"], rejected: [] })).toEqual([]);
+    expect(applyResult(q, { applied: ["a", "a"], rejected: [] }, 5).map((x) => x.state)).toEqual(["confirmed", "confirmed"]);
   });
   test("rejectAll помечает пачку", () => {
     const q = [add("a", L1, 1), add("b", L1, 2)];
@@ -107,5 +125,64 @@ describe("overlay", () => {
     expect(isLineDone(o.lines[0])).toBe(true);
     expect(isLineDone(o.lines[1])).toBe(false);
     expect(isLineDone({ ...o.lines[1], skipped: true })).toBe(true);
+  });
+});
+
+describe("подтверждённые операции ждут эха сервера", () => {
+  test("confirmed add виден и считается, пока сервер его не вернул", () => {
+    const q: QueuedOp[] = [{ ...add("n1", L2, 4), state: "confirmed", confirmedAt: 10 }];
+    const l2 = overlay(detail(), q, "Вы").lines.find((l) => l.id === L2)!;
+    expect(l2.total).toBe("4");
+    expect(l2.entries.map((e) => e.id)).toEqual(["n1"]);
+  });
+  test("confirmed delete продолжает скрывать запись", () => {
+    const q: QueuedOp[] = [{ ...del("e1"), state: "confirmed", confirmedAt: 10 }];
+    expect(overlay(detail(), q, "Вы").lines.find((l) => l.id === L1)!.entries).toEqual([]);
+  });
+  test("pruneConfirmed убирает только подтверждённые до начала успешного запроса", () => {
+    const q: QueuedOp[] = [
+      { ...add("old", L1, 1), state: "confirmed", confirmedAt: 100 },
+      { ...add("new", L1, 1), state: "confirmed", confirmedAt: 300 },
+      add("p", L1, 1),
+      { ...add("r", L1, 1), state: "rejected", reason: "not_draft" },
+    ];
+    expect(pruneConfirmed(q, 200).map((x) => x.op.id)).toEqual(["new", "p", "r"]);
+  });
+});
+
+describe("отклонённые записи остаются видны", () => {
+  test("rejected add показан в line.rejected, но не в итоге и не в прогрессе", () => {
+    const q: QueuedOp[] = [{ ...add("x", L2, 5), state: "rejected", reason: "not_draft" }];
+    const o = overlay(detail(), q, "Вы");
+    const l2 = o.lines.find((l) => l.id === L2)!;
+    expect(l2.total).toBe("0");
+    expect(l2.entries).toEqual([]);
+    expect(l2.rejected.map((e) => [e.id, e.qty])).toEqual([["x", "5"]]);
+    expect(o.lines_done).toBe(1);
+    expect(rejectedAddCount(detail(), q)).toBe(1);
+  });
+  test("rejected add, который сервер уже принял (потерянный ответ), не показывается и не считается в баннере", () => {
+    const q: QueuedOp[] = [{ ...add("e1", L1, 2.5), state: "rejected", reason: "not_draft" }];
+    expect(overlay(detail(), q, "Вы").lines.find((l) => l.id === L1)!.rejected).toEqual([]);
+    expect(rejectedAddCount(detail(), q)).toBe(0);
+  });
+  test("retryRejected возвращает отклонённые в pending", () => {
+    const q: QueuedOp[] = [{ ...add("x", L2, 5), state: "rejected", reason: "not_draft" }, add("p", L1, 1)];
+    expect(retryRejected(q)).toEqual([add("x", L2, 5), add("p", L1, 1)]);
+  });
+});
+
+describe("classifySyncError", () => {
+  test("409/403/4xx — отклонить пачку, 401 — вход, сеть и 5xx — повторить", () => {
+    expect(classifySyncError(409)).toEqual({ kind: "reject", reason: "not_draft" });
+    expect(classifySyncError(403)).toEqual({ kind: "reject", reason: "forbidden" });
+    expect(classifySyncError(422)).toEqual({ kind: "reject", reason: "http_422" });
+    expect(classifySyncError(400)).toEqual({ kind: "reject", reason: "http_400" });
+    expect(classifySyncError(404)).toEqual({ kind: "reject", reason: "http_404" });
+    expect(classifySyncError(401)).toEqual({ kind: "auth" });
+    expect(classifySyncError(0)).toEqual({ kind: "retry" });
+    expect(classifySyncError(500)).toEqual({ kind: "retry" });
+    expect(classifySyncError(503)).toEqual({ kind: "retry" });
+    expect(classifySyncError(429)).toEqual({ kind: "retry" });
   });
 });
