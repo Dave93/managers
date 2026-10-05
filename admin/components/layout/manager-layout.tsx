@@ -1,7 +1,5 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { ClipboardList } from "lucide-react";
-import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
 
@@ -15,7 +13,6 @@ const labelClass =
 // Secondary destinations live in the "Ещё" dropdown so the bar itself never
 // overflows on narrow screens.
 function MoreMenu() {
-  const t = useTranslations("inventory");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -75,16 +72,6 @@ function MoreMenu() {
             </svg>
             Asrabox
           </Link>
-          <CanAccess permission="inventory.count">
-            <Link
-              href="/inventory"
-              onClick={() => setOpen(false)}
-              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
-            >
-              <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              {t("title")}
-            </Link>
-          </CanAccess>
           <CanAccess permission="medical.list">
             <Link
               href="/medical"
