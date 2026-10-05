@@ -1,9 +1,7 @@
 "use client";
 
 import React from "react";
-import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@admin/i18n/routing";
-import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 
 const REPORTS: { href: string; title: string }[] = [
   { href: "/outgoing_invoices", title: "Заказы" },
@@ -18,14 +16,9 @@ const REPORTS: { href: string; title: string }[] = [
 
 export function ReportSwitcher() {
   const pathname = usePathname();
-  const tInv = useTranslations("inventory");
-  const perms = useMyPermissions() ?? [];
-  const reports = perms.includes("inventory.count")
-    ? [...REPORTS, { href: "/inventory", title: tInv("title") }]
-    : REPORTS;
   return (
     <div className="-mx-2 mb-3 flex gap-1 overflow-x-auto px-2 py-1">
-      {reports.map((r) => {
+      {REPORTS.map((r) => {
         const active = pathname === r.href || pathname?.endsWith(r.href);
         return (
           <Link key={r.href} href={r.href as any}>

@@ -9,13 +9,9 @@ import {
   SelectValue,
 } from "@components/ui/select"
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
-import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 
 export default function ListBox() {
   const router = useRouter();
-  const tInv = useTranslations("inventory");
-  const perms = useMyPermissions() ?? [];
   const items = [
     {
       key: "outgoing_invoices",
@@ -57,10 +53,6 @@ export default function ListBox() {
       label: "Акт Реализации",
       href: "/report_olap",
     },
-    // Инвентаризация живёт в «Отчетах» по просьбе филиалов; видна с правом inventory.count.
-    ...(perms.includes("inventory.count")
-      ? [{ key: "inventory", label: tInv("title"), href: "/inventory" }]
-      : []),
     // {
     //   key: "franchise_manager",
     //   label: "Приходная накладная (франчайзинг)",
