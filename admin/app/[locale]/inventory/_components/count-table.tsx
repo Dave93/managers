@@ -30,6 +30,9 @@ export function CountTable({
   const [filter, setFilter] = useState<Filter>("all");
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  // Зеркало drafts, которое очищается синхронно: Enter переводит фокус дальше,
+  // поле теряет фокус, и onBlur не должен записать то же число второй раз.
+  const draftsRef = useRef<Record<string, string>>({});
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const editable = detail.status === "draft" && detail.access === "write";
 
@@ -72,16 +75,25 @@ export function CountTable({
     }
   };
 
-  const submitDraft = (line: OverlayLine) => {
-    const raw = drafts[line.id] ?? "";
+  const setDraft = (lineId: string, value: string) => {
+    draftsRef.current[lineId] = value;
+    setDrafts((d) => ({ ...d, [lineId]: value }));
+  };
+
+  // Число записывается по Enter и когда поле теряет фокус (тап по другому полю
+  // или по «Отправить»): иначе введённое, но не подтверждённое Enter значение
+  // пропадало, а отправка помечала строку «не считали».
+  const commitDraft = (line: OverlayLine, moveFocus: boolean) => {
+    const raw = draftsRef.current[line.id] ?? "";
     const parsed = parseQtyInput(raw);
     if (!parsed.ok) {
       if (parsed.error !== "empty") toast.error(t("errors.invalidQty"));
       return;
     }
+    draftsRef.current[line.id] = "";
     onAdd(line.id, parsed.values);
     setDrafts((d) => ({ ...d, [line.id]: "" }));
-    focusNext(line.id);
+    if (moveFocus) focusNext(line.id);
   };
 
   const toggle = (name: string) =>
@@ -163,13 +175,14 @@ export function CountTable({
                           else inputs.current.delete(line.id);
                         }}
                         value={drafts[line.id] ?? ""}
-                        onChange={(e) => setDrafts((d) => ({ ...d, [line.id]: e.target.value }))}
+                        onChange={(e) => setDraft(line.id, e.target.value)}
                         onKeyDown={(e) => {
                           if (e.key === "Enter") {
                             e.preventDefault();
-                            submitDraft(line);
+                            commitDraft(line, true);
                           }
                         }}
+                        onBlur={() => commitDraft(line, false)}
                         inputMode="decimal"
                         enterKeyHint="next"
                         autoComplete="off"

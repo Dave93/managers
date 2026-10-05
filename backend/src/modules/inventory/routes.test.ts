@@ -573,6 +573,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
+    it("возврат в черновик снимает автоматическое «не считали», ручное оставляет", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        // p1 человек отметил сам, p2 пометит отправка (skip_incomplete).
+        await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p1)}`, { skipped: true });
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines.every((l: any) => l.skipped)).toBe(true);
+        await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines.find((l: any) => l.product_id === w.p1).skipped).toBe(true);
+        expect(d.body.lines.find((l: any) => l.product_id === w.p2).skipped).toBe(false);
+        expect(d.body.lines_done).toBe(1);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
     it("отменить отправленную нельзя — 409", async () => {
       const w = await seedWorld();
       const { m, countId } = await startedCount(w);

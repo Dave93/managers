@@ -604,7 +604,11 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
       .update(inventory_counts)
       .set({ status: to, submitted_by: actor.userId, submitted_at: sql`now()`, updated_at: sql`now()` })
       .where(eq(inventory_counts.id, id));
-    await writeEvent(tx, id, "submitted", actor.userId, { auto_skipped: incomplete.length });
+    // id авто-пропущенных строк — чтобы «Вернуть в черновик» снял с них пометку.
+    await writeEvent(tx, id, "submitted", actor.userId, {
+      auto_skipped: incomplete.length,
+      auto_skipped_ids: incomplete.map((x) => x.id),
+    });
     return { ok: true as const };
   });
 }
@@ -616,6 +620,23 @@ export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Dat
     if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
     if (!canReopen(row.period, now)) throw new InventoryError(422, "reopen_window_closed");
     await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
+    // Снимаем «не считали», которое поставила последняя отправка (skip_incomplete);
+    // строки, которые человек отметил сам, остаются пропущенными.
+    const [lastSubmit] = await tx
+      .select({ payload: inventory_count_events.payload })
+      .from(inventory_count_events)
+      .where(and(eq(inventory_count_events.count_id, id), eq(inventory_count_events.type, "submitted")))
+      .orderBy(desc(inventory_count_events.created_at))
+      .limit(1);
+    const autoSkipped = ((lastSubmit?.payload as { auto_skipped_ids?: string[] } | null)?.auto_skipped_ids ?? []).filter(
+      (x) => UUID_RE.test(x)
+    );
+    if (autoSkipped.length) {
+      await tx
+        .update(inventory_count_lines)
+        .set({ skipped: false, skipped_by: null })
+        .where(and(eq(inventory_count_lines.count_id, id), inArray(inventory_count_lines.id, autoSkipped)));
+    }
     await tx
       .update(inventory_counts)
       .set({ status: to, submitted_by: null, submitted_at: null, updated_at: sql`now()` })
