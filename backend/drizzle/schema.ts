@@ -2443,6 +2443,8 @@ export const inventory_counts = pgTable(
     created_by: uuid("created_by").notNull(),
     submitted_by: uuid("submitted_by"),
     submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
+    // Разблокировка офисом после срока ввода (spec 2026-10-06, §8): до этого момента филиал снова может править.
+    unlocked_until: timestamp("unlocked_until", { withTimezone: true, mode: "string" }),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },
@@ -2556,3 +2558,107 @@ export const product_links_meta = pgTable("product_links_meta", {
     .defaultNow()
     .notNull(),
 });
+
+// ── Сверка инвентаризаций с iiko (spec 2026-10-06-inventory-reconciliation-design.md) ──
+// Внешних ключей на users/corporation_store/nomenclature_* нет намеренно (как у inventory_counts).
+
+export const inventory_reconciliations = pgTable(
+  "inventory_reconciliations",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    store_id: uuid("store_id").notNull(),
+    organization_id: uuid("organization_id"),
+    period: date("period", { mode: "string" }).notNull(),
+    // waiting_iiko / needs_choice / ready / in_review / accepted
+    status: varchar("status", { length: 32 }).default("waiting_iiko").notNull(),
+    iiko_document_id: uuid("iiko_document_id"),
+    iiko_document_num: varchar("iiko_document_num", { length: 64 }),
+    iiko_document_comment: varchar("iiko_document_comment", { length: 1024 }),
+    // Местное время сервера iiko, без зоны.
+    iiko_document_at: timestamp("iiko_document_at", { mode: "string" }),
+    // posted / unposted_after_fetch
+    iiko_doc_state: varchar("iiko_doc_state", { length: 32 }),
+    iiko_candidates: jsonb("iiko_candidates"),
+    book_at: timestamp("book_at", { mode: "string" }),
+    admin_state: varchar("admin_state", { length: 16 }).default("none").notNull(),
+    lines_total: integer("lines_total").default(0).notNull(),
+    mismatch_ab_count: integer("mismatch_ab_count").default(0).notNull(),
+    diff_ab_sum: numeric("diff_ab_sum", { precision: 18, scale: 2 }),
+    diff_ac_sum: numeric("diff_ac_sum", { precision: 18, scale: 2 }),
+    diff_bc_sum: numeric("diff_bc_sum", { precision: 18, scale: 2 }),
+    fetched_at: timestamp("fetched_at", { withTimezone: true, mode: "string" }),
+    fetched_by: uuid("fetched_by"),
+    calculated_at: timestamp("calculated_at", { withTimezone: true, mode: "string" }),
+    review_comment: text("review_comment"),
+    reviewed_by: uuid("reviewed_by"),
+    reviewed_at: timestamp("reviewed_at", { withTimezone: true, mode: "string" }),
+    accepted_totals: jsonb("accepted_totals"),
+    changed_after_accept: boolean("changed_after_accept").default(false).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    store_period_uq: uniqueIndex("inventory_reconciliations_store_period_uq").on(t.store_id, t.period),
+    period_idx: index("inventory_reconciliations_period_idx").on(t.period),
+  })
+);
+
+// Корректировки выбранного документа iiko (сырые данные этапа 1).
+export const inventory_reconciliation_iiko_lines = pgTable(
+  "inventory_reconciliation_iiko_lines",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    qty: numeric("qty", { precision: 14, scale: 4 }).notNull(),
+    sum: numeric("sum", { precision: 18, scale: 2 }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+// Результат этапа 2: строки отчёта сверки.
+export const inventory_reconciliation_lines = pgTable(
+  "inventory_reconciliation_lines",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    unit_name: varchar("unit_name", { length: 255 }),
+    group_name: varchar("group_name", { length: 512 }).notNull(),
+    // counted / skipped / absent
+    admin_state: varchar("admin_state", { length: 16 }).notNull(),
+    admin_qty: numeric("admin_qty", { precision: 14, scale: 4 }),
+    admin_counts_n: integer("admin_counts_n").default(0).notNull(),
+    book_qty: numeric("book_qty", { precision: 14, scale: 4 }).default("0").notNull(),
+    book_sum: numeric("book_sum", { precision: 18, scale: 2 }).default("0").notNull(),
+    iiko_correction_qty: numeric("iiko_correction_qty", { precision: 14, scale: 4 }).default("0").notNull(),
+    iiko_correction_sum: numeric("iiko_correction_sum", { precision: 18, scale: 2 }).default("0").notNull(),
+    iiko_fact_qty: numeric("iiko_fact_qty", { precision: 14, scale: 4 }),
+    unit_cost: numeric("unit_cost", { precision: 18, scale: 4 }),
+    cost_source: varchar("cost_source", { length: 16 }),
+    diff_ab_qty: numeric("diff_ab_qty", { precision: 14, scale: 4 }),
+    diff_ab_sum: numeric("diff_ab_sum", { precision: 18, scale: 2 }),
+    diff_ac_sum: numeric("diff_ac_sum", { precision: 18, scale: 2 }),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+export const inventory_reconciliation_events = pgTable(
+  "inventory_reconciliation_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    // fetched / doc_missing / doc_chosen / calculated / status_changed
+    type: varchar("type", { length: 32 }).notNull(),
+    user_id: uuid("user_id"),
+    payload: jsonb("payload"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ recon_idx: index("inventory_reconciliation_events_recon_idx").on(t.reconciliation_id) })
+);
