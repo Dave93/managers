@@ -34,7 +34,8 @@ export function CountTable({
   // поле теряет фокус, и onBlur не должен записать то же число второй раз.
   const draftsRef = useRef<Record<string, string>>({});
   const inputs = useRef(new Map<string, HTMLInputElement>());
-  const editable = detail.status === "draft" && detail.access === "write";
+  // Срок ввода (2-е число 12:00) и разблокировку офисом считает сервер.
+  const editable = detail.status === "draft" && detail.access === "write" && detail.input_open;
 
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
