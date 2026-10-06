@@ -145,7 +145,13 @@ PK (`reconciliation_id`, `product_id`).
 ### Этап 1 — документы и корректировки (секунды)
 1. `storeOperations` за `period` → документы `INVENTORY_CORRECTION` с номером, сгруппированные по `documentId`.
 2. OLAP `TRANSACTIONS` за [`period`, `period` + 1) → строки стороны склада.
-3. Область: все склады из `store_product_links` (склады филиалов из exord, 74) ∪ склады с документом «Месяц»; при `storeId` — один склад. Склады вне exord с инвентаризацией без «Месяц» (Центральный склад, «Ошхона») в сверку не попадают. Для каждого склада upsert `inventory_reconciliations`.
+3. Область — склады, от которых ждём сверку за `period`:
+   - склады с документом «Месяц» за `period` или за любой из 3 предыдущих месяцев (тот же `storeOperations` за последние дни этих месяцев);
+   - склады с отправленным или черновым пересчётом в админке за `period`.
+
+   При `storeId` — один склад. Для каждого склада области upsert `inventory_reconciliations`.
+
+   Почему не все склады exord: из 74 складов `store_product_links` у 18 за июнь—август не было ни одного документа «Месяц» — тестовые («00000/00001 Тестирование склад»), «Офис», «4000 Pizza Pizza», «6000/7000/8000 United» и филиалы без ежемесячной инвентаризации в iiko (19012, 19014, 19016, 19018, 19029, 19033, 19043, 21017, 21021, 21025, 21031). Они бы вечно висели в «не получено». Новый филиал попадает в область с первым пересчётом в админке или первым документом «Месяц». Склады вне exord без «Месяц» (Центральный склад, «Ошхона») не попадают. Документы «Месяц» вне exord за июнь—август: 0. Для каждого склада upsert `inventory_reconciliations`.
 4. Выбор документа:
    - ровно один документ с «месяц» в комментарии → он;
    - несколько с «месяц» или ни одного при других инвентаризациях склада на эту дату → `needs_choice`, кандидаты в `iiko_candidates` (ранее выбранный офисом документ сохраняется, если он всё ещё в списке);
@@ -162,7 +168,7 @@ PK (`reconciliation_id`, `product_id`).
 
 ### Очередь и запуск
 - BullMQ-очередь `inventory_reconcile`, воркер `cron/inventory_reconcile_worker.ts`, новый процесс PM2 `inventory_reconcile_worker`, `concurrency: 1` (по образцу `iiko_document_worker.ts`). Задача выполняет этап 1, затем этап 2.
-- `jobId` = `reconcile:<period>:all` или `reconcile:<period>:<storeId>` — повторная постановка во время выполнения не создаёт дубль, API отвечает 409.
+- `jobId` = `reconcile:<period>:all` или `reconcile:<period>:<storeId>`, `removeOnComplete: true`, `removeOnFail: true` (иначе завершённая задача с тем же `jobId` молча блокирует следующие запуски за месяц — BullMQ не добавляет задачу с существующим id и не сообщает об ошибке). Перед постановкой API сам проверяет `queue.getJob(jobId)`: состояние `waiting` / `active` / `delayed` → 409. Задача «все склады» также блокирует задачи по одному складу того же месяца (409). Попыток — 1, без повторов: следующая попытка — cron завтра или кнопка.
 - Статус задачи в Redis `${PROJECT_PREFIX}inventory_reconcile:<period>`: `{stage, started_at, stage1_done_at, finished_at, received: [...], missing: [...], error}`.
 - Cron в `cron/src/index.ts`: `"0 7 1-7 * *"` с `timezone: "Asia/Tashkent"` — задача «все склады, прошлый месяц».
 - iiko-клиент: логин/пароль из `IIKO_LOGIN` / `IIKO_PASSWORD`, `logout` в `finally`, повтор при сетевой ошибке по образцу `fetchWithRetry`.
@@ -182,7 +188,7 @@ PK (`reconciliation_id`, `product_id`).
 | `POST /inventory/reconciliations/:id/status` `{status, comment}` | `ready`/`in_review` → `in_review`/`accepted`; `accepted` → `in_review`. Комментарий обязателен для `in_review` |
 | `POST /inventory/counts/:id/unlock` | `unlocked_until = now + 24 ч`, событие `unlocked` |
 
-Контроллер — `backend/src/modules/inventory/reconcile/controller.ts`, подключается рядом с текущим контроллером инвентаризаций. Ответы фиксированной формы, без `fields`.
+Маршруты — Elysia-плагин `backend/src/modules/inventory/reconcile/routes.ts`, который подключается `.use()` внутри `inventoryControllerImpl` (`backend/src/modules/inventory/controller.ts`). Цепочку `app.ts` / `apiController` не удлиняем: она у предела глубины типов TS (TS2589), поэтому `inventoryController` уже экспортируется с расширенным типом. Фронт ходит так же, как сейчас инвентаризации: через `admin/lib/inventory-api.ts` с типами ответов из `backend/src/modules/inventory/reconcile/types.ts`, не через Eden. Ответы фиксированной формы, без `fields`.
 
 ## 7. Экраны (admin)
 
@@ -224,6 +230,8 @@ PK (`reconciliation_id`, `product_id`).
 | Пересчёт админки отправлен после расчёта | Пересчитывается следующей загрузкой или кнопкой «Обновить из iiko» |
 
 ## 10. Проверки
+
+**Первая задача плана — проверка формулы на всех складах августа** (около 56 документов «Месяц» за 31.08): учёт на `время документа − 1 мин` + корректировка = учёт через минуту после документа. Данные исторические, только чтение. Ловит склады, где в ту же минуту попала другая проводка.
 
 `bun test` в `backend/` (`bun:test`, по образцу `inventory/rules.test.ts`), на локальной БД:
 - срок: 2-е число 11:59 и 12:00 по Ташкенту, конец года (31.12 → 02.01), разблокировка до/после `unlocked_until`;
