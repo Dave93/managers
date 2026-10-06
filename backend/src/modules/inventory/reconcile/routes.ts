@@ -7,7 +7,7 @@ import { actorFrom } from "../access";
 import { unlockCount } from "../counts";
 import { InventoryError, run } from "../errors";
 import { isValidPeriod } from "../rules";
-import { enqueueReconcile, readStatus, reconcileQueue } from "./queue";
+import { assertNotRunning, enqueueReconcile, readStatus, reconcileQueue } from "./queue";
 import { chooseDocument, listReconciliations, loadReconciliation, reconTarget, setReconStatus } from "./read";
 
 function assertPeriod(period: string) {
@@ -41,7 +41,7 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
     async ({ query, redis, set }) =>
       run(set, async () => {
         assertPeriod(query.period);
-        return readStatus(redis, query.period);
+        return readStatus(redis, query.period, reconcileQueue());
       }),
     { permission: P, query: t.Object({ period: t.String() }) }
   )
@@ -63,6 +63,8 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
     "/inventory/reconciliations/:id/document",
     async ({ params, body, drizzle, redis, user, set }) =>
       run(set, async () => {
+        // Сначала очередь: выбор не должен сохраниться, если загрузка сейчас не встанет.
+        await assertNotRunning(reconcileQueue(), (await reconTarget(drizzle, params.id)).period);
         const target = await chooseDocument(drizzle, params.id, body.document_id, user!.id);
         return enqueueReconcile(reconcileQueue(), redis, { period: target.period, storeId: target.store_id, userId: user!.id });
       }),

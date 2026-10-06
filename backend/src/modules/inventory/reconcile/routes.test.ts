@@ -13,7 +13,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
-  const { closeReconcileQueue, reconcileQueue } = await import("./queue");
+  const { closeReconcileQueue, reconcileQueue, statusKey } = await import("./queue");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
   const PERIOD = "2026-08-31";
@@ -214,6 +214,42 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(row.iiko_document_id).toBe(w.candA.id);
       } finally {
         await w.cleanup();
+      }
+    });
+
+    it("выбор документа во время загрузки месяца — 409, выбор не сохраняется", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        expect((await api(o, "POST", "/api/inventory/reconciliations/fetch", { period: PERIOD })).status).toBe(200);
+        const r = await api(o, "POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id });
+        expect(r.status).toBe(409);
+        const [row] = await drizzleDb.select().from(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.id, w.choiceId));
+        expect(row.iiko_document_id).toBeNull();
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("зависший статус без задачи в очереди (воркер упал) — failed/stale, загрузку можно запустить снова", async () => {
+      const o = await office();
+      const Redis = (await import("ioredis")).default;
+      const r = new Redis({ host: process.env.REDIS_HOST ?? "localhost", port: parseInt(process.env.REDIS_PORT ?? "6379") });
+      const period = "2026-07-31";
+      try {
+        await r.set(
+          statusKey(period),
+          JSON.stringify({ period, store_id: null, state: "stage1", started_at: "2026-08-01T00:00:00Z", stage1_done_at: null, finished_at: null, received: [], missing: [], error: null }),
+          "EX",
+          60
+        );
+        const st = await api(o, "GET", `/api/inventory/reconciliations/fetch-status?period=${period}`);
+        expect(st.status).toBe(200);
+        expect(st.body.state).toBe("failed");
+        expect(st.body.error).toBe("stale");
+      } finally {
+        await r.del(statusKey(period));
+        r.disconnect();
       }
     });
 

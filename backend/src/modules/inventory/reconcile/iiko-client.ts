@@ -29,6 +29,8 @@ export type IikoClientOptions = {
   password?: string;
   fetch?: typeof fetch;
   retries?: number;
+  /** logout не должен держать задачу, если iiko завис. */
+  logoutTimeoutMs?: number;
 };
 
 export class IikoError extends Error {}
@@ -114,7 +116,7 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
     return await fn(client);
   } finally {
     try {
-      await f(`${base}/logout?key=${key}`);
+      await f(`${base}/logout?key=${key}`, { signal: AbortSignal.timeout(opts.logoutTimeoutMs ?? 10_000) });
     } catch {
       // слот освободится по таймауту токена iiko
     }

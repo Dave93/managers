@@ -236,6 +236,28 @@ if (!dbLooksLikeTest) {
       }
     });
 
+    it("выбор офиса без загрузки — не «загружен»: документа нет — B нет, не «распроведён»", async () => {
+      const w = await seed();
+      try {
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const d0 = await w.recon(w.D);
+        await drizzleDb
+          .update(schema.inventory_reconciliations)
+          .set({ iiko_document_id: randomUUID() })
+          .where(eq(schema.inventory_reconciliations.id, d0.id));
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const d1 = await w.recon(w.D);
+        expect(d1.iiko_doc_state).toBeNull();
+        expect(d1.status).toBe("waiting_iiko");
+        expect(d1.diff_bc_sum).toBeNull();
+        const [p1] = await w.lines(d1.id);
+        expect(p1.iiko_fact_qty).toBeNull();
+        expect((await w.events(d1.id)).some((e) => e.type === "doc_missing")).toBe(false);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("два «Месяц» — needs_choice с кандидатами; выбор офиса сохраняется при следующей загрузке", async () => {
       const w = await seed();
       try {

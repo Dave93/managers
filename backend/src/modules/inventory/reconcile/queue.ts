@@ -39,6 +39,16 @@ export function initialStatus(period: string, storeId: string | null): ReconFetc
 
 const RUNNING = new Set(["waiting", "active", "delayed", "prioritized", "waiting-children"]);
 
+export async function isRunning(q: Queue, period: string): Promise<boolean> {
+  const job = await q.getJob(reconcileJobId(period));
+  return !!job && RUNNING.has(await job.getState());
+}
+
+/** 409, пока идёт загрузка месяца: проверять ДО любых изменений, которые она перезапишет. */
+export async function assertNotRunning(q: Queue, period: string) {
+  if (await isRunning(q, period)) throw new InventoryError(409, "already_running");
+}
+
 export async function enqueueReconcile(
   q: Queue,
   redis: Redis,
@@ -62,9 +72,16 @@ export async function enqueueReconcile(
   return status;
 }
 
-export async function readStatus(redis: Redis, period: string): Promise<ReconFetchStatus> {
+const IN_PROGRESS = new Set(["queued", "stage1", "stage2"]);
+
+/** Статус загрузки. Если воркер упал посреди задачи, в Redis остаётся «идёт», а задачи в очереди
+ * уже нет — такой статус отдаём как failed/stale, чтобы кнопка снова стала доступна. */
+export async function readStatus(redis: Redis, period: string, q?: Queue): Promise<ReconFetchStatus> {
   const raw = await redis.get(statusKey(period));
-  return raw ? (JSON.parse(raw) as ReconFetchStatus) : { ...initialStatus(period, null), state: "idle" };
+  if (!raw) return { ...initialStatus(period, null), state: "idle" };
+  const s = JSON.parse(raw) as ReconFetchStatus;
+  if (q && IN_PROGRESS.has(s.state) && !(await isRunning(q, period))) return { ...s, state: "failed", error: "stale" };
+  return s;
 }
 
 export async function patchStatus(redis: Redis, key: string, patch: Partial<ReconFetchStatus>) {

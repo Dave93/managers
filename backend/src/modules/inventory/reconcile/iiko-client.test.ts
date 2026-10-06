@@ -85,6 +85,16 @@ describe("withIikoClient", () => {
     expect(n).toBe(2);
   });
 
+  it("зависший logout не держит задачу — обрывается по тайм-ауту", async () => {
+    const f = (async (input: any, init?: RequestInit) => {
+      if (String(input).includes("/auth?")) return new Response("K");
+      return new Promise<Response>((_, reject) => init?.signal?.addEventListener("abort", () => reject(new Error("aborted"))));
+    }) as unknown as typeof fetch;
+    const t0 = Date.now();
+    expect(await withIikoClient(async () => 42, { ...opts(f), logoutTimeoutMs: 50 })).toBe(42);
+    expect(Date.now() - t0).toBeLessThan(2000);
+  });
+
   it("без логина/пароля — понятная ошибка, сеть не трогается", async () => {
     const { f, calls } = fakeFetch(() => new Response(""));
     await expect(withIikoClient(async () => 1, { base: BASE, fetch: f, login: "", password: "" })).rejects.toThrow("IIKO_LOGIN");

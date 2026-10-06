@@ -163,7 +163,9 @@ export async function runStage1(db: DbLike, iiko: IikoClient, input: RunInput): 
       }
 
       // Документа нет или нужен выбор. Ранее загруженные данные НЕ трогаем.
-      const hadDoc = !!row.iiko_document_id;
+      // «Загружен» = корректировки документа уже сохранены (iiko_doc_state задан). Выбор офиса
+      // без загрузки (только iiko_document_id) загруженным не считается.
+      const hadDoc = !!row.iiko_doc_state;
       const candidates: ReconCandidate[] | null =
         choice.kind === "needs_choice"
           ? choice.candidates.map((d) => ({ id: d.id, num: d.num, comment: d.comment, date: d.date, shortage_sum: d.shortage_sum, surplus_sum: d.surplus_sum }))
@@ -253,7 +255,8 @@ export async function runStage2(db: DbLike, iiko: IikoClient, input: RunInput & 
 
     const book = await iiko.balance(storeId, toIikoTimestamp(row.book_at ?? `${input.period}T23:58:00`));
     const { admin, state } = await adminAggregate(db, storeId, input.period);
-    const hasDoc = !!row.iiko_document_id;
+    // B считаем только по реально загруженным корректировкам (см. hadDoc в этапе 1).
+    const hasDoc = !!row.iiko_doc_state;
     const corrections = hasDoc
       ? (
           await db

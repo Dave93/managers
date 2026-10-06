@@ -7,6 +7,7 @@ import { Button } from "@admin/components/ui/button";
 import { Textarea } from "@admin/components/ui/textarea";
 import { InventoryApiError, inventoryApi } from "@admin/lib/inventory-api";
 import { formatDateTime, formatMoney } from "@admin/lib/inventory/money";
+import { canChooseDocument } from "@admin/lib/inventory/reconcile";
 import type { ReconDetail } from "@backend/modules/inventory/reconcile/types";
 
 function useErr() {
@@ -23,12 +24,12 @@ export function ChooseDocument({ detail, onDone }: { detail: ReconDetail; onDone
     onSuccess: onDone,
     onError,
   });
-  if (detail.status !== "needs_choice" || !detail.iiko_candidates?.length) return null;
+  if (!canChooseDocument(detail)) return null;
   return (
     <div className="space-y-2 rounded border border-destructive/40 p-3">
       <div className="font-medium">{t("choose.title")}</div>
       <div className="text-sm text-muted-foreground">{t("choose.hint")}</div>
-      {detail.iiko_candidates.map((c) => (
+      {(detail.iiko_candidates ?? []).map((c) => (
         <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span>
             №{c.num} · {c.comment ?? "—"} · {t("choose.shortage")} {formatMoney(c.shortage_sum)} · {t("choose.surplus")} {formatMoney(c.surplus_sum)}
