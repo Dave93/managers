@@ -650,6 +650,117 @@
     "noExord": "No exord data — the list is not filtered by the branch's products",
     "itemsCount": "{count} items",
     "branchAll": "All branch products",
-    "branchUnavailable": "no exord data"
+    "branchUnavailable": "no exord data",
+    "reconcile": {
+      "title": "iiko reconciliation",
+      "period": "Month",
+      "fetch": "Load from iiko",
+      "refresh": "Reload from iiko",
+      "alreadyRunning": "A load for this month is already running",
+      "state": {
+        "idle": "Not loaded yet",
+        "queued": "Queued",
+        "stage1": "Loading iiko documents…",
+        "stage2": "Calculating book stock and differences…",
+        "done": "Done",
+        "failed": "Error: {error}"
+      },
+      "saved": "iiko data saved: received {received}, missing {missing}",
+      "missingTitle": "No posted document",
+      "empty": "No reconciliation for this month yet — press “Load from iiko”",
+      "col": {
+        "store": "Store",
+        "admin": "Admin count",
+        "document": "iiko document",
+        "status": "Status",
+        "mismatch": "A≠B",
+        "ab": "A − B, UZS",
+        "ac": "A − C, UZS",
+        "bc": "B − C, UZS"
+      },
+      "admin": {
+        "submitted": "Submitted",
+        "draft": "Draft",
+        "none": "No count",
+        "overdue": "Not submitted"
+      },
+      "status": {
+        "waiting_iiko": "Waiting for iiko document",
+        "needs_choice": "Choose a document",
+        "ready": "Ready for review",
+        "in_review": "Under review",
+        "accepted": "Accepted"
+      },
+      "unposted": "unposted after load",
+      "changedAfterAccept": "changed after acceptance",
+      "all": "All",
+      "organization": "Organization",
+      "open": "Open",
+      "back": "Back to reconciliation",
+      "fetchedAt": "Loaded {at}",
+      "bookAt": "Book stock at {at}",
+      "tabs": {
+        "lines": "Differences",
+        "log": "Log"
+      },
+      "onlyMismatch": "Only A ≠ B",
+      "line": {
+        "product": "Product",
+        "a": "Admin (A)",
+        "b": "iiko (B)",
+        "c": "Book (C)",
+        "ab": "A − B",
+        "acSum": "A − C, UZS",
+        "bcSum": "B − C, UZS"
+      },
+      "flag": {
+        "skipped": "not counted",
+        "absent": "not counted in admin",
+        "multi": "in several counts",
+        "noCost": "no price"
+      },
+      "choose": {
+        "title": "Choose the iiko document",
+        "hint": "There are several “Месяц” documents or none — pick the one to reconcile",
+        "pick": "Use this one",
+        "shortage": "shortage",
+        "surplus": "surplus"
+      },
+      "review": {
+        "toReview": "Under review",
+        "accept": "Accept",
+        "comment": "Comment",
+        "commentRequired": "A comment is required for “Under review”",
+        "reviewedBy": "{name}, {at}"
+      },
+      "event": {
+        "fetched": "Document #{num} loaded",
+        "changed": "rows changed: {count}",
+        "doc_missing": "Document #{num} disappeared from iiko (unposted)",
+        "doc_chosen": "Document #{num} chosen",
+        "calculated": "Recalculated",
+        "status_changed": "Status → {to}"
+      },
+      "edits": {
+        "title": "Branch edits after submission",
+        "entry_added": "added {qty}",
+        "entry_deleted": "deleted {qty}",
+        "reopened": "returned to draft",
+        "unlocked": "unlocked",
+        "none": "No edits after submission"
+      },
+      "counts": {
+        "title": "Admin counts",
+        "unlock": "Unlock for 24 h",
+        "unlocked": "Unlocked until {until}",
+        "closed": "Input deadline passed",
+        "open": "Input open"
+      }
+    },
+    "deadline": {
+      "closed": "Input deadline passed {deadline}. Only the office can change it.",
+      "unlocked": "Unlocked by the office until {until}",
+      "until": "Input deadline: {deadline}"
+    }
   }
 }

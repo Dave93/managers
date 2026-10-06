@@ -680,6 +680,117 @@
     "noExord": "Нет данных exord — список не отфильтрован по товарам филиала",
     "itemsCount": "{count} поз.",
     "branchAll": "Все товары филиала",
-    "branchUnavailable": "нет данных exord"
+    "branchUnavailable": "нет данных exord",
+    "reconcile": {
+      "title": "Сверка с iiko",
+      "period": "Месяц",
+      "fetch": "Загрузить из iiko",
+      "refresh": "Обновить из iiko",
+      "alreadyRunning": "Загрузка за этот месяц уже идёт",
+      "state": {
+        "idle": "Ещё не загружали",
+        "queued": "В очереди",
+        "stage1": "Загружаем документы iiko…",
+        "stage2": "Считаем учёт и расхождения…",
+        "done": "Готово",
+        "failed": "Ошибка: {error}"
+      },
+      "saved": "Данные iiko сохранены: получено {received}, не получено {missing}",
+      "missingTitle": "Нет проведённого документа",
+      "empty": "За этот месяц сверки ещё нет — нажмите «Загрузить из iiko»",
+      "col": {
+        "store": "Склад",
+        "admin": "Админка",
+        "document": "Документ iiko",
+        "status": "Статус",
+        "mismatch": "A≠B",
+        "ab": "A − B, сум",
+        "ac": "A − C, сум",
+        "bc": "B − C, сум"
+      },
+      "admin": {
+        "submitted": "Сдано",
+        "draft": "Черновик",
+        "none": "Нет пересчёта",
+        "overdue": "Не сдано"
+      },
+      "status": {
+        "waiting_iiko": "Ждём документ iiko",
+        "needs_choice": "Нужен выбор документа",
+        "ready": "Готово к разбору",
+        "in_review": "На разборе",
+        "accepted": "Принято"
+      },
+      "unposted": "распроведён после загрузки",
+      "changedAfterAccept": "изменено после принятия",
+      "all": "Все",
+      "organization": "Организация",
+      "open": "Открыть",
+      "back": "К сверке",
+      "fetchedAt": "Загружено {at}",
+      "bookAt": "Учёт на {at}",
+      "tabs": {
+        "lines": "Расхождения",
+        "log": "Журнал"
+      },
+      "onlyMismatch": "Только A ≠ B",
+      "line": {
+        "product": "Товар",
+        "a": "Админка (A)",
+        "b": "iiko (B)",
+        "c": "Учёт (C)",
+        "ab": "A − B",
+        "acSum": "A − C, сум",
+        "bcSum": "B − C, сум"
+      },
+      "flag": {
+        "skipped": "не считали",
+        "absent": "не считали в админке",
+        "multi": "в нескольких пересчётах",
+        "noCost": "нет цены"
+      },
+      "choose": {
+        "title": "Выберите документ iiko",
+        "hint": "Документов «Месяц» несколько или ни одного — укажите, какой сверять",
+        "pick": "Сверять этот",
+        "shortage": "недостача",
+        "surplus": "излишек"
+      },
+      "review": {
+        "toReview": "На разбор",
+        "accept": "Принять",
+        "comment": "Комментарий",
+        "commentRequired": "Для «На разбор» нужен комментарий",
+        "reviewedBy": "{name}, {at}"
+      },
+      "event": {
+        "fetched": "Загружен документ №{num}",
+        "changed": "изменено строк: {count}",
+        "doc_missing": "Документ №{num} пропал из iiko (распроведён)",
+        "doc_chosen": "Выбран документ №{num}",
+        "calculated": "Пересчитано",
+        "status_changed": "Статус → {to}"
+      },
+      "edits": {
+        "title": "Правки филиала после отправки",
+        "entry_added": "добавил {qty}",
+        "entry_deleted": "удалил {qty}",
+        "reopened": "вернул в черновик",
+        "unlocked": "разблокировал",
+        "none": "Правок после отправки нет"
+      },
+      "counts": {
+        "title": "Пересчёты в админке",
+        "unlock": "Разблокировать на 24 ч",
+        "unlocked": "Разблокировано до {until}",
+        "closed": "Срок ввода истёк",
+        "open": "Ввод открыт"
+      }
+    },
+    "deadline": {
+      "closed": "Срок ввода истёк {deadline}. Изменить может только офис.",
+      "unlocked": "Разблокировано офисом до {until}",
+      "until": "Срок ввода: {deadline}"
+    }
   }
 }

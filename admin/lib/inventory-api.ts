@@ -20,6 +20,7 @@ import type {
   InventoryTemplateDetail,
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
+import type { ReconDetail, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
@@ -68,6 +69,18 @@ export const inventoryApi = {
     ),
   organizations: () => call<{ id: string; name: string }[]>(inv.organizations.get()),
   folders: () => call<InventoryFolders>(inv.folders.get()),
+  unlock: (countId: string) => call<{ unlocked_until: string }>(inv.counts({ id: countId }).unlock.post({})),
+  reconcile: {
+    list: (period: string) => call<ReconOverviewRow[]>(inv.reconciliations.get({ query: { period } })),
+    fetch: (period: string) => call<ReconFetchStatus>(inv.reconciliations.fetch.post({ period })),
+    status: (period: string) => call<ReconFetchStatus>(inv.reconciliations["fetch-status"].get({ query: { period } })),
+    get: (id: string) => call<ReconDetail>(inv.reconciliations({ id }).get()),
+    refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
+    chooseDocument: (id: string, documentId: string) =>
+      call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
+    setStatus: (id: string, status: "in_review" | "accepted", comment?: string) =>
+      call<{ ok: true }>(inv.reconciliations({ id }).status.post(comment ? { status, comment } : { status })),
+  },
   templates: {
     list: (organizationId?: string) =>
       call<InventoryTemplateSummary[]>(
