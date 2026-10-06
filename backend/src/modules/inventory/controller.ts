@@ -3,7 +3,7 @@ import { corporation_store, users_stores } from "backend/drizzle/schema";
 import { asc, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
-import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, productScope, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
+import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, productScope, reopenCount, searchProducts, setSkipped, submitCount, syncEntries, unlockCount } from "./counts";
 import { run } from "./errors";
 import {
   createTemplate,
@@ -151,6 +151,12 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
     async ({ params, user, role, drizzle, cacheController, set }) =>
       run(set, async () => cancelCount(drizzle, await actorFrom(cacheController, user, role), params.id)),
     { permission: "inventory.count", params: t.Object({ id: t.String() }) }
+  )
+  .post(
+    "/inventory/counts/:id/unlock",
+    async ({ params, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => unlockCount(drizzle, await actorFrom(cacheController, user, role), params.id, new Date())),
+    { permission: "inventory.reconcile", params: t.Object({ id: t.String() }) }
   )
   .get(
     "/inventory/templates",

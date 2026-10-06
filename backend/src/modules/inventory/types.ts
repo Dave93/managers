@@ -52,6 +52,12 @@ export interface InventoryCountSummary {
   lines_total: number;
   lines_done: number;
   participants: string[];
+  /** Срок ввода, ISO UTC: 2-е число следующего месяца 12:00 Ташкент. */
+  deadline: string;
+  /** Разблокировано офисом до этого момента (ISO) или null. */
+  unlocked_until: string | null;
+  /** Можно ли сейчас менять пересчёт (до срока или разблокирован). */
+  input_open: boolean;
 }
 
 export interface InventoryCountDetail extends InventoryCountSummary {

@@ -925,4 +925,109 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
+
+  describe("inventory: срок ввода и разблокировка", () => {
+    const PAST = "2026-01-31"; // срок истёк 2026-02-02T07:00Z
+
+    // Пересчёт за прошлый период вставляется напрямую: через API его не создать.
+    async function pastCount(w: World, status: "draft" | "submitted", createdBy: string) {
+      const [c] = await drizzleDb
+        .insert(schema.inventory_counts)
+        .values({
+          store_id: w.storeId,
+          organization_id: w.orgId,
+          template_id: w.templateId,
+          template_name: "Месячная",
+          period: PAST,
+          status,
+          created_by: createdBy,
+        })
+        .returning({ id: schema.inventory_counts.id });
+      const [line] = await drizzleDb
+        .insert(schema.inventory_count_lines)
+        .values({ count_id: c.id, product_id: w.p1, product_name: "Говядина", group_name: "Склад", source: "template" })
+        .returning({ id: schema.inventory_count_lines.id });
+      return { countId: c.id, lineId: line.id };
+    }
+
+    const reconciler = (w: World) => sessionFor(w, ["inventory.count", "inventory.reconcile"], false);
+
+    it("после срока: запись, отправка и возврат — 422 input_closed, детали говорят input_open=false", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const draft = await pastCount(w, "draft", m.userId);
+        const sync = await api(m, "POST", `/api/inventory/counts/${draft.countId}/entries/sync`, {
+          ops: [{ op: "add", id: randomUUID(), line_id: draft.lineId, qty: 1, client_created_at: new Date().toISOString() }],
+        });
+        expect(sync.status).toBe(422);
+        expect(sync.body.error).toBe("input_closed");
+        expect(sync.body.deadline).toBe("2026-02-02T07:00:00.000Z");
+
+        const submit = await api(m, "POST", `/api/inventory/counts/${draft.countId}/submit`, { skip_incomplete: true });
+        expect(submit.status).toBe(422);
+
+        // Уникальный индекс (store, period, template) среди неотменённых: черновик отменяем
+        // напрямую в базе, и только потом вставляем отправленный пересчёт.
+        await drizzleDb.update(schema.inventory_counts).set({ status: "cancelled" }).where(eq(schema.inventory_counts.id, draft.countId));
+        const sent = await pastCount(w, "submitted", m.userId);
+        const reopen = await api(m, "POST", `/api/inventory/counts/${sent.countId}/reopen`, {});
+        expect(reopen.status).toBe(422);
+        expect(reopen.body.error).toBe("input_closed");
+
+        const detail = await api(m, "GET", `/api/inventory/counts/${sent.countId}`);
+        expect(detail.status).toBe(200);
+        expect(detail.body.input_open).toBe(false);
+        expect(detail.body.can_reopen).toBe(false);
+        expect(detail.body.deadline).toBe("2026-02-02T07:00:00.000Z");
+        expect(detail.body.unlocked_until).toBeNull();
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("разблокировка: менеджер филиала — 403, офис с inventory.reconcile — 200, затем ввод снова принимается", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const draft = await pastCount(w, "draft", m.userId);
+
+        const denied = await api(m, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
+        expect(denied.status).toBe(403);
+
+        const o = await reconciler(w);
+        const ok = await api(o, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
+        expect(ok.status).toBe(200);
+        expect(Date.parse(ok.body.unlocked_until)).toBeGreaterThan(Date.now() + 23 * 3600_000);
+
+        const sync = await api(m, "POST", `/api/inventory/counts/${draft.countId}/entries/sync`, {
+          ops: [{ op: "add", id: randomUUID(), line_id: draft.lineId, qty: 2, client_created_at: new Date().toISOString() }],
+        });
+        expect(sync.status).toBe(200);
+        expect(sync.body.applied.length).toBe(1);
+
+        const events = await drizzleDb
+          .select({ type: schema.inventory_count_events.type })
+          .from(schema.inventory_count_events)
+          .where(eq(schema.inventory_count_events.count_id, draft.countId));
+        expect(events.map((e) => e.type)).toContain("unlocked");
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("разблокировать отменённый пересчёт нельзя — 409", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const draft = await pastCount(w, "draft", m.userId);
+        await drizzleDb.update(schema.inventory_counts).set({ status: "cancelled" }).where(eq(schema.inventory_counts.id, draft.countId));
+        const o = await reconciler(w);
+        const r = await api(o, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
+        expect(r.status).toBe(409);
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
 }
