@@ -2660,3 +2660,18 @@ export const inventory_reconciliation_events = pgTable(
   },
   (t) => ({ recon_idx: index("inventory_reconciliation_events_recon_idx").on(t.reconciliation_id) })
 );
+
+// Отметка офиса «проверено» по строке сверки. Отдельная таблица: строки сверки
+// пересоздаются при каждом расчёте, а отметки должны сохраняться.
+export const inventory_reconciliation_line_marks = pgTable(
+  "inventory_reconciliation_line_marks",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    checked_by: uuid("checked_by").notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);

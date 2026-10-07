@@ -3,6 +3,7 @@ import {
   corporation_store,
   inventory_counts,
   inventory_reconciliation_events,
+  inventory_reconciliation_line_marks,
   inventory_reconciliation_lines,
   inventory_reconciliations,
 } from "backend/drizzle/schema";
@@ -131,8 +132,17 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
       diff_ab_qty: l.diff_ab_qty,
       diff_ab_sum: l.diff_ab_sum,
       diff_ac_sum: l.diff_ac_sum,
+      checked_by: inventory_reconciliation_line_marks.checked_by,
+      checked_at: inventory_reconciliation_line_marks.checked_at,
     })
     .from(l)
+    .leftJoin(
+      inventory_reconciliation_line_marks,
+      and(
+        eq(inventory_reconciliation_line_marks.reconciliation_id, l.reconciliation_id),
+        eq(inventory_reconciliation_line_marks.product_id, l.product_id)
+      )
+    )
     .where(eq(l.reconciliation_id, id))
     .orderBy(asc(l.group_name), asc(l.product_name));
 
@@ -147,7 +157,7 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
     .from(inventory_counts)
     .where(and(eq(inventory_counts.store_id, r.store_id), eq(inventory_counts.period, r.period), ne(inventory_counts.status, "cancelled")))
     .orderBy(asc(inventory_counts.created_at));
-  const names = await userNames(db, [...events.map((e) => e.user_id ?? ""), r.reviewed_by ?? ""]);
+  const names = await userNames(db, [...events.map((e) => e.user_id ?? ""), r.reviewed_by ?? "", ...lines.map((x) => x.checked_by ?? "")]);
 
   return {
     ...overviewRow(r, store_name, admin_state),
@@ -160,10 +170,13 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
     reviewed_at: r.reviewed_at,
     accepted_totals: (r.accepted_totals as ReconTotals | null) ?? null,
     counts,
-    lines: lines.map((x) => ({
+    lines: lines.map(({ checked_by, ...x }) => ({
       ...x,
       admin_state: x.admin_state as ReconLine["admin_state"],
       cost_source: x.cost_source as ReconLine["cost_source"],
+      checked: checked_by !== null,
+      checked_by_name: checked_by ? names.get(checked_by) ?? "—" : null,
+      checked_at: x.checked_at,
     })),
     events: events.map((e) => ({
       id: e.id,
@@ -244,3 +257,21 @@ export async function setReconStatus(
     return { ok: true as const };
   });
 }
+
+/** Отметка «проверено» по строке сверки (товару). Повторная отметка не меняет автора и время. */
+export async function setLineMark(db: DbLike, id: string, productId: string, checked: boolean, userId: string) {
+  if (!UUID_RE.test(id) || !UUID_RE.test(productId)) throw new InventoryError(404, "not_found");
+  const [line] = await db
+    .select({ product_id: inventory_reconciliation_lines.product_id })
+    .from(inventory_reconciliation_lines)
+    .where(and(eq(inventory_reconciliation_lines.reconciliation_id, id), eq(inventory_reconciliation_lines.product_id, productId)));
+  if (!line) throw new InventoryError(404, "line_not_found");
+  const m = inventory_reconciliation_line_marks;
+  if (checked) {
+    await db.insert(m).values({ reconciliation_id: id, product_id: productId, checked_by: userId }).onConflictDoNothing();
+  } else {
+    await db.delete(m).where(and(eq(m.reconciliation_id, id), eq(m.product_id, productId)));
+  }
+  return { ok: true as const };
+}
+

@@ -46,8 +46,9 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         diff_ab_sum: "-100.00", diff_ac_sum: "50.00", diff_bc_sum: "-150.00", admin_state: "submitted",
       })
       .returning({ id: schema.inventory_reconciliations.id });
+    const waterId = randomUUID();
     await drizzleDb.insert(schema.inventory_reconciliation_lines).values({
-      reconciliation_id: ready.id, product_id: randomUUID(), product_name: "Вода", unit_name: "шт", group_name: "Напитки",
+      reconciliation_id: ready.id, product_id: waterId, product_name: "Вода", unit_name: "шт", group_name: "Напитки",
       admin_state: "counted", admin_qty: "20", admin_counts_n: 1, book_qty: "15", book_sum: "1500",
       iiko_correction_qty: "9", iiko_correction_sum: "900", iiko_fact_qty: "24", unit_cost: "100", cost_source: "correction",
       diff_ab_qty: "-4", diff_ab_sum: "-400", diff_ac_sum: "500",
@@ -91,7 +92,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       const job = await reconcileQueue().getJob(`reconcile-${PERIOD}`);
       await job?.remove();
     }
-    return { storeId, readyId: ready.id, choiceId: choice.id, waitingId: waiting.id, candA, countId: count.id, cleanup };
+    return { storeId, readyId: ready.id, choiceId: choice.id, waitingId: waiting.id, candA, countId: count.id, waterId, cleanup };
   }
 
   const office = () => withSession({ permissions: ["inventory.count", "inventory.reconcile"] });
@@ -121,11 +122,44 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
           ["POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {}],
           ["POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/status`, { status: "accepted" }],
+          ["POST", `/api/inventory/reconciliations/${w.readyId}/lines/${w.waterId}/mark`, { checked: true }],
         ];
         for (const [m, p, body] of calls) {
           const r = await api(b, m, p, body);
           expect(`${m} ${p} ${r.status}`).toBe(`${m} ${p} 403`);
         }
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
+
+  describe("reconcile: отметка строк «проверено»", () => {
+    it("отметить и снять отметку; в деталях — кто и когда; чужой товар — 404", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        const before = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(before.body.lines[0].checked).toBe(false);
+        expect(before.body.lines[0].checked_by_name).toBeNull();
+
+        const on = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/lines/${w.waterId}/mark`, { checked: true });
+        expect(on.status).toBe(200);
+        const after = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(after.body.lines[0].checked).toBe(true);
+        expect(typeof after.body.lines[0].checked_by_name).toBe("string");
+        expect(Date.parse(after.body.lines[0].checked_at)).toBeGreaterThan(0);
+
+        const again = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/lines/${w.waterId}/mark`, { checked: true });
+        expect(again.status).toBe(200);
+
+        const off = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/lines/${w.waterId}/mark`, { checked: false });
+        expect(off.status).toBe(200);
+        const cleared = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(cleared.body.lines[0].checked).toBe(false);
+
+        const nf = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/lines/${randomUUID()}/mark`, { checked: true });
+        expect(nf.status).toBe(404);
       } finally {
         await w.cleanup();
       }

@@ -702,7 +702,9 @@
       "line": {
         "product": "Product",
         "a": "Branch admin (A)",
-        "b": "iiko inventory (B)"
+        "b": "iiko inventory (B)",
+        "diff": "± difference",
+        "checked": "Checked"
       },
       "flag": {
         "skipped": "not counted",
@@ -738,7 +740,9 @@
       },
       "counts": {
         "title": "Admin counts"
-      }
+      },
+      "checkedBy": "Checked by {name}, {at}",
+      "checkedCount": "Checked {done} of {total} differences"
     }
   }
 }

@@ -59,6 +59,10 @@ export interface ReconLine {
   diff_ab_qty: string | null;
   diff_ab_sum: string | null;
   diff_ac_sum: string | null;
+  /** Офис отметил строку «проверено». */
+  checked: boolean;
+  checked_by_name: string | null;
+  checked_at: string | null;
 }
 
 export interface ReconEvent {

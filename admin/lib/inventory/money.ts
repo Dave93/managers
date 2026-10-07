@@ -15,6 +15,15 @@ export function formatQty(v: string | number | null): string {
   return (n < 0 ? MINUS : "") + group(i) + (f ? `,${f}` : "");
 }
 
+/** Разница A − B со знаком: «+» — в админке больше, чем в iiko, «−» — меньше. */
+export function formatDiff(v: string | number | null): string {
+  if (v === null || v === undefined || v === "") return "—";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  if (Math.abs(n) < 0.00005) return "0";
+  return (n > 0 ? "+" : "") + formatQty(n);
+}
+
 export function formatDateTime(iso: string | null, locale: string): string {
   if (!iso) return "—";
   const d = new Date(iso);

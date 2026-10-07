@@ -665,7 +665,9 @@
       "line": {
         "product": "Mahsulot",
         "a": "Filial admini (A)",
-        "b": "iiko inventarizatsiyasi (B)"
+        "b": "iiko inventarizatsiyasi (B)",
+        "diff": "± farq",
+        "checked": "Tekshirildi"
       },
       "flag": {
         "skipped": "sanalmagan",
@@ -701,7 +703,9 @@
       },
       "counts": {
         "title": "Admindagi sanoqlar"
-      }
+      },
+      "checkedBy": "{name} belgiladi, {at}",
+      "checkedCount": "{total} ta farqdan {done} tasi tekshirildi"
     }
   }
 }

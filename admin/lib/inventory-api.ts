@@ -77,6 +77,8 @@ export const inventoryApi = {
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>
       call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
+    markLine: (id: string, productId: string, checked: boolean) =>
+      call<{ ok: true }>(inv.reconciliations({ id }).lines({ productId }).mark.post({ checked })),
     setStatus: (id: string, status: "in_review" | "accepted", comment?: string) =>
       call<{ ok: true }>(inv.reconciliations({ id }).status.post(comment ? { status, comment } : { status })),
   },

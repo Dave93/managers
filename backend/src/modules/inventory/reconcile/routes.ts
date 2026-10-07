@@ -6,7 +6,7 @@ import Elysia, { t } from "elysia";
 import { InventoryError, run } from "../errors";
 import { isValidPeriod } from "../rules";
 import { assertNotRunning, enqueueReconcile, readStatus, reconcileQueue } from "./queue";
-import { chooseDocument, listReconciliations, loadReconciliation, reconTarget, setReconStatus } from "./read";
+import { chooseDocument, listReconciliations, loadReconciliation, reconTarget, setLineMark, setReconStatus } from "./read";
 
 function assertPeriod(period: string) {
   if (!isValidPeriod(period)) throw new InventoryError(422, "invalid_period");
@@ -80,4 +80,10 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
         comment: t.Optional(t.String({ maxLength: 2000 })),
       }),
     }
+  )
+  .post(
+    "/inventory/reconciliations/:id/lines/:productId/mark",
+    async ({ params, body, drizzle, user, set }) =>
+      run(set, async () => setLineMark(drizzle, params.id, params.productId, body.checked, user!.id)),
+    { permission: P, params: t.Object({ id: t.String(), productId: t.String() }), body: t.Object({ checked: t.Boolean() }) }
   );

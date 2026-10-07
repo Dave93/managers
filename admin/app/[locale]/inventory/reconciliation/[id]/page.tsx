@@ -71,7 +71,7 @@ function Detail({ id }: { id: string }) {
           <TabsTrigger value="log">{t("tabs.log")}</TabsTrigger>
         </TabsList>
         <TabsContent value="lines" className="pt-4">
-          <ReconLines lines={d.lines} />
+          <ReconLines reconId={d.id} lines={d.lines} onChanged={() => void q.refetch()} />
         </TabsContent>
         <TabsContent value="log" className="pt-4">
           <ReconLog events={d.events} edits={d.branch_edits} />

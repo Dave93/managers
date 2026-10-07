@@ -210,6 +210,23 @@ if (!dbLooksLikeTest) {
       }
     });
 
+    it("отметки «проверено» переживают повторный расчёт строк", async () => {
+      const w = await seed();
+      try {
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const a = await w.recon(w.A);
+        await drizzleDb.insert(schema.inventory_reconciliation_line_marks).values({ reconciliation_id: a.id, product_id: w.p1, checked_by: randomUUID() });
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const marks = await drizzleDb
+          .select()
+          .from(schema.inventory_reconciliation_line_marks)
+          .where(eq(schema.inventory_reconciliation_line_marks.reconciliation_id, a.id));
+        expect(marks.map((m) => m.product_id)).toEqual([w.p1]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("документ пропал (распровели): строки и корректировки остаются, doc_missing один раз", async () => {
       const w = await seed();
       try {
