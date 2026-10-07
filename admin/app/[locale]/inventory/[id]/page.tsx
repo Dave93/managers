@@ -112,6 +112,8 @@ function CountScreen({ id }: { id: string }) {
         onDelete={sync.deleteEntry}
         onSkip={(lineId, skipped) => skip.mutate({ lineId, skipped })}
       />
+      {/* Та же кнопка под списком: товар, которого нет в списке, обычно находят, дойдя до конца. */}
+      {editable && <AddProductDialog countId={id} online={sync.online} onAdded={() => void sync.refetch()} />}
     </div>
   );
 }
