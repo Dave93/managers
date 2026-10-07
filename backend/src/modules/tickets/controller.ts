@@ -582,6 +582,22 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           done_at: tickets.done_at,
           closed_at: tickets.closed_at,
           manager_seen_at: tickets.manager_seen_at,
+          // Для точки непрочитанного на планшете: «в заявке есть события новее
+          // manager_seen_at». Ни одна колонка tickets этого не выражает:
+          // комментарий исполнителя пишет строку в ticket_comments и событие, а
+          // tickets.updated_at не трогает. Коррелированный скалярный подзапрос, а
+          // не ещё один join: он отдаёт ровно одно значение на строку внешнего
+          // запроса и потому не может размножить строки, сколько бы join-ов выше
+          // ни стояло (join к ticket_events дал бы строку на каждое событие).
+          // idx_ticket_events_ticket_id делает его индексным поиском, а считается
+          // он только для строк страницы (не больше MAX_LIST_LIMIT). Без событий
+          // — null.
+          last_event_at: sql<string | null>`(SELECT max(${ticket_events.created_at}) FROM ${ticket_events} WHERE ${ticket_events.ticket_id} = ${tickets.id})`,
+          // Превью на карточке планшета: первое фото проблемы. Тот же приём, что
+          // выше, и по той же причине: отдельный запрос на карточку списка дал бы
+          // N запросов каждую минуту. Порядок по (created_at, id), чтобы при
+          // фото, загруженных одним запросом, превью не прыгало между обновлениями.
+          preview_attachment_id: sql<string | null>`(SELECT ${ticket_attachments.id} FROM ${ticket_attachments} WHERE ${ticket_attachments.ticket_id} = ${tickets.id} AND ${ticket_attachments.phase} = 'problem' ORDER BY ${ticket_attachments.created_at}, ${ticket_attachments.id} LIMIT 1)`,
           work_total_amount: tickets.work_total_amount,
           payment_status: tickets.payment_status,
           type_name: ticket_types.name_ru,

@@ -1625,6 +1625,186 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
     });
 
+    // Точка непрочитанного на планшете: «в заявке есть события новее
+    // manager_seen_at». Строка списка не несла ни времени последнего события, ни
+    // updated_at (комментарий updated_at не трогает), поэтому добавлены
+    // last_event_at и preview_attachment_id. Время событий и отметки задано явно,
+    // а не через now(): иначе порядок зависел бы от двух разных часов (Node у
+    // /seen и база у defaultNow()). Фикстуры настоящие: на пустой связи тест
+    // прошёл бы и при выкинутом подзапросе, потому что null это null.
+    describe("список заявок — last_event_at и превью (с фикстурами)", () => {
+      const terminalId = randomUUID();
+      const createdTicketIds: string[] = [];
+      let typeId: string | undefined;
+      let unreadId: string | undefined;
+      let readId: string | undefined;
+      let noEventsId: string | undefined;
+      let previewId: string | undefined;
+      let onlyResultId: string | undefined;
+      const files: string[] = [];
+
+      // Postgres отдаёт timestamptz строкой «2026-10-05 17:00:00.123456+05» (пояс
+      // сессии базы): сравниваем моменты, а не текст.
+      const ms = (s: string | null) => Date.parse((s ?? "").replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00"));
+      let previewProblemFirst: string | undefined;
+
+      beforeAll(async () => {
+        const [type] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_last_event_" + randomUUID().slice(0, 8),
+            number_prefix: "TE",
+            name_ru: "Тестовый тип (last_event_at)",
+            name_uz: "Test turi (last_event_at)",
+            executor_kind: "staff",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeId = type.id;
+
+        const insertTicket = async (extra: Partial<typeof tickets.$inferInsert> = {}) => {
+          const [row] = await drizzleDb
+            .insert(tickets)
+            .values({
+              type_id: must(typeId, "typeId"),
+              terminal_id: terminalId,
+              organization_id: randomUUID(),
+              created_by: randomUUID(),
+              ...extra,
+            })
+            .returning({ id: tickets.id });
+          createdTicketIds.push(row.id);
+          return row.id;
+        };
+        const insertEvent = (ticket_id: string, at: string, actor_kind: "manager" | "executor" | "office" | "system", type: "created" | "comment" | "assigned") =>
+          drizzleDb.insert(ticket_events).values({ ticket_id, type, actor_kind, created_at: at });
+
+        // Непрочитанная: отметка 10:00, события 09:00 (created), 11:00 и 10:30.
+        // Вставка не по порядку: максимум должен быть именно максимумом, а не
+        // первым или последним вставленным.
+        unreadId = await insertTicket({ manager_seen_at: "2026-10-05T10:00:00.000Z" });
+        await insertEvent(unreadId, "2026-10-05T09:00:00.000Z", "manager", "created");
+        await insertEvent(unreadId, "2026-10-05T11:00:00.000Z", "executor", "comment");
+        await insertEvent(unreadId, "2026-10-05T10:30:00.000Z", "office", "assigned");
+
+        // Прочитанная: единственное событие раньше отметки.
+        readId = await insertTicket({ manager_seen_at: "2026-10-05T12:00:00.000Z" });
+        await insertEvent(readId, "2026-10-05T09:00:00.000Z", "manager", "created");
+
+        // Без событий вовсе.
+        noEventsId = await insertTicket();
+
+        // Превью: фото результата самое раннее, затем два фото проблемы; нужно
+        // самое раннее фото ПРОБЛЕМЫ. Заявка к тому же с тремя событиями и двумя
+        // фото проблемы: размножение строк join-ом показало бы её в списке 6 раз.
+        previewId = await insertTicket();
+        await insertEvent(previewId, "2026-10-05T09:00:00.000Z", "manager", "created");
+        await insertEvent(previewId, "2026-10-05T09:05:00.000Z", "system", "assigned");
+        await insertEvent(previewId, "2026-10-05T09:10:00.000Z", "executor", "comment");
+        const insertAttachment = async (ticket_id: string, phase: "problem" | "result", at: string) => {
+          const file = join(tmpdir(), "last_event_probe_" + randomUUID() + ".jpg");
+          files.push(file);
+          await writeFile(file, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]));
+          const [a] = await drizzleDb
+            .insert(ticket_attachments)
+            .values({ ticket_id, phase, file_path: file, mime: "image/jpeg", size_bytes: 4, uploaded_by_kind: "manager", created_at: at })
+            .returning({ id: ticket_attachments.id });
+          return a.id;
+        };
+        await insertAttachment(previewId, "result", "2026-10-05T08:00:00.000Z");
+        await insertAttachment(previewId, "problem", "2026-10-05T09:02:00.000Z");
+        previewProblemFirst = await insertAttachment(previewId, "problem", "2026-10-05T09:01:00.000Z");
+
+        // Только фото результата: превью проблемы нет.
+        onlyResultId = await insertTicket();
+        await insertAttachment(onlyResultId, "result", "2026-10-05T09:00:00.000Z");
+      }, 30000);
+
+      afterAll(async () => {
+        // Дети раньше заявки: каскада по FK нет.
+        if (createdTicketIds.length > 0) {
+          await drizzleDb.delete(ticket_attachments).where(inArray(ticket_attachments.ticket_id, createdTicketIds));
+          await drizzleDb.delete(ticket_events).where(inArray(ticket_events.ticket_id, createdTicketIds));
+          await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
+        }
+        if (typeId) {
+          await drizzleDb.delete(ticket_types).where(inArray(ticket_types.id, [typeId]));
+        }
+        for (const f of files) await rm(f, { force: true });
+      });
+
+      const listRows = async () => {
+        const s = await withSession({ permissions: ["tickets.list"], terminals: [terminalId] });
+        try {
+          const filters = JSON.stringify([{ field: "type_id", operator: "eq", value: must(typeId, "typeId") }]);
+          const res = await call(`/api/tickets?limit=50&offset=0&filters=${encodeURIComponent(filters)}`, { headers: s.headers });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          return body.data as any[];
+        } finally {
+          await s.cleanup();
+        }
+      };
+      const rowOf = (rows: any[], id: string | undefined, name: string) => {
+        const row = rows.find((r) => r.id === must(id, name));
+        if (!row) throw new Error(`заявка ${name} не вернулась в списке`);
+        return row;
+      };
+
+      it("новейшее событие новее отметки: last_event_at — максимум, а не первое или последнее по вставке", async () => {
+        const row = rowOf(await listRows(), unreadId, "unreadId");
+        expect(typeof row.last_event_at).toBe("string");
+        expect(ms(row.last_event_at)).toBe(Date.parse("2026-10-05T11:00:00.000Z"));
+        expect(ms(row.last_event_at)).toBeGreaterThan(ms(row.manager_seen_at));
+      });
+
+      it("событий нет: last_event_at равен null", async () => {
+        const row = rowOf(await listRows(), noEventsId, "noEventsId");
+        expect(row.last_event_at).toBeNull();
+        expect(row.manager_seen_at).toBeNull();
+      });
+
+      it("отметка новее последнего события: событие не новее отметки", async () => {
+        const row = rowOf(await listRows(), readId, "readId");
+        expect(ms(row.last_event_at)).toBeLessThanOrEqual(ms(row.manager_seen_at));
+      });
+
+      it("seen после события гасит условие точки: отметка становится новее last_event_at", async () => {
+        const id = must(unreadId, "unreadId");
+        const s = await withSession({ permissions: ["tickets.list"], terminals: [terminalId] });
+        try {
+          const res = await call(`/api/tickets/${id}/seen`, {
+            method: "POST",
+            headers: { ...s.headers, "content-type": "application/json" },
+          });
+          expect(res.status).toBe(200);
+        } finally {
+          await s.cleanup();
+        }
+        const row = rowOf(await listRows(), unreadId, "unreadId");
+        expect(ms(row.last_event_at)).toBe(Date.parse("2026-10-05T11:00:00.000Z"));
+        expect(ms(row.manager_seen_at)).toBeGreaterThan(ms(row.last_event_at));
+      });
+
+      it("подзапросы не размножают строки: заявка с тремя событиями и тремя фото стоит в списке один раз", async () => {
+        const rows = await listRows();
+        expect(rows).toHaveLength(5);
+        expect(new Set(rows.map((r) => r.id)).size).toBe(5);
+        expect(rows.filter((r) => r.id === previewId)).toHaveLength(1);
+      });
+
+      it("превью — самое раннее фото проблемы, фото результата не берётся", async () => {
+        const rows = await listRows();
+        expect(rowOf(rows, previewId, "previewId").preview_attachment_id).toBe(must(previewProblemFirst, "previewProblemFirst"));
+      });
+
+      it("без фото проблемы превью — null (и без фото вовсе, и с одним результатом)", async () => {
+        const rows = await listRows();
+        expect(rowOf(rows, onlyResultId, "onlyResultId").preview_attachment_id).toBeNull();
+        expect(rowOf(rows, noEventsId, "noEventsId").preview_attachment_id).toBeNull();
+      });
+    });
+
     // Редактор типов (admin/app/[locale]/tickets/types) отправляет схему целиком
     // и ждёт её обратно без потерь: три поля с вариантами не должны ни схлопнуться,
     // ни потерять подписи, ни поменять порядок. Это же «сохранить без изменений»
