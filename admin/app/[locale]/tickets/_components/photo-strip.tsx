@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { ImageOff } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ImageOff, X } from "lucide-react";
 import { attachmentUrl, type AttachmentRow } from "@admin/lib/tickets-api";
 
 // Файл отдаёт авторизованный роут; он может ответить 404, если строка в базе
@@ -33,6 +33,70 @@ function Thumb({ a, onOpen }: { a: AttachmentRow; onOpen: () => void }) {
   );
 }
 
+// Полноэкранный просмотр живёт внутри панели карточки (Radix Dialog). Esc по
+// умолчанию уходит в DismissableLayer панели и закрывает всю карточку, то есть
+// человек теряет панель, пытаясь убрать фото. Поэтому Esc ловим на window в
+// фазе перехвата, раньше слушателя панели на document, и гасим событие: закрыть
+// должен только просмотр. Фокус уходит на кнопку закрытия и после закрытия
+// возвращается туда, откуда просмотр открыли.
+function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const [broken, setBroken] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.stopPropagation();
+      e.preventDefault();
+      onClose();
+    };
+    window.addEventListener("keydown", onKey, true);
+    return () => {
+      window.removeEventListener("keydown", onKey, true);
+      if (opener?.isConnected) opener.focus();
+    };
+    // onClose приходит новой функцией на каждый рендер, а подписка должна
+    // жить, пока просмотр открыт.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Фото"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
+      onClick={onClose}
+    >
+      <button
+        ref={closeRef}
+        type="button"
+        aria-label="Закрыть фото"
+        onClick={onClose}
+        className="absolute right-4 top-4 rounded-md bg-black/50 p-2 text-white outline-none hover:bg-black/70 focus-visible:ring-[3px] focus-visible:ring-white/60"
+      >
+        <X className="size-5" />
+      </button>
+      {broken ? (
+        <div className="flex flex-col items-center gap-2 text-white/80">
+          <ImageOff className="size-8" />
+          <span className="text-sm">нет файла</span>
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          className="max-h-full max-w-full object-contain"
+          onError={() => setBroken(true)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function PhotoStrip({
   title,
   items,
@@ -55,15 +119,7 @@ export function PhotoStrip({
           ))}
         </div>
       )}
-      {full && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
-          onClick={() => setFull(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={full} alt="" className="max-h-full max-w-full object-contain" />
-        </div>
-      )}
+      {full && <Lightbox src={full} onClose={() => setFull(null)} />}
     </section>
   );
 }
