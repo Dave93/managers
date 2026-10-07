@@ -17,7 +17,7 @@
 // Ссылку отдаёт только POST /ticket_executors/:id/invite (в строках списка
 // invite_code вырезан). Она лежит в состоянии тела панели и нигде больше.
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, KeyRound, TriangleAlert } from "lucide-react";
 
 import { Button } from "@components/ui/buttonOrigin";
@@ -456,6 +456,11 @@ export function ExecutorBody({
   const actions = useExecutorActions();
   const issue = useIssueInvite();
   const [copy, setCopy] = useState<CopyState>("idle");
+  // Живое состояние выдачи для колбэков, которые переживают рендер. Замыкание
+  // submit видит isPending/isSuccess того рендера, где его создали, и устарело
+  // к моменту ответа на сохранение. Ref выставляется в момент нажатия и в
+  // колбэках самой мутации, а не из рендера.
+  const inviteLive = useRef<"idle" | "pending" | "done">("idle");
 
   useEffect(() => {
     onLock(issue.isPending);
@@ -522,10 +527,14 @@ export function ExecutorBody({
         { id: row.id, body: patch },
         {
           onSuccess: () => {
-            // Ссылка на экране живёт только пока открыта панель. Если она
-            // выдана, сохранение не закрывает панель, иначе одноразовая
-            // ссылка пропала бы вместе с ней.
-            if (issue.isSuccess) {
+            // Сохранение зовёт onClose страницы напрямую, мимо замка в
+            // ExecutorSheet, поэтому решает сам: пока ссылка выдаётся или уже
+            // на экране, панель не закрывается, иначе одноразовая ссылка
+            // пропала бы вместе с ней (сервер к этому моменту код уже
+            // провернул). Работает в обе стороны порядка: приглашение до
+            // сохранения и сохранение до приглашения, потому что читается
+            // живой ref, а не isSuccess из замыкания.
+            if (inviteLive.current !== "idle") {
               setInitial({
                 name: trimmed.name,
                 phone: trimmed.phone,
@@ -557,7 +566,16 @@ export function ExecutorBody({
   const onIssue = () => {
     if (!row || issue.isPending) return;
     setCopy("idle");
-    issue.mutate(row.id, { onSuccess: (r) => void doCopy(r.link) });
+    inviteLive.current = "pending";
+    issue.mutate(row.id, {
+      onSuccess: (r) => {
+        inviteLive.current = "done";
+        void doCopy(r.link);
+      },
+      onError: () => {
+        inviteLive.current = "idle";
+      },
+    });
   };
 
   return (
