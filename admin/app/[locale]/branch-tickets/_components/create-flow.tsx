@@ -18,6 +18,8 @@ import {
   type FieldValues,
 } from "@admin/lib/tickets-create";
 
+import { Link } from "@admin/i18n/routing";
+
 import { BranchPicker } from "./branch-picker";
 import { DynamicFields, PillGroup } from "./dynamic-fields";
 import { PhotoInput, revokePhoto, type PickedPhoto } from "./photo-input";
@@ -41,6 +43,7 @@ export function CreateFlow({
   onCreated,
   onTypesStale,
   onAnother,
+  canOpenList,
   initial,
 }: {
   types: TicketTypeRow[];
@@ -52,6 +55,8 @@ export function CreateFlow({
   onTypesStale: () => void;
   // «Создать ещё одну» после успеха: страница пересоздаёт форму с нуля.
   onAnother: () => void;
+  // Есть ли у сессии tickets.list: без него ссылка на список вела бы на отказ.
+  canOpenList?: boolean;
   // Только для проверки отрисовки (SSR): стартовое состояние без нажатий.
   initial?: {
     typeId?: string;
@@ -64,9 +69,11 @@ export function CreateFlow({
     photoNotes?: string[];
     pending?: boolean;
     created?: { number: string };
+    awaiting?: boolean;
   };
 }) {
   const [typeId, setTypeId] = useState<string | null>(initial?.typeId ?? null);
+  const lastTypeId = useRef<string | null>(initial?.typeId ?? null);
   const [blockedId, setBlockedId] = useState<string | null>(initial?.blockedId ?? null);
   const [values, setValues] = useState<FieldValues>(initial?.values ?? {});
   const [priority, setPriority] = useState<TicketPriority>(initial?.priority ?? "normal");
@@ -93,6 +100,9 @@ export function CreateFlow({
 
   const pending = create.isPending || Boolean(initial?.pending);
   const done = create.isSuccess || Boolean(initial?.created);
+  // Исход прошлой отправки неизвестен: заявка могла создаться. Обычная кнопка
+  // на это время заменена отдельным действием с другой надписью.
+  const awaiting = (create.awaitingCheck || Boolean(initial?.awaiting)) && !create.isPending && !done;
   const createdNumber = create.created?.number ?? initial?.created?.number ?? null;
   const failure = create.error ? describeFailure(create.error) : null;
 
@@ -114,16 +124,19 @@ export function CreateFlow({
   }, [create.error]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pick = (t: TicketTypeRow) => {
-    if (t.id !== typeId) setValues({});
+    // Сравниваем с последним ВЫБРАННЫМ типом, а не с typeId: «Другой тип»
+    // обнуляет typeId, и возврат к тому же типу иначе стёр бы набранное.
+    if (t.id !== lastTypeId.current) setValues({});
+    lastTypeId.current = t.id;
     setTypeId(t.id);
     setBlockedId(null);
-    create.reset();
+    create.dismissError();
   };
 
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Enter в поле и нажатие по неактивной кнопке сюда доходят: проверяем ещё
-    // раз. Защёлку от двойной отправки держит useCreateTicket.
+  // Отправка и повтор после неизвестного исхода идут одним путём, но повтор
+  // допустим только из состояния «ждём проверки списка» (это проверяет и
+  // useCreateTicket) и только по отдельной кнопке.
+  const send = (afterCheck: boolean) => {
     if (!formType || missing.length > 0 || pending || done) return;
     create.submit(
       {
@@ -134,8 +147,17 @@ export function CreateFlow({
         description,
         photos: photos.map((p) => p.file),
       },
-      (t) => onCreated({ id: t.id, number: t.number })
+      (t) => onCreated({ id: t.id, number: t.number }),
+      { afterCheck }
     );
+  };
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // Enter в поле и нажатие по неактивной кнопке сюда доходят: проверяем ещё
+    // раз. Защёлку от двойной отправки держит useCreateTicket; при неизвестном
+    // исходе обычная отправка закрыта совсем.
+    if (awaiting) return;
+    send(false);
   };
 
   // -------- шаг 1: тип
@@ -188,7 +210,7 @@ export function CreateFlow({
   return (
     <form onSubmit={submit} noValidate className="space-y-5" aria-busy={pending}>
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="button" variant="outline" className="h-11 px-4 text-base" disabled={locked} onClick={() => setTypeId(null)}>
+        <Button type="button" variant="outline" className="h-11 px-4 text-base" disabled={locked || processing > 0} onClick={() => setTypeId(null)}>
           <ArrowLeft className="size-5" /> Другой тип
         </Button>
         <div className="flex items-center gap-2 text-lg font-semibold">
@@ -236,7 +258,7 @@ export function CreateFlow({
                 })
               }
               processing={processing}
-              onProcessing={setProcessing}
+              onBusy={(d) => setProcessing((p) => Math.max(0, p + d))}
               disabled={locked}
               initialNotes={initial?.photoNotes}
             />
@@ -276,15 +298,37 @@ export function CreateFlow({
             <p className="text-base leading-snug">{failure.message}</p>
           </div>
         )}
-        <Button
-          type="submit"
-          className="h-14 w-full px-8 text-lg lg:w-auto lg:min-w-72"
-          disabled={missing.length > 0 || locked}
-        >
-          {pending || processing > 0 ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
-          {done ? <CheckCircle2 className="size-5" aria-hidden /> : null}
-          {label}
-        </Button>
+        {awaiting ? (
+          <div className="space-y-2">
+            {canOpenList && (
+              <p className="text-base">
+                <Link href="/branch-tickets" target="_blank" rel="noopener" className="font-medium underline underline-offset-4">
+                  Открыть список заявок филиала в новой вкладке
+                </Link>
+                <span className="text-muted-foreground"> (эта форма и фотографии останутся здесь)</span>
+              </p>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              className="h-14 w-full border-destructive/60 px-8 text-lg lg:w-auto lg:min-w-72"
+              disabled={missing.length > 0}
+              onClick={() => send(true)}
+            >
+              Я проверил список, создать ещё раз
+            </Button>
+          </div>
+        ) : (
+          <Button
+            type="submit"
+            className="h-14 w-full px-8 text-lg lg:w-auto lg:min-w-72"
+            disabled={missing.length > 0 || locked}
+          >
+            {pending || processing > 0 ? <Loader2 className="size-5 animate-spin" aria-hidden /> : null}
+            {done ? <CheckCircle2 className="size-5" aria-hidden /> : null}
+            {label}
+          </Button>
+        )}
         {missing.length > 0 && !locked && (
           <div className="text-sm text-muted-foreground">
             <p className="font-medium">Чтобы создать заявку:</p>

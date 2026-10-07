@@ -71,6 +71,16 @@ export function BranchPicker({
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            // Поле стоит внутри формы: Enter или «Перейти» на экранной
+            // клавиатуре (так её убирают) отправил бы заявку. Гасим и убираем
+            // фокус, чтобы клавиатура закрылась, как человек и ожидает.
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                e.currentTarget.blur();
+              }
+            }}
+            enterKeyHint="search"
             placeholder="Найти филиал"
             aria-label="Найти филиал"
             disabled={disabled}

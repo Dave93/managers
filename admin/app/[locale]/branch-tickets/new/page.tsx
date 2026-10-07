@@ -130,6 +130,7 @@ export default function NewBranchTicketPage() {
         }}
         onTypesStale={() => qc.invalidateQueries({ queryKey: branchKeys.types })}
         onAnother={() => setRound((r) => r + 1)}
+        canOpenList={canOpenList}
       />
     );
   }

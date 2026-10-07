@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2, X } from "lucide-react";
 
 import { cn } from "@admin/lib/utils";
@@ -121,37 +121,31 @@ export function PhotoInput({
   onAdd,
   onRemove,
   processing,
-  onProcessing,
+  onBusy,
   disabled,
   initialNotes,
 }: {
   photos: PickedPhoto[];
   // Сколько файлов сейчас жмётся; счёт ведёт владелец, чтобы кнопка отправки
-  // видела то же число.
+  // видела то же число. Владельцу уходит ПРИРАЩЕНИЕ, а не итог: цикл разбора,
+  // переживший свой экземпляр (размонтирование), иначе затирал бы счёт новой
+  // партии своим устаревшим итогом.
   processing: number;
   onAdd: (added: PickedPhoto[]) => void;
   onRemove: (id: string) => void;
-  onProcessing: (count: number) => void;
+  onBusy: (delta: number) => void;
   disabled?: boolean;
   // Только для проверки отрисовки: сообщения об отклонённых файлах.
   initialNotes?: string[];
 }) {
   const [notes, setNotes] = useState<string[]>(initialNotes ?? []);
   // Занятые места считаются синхронно: пока файлы жмутся, props ещё старые.
-  const inflight = useRef(0);
-  const alive = useRef(true);
+  const inflight = useRef(processing);
   const photosRef = useRef(photos);
   photosRef.current = photos;
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-
-  const setBusy = (n: number) => {
-    inflight.current = n;
-    onProcessing(n);
+  const setBusy = (delta: number) => {
+    inflight.current += delta;
+    onBusy(delta);
   };
 
   const handle = async (list: FileList | null) => {
@@ -172,7 +166,7 @@ export function PhotoInput({
       setNotes(problems);
       return;
     }
-    setBusy(inflight.current + take.length);
+    setBusy(take.length);
     for (const f of take) {
       let out;
       try {
@@ -180,15 +174,15 @@ export function PhotoInput({
       } catch {
         out = { ok: false as const, error: `${f.name || "файл"}: не удалось обработать` };
       }
-      if (out.ok && alive.current) {
+      if (out.ok) {
         // Каждая готовая фотография попадает в список сразу, не ждём остальные.
         onAdd([{ id: `p${++seq}`, file: out.file, url: URL.createObjectURL(out.file), recompressed: out.recompressed }]);
-      } else if (!out.ok) {
+      } else {
         problems.push(out.error);
       }
-      setBusy(Math.max(0, inflight.current - 1));
+      setBusy(-1);
     }
-    if (alive.current) setNotes(problems);
+    setNotes(problems);
   };
 
   const full = photos.length + processing >= MAX_PHOTOS;

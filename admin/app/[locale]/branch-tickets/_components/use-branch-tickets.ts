@@ -8,8 +8,10 @@ import { apiMessage, listTypes, type ApiError, type TicketRecord, type TicketTyp
 import {
   branchesFromRows,
   buildCreateFormData,
+  describeFailure,
   type Branch,
   type CreateInput,
+  type NoAnswerKind,
 } from "@admin/lib/tickets-create";
 
 // Те же настройки, что у lib/use-tickets.ts: без повторов и networkMode
@@ -70,14 +72,20 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
   // не отпускала бы менеджера. По истечении запрос отменяется, и это читается
   // как «исход неизвестен», как и обрыв сети.
   const ctl = new AbortController();
-  const timer = setTimeout(() => ctl.abort(), SEND_TIMEOUT_MS);
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    ctl.abort();
+  }, SEND_TIMEOUT_MS);
+  const noAnswer = (kind: NoAnswerKind, message: string) =>
+    Object.assign(new Error(message), { kind }) as ApiError & { kind: NoAnswerKind };
   let res: Response;
   try {
     res = await fetch("/api/tickets", { method: "POST", body, credentials: "include", signal: ctl.signal });
   } catch {
     // Ни статуса, ни тела: заявка могла дойти. describeFailure читает это как
     // «исход неизвестен».
-    throw new Error("Нет связи с сервером") as ApiError;
+    throw timedOut ? noAnswer("timeout", "Нет ответа от сервера") : noAnswer("network", "Нет связи с сервером");
   } finally {
     clearTimeout(timer);
   }
@@ -96,7 +104,7 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
   }
   if (!payload || typeof payload.id !== "string") {
     // 200 без заявки в теле: считаем исход неизвестным, а не успехом.
-    throw new Error("Сервер ответил без данных заявки") as ApiError;
+    throw noAnswer("no_body", "Сервер ответил без данных заявки");
   }
   return payload;
 }
@@ -105,29 +113,56 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
 // только на следующем рендере, и два нажатия в одном тике запустили бы два
 // запроса: защёлка ставится синхронно, до первого await. После успеха она
 // остаётся поднятой, чтобы переход на другую страницу нельзя было прервать
-// ещё одним нажатием. Сбой её снимает.
+// ещё одним нажатием. Сбой с известным исходом (отказ сервера) её снимает.
+//
+// Сбой с НЕизвестным исходом (обрыв, 502/503/504, ответ без тела) её НЕ
+// снимает: заявка могла создаться, роута удаления нет, и вторая кнопка с той
+// же надписью дала бы дубль с теми же фотографиями. Повтор тогда возможен
+// только отдельным действием, `submit(..., { afterCheck: true })`, которое
+// экран подписывает иначе («Я проверил список, создать ещё раз»).
 export function useCreateTicket() {
   const qc = useQueryClient();
   const latch = useRef(false);
+  // «Ждём проверки списка» как ref: повтор погашает его синхронно, и второе
+  // нажатие в том же тике (до перерисовки) уже не проходит. Значение из
+  // замыкания рендера для этого устарело бы.
+  const awaitRef = useRef(false);
   const m = useMutation({
     mutationFn: async (input: CreateInput) => postTicket(buildCreateFormData(input)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tickets"] });
     },
-    onError: () => {
-      latch.current = false;
+    onError: (e) => {
+      const unknown = describeFailure(e).outcomeUnknown;
+      latch.current = unknown;
+      awaitRef.current = unknown;
     },
   });
+  const awaitingCheck = m.isError && describeFailure(m.error).outcomeUnknown;
   return {
-    submit(input: CreateInput, done?: (t: TicketRecord & { number: string }) => void) {
-      if (latch.current) return;
+    submit(
+      input: CreateInput,
+      done?: (t: TicketRecord & { number: string }) => void,
+      opts?: { afterCheck?: boolean }
+    ) {
+      // Обычное нажатие при поднятой защёлке молчит; повтор после проверки
+      // допустим только из состояния «ждём проверки».
+      if (latch.current) {
+        if (!(opts?.afterCheck && awaitRef.current)) return;
+        awaitRef.current = false;
+      }
       latch.current = true;
       m.mutate(input, { onSuccess: done });
     },
+    // Сброс показанной ошибки при смене типа. Пока ждём проверки списка, его
+    // не делаем: защёлка и ошибка остаются, иначе кнопка вернулась бы.
+    dismissError() {
+      if (!latch.current) m.reset();
+    },
     isPending: m.isPending,
     isSuccess: m.isSuccess,
+    awaitingCheck,
     created: m.data,
     error: m.error,
-    reset: m.reset,
   };
 }

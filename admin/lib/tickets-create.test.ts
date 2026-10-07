@@ -8,7 +8,6 @@ import {
   CreateBlocked,
   MAX_PHOTOS,
   MAX_PHOTO_BYTES,
-  MAX_PHOTO_SIDE,
   branchesFromRows,
   buildCreateFormData,
   buildDetails,
@@ -204,9 +203,22 @@ describe("missingItems", () => {
   test("всё заполнено — ничего не требуется", () => {
     expect(missingItems({ ...base, values: { zone: "hall", note: "x" }, photoCount: 1 })).toEqual([]);
   });
-  test("необязательное поле не требуется, но неверное значение блокирует", () => {
-    expect(missingItems({ ...base, values: { zone: "hall", note: "x", opt: "zzz" }, photoCount: 1 })).toEqual([
-      "Проверьте поле «OPT»",
+  // Сервер принял бы запрос без этого ключа, так что экран не заставляет
+  // менеджера выбирать значение необязательного поля, чтобы разблокироваться.
+  test("необязательный select с исчезнувшим вариантом не блокирует и не уходит", () => {
+    const values = { zone: "hall", note: "x", opt: "zzz" };
+    expect(missingItems({ ...base, values, photoCount: 1 })).toEqual([]);
+    expect(buildDetails(schema, values)).toEqual({ zone: "hall", note: "x" });
+  });
+  test("обязательный select с исчезнувшим вариантом по-прежнему блокирует", () => {
+    expect(missingItems({ ...base, values: { zone: "gone", note: "x" }, photoCount: 1 })).toEqual([
+      "Проверьте поле «ZONE»",
+    ]);
+  });
+  test("необязательный текст длиннее 2000 блокирует: сервер его отвергнет", () => {
+    const s2 = [txt("note", false)];
+    expect(missingItems({ ...base, schema: s2, values: { note: "x".repeat(2001) }, photoCount: 1 })).toEqual([
+      "Проверьте поле «NOTE»",
     ]);
   });
 });
@@ -271,13 +283,40 @@ describe("describeFailure", () => {
   const http = (status: number, message: string, errors?: string[]) => Object.assign(new Error(message), { status, errors });
 
   test("обрыв сети: исход неизвестен, повторять вслепую нельзя", () => {
-    const f = describeFailure(new Error("Нет связи с сервером"));
+    const f = describeFailure(Object.assign(new Error("Нет связи с сервером"), { kind: "network" }));
     expect(f.outcomeUnknown).toBe(true);
     expect(f.message).toContain("проверьте");
   });
   test("502/504: тоже неизвестно", () => {
     expect(describeFailure(http(504, "x")).outcomeUnknown).toBe(true);
     expect(describeFailure(http(502, "x")).outcomeUnknown).toBe(true);
+  });
+  test("аборт по таймауту называет причину и тоже считается неизвестным", () => {
+    const f = describeFailure(Object.assign(new Error("x"), { kind: "timeout" }));
+    expect(f.outcomeUnknown).toBe(true);
+    expect(f.message).toContain("не ответил");
+    expect(f.message).not.toContain("Связь оборвалась");
+  });
+  test("200 без тела: причина названа верно, исход неизвестен", () => {
+    const f = describeFailure(Object.assign(new Error("x"), { kind: "no_body" }));
+    expect(f.outcomeUnknown).toBe(true);
+    expect(f.message).toContain("без данных заявки");
+    expect(f.message).not.toContain("Связь оборвалась");
+  });
+  test("обрыв сети назван обрывом", () => {
+    const f = describeFailure(Object.assign(new Error("x"), { kind: "network" }));
+    expect(f.message).toContain("Связь оборвалась");
+  });
+  test("непонятный сбой без статуса: исход неизвестен, текст не врёт про связь", () => {
+    const f = describeFailure(new TypeError("boom"));
+    expect(f.outcomeUnknown).toBe(true);
+    expect(f.message).toContain("boom");
+    expect(f.message).not.toContain("Связь оборвалась");
+  });
+  test("отказ сервера с известным исходом не требует проверки списка", () => {
+    for (const status of [401, 403, 404, 413, 422, 500]) {
+      expect(describeFailure(http(status, "x")).outcomeUnknown).toBe(false);
+    }
   });
   test("500 с ответом сервера: заявки нет, исход известен", () => {
     const f = describeFailure(http(500, "Не удалось создать заявку"));
@@ -465,8 +504,5 @@ describe("preparePhoto", () => {
       await preparePhoto(bigJpeg(), io);
       expect(calls.released).toBe(1);
     }
-  });
-  test("MAX_PHOTO_SIDE равен 1600", () => {
-    expect(MAX_PHOTO_SIDE).toBe(1600);
   });
 });

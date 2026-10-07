@@ -19,6 +19,8 @@ import { detailValue } from "./tickets-details";
 // числа продублированы, а тест их сверяет.
 export const MAX_PHOTOS = 5;
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+// Для текстов сообщений: число в них берётся из той же константы.
+const MAX_PHOTO_MB = MAX_PHOTO_BYTES / (1024 * 1024);
 // Дальше только решения клиента: длинная сторона и качество сжатия.
 export const MAX_PHOTO_SIDE = 1600;
 export const JPEG_QUALITY = 0.85;
@@ -92,11 +94,17 @@ export type FieldState = "empty" | "invalid" | "ok";
 
 // empty: нечего отправлять. invalid: значение есть, но сервер его отвергнет
 // (вариант исчез из схемы, текст длиннее 2000). ok: уйдёт в details.
+// Вариант, исчезший из схемы у НЕобязательного select, не блокирует отправку:
+// ключ просто не уходит, и сервер принимает запрос без него. У обязательного
+// поля это остаётся invalid: значение нужно выбрать заново.
 export function fieldState(f: FieldDef, values: FieldValues): FieldState {
   const raw = detailValue(values, f.key);
   if (typeof raw !== "string" || raw.trim() === "") return "empty";
   const v = raw.trim();
-  if (f.type === "select") return f.options?.some((o) => o.value === v) ? "ok" : "invalid";
+  if (f.type === "select") {
+    if (f.options?.some((o) => o.value === v)) return "ok";
+    return f.required ? "invalid" : "empty";
+  }
   return v.length > MAX_TEXT ? "invalid" : "ok";
 }
 
@@ -193,30 +201,41 @@ export type SubmitFailure = {
   // Тип или схема за время заполнения могли измениться: список надо обновить.
   refetchTypes: boolean;
   // Ответа не было или он ненадёжен: заявка могла создаться. Повторять
-  // вслепую нельзя, иначе получится дубль с теми же фотографиями.
+  // вслепую нельзя, иначе получится дубль с теми же фотографиями: экран
+  // держит отправку закрытой, пока менеджер сам не подтвердит повтор.
   outcomeUnknown: boolean;
 };
 
+// Чем кончился запрос без нормального ответа сервера (ставит postTicket).
+export type NoAnswerKind = "network" | "timeout" | "no_body";
+
+const CHECK_LIST = "Откройте список заявок филиала и проверьте, нет ли там новой";
+
 export function describeFailure(e: unknown): SubmitFailure {
-  const err = e as { status?: number; message?: string; errors?: unknown; name?: string } | null;
+  const err = e as { status?: number; message?: string; errors?: unknown; kind?: NoAnswerKind } | null;
   const server = typeof err?.message === "string" && err.message ? err.message : "Не удалось создать заявку";
   if (err instanceof CreateBlocked) return { message: server, refetchTypes: false, outcomeUnknown: false };
 
+  const unknown = (message: string): SubmitFailure => ({ message, refetchTypes: false, outcomeUnknown: true });
   const status = err?.status;
-  if (status === undefined) {
-    return {
-      message:
-        "Связь оборвалась, и неизвестно, дошла ли заявка до сервера. Откройте список заявок филиала и проверьте, нет ли там новой, прежде чем создавать ещё одну.",
-      refetchTypes: false,
-      outcomeUnknown: true,
-    };
+  if (status === undefined || err?.kind) {
+    if (err?.kind === "timeout") {
+      return unknown(`Сервер не ответил за отведённое время, и неизвестно, дошла ли заявка. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+    }
+    if (err?.kind === "no_body") {
+      return unknown(`Сервер ответил, но без данных заявки: неизвестно, создалась ли она. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+    }
+    if (err?.kind === "network" || status === undefined) {
+      // Любой другой сбой до ответа сервера читается так же: ответа нет.
+      return unknown(
+        err?.kind === "network"
+          ? `Связь оборвалась, и неизвестно, дошла ли заявка до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
+          : `Не удалось отправить заявку (${server}), и неизвестно, дошла ли она до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
+      );
+    }
   }
   if (status === 502 || status === 503 || status === 504) {
-    return {
-      message: `Сервер не ответил вовремя (код ${status}). Заявка могла создаться: откройте список заявок филиала и проверьте, прежде чем создавать ещё одну.`,
-      refetchTypes: false,
-      outcomeUnknown: true,
-    };
+    return unknown(`Сервер не ответил вовремя (код ${status}). Заявка могла создаться. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
   }
   const list = Array.isArray(err?.errors) ? (err!.errors as unknown[]).filter((x) => typeof x === "string") : [];
   const detailed = list.length ? `${server}: ${list.join("; ")}` : server;
@@ -319,7 +338,7 @@ export async function preparePhoto<I>(file: File, io: PhotoIO<I>): Promise<Photo
       return fail(`${label}: не удалось подготовить фотографию к отправке. Снимите ещё раз или выберите другой файл`);
     }
     if (originalFits && blob.size >= file.size) return { ok: true, file, recompressed: false };
-    if (blob.size > MAX_PHOTO_BYTES) return fail(`${label}: после сжатия больше 10 МБ`);
+    if (blob.size > MAX_PHOTO_BYTES) return fail(`${label}: после сжатия больше ${MAX_PHOTO_MB} МБ`);
     return {
       ok: true,
       file: new File([blob], jpegName(file.name), { type: "image/jpeg", lastModified: file.lastModified }),
