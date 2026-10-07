@@ -300,11 +300,31 @@ export function orphanRisks(initial: FieldDraft[], current: FieldDraft[]): Orpha
   return out;
 }
 
+// Смена префикса у существующего типа. Номер заявки нигде не хранится, он
+// собирается из ТЕКУЩЕГО префикса типа при каждом показе (карточка, список,
+// уведомления в Telegram), так что смена перенумеровывает все заявки типа,
+// и старые тоже.
+export type PrefixChange = { from: string; to: string };
+
+export function prefixChange(
+  mode: "create" | "edit",
+  was: string,
+  now: string
+): PrefixChange | null {
+  if (mode !== "edit") return null;
+  const from = was.trim();
+  const to = now.trim();
+  return from !== to ? { from, to } : null;
+}
+
 // Нужно ли подтверждение перед сохранением. Число заявок сюда не входит
 // намеренно: GET /tickets считает только филиалы сессии, и «ноль» у учётки с
 // выданными терминалами не значит «заявок нет нигде». Есть риск — спрашиваем.
-export const needsConfirmation = (mode: "create" | "edit", risks: OrphanRisks) =>
-  mode === "edit" && !noRisks(risks);
+export const needsConfirmation = (
+  mode: "create" | "edit",
+  risks: OrphanRisks,
+  prefix: PrefixChange | null
+) => mode === "edit" && (!noRisks(risks) || prefix !== null);
 
 // ---------------------------------------------------------------------------
 // остальные поля формы типа

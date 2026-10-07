@@ -56,13 +56,16 @@ import {
   buildCreateBody,
   buildUpdatePatch,
   needsConfirmation,
+  noRisks,
   orphanRisks,
+  prefixChange,
   schemaSignature,
   toDrafts,
   validateDrafts,
   validateTypeForm,
   type FormState,
   type OrphanRisks,
+  type PrefixChange,
   type TypeFormValues,
 } from "./rules";
 import {
@@ -165,9 +168,23 @@ export function CountNote({
   );
 }
 
-export function RiskList({ risks }: { risks: OrphanRisks }) {
+export function RiskList({
+  risks,
+  prefix = null,
+}: {
+  risks: OrphanRisks;
+  prefix?: PrefixChange | null;
+}) {
   return (
     <ul className="list-disc space-y-1.5 pl-5 text-[13px]">
+      {prefix && (
+        <li>
+          Префикс «{prefix.from}» заменён на «{prefix.to}»: заявка {prefix.from}-000012 станет{" "}
+          {prefix.to}-000012, и так со всеми заявками этого типа, старыми тоже. Прежних номеров не
+          останется нигде; те, что уже ушли в Telegram, записаны или названы по телефону, перестанут
+          совпадать.
+        </li>
+      )}
       {risks.renamed.map((r) => (
         <li key={`rn:${r.from}`}>
           Ключ «{r.from}» заменён на «{r.to}»: в старых заявках значение остаётся под «{r.from}»,
@@ -300,7 +317,8 @@ export function TypeBody({
   // Подтверждение нужно всегда, когда у правки есть риски. Раньше точный ноль
   // его пропускал, но GET /tickets считает только филиалы сессии, а у админских
   // учёток терминалы выданы: ноль у них значит «здесь нет», не «нигде нет».
-  const needsConfirm = needsConfirmation(mode, risks);
+  const prefixChanged = prefixChange(mode, initial.state.values.number_prefix, values.number_prefix);
+  const needsConfirm = needsConfirmation(mode, risks, prefixChanged);
 
   const save = () => {
     if (mode === "create") {
@@ -474,11 +492,19 @@ export function TypeBody({
               {shownError("number_prefix") && (
                 <p className="text-[12px] text-destructive">{shownError("number_prefix")}</p>
               )}
-              <p className="text-[12px] leading-snug text-muted-foreground">
-                Номер заявки собирается как «{values.number_prefix.trim() || "TV"}-000123». Если сменить
-                префикс у типа, по которому заявки уже есть, старые останутся со старым префиксом, а
-                новые получат новый: у одного типа будут два вида номеров.
-              </p>
+              {mode === "edit" ? (
+                <p className="rounded-md bg-amber-50 px-2.5 py-2 text-[12px] leading-snug text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+                  Номер заявки нигде не хранится: он собирается из префикса типа при каждом показе, в
+                  том числе в уведомлениях Telegram. Если сменить префикс у типа, по которому уже есть
+                  заявки, все они, и старые тоже, получат новые номера, а прежних номеров не
+                  останется. Номера, которые уже ушли исполнителям, названы в очереди к оплате или
+                  записаны на бумаге, перестанут совпадать.
+                </p>
+              ) : (
+                <p className="text-[12px] leading-snug text-muted-foreground">
+                  Номер заявки собирается как «{values.number_prefix.trim() || "TV"}-000123».
+                </p>
+              )}
             </div>
           </div>
 
@@ -628,14 +654,16 @@ export function TypeBody({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Старые заявки потеряют подписи полей</AlertDialogTitle>
+            <AlertDialogTitle>Правка затронет уже созданные заявки</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-[13px] leading-snug">
                 <p>
                   <CountNote count={countState} />
                 </p>
-                <RiskList risks={risks} />
-                <p>Значения в заявках не пропадут, но вернуть прежнюю подпись можно только вернув ключ.</p>
+                <RiskList risks={risks} prefix={prefixChanged} />
+                {!noRisks(risks) && (
+                  <p>Значения в заявках не пропадут, но вернуть прежнюю подпись можно только вернув ключ.</p>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
