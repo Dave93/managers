@@ -38,7 +38,7 @@ describe("resolveBindLang", () => {
     expect(resolveBindLang("ru", "uz")).toBe("ru");
   });
 
-  it("берёт язык телеграма, если в карточке дефолт и телеграм узбекский", () => {
+  it("берёт язык телеграма, только если в карточке не ru и не uz", () => {
     expect(resolveBindLang(null, "uz")).toBe("uz");
     expect(resolveBindLang(undefined, "uz")).toBe("uz");
   });
