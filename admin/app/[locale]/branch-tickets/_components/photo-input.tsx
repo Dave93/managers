@@ -140,18 +140,26 @@ export function PhotoInput({
 }) {
   const [notes, setNotes] = useState<string[]>(initialNotes ?? []);
   // Занятые места считаются синхронно: пока файлы жмутся, props ещё старые.
-  const inflight = useRef(processing);
+  // Занятые места = фото в списке + то, что сейчас жмётся. Счёт «сейчас
+  // жмётся» берётся из пропсов (владелец один на все экземпляры и на циклы,
+  // пережившие размонтирование), а собственный синхронный счётчик нужен только
+  // на тик между вызовом и перерисовкой: берём больший из двух. Копия пропса
+  // при монтировании устаревала бы: после ухода и возврата экземпляр хранил бы
+  // чужую резервацию и отказывал в местах при фото меньше пяти.
+  const own = useRef(0);
+  const processingRef = useRef(processing);
+  processingRef.current = processing;
   const photosRef = useRef(photos);
   photosRef.current = photos;
   const setBusy = (delta: number) => {
-    inflight.current += delta;
+    own.current += delta;
     onBusy(delta);
   };
 
   const handle = async (list: FileList | null) => {
     const files = list ? Array.from(list) : [];
     if (files.length === 0) return;
-    const free = Math.max(0, MAX_PHOTOS - photosRef.current.length - inflight.current);
+    const free = Math.max(0, MAX_PHOTOS - photosRef.current.length - Math.max(processingRef.current, own.current));
     const take = files.slice(0, free);
     const problems: string[] = [];
     if (files.length > take.length) {

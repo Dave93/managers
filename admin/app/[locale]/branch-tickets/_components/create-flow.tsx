@@ -88,7 +88,16 @@ export function CreateFlow({
   // пустой список.
   const photosRef = useRef(photos);
   photosRef.current = photos;
-  useEffect(() => () => photosRef.current.forEach(revokePhoto), []);
+  // Разбор фото может закончиться уже после ухода со страницы: превью,
+  // созданное тогда, никто не отозвал бы.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+      photosRef.current.forEach(revokePhoto);
+    };
+  }, []);
 
   const selected = types.find((t) => t.id === typeId) ?? null;
   // Выбранный тип пропал из списка или потерял фирму, пока форма была открыта:
@@ -157,6 +166,14 @@ export function CreateFlow({
     // раз. Защёлку от двойной отправки держит useCreateTicket; при неизвестном
     // исходе обычная отправка закрыта совсем.
     if (awaiting) return;
+    // Страховка к перехвату Enter в поле поиска филиала: уходим только если
+    // отправителем формы была сама кнопка создания. Это ловит программный
+    // submit без кнопки (requestSubmit() без аргумента, submitter = null).
+    // Неявная отправка по Enter в текстовом поле сюда приходит С этой кнопкой
+    // как отправителем, поэтому от неё отдельно защищает то, что поле поиска
+    // не принадлежит форме (см. branch-picker.tsx).
+    const submitter = (e.nativeEvent as SubmitEvent | undefined)?.submitter as HTMLElement | null | undefined;
+    if (submitter?.dataset?.createSubmit !== "true") return;
     send(false);
   };
 
@@ -250,7 +267,13 @@ export function CreateFlow({
             </p>
             <PhotoInput
               photos={photos}
-              onAdd={(added) => setPhotos((prev) => [...prev, ...added])}
+              onAdd={(added) => {
+                if (!alive.current) {
+                  added.forEach(revokePhoto);
+                  return;
+                }
+                setPhotos((prev) => [...prev, ...added]);
+              }}
               onRemove={(id) =>
                 setPhotos((prev) => {
                   prev.filter((p) => p.id === id).forEach(revokePhoto);
@@ -321,6 +344,7 @@ export function CreateFlow({
         ) : (
           <Button
             type="submit"
+            data-create-submit="true"
             className="h-14 w-full px-8 text-lg lg:w-auto lg:min-w-72"
             disabled={missing.length > 0 || locked}
           >

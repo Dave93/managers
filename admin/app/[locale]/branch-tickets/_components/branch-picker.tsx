@@ -81,6 +81,11 @@ export function BranchPicker({
               }
             }}
             enterKeyHint="search"
+            // Поле не принадлежит форме (атрибут form указывает на несуществующий
+            // id): тогда у него нет формы-владельца, и неявная отправка по
+            // Enter/Go невозможна ни на какой клавиатуре, включая те, где клавиша
+            // приходит как Unidentified и keydown выше не срабатывает.
+            form="branch-search-no-form"
             placeholder="Найти филиал"
             aria-label="Найти филиал"
             disabled={disabled}
