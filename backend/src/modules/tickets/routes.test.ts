@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 // `bun test src/modules/tickets/` (задача 10 гоняет этот путь как общий
 // gate поверх всего модуля — семь чисто-юнитовых файлов вроде state.test.ts,
@@ -55,6 +58,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { drizzleDb } = await import("backend/src/lib/db");
   const {
     terminals,
+    ticket_attachments,
     ticket_comments,
     ticket_contractors,
     ticket_events,
@@ -419,6 +423,261 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
             .from(tickets)
             .where(eq(tickets.id, foreignTicketId!));
           expect(row?.payment_status).toBe("pending");
+        } finally {
+          await s.cleanup();
+        }
+      });
+    });
+
+    // tickets.list_all снимает скоуп по филиалам только в чтении: список (и
+    // тот же count, на котором стоят очередь «К оплате» и предупреждение
+    // редактора типов), карточка и файл вложения. Записи он не касается. Обе
+    // заявки ниже сразу «к оплате» (closed + pending + сумма), чтобы одна и та
+    // же пара годилась и для чтения, и для проверки, что утверждение по-прежнему
+    // режется скоупом. Дочерние строки (комментарий, событие, вложение) заведены
+    // нарочно: у ticket_comments, ticket_events и ticket_attachments нет
+    // каскада по FK, и уборка обязана снять их раньше заявки.
+    describe("tickets.list_all — снятие скоупа в чтении (с фикстурами)", () => {
+      const terminalA = randomUUID();
+      const terminalB = randomUUID();
+      let typeId: string | undefined;
+      let ticketA: string | undefined;
+      let ticketB: string | undefined;
+      let attachmentB: string | undefined;
+      const attachmentFile = join(tmpdir(), "list_all_probe_" + randomUUID() + ".jpg");
+      const createdTicketIds: string[] = [];
+
+      beforeAll(async () => {
+        const [type] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_list_all_" + randomUUID().slice(0, 8),
+            number_prefix: "TL",
+            name_ru: "Тестовый тип (list_all)",
+            name_uz: "Test turi (list_all)",
+            executor_kind: "staff",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeId = type.id;
+
+        const insertTicket = async (terminal_id: string) => {
+          const [row] = await drizzleDb
+            .insert(tickets)
+            .values({
+              type_id: typeId!,
+              terminal_id,
+              organization_id: randomUUID(),
+              created_by: randomUUID(),
+              status: "closed",
+              payment_status: "pending",
+              work_total_amount: "150.00",
+            })
+            .returning({ id: tickets.id });
+          createdTicketIds.push(row.id);
+          return row.id;
+        };
+        ticketA = await insertTicket(terminalA);
+        ticketB = await insertTicket(terminalB);
+
+        await drizzleDb
+          .insert(ticket_comments)
+          .values({ ticket_id: ticketB, author_kind: "manager", author_user_id: randomUUID(), body: "фикстура" });
+        await drizzleDb
+          .insert(ticket_events)
+          .values({ ticket_id: ticketB, type: "created", actor_kind: "manager", actor_user_id: randomUUID() });
+
+        await writeFile(attachmentFile, new Uint8Array([0xff, 0xd8, 0xff, 0xd9]));
+        const [att] = await drizzleDb
+          .insert(ticket_attachments)
+          .values({
+            ticket_id: ticketB,
+            phase: "problem",
+            file_path: attachmentFile,
+            mime: "image/jpeg",
+            size_bytes: 4,
+            uploaded_by_kind: "manager",
+          })
+          .returning({ id: ticket_attachments.id });
+        attachmentB = att.id;
+      });
+
+      afterAll(async () => {
+        // Дети раньше заявки: каскада по FK нет. Условие по createdTicketIds,
+        // а не по ticketA/ticketB — если вторая вставка упала, убирается ровно
+        // то, что создалось.
+        if (createdTicketIds.length > 0) {
+          await drizzleDb.delete(ticket_attachments).where(inArray(ticket_attachments.ticket_id, createdTicketIds));
+          await drizzleDb.delete(ticket_comments).where(inArray(ticket_comments.ticket_id, createdTicketIds));
+          await drizzleDb.delete(ticket_events).where(inArray(ticket_events.ticket_id, createdTicketIds));
+          await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
+        }
+        if (typeId) {
+          await drizzleDb.delete(ticket_types).where(inArray(ticket_types.id, [typeId]));
+        }
+        await rm(attachmentFile, { force: true });
+      });
+
+      // Фильтр по type_id отсекает всё, что лежит в тестовой базе кроме двух
+      // заявок выше, поэтому total можно сравнивать точно.
+      const typeFilter = () => [{ field: "type_id", operator: "eq", value: must(typeId, "typeId") }];
+      // Ровно то, что спрашивает экран «К оплате» (use-payments.ts).
+      const queueFilter = () => [
+        ...typeFilter(),
+        { field: "status", operator: "eq", value: "closed" },
+        { field: "payment_status", operator: "eq", value: "pending" },
+        { field: "work_total_amount", operator: "gt", value: "0" },
+      ];
+      const listAs = async (headers: Record<string, string>, filters: unknown[]) => {
+        const q = encodeURIComponent(JSON.stringify(filters));
+        const res = await call(`/api/tickets?limit=200&offset=0&filters=${q}`, { headers });
+        expect(res.status).toBe(200);
+        const body = await res.json();
+        return { total: Number(body.total), ids: body.data.map((r: { id: string }) => r.id) as string[] };
+      };
+
+      // Отрицательный тест — главный: если условие list_all перевернуть или
+      // выбросить проверку права, этот тест падает, потому что сессия без права
+      // увидела бы обе заявки.
+      it("без tickets.list_all список и total остаются в скоупе своего филиала", async () => {
+        const a = must(ticketA, "ticketA");
+        const s = await withSession({ permissions: ["tickets.list"], terminals: [terminalA] });
+        try {
+          const list = await listAs(s.headers, typeFilter());
+          expect(list.ids).toEqual([a]);
+          expect(list.total).toBe(1);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all список и total охватывают оба филиала", async () => {
+        const a = must(ticketA, "ticketA");
+        const b = must(ticketB, "ticketB");
+        const s = await withSession({ permissions: ["tickets.list", "tickets.list_all"], terminals: [terminalA] });
+        try {
+          const list = await listAs(s.headers, typeFilter());
+          expect([...list.ids].sort()).toEqual([a, b].sort());
+          expect(list.total).toBe(2);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("очередь «К оплате»: total по всем филиалам с tickets.list_all и по своим без него", async () => {
+        const narrow = await withSession({ permissions: ["tickets.list"], terminals: [terminalA] });
+        const wide = await withSession({ permissions: ["tickets.list", "tickets.list_all"], terminals: [terminalA] });
+        try {
+          expect((await listAs(narrow.headers, queueFilter())).total).toBe(1);
+          expect((await listAs(wide.headers, queueFilter())).total).toBe(2);
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      it("сессия без филиалов видит обе заявки с правом и без него", async () => {
+        const b = must(ticketB, "ticketB");
+        const plain = await withSession({ permissions: ["tickets.list"] });
+        const wide = await withSession({ permissions: ["tickets.list", "tickets.list_all"] });
+        try {
+          expect((await listAs(plain.headers, typeFilter())).ids).toContain(b);
+          expect((await listAs(wide.headers, typeFilter())).total).toBe(2);
+        } finally {
+          await plain.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      it("одно tickets.list_all без tickets.list не открывает ничего: 403", async () => {
+        const s = await withSession({ permissions: ["tickets.list_all"], terminals: [terminalA] });
+        try {
+          const res = await call("/api/tickets?limit=10&offset=0", { headers: s.headers });
+          expect(res.status).toBe(403);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all заявка чужого филиала по id — 404", async () => {
+        const s = await withSession({ permissions: ["tickets.list"], terminals: [terminalA] });
+        try {
+          const res = await call(`/api/tickets/${must(ticketB, "ticketB")}`, { headers: s.headers });
+          expect(res.status).toBe(404);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all заявка чужого филиала по id — 200 с комментарием и событием", async () => {
+        const b = must(ticketB, "ticketB");
+        const s = await withSession({ permissions: ["tickets.list", "tickets.list_all"], terminals: [terminalA] });
+        try {
+          const res = await call(`/api/tickets/${b}`, { headers: s.headers });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.id).toBe(b);
+          expect(body.comments).toHaveLength(1);
+          expect(body.events).toHaveLength(1);
+          expect(body.attachments).toHaveLength(1);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("файл вложения чужого филиала: 404 без tickets.list_all, 200 с ним", async () => {
+        const path = `/api/tickets/attachments/${must(attachmentB, "attachmentB")}/file`;
+        const narrow = await withSession({ permissions: ["tickets.list"], terminals: [terminalA] });
+        const wide = await withSession({ permissions: ["tickets.list", "tickets.list_all"], terminals: [terminalA] });
+        try {
+          expect((await call(path, { headers: narrow.headers })).status).toBe(404);
+          expect((await call(path, { headers: wide.headers })).status).toBe(200);
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      // Запись tickets.list_all не расширяет: сессия с правом видит чужую
+      // заявку, но утвердить оплату, отметить просмотр или написать комментарий
+      // по ней не может.
+      it("tickets.list_all не расширяет запись: утверждение, seen и комментарий по чужой заявке не проходят", async () => {
+        const b = must(ticketB, "ticketB");
+        const s = await withSession({
+          permissions: ["tickets.list", "tickets.list_all", "tickets.payment.approve"],
+          terminals: [terminalA],
+        });
+        try {
+          const json = { ...s.headers, "content-type": "application/json" };
+          const approve = await call("/api/tickets/payment/approve", {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ ids: [b] }),
+          });
+          expect(approve.status).toBe(200);
+          const approveBody = await approve.json();
+          expect(approveBody.approved).toBe(0);
+          expect(approveBody.skipped).toBe(1);
+
+          const seen = await call(`/api/tickets/${b}/seen`, { method: "POST", headers: s.headers });
+          expect(seen.status).toBe(404);
+
+          const comment = await call(`/api/tickets/${b}/comments`, {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ body: "не должен записаться" }),
+          });
+          expect(comment.status).toBe(404);
+
+          // Решает состояние базы, а не тело ответа.
+          const [row] = await drizzleDb
+            .select({ payment_status: tickets.payment_status, manager_seen_at: tickets.manager_seen_at })
+            .from(tickets)
+            .where(eq(tickets.id, b));
+          expect(row?.payment_status).toBe("pending");
+          expect(row?.manager_seen_at).toBeNull();
+          const written = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, b));
+          expect(written).toHaveLength(1);
         } finally {
           await s.cleanup();
         }

@@ -80,6 +80,31 @@ async function notFoundOrConflict(
   return { status: 409, body: { message: conflictMessage } };
 }
 
+// Право tickets.list_all снимает скоуп по филиалам в ЧТЕНИИ: офисный
+// наблюдатель видит заявки всех филиалов и типов. Роуты записи (close, reopen,
+// cancel, comments, seen, payment/*) этим не пользуются и скоупятся по
+// терминалам сессии как раньше — расширять запись это право не уполномочивает.
+//
+// Возвращает список филиалов для фильтра или undefined, если фильтровать не
+// нужно. Пустой terminals и так значит «все филиалы», поэтому без филиалов
+// права не читаем вовсе. Нет роли в контексте — тоже оставляем скоуп как есть:
+// отказ в расширении безопаснее, чем его молчаливая выдача. Право читается
+// тем же кэшем ролей, что и макрос permission (getPermissionsByRoleId), а не
+// отдельным запросом, — так же, как в resolveIsHq и в списке типов выше.
+const LIST_ALL_PERMISSION = "tickets.list_all";
+
+async function readScopeTerminals(args: {
+  userTerminals: string[] | undefined;
+  role: { id: string } | null | undefined;
+  cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
+}): Promise<string[] | undefined> {
+  const { userTerminals, role, cacheController } = args;
+  if (!userTerminals || userTerminals.length === 0) return userTerminals;
+  if (!role) return userTerminals;
+  const permissions = await cacheController.getPermissionsByRoleId(role.id);
+  return permissions.includes(LIST_ALL_PERMISSION) ? undefined : userTerminals;
+}
+
 const MAX_PAYMENT_IDS = 200;
 
 // ids приходит от офиса пачкой — финансист разом закрывает недельную стопку
@@ -474,7 +499,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets",
-    async ({ query: { limit, offset, filters }, terminals: userTerminals, set, drizzle }) => {
+    async ({ query: { limit, offset, filters }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       // +limit/+offset без проверки превращают мусорную строку в NaN, который
       // доезжает до drizzle и падает сырой ошибкой Postgres вместо 422.
       const limitNum = Number(limit);
@@ -490,7 +515,10 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
 
       const where: (SQLWrapper | undefined)[] = filters ? parseFilterFields(filters, tickets, {}) : [];
       // Скоупинг по филиалам сессии. Пустой массив у офисной роли означает
-      // "все филиалы" — тот же смысл, что в остальных модулях.
+      // "все филиалы" — тот же смысл, что в остальных модулях. Право
+      // tickets.list_all снимает скоуп, и тогда тот же where считает и total
+      // (очередь «К оплате», предупреждения редактора типов), и строки.
+      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
       }
@@ -560,13 +588,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets/:id",
-    async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       // Не-UUID в params.id иначе долетает до драйвера как "invalid input
       // syntax for type uuid" — сырая 500 вместо предназначенной 404.
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
@@ -621,11 +650,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets/attachments/:id/file",
-    async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Файл не найден" };
       }
+      // Вложения открывает та же карточка, что и GET /tickets/:id: если заявку
+      // офис видит, фото к ней должно отдаваться по тому же правилу.
+      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const [row] = await drizzle
         .select({ file_path: ticket_attachments.file_path, mime: ticket_attachments.mime, terminal_id: tickets.terminal_id })
         .from(ticket_attachments)
