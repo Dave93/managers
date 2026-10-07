@@ -12,15 +12,15 @@
 //    без филиала не существует;
 //  - тип без подрядной фирмы виден и нажимаем, но не пускает дальше.
 //
-// Право на экран: tickets.create (POST и GET /ticket_types) и
-// users_terminals.list (названия филиалов; сами филиалы берутся из GET /users/me,
-// то есть из снимка сессии). Образец проверки прав —
+// Право на экран: tickets.create (POST и GET /ticket_types). Филиалы берутся из
+// GET /users/me (снимок сессии, права не нужно); названия филиалов запрашиваются
+// из users_terminals без обязательства: без права на него подпись короче, экран
+// работает. Образец проверки прав —
 // tickets/payments/page.tsx: Eden не бросает на не-2xx, а отдаёт {data: null,
 // error}, поэтому запрос прав, завершившийся чем угодно, кроме рабочего ответа,
 // передаёт решение серверу, а не оставляет экран скелетом навсегда.
 //
-// После успеха уходим в список филиала с ?created=<id> (страница списка и
-// подсветка — следующая задача плана). Если права на список нет, остаёмся на
+// После успеха уходим в список филиала с ?created=<id>. Если права на список нет, остаёмся на
 // месте с подтверждением.
 
 import { useState } from "react";
@@ -34,7 +34,7 @@ import { CREATE_RIGHTS, LoadFailedPanel, NoAccessPanel, UnassignedPanel } from "
 import { CreateFlow } from "../_components/create-flow";
 import { branchKeys, useCreatableTypes, useMyBranches } from "../_components/use-branch-tickets";
 
-const REQUIRED: string[] = [CREATE_RIGHTS.create, CREATE_RIGHTS.terminals];
+const REQUIRED: string[] = [CREATE_RIGHTS.create];
 const LIST_RIGHT = "tickets.list";
 
 function Loading() {
@@ -93,17 +93,16 @@ export default function NewBranchTicketPage() {
   } else if (!branches.data) {
     // Данные в кэше важнее ошибки обновления: при сбое фонового запроса
     // заполненную форму не заменяем панелью, поэтому ветка ошибки идёт после.
-    body =
-      branches.error?.status === 403 ? (
-        <NoAccessPanel missing={[CREATE_RIGHTS.terminals]} serverDenied />
-      ) : (
-        <LoadFailedPanel
-          title="Не удалось определить ваш филиал"
-          detail={branches.error?.message}
-          onRetry={() => branches.refetch()}
-          retrying={branches.isFetching}
-        />
-      );
+    // /users/me не отвечает 403 (права не требует), так что отказа в правах
+    // здесь быть не может: любой сбой читается как «не удалось определить».
+    body = (
+      <LoadFailedPanel
+        title="Не удалось определить ваш филиал"
+        detail={branches.error?.message}
+        onRetry={() => branches.refetch()}
+        retrying={branches.isFetching}
+      />
+    );
   } else if (branches.data.length === 0) {
     body = <UnassignedPanel />;
   } else if (!types.data && types.isPending) {

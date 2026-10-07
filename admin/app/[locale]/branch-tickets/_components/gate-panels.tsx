@@ -4,14 +4,13 @@ import { RefreshCw, ShieldAlert, Store, TriangleAlert } from "lucide-react";
 
 import { Button } from "@components/ui/buttonOrigin";
 
-// Права экрана. Создание требует tickets.create (и для самого POST, и для
-// GET /ticket_types). Какие филиалы у менеджера, решает GET /users/me (снимок
-// сессии, права не нужно); users_terminals.list нужно соединению /users_terminals/
-// my_terminals, из которого берутся только названия филиалов. Названия прав
-// стоят дословно: текст панели копируют в форму роли.
+// Право экрана: tickets.create (и для самого POST, и для GET /ticket_types).
+// Какие филиалы у менеджера, решает GET /users/me (снимок сессии, права не
+// нужно). users_terminals.list экрану не обязателен: из него берутся только
+// названия филиалов, а без него подпись остаётся короткой («Филиал <id>»).
+// Название права стоит дословно: текст панели копируют в форму роли.
 export const CREATE_RIGHTS = {
   create: "tickets.create",
-  terminals: "users_terminals.list",
 } as const;
 
 export function NoAccessPanel({
@@ -30,11 +29,9 @@ export function NoAccessPanel({
           <p className="text-base font-semibold leading-tight">Нет доступа к созданию заявок</p>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
             {serverDenied ? "Сервер ответил отказом (403). " : ""}
-            Экрану нужны два права:{" "}
+            Экрану нужно право{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{CREATE_RIGHTS.create}</code>{" "}
-            (создавать заявки) и{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{CREATE_RIGHTS.terminals}</code>{" "}
-            (показать названия ваших филиалов). У вашей роли не хватает:
+            (создавать заявки). У вашей роли не хватает:
           </p>
           <ul className="space-y-1">
             {missing.map((p) => (
@@ -44,7 +41,7 @@ export function NoAccessPanel({
             ))}
           </ul>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
-            Попросите администратора добавить их роли, затем перезагрузите страницу.
+            Попросите администратора добавить его роли, затем перезагрузите страницу.
           </p>
         </div>
       </div>
