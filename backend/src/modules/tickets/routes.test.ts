@@ -748,6 +748,173 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
     });
 
+    // Экран «К оплате» показывает дату закрытия и фирму прямо из списка. Фирма —
+    // от исполнителя, который делал работу, а не от нынешней фирмы типа.
+    describe("список заявок — closed_at и фирма (с фикстурами)", () => {
+      const suffix = randomUUID().slice(0, 8);
+      const createdTicketIds: string[] = [];
+      const createdExecutorIds: string[] = [];
+      const createdContractorIds: string[] = [];
+      const createdTypeIds: string[] = [];
+      let typeWithFirmId: string | undefined;
+      let typeNoFirmId: string | undefined;
+      let closedWithExecutorId: string | undefined;
+      let newNoExecutorId: string | undefined;
+      let noFirmAnywhereId: string | undefined;
+      let staffExecutorId: string | undefined;
+
+      beforeAll(async () => {
+        // Фирма типа и фирма исполнителя разные: типу фирму «переназначили»
+        // после того, как исполнитель из другой фирмы закрыл заявку.
+        const [typeFirm] = await drizzleDb
+          .insert(ticket_contractors)
+          .values({ name: "Нынешняя фирма типа " + suffix })
+          .returning({ id: ticket_contractors.id });
+        createdContractorIds.push(typeFirm.id);
+        const [workFirm] = await drizzleDb
+          .insert(ticket_contractors)
+          .values({ name: "Фирма исполнителя " + suffix })
+          .returning({ id: ticket_contractors.id });
+        createdContractorIds.push(workFirm.id);
+
+        const [typeWithFirm] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_firm_" + suffix,
+            number_prefix: "TF",
+            name_ru: "Тип с фирмой",
+            name_uz: "Firma bilan tur",
+            executor_kind: "external",
+            contractor_id: typeFirm.id,
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeWithFirmId = typeWithFirm.id;
+        createdTypeIds.push(typeWithFirm.id);
+
+        const [typeNoFirm] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_nofirm_" + suffix,
+            number_prefix: "TN",
+            name_ru: "Тип без фирмы",
+            name_uz: "Firmasiz tur",
+            executor_kind: "external",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeNoFirmId = typeNoFirm.id;
+        createdTypeIds.push(typeNoFirm.id);
+
+        const [executor] = await drizzleDb
+          .insert(ticket_executors)
+          .values({ kind: "external", contractor_id: workFirm.id, full_name: "Мастер фирмы " + suffix })
+          .returning({ id: ticket_executors.id });
+        createdExecutorIds.push(executor.id);
+        // Сотрудник без фирмы: ticket_executors_kind_target требует ровно одно
+        // из contractor_id и user_id, FK на user_id нет.
+        const [staff] = await drizzleDb
+          .insert(ticket_executors)
+          .values({ kind: "staff", user_id: randomUUID(), full_name: "Сотрудник " + suffix })
+          .returning({ id: ticket_executors.id });
+        createdExecutorIds.push(staff.id);
+
+        const insertTicket = async (v: {
+          type_id: string;
+          status?: "new" | "closed";
+          closed_at?: string;
+          assigned_executor_id?: string;
+        }) => {
+          const [row] = await drizzleDb
+            .insert(tickets)
+            .values({ organization_id: randomUUID(), terminal_id: randomUUID(), created_by: randomUUID(), ...v })
+            .returning({ id: tickets.id });
+          createdTicketIds.push(row.id);
+          return row.id;
+        };
+        closedWithExecutorId = await insertTicket({
+          type_id: typeWithFirm.id,
+          status: "closed",
+          closed_at: "2026-10-05T12:00:00.000Z",
+          assigned_executor_id: executor.id,
+        });
+        newNoExecutorId = await insertTicket({ type_id: typeWithFirm.id });
+        noFirmAnywhereId = await insertTicket({ type_id: typeNoFirm.id });
+        staffExecutorId = await insertTicket({
+          type_id: typeWithFirm.id,
+          status: "closed",
+          closed_at: "2026-10-05T12:00:00.000Z",
+          assigned_executor_id: staff.id,
+        });
+      }, 30000);
+
+      afterAll(async () => {
+        // Заявки раньше всего остального: на них ссылаются исполнители и типы.
+        // Комментариев и событий фикстуры не создают, поэтому сирот нет.
+        if (createdTicketIds.length > 0) {
+          await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
+        }
+        if (createdExecutorIds.length > 0) {
+          await drizzleDb.delete(ticket_executors).where(inArray(ticket_executors.id, createdExecutorIds));
+        }
+        if (createdTypeIds.length > 0) {
+          await drizzleDb.delete(ticket_types).where(inArray(ticket_types.id, createdTypeIds));
+        }
+        if (createdContractorIds.length > 0) {
+          await drizzleDb.delete(ticket_contractors).where(inArray(ticket_contractors.id, createdContractorIds));
+        }
+      });
+
+      const listMine = async () => {
+        const s = await withSession({ permissions: ["tickets.list"] });
+        try {
+          const filters = JSON.stringify([
+            { field: "type_id", operator: "in", value: [must(typeWithFirmId, "typeWithFirmId"), must(typeNoFirmId, "typeNoFirmId")] },
+          ]);
+          const res = await call(`/api/tickets?limit=50&offset=0&filters=${encodeURIComponent(filters)}`, {
+            headers: s.headers,
+          });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          const byId = new Map<string, any>(body.data.map((r: any) => [r.id, r]));
+          return (id: string | undefined, name: string) => {
+            const row = byId.get(must(id, name));
+            if (!row) throw new Error(`заявка ${name} не вернулась в списке`);
+            return row;
+          };
+        } finally {
+          await s.cleanup();
+        }
+      };
+
+      it("закрытая заявка с исполнителем: closed_at и фирма исполнителя, а не нынешняя фирма типа", async () => {
+        const row = (await listMine())(closedWithExecutorId, "closedWithExecutorId");
+        expect(row.closed_at).not.toBeNull();
+        // Postgres отдаёт timestamptz строкой вида «2026-10-05 17:00:00+05»:
+        // часовой пояс сессии БД, не обязательно UTC. Смещение дописывается до
+        // «+05:00», и сравнивается момент времени, а не текст.
+        const iso = row.closed_at.replace(" ", "T").replace(/([+-]\d{2})$/, "$1:00");
+        expect(Date.parse(iso)).toBe(Date.parse("2026-10-05T12:00:00.000Z"));
+        expect(row.contractor_name).toBe("Фирма исполнителя " + suffix);
+      });
+
+      it("без исполнителя берёт фирму типа, closed_at пуст", async () => {
+        const row = (await listMine())(newNoExecutorId, "newNoExecutorId");
+        expect(row.closed_at).toBeNull();
+        expect(row.contractor_name).toBe("Нынешняя фирма типа " + suffix);
+      });
+
+      it("ни у исполнителя, ни у типа нет фирмы: null", async () => {
+        const row = (await listMine())(noFirmAnywhereId, "noFirmAnywhereId");
+        expect(row.contractor_name).toBeNull();
+      });
+
+      it("исполнитель-сотрудник без фирмы даёт null, а не фирму типа", async () => {
+        const row = (await listMine())(staffExecutorId, "staffExecutorId");
+        expect(row.contractor_name).toBeNull();
+      });
+    });
+
     afterAll(async () => {
       await closeTestRedis();
     });

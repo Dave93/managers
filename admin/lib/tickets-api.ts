@@ -58,6 +58,7 @@ export type TicketRow = {
   created_at: string;
   assigned_at: string | null;
   done_at: string | null;
+  closed_at: string | null;
   manager_seen_at: string | null;
   work_total_amount: string | null;
   payment_status: PaymentStatus;
@@ -65,6 +66,9 @@ export type TicketRow = {
   type_prefix: string | null;
   terminal_name: string | null;
   executor_name: string | null;
+  // Фирма исполнителя, который делал работу; если исполнителя не назначали,
+  // фирма типа. null: фирмы нет вовсе или работу сделал сотрудник (staff).
+  contractor_name: string | null;
 };
 
 export type AttachmentRow = {

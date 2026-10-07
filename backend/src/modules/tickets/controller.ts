@@ -14,6 +14,7 @@ import {
   users,
 } from "backend/drizzle/schema";
 import { and, desc, eq, getTableColumns, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
@@ -500,6 +501,15 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         .where(and(...where))
         .execute();
 
+      // Фирма в строке списка: экран «К оплате» платит за уже сделанную работу,
+      // поэтому берётся фирма исполнителя, который её делал, а не нынешняя
+      // фирма типа (её могли переназначить после закрытия заявки). Фирма типа —
+      // только запасной вариант для заявки, на которую исполнителя не назначали.
+      // Назначенный исполнитель без фирмы (staff) даёт null, а не фирму типа:
+      // работу сделал сотрудник, и приписывать её подрядчику было бы неправдой.
+      const executorFirm = alias(ticket_contractors, "executor_firm");
+      const typeFirm = alias(ticket_contractors, "type_firm");
+
       const rows = await drizzle
         .select({
           id: tickets.id,
@@ -510,6 +520,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           created_at: tickets.created_at,
           assigned_at: tickets.assigned_at,
           done_at: tickets.done_at,
+          closed_at: tickets.closed_at,
           manager_seen_at: tickets.manager_seen_at,
           work_total_amount: tickets.work_total_amount,
           payment_status: tickets.payment_status,
@@ -517,11 +528,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           type_prefix: ticket_types.number_prefix,
           terminal_name: terminals.name,
           executor_name: ticket_executors.full_name,
+          contractor_name: sql<string | null>`CASE WHEN ${tickets.assigned_executor_id} IS NULL THEN ${typeFirm.name} ELSE ${executorFirm.name} END`,
         })
         .from(tickets)
         .leftJoin(ticket_types, eq(tickets.type_id, ticket_types.id))
         .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
         .leftJoin(ticket_executors, eq(tickets.assigned_executor_id, ticket_executors.id))
+        .leftJoin(executorFirm, eq(ticket_executors.contractor_id, executorFirm.id))
+        .leftJoin(typeFirm, eq(ticket_types.contractor_id, typeFirm.id))
         .where(and(...where))
         .orderBy(desc(tickets.created_at))
         .limit(limitNum)
