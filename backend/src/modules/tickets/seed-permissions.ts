@@ -1,14 +1,25 @@
 import { drizzleDb } from "../../lib/db";
 import { permissions } from "backend/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 
 // description — varchar(60), длиннее не влезет.
+//
+// Описание права — единственное, что видит человек в редакторе ролей, когда
+// решает, что выдать. tickets.list_all снимает ограничение по филиалам во всех
+// действиях с заявками (включая решения по оплате, приём, возврат и отмену), а
+// не только в просмотре, и текст должен говорить об этом прямо.
+//
+// Приём остальных seed-скриптов («существующее не трогаем») здесь нарушен
+// осознанно и только по description: если описание уже лежит в таблице другим,
+// оно перезаписывается. Иначе деплой не исправил бы живую строку, а руками в
+// продовую таблицу прав мы не лезем. Всё прочее в существующей строке (active,
+// связи с ролями) сид не трогает.
 const SLUGS: { slug: string; description: string }[] = [
   { slug: "tickets.create", description: "Заявки: создание с планшета" },
-  { slug: "tickets.list", description: "Заявки: список своих филиалов" },
+  { slug: "tickets.list", description: "Заявки: просмотр, комментарии; свои филиалы без list_all" },
   { slug: "tickets.close", description: "Заявки: приёмка и возврат в работу" },
   { slug: "tickets.cancel", description: "Заявки: отмена" },
-  { slug: "tickets.list_all", description: "Заявки: раздел офиса, все филиалы" },
+  { slug: "tickets.list_all", description: "Заявки: все филиалы во всех действиях, вкл. оплату и приём" },
   { slug: "tickets.payment.approve", description: "Заявки: утверждение сумм" },
   { slug: "tickets.types.manage", description: "Заявки: типы и схемы полей" },
   { slug: "tickets.contractors.manage", description: "Заявки: фирмы и исполнители" },
@@ -16,13 +27,25 @@ const SLUGS: { slug: string; description: string }[] = [
 
 async function main() {
   for (const s of SLUGS) {
+    if (s.description.length > 60) throw new Error(`${s.slug}: description длиннее 60 знаков`);
+  }
+  for (const s of SLUGS) {
     const existing = await drizzleDb
-      .select({ id: permissions.id })
+      .select({ id: permissions.id, description: permissions.description })
       .from(permissions)
       .where(eq(permissions.slug, s.slug))
       .execute();
     if (existing.length) {
-      console.log(`skip ${s.slug} (exists)`);
+      if (existing[0].description !== s.description) {
+        await drizzleDb
+          .update(permissions)
+          .set({ description: s.description, updated_at: sql`now()` })
+          .where(eq(permissions.id, existing[0].id))
+          .execute();
+        console.log(`updated ${s.slug} (description)`);
+      } else {
+        console.log(`skip ${s.slug} (exists)`);
+      }
       continue;
     }
     await drizzleDb.insert(permissions).values({ slug: s.slug, description: s.description, active: true }).execute();
