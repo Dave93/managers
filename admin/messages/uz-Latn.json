@@ -636,10 +636,7 @@
         "admin": "Admin",
         "document": "iiko hujjati",
         "status": "Holat",
-        "mismatch": "A≠B",
-        "ab": "A − B, so'm",
-        "ac": "A − C, so'm",
-        "bc": "B − C, so'm"
+        "mismatch": "A ≠ B qatorlar"
       },
       "admin": {
         "submitted": "Topshirilgan",
@@ -660,7 +657,6 @@
       "open": "Ochish",
       "back": "Solishtirishga qaytish",
       "fetchedAt": "Yuklangan {at}",
-      "bookAt": "{at} holatiga hisob",
       "tabs": {
         "lines": "Farqlar",
         "log": "Jurnal"
@@ -668,25 +664,18 @@
       "onlyMismatch": "Faqat A ≠ B",
       "line": {
         "product": "Mahsulot",
-        "a": "Admin (A)",
-        "b": "iiko (B)",
-        "c": "Hisob (C)",
-        "ab": "A − B",
-        "acSum": "A − C, so'm",
-        "bcSum": "B − C, so'm"
+        "a": "Filial admini (A)",
+        "b": "iiko inventarizatsiyasi (B)"
       },
       "flag": {
         "skipped": "sanalmagan",
         "absent": "adminda sanalmagan",
-        "multi": "bir nechta sanoqda",
-        "noCost": "narx yo'q"
+        "multi": "bir nechta sanoqda"
       },
       "choose": {
         "title": "iiko hujjatini tanlang",
         "hint": "«Месяц» hujjatlari bir nechta yoki umuman yo'q — qaysi birini solishtirishni belgilang",
-        "pick": "Shuni solishtirish",
-        "shortage": "kamomad",
-        "surplus": "ortiqcha"
+        "pick": "Shuni solishtirish"
       },
       "review": {
         "toReview": "Ko'rib chiqishga",

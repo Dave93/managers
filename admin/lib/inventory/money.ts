@@ -1,17 +1,10 @@
-// Форматирование цифр сверки. Ручное, без Intl: вывод одинаков на сервере и
+// Форматирование количеств и дат сверки. Ручное, без Intl: вывод одинаков на сервере и
 // в браузере, и тесты не зависят от ICU. Разделитель тысяч — узкий неразрывный пробел.
 const NNBSP = " ";
 const MINUS = "−";
 
 function group(intPart: string): string {
   return intPart.replace(/\B(?=(\d{3})+(?!\d))/g, NNBSP);
-}
-
-export function formatMoney(v: string | number | null): string {
-  if (v === null || v === undefined || v === "") return "—";
-  const n = Math.round(Number(v));
-  if (!Number.isFinite(n)) return "—";
-  return (n < 0 ? MINUS : "") + group(String(Math.abs(n)));
 }
 
 export function formatQty(v: string | number | null): string {

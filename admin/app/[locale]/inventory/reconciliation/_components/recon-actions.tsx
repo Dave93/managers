@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Textarea } from "@admin/components/ui/textarea";
 import { InventoryApiError, inventoryApi } from "@admin/lib/inventory-api";
-import { formatDateTime, formatMoney } from "@admin/lib/inventory/money";
+import { formatDateTime } from "@admin/lib/inventory/money";
 import { canChooseDocument } from "@admin/lib/inventory/reconcile";
 import type { ReconDetail } from "@backend/modules/inventory/reconcile/types";
 
@@ -32,7 +32,7 @@ export function ChooseDocument({ detail, onDone }: { detail: ReconDetail; onDone
       {(detail.iiko_candidates ?? []).map((c) => (
         <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span>
-            №{c.num} · {c.comment ?? "—"} · {t("choose.shortage")} {formatMoney(c.shortage_sum)} · {t("choose.surplus")} {formatMoney(c.surplus_sum)}
+            №{c.num} · {c.date.split("-").reverse().join(".")} · {c.comment ?? "—"}
           </span>
           <Button size="sm" disabled={choose.isPending} onClick={() => choose.mutate(c.id)}>
             {t("choose.pick")}

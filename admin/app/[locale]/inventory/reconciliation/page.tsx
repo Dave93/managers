@@ -7,7 +7,6 @@ import { Link } from "@admin/i18n/routing";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { inventoryApi } from "@admin/lib/inventory-api";
-import { formatMoney } from "@admin/lib/inventory/money";
 import { periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 import type { ReconOverviewRow, ReconStatus } from "@backend/modules/inventory/reconcile/types";
 import { FetchPanel } from "./_components/fetch-panel";
@@ -36,7 +35,7 @@ function Overview() {
   const rows = (list.data ?? [])
     .filter((r) => status === ALL || r.status === status)
     .filter((r) => org === ALL || r.organization_id === org)
-    .sort((a, b) => Math.abs(Number(b.diff_ab_sum ?? 0)) - Math.abs(Number(a.diff_ab_sum ?? 0)));
+    .sort((a, b) => b.mismatch_ab_count - a.mismatch_ab_count);
 
   return (
     <div className="space-y-4">
@@ -95,9 +94,6 @@ function Overview() {
                 <TableHead>{t("col.document")}</TableHead>
                 <TableHead>{t("col.status")}</TableHead>
                 <TableHead className="text-right">{t("col.mismatch")}</TableHead>
-                <TableHead className="text-right">{t("col.ab")}</TableHead>
-                <TableHead className="text-right">{t("col.ac")}</TableHead>
-                <TableHead className="text-right">{t("col.bc")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -120,12 +116,9 @@ function Overview() {
                     <ReconStatusBadge status={r.status} />
                     {r.changed_after_accept && <div className="text-xs text-orange-600">{t("changedAfterAccept")}</div>}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{r.mismatch_ab_count || "—"}</TableCell>
-                  <TableCell className={`text-right tabular-nums ${Number(r.diff_ab_sum ?? 0) !== 0 ? "text-orange-600" : ""}`}>
-                    {formatMoney(r.diff_ab_sum)}
+                  <TableCell className={`text-right tabular-nums ${r.mismatch_ab_count ? "font-semibold text-orange-600" : ""}`}>
+                    {r.mismatch_ab_count || "—"}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatMoney(r.diff_ac_sum)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{formatMoney(r.diff_bc_sum)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

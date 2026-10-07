@@ -7,7 +7,7 @@ import CanAccess from "@admin/components/can-access";
 import { Link } from "@admin/i18n/routing";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 import { inventoryApi } from "@admin/lib/inventory-api";
-import { formatDateTime, formatMoney } from "@admin/lib/inventory/money";
+import { formatDateTime } from "@admin/lib/inventory/money";
 import { periodLabel } from "@admin/lib/inventory/periods";
 import { ChooseDocument, CountsPanel, RefreshButton, ReviewControls } from "../_components/recon-actions";
 import { ReconLines } from "../_components/recon-lines";
@@ -56,23 +56,11 @@ function Detail({ id }: { id: string }) {
           {d.iiko_document_comment ? ` · ${d.iiko_document_comment}` : ""}
         </span>
         {d.iiko_doc_state === "unposted_after_fetch" && <span className="text-orange-600">{t("unposted")}</span>}
-        {d.book_at && <span>{t("bookAt", { at: d.book_at.replace("T", " ").slice(0, 16) })}</span>}
         <span>{t("fetchedAt", { at: formatDateTime(d.fetched_at, locale) })}</span>
         <RefreshButton detail={d} onQueued={() => void status.refetch()} />
       </div>
-      <div className="grid gap-2 text-sm sm:grid-cols-4">
-        <div className="rounded border p-2">
-          {t("col.mismatch")}: <b>{d.mismatch_ab_count}</b>
-        </div>
-        <div className="rounded border p-2">
-          {t("col.ab")}: <b>{formatMoney(d.diff_ab_sum)}</b>
-        </div>
-        <div className="rounded border p-2">
-          {t("col.ac")}: <b>{formatMoney(d.diff_ac_sum)}</b>
-        </div>
-        <div className="rounded border p-2">
-          {t("col.bc")}: <b>{formatMoney(d.diff_bc_sum)}</b>
-        </div>
+      <div className="w-fit rounded border p-2 text-sm">
+        {t("col.mismatch")}: <b>{d.mismatch_ab_count}</b>
       </div>
       <ChooseDocument detail={d} onDone={() => { reload(); void status.refetch(); }} />
       <ReviewControls key={d.review_comment ?? ""} detail={d} onDone={reload} />

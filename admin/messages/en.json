@@ -673,10 +673,7 @@
         "admin": "Admin count",
         "document": "iiko document",
         "status": "Status",
-        "mismatch": "A≠B",
-        "ab": "A − B, UZS",
-        "ac": "A − C, UZS",
-        "bc": "B − C, UZS"
+        "mismatch": "Rows A ≠ B"
       },
       "admin": {
         "submitted": "Submitted",
@@ -697,7 +694,6 @@
       "open": "Open",
       "back": "Back to reconciliation",
       "fetchedAt": "Loaded {at}",
-      "bookAt": "Book stock at {at}",
       "tabs": {
         "lines": "Differences",
         "log": "Log"
@@ -705,25 +701,18 @@
       "onlyMismatch": "Only A ≠ B",
       "line": {
         "product": "Product",
-        "a": "Admin (A)",
-        "b": "iiko (B)",
-        "c": "Book (C)",
-        "ab": "A − B",
-        "acSum": "A − C, UZS",
-        "bcSum": "B − C, UZS"
+        "a": "Branch admin (A)",
+        "b": "iiko inventory (B)"
       },
       "flag": {
         "skipped": "not counted",
         "absent": "not counted in admin",
-        "multi": "in several counts",
-        "noCost": "no price"
+        "multi": "in several counts"
       },
       "choose": {
         "title": "Choose the iiko document",
         "hint": "There are several “Месяц” documents or none — pick the one to reconcile",
-        "pick": "Use this one",
-        "shortage": "shortage",
-        "surplus": "surplus"
+        "pick": "Use this one"
       },
       "review": {
         "toReview": "Under review",
