@@ -43,9 +43,14 @@ export default function PaymentsPage() {
   const granted = (perms.data as { permissions?: string[] } | null | undefined)?.permissions;
   const permsKnown = Array.isArray(granted);
   const missing = permsKnown ? REQUIRED.filter((p) => !granted.includes(p)) : [];
-  // Пока права не пришли, очередь не запрашиваем. Если список прав не
-  // получился (сеть), решает сервер: 403 на чтении покажет таблица.
-  const queueEnabled = missing.length === 0 && (permsKnown || perms.isError);
+  // Пока запрос прав не завершился, очередь не запрашиваем. Завершившись чем
+  // угодно, кроме рабочего списка, он передаёт решение серверу: 403 на чтении
+  // покажет таблица, 401 и 5xx она покажет панелью ошибки с «Повторить».
+  // Недостаточно проверять isError: Eden не бросает на не-2xx, а отдаёт
+  // {data: null, error}, и запрос прав на истёкшей сессии «успешен» со
+  // значением null. Без isSuccess очередь в этом случае не включилась бы никогда
+  // и страница осталась бы скелетом без текста и без кнопки.
+  const queueEnabled = missing.length === 0 && (permsKnown || perms.isError || perms.isSuccess);
 
   const [{ pageIndex, pageSize }, setPaging] = useState({ pageIndex: 0, pageSize: DEFAULT_PAGE_SIZE });
   const queue = usePaymentQueue(pageSize, pageIndex * pageSize, queueEnabled);
