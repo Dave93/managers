@@ -264,16 +264,31 @@ export type OrphanRisks = {
   // Варианты select убраны или переименованы, либо select стал text: карточка
   // покажет в старых заявках сам код значения вместо подписи.
   optionLoss: { key: string; values: string[]; toText: boolean }[];
+  // Ключ, который был у одного поля, а стал у другого (удалили x и переименовали
+  // y в x; поменяли ключи местами; завели новое поле со старым ключом). Хуже
+  // остальных: пометки «поле удалено» не будет, ключ ведь существует, и
+  // старые значения отрисуются под подписью чужого поля.
+  reused: string[];
 };
 
 export const noRisks = (r: OrphanRisks) =>
-  r.removed.length === 0 && r.renamed.length === 0 && r.optionLoss.length === 0;
+  r.removed.length === 0 &&
+  r.renamed.length === 0 &&
+  r.optionLoss.length === 0 &&
+  r.reused.length === 0;
 
 // Сравнение идёт с моментом открытия панели (initial), а не со строкой списка:
 // список перезапрашивается под руками. Совпадение полей — по uid.
 export function orphanRisks(initial: FieldDraft[], current: FieldDraft[]): OrphanRisks {
-  const out: OrphanRisks = { removed: [], renamed: [], optionLoss: [] };
+  const out: OrphanRisks = { removed: [], renamed: [], optionLoss: [], reused: [] };
   const now = new Map(current.map((f) => [f.uid, f]));
+  // Сравнение по uid ловит удаление и переименование, но не переиспользование
+  // ключа, поэтому итоговые ключи сверяются с исходными ещё и как множество.
+  const owner = new Map(initial.filter((f) => f.key !== "").map((f) => [f.key, f.uid]));
+  for (const cur of current) {
+    const was = owner.get(cur.key);
+    if (was !== undefined && was !== cur.uid && !out.reused.includes(cur.key)) out.reused.push(cur.key);
+  }
   for (const was of initial) {
     // Без ключа значений в заявках быть не могло.
     if (was.key === "") continue;
