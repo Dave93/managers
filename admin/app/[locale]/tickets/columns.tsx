@@ -7,6 +7,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 
 import { formatAmount } from "@admin/lib/tickets-money";
 import type { TicketRow, TicketTypeRow } from "@admin/lib/tickets-api";
+import { detailValue } from "@admin/lib/tickets-details";
 import { PriorityBadge, StatusBadge, WaitingFor } from "@admin/components/tickets/status";
 
 // Симптом: первое заполненное значение details. В строке списка нет схемы
@@ -21,7 +22,7 @@ export function symptomOf(row: TicketRow, types: TicketTypeRow[] | undefined): s
     ...Object.keys(row.details ?? {}).filter((k) => !schema.some((f) => f.key === k)),
   ];
   for (const key of keys) {
-    const raw = row.details?.[key];
+    const raw = detailValue(row.details, key);
     if (typeof raw !== "string" || raw.trim() === "") continue;
     const field = schema.find((f) => f.key === key);
     const option = field?.options?.find((o) => o.value === raw);

@@ -53,6 +53,7 @@ import {
   type TicketEventRow,
   type TicketEventType,
 } from "@admin/lib/tickets-api";
+import { detailValue } from "@admin/lib/tickets-details";
 import { useTicketActions, useTicketCard } from "@admin/lib/use-tickets";
 import { PriorityBadge, StatusBadge, parseTs } from "@admin/components/tickets/status";
 
@@ -126,14 +127,14 @@ function actionError(error: unknown): string {
 
 type FieldRow = { key: string; label: string; value: string; removed: boolean };
 
-function buildFieldRows(card: TicketCard): { rows: FieldRow[]; schemaKnown: boolean } {
+export function buildFieldRows(card: TicketCard): { rows: FieldRow[]; schemaKnown: boolean } {
   const schemaKnown = Boolean(card.type);
   const schema: FieldDef[] = Array.isArray(card.type?.fields_schema) ? card.type!.fields_schema : [];
   const details: Record<string, unknown> =
     card.details && typeof card.details === "object" ? card.details : {};
 
   const rows: FieldRow[] = schema.map((f) => {
-    const raw = details[f.key];
+    const raw = detailValue(details, f.key);
     const text = raw === undefined || raw === null ? "" : String(raw);
     const option = f.options?.find((o) => o.value === text);
     return {
@@ -148,7 +149,7 @@ function buildFieldRows(card: TicketCard): { rows: FieldRow[]; schemaKnown: bool
   // сам тип недоступен, «поле удалено из типа» было бы враньём, и пометки нет.
   for (const key of Object.keys(details)) {
     if (schema.some((f) => f.key === key)) continue;
-    rows.push({ key, label: key, value: String(details[key] ?? "—"), removed: schemaKnown });
+    rows.push({ key, label: key, value: String(detailValue(details, key) ?? "—"), removed: schemaKnown });
   }
   return { rows, schemaKnown };
 }
