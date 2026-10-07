@@ -827,16 +827,42 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
-      it("с tickets.list_all комментарий к заявке чужого филиала пишется", async () => {
+      it("с tickets.list_all комментарий к заявке чужого филиала пишется как office", async () => {
         const id = await freshTicket("new");
         const s = await officeSession(true);
         try {
           const res = await post(s.headers, `/api/tickets/${id}/comments`, { body: "от офиса" });
           expect(res.status).toBe(200);
-          const rows = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, id));
-          expect(rows).toHaveLength(1);
+          // Учётка с терминалами, но с tickets.list_all: офис, а не менеджер.
+          expect((await res.json()).author_kind).toBe("office");
+          const rows = await drizzleDb.select({ k: ticket_comments.author_kind }).from(ticket_comments).where(eq(ticket_comments.ticket_id, id));
+          expect(rows.map((r) => r.k)).toEqual(["office"]);
+          const events = await drizzleDb.select({ k: ticket_events.actor_kind }).from(ticket_events).where(eq(ticket_events.ticket_id, id));
+          expect(events.map((e) => e.k)).toEqual(["office"]);
         } finally {
           await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all учётка с терминалами пишет manager, с правом office, close тоже", async () => {
+        const own = await freshTicket("done", { terminal_id: terminalA });
+        const own2 = await freshTicket("done", { terminal_id: terminalA });
+        const narrow = await officeSession(false);
+        const wide = await officeSession(true);
+        try {
+          const kindOfClose = async (headers: Record<string, string>, id: string) => {
+            expect((await post(headers, `/api/tickets/${id}/close`)).status).toBe(200);
+            const ev = await drizzleDb
+              .select({ k: ticket_events.actor_kind })
+              .from(ticket_events)
+              .where(eq(ticket_events.ticket_id, id));
+            return ev.map((e) => e.k);
+          };
+          expect(await kindOfClose(narrow.headers, own)).toEqual(["manager"]);
+          expect(await kindOfClose(wide.headers, own2)).toEqual(["office"]);
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
         }
       });
 

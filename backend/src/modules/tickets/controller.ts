@@ -216,11 +216,14 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
 // общие для планшета филиала и карточки офиса, а в событии и комментарии
 // должно быть видно, кто на самом деле нажал.
 //
-// Вид выводится из скоупа сессии: пустой terminals в этом проекте читается как
-// «все филиалы», то есть офисная роль, непустой — менеджер конкретных филиалов.
-// Допущение известное и принятое: менеджер, которому вручную выдали все
-// филиалы разом, определится как офис. Роут утверждения оплаты ставит "office"
-// безусловно, потому что он только офисный.
+// Принимает скоуп после effectiveTerminals, а не терминалы сессии. Признак
+// офиса — право tickets.list_all: оно даёт undefined, и вид выходит "office"
+// даже у учётки с назначенными терминалами. Запасной признак — пустой
+// terminals, который в этом проекте читается как «все филиалы». Остаётся один
+// компромисс, и он безобиднее прежнего: офисная роль без права list_all, но с
+// выданными терминалами, определится как менеджер (раньше менеджер со всеми
+// выданными филиалами определялся как офис). Роут утверждения оплаты ставит
+// "office" безусловно, потому что он только офисный.
 function actorKindOf(userTerminals: string[] | undefined): "manager" | "office" {
   return userTerminals && userTerminals.length > 0 ? "manager" : "office";
 }
@@ -685,8 +688,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/close",
     async ({ params: { id }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const actor = actorKindOf(sessionTerminals);
       const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -736,8 +739,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/reopen",
     async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const actor = actorKindOf(sessionTerminals);
       const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -798,8 +801,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/cancel",
     async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const actor = actorKindOf(sessionTerminals);
       const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -853,8 +856,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/comments",
     async ({ params: { id }, body: { body: text }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const actor = actorKindOf(sessionTerminals);
       const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
