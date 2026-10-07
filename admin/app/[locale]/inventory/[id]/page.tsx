@@ -59,8 +59,7 @@ function CountScreen({ id }: { id: string }) {
     );
   }
 
-  // Срок ввода (2-е число 12:00) и разблокировку офисом считает сервер.
-  const editable = detail.status === "draft" && detail.access === "write" && detail.input_open;
+  const editable = detail.status === "draft" && detail.access === "write";
 
   return (
     <div className="p-3 sm:p-4 pb-36 space-y-4">

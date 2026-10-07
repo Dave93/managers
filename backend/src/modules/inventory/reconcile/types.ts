@@ -34,8 +34,6 @@ export interface ReconOverviewRow extends ReconTotals {
   status: ReconStatus;
   /** Живое состояние пересчётов админки за период (не снимок). */
   admin_state: ReconAdminState;
-  /** Срок ввода периода, ISO UTC — для «не сдано». */
-  deadline: string;
   iiko_document_num: string | null;
   iiko_document_comment: string | null;
   iiko_doc_state: ReconDocState | null;
@@ -71,7 +69,7 @@ export interface ReconEvent {
   created_at: string;
 }
 
-export type ReconBranchEditKind = "entry_added" | "entry_deleted" | "reopened" | "unlocked";
+export type ReconBranchEditKind = "entry_added" | "entry_deleted" | "reopened";
 
 export interface ReconBranchEdit {
   at: string;
@@ -86,8 +84,6 @@ export interface ReconCountRef {
   id: string;
   template_name: string;
   status: string;
-  unlocked_until: string | null;
-  input_open: boolean;
 }
 
 export interface ReconDetail extends ReconOverviewRow {

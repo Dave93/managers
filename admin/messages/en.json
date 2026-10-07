@@ -681,8 +681,7 @@
       "admin": {
         "submitted": "Submitted",
         "draft": "Draft",
-        "none": "No count",
-        "overdue": "Not submitted"
+        "none": "No count"
       },
       "status": {
         "waiting_iiko": "Waiting for iiko document",
@@ -746,21 +745,11 @@
         "entry_added": "added {qty}",
         "entry_deleted": "deleted {qty}",
         "reopened": "returned to draft",
-        "unlocked": "unlocked",
         "none": "No edits after submission"
       },
       "counts": {
-        "title": "Admin counts",
-        "unlock": "Unlock for 24 h",
-        "unlocked": "Unlocked until {until}",
-        "closed": "Input deadline passed",
-        "open": "Input open"
+        "title": "Admin counts"
       }
-    },
-    "deadline": {
-      "closed": "Input deadline passed {deadline}. Only the office can change it.",
-      "unlocked": "Unlocked by the office until {until}",
-      "until": "Input deadline: {deadline}"
     }
   }
 }

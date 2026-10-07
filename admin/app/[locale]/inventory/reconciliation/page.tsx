@@ -18,8 +18,6 @@ const STATUSES: ReconStatus[] = ["needs_choice", "ready", "in_review", "accepted
 
 function AdminCell({ row }: { row: ReconOverviewRow }) {
   const t = useTranslations("inventory.reconcile.admin");
-  const overdue = row.admin_state !== "submitted" && Date.now() >= Date.parse(row.deadline);
-  if (overdue) return <span className="text-destructive">{t("overdue")}</span>;
   return <span>{t(row.admin_state)}</span>;
 }
 

@@ -10,7 +10,7 @@ import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { userNames } from "../counts";
 import { InventoryError } from "../errors";
-import { inputDeadline, isInputOpen, UUID_RE } from "../rules";
+import { UUID_RE } from "../rules";
 import type {
   ReconAdminState,
   ReconBranchEdit,
@@ -40,7 +40,6 @@ function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdm
     period: r.period,
     status: r.status as ReconStatus,
     admin_state: adminState,
-    deadline: inputDeadline(r.period).toISOString(),
     iiko_document_num: r.iiko_document_num,
     iiko_document_comment: r.iiko_document_comment,
     iiko_doc_state: r.iiko_doc_state as ReconOverviewRow["iiko_doc_state"],
@@ -97,7 +96,7 @@ async function branchEdits(db: DbLike, countIds: string[]): Promise<ReconBranchE
       where e.deleted_at > f.at
     union all
     select ev.created_at, ev.type, ev.user_id, ev.count_id, null, null
-      from inventory_count_events ev where ev.type in ('reopened', 'unlocked') and ev.count_id in (${ids})
+      from inventory_count_events ev where ev.type = 'reopened' and ev.count_id in (${ids})
     order by 1`);
   const rows = res.rows as { at: string | Date; kind: ReconBranchEdit["kind"]; user_id: string | null; count_id: string; product_name: string | null; qty: string | null }[];
   const names = await userNames(db, rows.map((r) => r.user_id ?? ""));
@@ -144,8 +143,6 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
       id: inventory_counts.id,
       template_name: inventory_counts.template_name,
       status: inventory_counts.status,
-      unlocked_until: inventory_counts.unlocked_until,
-      period: inventory_counts.period,
     })
     .from(inventory_counts)
     .where(and(eq(inventory_counts.store_id, r.store_id), eq(inventory_counts.period, r.period), ne(inventory_counts.status, "cancelled")))
@@ -162,13 +159,7 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
     reviewed_by_name: r.reviewed_by ? names.get(r.reviewed_by) ?? "—" : null,
     reviewed_at: r.reviewed_at,
     accepted_totals: (r.accepted_totals as ReconTotals | null) ?? null,
-    counts: counts.map((c) => ({
-      id: c.id,
-      template_name: c.template_name,
-      status: c.status,
-      unlocked_until: c.unlocked_until,
-      input_open: isInputOpen(c.period, c.unlocked_until, now),
-    })),
+    counts,
     lines: lines.map((x) => ({
       ...x,
       admin_state: x.admin_state as ReconLine["admin_state"],

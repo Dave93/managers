@@ -69,7 +69,6 @@ export const inventoryApi = {
     ),
   organizations: () => call<{ id: string; name: string }[]>(inv.organizations.get()),
   folders: () => call<InventoryFolders>(inv.folders.get()),
-  unlock: (countId: string) => call<{ unlocked_until: string }>(inv.counts({ id: countId }).unlock.post({})),
   reconcile: {
     list: (period: string) => call<ReconOverviewRow[]>(inv.reconciliations.get({ query: { period } })),
     fetch: (period: string) => call<ReconFetchStatus>(inv.reconciliations.fetch.post({ period })),

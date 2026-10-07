@@ -121,7 +121,6 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
           ["POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {}],
           ["POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/status`, { status: "accepted" }],
-          ["POST", `/api/inventory/counts/${w.countId}/unlock`, {}],
         ];
         for (const [m, p, body] of calls) {
           const r = await api(b, m, p, body);
@@ -145,7 +144,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         const row = r.body.find((x: any) => x.id === w.readyId);
         expect(row.store_name).toContain("Склад сверки");
         expect(row.admin_state).toBe("submitted");
-        expect(row.deadline).toBe("2026-09-02T07:00:00.000Z");
+        expect(row.deadline).toBeUndefined();
         expect(row.diff_ab_sum).toBe("-100.00");
       } finally {
         await w.cleanup();
@@ -161,7 +160,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(r.body.lines.length).toBe(1);
         expect(r.body.lines[0].iiko_fact_qty).toBe("24.0000");
         expect(r.body.counts).toEqual([
-          expect.objectContaining({ id: w.countId, status: "submitted", input_open: false, unlocked_until: null }),
+          { id: w.countId, template_name: "Все товары филиала", status: "submitted" },
         ]);
         expect(r.body.branch_edits).toEqual([
           expect.objectContaining({ kind: "entry_added", count_id: w.countId, product_name: "Соль", qty: "3.0000" }),

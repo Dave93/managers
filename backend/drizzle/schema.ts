@@ -2443,8 +2443,6 @@ export const inventory_counts = pgTable(
     created_by: uuid("created_by").notNull(),
     submitted_by: uuid("submitted_by"),
     submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
-    // Разблокировка офисом после срока ввода (spec 2026-10-06, §8): до этого момента филиал снова может править.
-    unlocked_until: timestamp("unlocked_until", { withTimezone: true, mode: "string" }),
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
     updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },

@@ -1,8 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import {
   allowedPeriods,
-  inputDeadline,
-  isInputOpen,
   isValidPeriod,
   isValidQty,
   lastDayOfMonth,
@@ -40,53 +38,18 @@ describe("lastDayOfMonth / isValidPeriod", () => {
   });
 });
 
-describe("inputDeadline — 2-е число следующего месяца, 12:00 Ташкент (07:00 UTC)", () => {
-  it("октябрь → 2 ноября 07:00Z", () => {
-    expect(inputDeadline("2026-10-31").toISOString()).toBe("2026-11-02T07:00:00.000Z");
+describe("allowedPeriods (срока ввода нет: текущий и прошлый месяц всегда)", () => {
+  it("в середине месяца — текущий и прошлый", () => {
+    expect(allowedPeriods(new Date("2026-10-15T07:00:00Z"))).toEqual(["2026-10-31", "2026-09-30"]);
   });
-  it("декабрь → 2 января следующего года", () => {
-    expect(inputDeadline("2026-12-31").toISOString()).toBe("2027-01-02T07:00:00.000Z");
-  });
-  it("февраль високосного года", () => {
-    expect(inputDeadline("2028-02-29").toISOString()).toBe("2028-03-02T07:00:00.000Z");
-  });
-});
-
-describe("isInputOpen", () => {
-  it("до срока — открыт", () => {
-    expect(isInputOpen("2026-10-31", null, new Date("2026-11-02T06:59:59Z"))).toBe(true);
-  });
-  it("ровно в срок и позже — закрыт", () => {
-    expect(isInputOpen("2026-10-31", null, new Date("2026-11-02T07:00:00Z"))).toBe(false);
-    expect(isInputOpen("2026-10-31", null, new Date("2026-11-20T10:00:00Z"))).toBe(false);
-  });
-  it("разблокировка офиса открывает до unlocked_until", () => {
-    const now = new Date("2026-11-10T10:00:00Z");
-    expect(isInputOpen("2026-10-31", "2026-11-11T10:00:00Z", now)).toBe(true);
-    expect(isInputOpen("2026-10-31", "2026-11-10T10:00:00Z", now)).toBe(false);
-    expect(isInputOpen("2026-10-31", "2026-11-09T10:00:00Z", now)).toBe(false);
-  });
-  it("кривой период — закрыт", () => {
-    expect(isInputOpen("2026-10-30", null, new Date("2026-10-01T00:00:00Z"))).toBe(false);
-  });
-});
-
-describe("allowedPeriods (прошлый месяц — до его срока ввода)", () => {
-  it("в середине месяца — только текущий", () => {
-    expect(allowedPeriods(new Date("2026-10-15T07:00:00Z"))).toEqual(["2026-10-31"]);
+  it("после 2-го числа прошлый месяц по-прежнему доступен", () => {
+    expect(allowedPeriods(new Date("2026-10-07T07:00:00Z"))).toEqual(["2026-10-31", "2026-09-30"]);
   });
   it("1-е число 03:00 +05 (в UTC ещё 31-е) — новый месяц и прошлый", () => {
     expect(allowedPeriods(new Date("2026-10-31T22:00:00Z"))).toEqual(["2026-11-30", "2026-10-31"]);
   });
-  it("2-е 11:59 +05 — прошлый ещё доступен", () => {
-    expect(allowedPeriods(new Date("2026-11-02T06:59:00Z"))).toEqual(["2026-11-30", "2026-10-31"]);
-  });
-  it("2-е 12:00 +05 — прошлый уже нет", () => {
-    expect(allowedPeriods(new Date("2026-11-02T07:00:00Z"))).toEqual(["2026-11-30"]);
-  });
   it("переход через год", () => {
-    expect(allowedPeriods(new Date("2027-01-02T06:00:00Z"))).toEqual(["2027-01-31", "2026-12-31"]);
-    expect(allowedPeriods(new Date("2027-01-02T07:00:00Z"))).toEqual(["2027-01-31"]);
+    expect(allowedPeriods(new Date("2027-01-20T07:00:00Z"))).toEqual(["2027-01-31", "2026-12-31"]);
   });
 });
 

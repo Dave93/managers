@@ -200,7 +200,6 @@ export async function overview(db: DbLike, period: string, organizationId?: stri
       created_at: inventory_counts.created_at,
       submitted_at: inventory_counts.submitted_at,
       submitted_by: inventory_counts.submitted_by,
-      unlocked_until: inventory_counts.unlocked_until,
       store_name: corporation_store.name,
     })
     .from(inventory_counts)

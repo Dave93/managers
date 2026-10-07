@@ -80,31 +80,16 @@ export function ReviewControls({ detail, onDone }: { detail: ReconDetail; onDone
   );
 }
 
-export function CountsPanel({ detail, onDone }: { detail: ReconDetail; onDone: () => void }) {
+export function CountsPanel({ detail }: { detail: ReconDetail }) {
   const t = useTranslations("inventory.reconcile");
   const tStatus = useTranslations("inventory.status");
-  const locale = useLocale();
-  const onError = useErr();
-  const unlock = useMutation({ mutationFn: (id: string) => inventoryApi.unlock(id), onSuccess: onDone, onError });
   if (!detail.counts.length) return null;
   return (
     <div className="space-y-2 rounded border p-3">
       <div className="font-medium">{t("counts.title")}</div>
       {detail.counts.map((c) => (
-        <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-          <span>
-            {c.template_name} · {tStatus(c.status as any)} ·{" "}
-            {c.input_open
-              ? c.unlocked_until
-                ? t("counts.unlocked", { until: formatDateTime(c.unlocked_until, locale) })
-                : t("counts.open")
-              : t("counts.closed")}
-          </span>
-          {!c.input_open && (
-            <Button size="sm" variant="outline" disabled={unlock.isPending} onClick={() => unlock.mutate(c.id)}>
-              {t("counts.unlock")}
-            </Button>
-          )}
+        <div key={c.id} className="text-sm">
+          {c.template_name} · {tStatus(c.status as any)}
         </div>
       ))}
     </div>

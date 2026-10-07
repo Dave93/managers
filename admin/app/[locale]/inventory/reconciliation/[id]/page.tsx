@@ -76,7 +76,7 @@ function Detail({ id }: { id: string }) {
       </div>
       <ChooseDocument detail={d} onDone={() => { reload(); void status.refetch(); }} />
       <ReviewControls key={d.review_comment ?? ""} detail={d} onDone={reload} />
-      <CountsPanel detail={d} onDone={reload} />
+      <CountsPanel detail={d} />
       <Tabs defaultValue="lines">
         <TabsList>
           <TabsTrigger value="lines">{t("tabs.lines")}</TabsTrigger>

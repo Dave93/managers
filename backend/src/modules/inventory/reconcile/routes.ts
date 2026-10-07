@@ -3,8 +3,6 @@
 // филиал цифр iiko не видит.
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
-import { actorFrom } from "../access";
-import { unlockCount } from "../counts";
 import { InventoryError, run } from "../errors";
 import { isValidPeriod } from "../rules";
 import { assertNotRunning, enqueueReconcile, readStatus, reconcileQueue } from "./queue";
@@ -82,10 +80,4 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
         comment: t.Optional(t.String({ maxLength: 2000 })),
       }),
     }
-  )
-  .post(
-    "/inventory/counts/:id/unlock",
-    async ({ params, user, role, drizzle, cacheController, set }) =>
-      run(set, async () => unlockCount(drizzle, await actorFrom(cacheController, user, role), params.id, new Date())),
-    { permission: P, params: t.Object({ id: t.String() }) }
   );

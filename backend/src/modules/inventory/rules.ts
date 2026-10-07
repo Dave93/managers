@@ -52,30 +52,10 @@ export function isValidPeriod(period: string): boolean {
   return lastDayOfMonth(year, month) === period;
 }
 
-// Срок ввода (spec 2026-10-06, §8): 2-е число следующего месяца, 12:00 по Ташкенту.
-export const DEADLINE_DAY = 2;
-export const DEADLINE_HOUR_TASHKENT = 12;
-export const UNLOCK_HOURS = 24;
-
-export function inputDeadline(period: string): Date {
-  const [py, pm] = period.split("-").map(Number);
-  const n = nextMonth(py, pm);
-  return new Date(Date.UTC(n.y, n.m - 1, DEADLINE_DAY, DEADLINE_HOUR_TASHKENT) - TASHKENT_OFFSET_MS);
-}
-
-/** Филиал может менять пересчёт: до срока или пока действует разблокировка офиса. */
-export function isInputOpen(period: string, unlockedUntil: string | null, now: Date): boolean {
-  if (!isValidPeriod(period)) return false;
-  if (now.getTime() < inputDeadline(period).getTime()) return true;
-  return unlockedUntil !== null && Date.parse(unlockedUntil) > now.getTime();
-}
-
-/** Периоды, доступные для новой инвентаризации. Первый — текущий месяц, прошлый — до его срока ввода. */
+/** Периоды, доступные для новой инвентаризации: текущий месяц и прошлый, без срока ввода. */
 export function allowedPeriods(now: Date): string[] {
   const { y, m } = tashkentParts(now);
-  const current = lastDayOfMonth(y, m);
-  const prev = previousPeriod(now);
-  return now.getTime() < inputDeadline(prev).getTime() ? [current, prev] : [current];
+  return [lastDayOfMonth(y, m), previousPeriod(now)];
 }
 
 /** Последний день прошлого месяца по Ташкенту — период, который сверяет cron. */

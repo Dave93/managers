@@ -644,8 +644,7 @@
       "admin": {
         "submitted": "Topshirilgan",
         "draft": "Qoralama",
-        "none": "Sanoq yo'q",
-        "overdue": "Topshirilmagan"
+        "none": "Sanoq yo'q"
       },
       "status": {
         "waiting_iiko": "iiko hujjati kutilmoqda",
@@ -709,21 +708,11 @@
         "entry_added": "{qty} qo'shdi",
         "entry_deleted": "{qty} o'chirdi",
         "reopened": "qoralamaga qaytardi",
-        "unlocked": "blokdan chiqardi",
         "none": "Yuborilgandan keyin tuzatish yo'q"
       },
       "counts": {
-        "title": "Admindagi sanoqlar",
-        "unlock": "24 soatga blokdan chiqarish",
-        "unlocked": "{until} gacha blokdan chiqarilgan",
-        "closed": "Kiritish muddati tugagan",
-        "open": "Kiritish ochiq"
+        "title": "Admindagi sanoqlar"
       }
-    },
-    "deadline": {
-      "closed": "Kiritish muddati {deadline} da tugagan. Faqat ofis o'zgartira oladi.",
-      "unlocked": "Ofis tomonidan {until} gacha blokdan chiqarilgan",
-      "until": "Kiritish muddati: {deadline}"
     }
   }
 }

@@ -926,10 +926,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
   });
 
-  describe("inventory: срок ввода и разблокировка", () => {
-    const PAST = "2026-01-31"; // срок истёк 2026-02-02T07:00Z
+  describe("inventory: прошлый период — без срока ввода", () => {
+    const PAST = "2026-01-31";
 
-    // Пересчёт за прошлый период вставляется напрямую: через API его не создать.
+    // Пересчёт за давний период вставляется напрямую: через API его не создать.
     async function pastCount(w: World, status: "draft" | "submitted", createdBy: string) {
       const [c] = await drizzleDb
         .insert(schema.inventory_counts)
@@ -950,81 +950,48 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       return { countId: c.id, lineId: line.id };
     }
 
-    const reconciler = (w: World) => sessionFor(w, ["inventory.count", "inventory.reconcile"], false);
-
-    it("после срока: запись, отправка и возврат — 422 input_closed, детали говорят input_open=false", async () => {
+    it("пересчёт прошлого периода: запись, отправка и возврат в черновик проходят", async () => {
       const w = await seedWorld();
       try {
         const m = await manager(w);
-        const draft = await pastCount(w, "draft", m.userId);
-        const sync = await api(m, "POST", `/api/inventory/counts/${draft.countId}/entries/sync`, {
-          ops: [{ op: "add", id: randomUUID(), line_id: draft.lineId, qty: 1, client_created_at: new Date().toISOString() }],
-        });
-        expect(sync.status).toBe(422);
-        expect(sync.body.error).toBe("input_closed");
-        expect(sync.body.deadline).toBe("2026-02-02T07:00:00.000Z");
-
-        const submit = await api(m, "POST", `/api/inventory/counts/${draft.countId}/submit`, { skip_incomplete: true });
-        expect(submit.status).toBe(422);
-
-        // Уникальный индекс (store, period, template) среди неотменённых: черновик отменяем
-        // напрямую в базе, и только потом вставляем отправленный пересчёт.
-        await drizzleDb.update(schema.inventory_counts).set({ status: "cancelled" }).where(eq(schema.inventory_counts.id, draft.countId));
-        const sent = await pastCount(w, "submitted", m.userId);
-        const reopen = await api(m, "POST", `/api/inventory/counts/${sent.countId}/reopen`, {});
-        expect(reopen.status).toBe(422);
-        expect(reopen.body.error).toBe("input_closed");
-
-        const detail = await api(m, "GET", `/api/inventory/counts/${sent.countId}`);
-        expect(detail.status).toBe(200);
-        expect(detail.body.input_open).toBe(false);
-        expect(detail.body.can_reopen).toBe(false);
-        expect(detail.body.deadline).toBe("2026-02-02T07:00:00.000Z");
-        expect(detail.body.unlocked_until).toBeNull();
-      } finally {
-        await w.cleanup();
-      }
-    });
-
-    it("разблокировка: менеджер филиала — 403, офис с inventory.reconcile — 200, затем ввод снова принимается", async () => {
-      const w = await seedWorld();
-      try {
-        const m = await manager(w);
-        const draft = await pastCount(w, "draft", m.userId);
-
-        const denied = await api(m, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
-        expect(denied.status).toBe(403);
-
-        const o = await reconciler(w);
-        const ok = await api(o, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
-        expect(ok.status).toBe(200);
-        expect(Date.parse(ok.body.unlocked_until)).toBeGreaterThan(Date.now() + 23 * 3600_000);
-
-        const sync = await api(m, "POST", `/api/inventory/counts/${draft.countId}/entries/sync`, {
-          ops: [{ op: "add", id: randomUUID(), line_id: draft.lineId, qty: 2, client_created_at: new Date().toISOString() }],
+        const c = await pastCount(w, "draft", m.userId);
+        const sync = await api(m, "POST", `/api/inventory/counts/${c.countId}/entries/sync`, {
+          ops: [{ op: "add", id: randomUUID(), line_id: c.lineId, qty: 1, client_created_at: new Date().toISOString() }],
         });
         expect(sync.status).toBe(200);
         expect(sync.body.applied.length).toBe(1);
+        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/submit`, {})).status).toBe(200);
 
-        const events = await drizzleDb
-          .select({ type: schema.inventory_count_events.type })
-          .from(schema.inventory_count_events)
-          .where(eq(schema.inventory_count_events.count_id, draft.countId));
-        expect(events.map((e) => e.type)).toContain("unlocked");
+        const detail = await api(m, "GET", `/api/inventory/counts/${c.countId}`);
+        expect(detail.body.can_reopen).toBe(true);
+        expect(detail.body.input_open).toBeUndefined();
+        expect(detail.body.deadline).toBeUndefined();
+
+        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
       } finally {
         await w.cleanup();
       }
     });
 
-    it("разблокировать отменённый пересчёт нельзя — 409", async () => {
+    it("прошлый месяц можно начать в любой день", async () => {
       const w = await seedWorld();
       try {
         const m = await manager(w);
-        const draft = await pastCount(w, "draft", m.userId);
-        await drizzleDb.update(schema.inventory_counts).set({ status: "cancelled" }).where(eq(schema.inventory_counts.id, draft.countId));
-        const o = await reconciler(w);
-        const r = await api(o, "POST", `/api/inventory/counts/${draft.countId}/unlock`, {});
-        expect(r.status).toBe(409);
+        const r = await api(m, "GET", "/api/inventory/periods");
+        expect(r.body.periods.length).toBe(2);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("разблокировки больше нет — маршрут не существует", async () => {
+      const w = await seedWorld();
+      try {
+        const o = await sessionFor(w, ["inventory.count", "inventory.reconcile"], false);
+        const m = await manager(w);
+        const c = await pastCount(w, "draft", m.userId);
+        const r = await api(o, "POST", `/api/inventory/counts/${c.countId}/unlock`, {});
+        expect(r.status).toBe(404);
       } finally {
         await w.cleanup();
       }

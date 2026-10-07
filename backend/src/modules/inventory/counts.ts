@@ -16,7 +16,7 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
-import { allowedPeriods, inputDeadline, isInputOpen, isValidQty, nextStatus, UNLOCK_HOURS, UUID_RE } from "./rules";
+import { allowedPeriods, isValidQty, nextStatus, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
   InventoryStartOptions,
@@ -35,13 +35,6 @@ type CountRow = typeof inventory_counts.$inferSelect;
 
 export function assertUuid(id: string) {
   if (!UUID_RE.test(id)) throw new InventoryError(404, "not_found");
-}
-
-// Срок ввода (spec 2026-10-06, §8). Ошибка несёт срок, чтобы фронт показал дату.
-function assertInputOpen(row: { period: string; unlocked_until: string | null }, now: Date) {
-  if (!isInputOpen(row.period, row.unlocked_until, now)) {
-    throw new InventoryError(422, "input_closed", { deadline: inputDeadline(row.period).toISOString() });
-  }
 }
 
 export async function lockCount(tx: DbLike, id: string): Promise<CountRow> {
@@ -262,7 +255,7 @@ export async function createCount(
 
 type SummaryBase = Pick<
   CountRow,
-  "id" | "store_id" | "template_id" | "template_name" | "period" | "status" | "exord_filtered" | "created_at" | "submitted_at" | "submitted_by" | "unlocked_until"
+  "id" | "store_id" | "template_id" | "template_name" | "period" | "status" | "exord_filtered" | "created_at" | "submitted_at" | "submitted_by"
 > & { store_name: string | null };
 
 const summaryColumns = {
@@ -276,11 +269,10 @@ const summaryColumns = {
   created_at: inventory_counts.created_at,
   submitted_at: inventory_counts.submitted_at,
   submitted_by: inventory_counts.submitted_by,
-  unlocked_until: inventory_counts.unlocked_until,
   store_name: corporation_store.name,
 };
 
-export async function summaries(db: DbLike, rows: SummaryBase[], now: Date = new Date()): Promise<InventoryCountSummary[]> {
+export async function summaries(db: DbLike, rows: SummaryBase[]): Promise<InventoryCountSummary[]> {
   if (!rows.length) return [];
   const ids = rows.map((r) => r.id);
   const l = inventory_count_lines;
@@ -322,9 +314,6 @@ export async function summaries(db: DbLike, rows: SummaryBase[], now: Date = new
     lines_total: progressBy.get(r.id)?.total ?? 0,
     lines_done: progressBy.get(r.id)?.done ?? 0,
     participants: (partsBy.get(r.id) ?? []).sort(),
-    deadline: inputDeadline(r.period).toISOString(),
-    unlocked_until: r.unlocked_until,
-    input_open: isInputOpen(r.period, r.unlocked_until, now),
   }));
 }
 
@@ -351,7 +340,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
   const access = await storeAccess(db, actor, row.store_id);
   if (access === "none") throw new InventoryError(403, "store_forbidden");
 
-  const [summary] = await summaries(db, [row], now);
+  const [summary] = await summaries(db, [row]);
   const l = inventory_count_lines;
   const lines = await db
     .select({
@@ -390,7 +379,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     viewer_id: actor.userId,
     access,
     can_manage: manage,
-    can_reopen: manage && row.status === "submitted" && summary.input_open,
+    can_reopen: manage && row.status === "submitted",
     lines: lines.map(
       (x): InventoryLine => ({
         ...x,
@@ -409,12 +398,11 @@ export function normalizeNumeric(v: string): string {
   return v.replace(/\.?0+$/, "") || "0";
 }
 
-export async function requireWritableDraft(tx: DbLike, actor: Actor, id: string, now: Date = new Date()) {
+export async function requireWritableDraft(tx: DbLike, actor: Actor, id: string) {
   const row = await lockCount(tx, id);
   const access = await storeAccess(tx, actor, row.store_id);
   if (access !== "write") throw new InventoryError(403, "store_forbidden");
   if (row.status !== "draft") throw new InventoryError(409, "not_draft", { status: row.status });
-  assertInputOpen(row, now);
   return { row, manage: canManage(actor, access) };
 }
 
@@ -584,7 +572,6 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
     const row = await requireManagedCount(tx, actor, id);
     const to = nextStatus("submit", row.status);
     if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
-    assertInputOpen(row, new Date());
 
     const l = inventory_count_lines;
     const incomplete = await tx
@@ -631,8 +618,7 @@ export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Dat
     const row = await requireManagedCount(tx, actor, id);
     const to = nextStatus("reopen", row.status);
     if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
-    assertInputOpen(row, now);
-    await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
+      await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
     // Снимаем «не считали», которое поставила последняя отправка (skip_incomplete);
     // строки, которые человек отметил сам, остаются пропущенными.
     const [lastSubmit] = await tx
@@ -664,22 +650,8 @@ export async function cancelCount(db: DbLike, actor: Actor, id: string) {
     const row = await requireManagedCount(tx, actor, id);
     const to = nextStatus("cancel", row.status);
     if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
-    assertInputOpen(row, new Date());
     await tx.update(inventory_counts).set({ status: to, updated_at: sql`now()` }).where(eq(inventory_counts.id, id));
     await writeEvent(tx, id, "cancelled", actor.userId);
     return { ok: true as const };
-  });
-}
-
-// Офис разблокирует пересчёт после срока на UNLOCK_HOURS (spec 2026-10-06, §8).
-// Право inventory.reconcile проверяет маршрут; склад офису привязывать не нужно.
-export async function unlockCount(db: DbLike, actor: Actor, id: string, now: Date) {
-  return db.transaction(async (tx) => {
-    const row = await lockCount(tx, id);
-    if (row.status === "cancelled") throw new InventoryError(409, "cancelled");
-    const until = new Date(now.getTime() + UNLOCK_HOURS * 3600_000).toISOString();
-    await tx.update(inventory_counts).set({ unlocked_until: until, updated_at: sql`now()` }).where(eq(inventory_counts.id, id));
-    await writeEvent(tx, id, "unlocked", actor.userId, { until });
-    return { unlocked_until: until };
   });
 }

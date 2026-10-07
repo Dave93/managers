@@ -36,7 +36,6 @@ function detail(): InventoryCountDetail {
     id: "c", store_id: "s", store_name: "Склад", template_id: "t", template_name: "Месячная",
     period: "2026-10-31", status: "draft", exord_filtered: false, created_at: "", submitted_at: null, submitted_by_name: null,
     lines_total: 2, lines_done: 1, participants: ["Иван"], viewer_id: "me", access: "write",
-    deadline: "2026-11-02T07:00:00.000Z", unlocked_until: null, input_open: true,
     can_manage: true, can_reopen: false,
     lines: [
       {

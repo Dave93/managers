@@ -1,7 +1,6 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
-import { formatDateTime } from "@admin/lib/inventory/money";
 import { periodLabel } from "@admin/lib/inventory/periods";
 import type { OverlayDetail } from "@admin/lib/inventory/queue";
 import { StatusBadge } from "./status-badge";
@@ -24,7 +23,6 @@ export function CountHeader({
   onResendRejected: () => void;
 }) {
   const t = useTranslations("inventory");
-  const tDeadline = useTranslations("inventory.deadline");
   const locale = useLocale();
   const pct = detail.lines_total ? Math.round((detail.lines_done / detail.lines_total) * 100) : 0;
   return (
@@ -37,20 +35,6 @@ export function CountHeader({
       <div className="text-sm text-muted-foreground">
         {detail.template_id ? detail.template_name : t("branchAll")} · {periodLabel(detail.period, locale)}
       </div>
-      {detail.status !== "cancelled" &&
-        (!detail.input_open ? (
-          <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm">
-            {tDeadline("closed", { deadline: formatDateTime(detail.deadline, locale) })}
-          </div>
-        ) : detail.unlocked_until && Date.parse(detail.unlocked_until) > Date.parse(detail.deadline) ? (
-          <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">
-            {tDeadline("unlocked", { until: formatDateTime(detail.unlocked_until, locale) })}
-          </div>
-        ) : detail.status === "draft" ? (
-          <div className="text-xs text-muted-foreground">
-            {tDeadline("until", { deadline: formatDateTime(detail.deadline, locale) })}
-          </div>
-        ) : null)}
       <div className="flex items-center gap-3">
         <div className="h-2 flex-1 rounded bg-muted overflow-hidden">
           <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
@@ -67,12 +51,12 @@ export function CountHeader({
       {rejectedCount > 0 && (
         <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm flex items-start justify-between gap-3">
           <span>
-            {detail.status === "draft" && detail.access === "write" && detail.input_open
+            {detail.status === "draft" && detail.access === "write"
               ? t("sync.rejectedDraft", { count: rejectedCount })
               : t("sync.rejected", { count: rejectedCount })}
           </span>
           <div className="flex shrink-0 gap-1">
-            {detail.status === "draft" && detail.access === "write" && detail.input_open && (
+            {detail.status === "draft" && detail.access === "write" && (
               <Button size="sm" onClick={onResendRejected}>
                 {t("sync.resend")}
               </Button>
