@@ -108,6 +108,10 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
     e.status = res.status;
     e.value = payload;
     e.errors = payload?.errors;
+    // Разобран ли ответ как JSON нашего бэкенда: по этому describeFailure
+    // отличает его 500 («ничего не создано») от 500 прокси Next с плоским
+    // текстом (исход неизвестен).
+    (e as any).bodyParsed = typeof payload?.message === "string";
     throw e;
   }
   if (!payload || typeof payload.id !== "string") {
@@ -141,6 +145,8 @@ export function useCreateTicket() {
       qc.invalidateQueries({ queryKey: ["tickets"] });
     },
     onError: (e) => {
+      // Сырой текст сбоя человеку не показывается, но пропасть не должен.
+      console.error("tickets: create failed", e);
       const unknown = describeFailure(e).outcomeUnknown;
       latch.current = unknown;
       awaitRef.current = unknown;

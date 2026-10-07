@@ -250,7 +250,15 @@ export type NoAnswerKind = "network" | "timeout" | "no_body";
 const CHECK_LIST = "Откройте список заявок филиала и проверьте, нет ли там новой";
 
 export function describeFailure(e: unknown): SubmitFailure {
-  const err = e as { status?: number; message?: string; errors?: unknown; kind?: NoAnswerKind } | null;
+  const err = e as {
+    status?: number;
+    message?: string;
+    errors?: unknown;
+    kind?: NoAnswerKind;
+    // true: тело ответа разобрано как JSON с `message`, то есть отвечал наш
+    // бэкенд. Ставит postTicket.
+    bodyParsed?: boolean;
+  } | null;
   const server = typeof err?.message === "string" && err.message ? err.message : "Не удалось создать заявку";
   if (err instanceof CreateBlocked) return { message: server, refetchTypes: false, outcomeUnknown: false };
 
@@ -264,16 +272,27 @@ export function describeFailure(e: unknown): SubmitFailure {
       return unknown(`Сервер ответил, но без данных заявки: неизвестно, создалась ли она. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
     }
     if (err?.kind === "network" || status === undefined) {
-      // Любой другой сбой до ответа сервера читается так же: ответа нет.
+      // Любой другой сбой до ответа сервера читается так же: ответа нет. Сырой
+      // текст ошибки человеку не показываем (его пишет в консоль хук).
       return unknown(
         err?.kind === "network"
           ? `Связь оборвалась, и неизвестно, дошла ли заявка до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
-          : `Не удалось отправить заявку (${server}), и неизвестно, дошла ли она до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
+          : `Не удалось отправить заявку, и неизвестно, дошла ли она до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
       );
     }
   }
   if (status === 502 || status === 503 || status === 504) {
     return unknown(`Сервер не ответил вовремя (код ${status}). Заявка могла создаться. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+  }
+  // 5xx различаем по телу, а не по коду. Наш бэкенд всегда отвечает JSON с
+  // `message`, и достижимый 500 от него значит «ничего не создано». А прокси
+  // Next (/api/* переписывается на бэкенд, таймаут 30 с, любой обрыв) на своей
+  // ошибке отдаёт 500 с плоским текстом «Internal Server Error»: запрос мог
+  // дойти и заявка создаться. Тело не разобрано, значит исход неизвестен.
+  if (status !== undefined && status >= 500 && !err?.bodyParsed) {
+    return unknown(
+      `Сервер вернул ошибку без пояснения (код ${status}), и неизвестно, создалась ли заявка. ${CHECK_LIST}, прежде чем создавать ещё одну.`
+    );
   }
   const list = Array.isArray(err?.errors) ? (err!.errors as unknown[]).filter((x) => typeof x === "string") : [];
   const detailed = list.length ? `${server}: ${list.join("; ")}` : server;

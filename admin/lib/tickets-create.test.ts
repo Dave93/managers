@@ -354,18 +354,33 @@ describe("describeFailure", () => {
   test("непонятный сбой без статуса: исход неизвестен, текст не врёт про связь", () => {
     const f = describeFailure(new TypeError("boom"));
     expect(f.outcomeUnknown).toBe(true);
-    expect(f.message).toContain("boom");
+    // Сырой текст ошибки до человека не доходит.
+    expect(f.message).not.toContain("boom");
     expect(f.message).not.toContain("Связь оборвалась");
   });
   test("отказ сервера с известным исходом не требует проверки списка", () => {
-    for (const status of [401, 403, 404, 413, 422, 500]) {
+    for (const status of [401, 403, 404, 413, 422]) {
       expect(describeFailure(http(status, "x")).outcomeUnknown).toBe(false);
     }
   });
-  test("500 с ответом сервера: заявки нет, исход известен", () => {
-    const f = describeFailure(http(500, "Не удалось создать заявку"));
+  test("500 с JSON от нашего бэкенда: заявки нет, исход известен", () => {
+    const f = describeFailure(Object.assign(http(500, "Не удалось создать заявку"), { bodyParsed: true }));
     expect(f.outcomeUnknown).toBe(false);
     expect(f.message).toBe("Не удалось создать заявку");
+  });
+  // Прокси Next отвечает 500 с плоским текстом на таймауте в 30 с или обрыве
+  // бэкенда, а заявка к этому моменту могла создаться.
+  test("500 без разобранного тела (прокси Next): исход неизвестен", () => {
+    const f = describeFailure(http(500, "Не удалось выполнить запрос"));
+    expect(f.outcomeUnknown).toBe(true);
+    expect(f.message).toContain("без пояснения");
+    expect(f.message).toContain("проверьте");
+  });
+  test("5xx без тела неизвестен для любого кода, с телом известен", () => {
+    for (const status of [500, 501, 599]) {
+      expect(describeFailure(http(status, "x")).outcomeUnknown).toBe(true);
+      expect(describeFailure(Object.assign(http(status, "x"), { bodyParsed: true })).outcomeUnknown).toBe(false);
+    }
   });
   test("422 приводит ошибки полей и просит обновить типы", () => {
     const f = describeFailure(http(422, "Поля заполнены неверно", ["zone: обязательное поле"]));
