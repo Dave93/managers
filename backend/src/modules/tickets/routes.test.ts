@@ -662,6 +662,49 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           await s.cleanup();
         }
       });
+
+      // Выдача ссылки для выключенного исполнителя бесполезна (бот его не
+      // привяжет) и вредна (гасит действующую ссылку). Роут отвечает 422 и не
+      // трогает код.
+      it("выдача ссылки: выключенному 422 и код не меняется, включённому ссылка", async () => {
+        const s = await withSession({ permissions: ["tickets.contractors.manage"] });
+        const json = { ...s.headers, "content-type": "application/json" };
+        const prevBot = process.env.TICKETS_BOT_USERNAME;
+        process.env.TICKETS_BOT_USERNAME = "test_bot";
+        try {
+          const created = await call("/api/ticket_executors", {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ kind: "external", contractor_id: contractorId, full_name: "Выкл " + suffix }),
+          });
+          expect(created.status).toBe(200);
+          const { id } = await created.json();
+          createdExecutorIds.push(id);
+          const codeOf = async () =>
+            (await drizzleDb.select({ c: ticket_executors.invite_code }).from(ticket_executors).where(eq(ticket_executors.id, id)))[0]!.c;
+
+          const off = await call(`/api/ticket_executors/${id}`, { method: "PUT", headers: json, body: JSON.stringify({ is_active: false }) });
+          expect(off.status).toBe(200);
+          const before = await codeOf();
+          const denied = await call(`/api/ticket_executors/${id}/invite`, { method: "POST", headers: s.headers });
+          expect(denied.status).toBe(422);
+          expect((await denied.json()).message).toContain("выключен");
+          expect(await codeOf()).toBe(before);
+
+          const on = await call(`/api/ticket_executors/${id}`, { method: "PUT", headers: json, body: JSON.stringify({ is_active: true }) });
+          expect(on.status).toBe(200);
+          const ok = await call(`/api/ticket_executors/${id}/invite`, { method: "POST", headers: s.headers });
+          expect(ok.status).toBe(200);
+          expect(await codeOf()).not.toBe(before);
+
+          const missing = await call(`/api/ticket_executors/${randomUUID()}/invite`, { method: "POST", headers: s.headers });
+          expect(missing.status).toBe(404);
+        } finally {
+          if (prevBot === undefined) delete process.env.TICKETS_BOT_USERNAME;
+          else process.env.TICKETS_BOT_USERNAME = prevBot;
+          await s.cleanup();
+        }
+      });
     });
 
     // Роуты комментария и смены статуса общие для планшета филиала и карточки

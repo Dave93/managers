@@ -1272,6 +1272,23 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 404;
         return { message: "Исполнитель не найден" };
       }
+      // Выключенного исполнителя бот не привяжет (is_active стоит в WHERE
+      // привязки, bot-controller.ts), так что ссылка для него бесполезна, а
+      // выдача погасила бы действующую. Проверяем до ротации кода.
+      const [target] = await drizzle
+        .select({ is_active: ticket_executors.is_active })
+        .from(ticket_executors)
+        .where(eq(ticket_executors.id, id))
+        .limit(1)
+        .execute();
+      if (!target) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      if (!target.is_active) {
+        set.status = 422;
+        return { message: "Исполнитель выключен: бот не привяжет выключенного. Включите его и повторите." };
+      }
       // Без имени бота ссылка получается вида https://t.me/?start=inv_...  —
       // формально 200, а на деле открывает пустой t.me и никуда не ведёт.
       // Проверяем до ротации кода: если ссылку выдать нельзя, старая ссылка
@@ -1287,11 +1304,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const [row] = await drizzle
         .update(ticket_executors)
         .set({ invite_code: sql`gen_random_uuid()`, invite_used_at: null, updated_at: new Date().toISOString() })
-        .where(eq(ticket_executors.id, id))
+        .where(and(eq(ticket_executors.id, id), eq(ticket_executors.is_active, true)))
         .returning({ invite_code: ticket_executors.invite_code });
       if (!row) {
-        set.status = 404;
-        return { message: "Исполнитель не найден" };
+        // Строка была секунду назад: её успели выключить или удалить между
+        // проверкой выше и этим UPDATE. Код не провёрнут.
+        set.status = 409;
+        return { message: "Исполнитель изменился: обновите страницу и повторите." };
       }
       return { invite_code: row.invite_code, link: `https://t.me/${bot}?start=inv_${row.invite_code}` };
     },
