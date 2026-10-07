@@ -20,10 +20,11 @@ export const ticketKeys = {
 // «Повторить» и опрос раз в минуту лечат разовые сбои.
 const FAIL_FAST = { retry: false, networkMode: "always" } as const;
 
-export function useTicketList(q: TicketListQuery) {
+export function useTicketList(q: TicketListQuery, enabled = true) {
   return useQuery({
     queryKey: ticketKeys.list(q),
     queryFn: () => listTickets(q),
+    enabled,
     ...FAIL_FAST,
     // Экран отвечает на вопрос «что сейчас происходит», так что список и
     // счётчики сами обновляются, пока вкладка открыта.

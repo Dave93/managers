@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "ESLINT_USE_FLAT_CONFIG=false eslint .",
-    "test": "bun test \"./app/[locale]/tickets/types/_components/rules.test.ts\" ./lib/tickets-details.test.ts ./lib/tickets-create.test.ts"
+    "test": "bun test \"./app/[locale]/tickets/types/_components/rules.test.ts\" ./lib/tickets-details.test.ts ./lib/tickets-create.test.ts ./lib/tickets-branch.test.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

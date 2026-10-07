@@ -82,17 +82,17 @@ const EVENT_RU: Record<TicketEventType, string> = {
   payment_rejected: "Оплата отклонена",
 };
 
-const PAYMENT_RU: Record<PaymentStatus, string> = {
+export const PAYMENT_RU: Record<PaymentStatus, string> = {
   pending: "на утверждении офиса",
   approved: "утверждена",
   rejected: "отклонена",
 };
 
-function actorLabel(kind: ActorKind): string {
+export function actorLabel(kind: ActorKind): string {
   return ACTOR_RU[kind] ?? kind;
 }
 
-function fmtTs(value: string | null | undefined): string {
+export function fmtTs(value: string | null | undefined): string {
   if (!value) return "—";
   const ms = parseTs(value);
   if (!Number.isFinite(ms)) return "—";
@@ -114,7 +114,7 @@ function fmtQty(value: string): string {
 // 409 у действий над заявкой значит одно: статус успели поменять до нас
 // (другой сотрудник, исполнитель). Текст сервера для close говорит про
 // «состояние „сдана“» и человеку ничего не объясняет, поэтому подменяем.
-function actionError(error: unknown): string {
+export function actionError(error: unknown): string {
   if ((error as ApiError)?.status === 409) {
     return "Статус заявки уже изменился: её успели обработать раньше. Карточка обновлена, проверьте текущий статус.";
   }
@@ -158,7 +158,7 @@ export function buildFieldRows(card: TicketCard): { rows: FieldRow[]; schemaKnow
 // секции
 // ---------------------------------------------------------------------------
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-medium">{title}</h4>
@@ -167,11 +167,11 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
+export function Empty({ children }: { children: React.ReactNode }) {
   return <p className="text-sm text-muted-foreground">{children}</p>;
 }
 
-function FieldsSection({ card }: { card: TicketCard }) {
+export function FieldsSection({ card }: { card: TicketCard }) {
   const { rows, schemaKnown } = buildFieldRows(card);
   const description = card.description?.trim();
   return (
@@ -210,7 +210,7 @@ function FieldsSection({ card }: { card: TicketCard }) {
   );
 }
 
-function ActSection({ card }: { card: TicketCard }) {
+export function ActSection({ card }: { card: TicketCard }) {
   const items = card.work_items ?? [];
   return (
     <Section title="Акт выполненных работ">
@@ -257,7 +257,7 @@ function ActSection({ card }: { card: TicketCard }) {
   );
 }
 
-function PaymentSection({ card }: { card: TicketCard }) {
+export function PaymentSection({ card }: { card: TicketCard }) {
   // Сумма появляется вместе с актом. До него payment_status всё равно
   // «pending», и подпись «на утверждении офиса» у заявки без суммы лгала бы.
   if (card.work_total_amount === null || card.work_total_amount === undefined) return null;
@@ -335,7 +335,7 @@ function ConversationSection({
   );
 }
 
-function EventsSection({ events }: { events: TicketEventRow[] }) {
+export function EventsSection({ events }: { events: TicketEventRow[] }) {
   return (
     <Section title="Лента событий">
       {events.length === 0 ? (
@@ -526,7 +526,7 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
 }
 
 // Загрузка, ошибка и «нет такой заявки» различимы и ни одна не вечная.
-function Notice({
+export function Notice({
   icon,
   title,
   children,
@@ -613,7 +613,7 @@ function TicketBody({ ticketId, onClose }: { ticketId: string; onClose: () => vo
 // уходящую панель: без запомненного id она выехала бы пустой. А «эпоха»
 // растёт при каждом новом открытии, чтобы повторное открытие той же заявки
 // не принесло старый черновик и старую ошибку действия.
-function useSheetSession(ticketId: string | null) {
+export function useSheetSession(ticketId: string | null) {
   const [s, setS] = useState({ prev: ticketId, shown: ticketId, epoch: 0 });
   if (ticketId !== s.prev) {
     setS({

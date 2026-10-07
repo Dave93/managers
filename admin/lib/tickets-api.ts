@@ -60,6 +60,12 @@ export type TicketRow = {
   done_at: string | null;
   closed_at: string | null;
   manager_seen_at: string | null;
+  // Время новейшего события заявки (максимум ticket_events.created_at), null,
+  // если событий нет. Основа точки непрочитанного на планшете: комментарий
+  // исполнителя не меняет ни одну колонку tickets, а только добавляет событие.
+  last_event_at: string | null;
+  // Первое фото проблемы для превью карточки; null, если фото проблемы нет.
+  preview_attachment_id: string | null;
   work_total_amount: string | null;
   payment_status: PaymentStatus;
   type_name: string | null;
