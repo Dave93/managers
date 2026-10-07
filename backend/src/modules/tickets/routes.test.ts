@@ -571,6 +571,59 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(keys).not.toContain(k);
         }
       });
+
+      // Одноразовый токен приглашения нужен ровно одному роуту — выдаче ссылки.
+      // Список, создание и правка отдают справочник всем, у кого есть право
+      // читать его, и токен там лежать не должен.
+      it("справочник исполнителей не отдаёт invite_code", async () => {
+        const s = await withSession({ permissions: ["tickets.contractors.manage"] });
+        const json = { ...s.headers, "content-type": "application/json" };
+        const prevBot = process.env.TICKETS_BOT_USERNAME;
+        try {
+          const list = await call(`/api/ticket_executors?contractor_id=${must(contractorId, "contractorId")}`, {
+            headers: s.headers,
+          });
+          expect(list.status).toBe(200);
+          const listBody = await list.json();
+          expect(listBody.data.length).toBeGreaterThan(0);
+          for (const row of listBody.data) expect(row).not.toHaveProperty("invite_code");
+
+          const created = await call("/api/ticket_executors", {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ kind: "external", contractor_id: contractorId, full_name: "Создан " + suffix }),
+          });
+          expect(created.status).toBe(200);
+          const createdBody = await created.json();
+          createdExecutorIds.push(createdBody.id);
+          expect(createdBody).not.toHaveProperty("invite_code");
+
+          const updated = await call(`/api/ticket_executors/${createdBody.id}`, {
+            method: "PUT",
+            headers: json,
+            body: JSON.stringify({ phone: "+998900000000" }),
+          });
+          expect(updated.status).toBe(200);
+          const updatedBody = await updated.json();
+          expect(updatedBody.phone).toBe("+998900000000");
+          expect(updatedBody).not.toHaveProperty("invite_code");
+
+          // Выдача ссылки по-прежнему возвращает код: это единственное место.
+          process.env.TICKETS_BOT_USERNAME = "test_bot";
+          const invite = await call(`/api/ticket_executors/${createdBody.id}/invite`, {
+            method: "POST",
+            headers: s.headers,
+          });
+          expect(invite.status).toBe(200);
+          const inviteBody = await invite.json();
+          expect(typeof inviteBody.invite_code).toBe("string");
+          expect(inviteBody.link).toContain(inviteBody.invite_code);
+        } finally {
+          if (prevBot === undefined) delete process.env.TICKETS_BOT_USERNAME;
+          else process.env.TICKETS_BOT_USERNAME = prevBot;
+          await s.cleanup();
+        }
+      });
     });
 
     afterAll(async () => {

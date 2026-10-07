@@ -183,6 +183,16 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
   return patch;
 }
 
+// invite_code — одноразовый токен входа исполнителя в Telegram-бота. Его
+// должен видеть только тот, кто нажал «выдать ссылку» (POST
+// /ticket_executors/:id/invite), а список, создание и правка отдают строку
+// справочника всем, у кого есть право его читать. Поэтому из этих трёх
+// ответов код вырезается.
+function withoutInviteCode<T extends { invite_code?: unknown }>(row: T): Omit<T, "invite_code"> {
+  const { invite_code: _inviteCode, ...rest } = row;
+  return rest;
+}
+
 // 0 обновлённых строк для справочников однозначно значит "не найдена" — в
 // отличие от tickets, здесь нет статусного скоупа, который стоило бы отличать
 // отдельным SELECT (см. notFoundOrConflict выше).
@@ -1120,14 +1130,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         return { message: "contractor_id должен быть UUID" };
       }
       const where = contractor_id ? [eq(ticket_executors.contractor_id, contractor_id)] : [];
-      return {
-        data: await drizzle
-          .select()
-          .from(ticket_executors)
-          .where(and(...where))
-          .orderBy(ticket_executors.full_name)
-          .execute(),
-      };
+      const rows = await drizzle
+        .select()
+        .from(ticket_executors)
+        .where(and(...where))
+        .orderBy(ticket_executors.full_name)
+        .execute();
+      return { data: rows.map(withoutInviteCode) };
     },
     { permission: "tickets.contractors.manage", query: t.Object({ contractor_id: t.Optional(t.String()) }) }
   )
@@ -1187,7 +1196,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           lang: body.lang ?? "ru",
         })
         .returning();
-      return row;
+      return withoutInviteCode(row);
     },
     {
       permission: "tickets.contractors.manage",
@@ -1211,7 +1220,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const patch = buildPatch<typeof ticket_executors.$inferInsert>(body, ["full_name", "phone", "lang", "is_active"]);
       patch.updated_at = new Date().toISOString();
       const rows = await drizzle.update(ticket_executors).set(patch).where(eq(ticket_executors.id, id)).returning();
-      const result = rowOrNotFound(rows, "Исполнитель не найден");
+      const result = rowOrNotFound(rows.map(withoutInviteCode), "Исполнитель не найден");
       set.status = result.status;
       return result.body;
     },
