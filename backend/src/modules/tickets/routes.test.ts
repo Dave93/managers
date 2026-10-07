@@ -393,6 +393,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
       afterAll(async () => {
         if (createdTicketIds.length > 0) {
+          // Утверждение пишет событие; без каскада по FK оно держало бы заявку.
+          await drizzleDb.delete(ticket_events).where(inArray(ticket_events.ticket_id, createdTicketIds));
           await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
         }
         if (typeId) {
@@ -429,12 +431,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
     });
 
-    // tickets.list_all снимает скоуп по филиалам только в чтении: список (и
-    // тот же count, на котором стоят очередь «К оплате» и предупреждение
-    // редактора типов), карточка и файл вложения. Записи он не касается. Обе
-    // заявки ниже сразу «к оплате» (closed + pending + сумма), чтобы одна и та
-    // же пара годилась и для чтения, и для проверки, что утверждение по-прежнему
-    // режется скоупом. Дочерние строки (комментарий, событие, вложение) заведены
+    // tickets.list_all снимает скоуп по филиалам во всём модуле: в чтении
+    // (список и тот же count, на котором стоят очередь «К оплате» и
+    // предупреждение редактора типов, карточка, файл вложения) и в записи
+    // (оплата, close, reopen, cancel, comments, seen). Первая пара заявок
+    // ниже служит чтению; каждой записи заводится своя свежая заявка. Дочерние строки (комментарий, событие, вложение) заведены
     // нарочно: у ticket_comments, ticket_events и ticket_attachments нет
     // каскада по FK, и уборка обязана снять их раньше заявки.
     describe("tickets.list_all — снятие скоупа в чтении (с фикстурами)", () => {
@@ -638,46 +639,224 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
-      // Запись tickets.list_all не расширяет: сессия с правом видит чужую
-      // заявку, но утвердить оплату, отметить просмотр или написать комментарий
-      // по ней не может.
-      it("tickets.list_all не расширяет запись: утверждение, seen и комментарий по чужой заявке не проходят", async () => {
-        const b = must(ticketB, "ticketB");
-        const s = await withSession({
-          permissions: ["tickets.list", "tickets.list_all", "tickets.payment.approve"],
+      // Запись: то же правило, что в чтении. С tickets.list_all действие над
+      // заявкой чужого филиала проходит; без права остаётся прежний 404 (или
+      // approved: 0, skipped: 1 у оплаты), и строка в базе не меняется. Для
+      // каждой записи берётся своя свежая заявка в чужом филиале: действие
+      // меняет состояние, и общая пара фикстур поплыла бы от теста к тесту.
+      // Негативная половина (без права) главная: если условие в
+      // effectiveTerminals перевернуть или выбросить, она краснеет.
+      const freshTicket = async (status: "new" | "done" | "closed", extra: Partial<typeof tickets.$inferInsert> = {}) => {
+        const [row] = await drizzleDb
+          .insert(tickets)
+          .values({
+            type_id: must(typeId, "typeId"),
+            terminal_id: terminalB,
+            organization_id: randomUUID(),
+            created_by: randomUUID(),
+            status,
+            ...extra,
+          })
+          .returning({ id: tickets.id });
+        createdTicketIds.push(row.id);
+        return row.id;
+      };
+      const officeSession = (wide: boolean) =>
+        withSession({
+          permissions: [
+            "tickets.list",
+            "tickets.close",
+            "tickets.cancel",
+            "tickets.payment.approve",
+            ...(wide ? ["tickets.list_all"] : []),
+          ],
           terminals: [terminalA],
         });
+      const post = (headers: Record<string, string>, path: string, body?: unknown) =>
+        call(path, {
+          method: "POST",
+          headers: { ...headers, "content-type": "application/json" },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+      const stateOf = async (id: string) => {
+        const [row] = await drizzleDb
+          .select({
+            status: tickets.status,
+            payment_status: tickets.payment_status,
+            manager_seen_at: tickets.manager_seen_at,
+          })
+          .from(tickets)
+          .where(eq(tickets.id, id));
+        return row;
+      };
+
+      it("без tickets.list_all утверждение оплаты по чужому филиалу пропускается", async () => {
+        const id = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const s = await officeSession(false);
         try {
-          const json = { ...s.headers, "content-type": "application/json" };
-          const approve = await call("/api/tickets/payment/approve", {
-            method: "POST",
-            headers: json,
-            body: JSON.stringify({ ids: [b] }),
-          });
-          expect(approve.status).toBe(200);
-          const approveBody = await approve.json();
-          expect(approveBody.approved).toBe(0);
-          expect(approveBody.skipped).toBe(1);
+          const res = await post(s.headers, "/api/tickets/payment/approve", { ids: [id] });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.approved).toBe(0);
+          expect(body.skipped).toBe(1);
+          expect((await stateOf(id)).payment_status).toBe("pending");
+        } finally {
+          await s.cleanup();
+        }
+      });
 
-          const seen = await call(`/api/tickets/${b}/seen`, { method: "POST", headers: s.headers });
-          expect(seen.status).toBe(404);
+      it("с tickets.list_all утверждение оплаты по чужому филиалу проходит", async () => {
+        const id = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const s = await officeSession(true);
+        try {
+          const res = await post(s.headers, "/api/tickets/payment/approve", { ids: [id] });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.approved).toBe(1);
+          expect(body.skipped).toBe(0);
+          expect((await stateOf(id)).payment_status).toBe("approved");
+        } finally {
+          await s.cleanup();
+        }
+      });
 
-          const comment = await call(`/api/tickets/${b}/comments`, {
-            method: "POST",
-            headers: json,
-            body: JSON.stringify({ body: "не должен записаться" }),
-          });
-          expect(comment.status).toBe(404);
+      it("без tickets.list_all отклонение оплаты по чужому филиалу пропускается", async () => {
+        const id = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const s = await officeSession(false);
+        try {
+          const res = await post(s.headers, "/api/tickets/payment/reject", { ids: [id], comment: "нет акта" });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.rejected).toBe(0);
+          expect(body.skipped).toBe(1);
+          expect((await stateOf(id)).payment_status).toBe("pending");
+        } finally {
+          await s.cleanup();
+        }
+      });
 
-          // Решает состояние базы, а не тело ответа.
-          const [row] = await drizzleDb
-            .select({ payment_status: tickets.payment_status, manager_seen_at: tickets.manager_seen_at })
-            .from(tickets)
-            .where(eq(tickets.id, b));
-          expect(row?.payment_status).toBe("pending");
-          expect(row?.manager_seen_at).toBeNull();
-          const written = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, b));
-          expect(written).toHaveLength(1);
+      it("с tickets.list_all отклонение оплаты по чужому филиалу проходит", async () => {
+        const id = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const s = await officeSession(true);
+        try {
+          const res = await post(s.headers, "/api/tickets/payment/reject", { ids: [id], comment: "нет акта" });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.rejected).toBe(1);
+          expect((await stateOf(id)).payment_status).toBe("rejected");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all приём (close) заявки чужого филиала — 404, статус прежний", async () => {
+        const id = await freshTicket("done");
+        const s = await officeSession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/close`)).status).toBe(404);
+          expect((await stateOf(id)).status).toBe("done");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all приём (close) заявки чужого филиала проходит", async () => {
+        const id = await freshTicket("done");
+        const s = await officeSession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/close`)).status).toBe(200);
+          expect((await stateOf(id)).status).toBe("closed");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all возврат в работу (reopen) заявки чужого филиала — 404", async () => {
+        const id = await freshTicket("done");
+        const s = await officeSession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/reopen`, { comment: "переделать" })).status).toBe(404);
+          expect((await stateOf(id)).status).toBe("done");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all возврат в работу (reopen) заявки чужого филиала проходит", async () => {
+        const id = await freshTicket("done");
+        const s = await officeSession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/reopen`, { comment: "переделать" })).status).toBe(200);
+          expect((await stateOf(id)).status).toBe("in_progress");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all отмена заявки чужого филиала — 404", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/cancel`, { comment: "дубль" })).status).toBe(404);
+          expect((await stateOf(id)).status).toBe("new");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all отмена заявки чужого филиала проходит", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/cancel`, { comment: "дубль" })).status).toBe(200);
+          expect((await stateOf(id)).status).toBe("cancelled");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all комментарий к заявке чужого филиала — 404, строки нет", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/comments`, { body: "не должен записаться" })).status).toBe(404);
+          const rows = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, id));
+          expect(rows).toHaveLength(0);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all комментарий к заявке чужого филиала пишется", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(true);
+        try {
+          const res = await post(s.headers, `/api/tickets/${id}/comments`, { body: "от офиса" });
+          expect(res.status).toBe(200);
+          const rows = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, id));
+          expect(rows).toHaveLength(1);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без tickets.list_all отметка seen на заявке чужого филиала — 404, поле пусто", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/seen`)).status).toBe(404);
+          expect((await stateOf(id)).manager_seen_at).toBeNull();
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("с tickets.list_all отметка seen на заявке чужого филиала проходит", async () => {
+        const id = await freshTicket("new");
+        const s = await officeSession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/seen`)).status).toBe(200);
+          expect((await stateOf(id)).manager_seen_at).not.toBeNull();
         } finally {
           await s.cleanup();
         }

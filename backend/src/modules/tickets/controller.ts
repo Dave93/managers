@@ -80,10 +80,13 @@ async function notFoundOrConflict(
   return { status: 409, body: { message: conflictMessage } };
 }
 
-// Право tickets.list_all снимает скоуп по филиалам в ЧТЕНИИ: офисный
-// наблюдатель видит заявки всех филиалов и типов. Роуты записи (close, reopen,
-// cancel, comments, seen, payment/*) этим не пользуются и скоупятся по
-// терминалам сессии как раньше — расширять запись это право не уполномочивает.
+// Право tickets.list_all снимает скоуп по филиалам во всём модуле заявок, и в
+// чтении (список, карточка, вложение), и в записи (close, reopen, cancel,
+// comments, seen, payment/approve, payment/reject). Фильтр по терминалам в этих
+// роутах достался от планшета филиала; для офисной сессии он оставлял кнопки,
+// которые всегда отвечают 404, и очередь «К оплате», где ничего не утвердить.
+// Границей полномочий служит само право, а не список филиалов. Сессия без
+// права скоупится по своим терминалам ровно как раньше.
 //
 // Возвращает список филиалов для фильтра или undefined, если фильтровать не
 // нужно. Пустой terminals и так значит «все филиалы», поэтому без филиалов
@@ -93,7 +96,7 @@ async function notFoundOrConflict(
 // отдельным запросом, — так же, как в resolveIsHq и в списке типов выше.
 const LIST_ALL_PERMISSION = "tickets.list_all";
 
-async function readScopeTerminals(args: {
+async function effectiveTerminals(args: {
   userTerminals: string[] | undefined;
   role: { id: string } | null | undefined;
   cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
@@ -155,10 +158,10 @@ async function applyPaymentDecision(
       eq(tickets.payment_status, "pending"),
       isNotNull(tickets.work_total_amount),
     ];
-    // Офисные роли несут пустой terminals (= все филиалы), но если у сессии
-    // филиалы всё же есть — например, роль с tickets.payment.approve по
-    // ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
-    // трогать нельзя.
+    // userTerminals приходит уже после effectiveTerminals: держатель
+    // tickets.list_all (офис) утверждает по всем филиалам, а сессия без этого
+    // права — например, роль с tickets.payment.approve по ошибке выдали
+    // филиалу — остаётся в своих: чужие деньги ей трогать нельзя.
     if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
 
     const rows = await tx
@@ -518,7 +521,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       // "все филиалы" — тот же смысл, что в остальных модулях. Право
       // tickets.list_all снимает скоуп, и тогда тот же where считает и total
       // (очередь «К оплате», предупреждения редактора типов), и строки.
-      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
       }
@@ -595,7 +598,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
-      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
@@ -657,7 +660,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       }
       // Вложения открывает та же карточка, что и GET /tickets/:id: если заявку
       // офис видит, фото к ней должно отдаваться по тому же правилу.
-      const userTerminals = await readScopeTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const [row] = await drizzle
         .select({ file_path: ticket_attachments.file_path, mime: ticket_attachments.mime, terminal_id: tickets.terminal_id })
         .from(ticket_attachments)
@@ -681,8 +684,9 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/close",
-    async ({ params: { id }, user, terminals: userTerminals, set, drizzle }) => {
-      const actor = actorKindOf(userTerminals);
+    async ({ params: { id }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const actor = actorKindOf(sessionTerminals);
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -731,8 +735,9 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/reopen",
-    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
-      const actor = actorKindOf(userTerminals);
+    async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const actor = actorKindOf(sessionTerminals);
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -792,8 +797,9 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/cancel",
-    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
-      const actor = actorKindOf(userTerminals);
+    async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const actor = actorKindOf(sessionTerminals);
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -846,8 +852,9 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/comments",
-    async ({ params: { id }, body: { body: text }, user, terminals: userTerminals, set, drizzle }) => {
-      const actor = actorKindOf(userTerminals);
+    async ({ params: { id }, body: { body: text }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const actor = actorKindOf(sessionTerminals);
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -891,11 +898,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/seen",
-    async ({ params: { id }, terminals: userTerminals, drizzle, set }) => {
+    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, drizzle, set }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
       const updated = await drizzle
@@ -913,7 +921,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/payment/approve",
-    async ({ body: { ids }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body: { ids }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
@@ -944,7 +953,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/payment/reject",
-    async ({ body: { ids, comment }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body: { ids, comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
