@@ -441,6 +441,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       let loginOnlyTicketId: string | undefined;
       let danglingTicketId: string | undefined;
       const loginOnly = "card_login_only_" + suffix;
+      // Заведомо узнаваемое значение вместо "x": по нему утечку видно и тогда,
+      // когда колонка попала в ответ под другим именем.
+      const passwordSentinel = "SENTINEL-PASSWORD-" + suffix;
       const createdTicketIds: string[] = [];
       const createdExecutorIds: string[] = [];
 
@@ -486,7 +489,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           .insert(users)
           .values({
             login: "card_named_" + suffix,
-            password: "x",
+            password: passwordSentinel,
             status: "active",
             first_name: "Иван",
             last_name: "Петров",
@@ -496,7 +499,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
         const [bare] = await drizzleDb
           .insert(users)
-          .values({ login: loginOnly, password: "x", status: "active" })
+          .values({ login: loginOnly, password: passwordSentinel, status: "active" })
           .returning({ id: users.id });
         loginOnlyUserId = bare.id;
 
@@ -570,13 +573,41 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(body.author_name).toBeNull();
       });
 
-      // join с users не должен втащить в ответ строку пользователя целиком.
+      // join с users не должен втащить в ответ строку пользователя. Голый
+      // .select() с join-ом отдаёт вложенные объекты ({ tickets, users: {...} }),
+      // поэтому проверяется сериализованный ответ целиком, а не список верхних
+      // ключей: на верхнем уровне password не появился бы никогда. Колонки —
+      // те, что реально есть в схеме users: учётные данные и токены (password,
+      // salt, api_token, fcm_token, attestation_pin_hash, tg_id) и личные
+      // данные (phone, email, birth_date, doc_files, is_super_user, role_id,
+      // department). author_name при этом собирается из них, но сам исходный
+      // login у автора с именем в ответ попасть не должен.
       it("не отдаёт ничего лишнего из users", async () => {
         const { body } = await getCard(must(fullTicketId, "fullTicketId"));
-        const keys = Object.keys(body);
-        for (const k of ["password", "salt", "api_token", "login", "author_first_name", "author_last_name", "author_login"]) {
-          expect(keys).not.toContain(k);
+        const json = JSON.stringify(body);
+        const forbidden = [
+          "password",
+          "salt",
+          "api_token",
+          "fcm_token",
+          "attestation_pin_hash",
+          "tg_id",
+          "phone",
+          "email",
+          "birth_date",
+          "doc_files",
+          "is_super_user",
+          "role_id",
+          "department",
+          "author_first_name",
+          "author_last_name",
+          "author_login",
+        ];
+        for (const key of forbidden) {
+          expect(json).not.toContain(`"${key}"`);
         }
+        expect(json).not.toContain(passwordSentinel);
+        expect(json).not.toContain("card_named_" + suffix);
       });
 
       // Одноразовый токен приглашения нужен ровно одному роуту — выдаче ссылки.
