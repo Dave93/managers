@@ -55,7 +55,7 @@ import { FieldsEditor, Segmented } from "./fields-editor";
 import {
   buildCreateBody,
   buildUpdatePatch,
-  noRisks,
+  needsConfirmation,
   orphanRisks,
   schemaSignature,
   toDrafts,
@@ -140,16 +140,27 @@ export function CountNote({
 }: {
   count: { state: "known"; n: number } | { state: "unknown" } | { state: "checking" };
 }) {
+  // Число считает GET /tickets в пределах филиалов сессии, поэтому оно
+  // только поясняет и ничего не разрешает: подтверждение показывается всегда.
   if (count.state === "known") {
-    return <>По этому типу уже есть заявки: {count.n}.</>;
+    return count.n > 0 ? (
+      <>
+        В доступных вам филиалах заявок этого типа: {count.n}. В остальных филиалах их может быть
+        больше.
+      </>
+    ) : (
+      <>
+        В доступных вам филиалах заявок этого типа нет, но в остальных филиалах они могут быть.
+      </>
+    );
   }
   if (count.state === "checking") {
-    return <>Идёт проверка, есть ли заявки по этому типу. Считайте, что есть.</>;
+    return <>Идёт подсчёт заявок этого типа. Считайте, что они есть.</>;
   }
   return (
     <>
-      Не удалось проверить, есть ли заявки по этому типу (для проверки нужно право{" "}
-      <code className="font-mono text-[12px]">{LIST_RIGHT}</code>). Считайте, что есть.
+      Число заявок этого типа неизвестно: подсчёт не удался (для него нужно право{" "}
+      <code className="font-mono text-[12px]">{LIST_RIGHT}</code>). Считайте, что заявки есть.
     </>
   );
 }
@@ -276,15 +287,20 @@ export function TypeBody({
     !pending && !hasFormErrors && blocking.length === 0 && (mode === "create" || dirty);
 
   const risks = orphanRisks(initial.state.fields, fields);
+  // Счётчик только для формулировки диалога. Известным он считается, лишь
+  // пока нет ни ошибки, ни перезапроса: TanStack держит прошлые данные, когда
+  // перезапрос упал или ещё летит, и закэшированный ноль с прошлого открытия
+  // не должен выдавать себя за свежий.
   const countState: React.ComponentProps<typeof CountNote>["count"] =
-    count.data !== undefined
-      ? { state: "known", n: count.data }
-      : count.isError
-        ? { state: "unknown" }
+    count.isError
+      ? { state: "unknown" }
+      : count.data !== undefined && !count.isFetching
+        ? { state: "known", n: count.data }
         : { state: "checking" };
-  // Предупреждение пропускается только при точном нуле. Всё остальное,
-  // включая «ещё проверяем» и отказ в праве, предупреждает.
-  const needsConfirm = mode === "edit" && !noRisks(risks) && count.data !== 0;
+  // Подтверждение нужно всегда, когда у правки есть риски. Раньше точный ноль
+  // его пропускал, но GET /tickets считает только филиалы сессии, а у админских
+  // учёток терминалы выданы: ноль у них значит «здесь нет», не «нигде нет».
+  const needsConfirm = needsConfirmation(mode, risks);
 
   const save = () => {
     if (mode === "create") {
