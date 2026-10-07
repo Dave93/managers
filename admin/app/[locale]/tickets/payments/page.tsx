@@ -24,7 +24,7 @@ import {
   type DecisionResult,
 } from "./_components/action-panel";
 import { ConfirmDialog, type Confirmation } from "./_components/confirm-dialog";
-import { sumMinor } from "./_components/money";
+import { sumMinor } from "@admin/lib/tickets-money";
 import { usePaymentActions, usePaymentQueue } from "./_components/use-payments";
 import { buildPaymentColumns, type SelectAllState } from "./columns";
 import { DataTable } from "./data-table";

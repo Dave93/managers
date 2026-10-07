@@ -6,7 +6,7 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { apiMessage, type ApiError } from "@admin/lib/tickets-api";
 
 import { PAYMENT_RIGHTS } from "./access-panel";
-import { formatMinor } from "./money";
+import { formatMinor } from "@admin/lib/tickets-money";
 
 export type Decision = "approve" | "reject";
 

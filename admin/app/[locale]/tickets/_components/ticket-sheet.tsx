@@ -42,7 +42,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@components/ui/sheet";
-import { formatCurrency } from "@admin/lib/format-currency";
+import { formatAmount } from "@admin/lib/tickets-money";
 import {
   apiMessage,
   type ActorKind,
@@ -102,14 +102,6 @@ function fmtTs(value: string | null | undefined): string {
     hour: "2-digit",
     minute: "2-digit",
   });
-}
-
-// Суммы приходят строкой numeric («12000.00»); формат тот же, что в колонке
-// списка. Нечисловое значение показываем как есть, а не «NaN сум».
-function fmtMoney(value: string | null | undefined): string {
-  if (value === null || value === undefined) return "—";
-  const n = Number(value);
-  return Number.isFinite(n) ? `${formatCurrency(n)} сум` : value;
 }
 
 // numeric(…) отдаёт «2.000»: лишние нули в количестве только шумят.
@@ -243,7 +235,7 @@ function ActSection({ card }: { card: TicketCard }) {
                     {fmtQty(w.qty)}
                     {w.unit ? ` ${w.unit}` : ""}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{fmtMoney(w.amount)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{formatAmount(w.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -253,7 +245,7 @@ function ActSection({ card }: { card: TicketCard }) {
                   Итого
                 </td>
                 <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
-                  {fmtMoney(card.work_total_amount)}
+                  {formatAmount(card.work_total_amount)}
                 </td>
               </tr>
             </tfoot>
@@ -272,7 +264,7 @@ function PaymentSection({ card }: { card: TicketCard }) {
   return (
     <Section title="Оплата">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        <span className="font-semibold tabular-nums">{fmtMoney(card.work_total_amount)}</span>
+        <span className="font-semibold tabular-nums">{formatAmount(card.work_total_amount)}</span>
         <span className="text-muted-foreground">{PAYMENT_RU[status] ?? status}</span>
         {status !== "pending" && card.payment_approved_at && (
           <span className="text-[12px] text-muted-foreground">{fmtTs(card.payment_approved_at)}</span>

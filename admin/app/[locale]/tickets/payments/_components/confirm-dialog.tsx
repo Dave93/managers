@@ -13,7 +13,7 @@ import {
 import { Textarea } from "@components/ui/textarea";
 
 import type { Decision } from "./action-panel";
-import { formatMinor } from "./money";
+import { formatMinor } from "@admin/lib/tickets-money";
 
 // Снимок того, что пользователь подтверждает. Список заявок обновляется раз в
 // минуту и после чужих решений, поэтому диалог показывает и отправляет ровно

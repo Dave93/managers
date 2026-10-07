@@ -14,7 +14,7 @@ import { apiMessage, type ApiError, type TicketRow } from "@admin/lib/tickets-ap
 import { useTicketCard } from "@admin/lib/use-tickets";
 
 import { PhotoStrip } from "../../_components/photo-strip";
-import { formatAmount, sumMinor, toMinor } from "./money";
+import { formatAmount, sumMinor, toMinor } from "@admin/lib/tickets-money";
 
 // numeric(…) отдаёт «2.000»: лишние нули в количестве только шумят. Количество
 // не деньги, здесь Number допустим.

@@ -9,7 +9,7 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { parseTs } from "@admin/components/tickets/status";
 import type { TicketRow } from "@admin/lib/tickets-api";
 
-import { formatAmount } from "./_components/money";
+import { formatAmount } from "@admin/lib/tickets-money";
 
 export type SelectAllState = "none" | "some" | "all";
 

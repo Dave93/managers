@@ -5,7 +5,7 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 
-import { formatCurrency } from "@admin/lib/format-currency";
+import { formatAmount } from "@admin/lib/tickets-money";
 import type { TicketRow, TicketTypeRow } from "@admin/lib/tickets-api";
 import { PriorityBadge, StatusBadge, WaitingFor } from "@admin/components/tickets/status";
 
@@ -120,10 +120,9 @@ export function buildColumns({
       header: () => <span className="block text-right">Сумма</span>,
       cell: ({ row }) => {
         const raw = row.original.work_total_amount;
-        const n = raw === null ? NaN : Number(raw);
         return (
           <span className="block text-right text-[12.5px] tabular-nums">
-            {Number.isFinite(n) ? `${formatCurrency(n)} сум` : <Dash />}
+            {raw === null ? <Dash /> : formatAmount(raw)}
           </span>
         );
       },
