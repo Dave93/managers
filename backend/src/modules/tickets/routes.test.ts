@@ -347,6 +347,46 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
     });
 
+    // GET /users/me отдаёт терминалы сессии: экран создания заявки решает по
+    // ним, сколько у менеджера филиалов и какой id слать, а сервер при создании
+    // сверяется с тем же снимком. Тест живёт здесь, потому что test:http гоняет
+    // только этот файл, а отдельного HTTP-набора у модуля users нет.
+    describe("GET /users/me — терминалы сессии", () => {
+      it("отдаёт снимок терминалов сессии как есть", async () => {
+        const a = randomUUID();
+        const b = randomUUID();
+        const s = await withSession({ permissions: [], terminals: [a, b] });
+        try {
+          const res = await call("/api/users/me", { headers: s.headers });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(body.terminals).toEqual([a, b]);
+          expect(body.role?.id).toBe(s.roleId);
+          expect(body.user).toBeTruthy();
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок читается пустым массивом, а не «всеми» и не отсутствует", async () => {
+        const s = await withSession({ permissions: [], terminals: [] });
+        try {
+          const res = await call("/api/users/me", { headers: s.headers });
+          expect(res.status).toBe(200);
+          const body = await res.json();
+          expect(Array.isArray(body.terminals)).toBe(true);
+          expect(body.terminals).toEqual([]);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("без сессии — не 200", async () => {
+        const res = await call("/api/users/me");
+        expect(res.status).not.toBe(200);
+      });
+    });
+
     // Создание заявки при пустом снимке терминалов сессии. Раньше пустой снимок
     // значил «проверять нечего», и terminal_id из тела долетал до базы
     // непроверенным: сессия без филиалов заводила заявку в любой. Теперь пустой

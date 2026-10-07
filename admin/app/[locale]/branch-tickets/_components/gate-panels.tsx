@@ -5,9 +5,10 @@ import { RefreshCw, ShieldAlert, Store, TriangleAlert } from "lucide-react";
 import { Button } from "@components/ui/buttonOrigin";
 
 // Права экрана. Создание требует tickets.create (и для самого POST, и для
-// GET /ticket_types). Закреплённые филиалы читаются из /users_terminals/
-// my_terminals, а он требует users_terminals.list. Названия стоят дословно:
-// текст панели копируют в форму роли.
+// GET /ticket_types). Какие филиалы у менеджера, решает GET /users/me (снимок
+// сессии, права не нужно); users_terminals.list нужно соединению /users_terminals/
+// my_terminals, из которого берутся только названия филиалов. Названия прав
+// стоят дословно: текст панели копируют в форму роли.
 export const CREATE_RIGHTS = {
   create: "tickets.create",
   terminals: "users_terminals.list",
@@ -33,7 +34,7 @@ export function NoAccessPanel({
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{CREATE_RIGHTS.create}</code>{" "}
             (создавать заявки) и{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{CREATE_RIGHTS.terminals}</code>{" "}
-            (узнать, за каким филиалом вы закреплены). У вашей роли не хватает:
+            (показать названия ваших филиалов). У вашей роли не хватает:
           </p>
           <ul className="space-y-1">
             {missing.map((p) => (

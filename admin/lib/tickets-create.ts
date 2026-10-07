@@ -51,9 +51,47 @@ export function sortTypes<T extends Pick<TicketTypeRow, "sort" | "name_ru">>(typ
 
 export type Branch = { id: string; name: string };
 
+// Терминалы сессии из ответа GET /users/me: массив id, снятый при входе. Это
+// то, по чему сервер решает, куда сессии можно создавать заявки, поэтому
+// решение экрана (сколько филиалов, какой id слать) берётся отсюда, а не из
+// базы. Пустой массив значит «не закреплён»: так бывает у офисной роли.
+// null — ответ без поля terminals (не массив): это сбой, а не «нет филиалов»,
+// иначе устаревший или битый ответ показал бы менеджеру панель «нет привязки».
+export function terminalIdsFromMe(me: unknown): string[] | null {
+  const raw = (me as { terminals?: unknown } | null | undefined)?.terminals;
+  if (!Array.isArray(raw)) return null;
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of raw) {
+    const id = typeof v === "string" ? v.trim() : "";
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
+  return out;
+}
+
+// Филиалы экрана: набор определяют ids из сессии, имена берутся из строк
+// GET /users_terminals/my_terminals (ниже). Строка из базы, которой нет в
+// сессии, не попадает в список: филиал, переназначенный после входа, сервер
+// всё равно не примет. Id без имени в базе (удалён, строк нет, соединение
+// недоступно) остаётся с подписью «Филиал <начало id>».
+export function branchesFromSession(ids: readonly string[], rows: unknown): Branch[] {
+  const names = new Map(branchesFromRows(rows).map((b) => [b.id, b.name]));
+  const seen = new Set<string>();
+  const out: Branch[] = [];
+  for (const raw of ids) {
+    const id = String(raw ?? "").trim();
+    if (!id || seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, name: names.get(id) ?? `Филиал ${id.slice(0, 8)}` });
+  }
+  return out.sort((a, b) => a.name.localeCompare(b.name, "ru"));
+}
+
 // Строки GET /users_terminals/my_terminals: {terminal_id, terminals: {...}|null},
-// где terminals — левое соединение (null, если филиал удалён). Пустой список
-// значит «ни одного закреплённого филиала»: у офисной роли так и бывает.
+// где terminals — левое соединение (null, если филиал удалён). Служит только
+// источником имён: набор филиалов задаёт сессия (terminalIdsFromMe).
 export function branchesFromRows(rows: unknown): Branch[] {
   if (!Array.isArray(rows)) return [];
   const seen = new Set<string>();

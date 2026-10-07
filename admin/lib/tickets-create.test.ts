@@ -9,6 +9,7 @@ import {
   MAX_PHOTOS,
   MAX_PHOTO_BYTES,
   branchesFromRows,
+  branchesFromSession,
   buildCreateFormData,
   buildDetails,
   describeFailure,
@@ -21,6 +22,7 @@ import {
   preparePhoto,
   setFieldValue,
   sortTypes,
+  terminalIdsFromMe,
   type PhotoIO,
 } from "./tickets-create";
 
@@ -108,6 +110,48 @@ describe("филиал", () => {
       expect(branchesFromRows(v)).toEqual([]);
     });
   }
+
+  // Решение берётся из снимка сессии (GET /users/me), имена из базы. Они могут
+  // разойтись: тогда верна сессия, потому что по ней сервер принимает заявку.
+  test("terminalIdsFromMe: массив терминалов сессии без пустых и дублей", () => {
+    expect(terminalIdsFromMe({ user: {}, terminals: ["t1", " t2 ", "", "t1", 7, null] })).toEqual(["t1", "t2"]);
+  });
+  test("terminalIdsFromMe: пустой снимок — пустой массив, а не null", () => {
+    expect(terminalIdsFromMe({ terminals: [] })).toEqual([]);
+  });
+  for (const v of [null, undefined, {}, "x", { terminals: null }, { terminals: "t1" }] as unknown[]) {
+    test(`terminalIdsFromMe: ${JSON.stringify(v) ?? "undefined"} — сбой (null), а не «нет филиалов»`, () => {
+      expect(terminalIdsFromMe(v)).toBeNull();
+    });
+  }
+
+  test("branchesFromSession: набор задаёт сессия, имена из базы", () => {
+    const b = branchesFromSession(["t2", "t1"], rows);
+    expect(b).toEqual([
+      { id: "t1", name: "Алмазар" },
+      { id: "t2", name: "Юнусабад" },
+    ]);
+  });
+  test("branchesFromSession: строка из базы, которой нет в сессии, не попадает в список", () => {
+    // В базе три филиала, в сессии один: экран не обещает два лишних.
+    const b = branchesFromSession(["t1"], rows);
+    expect(b.map((x) => x.id)).toEqual(["t1"]);
+  });
+  test("branchesFromSession: филиал сессии без строки в базе остаётся с подписью по id", () => {
+    const b = branchesFromSession(["t1", "newbranch-uuid"], rows);
+    expect(b.find((x) => x.id === "newbranch-uuid")?.name).toBe("Филиал newbranc");
+  });
+  test("branchesFromSession: соединение не ответило (null) — все филиалы сессии с подписями по id", () => {
+    const b = branchesFromSession(["t1", "t2"], null);
+    expect(b.map((x) => x.id).sort()).toEqual(["t1", "t2"]);
+    expect(b.every((x) => x.name.startsWith("Филиал "))).toBe(true);
+  });
+  test("branchesFromSession: пустая сессия даёт пустой список, даже если в базе строки есть", () => {
+    expect(branchesFromSession([], rows)).toEqual([]);
+  });
+  test("branchesFromSession: дубли id схлопываются", () => {
+    expect(branchesFromSession(["t1", "t1"], rows)).toHaveLength(1);
+  });
 
   const one = [{ id: "a", name: "A" }];
   const two = [{ id: "a", name: "A" }, { id: "b", name: "B" }];

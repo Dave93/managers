@@ -6,9 +6,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { apiMessage, listTypes, type ApiError, type TicketRecord, type TicketTypeRow } from "@admin/lib/tickets-api";
 import {
-  branchesFromRows,
+  branchesFromSession,
   buildCreateFormData,
   describeFailure,
+  terminalIdsFromMe,
   type Branch,
   type CreateInput,
   type NoAnswerKind,
@@ -26,24 +27,31 @@ export const branchKeys = {
   branches: ["branch-tickets", "my-branches"] as const,
 };
 
-// Закреплённые за пользователем филиалы: строки users_terminals с именами из
-// соединения. Это не то же самое, что /terminals/my_terminals: тот при пустом
-// списке сессии отдаёт ВСЕ филиалы, то есть не отличает офисную роль от
-// менеджера с филиалами. Здесь пустой ответ значит ровно «не закреплён».
-// Цена: читается база, а сервер при создании сверяется со снимком сессии,
-// снятым при входе. Если филиал переназначили после входа, они расходятся до
-// следующего входа; сервер тогда ответит 403 «Филиал недоступен».
+// Филиалы менеджера. Решение (сколько их и какой id слать) берётся из
+// GET /users/me: это снимок терминалов сессии, по которому сервер и проверяет
+// создание заявки, поэтому экран не пообещает филиал, который сервер откажет
+// принять. Пустой снимок значит «не закреплён» (офисная роль). Имена идут из
+// соединения users_terminals (база): оно нужно только для подписей, и если не
+// ответило, филиалы остаются с короткой подписью по id, а не пропадают.
+// /terminals/my_terminals для этого не годится: при пустом снимке он отдаёт все
+// филиалы. Права users_terminals.list соединению всё ещё нужно, только для имён.
 export function useMyBranches(enabled: boolean) {
   return useQuery<Branch[], ApiError>({
     queryKey: branchKeys.branches,
     queryFn: async () => {
-      const res: any = await (apiClient.api as any).users_terminals.my_terminals.get();
-      if (res?.error) {
-        const e = new Error(apiMessage(res.error)) as ApiError;
-        e.status = res.error.status;
+      const [me, names] = await Promise.all([
+        (apiClient.api as any).users.me.get() as Promise<any>,
+        // Имена не решают ничего: сбой этого запроса не должен ронять экран.
+        ((apiClient.api as any).users_terminals.my_terminals.get() as Promise<any>).catch(() => null),
+      ]);
+      if (me?.error) {
+        const e = new Error(apiMessage(me.error)) as ApiError;
+        e.status = me.error.status;
         throw e;
       }
-      return branchesFromRows(res?.data?.data ?? res?.data);
+      const ids = terminalIdsFromMe(me?.data);
+      if (!ids) throw new Error("Сервер не вернул филиалы сессии") as ApiError;
+      return branchesFromSession(ids, names?.error ? null : (names?.data?.data ?? names?.data));
     },
     enabled,
     ...FAIL_FAST,
