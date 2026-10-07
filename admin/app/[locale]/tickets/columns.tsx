@@ -121,7 +121,7 @@ export function buildColumns({
       cell: ({ row }) => {
         const raw = row.original.work_total_amount;
         return (
-          <span className="block text-right text-[12.5px] tabular-nums">
+          <span className="block text-right text-[12.5px] tabular-nums whitespace-nowrap">
             {raw === null ? <Dash /> : formatAmount(raw)}
           </span>
         );
