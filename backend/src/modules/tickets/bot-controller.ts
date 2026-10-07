@@ -17,6 +17,16 @@ export function parseStartPayload(text: unknown): string | null {
   return UUID_RE.test(m[1]) ? m[1] : null;
 }
 
+// Язык в карточке задаёт администратор, который знает, на каком языке
+// человек читает. language_code из телеграма — это язык ИНТЕРФЕЙСА его
+// приложения, а не язык человека: у подрядчика-узбека сплошь и рядом стоит
+// русский Telegram. Поэтому телеграм спрашиваем только тогда, когда в
+// карточке ничего осмысленного нет.
+export function resolveBindLang(current: unknown, fromTelegram: unknown): "ru" | "uz" {
+  if (current === "uz" || current === "ru") return current;
+  return fromTelegram === "uz" ? "uz" : "ru";
+}
+
 // Сравнение секрета за постоянное время: обычный !== утекает через тайминг
 // длину общего префикса. Длины сравниваются отдельно и раньше —
 // timingSafeEqual бросает исключение на буферах разной длины, а не отвечает
@@ -89,21 +99,31 @@ const ticketsBotControllerImpl = new Elysia({ name: "@api/tickets-bot", prefix: 
       // is_active тоже в WHERE: деактивированного исполнителя неиспользованный
       // инвайт привязать не должен, кто бы ссылкой ни владел — иначе tg_user_id
       // молча повиснет на выключенной строке до реактивации.
+
+      // Язык считаем по текущей строке: администратор мог выставить его в
+      // карточке заранее. Читаем тем же WHERE, что и UPDATE ниже, поэтому
+      // «нет строки» здесь — тот же отказ, что и там.
+      const inviteWhere = and(
+        eq(ticket_executors.invite_code, code),
+        isNull(ticket_executors.invite_used_at),
+        eq(ticket_executors.is_active, true)
+      );
+      const [executorRow] = await drizzle
+        .select({ lang: ticket_executors.lang })
+        .from(ticket_executors)
+        .where(inviteWhere)
+        .limit(1)
+        .execute();
+
       const bound = await drizzle
         .update(ticket_executors)
         .set({
           tg_user_id: fromId,
           invite_used_at: new Date().toISOString(),
-          lang: message?.from?.language_code === "uz" ? "uz" : "ru",
+          lang: resolveBindLang(executorRow?.lang, message?.from?.language_code),
           updated_at: new Date().toISOString(),
         })
-        .where(
-          and(
-            eq(ticket_executors.invite_code, code),
-            isNull(ticket_executors.invite_used_at),
-            eq(ticket_executors.is_active, true)
-          )
-        )
+        .where(inviteWhere)
         .returning({ id: ticket_executors.id, full_name: ticket_executors.full_name, contractor_id: ticket_executors.contractor_id })
         .execute();
 

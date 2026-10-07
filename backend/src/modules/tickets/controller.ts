@@ -177,6 +177,46 @@ function rowOrNotFound<T>(rows: T[], notFoundMessage: string): { status: 200; bo
   return row ? { status: 200, body: row } : { status: 404, body: { message: notFoundMessage } };
 }
 
+// Чтение справочника типов отдают два роута: /ticket_types (право
+// tickets.create — список рисует форму заявки на планшете) и
+// /ticket_types/manage (право tickets.types.manage — экран админки). Макрос
+// permission проверяет ровно одно право, поэтому роутов два, а обработчик и
+// схема запроса общие: копия тела разъехалась бы при первой же правке.
+// Контекст описан минимально вручную, а не выводится из цепочки: тип
+// цепочки уже упирался в TS2589 (см. комментарий ниже).
+const listTicketTypesQuery = t.Object({ include_inactive: t.Optional(t.String()) });
+
+const listTicketTypesHandler = async ({
+  query: { include_inactive },
+  role,
+  cacheController,
+  drizzle,
+}: {
+  query: { include_inactive?: string };
+  role?: { id: string } | null;
+  cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
+  drizzle: DrizzleDB;
+}) => {
+  // По умолчанию отдаём только active: этот список рисует форму создания
+  // заявки на планшете, и POST /tickets отвергает неактивный тип 404-й —
+  // раньше планшет предлагал заведомо мёртвые типы. include_inactive нужен
+  // только экрану админки и потому проверяется отдельно, правом
+  // tickets.types.manage, а не общим route-permission роута.
+  let showInactive = false;
+  if (include_inactive === "true" && role) {
+    const permissions = await cacheController.getPermissionsByRoleId(role.id);
+    showInactive = permissions.includes("tickets.types.manage");
+  }
+  return {
+    data: await drizzle
+      .select()
+      .from(ticket_types)
+      .where(showInactive ? undefined : eq(ticket_types.active, true))
+      .orderBy(ticket_types.sort, ticket_types.name_ru)
+      .execute(),
+  };
+};
+
 // Registered on the app root (src/app.ts) with an explicit /api prefix and a
 // widened export, same as stoplistController: inside the apiController .use()
 // chain these routes overflowed TS2589 and broke the admin type-check/build.
@@ -834,32 +874,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       body: t.Object({ ids: t.Array(t.String()), comment: t.String() }),
     }
   )
-  .get(
-    "/ticket_types",
-    // По умолчанию отдаём только active: этот список рисует форму создания
-    // заявки на планшете, и POST /tickets отвергает неактивный тип 404-й —
-    // раньше планшет предлагал заведомо мёртвые типы. include_inactive нужен
-    // только экрану админки и потому проверяется отдельно, правом
-    // tickets.types.manage, а не общим tickets.create route-permission.
-    async ({ query: { include_inactive }, role, cacheController, drizzle }) => {
-      let showInactive = false;
-      if (include_inactive === "true" && role) {
-        const permissions = await cacheController.getPermissionsByRoleId(role.id);
-        showInactive = permissions.includes("tickets.types.manage");
-      }
-      return {
-        data: await drizzle
-          .select()
-          .from(ticket_types)
-          .where(showInactive ? undefined : eq(ticket_types.active, true))
-          .orderBy(ticket_types.sort, ticket_types.name_ru)
-          .execute(),
-      };
-    },
-    // tickets.create, а не tickets.types.manage: список типов рисует форму
-    // создания заявки на планшете филиала, а не только экран админки.
-    { permission: "tickets.create", query: t.Object({ include_inactive: t.Optional(t.String()) }) }
-  )
+  // tickets.create, а не tickets.types.manage: список типов рисует форму
+  // создания заявки на планшете филиала, а не только экран админки.
+  .get("/ticket_types", listTicketTypesHandler, { permission: "tickets.create", query: listTicketTypesQuery })
+  // Тот же ответ для управляющего типами: без tickets.create он иначе
+  // получал 403 на чтение собственного справочника.
+  .get("/ticket_types/manage", listTicketTypesHandler, { permission: "tickets.types.manage", query: listTicketTypesQuery })
   .post(
     "/ticket_types",
     async ({ body, set, drizzle }) => {
