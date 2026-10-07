@@ -56,6 +56,36 @@ describe("validateSchema", () => {
     expect(r.ok).toBe(false);
   });
 
+  it("повтор значения варианта ищется после обрезки пробелов", () => {
+    // Раньше "hall" и " hall" проходили (сравнивались необрезанными), а в схему
+    // ложились двумя вариантами с одинаковым value "hall": validateDetails
+    // принимал значение, которое встречается в списке дважды.
+    const pair = (a: string, b: string) =>
+      validateSchema([
+        {
+          ...SCHEMA[0],
+          options: [
+            { value: a, label_ru: "Зал", label_uz: "Zal" },
+            { value: b, label_ru: "Ещё зал", label_uz: "Yana zal" },
+          ],
+        },
+      ]);
+    for (const [a, b] of [["hall", " hall"], ["hall ", "hall"], [" hall ", "\thall"]]) {
+      const r = pair(a, b);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.errors).toEqual(["tv_place: повторяющееся значение варианта hall"]);
+    }
+    expect(pair("hall", "hall2").ok).toBe(true);
+  });
+
+  it("значения вариантов сохраняются обрезанными", () => {
+    const r = validateSchema([
+      { ...SCHEMA[0], options: [{ value: "  hall ", label_ru: "Зал", label_uz: "Zal" }] },
+    ]);
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.schema[0].options?.map((o) => o.value)).toEqual(["hall"]);
+  });
+
   it("отвергает не массив", () => {
     expect(validateSchema({ key: "x" }).ok).toBe(false);
     expect(validateSchema(null).ok).toBe(false);

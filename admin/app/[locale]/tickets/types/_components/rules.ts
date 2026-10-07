@@ -224,10 +224,8 @@ export function validateDrafts(drafts: FieldDraft[]): Issue[] {
       push("select_empty", "options", CLAUSE.selectEmpty);
       return;
     }
-    // Дубли ищем по обрезанному значению: сервер сравнивает необрезанное, а
-    // сохраняет обрезанное, так что "a" и " a" он пропускает и кладёт в схему
-    // два одинаковых варианта. Клиент этого не допускает (расхождение закреплено
-    // тестом в backend/src/modules/tickets/schema-parity.test.ts).
+    // Дубли ищем по обрезанному значению, как и сервер (fields.ts): в схему
+    // пишется именно оно, и «a» с « a» дали бы два одинаковых варианта.
     const seenValues = new Set<string>();
     for (const o of f.options) {
       const bad = [

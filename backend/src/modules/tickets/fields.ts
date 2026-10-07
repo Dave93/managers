@@ -77,13 +77,16 @@ export function validateSchema(raw: unknown): SchemaResult {
           errors.push(`${f.key}: у варианта нужны value и обе подписи`);
           return;
         }
-        if (seenValues.has(o.value)) {
-          errors.push(`${f.key}: повторяющееся значение варианта ${o.value}`);
+        // Повтор ищется по обрезанному значению: в схему пишется именно оно, и
+        // "a" с " a" иначе давали бы два варианта с одинаковым value "a".
+        const value = o.value.trim();
+        if (seenValues.has(value)) {
+          errors.push(`${f.key}: повторяющееся значение варианта ${value}`);
           return;
         }
-        seenValues.add(o.value);
+        seenValues.add(value);
         options.push({
-          value: o.value.trim(),
+          value,
           label_ru: o.label_ru.trim(),
           label_uz: o.label_uz.trim(),
         });
