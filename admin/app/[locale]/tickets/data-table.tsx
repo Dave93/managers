@@ -72,10 +72,9 @@ const SKELETON_ROWS = 8;
 // Разная ширина, чтобы скелет не выглядел решёткой одинаковых плашек.
 const SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-40", "w-24", "w-24", "w-12", "w-16"];
 
-export const TICKET_RIGHTS = [
-  { slug: "tickets.list", note: "список заявок (своих филиалов)" },
-  { slug: "tickets.list_all", note: "раздел офиса, все филиалы" },
-];
+// GET /tickets проверяет ровно одно право. Текст панели копируют в форму роли,
+// поэтому называем только то, что маршрут действительно требует.
+const REQUIRED_RIGHT = "tickets.list";
 
 function ForbiddenPanel() {
   return (
@@ -85,20 +84,13 @@ function ForbiddenPanel() {
         <p className="text-[14px] font-semibold leading-tight">Нет доступа к заявкам</p>
         <p className="max-w-xl text-[12.5px] leading-snug text-muted-foreground">
           Сервер ответил отказом (403). Чаще всего так выглядит новая роль, которой
-          ещё не выдали права на заявки. Для этого экрана нужны права:
+          ещё не выдали право на список заявок. Для этого экрана нужно право:
         </p>
-        <ul className="space-y-1">
-          {TICKET_RIGHTS.map((r) => (
-            <li key={r.slug} className="flex flex-wrap items-baseline gap-2 text-[12.5px]">
-              <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[12px]">
-                {r.slug}
-              </code>
-              <span className="text-muted-foreground">{r.note}</span>
-            </li>
-          ))}
-        </ul>
+        <code className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[12px]">
+          {REQUIRED_RIGHT}
+        </code>
         <p className="max-w-xl text-[12px] leading-snug text-muted-foreground">
-          Попросите администратора добавить их роли, затем перезагрузите страницу.
+          Попросите администратора добавить его роли, затем перезагрузите страницу.
         </p>
       </div>
     </div>
@@ -174,7 +166,8 @@ export function DataTable({
 
   // isPending, а не isLoading: запрос без данных и без ошибки, но не идущий
   // прямо сейчас (пауза), нельзя показывать как «Заявок нет».
-  const { data, isPending: isLoading, isError, error, isFetching } = useTicketList(query);
+  const { data, isPending: isLoading, isError, error, isFetching, dataUpdatedAt } =
+    useTicketList(query);
   const qc = useQueryClient();
   // «Повторить» перезапрашивает и список, и счётчики над ним: они ходят в тот же
   // маршрут и упали по той же причине.
@@ -198,8 +191,12 @@ export function DataTable({
   });
 
   const apiError = error as ApiError | null;
-  const forbidden = isError && apiError?.status === 403;
-  const failed = isError && !forbidden;
+  // Панель на всё место таблицы только пока показывать нечего. Если строки уже
+  // загружены, а упал очередной опрос раз в минуту, они остаются на экране, а
+  // сбой виден тонкой полосой над ними.
+  const forbidden = isError && !data && apiError?.status === 403;
+  const failed = isError && !data && !forbidden;
+  const staleError = isError && Boolean(data);
 
   if (forbidden) {
     return (
@@ -222,6 +219,34 @@ export function DataTable({
 
   return (
     <div className="space-y-3">
+      {staleError && (
+        <div
+          role="status"
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-[12px] text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200"
+        >
+          <TriangleAlert className="size-3.5 shrink-0" />
+          <span>
+            {apiError?.status === 403
+              ? "Доступ к заявкам пропал."
+              : "Не удалось обновить список."}{" "}
+            Показаны данные на{" "}
+            {new Date(dataUpdatedAt).toLocaleTimeString("ru-RU", {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+            .
+          </span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 px-2 text-[12px]"
+            onClick={retryAll}
+            disabled={isFetching}
+          >
+            {isFetching ? "Повторяем…" : "Повторить"}
+          </Button>
+        </div>
+      )}
       <div className="rounded-lg border bg-card" aria-busy={isLoading}>
         <Table>
           <TableHeader>

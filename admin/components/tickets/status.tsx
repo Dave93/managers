@@ -66,6 +66,8 @@ export function parseTs(value: string): number {
   return new Date(`${date}T${time}.${ms}${offset}`).getTime();
 }
 
+const CLOCK_SKEW_MS = 5 * 60_000;
+
 // Сколько заявка стоит в текущем состоянии. Дедлайнов в системе нет, и это
 // единственное место, где видно «висит и никто не взял».
 export function waitingHours(
@@ -87,8 +89,13 @@ export function waitingHours(
           : null;
   if (!since) return null;
   const ms = now - parseTs(since);
-  if (!Number.isFinite(ms) || ms < 0) return null;
-  return Math.floor(ms / 3_600_000);
+  if (!Number.isFinite(ms)) return null;
+  // Часы оператора могут отставать от сервера: небольшой «минус» (до пяти
+  // минут) считаем нулём, иначе свежая заявка показала бы прочерк вместо
+  // «меньше часа». Дальше пяти минут это уже не сдвиг часов, а мусорные
+  // данные или сломанный компьютер, и честнее прочерк.
+  if (ms < -CLOCK_SKEW_MS) return null;
+  return Math.floor(Math.max(ms, 0) / 3_600_000);
 }
 
 export function WaitingFor(props: {

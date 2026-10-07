@@ -88,7 +88,7 @@ function Counter({
   // вечно, а показывает прочерк с причиной в подсказке.
   const value = isPending ? (
     <Skeleton className="my-1 h-5 w-9" />
-  ) : isError ? (
+  ) : isError && !data ? (
     <span
       className="text-xl font-semibold text-muted-foreground"
       title={(error as Error)?.message || "Не удалось получить число"}
@@ -217,24 +217,24 @@ export default function TicketsPage() {
     parseAsStringEnum(["normal", "urgent"]).withDefault("normal" as "normal" | "urgent")
   );
   const [priorityOn, setPriorityOn] = useQueryState("urgent", parseAsBoolean.withDefault(false));
-  const [awaiting, setAwaiting] = useQueryState("awaiting", parseAsBoolean.withDefault(false));
 
   const types = useTicketTypes();
   const terminals = useTicketTerminals();
   const closedSince = useClosedSince();
 
-  // «Только непринятые» = сданные исполнителем и ждущие приёмки офисом
-  // (status = done, дальше их принимает tickets.close). Включённый тумблер
-  // главнее выбора статусов, поэтому мультивыбор при нём выключен.
+  // «Ждут приёмки» = сданные исполнителем (status = done), дальше их принимает
+  // офис правом tickets.close. Тумблер не отдельный фильтр, а быстрый вид
+  // мультивыбора статусов: включён ровно тогда, когда выбрано одно «Сдана», и
+  // пишет в тот же параметр `status`. Поэтому ничего не перекрывает и не
+  // блокирует выбор статусов.
   const filters = useMemo<Filter[]>(() => {
     const f: Filter[] = [];
-    if (awaiting) f.push({ field: "status", operator: "eq", value: "done" });
-    else if (statuses.length) f.push({ field: "status", operator: "in", value: statuses });
+    if (statuses.length) f.push({ field: "status", operator: "in", value: statuses });
     if (typeId) f.push({ field: "type_id", operator: "eq", value: typeId });
     if (terminalId) f.push({ field: "terminal_id", operator: "eq", value: terminalId });
     if (priorityOn) f.push({ field: "priority", operator: "eq", value: priority });
     return f;
-  }, [awaiting, statuses, typeId, terminalId, priorityOn, priority]);
+  }, [statuses, typeId, terminalId, priorityOn, priority]);
 
   const hasFilters = filters.length > 0;
   const resetFilters = () => {
@@ -243,7 +243,6 @@ export default function TicketsPage() {
     setTerminalId(null);
     setPriority(null);
     setPriorityOn(null);
-    setAwaiting(null);
   };
 
   // Карточка заявки (TicketSheet) появится в Task 4; до неё клик по строке
@@ -257,11 +256,8 @@ export default function TicketsPage() {
     [types.data]
   );
 
-  const only = (s: TicketStatus) => () => {
-    setAwaiting(null);
-    setStatuses([s]);
-  };
-  const isOnly = (s: TicketStatus) => !awaiting && statuses.length === 1 && statuses[0] === s;
+  const only = (s: TicketStatus) => () => setStatuses([s]);
+  const isOnly = (s: TicketStatus) => statuses.length === 1 && statuses[0] === s;
 
   return (
     <div className="pb-10">
@@ -305,7 +301,7 @@ export default function TicketsPage() {
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border bg-card px-3 py-2.5">
         <div className="space-y-1">
           <FilterLabel>Статус</FilterLabel>
-          <StatusMultiSelect value={statuses} onChange={setStatuses} disabled={awaiting} />
+          <StatusMultiSelect value={statuses} onChange={setStatuses} />
         </div>
 
         {/* Прячем, а не рисуем пустым, когда справочник отказал: права на типы
@@ -382,11 +378,11 @@ export default function TicketsPage() {
         <div className="flex h-8 items-center gap-2">
           <Switch
             id="tickets-awaiting"
-            checked={awaiting}
-            onCheckedChange={(v) => setAwaiting(v ? true : null)}
+            checked={isOnly("done")}
+            onCheckedChange={(v) => setStatuses(v ? ["done"] : null)}
           />
           <Label htmlFor="tickets-awaiting" className="text-[13px] font-normal">
-            Только непринятые
+            Ждут приёмки
           </Label>
         </div>
 
