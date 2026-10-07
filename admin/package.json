@@ -7,7 +7,7 @@
     "dev:https": "next dev --experimental-https -p 6762",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "ESLINT_USE_FLAT_CONFIG=false eslint ."
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
