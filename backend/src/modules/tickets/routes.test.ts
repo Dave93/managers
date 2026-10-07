@@ -53,7 +53,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   // drizzle/schema.ts лежит вне src, так что смешивать стили означало бы, что
   // один из двух путей резолвится иначе, чем выглядит.
   const { drizzleDb } = await import("backend/src/lib/db");
-  const { ticket_types, tickets } = await import("backend/drizzle/schema");
+  const { terminals, ticket_contractors, ticket_executors, ticket_types, tickets, users } = await import(
+    "backend/drizzle/schema"
+  );
   const { eq, inArray } = await import("drizzle-orm");
 
   const call = (path: string, init: RequestInit = {}) => callApi(path, init);
@@ -412,6 +414,161 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(row?.payment_status).toBe("pending");
         } finally {
           await s.cleanup();
+        }
+      });
+    });
+
+    // Карточке нужны имена филиала, исполнителя и автора, и все три приходят с
+    // сервера: второго запроса из браузера нет. Фикстуры настоящие (строки
+    // terminals/users/ticket_executors), потому что на пустой связи тест
+    // прошёл бы и при выкинутом join-е — null он и есть null.
+    describe("карточка заявки — имена и скрытые поля (с фикстурами)", () => {
+      const suffix = randomUUID().slice(0, 8);
+      let typeId: string | undefined;
+      let terminalId: string | undefined;
+      let contractorId: string | undefined;
+      let executorId: string | undefined;
+      let namedUserId: string | undefined;
+      let loginOnlyUserId: string | undefined;
+      let fullTicketId: string | undefined;
+      let loginOnlyTicketId: string | undefined;
+      let danglingTicketId: string | undefined;
+      const loginOnly = "card_login_only_" + suffix;
+      const createdTicketIds: string[] = [];
+      const createdExecutorIds: string[] = [];
+
+      beforeAll(async () => {
+        const [type] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_card_" + suffix,
+            number_prefix: "TC",
+            name_ru: "Тестовый тип (карточка)",
+            name_uz: "Test turi (karta)",
+            executor_kind: "external",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeId = type.id;
+
+        const [terminal] = await drizzleDb
+          .insert(terminals)
+          .values({
+            name: "Тестовый филиал " + suffix,
+            latitude: 41.3,
+            longitude: 69.2,
+            organization_id: randomUUID(),
+          })
+          .returning({ id: terminals.id });
+        terminalId = terminal.id;
+
+        const [contractor] = await drizzleDb
+          .insert(ticket_contractors)
+          .values({ name: "Тестовая фирма " + suffix })
+          .returning({ id: ticket_contractors.id });
+        contractorId = contractor.id;
+
+        const [executor] = await drizzleDb
+          .insert(ticket_executors)
+          .values({ kind: "external", contractor_id: contractorId, full_name: "Мастер Тестов " + suffix })
+          .returning({ id: ticket_executors.id });
+        executorId = executor.id;
+        createdExecutorIds.push(executor.id);
+
+        const [named] = await drizzleDb
+          .insert(users)
+          .values({
+            login: "card_named_" + suffix,
+            password: "x",
+            status: "active",
+            first_name: "Иван",
+            last_name: "Петров",
+          })
+          .returning({ id: users.id });
+        namedUserId = named.id;
+
+        const [bare] = await drizzleDb
+          .insert(users)
+          .values({ login: loginOnly, password: "x", status: "active" })
+          .returning({ id: users.id });
+        loginOnlyUserId = bare.id;
+
+        const insertTicket = async (v: {
+          terminal_id: string;
+          created_by: string;
+          assigned_executor_id?: string;
+        }) => {
+          const [row] = await drizzleDb
+            .insert(tickets)
+            .values({ type_id: typeId!, organization_id: randomUUID(), ...v })
+            .returning({ id: tickets.id });
+          createdTicketIds.push(row.id);
+          return row.id;
+        };
+        fullTicketId = await insertTicket({
+          terminal_id: terminalId,
+          created_by: namedUserId,
+          assigned_executor_id: executorId,
+        });
+        loginOnlyTicketId = await insertTicket({ terminal_id: terminalId, created_by: loginOnlyUserId });
+        // Ни филиала, ни автора в справочниках нет (FK на эти колонки нет).
+        danglingTicketId = await insertTicket({ terminal_id: randomUUID(), created_by: randomUUID() });
+      }, 30000);
+
+      afterAll(async () => {
+        if (createdTicketIds.length > 0) {
+          await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
+        }
+        if (createdExecutorIds.length > 0) {
+          await drizzleDb.delete(ticket_executors).where(inArray(ticket_executors.id, createdExecutorIds));
+        }
+        if (contractorId) await drizzleDb.delete(ticket_contractors).where(eq(ticket_contractors.id, contractorId));
+        const userIds = [namedUserId, loginOnlyUserId].filter((v): v is string => v !== undefined);
+        if (userIds.length > 0) await drizzleDb.delete(users).where(inArray(users.id, userIds));
+        if (terminalId) await drizzleDb.delete(terminals).where(eq(terminals.id, terminalId));
+        if (typeId) await drizzleDb.delete(ticket_types).where(eq(ticket_types.id, typeId));
+      });
+
+      const getCard = async (id: string) => {
+        const s = await withSession({ permissions: ["tickets.list"] });
+        try {
+          const res = await call(`/api/tickets/${id}`, { headers: s.headers });
+          return { status: res.status, body: await res.json() };
+        } finally {
+          await s.cleanup();
+        }
+      };
+
+      it("отдаёт имена филиала, исполнителя и автора", async () => {
+        const { status, body } = await getCard(must(fullTicketId, "fullTicketId"));
+        expect(status).toBe(200);
+        expect(body.terminal_name).toBe("Тестовый филиал " + suffix);
+        expect(body.executor_name).toBe("Мастер Тестов " + suffix);
+        expect(body.author_name).toBe("Иван Петров");
+        expect(body.type.name_ru).toBe("Тестовый тип (карточка)");
+      });
+
+      it("у автора без имени подставляет login", async () => {
+        const { status, body } = await getCard(must(loginOnlyTicketId, "loginOnlyTicketId"));
+        expect(status).toBe(200);
+        expect(body.author_name).toBe(loginOnly);
+        expect(body.executor_name).toBeNull();
+      });
+
+      it("повисший id филиала и автора даёт null, а не 404", async () => {
+        const { status, body } = await getCard(must(danglingTicketId, "danglingTicketId"));
+        expect(status).toBe(200);
+        expect(body.terminal_name).toBeNull();
+        expect(body.executor_name).toBeNull();
+        expect(body.author_name).toBeNull();
+      });
+
+      // join с users не должен втащить в ответ строку пользователя целиком.
+      it("не отдаёт ничего лишнего из users", async () => {
+        const { body } = await getCard(must(fullTicketId, "fullTicketId"));
+        const keys = Object.keys(body);
+        for (const k of ["password", "salt", "api_token", "login", "author_first_name", "author_last_name", "author_login"]) {
+          expect(keys).not.toContain(k);
         }
       });
     });

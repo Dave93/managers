@@ -148,12 +148,14 @@ export type TicketRecord = {
   updated_at: string;
 };
 
-// GET /tickets/:id отдаёт сырую строку tickets, а не строку списка: имён
-// филиала, типа и исполнителя здесь нет (terminal_name и executor_name
-// карточке неоткуда взять, кроме как из строки списка). Тип приходит целиком
-// во вложенном поле `type`.
+// Тип приходит целиком во вложенном поле `type`, его имя — type.name_ru.
+// Имена филиала, исполнителя и автора сервер добавляет сам: null, если связи
+// нет (заявка ещё не назначена) или строка справочника удалена.
 export type TicketCard = TicketRecord & {
   number: string;
+  terminal_name: string | null;
+  executor_name: string | null;
+  author_name: string | null;
   type?: TicketTypeRow;
   attachments: AttachmentRow[];
   comments: CommentRow[];

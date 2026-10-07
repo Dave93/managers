@@ -11,8 +11,9 @@ import {
   ticket_executors,
   tickets,
   terminals,
+  users,
 } from "backend/drizzle/schema";
-import { and, desc, eq, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
@@ -22,6 +23,19 @@ import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment, uploadsBase, UUID_RE 
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
 
 const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
+
+// Имя автора заявки для карточки. users.first_name и last_name оба nullable, а
+// учётка, заведённая интеграцией, часто не имеет ни того ни другого, поэтому
+// последняя инстанция — login: строка не должна выглядеть как «никто не
+// создавал». Тот же порядок, что у personName в passport/controller.ts; сюда
+// скопирован, а не импортирован, чтобы модули не тянули друг друга.
+function authorName(firstName: string | null, lastName: string | null, login: string | null): string | null {
+  const name = [firstName, lastName]
+    .map((p) => (p ?? "").trim())
+    .filter((p) => p.length > 0)
+    .join(" ");
+  return name || login || null;
+}
 
 const MAX_LIST_LIMIT = 200;
 
@@ -520,15 +534,32 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
       }
-      const [ticket] = await drizzle
-        .select()
+      // Имена филиала, исполнителя и автора берём тем же join-ом, что и список
+      // (GET /tickets), чтобы карточке не нужен был второй запрос из браузера.
+      // Всё leftJoin: у tickets.terminal_id и created_by нет FK, и заявка с
+      // повисшим id должна открываться с null вместо имени, а не пропадать 404.
+      // Поля users перечислены поштучно: голый select() с join-ом вложил бы
+      // в ответ всю строку users (password, salt, api_token).
+      const [row] = await drizzle
+        .select({
+          ...getTableColumns(tickets),
+          terminal_name: terminals.name,
+          executor_name: ticket_executors.full_name,
+          author_first_name: users.first_name,
+          author_last_name: users.last_name,
+          author_login: users.login,
+        })
         .from(tickets)
+        .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
+        .leftJoin(ticket_executors, eq(tickets.assigned_executor_id, ticket_executors.id))
+        .leftJoin(users, eq(tickets.created_by, users.id))
         .where(and(...where))
         .execute();
-      if (!ticket) {
+      if (!row) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const { author_first_name, author_last_name, author_login, ...ticket } = row;
 
       const [type] = await drizzle.select().from(ticket_types).where(eq(ticket_types.id, ticket.type_id)).execute();
       const [attachments, comments, workItems, events] = await Promise.all([
@@ -540,6 +571,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
 
       return {
         ...ticket,
+        author_name: authorName(author_first_name, author_last_name, author_login),
         number: ticketNumber(type?.number_prefix ?? "T", ticket.seq),
         type,
         attachments: attachments.map(({ file_path, ...rest }) => rest),
