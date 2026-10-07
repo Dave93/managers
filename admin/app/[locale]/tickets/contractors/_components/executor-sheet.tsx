@@ -90,7 +90,7 @@ export function BindingChip({ row }: { row: Pick<ExecutorRow, "tg_user_id" | "in
     b === "bound"
       ? "Привязан к боту"
       : b === "bound_relink"
-        ? "Привязан, ждёт новую ссылку"
+        ? "Привязан, новая ссылка не открыта"
         : b === "half"
           ? "Привязка не завершена"
           : "Не привязан";
