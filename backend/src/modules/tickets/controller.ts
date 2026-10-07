@@ -183,6 +183,19 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
   return patch;
 }
 
+// Кто действует: филиал или офис. Роуты close, reopen, cancel и comments
+// общие для планшета филиала и карточки офиса, а в событии и комментарии
+// должно быть видно, кто на самом деле нажал.
+//
+// Вид выводится из скоупа сессии: пустой terminals в этом проекте читается как
+// «все филиалы», то есть офисная роль, непустой — менеджер конкретных филиалов.
+// Допущение известное и принятое: менеджер, которому вручную выдали все
+// филиалы разом, определится как офис. Роут утверждения оплаты ставит "office"
+// безусловно, потому что он только офисный.
+function actorKindOf(userTerminals: string[] | undefined): "manager" | "office" {
+  return userTerminals && userTerminals.length > 0 ? "manager" : "office";
+}
+
 // invite_code — одноразовый токен входа исполнителя в Telegram-бота. Его
 // должен видеть только тот, кто нажал «выдать ссылку» (POST
 // /ticket_executors/:id/invite), а список, создание и правка отдают строку
@@ -623,6 +636,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/close",
     async ({ params: { id }, user, terminals: userTerminals, set, drizzle }) => {
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -644,12 +658,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           .where(and(...where))
           .returning();
         if (updated.length === 0) return null;
-        const event = await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: "manager", actor_user_id: user!.id });
+        const event = await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: actor, actor_user_id: user!.id });
         const notificationIds = await recordNotifications(tx, {
           eventId: event.id,
           ticketId: id,
           eventType: "closed",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -672,6 +686,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/reopen",
     async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -695,14 +710,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         if (updated.length === 0) return null;
         await tx.insert(ticket_comments).values({
           ticket_id: id,
-          author_kind: "manager",
+          author_kind: actor,
           author_user_id: user!.id,
           body: comment.trim(),
         });
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "reopened",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment: comment.trim() },
         });
@@ -710,7 +725,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "reopened",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -732,6 +747,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/cancel",
     async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -755,7 +771,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "cancelled",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment: trimmedComment },
         });
@@ -763,7 +779,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "cancelled",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -785,6 +801,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/comments",
     async ({ params: { id }, body: { body: text }, user, terminals: userTerminals, set, drizzle }) => {
+      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -804,12 +821,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const { comment, notificationIds } = await drizzle.transaction(async (tx) => {
         const [comment] = await tx
           .insert(ticket_comments)
-          .values({ ticket_id: id, author_kind: "manager", author_user_id: user!.id, body: text.trim() })
+          .values({ ticket_id: id, author_kind: actor, author_user_id: user!.id, body: text.trim() })
           .returning();
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "comment",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment_id: comment.id },
         });
@@ -817,7 +834,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "comment",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { comment, notificationIds };
       });

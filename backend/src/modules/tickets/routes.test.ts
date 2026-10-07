@@ -53,9 +53,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   // drizzle/schema.ts лежит вне src, так что смешивать стили означало бы, что
   // один из двух путей резолвится иначе, чем выглядит.
   const { drizzleDb } = await import("backend/src/lib/db");
-  const { terminals, ticket_contractors, ticket_executors, ticket_types, tickets, users } = await import(
-    "backend/drizzle/schema"
-  );
+  const {
+    terminals,
+    ticket_comments,
+    ticket_contractors,
+    ticket_events,
+    ticket_executors,
+    ticket_types,
+    tickets,
+    users,
+  } = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
 
   const call = (path: string, init: RequestInit = {}) => callApi(path, init);
@@ -623,6 +630,90 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           else process.env.TICKETS_BOT_USERNAME = prevBot;
           await s.cleanup();
         }
+      });
+    });
+
+    // Роуты комментария и смены статуса общие для планшета филиала и карточки
+    // офиса. Кто нажал, должно остаться в строке комментария и в событии:
+    // офисная сессия (terminals: []) подписывается «office», сессия со скоупом
+    // филиала остаётся «manager».
+    describe("комментарий — кто автор (офис или филиал)", () => {
+      const branchTerminal = randomUUID();
+      let typeId: string | undefined;
+      let ticketId: string | undefined;
+
+      beforeAll(async () => {
+        const [type] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_actor_" + randomUUID().slice(0, 8),
+            number_prefix: "TA",
+            name_ru: "Тестовый тип (актор)",
+            name_uz: "Test turi (aktor)",
+            executor_kind: "staff",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeId = type.id;
+        const [row] = await drizzleDb
+          .insert(tickets)
+          .values({
+            type_id: typeId,
+            terminal_id: branchTerminal,
+            organization_id: randomUUID(),
+            created_by: randomUUID(),
+          })
+          .returning({ id: tickets.id });
+        ticketId = row.id;
+      });
+
+      afterAll(async () => {
+        // Каскада у FK нет: сначала дочерние строки, потом заявка.
+        if (ticketId) {
+          await drizzleDb.delete(ticket_comments).where(eq(ticket_comments.ticket_id, ticketId));
+          await drizzleDb.delete(ticket_events).where(eq(ticket_events.ticket_id, ticketId));
+          await drizzleDb.delete(tickets).where(eq(tickets.id, ticketId));
+        }
+        if (typeId) await drizzleDb.delete(ticket_types).where(eq(ticket_types.id, typeId));
+      });
+
+      const comment = async (opts: { terminals?: string[] }, text: string) => {
+        const s = await withSession({ permissions: ["tickets.list"], ...opts });
+        try {
+          const res = await call(`/api/tickets/${must(ticketId, "ticketId")}/comments`, {
+            method: "POST",
+            headers: { ...s.headers, "content-type": "application/json" },
+            body: JSON.stringify({ body: text }),
+          });
+          expect(res.status).toBe(200);
+          const created = await res.json();
+          const events = await drizzleDb
+            .select({ actor_kind: ticket_events.actor_kind, payload: ticket_events.payload })
+            .from(ticket_events)
+            .where(eq(ticket_events.ticket_id, ticketId!));
+          const ev = events.find((e) => (e.payload as { comment_id?: string }).comment_id === created.id);
+          const [row] = await drizzleDb
+            .select({ author_kind: ticket_comments.author_kind })
+            .from(ticket_comments)
+            .where(eq(ticket_comments.id, created.id));
+          return { returned: created.author_kind, row: row?.author_kind, event: ev?.actor_kind };
+        } finally {
+          await s.cleanup();
+        }
+      };
+
+      it("офисная сессия без филиалов пишет office в комментарий и событие", async () => {
+        const r = await comment({}, "от офиса");
+        expect(r.returned).toBe("office");
+        expect(r.row).toBe("office");
+        expect(r.event).toBe("office");
+      });
+
+      it("сессия со скоупом филиала пишет manager", async () => {
+        const r = await comment({ terminals: [branchTerminal] }, "от филиала");
+        expect(r.returned).toBe("manager");
+        expect(r.row).toBe("manager");
+        expect(r.event).toBe("manager");
       });
     });
 
