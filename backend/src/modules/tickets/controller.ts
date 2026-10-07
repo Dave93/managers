@@ -305,7 +305,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .guard({ detail: { hide: true } })
   .post(
     "/tickets",
-    async ({ body, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body, user, role, cacheController, terminals: userTerminals, set, drizzle }) => {
       // type_id уходит прямиком в eq() ниже: мусорная строка вместо UUID
       // иначе доезжает до Postgres как сырая 500 "invalid input syntax for
       // type uuid" вместо понятной 422 — стухший кэш на планшете легко
@@ -333,16 +333,33 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
 
       // Филиал берётся из сессии, а не из тела запроса: менеджер физически
       // не должен иметь возможности завести заявку на чужой филиал.
+      //
+      // Непустой снимок терминалов сессии: terminal_id обязан в нём лежать.
+      // Пустой снимок раньше значил «проверять нечего» и пропускал любой
+      // terminal_id из тела: сессия без филиалов заводила заявку в чужой. Тот
+      // же принцип, что в effectiveTerminals: границей служит право
+      // tickets.list_all, а не пустота списка. С правом (офис) явный terminal_id
+      // принимается; без права, как и без явного terminal_id, — 403. Право
+      // читается кэшем ролей, как в effectiveTerminals, и только когда снимок
+      // пуст: менеджеру с филиалами обращение к кэшу не нужно.
       const terminal_id = body.terminal_id ?? userTerminals?.[0];
-      if (!terminal_id || (userTerminals?.length && !userTerminals.includes(terminal_id))) {
+      let terminalAllowed = false;
+      if (terminal_id) {
+        if (userTerminals && userTerminals.length > 0) {
+          terminalAllowed = userTerminals.includes(terminal_id);
+        } else if (role) {
+          const permissions = await cacheController.getPermissionsByRoleId(role.id);
+          terminalAllowed = permissions.includes(LIST_ALL_PERMISSION);
+        }
+      }
+      if (!terminal_id || !terminalAllowed) {
         set.status = 403;
         return { message: "Филиал недоступен" };
       }
-      // Офисная роль несёт пустой userTerminals, и тогда includes() выше не
-      // выполняется — terminal_id из тела долетает до eq() ниже непроверенным
-      // и падает сырой 500 на мусорной строке. Ветка с непустыми
-      // userTerminals уже гарантированно валидна (id из сессии), но проверяем
-      // всё равно — единообразия ради.
+      // Офис (tickets.list_all) несёт пустой userTerminals, и его terminal_id
+      // из тела долетает до eq() ниже непроверенным по составу и падает сырой
+      // 500 на мусорной строке. У сессии с филиалами id уже сверен со снимком,
+      // но формат проверяем всё равно — единообразия ради.
       if (!UUID_RE.test(terminal_id)) {
         set.status = 422;
         return { message: "terminal_id должен быть UUID" };

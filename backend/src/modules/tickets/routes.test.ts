@@ -347,6 +347,161 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
     });
 
+    // Создание заявки при пустом снимке терминалов сессии. Раньше пустой снимок
+    // значил «проверять нечего», и terminal_id из тела долетал до базы
+    // непроверенным: сессия без филиалов заводила заявку в любой. Теперь пустой
+    // снимок пускает только с правом tickets.list_all (офис), как и остальной
+    // модуль. Тип staff без подрядной фирмы: уведомлений и очереди нет, так что
+    // успешный POST пишет лишь строки заявки, события и вложения. Файлы идут в
+    // отдельный временный каталог (TICKETS_UPLOADS_DIR), а не в боевой
+    // uploads/tickets. У ticket_attachments, ticket_comments и ticket_events нет
+    // каскада по FK: уборка снимает детей раньше заявки.
+    describe("создание заявки — пустой снимок терминалов (с фикстурами)", () => {
+      const suffix = randomUUID().slice(0, 8);
+      let typeId: string | undefined;
+      let ownTerminal: string | undefined;
+      let foreignTerminal: string | undefined;
+      const createdTerminalIds: string[] = [];
+      const createdTicketIds: string[] = [];
+      const uploadsDir = join(tmpdir(), "tickets_create_empty_snapshot_" + randomUUID());
+      const prevUploadsDir = process.env.TICKETS_UPLOADS_DIR;
+
+      beforeAll(async () => {
+        process.env.TICKETS_UPLOADS_DIR = uploadsDir;
+        const [type] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_create_empty_" + suffix,
+            number_prefix: "TE",
+            name_ru: "Тестовый тип (пустой снимок)",
+            name_uz: "Test turi (bo'sh snapshot)",
+            executor_kind: "staff",
+            fields_schema: [],
+          })
+          .returning({ id: ticket_types.id });
+        typeId = type.id;
+
+        const insertTerminal = async (label: string) => {
+          const [row] = await drizzleDb
+            .insert(terminals)
+            .values({ name: `Тестовый филиал ${label} ${suffix}`, latitude: 41.3, longitude: 69.2, organization_id: randomUUID() })
+            .returning({ id: terminals.id });
+          createdTerminalIds.push(row.id);
+          return row.id;
+        };
+        ownTerminal = await insertTerminal("свой");
+        foreignTerminal = await insertTerminal("чужой");
+      }, 30000);
+
+      afterAll(async () => {
+        if (createdTicketIds.length > 0) {
+          await drizzleDb.delete(ticket_attachments).where(inArray(ticket_attachments.ticket_id, createdTicketIds));
+          await drizzleDb.delete(ticket_comments).where(inArray(ticket_comments.ticket_id, createdTicketIds));
+          await drizzleDb.delete(ticket_events).where(inArray(ticket_events.ticket_id, createdTicketIds));
+          await drizzleDb.delete(tickets).where(inArray(tickets.id, createdTicketIds));
+        }
+        // Заявки, которые тест мог завести при регрессии, но не успел записать
+        // в createdTicketIds: добираем по филиалам фикстуры.
+        if (createdTerminalIds.length > 0) {
+          const stray = await drizzleDb
+            .select({ id: tickets.id })
+            .from(tickets)
+            .where(inArray(tickets.terminal_id, createdTerminalIds));
+          const strayIds = stray.map((r) => r.id);
+          if (strayIds.length > 0) {
+            await drizzleDb.delete(ticket_attachments).where(inArray(ticket_attachments.ticket_id, strayIds));
+            await drizzleDb.delete(ticket_comments).where(inArray(ticket_comments.ticket_id, strayIds));
+            await drizzleDb.delete(ticket_events).where(inArray(ticket_events.ticket_id, strayIds));
+            await drizzleDb.delete(tickets).where(inArray(tickets.id, strayIds));
+          }
+          await drizzleDb.delete(terminals).where(inArray(terminals.id, createdTerminalIds));
+        }
+        if (typeId) await drizzleDb.delete(ticket_types).where(eq(ticket_types.id, typeId));
+        await rm(uploadsDir, { recursive: true, force: true });
+        if (prevUploadsDir === undefined) delete process.env.TICKETS_UPLOADS_DIR;
+        else process.env.TICKETS_UPLOADS_DIR = prevUploadsDir;
+      });
+
+      const postTicket = (headers: Record<string, string>, terminalId?: string) => {
+        const form = new FormData();
+        form.append("type_id", must(typeId, "typeId"));
+        if (terminalId) form.append("terminal_id", terminalId);
+        form.append("photos", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xd9])], "probe.jpg", { type: "image/jpeg" }));
+        return call("/api/tickets", { method: "POST", headers, body: form });
+      };
+      const rowsAt = async (terminalId: string) =>
+        (await drizzleDb.select({ id: tickets.id }).from(tickets).where(eq(tickets.terminal_id, terminalId))).length;
+
+      // Главный отрицательный тест: старое условие пропускало эту сессию в чужой
+      // филиал и заводило заявку (200).
+      it("пустой снимок без tickets.list_all: чужой terminal_id — 403, заявки нет", async () => {
+        const foreign = must(foreignTerminal, "foreignTerminal");
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [] });
+        try {
+          const res = await postTicket(s.headers, foreign);
+          expect(res.status).toBe(403);
+          expect(await rowsAt(foreign)).toBe(0);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок без tickets.list_all и без terminal_id — 403", async () => {
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [] });
+        try {
+          const res = await postTicket(s.headers);
+          expect(res.status).toBe(403);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all: явный terminal_id принят, заявка в этом филиале", async () => {
+        const foreign = must(foreignTerminal, "foreignTerminal");
+        const s = await withSession({ permissions: ["tickets.create", "tickets.list_all"], terminals: [] });
+        try {
+          const res = await postTicket(s.headers, foreign);
+          const body = await res.json();
+          if (body?.id) createdTicketIds.push(body.id);
+          expect(res.status).toBe(200);
+          expect(body.terminal_id).toBe(foreign);
+          expect(await rowsAt(foreign)).toBe(1);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all, но без terminal_id — по-прежнему 403", async () => {
+        const s = await withSession({ permissions: ["tickets.create", "tickets.list_all"], terminals: [] });
+        try {
+          const res = await postTicket(s.headers);
+          expect(res.status).toBe(403);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("непустой снимок: чужой terminal_id — 403, заявки нет; свой — 200", async () => {
+        const own = must(ownTerminal, "ownTerminal");
+        const foreign = must(foreignTerminal, "foreignTerminal");
+        const before = await rowsAt(foreign);
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [own] });
+        try {
+          const denied = await postTicket(s.headers, foreign);
+          expect(denied.status).toBe(403);
+          expect(await rowsAt(foreign)).toBe(before);
+
+          const ok = await postTicket(s.headers, own);
+          const body = await ok.json();
+          if (body?.id) createdTicketIds.push(body.id);
+          expect(ok.status).toBe(200);
+          expect(body.terminal_id).toBe(own);
+        } finally {
+          await s.cleanup();
+        }
+      });
+    });
+
     // Скоуп по терминалам на GET-путях проверен выше; applyPaymentDecision
     // (POST /tickets/payment/approve) — отдельный WHERE в отдельной функции
     // (см. controller.ts) и легко может разойтись с GET-путями по одному полю,
