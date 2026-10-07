@@ -63,7 +63,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     tickets,
     users,
   } = await import("backend/drizzle/schema");
-  const { eq, inArray } = await import("drizzle-orm");
+  const { eq, inArray, sql } = await import("drizzle-orm");
 
   const call = (path: string, init: RequestInit = {}) => callApi(path, init);
 
@@ -955,6 +955,153 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       it("исполнитель-сотрудник без фирмы даёт null, а не фирму типа", async () => {
         const row = (await listMine())(staffExecutorId, "staffExecutorId");
         expect(row.contractor_name).toBeNull();
+      });
+    });
+
+    // Редактор типов (admin/app/[locale]/tickets/types) отправляет схему целиком
+    // и ждёт её обратно без потерь: три поля с вариантами не должны ни схлопнуться,
+    // ни потерять подписи, ни поменять порядок. Это же «сохранить без изменений»
+    // из плана, которое на проде делать нельзя: запись в живой тип рискует его
+    // fields_schema, а войти в админку исполнитель не может. Поэтому здесь, на
+    // managers_tickets_test: сверяется jsonb_array_length до и после и сама схема.
+    describe("типы заявок — схема полей проходит запись без потерь (с фикстурой)", () => {
+      const suffix = randomUUID().slice(0, 8);
+      const createdTypeIds: string[] = [];
+      const option = (value: string, ru: string, uz: string) => ({ value, label_ru: ru, label_uz: uz });
+      // Форма, которую даёт редактор: select с вариантами, select покороче,
+      // необязательный text. Ключи и порядок важны, подписи — кириллица и
+      // узбекские апострофы, чтобы сериализация jsonb была проверена не на ASCII.
+      const schema = [
+        {
+          key: "broken_part",
+          type: "select",
+          required: true,
+          label_ru: "Что сломано",
+          label_uz: "Nima buzilgan",
+          options: [
+            option("camera", "Конкретная камера", "Muayyan kamera"),
+            option("dvr", "Видеорегистратор", "Videoregistrator"),
+            option("no_remote", "Нет удалённого доступа", "Masofaviy kirish yo'q"),
+          ],
+        },
+        {
+          key: "zone",
+          type: "select",
+          required: false,
+          label_ru: "Зона",
+          label_uz: "Hudud",
+          options: [option("hall", "Зал", "Zal"), option("street", "Улица", "Ko'cha")],
+        },
+        { key: "note", type: "text", required: false, label_ru: "Описание", label_uz: "Izoh" },
+      ];
+
+      afterAll(async () => {
+        // Заявок фикстура не создаёт, поэтому дочерних строк нет и удаляется
+        // один тип.
+        if (createdTypeIds.length > 0) {
+          await drizzleDb.delete(ticket_types).where(inArray(ticket_types.id, createdTypeIds));
+        }
+      });
+
+      const stored = async (id: string) => {
+        const [r] = await drizzleDb
+          .select({
+            n: sql<number>`jsonb_array_length(${ticket_types.fields_schema})`,
+            schema: ticket_types.fields_schema,
+          })
+          .from(ticket_types)
+          .where(eq(ticket_types.id, id));
+        return r;
+      };
+
+      it("три поля с вариантами: создание, чтение и повторное сохранение того же ничего не теряют", async () => {
+        const s = await withSession({ permissions: ["tickets.types.manage"] });
+        const json = { ...s.headers, "content-type": "application/json" };
+        try {
+          const created = await call("/api/ticket_types", {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({
+              code: "test_schema_" + suffix,
+              number_prefix: "TS",
+              name_ru: "Тест схемы",
+              name_uz: "Sxema testi",
+              executor_kind: "external",
+              fields_schema: schema,
+            }),
+          });
+          expect(created.status).toBe(200);
+          const { id } = await created.json();
+          createdTypeIds.push(id);
+
+          const before = await stored(id);
+          expect(Number(before.n)).toBe(3);
+          expect(before.schema).toEqual(schema);
+
+          // То, что экран получил бы на открытии панели.
+          const list = await call("/api/ticket_types/manage?include_inactive=true", { headers: s.headers });
+          expect(list.status).toBe(200);
+          const row = (await list.json()).data.find((r: any) => r.id === id);
+          expect(row.fields_schema).toEqual(schema);
+
+          // «Сохранить без изменений»: в PUT уходит ровно то, что вернул GET.
+          const put = await call(`/api/ticket_types/${id}`, {
+            method: "PUT",
+            headers: json,
+            body: JSON.stringify({ fields_schema: row.fields_schema }),
+          });
+          expect(put.status).toBe(200);
+          expect((await put.json()).fields_schema).toEqual(schema);
+
+          const after = await stored(id);
+          expect(Number(after.n)).toBe(3);
+          expect(after.schema).toEqual(schema);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("схема с ошибками: 422 со списком errors, сохранённая схема не меняется", async () => {
+        const [row] = await drizzleDb
+          .insert(ticket_types)
+          .values({
+            code: "test_schema_bad_" + suffix,
+            number_prefix: "TB",
+            name_ru: "Тест 422",
+            name_uz: "422 testi",
+            executor_kind: "external",
+            fields_schema: schema,
+          })
+          .returning({ id: ticket_types.id });
+        createdTypeIds.push(row.id);
+
+        const s = await withSession({ permissions: ["tickets.types.manage"] });
+        try {
+          const res = await call(`/api/ticket_types/${row.id}`, {
+            method: "PUT",
+            headers: { ...s.headers, "content-type": "application/json" },
+            body: JSON.stringify({
+              fields_schema: [
+                { key: "Bad Key", type: "text", required: false, label_ru: "x", label_uz: "x" },
+                { key: "ok", type: "select", required: false, label_ru: "y", label_uz: "y", options: [] },
+              ],
+            }),
+          });
+          expect(res.status).toBe(422);
+          const body = await res.json();
+          // Экран показывает message заголовком, а errors списком над формой.
+          expect(body.message).toBe("Схема полей неверна");
+          expect(body.errors).toEqual([
+            "поле #1: ключ должен быть snake_case латиницей",
+            "ok: у select должен быть хотя бы один вариант",
+          ]);
+
+          const kept = await stored(row.id);
+          expect(Number(kept.n)).toBe(3);
+          expect(kept.schema).toEqual(schema);
+        } finally {
+          await s.cleanup();
+        }
       });
     });
 
