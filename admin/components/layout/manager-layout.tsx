@@ -121,7 +121,8 @@ export default function ManagerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="md:container">
+    // pb-20: нижнее меню закреплено (h-16) и иначе закрывает конец длинных страниц.
+    <div className="md:container pb-20">
       {children}
       <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid h-full max-w-lg grid-cols-6 mx-auto font-medium">

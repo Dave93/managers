@@ -22,7 +22,6 @@ export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 // Asia/Tashkent — UTC+5 круглый год, без перехода на летнее время, поэтому
 // хватает сдвига, без Intl и без зависимости от TZ сервера.
 const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
-export const PERIOD_GRACE_DAYS = 5;
 
 function tashkentParts(now: Date): { y: number; m: number; d: number } {
   const t = new Date(now.getTime() + TASHKENT_OFFSET_MS);
@@ -44,15 +43,6 @@ function nextMonth(y: number, m: number): { y: number; m: number } {
   return m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 };
 }
 
-/** Периоды, доступные для новой инвентаризации. Первый — текущий месяц. */
-export function allowedPeriods(now: Date): string[] {
-  const { y, m, d } = tashkentParts(now);
-  const current = lastDayOfMonth(y, m);
-  if (d > PERIOD_GRACE_DAYS) return [current];
-  const p = prevMonth(y, m);
-  return [current, lastDayOfMonth(p.y, p.m)];
-}
-
 export function isValidPeriod(period: string): boolean {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(period);
   if (!m) return false;
@@ -62,15 +52,17 @@ export function isValidPeriod(period: string): boolean {
   return lastDayOfMonth(year, month) === period;
 }
 
-/** Вернуть в черновик можно до PERIOD_GRACE_DAYS числа следующего месяца включительно. */
-export function canReopen(period: string, now: Date): boolean {
-  if (!isValidPeriod(period)) return false;
-  const [py, pm] = period.split("-").map(Number);
-  const limit = nextMonth(py, pm);
-  const { y, m, d } = tashkentParts(now);
-  const nowKey = y * 10000 + m * 100 + d;
-  const limitKey = limit.y * 10000 + limit.m * 100 + PERIOD_GRACE_DAYS;
-  return nowKey <= limitKey;
+/** Периоды, доступные для новой инвентаризации: текущий месяц и прошлый, без срока ввода. */
+export function allowedPeriods(now: Date): string[] {
+  const { y, m } = tashkentParts(now);
+  return [lastDayOfMonth(y, m), previousPeriod(now)];
+}
+
+/** Последний день прошлого месяца по Ташкенту — период, который сверяет cron. */
+export function previousPeriod(now: Date): string {
+  const { y, m } = tashkentParts(now);
+  const p = prevMonth(y, m);
+  return lastDayOfMonth(p.y, p.m);
 }
 
 export const MAX_QTY = 1_000_000;

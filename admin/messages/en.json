@@ -650,6 +650,99 @@
     "noExord": "No exord data — the list is not filtered by the branch's products",
     "itemsCount": "{count} items",
     "branchAll": "All branch products",
-    "branchUnavailable": "no exord data"
+    "branchUnavailable": "no exord data",
+    "reconcile": {
+      "title": "iiko reconciliation",
+      "period": "Month",
+      "fetch": "Load from iiko",
+      "refresh": "Reload from iiko",
+      "alreadyRunning": "A load for this month is already running",
+      "state": {
+        "idle": "Not loaded yet",
+        "queued": "Queued",
+        "stage1": "Loading iiko documents…",
+        "stage2": "Calculating book stock and differences…",
+        "done": "Done",
+        "failed": "Error: {error}"
+      },
+      "saved": "iiko data saved: received {received}, missing {missing}",
+      "missingTitle": "No posted document",
+      "empty": "No reconciliation for this month yet — press “Load from iiko”",
+      "col": {
+        "store": "Store",
+        "admin": "Admin count",
+        "document": "iiko document",
+        "status": "Status",
+        "mismatch": "Rows A ≠ B"
+      },
+      "admin": {
+        "submitted": "Submitted",
+        "draft": "Draft",
+        "none": "No count"
+      },
+      "status": {
+        "waiting_iiko": "Waiting for iiko document",
+        "needs_choice": "Choose a document",
+        "ready": "Ready for review",
+        "in_review": "Under review",
+        "accepted": "Accepted"
+      },
+      "unposted": "unposted after load",
+      "changedAfterAccept": "changed after acceptance",
+      "all": "All",
+      "organization": "Organization",
+      "open": "Open",
+      "back": "Back to reconciliation",
+      "fetchedAt": "Loaded {at}",
+      "tabs": {
+        "lines": "Differences",
+        "log": "Log"
+      },
+      "onlyMismatch": "Only A ≠ B",
+      "line": {
+        "product": "Product",
+        "a": "Branch admin (A)",
+        "b": "iiko inventory (B)",
+        "diff": "± difference",
+        "checked": "Checked"
+      },
+      "flag": {
+        "skipped": "not counted",
+        "absent": "not counted in admin",
+        "multi": "in several counts"
+      },
+      "choose": {
+        "title": "Choose the iiko document",
+        "hint": "There are several “Месяц” documents or none — pick the one to reconcile",
+        "pick": "Use this one"
+      },
+      "review": {
+        "toReview": "Under review",
+        "accept": "Accept",
+        "comment": "Comment",
+        "commentRequired": "A comment is required for “Under review”",
+        "reviewedBy": "{name}, {at}"
+      },
+      "event": {
+        "fetched": "Document #{num} loaded",
+        "changed": "rows changed: {count}",
+        "doc_missing": "Document #{num} disappeared from iiko (unposted)",
+        "doc_chosen": "Document #{num} chosen",
+        "calculated": "Recalculated",
+        "status_changed": "Status → {to}"
+      },
+      "edits": {
+        "title": "Branch edits after submission",
+        "entry_added": "added {qty}",
+        "entry_deleted": "deleted {qty}",
+        "reopened": "returned to draft",
+        "none": "No edits after submission"
+      },
+      "counts": {
+        "title": "Admin counts"
+      },
+      "checkedBy": "Checked by {name}, {at}",
+      "checkedCount": "Checked {done} of {total} differences"
+    }
   }
 }

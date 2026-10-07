@@ -7,6 +7,7 @@ const SLUGS: { slug: string; description: string }[] = [
   { slug: "inventory.count", description: "Инвентаризация: ввод остатков своих складов" },
   { slug: "inventory.manage", description: "Инвентаризация: начать, отправить, вернуть" },
   { slug: "inventory.templates", description: "Инвентаризация: шаблоны, обзор всех складов" },
+  { slug: "inventory.reconcile", description: "Инвентаризация: сверка с iiko, разблокировка ввода" },
 ];
 
 async function main() {

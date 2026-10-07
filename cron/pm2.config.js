@@ -11,6 +11,11 @@ module.exports = {
       interpreter: "bun",
     },
     {
+      name: "inventory_reconcile_worker",
+      script: "inventory_reconcile_worker.ts",
+      interpreter: "bun",
+    },
+    {
       name: "office_tickets_worker",
       script: "tickets_worker.ts",
       interpreter: "bun",

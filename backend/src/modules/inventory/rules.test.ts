@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import {
   allowedPeriods,
-  canReopen,
   isValidPeriod,
   isValidQty,
   lastDayOfMonth,
   nextStatus,
+  previousPeriod,
 } from "./rules";
 
 describe("nextStatus", () => {
@@ -38,35 +38,27 @@ describe("lastDayOfMonth / isValidPeriod", () => {
   });
 });
 
-describe("allowedPeriods (Asia/Tashkent, UTC+5)", () => {
-  it("в середине месяца — только текущий", () => {
-    expect(allowedPeriods(new Date("2026-10-15T07:00:00Z"))).toEqual(["2026-10-31"]);
+describe("allowedPeriods (срока ввода нет: текущий и прошлый месяц всегда)", () => {
+  it("в середине месяца — текущий и прошлый", () => {
+    expect(allowedPeriods(new Date("2026-10-15T07:00:00Z"))).toEqual(["2026-10-31", "2026-09-30"]);
   });
-  it("1-е число 03:00 +05 (в UTC ещё 31-е) — уже новый месяц и прошлый", () => {
+  it("после 2-го числа прошлый месяц по-прежнему доступен", () => {
+    expect(allowedPeriods(new Date("2026-10-07T07:00:00Z"))).toEqual(["2026-10-31", "2026-09-30"]);
+  });
+  it("1-е число 03:00 +05 (в UTC ещё 31-е) — новый месяц и прошлый", () => {
     expect(allowedPeriods(new Date("2026-10-31T22:00:00Z"))).toEqual(["2026-11-30", "2026-10-31"]);
   });
-  it("5-е 23:59 +05 — прошлый ещё доступен", () => {
-    expect(allowedPeriods(new Date("2026-11-05T18:59:00Z"))).toEqual(["2026-11-30", "2026-10-31"]);
-  });
-  it("6-е 03:00 +05 (в UTC ещё 5-е) — прошлый уже нет", () => {
-    expect(allowedPeriods(new Date("2026-11-05T22:00:00Z"))).toEqual(["2026-11-30"]);
-  });
   it("переход через год", () => {
-    expect(allowedPeriods(new Date("2027-01-02T00:00:00Z"))).toEqual(["2027-01-31", "2026-12-31"]);
+    expect(allowedPeriods(new Date("2027-01-20T07:00:00Z"))).toEqual(["2027-01-31", "2026-12-31"]);
   });
 });
 
-describe("canReopen", () => {
-  it("до 5-го числа следующего месяца включительно", () => {
-    expect(canReopen("2026-10-31", new Date("2026-10-31T10:00:00Z"))).toBe(true);
-    expect(canReopen("2026-10-31", new Date("2026-11-05T18:59:00Z"))).toBe(true);
-  });
-  it("6-е 00:00 +05 — уже нельзя", () => {
-    expect(canReopen("2026-10-31", new Date("2026-11-05T19:00:00Z"))).toBe(false);
-  });
-  it("декабрьский период — до 5 января", () => {
-    expect(canReopen("2026-12-31", new Date("2027-01-05T10:00:00Z"))).toBe(true);
-    expect(canReopen("2026-12-31", new Date("2027-01-06T10:00:00Z"))).toBe(false);
+describe("previousPeriod", () => {
+  it("прошлый месяц по Ташкенту", () => {
+    expect(previousPeriod(new Date("2026-10-06T03:00:00Z"))).toBe("2026-09-30");
+    // 1 ноября 02:00 +05 — в UTC ещё 31 октября
+    expect(previousPeriod(new Date("2026-10-31T21:00:00Z"))).toBe("2026-10-31");
+    expect(previousPeriod(new Date("2027-01-03T03:00:00Z"))).toBe("2026-12-31");
   });
 });
 

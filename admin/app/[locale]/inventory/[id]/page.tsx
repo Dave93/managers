@@ -62,7 +62,7 @@ function CountScreen({ id }: { id: string }) {
   const editable = detail.status === "draft" && detail.access === "write";
 
   return (
-    <div className="p-3 sm:p-4 pb-36 space-y-4">
+    <div className="p-3 sm:p-4 pb-24 space-y-4">
       <div className="flex items-center justify-between gap-2">
         <Link href="/inventory" className="text-sm underline">
           ← {t("back")}
@@ -89,16 +89,10 @@ function CountScreen({ id }: { id: string }) {
         onDismissRejected={sync.dismissRejected}
         onResendRejected={sync.resendRejected}
       />
-      <CountTable
-        detail={detail}
-        online={sync.online}
-        onAdd={sync.addEntries}
-        onDelete={sync.deleteEntry}
-        onSkip={(lineId, skipped) => skip.mutate({ lineId, skipped })}
-      />
-      <div className="fixed bottom-16 left-0 right-0 z-40 border-t bg-background/95 backdrop-blur px-3 py-2">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-2">
-          {editable && <AddProductDialog countId={id} online={sync.online} onAdded={() => void sync.refetch()} />}
+      {/* Кнопки над списком: внизу фиксированная панель закрывала последние строки. */}
+      {(editable || detail.can_reopen) && (
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          {editable ? <AddProductDialog countId={id} online={sync.online} onAdded={() => void sync.refetch()} /> : <span />}
           <div className="flex flex-wrap items-center gap-2">
             {editable && detail.can_manage && (
               <SubmitDialog detail={detail} pendingCount={sync.pendingCount} onDone={() => void sync.refetch()} />
@@ -110,7 +104,16 @@ function CountScreen({ id }: { id: string }) {
             )}
           </div>
         </div>
-      </div>
+      )}
+      <CountTable
+        detail={detail}
+        online={sync.online}
+        onAdd={sync.addEntries}
+        onDelete={sync.deleteEntry}
+        onSkip={(lineId, skipped) => skip.mutate({ lineId, skipped })}
+      />
+      {/* Та же кнопка под списком: товар, которого нет в списке, обычно находят, дойдя до конца. */}
+      {editable && <AddProductDialog countId={id} online={sync.online} onAdded={() => void sync.refetch()} />}
     </div>
   );
 }

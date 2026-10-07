@@ -613,6 +613,99 @@
     "noExord": "exord ma'lumotlari yo‘q — ro‘yxat filial mahsulotlari bo‘yicha filtrlanmagan",
     "itemsCount": "{count} ta",
     "branchAll": "Filialning barcha mahsulotlari",
-    "branchUnavailable": "exord ma'lumotlari yo‘q"
+    "branchUnavailable": "exord ma'lumotlari yo‘q",
+    "reconcile": {
+      "title": "iiko bilan solishtirish",
+      "period": "Oy",
+      "fetch": "iiko'dan yuklash",
+      "refresh": "iiko'dan yangilash",
+      "alreadyRunning": "Bu oy uchun yuklash allaqachon ketmoqda",
+      "state": {
+        "idle": "Hali yuklanmagan",
+        "queued": "Navbatda",
+        "stage1": "iiko hujjatlari yuklanmoqda…",
+        "stage2": "Hisob qoldig'i va farqlar hisoblanmoqda…",
+        "done": "Tayyor",
+        "failed": "Xato: {error}"
+      },
+      "saved": "iiko ma'lumotlari saqlandi: olindi {received}, olinmadi {missing}",
+      "missingTitle": "O'tkazilgan hujjat yo'q",
+      "empty": "Bu oy uchun solishtirish hali yo'q — «iiko'dan yuklash» ni bosing",
+      "col": {
+        "store": "Ombor",
+        "admin": "Admin",
+        "document": "iiko hujjati",
+        "status": "Holat",
+        "mismatch": "A ≠ B qatorlar"
+      },
+      "admin": {
+        "submitted": "Topshirilgan",
+        "draft": "Qoralama",
+        "none": "Sanoq yo'q"
+      },
+      "status": {
+        "waiting_iiko": "iiko hujjati kutilmoqda",
+        "needs_choice": "Hujjatni tanlash kerak",
+        "ready": "Ko'rib chiqishga tayyor",
+        "in_review": "Ko'rib chiqilmoqda",
+        "accepted": "Qabul qilingan"
+      },
+      "unposted": "yuklangandan keyin o'tkazish bekor qilingan",
+      "changedAfterAccept": "qabul qilingandan keyin o'zgargan",
+      "all": "Hammasi",
+      "organization": "Tashkilot",
+      "open": "Ochish",
+      "back": "Solishtirishga qaytish",
+      "fetchedAt": "Yuklangan {at}",
+      "tabs": {
+        "lines": "Farqlar",
+        "log": "Jurnal"
+      },
+      "onlyMismatch": "Faqat A ≠ B",
+      "line": {
+        "product": "Mahsulot",
+        "a": "Filial admini (A)",
+        "b": "iiko inventarizatsiyasi (B)",
+        "diff": "± farq",
+        "checked": "Tekshirildi"
+      },
+      "flag": {
+        "skipped": "sanalmagan",
+        "absent": "adminda sanalmagan",
+        "multi": "bir nechta sanoqda"
+      },
+      "choose": {
+        "title": "iiko hujjatini tanlang",
+        "hint": "«Месяц» hujjatlari bir nechta yoki umuman yo'q — qaysi birini solishtirishni belgilang",
+        "pick": "Shuni solishtirish"
+      },
+      "review": {
+        "toReview": "Ko'rib chiqishga",
+        "accept": "Qabul qilish",
+        "comment": "Izoh",
+        "commentRequired": "«Ko'rib chiqishga» uchun izoh kerak",
+        "reviewedBy": "{name}, {at}"
+      },
+      "event": {
+        "fetched": "№{num} hujjat yuklandi",
+        "changed": "o'zgargan qatorlar: {count}",
+        "doc_missing": "№{num} hujjat iiko'dan yo'qoldi (o'tkazish bekor qilingan)",
+        "doc_chosen": "№{num} hujjat tanlandi",
+        "calculated": "Qayta hisoblandi",
+        "status_changed": "Holat → {to}"
+      },
+      "edits": {
+        "title": "Yuborilgandan keyingi filial tuzatishlari",
+        "entry_added": "{qty} qo'shdi",
+        "entry_deleted": "{qty} o'chirdi",
+        "reopened": "qoralamaga qaytardi",
+        "none": "Yuborilgandan keyin tuzatish yo'q"
+      },
+      "counts": {
+        "title": "Admindagi sanoqlar"
+      },
+      "checkedBy": "{name} belgiladi, {at}",
+      "checkedCount": "{total} ta farqdan {done} tasi tekshirildi"
+    }
   }
 }

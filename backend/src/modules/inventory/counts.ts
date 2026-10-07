@@ -16,7 +16,7 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
-import { allowedPeriods, canReopen, isValidQty, nextStatus, UUID_RE } from "./rules";
+import { allowedPeriods, isValidQty, nextStatus, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
   InventoryStartOptions,
@@ -71,7 +71,7 @@ export const LINE_ID = sql.raw(`"inventory_count_lines"."id"`);
 export const TEMPLATE_ID = sql.raw(`"inventory_templates"."id"`);
 
 // Снимок строки: название, единица, папка iiko «Родитель / Папка».
-const GROUP_NAME_SQL = sql.raw(
+export const GROUP_NAME_SQL = sql.raw(
   `case when g.id is null then 'Без группы' when gp.name is null then g.name else gp.name || ' / ' || g.name end`
 );
 
@@ -379,7 +379,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     viewer_id: actor.userId,
     access,
     can_manage: manage,
-    can_reopen: manage && row.status === "submitted" && canReopen(row.period, now),
+    can_reopen: manage && row.status === "submitted",
     lines: lines.map(
       (x): InventoryLine => ({
         ...x,
@@ -618,8 +618,7 @@ export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Dat
     const row = await requireManagedCount(tx, actor, id);
     const to = nextStatus("reopen", row.status);
     if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
-    if (!canReopen(row.period, now)) throw new InventoryError(422, "reopen_window_closed");
-    await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
+      await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
     // Снимаем «не считали», которое поставила последняя отправка (skip_incomplete);
     // строки, которые человек отметил сам, остаются пропущенными.
     const [lastSubmit] = await tx

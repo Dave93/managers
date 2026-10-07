@@ -18,11 +18,13 @@ import {
   updateTemplate,
 } from "./templates";
 import { allowedPeriods } from "./rules";
+import { reconcileRoutes } from "./reconcile/routes";
 import type { InventoryStore } from "./types";
 
 const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/api" })
   .use(ctx)
   .guard({ detail: { hide: true } })
+  .use(reconcileRoutes)
   .get(
     "/inventory/stores",
     async ({ user, role, drizzle, cacheController, set }) =>

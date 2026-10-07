@@ -925,4 +925,76 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
+
+  describe("inventory: прошлый период — без срока ввода", () => {
+    const PAST = "2026-01-31";
+
+    // Пересчёт за давний период вставляется напрямую: через API его не создать.
+    async function pastCount(w: World, status: "draft" | "submitted", createdBy: string) {
+      const [c] = await drizzleDb
+        .insert(schema.inventory_counts)
+        .values({
+          store_id: w.storeId,
+          organization_id: w.orgId,
+          template_id: w.templateId,
+          template_name: "Месячная",
+          period: PAST,
+          status,
+          created_by: createdBy,
+        })
+        .returning({ id: schema.inventory_counts.id });
+      const [line] = await drizzleDb
+        .insert(schema.inventory_count_lines)
+        .values({ count_id: c.id, product_id: w.p1, product_name: "Говядина", group_name: "Склад", source: "template" })
+        .returning({ id: schema.inventory_count_lines.id });
+      return { countId: c.id, lineId: line.id };
+    }
+
+    it("пересчёт прошлого периода: запись, отправка и возврат в черновик проходят", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const c = await pastCount(w, "draft", m.userId);
+        const sync = await api(m, "POST", `/api/inventory/counts/${c.countId}/entries/sync`, {
+          ops: [{ op: "add", id: randomUUID(), line_id: c.lineId, qty: 1, client_created_at: new Date().toISOString() }],
+        });
+        expect(sync.status).toBe(200);
+        expect(sync.body.applied.length).toBe(1);
+        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/submit`, {})).status).toBe(200);
+
+        const detail = await api(m, "GET", `/api/inventory/counts/${c.countId}`);
+        expect(detail.body.can_reopen).toBe(true);
+        expect(detail.body.input_open).toBeUndefined();
+        expect(detail.body.deadline).toBeUndefined();
+
+        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("прошлый месяц можно начать в любой день", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const r = await api(m, "GET", "/api/inventory/periods");
+        expect(r.body.periods.length).toBe(2);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("разблокировки больше нет — маршрут не существует", async () => {
+      const w = await seedWorld();
+      try {
+        const o = await sessionFor(w, ["inventory.count", "inventory.reconcile"], false);
+        const m = await manager(w);
+        const c = await pastCount(w, "draft", m.userId);
+        const r = await api(o, "POST", `/api/inventory/counts/${c.countId}/unlock`, {});
+        expect(r.status).toBe(404);
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
 }
