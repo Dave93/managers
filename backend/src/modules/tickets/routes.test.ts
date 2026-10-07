@@ -434,7 +434,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     // tickets.list_all снимает скоуп по филиалам во всём модуле: в чтении
     // (список и тот же count, на котором стоят очередь «К оплате» и
     // предупреждение редактора типов, карточка, файл вложения) и в записи
-    // (оплата, close, reopen, cancel, comments, seen). Первая пара заявок
+    // (оплата, close, reopen, cancel, comments); исключение — seen, он остаётся
+    // на терминалах сессии. Первая пара заявок
     // ниже служит чтению; каждой записи заводится своя свежая заявка. Дочерние строки (комментарий, событие, вложение) заведены
     // нарочно: у ticket_comments, ticket_events и ticket_attachments нет
     // каскада по FK, и уборка обязана снять их раньше заявки.
@@ -866,6 +867,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
+      // seen — исключение из правила: manager_seen_at значит «филиал посмотрел»,
+      // колонка не хранит актора, и офис этого утверждать не может. Право
+      // list_all на этот роут не действует ни в какую сторону.
       it("без tickets.list_all отметка seen на заявке чужого филиала — 404, поле пусто", async () => {
         const id = await freshTicket("new");
         const s = await officeSession(false);
@@ -877,12 +881,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
-      it("с tickets.list_all отметка seen на заявке чужого филиала проходит", async () => {
-        const id = await freshTicket("new");
+      it("tickets.list_all не действует на seen: чужая заявка — 404, поле пусто, своя — 200", async () => {
+        const foreign = await freshTicket("new");
+        const own = await freshTicket("new", { terminal_id: terminalA });
         const s = await officeSession(true);
         try {
-          expect((await post(s.headers, `/api/tickets/${id}/seen`)).status).toBe(200);
-          expect((await stateOf(id)).manager_seen_at).not.toBeNull();
+          expect((await post(s.headers, `/api/tickets/${foreign}/seen`)).status).toBe(404);
+          expect((await stateOf(foreign)).manager_seen_at).toBeNull();
+          // Контроль: роут сам по себе рабочий, 404 выше именно из-за скоупа.
+          expect((await post(s.headers, `/api/tickets/${own}/seen`)).status).toBe(200);
+          expect((await stateOf(own)).manager_seen_at).not.toBeNull();
         } finally {
           await s.cleanup();
         }

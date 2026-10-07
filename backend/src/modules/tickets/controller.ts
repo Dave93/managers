@@ -80,13 +80,19 @@ async function notFoundOrConflict(
   return { status: 409, body: { message: conflictMessage } };
 }
 
-// Право tickets.list_all снимает скоуп по филиалам во всём модуле заявок, и в
-// чтении (список, карточка, вложение), и в записи (close, reopen, cancel,
-// comments, seen, payment/approve, payment/reject). Фильтр по терминалам в этих
-// роутах достался от планшета филиала; для офисной сессии он оставлял кнопки,
-// которые всегда отвечают 404, и очередь «К оплате», где ничего не утвердить.
-// Границей полномочий служит само право, а не список филиалов. Сессия без
-// права скоупится по своим терминалам ровно как раньше.
+// Право tickets.list_all снимает скоуп по филиалам в чтении (список, карточка,
+// вложение) и в записи (close, reopen, cancel, comments, payment/approve,
+// payment/reject). Фильтр по терминалам в этих роутах достался от планшета
+// филиала; для офисной сессии он оставлял кнопки, которые всегда отвечают 404,
+// и очередь «К оплате», где ничего не утвердить. Границей полномочий служит
+// само право, а не список филиалов. Сессия без права скоупится по своим
+// терминалам ровно как раньше.
+//
+// Единственное исключение — POST /tickets/:id/seen. manager_seen_at
+// утверждает «филиал посмотрел», офисная сессия этого утверждать не может, а
+// колонка не хранит актора, так что след молчал бы. Правдивость записи важнее
+// единообразия: seen остаётся на терминалах сессии, и право на него не
+// действует.
 //
 // Возвращает список филиалов для фильтра или undefined, если фильтровать не
 // нужно. Пустой terminals и так значит «все филиалы», поэтому без филиалов
@@ -901,12 +907,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/seen",
-    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, drizzle, set }) => {
+    async ({ params: { id }, terminals: userTerminals, drizzle, set }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      // Скоуп здесь терминалы сессии, а не effectiveTerminals: см. комментарий у
+      // tickets.list_all выше, отметка «филиал посмотрел» офису не принадлежит.
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
       const updated = await drizzle
