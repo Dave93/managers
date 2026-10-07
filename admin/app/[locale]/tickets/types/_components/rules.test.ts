@@ -256,7 +256,7 @@ describe("needsConfirmation", () => {
     expect(needsConfirmation("edit", risks, null)).toBe(true);
   });
 
-  test("число заявок в решении не участвует: хватает самих рисков из сравнения схем", () => {
+  test("подтверждение выводится из рисков, найденных orphanRisks, без других данных", () => {
     const initial = [text("u1", "x"), text("u2", "y")];
     const risks = orphanRisks(initial, [text("u2", "x")]);
     expect(needsConfirmation("edit", risks, null)).toBe(true);

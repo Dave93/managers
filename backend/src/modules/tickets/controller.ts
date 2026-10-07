@@ -94,6 +94,9 @@ async function notFoundOrConflict(
 // единообразия: seen остаётся на терминалах сессии, и право на него не
 // действует.
 //
+// Проверку права ставят ПОСЛЕ дешёвых проверок входа (формат id, пустое тело):
+// иначе мусорный запрос стоил бы обращения к кэшу ролей до своего 404/422.
+//
 // Возвращает список филиалов для фильтра или undefined, если фильтровать не
 // нужно. Пустой terminals и так значит «все филиалы», поэтому без филиалов
 // права не читаем вовсе. Нет роли в контексте — тоже оставляем скоуп как есть:
@@ -694,12 +697,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/close",
     async ({ params: { id }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
-      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const result = await drizzle.transaction(async (tx) => {
         // Переход проверяется тем же запросом, что и пишет: между SELECT и
         // UPDATE заявку успевают вернуть в работу с другого планшета. Область
@@ -745,8 +748,6 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/reopen",
     async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
-      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -755,6 +756,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 422;
         return { message: "Нужен комментарий: без него исполнитель не поймёт, что переделывать" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const result = await drizzle.transaction(async (tx) => {
         const where = scopedTicketWhere(id, userTerminals, allowedFrom("reopen"));
         const updated = await tx
@@ -807,12 +810,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/cancel",
     async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
-      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       // Пустая или пробельная строка после trim — это отсутствие комментария,
       // а не комментарий из пустой строки: не даём "" осесть в payload.
       const trimmedComment = comment?.trim() || null;
@@ -862,8 +865,6 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/:id/comments",
     async ({ params: { id }, body: { body: text }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
-      const actor = actorKindOf(userTerminals);
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -872,6 +873,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 422;
         return { message: "Пустой комментарий" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
       const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...where)).execute();
@@ -932,7 +935,6 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/payment/approve",
     async ({ body: { ids }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
@@ -943,6 +945,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       // approved/skipped в ответе не сойдётся с тем, что реально произошло.
       const uniqueIds = [...new Set(idsCheck.ids)];
 
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const approved = await applyPaymentDecision(
         drizzle,
         uniqueIds,
@@ -964,7 +967,6 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .post(
     "/tickets/payment/reject",
     async ({ body: { ids, comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
-      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
@@ -977,6 +979,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const trimmedComment = comment.trim();
       const uniqueIds = [...new Set(idsCheck.ids)];
 
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const rejected = await applyPaymentDecision(
         drizzle,
         uniqueIds,
