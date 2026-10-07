@@ -65,7 +65,8 @@ interface DataTableProps {
   filters: Filters;
   hasFilters: boolean;
   onResetFilters: () => void;
-  onOpen: (id: string) => void;
+  // Без onOpen строки просто строки: ни курсора-руки, ни остановки по Tab.
+  onOpen?: (id: string) => void;
 }
 
 const SKELETON_ROWS = 8;
@@ -282,14 +283,22 @@ export function DataTable({
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  tabIndex={0}
-                  onClick={() => onOpen(row.original.id)}
-                  onKeyDown={(e) => {
-                    if (e.target === e.currentTarget && e.key === "Enter") {
-                      onOpen(row.original.id);
-                    }
-                  }}
-                  className="cursor-pointer outline-none hover:bg-muted/40 focus-visible:bg-muted/60"
+                  {...(onOpen
+                    ? {
+                        tabIndex: 0,
+                        onClick: () => onOpen(row.original.id),
+                        onKeyDown: (e: React.KeyboardEvent) => {
+                          if (e.target === e.currentTarget && e.key === "Enter") {
+                            onOpen(row.original.id);
+                          }
+                        },
+                      }
+                    : {})}
+                  className={
+                    onOpen
+                      ? "cursor-pointer outline-none hover:bg-muted/40 focus-visible:bg-muted/60"
+                      : "hover:bg-muted/40"
+                  }
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id} className="py-2 align-middle">

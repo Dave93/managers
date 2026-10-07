@@ -44,6 +44,7 @@ import {
   useTicketTypes,
 } from "@admin/lib/use-tickets";
 
+import { TicketSheet } from "./_components/ticket-sheet";
 import { buildColumns } from "./columns";
 import { DataTable } from "./data-table";
 
@@ -245,14 +246,11 @@ export default function TicketsPage() {
     setPriorityOn(null);
   };
 
-  // Карточка заявки (TicketSheet) появится в Task 4; до неё клик по строке
-  // ничего не открывает, и страница от этого не ломается.
-  const onOpen: (id: string) => void = () => undefined;
+  // Открытая карточка. Номер в колонке и сама строка вызывают один setOpenId.
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const columns = useMemo(
-    () => buildColumns({ onOpen, types: types.data }),
-    // onOpen стабильна по смыслу (заглушка), пересборка нужна только типам.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    () => buildColumns({ onOpen: setOpenId, types: types.data }),
     [types.data]
   );
 
@@ -403,8 +401,10 @@ export default function TicketsPage() {
         filters={filters}
         hasFilters={hasFilters}
         onResetFilters={resetFilters}
-        onOpen={onOpen}
+        onOpen={setOpenId}
       />
+
+      <TicketSheet ticketId={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }
