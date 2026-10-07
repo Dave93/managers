@@ -301,8 +301,14 @@ export default function ContractorsPage() {
   const firms = firmsQ.data ?? NO_FIRMS;
 
   const [pickedId, setPickedId] = useState<string | null>(null);
-  // Выбор выводится, а не копируется в эффект: если выбранной фирмы в списке
-  // нет (ещё не загружен, пропала), берём первую.
+  // Первая фирма выбирается один раз, когда список впервые загрузился, и дальше
+  // выбор закреплён за id. Иначе перезапрос списка по возврату фокуса мог бы
+  // сдвинуть firms[0] (другой админ добавил фирму, которая сортируется раньше),
+  // сменить ключ запроса исполнителей и спрятать открытую панель с ссылкой.
+  // Установка состояния в рендере, как в useSheetSession: без эффекта и без
+  // лишнего кадра с пустым выбором.
+  if (pickedId === null && firms.length > 0) setPickedId(firms[0].id);
+  // Если закреплённой фирмы в списке всё же нет (пропала), берём первую.
   const selected = firms.find((f) => f.id === pickedId) ?? firms[0] ?? null;
 
   const executorsQ = useExecutors(selected?.id ?? null, listsEnabled);
