@@ -70,10 +70,21 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
     const result = (c.attachments ?? []).filter((a) => a.phase === "result");
     const itemsSum = sumMinor(items.map((w) => w.amount));
     const totalMinor = toMinor(c.work_total_amount);
-    // Итог акта считает сервер из этих же позиций, так что расхождение значит
-    // порчу данных. Утверждать такую заявку вслепую нельзя, поэтому говорим.
-    const mismatch =
-      items.length > 0 && itemsSum !== null && totalMinor !== null && itemsSum !== totalMinor;
+    // Четыре повода не утверждать вслепую, и у каждого свой текст: человеку
+    // нужно знать, что именно проверять. Итог акта считает сервер из позиций,
+    // так что любое из этого значит порчу данных, а сумма при этом стоит в
+    // строке списка рядом с кнопкой «Утвердить».
+    let problem: string | null = null;
+    if (items.length === 0) {
+      problem = `В акте нет позиций, а итог указан: ${formatAmount(c.work_total_amount)}. Проверьте заявку, прежде чем утверждать.`;
+    } else if (itemsSum === null) {
+      problem =
+        "Сумму одной из позиций не удалось прочитать, сверить с итогом акта нельзя. Проверьте заявку, прежде чем утверждать.";
+    } else if (totalMinor === null) {
+      problem = "Итог акта не удалось прочитать. Проверьте заявку, прежде чем утверждать.";
+    } else if (itemsSum !== totalMinor) {
+      problem = "Сумма позиций не совпадает с итогом акта. Проверьте заявку, прежде чем утверждать.";
+    }
     body = (
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="min-w-0 space-y-2">
@@ -125,9 +136,9 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
               </table>
             </div>
           )}
-          {mismatch && (
+          {problem && (
             <p role="alert" className="text-[12.5px] leading-snug text-destructive">
-              Сумма позиций не совпадает с итогом акта. Проверьте заявку, прежде чем утверждать.
+              {problem}
             </p>
           )}
         </section>
