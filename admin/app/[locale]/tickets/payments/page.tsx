@@ -84,11 +84,12 @@ export default function PaymentsPage() {
     });
   }, [rows]);
 
-  // Утвердили последнюю заявку страницы, не последней: страница опустела, а
-  // очередь нет. Возвращаемся на последнюю непустую.
+  // Решили последнюю заявку страницы, не последней: страница опустела, а
+  // очередь нет. Возвращаемся на последнюю непустую; если пуста вся очередь
+  // (total = 0), то на первую, иначе осталось бы «стр. 3 из 1».
   useEffect(() => {
-    if (queue.data && rows.length === 0 && total > 0 && pageIndex > 0) {
-      setPaging((p) => ({ ...p, pageIndex: Math.ceil(total / p.pageSize) - 1 }));
+    if (queue.data && rows.length === 0 && pageIndex > 0) {
+      setPaging((p) => ({ ...p, pageIndex: Math.max(Math.ceil(total / p.pageSize) - 1, 0) }));
     }
   }, [queue.data, rows.length, total, pageIndex]);
 
