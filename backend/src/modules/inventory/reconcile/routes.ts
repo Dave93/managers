@@ -3,6 +3,7 @@
 // филиал цифр iiko не видит.
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
+import { reopenRule, setReopenRule } from "../counts";
 import { InventoryError, run } from "../errors";
 import { isValidPeriod } from "../rules";
 import { assertNotRunning, enqueueReconcile, readStatus, reconcileQueue } from "./queue";
@@ -86,4 +87,10 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
     async ({ params, body, drizzle, user, set }) =>
       run(set, async () => setLineMark(drizzle, params.id, params.productId, body.checked, user!.id)),
     { permission: P, params: t.Object({ id: t.String(), productId: t.String() }), body: t.Object({ checked: t.Boolean() }) }
+  )
+  .get("/inventory/settings/reopen-rule", async ({ drizzle }) => ({ rule: await reopenRule(drizzle) }), { permission: P })
+  .put(
+    "/inventory/settings/reopen-rule",
+    async ({ body, drizzle, set }) => run(set, async () => setReopenRule(drizzle, body.rule as any)),
+    { permission: P, body: t.Object({ rule: t.String() }) }
   );

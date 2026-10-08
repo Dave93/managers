@@ -134,3 +134,11 @@ export interface InventoryErrorBody {
   error: string;
   [k: string]: unknown;
 }
+
+/** Кто и когда может вернуть отправленный пересчёт в черновик (настройка inventory.reopen_rule).
+ * Офис с inventory.reconcile — всегда. Филиал:
+ * - until_iiko — пока сверка не принята и в неё не загружен документ iiko (по умолчанию);
+ * - until_accept — пока сверка не принята;
+ * - office_only — никогда. */
+export type InventoryReopenRule = "until_iiko" | "until_accept" | "office_only";
+
