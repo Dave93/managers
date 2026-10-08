@@ -118,7 +118,7 @@ async function notFoundOrConflict(
 const LIST_ALL_PERMISSION = "tickets.list_all";
 const NO_BRANCH_ID = "00000000-0000-0000-0000-000000000000";
 
-async function effectiveTerminals(args: {
+export async function effectiveTerminals(args: {
   userTerminals: string[] | undefined;
   role: { id: string } | null | undefined;
   cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
@@ -440,6 +440,11 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       // дойдёт — без onPath такой частично записанный файл не имел пути,
       // по которому его можно откатить, и оставался сиротой на диске.
       const attemptedPaths: string[] = [];
+      // Заявка записана и зафиксирована. С этого момента любой сбой в хвосте —
+      // не «создание не состоялось»: файлы на диске нужны строкам вложений, а
+      // клиент по 5xx с JSON-телом решает, что можно повторить, и завёл бы
+      // вторую заявку с теми же фото.
+      let committed: typeof tickets.$inferSelect | null = null;
       try {
         for (const f of files) {
           const r = await saveAttachment(f, ticket_id, (p) => attemptedPaths.push(p));
@@ -495,9 +500,24 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           return { row, notificationIds };
         });
 
-        await enqueueNotifications(notificationIds);
+        committed = created;
+        // Уведомления ставятся в очередь уже после коммита: строки outbox лежат
+        // как pending, и sweep() воркера подберёт их сам. Сбой здесь (скажем,
+        // getTicketsQueue() не смог создать очередь) не повод ни сносить файлы,
+        // ни отвечать ошибкой на созданную заявку.
+        try {
+          await enqueueNotifications(notificationIds);
+        } catch (enqueueErr) {
+          console.error("tickets: enqueue after commit failed, sweep will pick it up", ticket_id, enqueueErr);
+        }
         return { ...created, number: ticketNumber(type.number_prefix, created.seq) };
       } catch (e) {
+        if (committed) {
+          // Страховка на остаток хвоста после коммита (сборка ответа): заявка
+          // есть, файлы не трогаем, отвечаем так, будто она создана.
+          console.error("tickets: post-commit step failed, ticket kept", ticket_id, e);
+          return { ...committed, number: null };
+        }
         // Файлы легли раньше строк. Если транзакция упала (или один из файлов
         // партии не сохранился), на диске остаются сироты, на которые ничто
         // не ссылается — убираем их здесь. attemptedPaths, а не saved: он

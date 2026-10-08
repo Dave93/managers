@@ -1,5 +1,6 @@
-import { afterAll, beforeAll, describe, expect, it, setSystemTime } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, mock, setSystemTime } from "bun:test";
 import { randomUUID } from "node:crypto";
+import { existsSync, readdirSync } from "node:fs";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -406,7 +407,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const uploadsDir = join(tmpdir(), "tickets_create_empty_snapshot_" + randomUUID());
       const prevUploadsDir = process.env.TICKETS_UPLOADS_DIR;
 
+      // Снимок настоящего ./notify, снятый ДО любой подмены: повторный import
+      // после mock.module вернул бы уже подменённый модуль.
+      let realNotify: Record<string, unknown> | undefined;
+
       beforeAll(async () => {
+        realNotify = { ...(await import("./notify")) };
         process.env.TICKETS_UPLOADS_DIR = uploadsDir;
         const [type] = await drizzleDb
           .insert(ticket_types)
@@ -537,6 +543,71 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(ok.status).toBe(200);
           expect(body.terminal_id).toBe(own);
         } finally {
+          await s.cleanup();
+        }
+      });
+
+      // Сбой после коммита (здесь — постановка в очередь бросает) не должен ни
+      // сносить файлы, ни отвечать «не создано»: клиент по 5xx с JSON-телом
+      // решает, что можно повторить, и завёл бы вторую заявку с теми же фото, а
+      // у первой строки вложений остались бы без файлов. Бросок подставлен
+      // подменой ./notify на время теста; настоящая постановка в очередь
+      // (staff-тип, получателей нет) его не вызвала бы.
+      it("сбой после коммита: заявка создана, файлы на месте, ответ 200, а не 500", async () => {
+        const own = must(ownTerminal, "ownTerminal");
+        const real = must(realNotify, "realNotify");
+        mock.module("./notify", () => ({
+          ...real,
+          enqueueNotifications: async () => {
+            throw new Error("очередь недоступна (тест)");
+          },
+        }));
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [own] });
+        try {
+          const res = await postTicket(s.headers, own);
+          const body = await res.json();
+          if (body?.id) createdTicketIds.push(body.id);
+          expect(res.status).toBe(200);
+          expect(body.terminal_id).toBe(own);
+          const dir = join(uploadsDir, String(body.id));
+          expect(existsSync(dir)).toBe(true);
+          expect(readdirSync(dir)).toHaveLength(1);
+          const att = await drizzleDb
+            .select({ path: ticket_attachments.file_path })
+            .from(ticket_attachments)
+            .where(eq(ticket_attachments.ticket_id, body.id));
+          expect(att).toHaveLength(1);
+          expect(existsSync(att[0].path)).toBe(true);
+        } finally {
+          mock.module("./notify", () => real);
+          await s.cleanup();
+        }
+      });
+
+      // Настоящий сбой транзакции по-прежнему убирает файлы и каталог заявки:
+      // type_id уже проверен, а organization_id берётся из филиала, так что
+      // надёжный способ уронить именно транзакцию — подменить recordNotifications.
+      it("сбой самой транзакции: файлы и каталог заявки удалены, ответ 500, заявки нет", async () => {
+        const own = must(ownTerminal, "ownTerminal");
+        const before = await rowsAt(own);
+        const dirsBefore = existsSync(uploadsDir) ? readdirSync(uploadsDir) : [];
+        const real = must(realNotify, "realNotify");
+        mock.module("./notify", () => ({
+          ...real,
+          recordNotifications: async () => {
+            throw new Error("сбой внутри транзакции (тест)");
+          },
+        }));
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [own] });
+        try {
+          const res = await postTicket(s.headers, own);
+          expect(res.status).toBe(500);
+          expect((await res.json()).message).toBeTruthy();
+          expect(await rowsAt(own)).toBe(before);
+          const dirsAfter = existsSync(uploadsDir) ? readdirSync(uploadsDir) : [];
+          expect(dirsAfter.sort()).toEqual(dirsBefore.sort());
+        } finally {
+          mock.module("./notify", () => real);
           await s.cleanup();
         }
       });
@@ -1295,6 +1366,32 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         } finally {
           await s.cleanup();
         }
+      });
+
+      // Нет роли в контексте — это гонка в context/index.ts (user_data вытеснен
+      // между beforeHandle и resolve → role: null, terminals: []): по HTTP её не
+      // воспроизвести, макрос permission успевает отказать раньше. Поэтому
+      // проверка напрямую, на хелпере. Раньше такая сессия получала «все филиалы».
+      it("effectiveTerminals: без роли пустой снимок значит «ни одного филиала», а не «все»", async () => {
+        await ensureApp();
+        const { effectiveTerminals } = await import("./controller");
+        let reads = 0;
+        const cacheController = {
+          getPermissionsByRoleId: async () => {
+            reads++;
+            return ["tickets.list_all"];
+          },
+        };
+        const none = ["00000000-0000-0000-0000-000000000000"];
+        expect(await effectiveTerminals({ userTerminals: [], role: null, cacheController })).toEqual(none);
+        expect(await effectiveTerminals({ userTerminals: undefined, role: undefined, cacheController })).toEqual(none);
+        expect(await effectiveTerminals({ userTerminals: ["t1"], role: null, cacheController })).toEqual(["t1"]);
+        expect(reads).toBe(0);
+        // С ролью: пустой снимок + право — без фильтра, без права — заглушка.
+        expect(await effectiveTerminals({ userTerminals: [], role: { id: "r" }, cacheController })).toBeUndefined();
+        const noRight = { getPermissionsByRoleId: async () => ["tickets.list"] };
+        expect(await effectiveTerminals({ userTerminals: [], role: { id: "r" }, cacheController: noRight })).toEqual(none);
+        expect(await effectiveTerminals({ userTerminals: ["t1"], role: { id: "r" }, cacheController: noRight })).toEqual(["t1"]);
       });
 
       // manager_seen_at ставит база (now()), а не Node: ticket_events.created_at
