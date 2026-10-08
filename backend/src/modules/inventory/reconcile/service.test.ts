@@ -89,6 +89,9 @@ if (!dbLooksLikeTest) {
         state.balanceCalls.push({ store, at });
         return state.balance[store] ?? [];
       },
+      async movements() {
+        return [];
+      },
     };
 
     async function recon(store: string) {
