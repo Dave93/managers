@@ -167,6 +167,35 @@ if (!dbLooksLikeTest) {
       }
     });
 
+    it("промежуточные пересчёты в месячную сверку не попадают (ни в A, ни в область складов)", async () => {
+      const w = await seed();
+      const onlyInterim = randomUUID();
+      try {
+        await drizzleDb.insert(schema.corporation_store).values({ id: onlyInterim, name: "Только промежуточный", type: "STORE" });
+        const user = randomUUID();
+        for (const store of [w.D, onlyInterim]) {
+          const [c] = await drizzleDb
+            .insert(schema.inventory_counts)
+            .values({ store_id: store, template_name: "10 kun", period: PERIOD, kind: "interim", count_date: "2026-08-20", status: "submitted", created_by: user })
+            .returning({ id: schema.inventory_counts.id });
+          await drizzleDb.insert(schema.inventory_count_lines).values({
+            count_id: c.id, product_id: w.p1, product_name: "Вода", group_name: "Склад", source: "template", fact_qty: "100",
+          });
+        }
+        const { scope } = await computeScope(drizzleDb, w.iiko, { period: PERIOD });
+        expect(scope).not.toContain(onlyInterim);
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const d = await w.recon(w.D);
+        const [p1] = (await w.lines(d.id)).filter((l) => l.product_id === w.p1);
+        expect(Number(p1.admin_qty)).toBe(5);
+        expect(p1.admin_counts_n).toBe(1);
+      } finally {
+        await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.store_id, onlyInterim));
+        await drizzleDb.delete(schema.corporation_store).where(eq(schema.corporation_store.id, onlyInterim));
+        await w.cleanup();
+      }
+    });
+
     it("склад без документа: waiting_iiko, A − C считается, B пусто", async () => {
       const w = await seed();
       try {
