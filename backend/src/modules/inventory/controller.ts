@@ -18,6 +18,7 @@ import {
   updateTemplate,
 } from "./templates";
 import { allowedPeriods, interimDates } from "./rules";
+import { enqueueBookSafe } from "./book/queue";
 import { reconcileRoutes } from "./reconcile/routes";
 import type { InventoryStore } from "./types";
 
@@ -140,9 +141,12 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   .post(
     "/inventory/counts/:id/submit",
     async ({ params, body, user, role, drizzle, cacheController, set }) =>
-      run(set, async () =>
-        submitCount(drizzle, await actorFrom(cacheController, user, role), params.id, body?.skip_incomplete === true)
-      ),
+      run(set, async () => {
+        const r = await submitCount(drizzle, await actorFrom(cacheController, user, role), params.id, body?.skip_incomplete === true);
+        // Книжное количество iiko на дату пересчёта — снимком в фоне (spec 2026-10-08, §5).
+        await enqueueBookSafe(params.id);
+        return r;
+      }),
     {
       permission: "inventory.count",
       params: t.Object({ id: t.String() }),

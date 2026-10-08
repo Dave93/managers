@@ -3,6 +3,9 @@
 import { Worker } from "bullmq";
 import { drizzleDb } from "@backend/lib/db";
 import { processReconcileJob } from "@backend/modules/inventory/reconcile/job";
+import { fetchBook } from "@backend/modules/inventory/book/service";
+import { bookQueueName, type BookJobData } from "@backend/modules/inventory/book/queue";
+import { withIikoClient } from "@backend/modules/inventory/reconcile/iiko-client";
 import { reconcileQueueName, type ReconcileJobData } from "@backend/modules/inventory/reconcile/queue";
 import client from "./src/redis";
 
@@ -27,8 +30,23 @@ const worker = new Worker(
 
 worker.on("failed", (job, err) => console.error(`[reconcile] job ${job?.id} failed:`, err.message));
 
+// Снимки книжного количества по пересчётам (spec 2026-10-08, §5): тот же процесс, отдельная очередь.
+const bookWorker = new Worker(
+  bookQueueName(),
+  async (job) => {
+    const { countId } = job.data as BookJobData;
+    const r = await withIikoClient((iiko) => fetchBook(drizzleDb, iiko, countId));
+    console.log(`[book] job ${job.id}: ${r.lines} lines, ${r.inconsistent} inconsistent`);
+  },
+  {
+    connection: { host: process.env.REDIS_HOST || "localhost", port: parseInt(process.env.REDIS_PORT || "6379"), maxRetriesPerRequest: null },
+    concurrency: 1,
+  }
+);
+bookWorker.on("failed", (job, err) => console.error(`[book] job ${job?.id} failed:`, err.message));
+
 async function shutdown() {
-  await worker.close();
+  await Promise.all([worker.close(), bookWorker.close()]);
   process.exit(0);
 }
 process.on("SIGTERM", shutdown);
