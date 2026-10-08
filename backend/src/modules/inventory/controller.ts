@@ -17,7 +17,7 @@ import {
   suggestions,
   updateTemplate,
 } from "./templates";
-import { allowedPeriods } from "./rules";
+import { allowedPeriods, interimDates } from "./rules";
 import { reconcileRoutes } from "./reconcile/routes";
 import type { InventoryStore } from "./types";
 
@@ -47,6 +47,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   .get("/inventory/periods", () => ({ periods: allowedPeriods(new Date()) }), {
     permission: "inventory.count",
   })
+  .get("/inventory/interim-dates", () => interimDates(new Date()), { permission: "inventory.count" })
   .get(
     "/inventory/templates/available",
     async ({ query, user, role, drizzle, redis, cacheController, set }) =>
@@ -59,7 +60,13 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
       run(set, async () => createCount(drizzle, redis, await actorFrom(cacheController, user, role), body, new Date())),
     {
       permission: "inventory.count",
-      body: t.Object({ store_id: t.String(), template_id: t.Optional(t.String()), period: t.String() }),
+      body: t.Object({
+        store_id: t.String(),
+        template_id: t.Optional(t.String()),
+        period: t.Optional(t.String()),
+        kind: t.Optional(t.Union([t.Literal("monthly"), t.Literal("interim")])),
+        count_date: t.Optional(t.String()),
+      }),
     }
   )
   .get(

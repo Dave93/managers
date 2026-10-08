@@ -1075,4 +1075,58 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
   });
+
+  describe("inventory: промежуточные пересчёты", () => {
+    it("даты: вчера по умолчанию; промежуточный за вчера; сегодня и раньше 1-го числа прошлого месяца — 422", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const dates = await api(m, "GET", "/api/inventory/interim-dates");
+        expect(dates.status).toBe(200);
+        expect(dates.body.default).toBe(dates.body.max);
+        const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+        expect(dates.body.max < today).toBe(true);
+
+        const base = { store_id: w.storeId, template_id: w.templateId, kind: "interim" };
+        expect((await api(m, "POST", "/api/inventory/counts", { ...base, count_date: today })).status).toBe(422);
+        expect((await api(m, "POST", "/api/inventory/counts", { ...base, count_date: "2020-01-01" })).status).toBe(422);
+        expect((await api(m, "POST", "/api/inventory/counts", { ...base })).status).toBe(422);
+
+        const c = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.body.default });
+        expect(c.status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
+        expect(d.body.kind).toBe("interim");
+        expect(d.body.count_date).toBe(dates.body.default);
+        expect(d.body.period.slice(0, 7)).toBe(dates.body.default.slice(0, 7));
+        expect(d.body.lines.length).toBe(2);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("один промежуточный на склад, дату и шаблон; другие даты и месячный за тот же месяц — отдельно", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const { body: dates } = await api(m, "GET", "/api/inventory/interim-dates");
+        const base = { store_id: w.storeId, template_id: w.templateId, kind: "interim" };
+        const a = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.max });
+        const again = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.max });
+        expect(again.body).toEqual({ id: a.body.id, existing: true });
+        const other = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.min });
+        expect(other.status).toBe(200);
+        expect(other.body.id).not.toBe(a.body.id);
+        const monthly = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        expect(monthly.status).toBe(200);
+        expect(monthly.body.existing).toBe(false);
+        const md = await api(m, "GET", `/api/inventory/counts/${monthly.body.id}`);
+        expect(md.body.kind).toBe("monthly");
+        expect(md.body.count_date).toBe(PERIOD);
+        const list = await api(m, "GET", `/api/inventory/counts?store_id=${w.storeId}`);
+        expect(list.body.filter((x: any) => x.kind === "interim").length).toBe(2);
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
 }

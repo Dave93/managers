@@ -18,7 +18,7 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
-import { allowedPeriods, isValidQty, nextStatus, UUID_RE } from "./rules";
+import { allowedPeriods, interimDates, isValidInterimDate, isValidQty, lastDayOf, nextStatus, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
   InventoryStartOptions,
@@ -156,14 +156,18 @@ function isUniqueViolation(e: any): boolean {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
-async function findActive(db: DbLike, storeId: string, period: string, templateId: string | null) {
+export type CountKind = "monthly" | "interim";
+
+// Месячный — один на склад, месяц и шаблон; промежуточный — на склад, дату и шаблон.
+async function findActive(db: DbLike, storeId: string, kind: CountKind, countDate: string, templateId: string | null) {
   const [row] = await db
     .select({ id: inventory_counts.id })
     .from(inventory_counts)
     .where(
       and(
         eq(inventory_counts.store_id, storeId),
-        eq(inventory_counts.period, period),
+        eq(inventory_counts.kind, kind),
+        eq(inventory_counts.count_date, countDate),
         templateId ? eq(inventory_counts.template_id, templateId) : isNull(inventory_counts.template_id),
         ne(inventory_counts.status, "cancelled")
       )
@@ -177,7 +181,7 @@ export async function createCount(
   db: DbLike,
   redis: Redis,
   actor: Actor,
-  input: { store_id: string; template_id?: string; period: string },
+  input: { store_id: string; template_id?: string; period?: string; kind?: CountKind; count_date?: string },
   now: Date
 ): Promise<{ id: string; existing: boolean }> {
   assertUuid(input.store_id);
@@ -185,8 +189,21 @@ export async function createCount(
   const templateId = input.template_id ?? null;
   const access = await storeAccess(db, actor, input.store_id);
   if (!canManage(actor, access)) throw new InventoryError(403, "forbidden");
-  if (!allowedPeriods(now).includes(input.period)) {
-    throw new InventoryError(422, "invalid_period", { allowed: allowedPeriods(now) });
+  const kind: CountKind = input.kind ?? "monthly";
+  let period: string;
+  let countDate: string;
+  if (kind === "interim") {
+    // Промежуточный — только за прошедший день (spec 2026-10-08, решение 2).
+    if (!input.count_date || !isValidInterimDate(input.count_date, now)) {
+      throw new InventoryError(422, "invalid_date", interimDates(now));
+    }
+    countDate = input.count_date;
+    period = lastDayOf(countDate);
+  } else {
+    if (!input.period || !allowedPeriods(now).includes(input.period)) {
+      throw new InventoryError(422, "invalid_period", { allowed: allowedPeriods(now) });
+    }
+    period = countDate = input.period;
   }
   const [store] = await db.select().from(corporation_store).where(eq(corporation_store.id, input.store_id));
   if (!store) throw new InventoryError(404, "store_not_found");
@@ -200,7 +217,7 @@ export async function createCount(
     tpl = row;
   }
 
-  const existing = await findActive(db, input.store_id, input.period, templateId);
+  const existing = await findActive(db, input.store_id, kind, countDate, templateId);
   if (existing) return { id: existing.id, existing: true };
   const branch = await storeProductIds(redis, db as DrizzleDB, input.store_id);
   if (!tpl && !branch) throw new InventoryError(422, "no_branch_products");
@@ -227,7 +244,9 @@ export async function createCount(
           organization_id: store.organization_id ?? tpl?.organization_id ?? null,
           template_id: tpl?.id ?? null,
           template_name: tpl?.name ?? BRANCH_COUNT_NAME,
-          period: input.period,
+          period,
+          kind,
+          count_date: countDate,
           status: "draft",
           exord_filtered: branch !== null,
           created_by: actor.userId,
@@ -240,7 +259,9 @@ export async function createCount(
       `);
       await writeEvent(tx, count.id, "created", actor.userId, {
         template_id: tpl?.id ?? null,
-        period: input.period,
+        period,
+        kind,
+        count_date: countDate,
         exord_filtered: branch !== null,
       });
       return count.id;
@@ -249,7 +270,7 @@ export async function createCount(
   } catch (e) {
     // Гонка двух «Начать»: частичный уникальный индекс отбил вторую вставку.
     if (isUniqueViolation(e)) {
-      const row = await findActive(db, input.store_id, input.period, templateId);
+      const row = await findActive(db, input.store_id, kind, countDate, templateId);
       if (row) return { id: row.id, existing: true };
     }
     throw e;
@@ -258,7 +279,7 @@ export async function createCount(
 
 type SummaryBase = Pick<
   CountRow,
-  "id" | "store_id" | "template_id" | "template_name" | "period" | "status" | "exord_filtered" | "created_at" | "submitted_at" | "submitted_by"
+  "id" | "store_id" | "template_id" | "template_name" | "period" | "kind" | "count_date" | "status" | "exord_filtered" | "created_at" | "submitted_at" | "submitted_by"
 > & { store_name: string | null };
 
 const summaryColumns = {
@@ -267,6 +288,8 @@ const summaryColumns = {
   template_id: inventory_counts.template_id,
   template_name: inventory_counts.template_name,
   period: inventory_counts.period,
+  kind: inventory_counts.kind,
+  count_date: inventory_counts.count_date,
   status: inventory_counts.status,
   exord_filtered: inventory_counts.exord_filtered,
   created_at: inventory_counts.created_at,
@@ -309,6 +332,8 @@ export async function summaries(db: DbLike, rows: SummaryBase[]): Promise<Invent
     template_id: r.template_id,
     template_name: r.template_name,
     period: r.period,
+    kind: r.kind as InventoryCountSummary["kind"],
+    count_date: r.count_date,
     status: r.status as InventoryCountStatus,
     exord_filtered: r.exord_filtered,
     created_at: r.created_at,
