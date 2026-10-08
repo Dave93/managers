@@ -19,6 +19,7 @@ import {
 } from "./templates";
 import { allowedPeriods, interimDates } from "./rules";
 import { enqueueBookSafe } from "./book/queue";
+import { bookRoutes } from "./book/routes";
 import { reconcileRoutes } from "./reconcile/routes";
 import type { InventoryStore } from "./types";
 
@@ -26,6 +27,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   .use(ctx)
   .guard({ detail: { hide: true } })
   .use(reconcileRoutes)
+  .use(bookRoutes)
   .get(
     "/inventory/stores",
     async ({ user, role, drizzle, cacheController, set }) =>

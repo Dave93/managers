@@ -667,6 +667,11 @@ export async function mayReopen(
 ): Promise<boolean> {
   if (actor.perms.includes("inventory.reconcile")) return true;
   if (!canManage(actor, access)) return false;
+  return branchMayReopen(db, row);
+}
+
+/** Может ли филиал (менеджер склада) ещё вернуть отправленный пересчёт — по правилу inventory.reopen_rule. */
+export async function branchMayReopen(db: DbLike, row: { store_id: string; period: string }): Promise<boolean> {
   const rule = await reopenRule(db);
   if (rule === "office_only") return false;
   const [recon] = await db
