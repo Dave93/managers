@@ -3,6 +3,7 @@ import { inventory_count_book, inventory_count_lines, inventory_counts } from "b
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
 import { assertUuid, branchMayReopen, GROUP_NAME_SQL, normalizeNumeric } from "../counts";
+import { allowedPeriods } from "../rules";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
 import { withIikoClient, type IikoClient } from "../reconcile/iiko-client";
@@ -11,7 +12,8 @@ import type { BookLineView, BookView, StockMovement, StockView } from "./types";
 
 // Подменяется в тестах: остатки берутся из iiko прямо при открытии экрана.
 type IikoRunner = <T>(fn: (c: IikoClient) => Promise<T>) => Promise<T>;
-let iikoRun: IikoRunner = (fn) => withIikoClient(fn);
+// Экраны ждут человека: короткий тайм-аут и без повторов (ревью ветки, I4).
+let iikoRun: IikoRunner = (fn) => withIikoClient(fn, { timeoutMs: 20_000, retries: 0 });
 export function setStockIikoRunner(fn: IikoRunner) {
   iikoRun = fn;
 }
@@ -41,12 +43,22 @@ async function productInfo(db: DbLike, ids: string[]): Promise<Map<string, Produ
   return out;
 }
 
-/** Есть ли у склада пересчёт, который филиал ещё может менять: черновик или отправленный, который можно вернуть. */
-export async function storeHasChangeableCount(db: DbLike, storeId: string): Promise<boolean> {
+/**
+ * Есть ли у склада пересчёт, который филиал ещё может менять: черновик или отправленный, который можно вернуть.
+ * Только текущий и прошлый месяц — те, в которых пересчёты ведутся (иначе старые периоды без сверки
+ * скрывали бы остатки навсегда).
+ */
+export async function storeHasChangeableCount(db: DbLike, storeId: string, now = new Date()): Promise<boolean> {
   const counts = await db
     .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period })
     .from(inventory_counts)
-    .where(and(eq(inventory_counts.store_id, storeId), inArray(inventory_counts.status, ["draft", "submitted"])));
+    .where(
+      and(
+        eq(inventory_counts.store_id, storeId),
+        inArray(inventory_counts.period, allowedPeriods(now)),
+        inArray(inventory_counts.status, ["draft", "submitted"])
+      )
+    );
   if (counts.some((c) => c.status === "draft")) return true;
   for (const c of counts) if (await branchMayReopen(db, c)) return true;
   return false;
@@ -57,10 +69,14 @@ export async function loadBook(db: DbLike, actor: Actor, countId: string): Promi
   assertUuid(countId);
   const [count] = await db.select().from(inventory_counts).where(eq(inventory_counts.id, countId));
   if (!count) throw new InventoryError(404, "not_found");
-  if (!actor.perms.includes("inventory.reconcile")) {
+  const office = actor.perms.includes("inventory.reconcile");
+  if (!office) {
     if ((await storeAccess(db, actor, count.store_id)) !== "write") throw new InventoryError(403, "store_forbidden");
     if (count.status !== "submitted" || (await branchMayReopen(db, count))) throw new InventoryError(403, "book_hidden");
+    // Книжное по складу нельзя видеть, пока другой пересчёт склада ещё открыт для филиала (ревью, C1).
+    if (await storeHasChangeableCount(db, count.store_id)) throw new InventoryError(403, "book_hidden");
   }
+  if (!count.book_fetched_at) return { fetched_at: null, lines: [] };
   const lines = await db
     .select({
       product_id: inventory_count_lines.product_id,
@@ -75,7 +91,8 @@ export async function loadBook(db: DbLike, actor: Actor, countId: string): Promi
   const book = await db.select().from(inventory_count_book).where(eq(inventory_count_book.count_id, countId));
   const lineBy = new Map(lines.map((l) => [l.product_id, l]));
   const bookBy = new Map(book.map((b) => [b.product_id, b]));
-  const ids = [...new Set([...lineBy.keys(), ...bookBy.keys()])];
+  // Филиалу — только позиции его пересчёта; офису — ещё и товары, которые есть лишь в учёте iiko.
+  const ids = office ? [...new Set([...lineBy.keys(), ...bookBy.keys()])] : [...lineBy.keys()];
   const info = await productInfo(db, ids);
   const zero = "0";
   const view: BookLineView[] = ids.map((id) => {
@@ -114,10 +131,30 @@ async function assertStockVisible(db: DbLike, actor: Actor, storeId: string): Pr
   return !(await storeHasChangeableCount(db, storeId));
 }
 
+// Кэш на 2 минуты по складу: каждое открытие экрана иначе — новая сессия iiko (лицензионный слот).
+const CACHE_MS = 2 * 60_000;
+type Cached<T> = { ts: number; value: T };
+const balanceCache = new Map<string, Cached<{ at: string; rows: Awaited<ReturnType<IikoClient["balance"]>> }>>();
+const movementCache = new Map<string, Cached<{ from: string; at: string; start: Awaited<ReturnType<IikoClient["balance"]>>; end: Awaited<ReturnType<IikoClient["balance"]>>; movements: Awaited<ReturnType<IikoClient["movements"]>> }>>();
+export function clearStockCache() {
+  balanceCache.clear();
+  movementCache.clear();
+}
+function fresh<T>(m: Map<string, Cached<T>>, key: string): T | null {
+  const c = m.get(key);
+  return c && Date.now() - c.ts < CACHE_MS ? c.value : null;
+}
+
 export async function loadStock(db: DbLike, actor: Actor, storeId: string): Promise<StockView> {
   if (!(await assertStockVisible(db, actor, storeId))) return { hidden: true, at: null, lines: [] };
-  const at = nowLocal();
-  const bal = (await iikoRun((c) => c.balance(storeId, at))).filter((b) => Math.abs(b.amount) > 0.00005);
+  let cached = fresh(balanceCache, storeId);
+  if (!cached) {
+    const at = nowLocal();
+    cached = { at, rows: await iikoRun((c) => c.balance(storeId, at)) };
+    balanceCache.set(storeId, { ts: Date.now(), value: cached });
+  }
+  const at = cached.at;
+  const bal = cached.rows.filter((b) => Math.abs(b.amount) > 0.00005);
   const info = await productInfo(db, bal.map((b) => b.product_id));
   const lines = bal
     .map((b) => {
@@ -143,14 +180,20 @@ const breakdown = (l: BookLine) => ({
 export async function loadStockMovement(db: DbLike, actor: Actor, storeId: string, productId: string): Promise<StockMovement> {
   assertUuid(productId);
   if (!(await assertStockVisible(db, actor, storeId))) throw new InventoryError(403, "stock_hidden");
-  const at = nowLocal();
-  const today = at.slice(0, 10);
-  const from = `${today.slice(0, 8)}01`;
-  const [start, end, movements] = await iikoRun(async (c) => [
-    await c.balance(storeId, `${from}T00:00:00`),
-    await c.balance(storeId, at),
-    await c.movements(storeId, from, today),
-  ] as const);
+  let cached = fresh(movementCache, storeId);
+  if (!cached) {
+    const at = nowLocal();
+    const today = at.slice(0, 10);
+    const from = `${today.slice(0, 8)}01`;
+    const [start, end, movements] = await iikoRun(async (c) => [
+      await c.balance(storeId, `${from}T00:00:00`),
+      await c.balance(storeId, at),
+      await c.movements(storeId, from, today),
+    ] as const);
+    cached = { from, at, start, end, movements };
+    movementCache.set(storeId, { ts: Date.now(), value: cached });
+  }
+  const { from, at, start, end, movements } = cached;
   const [line] = buildBook({ productIds: [productId], start, end, movements: movements.filter((m) => m.product_id === productId) });
   return { product_id: productId, from, at, book_qty: q(line.book_qty), ...breakdown(line) };
 }

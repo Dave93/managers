@@ -1,5 +1,10 @@
 // Очередь снимков книжного количества (spec 2026-10-08, §5): одна задача на пересчёт.
 import { Queue } from "bullmq";
+import { inventory_counts } from "backend/drizzle/schema";
+import { eq } from "drizzle-orm";
+import type { DbLike } from "../access";
+import { bookDelayMs } from "./pure";
+import { bookTimestamp } from "./service";
 
 export const bookQueueName = () => process.env.INVENTORY_BOOK_QUEUE ?? "inventory_count_book";
 // BullMQ не принимает ":" в собственных id задач.
@@ -23,7 +28,7 @@ export async function closeBookQueue() {
 const RUNNING = new Set(["waiting", "active", "delayed", "prioritized", "waiting-children"]);
 
 /** Ставит загрузку снимка; если по этому пересчёту задача уже стоит — ничего не делает. */
-export async function enqueueBook(q: Queue, countId: string): Promise<{ queued: boolean }> {
+export async function enqueueBook(q: Queue, countId: string, delayMs = 0): Promise<{ queued: boolean }> {
   const jobId = bookJobId(countId);
   const existing = await q.getJob(jobId);
   if (existing) {
@@ -32,6 +37,8 @@ export async function enqueueBook(q: Queue, countId: string): Promise<{ queued: 
   }
   await q.add("book", { countId } satisfies BookJobData, {
     jobId,
+    // Месячный, отправленный до конца месяца: книжное на 23:58 последнего дня ещё не наступило.
+    delay: delayMs,
     attempts: 3,
     backoff: { type: "exponential", delay: 60_000 },
     removeOnComplete: true,
@@ -40,10 +47,17 @@ export async function enqueueBook(q: Queue, countId: string): Promise<{ queued: 
   return { queued: true };
 }
 
+/** Ставит снимок с задержкой до момента книжного количества даты пересчёта. */
+export async function enqueueBookFor(db: DbLike, countId: string, now = new Date()) {
+  const [count] = await db.select({ count_date: inventory_counts.count_date }).from(inventory_counts).where(eq(inventory_counts.id, countId));
+  if (!count) return { queued: false };
+  return enqueueBook(bookQueue(), countId, bookDelayMs(bookTimestamp(count.count_date), now));
+}
+
 /** После отправки пересчёта: снимок — не повод проваливать отправку, если Redis недоступен. */
-export async function enqueueBookSafe(countId: string) {
+export async function enqueueBookSafe(db: DbLike, countId: string) {
   try {
-    await enqueueBook(bookQueue(), countId);
+    await enqueueBookFor(db, countId);
   } catch (e) {
     console.error(`[inventory/book] enqueue ${countId} failed:`, (e as Error).message);
   }

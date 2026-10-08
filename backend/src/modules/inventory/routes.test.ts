@@ -1104,6 +1104,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
+    it("обзор офиса за месяц — только месячные пересчёты", async () => {
+      const w = await seedWorld();
+      try {
+        const m = await manager(w);
+        const { body: dates } = await api(m, "GET", "/api/inventory/interim-dates");
+        await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, kind: "interim", count_date: dates.max });
+        const o = await office(w);
+        const period = dates.max.slice(0, 8) + new Date(Date.UTC(+dates.max.slice(0, 4), +dates.max.slice(5, 7), 0)).getUTCDate();
+        const r = await api(o, "GET", `/api/inventory/overview?period=${period}&organization_id=${w.orgId}`);
+        expect(r.status).toBe(200);
+        const row = r.body.find((x: any) => x.store_id === w.storeId);
+        expect(row.counts).toEqual([]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("один промежуточный на склад, дату и шаблон; другие даты и месячный за тот же месяц — отдельно", async () => {
       const w = await seedWorld();
       try {

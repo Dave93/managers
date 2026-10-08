@@ -13,10 +13,16 @@ import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 import { BookBreakdownView } from "../_components/book-compare";
 
 const STORE_KEY = "inventory:stock-store";
+// Каждый запрос — сессия iiko: без перезапросов на фокус и повторов, сервер и так кэширует 2 минуты.
+const IIKO_QUERY = { staleTime: 2 * 60_000, refetchOnWindowFocus: false, retry: false } as const;
 
 function Movement({ storeId, productId }: { storeId: string; productId: string }) {
   const t = useTranslations("inventory.stock");
-  const q = useQuery({ queryKey: ["inventory_stock_mv", storeId, productId], queryFn: () => inventoryApi.stockMovement(storeId, productId) });
+  const q = useQuery({
+    queryKey: ["inventory_stock_mv", storeId, productId],
+    queryFn: () => inventoryApi.stockMovement(storeId, productId),
+    ...IIKO_QUERY,
+  });
   if (!q.data) return <div className="text-sm text-muted-foreground">{q.error ? (q.error as Error).message : "…"}</div>;
   return (
     <div className="space-y-2">
@@ -61,7 +67,12 @@ export default function StockPage() {
     }
   };
 
-  const stock = useQuery({ queryKey: ["inventory_stock", storeId], queryFn: () => inventoryApi.stock(storeId), enabled: !!storeId });
+  const stock = useQuery({
+    queryKey: ["inventory_stock", storeId],
+    queryFn: () => inventoryApi.stock(storeId),
+    enabled: !!storeId,
+    ...IIKO_QUERY,
+  });
   const [search, setSearch] = useState("");
   const [onlyNegative, setOnlyNegative] = useState(false);
   const [open, setOpen] = useState<string | null>(null);

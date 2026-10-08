@@ -65,8 +65,8 @@ export function BookCompare({
   const [open, setOpen] = useState<string | null>(null);
   const refresh = useMutation({
     mutationFn: () => inventoryApi.refreshBook(countId),
-    onSuccess: () => {
-      toast.success(t("queued"));
+    onSuccess: (r) => {
+      toast.success(r.queued ? t("queued") : t("alreadyQueued"));
       onRefreshed();
     },
     onError: (e: Error) => toast.error(e.message),

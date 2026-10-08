@@ -34,6 +34,8 @@ export type IikoClientOptions = {
   retries?: number;
   /** logout не должен держать задачу, если iiko завис. */
   logoutTimeoutMs?: number;
+  /** Тайм-аут одного запроса; для экранов — короткий. */
+  timeoutMs?: number;
 };
 
 export class IikoError extends Error {}
@@ -58,7 +60,7 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
     for (let attempt = 0; ; attempt++) {
       let res: Response;
       try {
-        res = await f(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        res = await f(url, { ...init, signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS) });
       } catch (e) {
         if (attempt >= retries) throw new IikoError(`iiko: ${(e as Error).message}`);
         continue;

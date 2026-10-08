@@ -788,7 +788,8 @@
         "writeoff": "Write-off",
         "other": "Other",
         "book": "Book quantity"
-      }
+      },
+      "alreadyQueued": "An iiko load is already queued"
     },
     "stock": {
       "title": "Warehouse stock",

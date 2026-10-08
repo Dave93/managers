@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -33,12 +33,22 @@ function CountScreen({ id }: { id: string }) {
   const { detail } = sync;
   const perms = useMyPermissions() ?? [];
   // «Сравнение с учётом»: сервер отдаёт его офису и филиалу после фиксации пересчёта, иначе 403.
+  // После «Обновить книжное» ждём снимка новее этого времени.
+  const awaiting = useRef<string | null | undefined>(undefined);
   const book = useQuery({
     queryKey: ["inventory_book", id],
     queryFn: () => inventoryApi.book(id),
     enabled: detail?.status === "submitted",
     retry: false,
-    refetchInterval: (q) => (q.state.data && !q.state.data.fetched_at ? 5000 : false),
+    refetchInterval: (q) => {
+      const d = q.state.data;
+      if (!d) return false;
+      // Снимок грузится в фоне: опрашиваем, но не бесконечно (около 2 минут).
+      if (!d.fetched_at) return q.state.dataUpdateCount < 24 ? 5000 : false;
+      if (awaiting.current !== undefined && d.fetched_at === awaiting.current) return q.state.dataUpdateCount < 60 ? 5000 : false;
+      awaiting.current = undefined;
+      return false;
+    },
   });
 
   const skip = useMutation({
@@ -117,7 +127,7 @@ function CountScreen({ id }: { id: string }) {
           </div>
         </div>
       )}
-      {book.data ? (
+      {detail.status === "submitted" && book.data ? (
         <Tabs defaultValue="input">
           <TabsList>
             <TabsTrigger value="input">{t("book.inputTab")}</TabsTrigger>
@@ -138,7 +148,10 @@ function CountScreen({ id }: { id: string }) {
               countDate={detail.count_date}
               data={book.data}
               canRefresh={perms.includes("inventory.reconcile")}
-              onRefreshed={() => void book.refetch()}
+              onRefreshed={() => {
+                awaiting.current = book.data?.fetched_at ?? null;
+                void book.refetch();
+              }}
             />
           </TabsContent>
         </Tabs>

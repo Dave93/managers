@@ -83,3 +83,14 @@ export function buildBook(input: { productIds: string[]; start: BookRow[]; end: 
   }
   return out;
 }
+
+const TASHKENT_OFFSET_MS = 5 * 3600_000;
+const SETTLE_MS = 10 * 60_000;
+
+/** Задержка снимка: момент книжного (местное время iiko) ещё не наступил — ждём до него плюс 10 минут. */
+export function bookDelayMs(bookAtLocal: string, now: Date): number {
+  const at = Date.parse(`${bookAtLocal}Z`) - TASHKENT_OFFSET_MS;
+  const delay = at - now.getTime();
+  return delay > 0 ? delay + SETTLE_MS : 0;
+}
+

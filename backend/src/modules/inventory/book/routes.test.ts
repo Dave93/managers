@@ -14,7 +14,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
   const { bookQueue, closeBookQueue } = await import("./queue");
-  const { setStockIikoRunner } = await import("./stock");
+  const { setStockIikoRunner, clearStockCache } = await import("./stock");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
 
@@ -55,7 +55,10 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     await drizzleDb.insert(schema.users_stores).values({ user_id: managerId, corporation_store_id: store });
     const [c] = await drizzleDb
       .insert(schema.inventory_counts)
-      .values({ store_id: store, template_name: "10 kun", period: "2026-10-31", kind: "interim", count_date: "2026-10-07", status: "draft", created_by: managerId })
+      .values({
+        store_id: store, template_name: "10 kun", period: "2026-10-31", kind: "interim", count_date: "2026-10-07",
+        status: "draft", created_by: managerId, book_fetched_at: "2026-10-08T00:00:00Z",
+      })
       .returning({ id: schema.inventory_counts.id });
     await drizzleDb.insert(schema.inventory_count_lines).values([
       { count_id: c.id, product_id: p1, product_name: `Сыр ${tag}`, unit_name: "кг", group_name: "Склад", source: "template", fact_qty: "9" },
@@ -135,6 +138,44 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("филиал: пересчёт зафиксирован, но у склада есть другой открытый (черновик) — 403; видны только позиции пересчёта", async () => {
+      const w = await seed();
+      try {
+        await setRule("office_only");
+        await w.submit();
+        const m = await manager(w);
+        const ok = await api(m, "GET", `/api/inventory/counts/${w.countId}/book`);
+        expect(ok.status).toBe(200);
+        // p3 есть только в учёте iiko — филиалу его не показываем
+        expect(ok.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p2].sort());
+        const [draft] = await drizzleDb
+          .insert(schema.inventory_counts)
+          .values({ store_id: w.store, template_name: "Все товары филиала", period: "2026-10-31", count_date: "2026-10-31", status: "draft", created_by: w.managerId })
+          .returning({ id: schema.inventory_counts.id });
+        try {
+          const hidden = await api(m, "GET", `/api/inventory/counts/${w.countId}/book`);
+          expect(hidden.status).toBe(403);
+          expect(hidden.body.error).toBe("book_hidden");
+        } finally {
+          await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, draft.id));
+        }
+      } finally {
+        await setRule(null);
+        await w.cleanup();
+      }
+    });
+
+    it("снимка ещё нет — строк нет (а не нули)", async () => {
+      const w = await seed();
+      try {
+        await drizzleDb.update(schema.inventory_counts).set({ book_fetched_at: null }).where(eq(schema.inventory_counts.id, w.countId));
+        const r = await api(await office(), "GET", `/api/inventory/counts/${w.countId}/book`);
+        expect(r.body).toEqual({ fetched_at: null, lines: [] });
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("«Обновить книжное»: офис ставит задачу для отправленного, филиал — 403, черновик — 409", async () => {
       const w = await seed();
       try {
@@ -152,8 +193,11 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   });
 
   describe("book: «Остатки склада»", () => {
+    let iikoSessions = 0;
     function fakeIiko(w: World) {
-      setStockIikoRunner(async (fn) =>
+      clearStockCache();
+      iikoSessions = 0;
+      setStockIikoRunner(async (fn) => { iikoSessions++; return (
         fn({
           async inventoryDocs() { return []; },
           async corrections() { return []; },
@@ -166,7 +210,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
             return [{ product_id: w.p1, type: "SESSION_WRITEOFF", in: 0, out: 2.5 }];
           },
         })
-      );
+      ); });
     }
 
     it("офис: остатки по складу (ненулевые) с кодом и названием; движение по товару", async () => {
@@ -185,6 +229,39 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(mv.status).toBe(200);
         expect(mv.body).toMatchObject({ start_qty: "10", out_sales: "2.5", book_qty: "7.5", consistent: true });
       } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("повторные запросы остатков и движения по складу в течение кэша — без новой сессии iiko", async () => {
+      const w = await seed();
+      fakeIiko(w);
+      try {
+        const o = await office();
+        await api(o, "GET", `/api/inventory/stock?store_id=${w.store}`);
+        await api(o, "GET", `/api/inventory/stock?store_id=${w.store}`);
+        expect(iikoSessions).toBe(1);
+        await api(o, "GET", `/api/inventory/stock/movements?store_id=${w.store}&product_id=${w.p1}`);
+        await api(o, "GET", `/api/inventory/stock/movements?store_id=${w.store}&product_id=${w.p2}`);
+        expect(iikoSessions).toBe(2);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("старый отправленный пересчёт прошлых периодов (без сверки) не скрывает остатки навсегда", async () => {
+      const w = await seed();
+      fakeIiko(w);
+      try {
+        await setRule("office_only");
+        await w.submit();
+        await setRule("until_iiko");
+        // пересчёт давно прошедшего периода: сверки по нему нет, по правилу «можно вернуть», но он вне окна
+        await drizzleDb.update(schema.inventory_counts).set({ period: "2026-01-31", count_date: "2026-01-20" }).where(eq(schema.inventory_counts.id, w.countId));
+        const m = await manager(w);
+        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(false);
+      } finally {
+        await setRule(null);
         await w.cleanup();
       }
     });

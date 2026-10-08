@@ -209,6 +209,8 @@ export async function overview(db: DbLike, period: string, organizationId?: stri
     .where(
       and(
         eq(inventory_counts.period, period),
+        // Обзор офиса — про месячный пересчёт; промежуточные видны на складе (spec 2026-10-08).
+        eq(inventory_counts.kind, "monthly"),
         ne(inventory_counts.status, "cancelled"),
         inArray(inventory_counts.store_id, stores.map((s) => s.id))
       )

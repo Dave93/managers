@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildBook } from "./pure";
+import { bookDelayMs, buildBook } from "./pure";
 
 describe("buildBook — книжное количество с разбивкой", () => {
   const start = [
@@ -68,3 +68,14 @@ describe("buildBook — книжное количество с разбивко�
     expect(l.consistent).toBe(true);
   });
 });
+
+describe("bookDelayMs — снимок не раньше момента книжного количества", () => {
+  it("прошедший момент — сразу; будущий (месячный, отправлен до конца месяца) — ждём до него плюс 10 минут", () => {
+    // 2026-10-08 12:00 Ташкент = 07:00Z
+    const now = new Date("2026-10-08T07:00:00Z");
+    expect(bookDelayMs("2026-10-07T23:59:59", now)).toBe(0);
+    // 2026-10-31 23:58 Ташкент = 18:58Z
+    expect(bookDelayMs("2026-10-31T23:58:00", now)).toBe(Date.parse("2026-10-31T18:58:00Z") - now.getTime() + 10 * 60_000);
+  });
+});
+

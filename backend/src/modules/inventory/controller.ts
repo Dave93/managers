@@ -146,7 +146,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
       run(set, async () => {
         const r = await submitCount(drizzle, await actorFrom(cacheController, user, role), params.id, body?.skip_incomplete === true);
         // Книжное количество iiko на дату пересчёта — снимком в фоне (spec 2026-10-08, §5).
-        await enqueueBookSafe(params.id);
+        await enqueueBookSafe(drizzle, params.id);
         return r;
       }),
     {

@@ -751,7 +751,8 @@
         "writeoff": "Hisobdan chiqarish",
         "other": "Boshqa",
         "book": "Hisob miqdori"
-      }
+      },
+      "alreadyQueued": "iiko'dan yuklash allaqachon navbatda"
     },
     "stock": {
       "title": "Ombor qoldiqlari",

@@ -8,7 +8,7 @@ import Elysia, { t } from "elysia";
 import { actorFrom } from "../access";
 import { assertUuid } from "../counts";
 import { InventoryError, run } from "../errors";
-import { bookQueue, enqueueBook } from "./queue";
+import { enqueueBookFor } from "./queue";
 import { loadBook, loadStock, loadStockMovement } from "./stock";
 
 export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
@@ -27,7 +27,7 @@ export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
         const [count] = await drizzle.select({ status: inventory_counts.status }).from(inventory_counts).where(eq(inventory_counts.id, params.id));
         if (!count) throw new InventoryError(404, "not_found");
         if (count.status !== "submitted") throw new InventoryError(409, "not_submitted");
-        return enqueueBook(bookQueue(), params.id);
+        return enqueueBookFor(drizzle, params.id);
       }),
     { permission: "inventory.reconcile", params: t.Object({ id: t.String() }) }
   )
