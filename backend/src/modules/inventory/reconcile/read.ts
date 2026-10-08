@@ -9,6 +9,7 @@ import {
 } from "backend/drizzle/schema";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
+import { refreshIfStale } from "./service";
 import { userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { UUID_RE } from "../rules";
@@ -63,6 +64,12 @@ function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdm
 }
 
 export async function listReconciliations(db: DbLike, period: string): Promise<ReconOverviewRow[]> {
+  // Пересчёты, изменённые после расчёта, подтягиваются в сверку сразу (без iiko).
+  const stale = await db.execute(sql`
+    select r.id::text as id from inventory_reconciliations r
+    where r.period = ${period} and r.calculated_at is not null and exists (
+      select 1 from inventory_counts c where c.store_id = r.store_id and c.period = r.period and c.updated_at > r.calculated_at)`);
+  for (const x of stale.rows as { id: string }[]) await refreshIfStale(db, x.id);
   const rows = await db
     .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL, reopen_count: REOPEN_COUNT_SQL })
     .from(inventory_reconciliations)
@@ -119,6 +126,7 @@ async function branchEdits(db: DbLike, countIds: string[]): Promise<ReconBranchE
 }
 
 export async function loadReconciliation(db: DbLike, id: string, now: Date): Promise<ReconDetail> {
+  if (UUID_RE.test(id)) await refreshIfStale(db, id);
   const { r, store_name, admin_state, reopen_count } = await getRow(db, id);
   const l = inventory_reconciliation_lines;
   const lines = await db

@@ -222,6 +222,28 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("пересчёт филиала изменён после расчёта — детали показывают свежую админку (A)", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        // расчёт был давно, пересчёт склада отправлен позже (в seed — сейчас)
+        await drizzleDb
+          .update(schema.inventory_reconciliations)
+          .set({ calculated_at: "2026-09-01T00:00:00Z" })
+          .where(eq(schema.inventory_reconciliations.id, w.readyId));
+        const r = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(r.status).toBe(200);
+        expect(r.body.lines.map((l: any) => l.product_name).sort()).toEqual(["Вода", "Соль"]);
+        const salt = r.body.lines.find((l: any) => l.product_name === "Соль");
+        expect(salt.admin_state).toBe("counted");
+        const water = r.body.lines.find((l: any) => l.product_name === "Вода");
+        expect(water.admin_state).toBe("absent");
+        expect(water.book_qty).toBe("15.0000");
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("детали: строки, пересчёты, правки филиала после отправки", async () => {
       const w = await seed();
       try {

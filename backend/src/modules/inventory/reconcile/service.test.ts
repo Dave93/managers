@@ -12,8 +12,8 @@ if (!dbLooksLikeTest) {
 } else {
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
-  const { eq, inArray, and } = await import("drizzle-orm");
-  const { runReconcile, computeScope } = await import("./service");
+  const { eq, inArray, and, sql } = await import("drizzle-orm");
+  const { runReconcile, computeScope, refreshIfStale } = await import("./service");
   type IikoClient = import("./iiko-client").IikoClient;
   type IikoDoc = import("./pure").IikoDoc;
   type Correction = import("./pure").Correction;
@@ -222,6 +222,41 @@ if (!dbLooksLikeTest) {
           .from(schema.inventory_reconciliation_line_marks)
           .where(eq(schema.inventory_reconciliation_line_marks.reconciliation_id, a.id));
         expect(marks.map((m) => m.product_id)).toEqual([w.p1]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("пересчёт поправили после расчёта: A пересчитывается из базы, без запроса учёта в iiko", async () => {
+      const w = await seed();
+      try {
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const a0 = await w.recon(w.A);
+        expect(await refreshIfStale(drizzleDb, a0.id)).toBe(false);
+
+        // филиал вернул пересчёт, поправил p1: 20 → 24 и отправил снова
+        const countIds = (
+          await drizzleDb.select({ id: schema.inventory_counts.id }).from(schema.inventory_counts).where(eq(schema.inventory_counts.store_id, w.A))
+        ).map((r) => r.id);
+        await drizzleDb
+          .update(schema.inventory_count_lines)
+          .set({ fact_qty: "24" })
+          .where(and(eq(schema.inventory_count_lines.product_id, w.p1), inArray(schema.inventory_count_lines.count_id, countIds)));
+        await drizzleDb
+          .update(schema.inventory_counts)
+          .set({ updated_at: sql`now() + interval '1 second'` })
+          .where(inArray(schema.inventory_counts.id, countIds));
+
+        const calls = w.state.balanceCalls.length;
+        expect(await refreshIfStale(drizzleDb, a0.id)).toBe(true);
+        expect(w.state.balanceCalls.length).toBe(calls);
+        const a1 = await w.recon(w.A);
+        const p1 = (await w.lines(a1.id)).find((l) => l.product_id === w.p1)!;
+        expect(Number(p1.admin_qty)).toBe(24);
+        expect(Number(p1.book_qty)).toBe(15);
+        expect(Number(p1.iiko_fact_qty)).toBe(24);
+        expect(a1.mismatch_ab_count).toBe(0);
+        expect(a1.lines_total).toBe(3);
       } finally {
         await w.cleanup();
       }
