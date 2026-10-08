@@ -28,6 +28,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { apiClient } from "@admin/utils/eden";
 import { useRouter } from "@admin/i18n/routing";
+import { loadErrorText } from "@admin/lib/tickets-create";
 import { Skeleton } from "@components/ui/skeleton";
 
 import { CREATE_RIGHTS, LoadFailedPanel, NoAccessPanel, UnassignedPanel } from "../_components/gate-panels";
@@ -98,7 +99,7 @@ export default function NewBranchTicketPage() {
     body = (
       <LoadFailedPanel
         title="Не удалось определить ваш филиал"
-        detail={branches.error?.message}
+        detail={loadErrorText(branches.error)}
         onRetry={() => branches.refetch()}
         retrying={branches.isFetching}
       />
@@ -114,7 +115,7 @@ export default function NewBranchTicketPage() {
       ) : (
         <LoadFailedPanel
           title="Не удалось загрузить типы заявок"
-          detail={types.error?.message}
+          detail={loadErrorText(types.error)}
           onRetry={() => types.refetch()}
           retrying={types.isFetching}
         />

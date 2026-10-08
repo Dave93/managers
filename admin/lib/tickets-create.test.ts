@@ -17,6 +17,7 @@ import {
   fitWithin,
   jpegName,
   lacksContractor,
+  loadErrorText,
   missingItems,
   pickBranch,
   preparePhoto,
@@ -563,5 +564,35 @@ describe("preparePhoto", () => {
       await preparePhoto(bigJpeg(), io);
       expect(calls.released).toBe(1);
     }
+  });
+});
+
+describe("loadErrorText: человеку не показывается сырой текст сбоя", () => {
+  test("исключение fetch без статуса даёт понятную фразу, а не «Failed to fetch»", () => {
+    expect(loadErrorText(new TypeError("Failed to fetch"))).toBe("Нет связи с сервером. Проверьте интернет и повторите.");
+    expect(loadErrorText(new Error("NetworkError when attempting to fetch resource."))).toContain("Нет связи");
+    expect(loadErrorText(undefined)).toContain("Нет связи");
+    expect(loadErrorText(null)).toContain("Нет связи");
+  });
+
+  test("ответ сервера (есть статус) и наш русский текст проходят как есть", () => {
+    expect(loadErrorText(Object.assign(new Error("Сервис недоступен"), { status: 503 }))).toBe("Сервис недоступен");
+    expect(loadErrorText(new Error("Сервер не вернул филиалы сессии"))).toBe("Сервер не вернул филиалы сессии");
+    expect(loadErrorText(Object.assign(new Error(""), { status: 500 }))).toBe("Не удалось выполнить запрос");
+  });
+
+  test("сырой текст уходит в консоль, один раз на объект ошибки", () => {
+    const calls: unknown[][] = [];
+    const orig = console.error;
+    console.error = (...a: unknown[]) => void calls.push(a);
+    try {
+      const e = new TypeError("Failed to fetch");
+      loadErrorText(e);
+      loadErrorText(e);
+      loadErrorText(new TypeError("Failed to fetch"));
+    } finally {
+      console.error = orig;
+    }
+    expect(calls).toHaveLength(2);
   });
 });

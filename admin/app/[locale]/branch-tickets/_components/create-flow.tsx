@@ -166,14 +166,17 @@ export function CreateFlow({
     // раз. Защёлку от двойной отправки держит useCreateTicket; при неизвестном
     // исходе обычная отправка закрыта совсем.
     if (awaiting) return;
-    // Страховка к перехвату Enter в поле поиска филиала: уходим только если
-    // отправителем формы была сама кнопка создания. Это ловит программный
-    // submit без кнопки (requestSubmit() без аргумента, submitter = null).
-    // Неявная отправка по Enter в текстовом поле сюда приходит С этой кнопкой
-    // как отправителем, поэтому от неё отдельно защищает то, что поле поиска
-    // не принадлежит форме (см. branch-picker.tsx).
-    const submitter = (e.nativeEvent as SubmitEvent | undefined)?.submitter as HTMLElement | null | undefined;
-    if (submitter?.dataset?.createSubmit !== "true") return;
+    // Страховка к перехвату Enter в поле поиска филиала: программный submit без
+    // кнопки (requestSubmit() без аргумента) даёт submitter === null и
+    // отбрасывается. Блокируем ТОЛЬКО null: на движке без SubmitEvent.submitter
+    // (Safari до 15.4, старые WebView) поле равно undefined, и проверка «это
+    // наша кнопка» отбросила бы любую законную отправку молча. Единственная
+    // кнопка отправки в форме это кнопка создания. Неявная отправка по Enter в
+    // текстовом поле приходит сюда С этой кнопкой как отправителем, поэтому от
+    // неё отдельно защищает то, что поле поиска не принадлежит форме (см.
+    // branch-picker.tsx).
+    const submitter = (e.nativeEvent as { submitter?: unknown } | undefined)?.submitter;
+    if (submitter === null) return;
     send(false);
   };
 

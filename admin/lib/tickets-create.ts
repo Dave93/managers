@@ -247,6 +247,25 @@ export type SubmitFailure = {
 // Чем кончился запрос без нормального ответа сервера (ставит postTicket).
 export type NoAnswerKind = "network" | "timeout" | "no_body";
 
+// Текст для панели «не удалось загрузить» (филиалы, типы, список). Ответ нашего
+// сервера (есть статус) и наши собственные русские тексты показываются как есть.
+// Всё остальное, то есть необработанное исключение fetch вроде «Failed to
+// fetch», человеку не нужно: он получает понятную фразу, а сырой текст уходит
+// в консоль (один раз на объект ошибки, потому что функцию зовёт рендер).
+const LOGGED_LOAD_ERRORS = new WeakSet<object>();
+export const NO_CONNECTION_TEXT = "Нет связи с сервером. Проверьте интернет и повторите.";
+
+export function loadErrorText(error: unknown): string {
+  const e = error as { status?: unknown; message?: unknown } | null | undefined;
+  const message = typeof e?.message === "string" ? e.message : "";
+  if (typeof e?.status === "number" || /[А-Яа-яЁё]/.test(message)) return message || "Не удалось выполнить запрос";
+  if (e && typeof e === "object" && !LOGGED_LOAD_ERRORS.has(e)) {
+    LOGGED_LOAD_ERRORS.add(e);
+    console.error("tickets: загрузка не удалась", error);
+  }
+  return NO_CONNECTION_TEXT;
+}
+
 const CHECK_LIST = "Откройте список заявок филиала и проверьте, нет ли там новой";
 
 export function describeFailure(e: unknown): SubmitFailure {
