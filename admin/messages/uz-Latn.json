@@ -636,7 +636,8 @@
         "admin": "Admin",
         "document": "iiko hujjati",
         "status": "Holat",
-        "mismatch": "A ≠ B qatorlar"
+        "mismatch": "A ≠ B qatorlar",
+        "reopens": "Qayta yuborishlar"
       },
       "admin": {
         "submitted": "Topshirilgan",
@@ -705,7 +706,14 @@
         "title": "Admindagi sanoqlar"
       },
       "checkedBy": "{name} belgiladi, {at}",
-      "checkedCount": "{total} ta farqdan {done} tasi tekshirildi"
+      "checkedCount": "{total} ta farqdan {done} tasi tekshirildi",
+      "reopenRule": {
+        "label": "Filial yuborilgan sanoqni qoralamaga qaytara oladi:",
+        "until_iiko": "iiko hujjati yuklanmaguncha va solishtirish qabul qilinmaguncha",
+        "until_accept": "ofis solishtirishni qabul qilmaguncha",
+        "office_only": "hech qachon — faqat ofis qaytaradi",
+        "saved": "Qoida saqlandi"
+      }
     }
   }
 }

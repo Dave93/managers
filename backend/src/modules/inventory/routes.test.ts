@@ -116,6 +116,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const manager = (w: World) => sessionFor(w, ["inventory.count", "inventory.manage"]);
   const helper = (w: World) => sessionFor(w, ["inventory.count"]);
   const office = (w: World) => sessionFor(w, ["inventory.count", "inventory.templates"], false);
+  // Офис, который сверяет и может вернуть отправленный пересчёт в черновик.
+  const reconciler = (w: World) => sessionFor(w, ["inventory.count", "inventory.templates", "inventory.reconcile"], false);
 
   // Холодный старт приложения на этой машине бывает дольше 60 с (видели 68 и 89 с).
   beforeAll(async () => {
@@ -551,7 +553,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       try {
         await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
         await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
-        const re = await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        const re = await api(await reconciler(w), "POST", `/api/inventory/counts/${countId}/reopen`, {});
         expect(re.status).toBe(200);
         let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.status).toBe("draft");
@@ -582,12 +584,89 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
         let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.lines.every((l: any) => l.skipped)).toBe(true);
-        await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        await api(await reconciler(w), "POST", `/api/inventory/counts/${countId}/reopen`, {});
         d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.lines.find((l: any) => l.product_id === w.p1).skipped).toBe(true);
         expect(d.body.lines.find((l: any) => l.product_id === w.p2).skipped).toBe(false);
         expect(d.body.lines_done).toBe(1);
       } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    // Правило возврата отправленного пересчёта филиалом — настройка inventory.reopen_rule.
+    async function setRule(rule: string | null) {
+      await drizzleDb.delete(schema.settings).where(eq(schema.settings.key, "inventory.reopen_rule"));
+      if (rule) await drizzleDb.insert(schema.settings).values({ key: "inventory.reopen_rule", value: rule });
+    }
+    async function setRecon(w: World, fields: { status: string; iiko_doc_state: string | null }) {
+      await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.storeId));
+      await drizzleDb.insert(schema.inventory_reconciliations).values({ store_id: w.storeId, period: PERIOD, ...fields });
+    }
+    async function submitted(w: World) {
+      const { m, countId, lineOf } = await startedCount(w);
+      await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+      await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+      return { m, countId, lineOf };
+    }
+    async function tryReopen(s: Session, countId: string) {
+      const d = await api(s, "GET", `/api/inventory/counts/${countId}`);
+      const r = await api(s, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+      return { canReopen: d.body.can_reopen, status: r.status };
+    }
+
+    it("по умолчанию (until_iiko): филиал возвращает, пока нет документа iiko и сверка не принята", async () => {
+      const w = await seedWorld();
+      await setRule(null);
+      const { m, countId, lineOf } = await submitted(w);
+      try {
+        // правка отправленного без возврата закрыта всегда
+        expect((await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p2), 5)] })).status).toBe(409);
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: true, status: 200 });
+
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        await setRecon(w, { status: "ready", iiko_doc_state: "posted" });
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: false, status: 403 });
+        // документ распровели после загрузки — всё равно закрыто
+        await setRecon(w, { status: "ready", iiko_doc_state: "unposted_after_fetch" });
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: false, status: 403 });
+      } finally {
+        await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.storeId));
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("until_accept: филиал возвращает и после загрузки iiko, но не после «принято»", async () => {
+      const w = await seedWorld();
+      await setRule("until_accept");
+      const { m, countId } = await submitted(w);
+      try {
+        await setRecon(w, { status: "ready", iiko_doc_state: "posted" });
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: true, status: 200 });
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        await setRecon(w, { status: "accepted", iiko_doc_state: "posted" });
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: false, status: 403 });
+      } finally {
+        await setRule(null);
+        await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.storeId));
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("office_only: филиал не возвращает никогда, офис с inventory.reconcile — всегда (даже после «принято»)", async () => {
+      const w = await seedWorld();
+      await setRule("office_only");
+      const { m, countId } = await submitted(w);
+      try {
+        expect(await tryReopen(m, countId)).toEqual({ canReopen: false, status: 403 });
+        await setRecon(w, { status: "accepted", iiko_doc_state: "posted" });
+        expect(await tryReopen(await reconciler(w), countId)).toEqual({ canReopen: true, status: 200 });
+      } finally {
+        await setRule(null);
+        await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.storeId));
         await m.cleanup();
         await w.cleanup();
       }
@@ -963,11 +1042,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/submit`, {})).status).toBe(200);
 
         const detail = await api(m, "GET", `/api/inventory/counts/${c.countId}`);
-        expect(detail.body.can_reopen).toBe(true);
         expect(detail.body.input_open).toBeUndefined();
         expect(detail.body.deadline).toBeUndefined();
 
-        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
+        expect((await api(await reconciler(w), "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
       } finally {
         await w.cleanup();
       }

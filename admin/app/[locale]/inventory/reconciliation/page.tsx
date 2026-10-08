@@ -11,6 +11,7 @@ import { periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 import type { ReconOverviewRow, ReconStatus } from "@backend/modules/inventory/reconcile/types";
 import { FetchPanel } from "./_components/fetch-panel";
 import { ReconStatusBadge } from "./_components/recon-status-badge";
+import { ReopenRule } from "./_components/reopen-rule";
 
 const ALL = "__all__";
 const STATUSES: ReconStatus[] = ["needs_choice", "ready", "in_review", "accepted", "waiting_iiko"];
@@ -81,6 +82,7 @@ function Overview() {
       </div>
 
       <FetchPanel period={period} />
+      <ReopenRule />
 
       {list.data && list.data.length === 0 ? (
         <div className="text-muted-foreground">{t("empty")}</div>
@@ -94,6 +96,7 @@ function Overview() {
                 <TableHead>{t("col.document")}</TableHead>
                 <TableHead>{t("col.status")}</TableHead>
                 <TableHead className="text-right">{t("col.mismatch")}</TableHead>
+                <TableHead className="text-right">{t("col.reopens")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -118,6 +121,10 @@ function Overview() {
                   </TableCell>
                   <TableCell className={`text-right tabular-nums ${r.mismatch_ab_count ? "font-semibold text-orange-600" : ""}`}>
                     {r.mismatch_ab_count || "—"}
+                  </TableCell>
+                  {/* Повторные отправки: пересчёт возвращали в черновик и меняли после отправки. */}
+                  <TableCell className={`text-right tabular-nums ${r.reopen_count ? "font-semibold text-orange-600" : ""}`}>
+                    {r.reopen_count || "—"}
                   </TableCell>
                 </TableRow>
               ))}

@@ -4,10 +4,12 @@ import {
   inventory_count_events,
   inventory_count_lines,
   inventory_counts,
+  inventory_reconciliations,
   inventory_template_items,
   inventory_templates,
   nomenclature_element,
   organization,
+  settings,
   users,
 } from "backend/drizzle/schema";
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
@@ -26,6 +28,7 @@ import type {
   InventoryEntry,
   InventoryLine,
   InventoryProduct,
+  InventoryReopenRule,
   InventorySyncOp,
   InventorySyncResult,
   InventoryTemplateSummary,
@@ -379,7 +382,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     viewer_id: actor.userId,
     access,
     can_manage: manage,
-    can_reopen: manage && row.status === "submitted",
+    can_reopen: row.status === "submitted" && (await mayReopen(db, actor, access, row)),
     lines: lines.map(
       (x): InventoryLine => ({
         ...x,
@@ -613,9 +616,49 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
   });
 }
 
+export const REOPEN_RULE_KEY = "inventory.reopen_rule";
+export const REOPEN_RULES: InventoryReopenRule[] = ["until_iiko", "until_accept", "office_only"];
+
+export async function reopenRule(db: DbLike): Promise<InventoryReopenRule> {
+  const [row] = await db.select({ value: settings.value }).from(settings).where(eq(settings.key, REOPEN_RULE_KEY)).limit(1);
+  return REOPEN_RULES.includes(row?.value as InventoryReopenRule) ? (row!.value as InventoryReopenRule) : "until_iiko";
+}
+
+export async function setReopenRule(db: DbLike, rule: InventoryReopenRule) {
+  if (!REOPEN_RULES.includes(rule)) throw new InventoryError(422, "invalid_rule");
+  await db.transaction(async (tx) => {
+    await tx.delete(settings).where(eq(settings.key, REOPEN_RULE_KEY));
+    await tx.insert(settings).values({ key: REOPEN_RULE_KEY, value: rule });
+  });
+  return { rule };
+}
+
+/** Может ли актор вернуть отправленный пересчёт в черновик (см. InventoryReopenRule). */
+export async function mayReopen(
+  db: DbLike,
+  actor: Actor,
+  access: Awaited<ReturnType<typeof storeAccess>>,
+  row: { store_id: string; period: string }
+): Promise<boolean> {
+  if (actor.perms.includes("inventory.reconcile")) return true;
+  if (!canManage(actor, access)) return false;
+  const rule = await reopenRule(db);
+  if (rule === "office_only") return false;
+  const [recon] = await db
+    .select({ status: inventory_reconciliations.status, iiko_doc_state: inventory_reconciliations.iiko_doc_state })
+    .from(inventory_reconciliations)
+    .where(and(eq(inventory_reconciliations.store_id, row.store_id), eq(inventory_reconciliations.period, row.period)));
+  if (!recon) return true;
+  if (recon.status === "accepted") return false;
+  // until_iiko: документ iiko уже загружен в сверку (в т.ч. потом распроведён) — филиал больше не правит.
+  return !(rule === "until_iiko" && recon.iiko_doc_state !== null);
+}
+
 export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Date) {
   return db.transaction(async (tx) => {
-    const row = await requireManagedCount(tx, actor, id);
+    const row = await lockCount(tx, id);
+    const access = await storeAccess(tx, actor, row.store_id);
+    if (!(await mayReopen(tx, actor, access, row))) throw new InventoryError(403, "reopen_locked");
     const to = nextStatus("reopen", row.status);
     if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
       await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
