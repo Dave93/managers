@@ -32,7 +32,7 @@ export type NavPermission = string | string[];
 // Переводчик раздела tickets.nav (useTranslations("tickets.nav")). Остальное меню
 // пока жёстко по-русски, поэтому buildNav принимает переводчик только для заявок.
 export type TicketsNavT = (
-  key: "group" | "all" | "payments" | "contractors" | "types" | "branch"
+  key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
 ) => string;
 
 export type NavLeaf = { title: string; href: string; permission?: NavPermission };
@@ -121,7 +121,7 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
       title: tTickets("group"),
       icon: Wrench,
       items: [
-        { title: tTickets("all"), href: p("/tickets"), permission: "tickets.list" },
+        { title: tTickets("list"), href: p("/tickets"), permission: "tickets.list" },
         { title: tTickets("payments"), href: p("/tickets/payments"), permission: ["tickets.payment.approve", "tickets.list"] },
         { title: tTickets("contractors"), href: p("/tickets/contractors"), permission: "tickets.contractors.manage" },
         { title: tTickets("types"), href: p("/tickets/types"), permission: "tickets.types.manage" },

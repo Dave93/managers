@@ -536,7 +536,7 @@
   "tickets": {
     "nav": {
       "group": "Tickets",
-      "all": "All tickets",
+      "list": "Tickets",
       "payments": "Awaiting payment",
       "contractors": "Contractors",
       "types": "Ticket types",

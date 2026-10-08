@@ -499,7 +499,7 @@
   "tickets": {
     "nav": {
       "group": "Arizalar",
-      "all": "Barcha arizalar",
+      "list": "Arizalar",
       "payments": "To'lovga",
       "contractors": "Pudratchi firmalar",
       "types": "Ariza turlari",
