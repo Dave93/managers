@@ -79,6 +79,7 @@ export function buildNav(locale: string): NavEntry[] {
       permission: "inventory.count",
       items: [
         { title: "Инвентаризации", href: p("/inventory"), permission: "inventory.count" },
+        { title: "Остатки склада", href: p("/inventory/stock"), permission: "inventory.count" },
         { title: "Шаблоны инвентаризаций", href: p("/inventory/templates"), permission: "inventory.templates" },
         { title: "Сверка с iiko", href: p("/inventory/reconciliation"), permission: "inventory.reconcile" },
       ],

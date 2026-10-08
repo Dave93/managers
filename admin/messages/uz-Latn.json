@@ -714,6 +714,59 @@
         "office_only": "hech qachon — faqat ofis qaytaradi",
         "saved": "Qoida saqlandi"
       }
+    },
+    "kind": {
+      "label": "Sanoq turi",
+      "monthly": "Oylik",
+      "interim": "Oraliq",
+      "date": "Sanoq sanasi",
+      "dateHint": "Faqat o'tgan kun: shu kun oxiridagi qoldiq"
+    },
+    "book": {
+      "tab": "Hisob bilan solishtirish",
+      "inputTab": "Kiritish",
+      "loading": "Hisob miqdori iiko'dan yuklanmoqda…",
+      "refresh": "Hisobni yangilash",
+      "queued": "iiko'dan yuklash navbatga qo'yildi",
+      "fetchedAt": "iiko hisobi yuklangan {at}",
+      "onlyDiff": "Faqat farqlilar",
+      "notInCount": "sanoqda yo'q",
+      "notCounted": "sanalmagan",
+      "inconsistent": "taqsimot mos kelmaydi",
+      "col": {
+        "n": "№",
+        "code": "Mahsulot kodi",
+        "product": "Mahsulot",
+        "unit": "O'lch.",
+        "fact": "Fakt",
+        "book": "Hisob miqdori",
+        "diff": "Farq"
+      },
+      "breakdown": {
+        "start": "{date} holatiga qoldiq",
+        "invoice": "Kirim",
+        "sales": "Sotuv",
+        "transferIn": "Ko'chirish, kirim",
+        "transferOut": "Ko'chirish, chiqim",
+        "writeoff": "Hisobdan chiqarish",
+        "other": "Boshqa",
+        "book": "Hisob miqdori"
+      }
+    },
+    "stock": {
+      "title": "Ombor qoldiqlari",
+      "hidden": "Sanoq ketmoqda — sanoq yopilgach qoldiqlar ochiladi",
+      "at": "{at} holatiga iiko hisobi",
+      "onlyNegative": "Faqat manfiylar",
+      "empty": "Qoldiq yo'q",
+      "search": "Nomi bo'yicha qidirish",
+      "movement": "{from} dan harakat",
+      "col": {
+        "code": "Mahsulot kodi",
+        "product": "Mahsulot",
+        "unit": "O'lch.",
+        "qty": "Qoldiq"
+      }
     }
   }
 }
