@@ -22,8 +22,8 @@ import { recordNotifications, enqueueNotifications } from "./notify";
 import { validateDetails, validateSchema, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment, uploadsBase, UUID_RE } from "./storage";
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
+import { ticketNumber } from "./number";
 
-const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
 
 // Имя автора заявки для карточки. users.first_name и last_name оба nullable, а
 // учётка, заведённая интеграцией, часто не имеет ни того ни другого, поэтому
@@ -243,10 +243,11 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
 // офиса — право tickets.list_all: оно даёт undefined, и вид выходит "office"
 // даже у учётки с назначенными терминалами. Пустой список сюда уже не
 // доходит (effectiveTerminals отдаёт для него undefined или заглушку), ветка
-// остаётся защитой. Остаётся один компромисс, и он безобиднее прежнего: офисная роль без права list_all, но с
-// выданными терминалами, определится как менеджер (раньше менеджер со всеми
-// выданными филиалами определялся как офис). Роут утверждения оплаты ставит
-// "office" безусловно, потому что он только офисный.
+// остаётся защитой. Остаётся один компромисс, и он безобиднее прежнего:
+// офисная роль без права list_all, но с выданными терминалами, определится
+// как менеджер (раньше менеджер со всеми выданными филиалами определялся как
+// офис). Роут утверждения оплаты ставит "office" безусловно, потому что он
+// только офисный.
 function actorKindOf(userTerminals: string[] | undefined): "manager" | "office" {
   return userTerminals && userTerminals.length > 0 ? "manager" : "office";
 }

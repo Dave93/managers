@@ -410,9 +410,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       // Снимок настоящего ./notify, снятый ДО любой подмены: повторный import
       // после mock.module вернул бы уже подменённый модуль.
       let realNotify: Record<string, unknown> | undefined;
+      let realNumber: Record<string, unknown> | undefined;
 
       beforeAll(async () => {
         realNotify = { ...(await import("./notify")) };
+        realNumber = { ...(await import("./number")) };
         process.env.TICKETS_UPLOADS_DIR = uploadsDir;
         const [type] = await drizzleDb
           .insert(ticket_types)
@@ -580,6 +582,43 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect(existsSync(att[0].path)).toBe(true);
         } finally {
           mock.module("./notify", () => real);
+          await s.cleanup();
+        }
+      });
+
+      // Вторая половина той же защиты: ломается не очередь, а сама сборка ответа
+      // после успешного коммита (подмена ./number). Внутренний try/catch вокруг
+      // enqueueNotifications тут не участвует, отрабатывает внешний catch с
+      // флагом committed: заявка и файлы целы, ответ 200 с number: null.
+      it("сбой сборки ответа после коммита: заявка в базе, файлы целы, ответ 200 с number: null", async () => {
+        const own = must(ownTerminal, "ownTerminal");
+        const real = must(realNumber, "realNumber");
+        const before = await rowsAt(own);
+        mock.module("./number", () => ({
+          ...real,
+          ticketNumber: () => {
+            throw new Error("сборка ответа упала (тест)");
+          },
+        }));
+        const s = await withSession({ permissions: ["tickets.create"], terminals: [own] });
+        try {
+          const res = await postTicket(s.headers, own);
+          const body = await res.json();
+          if (body?.id) createdTicketIds.push(body.id);
+          expect(res.status).toBe(200);
+          expect(body.number).toBeNull();
+          expect(body.terminal_id).toBe(own);
+          expect(await rowsAt(own)).toBe(before + 1);
+          const dir = join(uploadsDir, String(body.id));
+          expect(readdirSync(dir)).toHaveLength(1);
+          const att = await drizzleDb
+            .select({ path: ticket_attachments.file_path })
+            .from(ticket_attachments)
+            .where(eq(ticket_attachments.ticket_id, body.id));
+          expect(att).toHaveLength(1);
+          expect(existsSync(att[0].path)).toBe(true);
+        } finally {
+          mock.module("./number", () => real);
           await s.cleanup();
         }
       });
