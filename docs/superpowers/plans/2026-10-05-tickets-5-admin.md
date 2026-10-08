@@ -1059,16 +1059,19 @@ for f in files:
     d = json.load(open(f"messages/{f}.json"))
     def walk(prefix, node):
         for k, v in node.items():
-            if isinstance(v, dict): walk(f"{prefix}{k}.", v)
+            if isinstance(v, dict): yield from walk(f"{prefix}{k}.", v)
             else: yield f"{prefix}{k}"
     sets[f] = set(walk("", d.get("tickets", {})))
 base = sets["ru"]
+assert base, "в ru.json нет ключей tickets: проверять нечего"
+print("ключей в ru:", len(base))
 for f in files:
     missing = base - sets[f]
-    print(f, "missing:", sorted(missing)[:10] if missing else "ок")
+    extra = sets[f] - base
+    print(f, "missing:", sorted(missing)[:10] if missing else "ок", "| extra:", sorted(extra)[:10] if extra else "нет")
 PY
 ```
-Ожидается: по каждому файлу «ок».
+Ожидается: число ключей в ru больше нуля, по каждому файлу «ок» и «нет». Без `yield from` рекурсия молча отдавала пустое множество, и скрипт печатал «ок» при любом состоянии файлов; проверка на непустой `base` не даёт этому повториться.
 
 - [ ] **Step 4: Проход типов и сборка**
 
