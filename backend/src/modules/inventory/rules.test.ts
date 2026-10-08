@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import {
   allowedPeriods,
+  interimDates,
+  isValidInterimDate,
+  lastDayOf,
   isValidPeriod,
   isValidQty,
   lastDayOfMonth,
@@ -79,3 +82,33 @@ describe("isValidQty", () => {
     expect(isValidQty(null)).toBe(false);
   });
 });
+
+describe("interimDates — промежуточный пересчёт только за прошедший день", () => {
+  it("вчера по умолчанию и максимум, минимум — 1-е число прошлого месяца", () => {
+    expect(interimDates(new Date("2026-10-08T07:00:00Z"))).toEqual({ min: "2026-09-01", max: "2026-10-07", default: "2026-10-07" });
+  });
+  it("граница суток по Ташкенту: 1 ноября 02:00 +05 (в UTC ещё 31 октября) — вчера = 31 октября", () => {
+    expect(interimDates(new Date("2026-10-31T21:00:00Z"))).toEqual({ min: "2026-10-01", max: "2026-10-31", default: "2026-10-31" });
+  });
+  it("переход года", () => {
+    expect(interimDates(new Date("2027-01-01T07:00:00Z"))).toEqual({ min: "2026-12-01", max: "2026-12-31", default: "2026-12-31" });
+  });
+});
+
+describe("isValidInterimDate / lastDayOf", () => {
+  const now = new Date("2026-10-08T07:00:00Z");
+  it("сегодня и будущее — нельзя, вчера и раньше в диапазоне — можно", () => {
+    expect(isValidInterimDate("2026-10-08", now)).toBe(false);
+    expect(isValidInterimDate("2026-10-09", now)).toBe(false);
+    expect(isValidInterimDate("2026-10-07", now)).toBe(true);
+    expect(isValidInterimDate("2026-09-01", now)).toBe(true);
+    expect(isValidInterimDate("2026-08-31", now)).toBe(false);
+    expect(isValidInterimDate("2026-09-31", now)).toBe(false);
+    expect(isValidInterimDate("07.10.2026", now)).toBe(false);
+  });
+  it("lastDayOf — последний день месяца даты", () => {
+    expect(lastDayOf("2026-10-07")).toBe("2026-10-31");
+    expect(lastDayOf("2028-02-10")).toBe("2028-02-29");
+  });
+});
+

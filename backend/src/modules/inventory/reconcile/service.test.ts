@@ -45,7 +45,7 @@ if (!dbLooksLikeTest) {
     async function submittedCount(store: string, qty: Record<string, number | null>) {
       const [c] = await drizzleDb
         .insert(schema.inventory_counts)
-        .values({ store_id: store, organization_id: org, template_name: "Все товары филиала", period: PERIOD, status: "submitted", created_by: user })
+        .values({ store_id: store, organization_id: org, template_name: "Все товары филиала", period: PERIOD, count_date: PERIOD, status: "submitted", created_by: user })
         .returning({ id: schema.inventory_counts.id });
       for (const [pid, q] of Object.entries(qty)) {
         await drizzleDb.insert(schema.inventory_count_lines).values({

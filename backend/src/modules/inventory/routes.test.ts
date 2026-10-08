@@ -1017,7 +1017,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           organization_id: w.orgId,
           template_id: w.templateId,
           template_name: "Месячная",
-          period: PAST,
+          period: PAST, count_date: PAST,
           status,
           created_by: createdBy,
         })

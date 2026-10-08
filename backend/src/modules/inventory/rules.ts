@@ -65,6 +65,36 @@ export function previousPeriod(now: Date): string {
   return lastDayOfMonth(p.y, p.m);
 }
 
+const DATE_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function isValidDate(date: string): boolean {
+  const m = DATE_RE.exec(date);
+  if (!m) return false;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return mo >= 1 && mo <= 12 && d >= 1 && d <= new Date(Date.UTC(y, mo, 0)).getUTCDate();
+}
+
+/** Последний день месяца даты YYYY-MM-DD — период промежуточного пересчёта. */
+export function lastDayOf(date: string): string {
+  const [y, m] = date.split("-").map(Number);
+  return lastDayOfMonth(y, m);
+}
+
+/** Даты промежуточного пересчёта (spec 2026-10-08, решение 2): только прошедший день,
+ * с 1-го числа прошлого месяца по вчера (Ташкент); по умолчанию — вчера. */
+export function interimDates(now: Date): { min: string; max: string; default: string } {
+  const { y, m, d } = tashkentParts(now);
+  const yesterday = new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
+  const p = prevMonth(y, m);
+  return { min: `${p.y}-${pad(p.m)}-01`, max: yesterday, default: yesterday };
+}
+
+export function isValidInterimDate(date: string, now: Date): boolean {
+  if (!isValidDate(date)) return false;
+  const { min, max } = interimDates(now);
+  return date >= min && date <= max;
+}
+
 export const MAX_QTY = 1_000_000;
 
 export function isValidQty(q: unknown): q is number {
