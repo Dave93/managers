@@ -116,6 +116,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const manager = (w: World) => sessionFor(w, ["inventory.count", "inventory.manage"]);
   const helper = (w: World) => sessionFor(w, ["inventory.count"]);
   const office = (w: World) => sessionFor(w, ["inventory.count", "inventory.templates"], false);
+  // Офис, который сверяет и может вернуть отправленный пересчёт в черновик.
+  const reconciler = (w: World) => sessionFor(w, ["inventory.count", "inventory.templates", "inventory.reconcile"], false);
 
   // Холодный старт приложения на этой машине бывает дольше 60 с (видели 68 и 89 с).
   beforeAll(async () => {
@@ -551,7 +553,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       try {
         await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
         await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
-        const re = await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        const re = await api(await reconciler(w), "POST", `/api/inventory/counts/${countId}/reopen`, {});
         expect(re.status).toBe(200);
         let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.status).toBe("draft");
@@ -582,11 +584,39 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
         let d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.lines.every((l: any) => l.skipped)).toBe(true);
-        await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        await api(await reconciler(w), "POST", `/api/inventory/counts/${countId}/reopen`, {});
         d = await api(m, "GET", `/api/inventory/counts/${countId}`);
         expect(d.body.lines.find((l: any) => l.product_id === w.p1).skipped).toBe(true);
         expect(d.body.lines.find((l: any) => l.product_id === w.p2).skipped).toBe(false);
         expect(d.body.lines_done).toBe(1);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("отправленный пересчёт филиал вернуть не может (403, can_reopen=false), офис с inventory.reconcile — может", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+
+        const mine = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(mine.body.status).toBe("submitted");
+        expect(mine.body.can_reopen).toBe(false);
+        const denied = await api(m, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        expect(denied.status).toBe(403);
+        // и правка отправленного по-прежнему закрыта
+        const sync = await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p2), 5)] });
+        expect(sync.status).toBe(409);
+
+        const office = await reconciler(w);
+        const theirs = await api(office, "GET", `/api/inventory/counts/${countId}`);
+        expect(theirs.body.can_reopen).toBe(true);
+        const ok = await api(office, "POST", `/api/inventory/counts/${countId}/reopen`, {});
+        expect(ok.status).toBe(200);
+        expect((await api(m, "GET", `/api/inventory/counts/${countId}`)).body.status).toBe("draft");
       } finally {
         await m.cleanup();
         await w.cleanup();
@@ -963,11 +993,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/submit`, {})).status).toBe(200);
 
         const detail = await api(m, "GET", `/api/inventory/counts/${c.countId}`);
-        expect(detail.body.can_reopen).toBe(true);
         expect(detail.body.input_open).toBeUndefined();
         expect(detail.body.deadline).toBeUndefined();
 
-        expect((await api(m, "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
+        expect((await api(await reconciler(w), "POST", `/api/inventory/counts/${c.countId}/reopen`, {})).status).toBe(200);
       } finally {
         await w.cleanup();
       }

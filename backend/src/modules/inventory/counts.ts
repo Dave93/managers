@@ -379,7 +379,8 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     viewer_id: actor.userId,
     access,
     can_manage: manage,
-    can_reopen: manage && row.status === "submitted",
+    // Отправленный пересчёт филиал уже не меняет: вернуть в черновик может только офис.
+    can_reopen: row.status === "submitted" && canReopen(actor),
     lines: lines.map(
       (x): InventoryLine => ({
         ...x,
@@ -613,9 +614,15 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
   });
 }
 
+/** Вернуть отправленный пересчёт в черновик — только офис (inventory.reconcile), не филиал. */
+export function canReopen(actor: Actor): boolean {
+  return actor.perms.includes("inventory.reconcile");
+}
+
 export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Date) {
   return db.transaction(async (tx) => {
-    const row = await requireManagedCount(tx, actor, id);
+    if (!canReopen(actor)) throw new InventoryError(403, "forbidden");
+    const row = await lockCount(tx, id);
     const to = nextStatus("reopen", row.status);
     if (!to) throw new InventoryError(409, "not_submitted", { status: row.status });
       await tx.update(inventory_count_lines).set({ fact_qty: null }).where(eq(inventory_count_lines.count_id, id));
