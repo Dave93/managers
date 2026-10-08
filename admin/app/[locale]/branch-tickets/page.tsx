@@ -45,6 +45,7 @@ import {
   createdIdFrom,
   groupTickets,
 } from "@admin/lib/tickets-branch";
+import { loadErrorText } from "@admin/lib/tickets-create";
 import { useTicketCard, useTicketList } from "@admin/lib/use-tickets";
 
 import { symptomOf } from "../tickets/columns";
@@ -168,7 +169,7 @@ function ListStatus({ q, what }: { q: ListState; what: string }) {
   return (
     <LoadFailedPanel
       title={`Не удалось загрузить ${what}`}
-      detail={q.error?.message}
+      detail={loadErrorText(q.error)}
       onRetry={() => q.refetch()}
       retrying={q.isFetching}
     />
@@ -375,7 +376,7 @@ function BranchTicketsPage() {
         detail={
           branches.error?.status === 403
             ? "Сервер отказал в доступе к данным сессии (403). Войдите заново; если не помогло, обратитесь к администратору."
-            : branches.error?.message
+            : loadErrorText(branches.error)
         }
         onRetry={() => branches.refetch()}
         retrying={branches.isFetching}

@@ -121,16 +121,27 @@ function useKeepSeen(card: TicketCard, open: boolean) {
 // карточка размонтирована (отправил комментарий и сразу закрыл), а mutationFn
 // и обработчик самого хука доезжают всегда. Сбой отметки глотается: действие
 // уже выполнено, а точка у приёмки не нужна (закрытая заявка её не носит).
-// Инвалидация идёт после отметки, и одно перечитывание видит оба результата.
 function usePanelActions() {
   const qc = useQueryClient();
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["tickets"] });
-  const quietSeen = (id: string) => markSeen(id).catch(() => {});
+  // Блочное тело, а не выражение: TanStack ждёт промис, который вернёт onSuccess,
+  // и тогда isPending (кнопки «Принимаем…» и отправка комментария) тянулся бы
+  // через перезапрос списка и карточки, а при зависшей сети панель показывала
+  // бы «Принимаем…» у уже закрытой заявки.
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["tickets"] });
+  };
+  // Отметку не ждём: действие уже выполнено, и его завершение не должно зависеть
+  // от второго запроса. Перечитываем после неё ещё раз, чтобы точка погасла.
+  const quietSeen = (id: string) => {
+    markSeen(id)
+      .then(invalidate)
+      .catch(() => {});
+  };
   return {
     close: useMutation({
       mutationFn: async (id: string) => {
         const r = await closeTicket(id);
-        await quietSeen(id);
+        quietSeen(id);
         return r;
       },
       onSuccess: invalidate,
@@ -138,7 +149,7 @@ function usePanelActions() {
     reopen: useMutation({
       mutationFn: async (v: { id: string; comment: string }) => {
         const r = await reopenTicket(v.id, v.comment);
-        await quietSeen(v.id);
+        quietSeen(v.id);
         return r;
       },
       onSuccess: invalidate,
@@ -146,7 +157,7 @@ function usePanelActions() {
     comment: useMutation({
       mutationFn: async (v: { id: string; body: string }) => {
         const r = await addComment(v.id, v.body);
-        await quietSeen(v.id);
+        quietSeen(v.id);
         return r;
       },
       onSuccess: invalidate,

@@ -260,6 +260,14 @@ describe("currentResultPhotos", () => {
     expect(currentResultPhotos({ attachments: [att("a", "мусор")], events: [] })).toHaveLength(1);
   });
 
+  test("возврат с неразобранным временем: давность снимков неизвестна, текущих нет (даже единственный такой возврат)", () => {
+    const card = { attachments: [att("old", "2026-10-05 10:00:00+05"), att("new", "2026-10-05 12:00:00+05")], events: [reopened("мусор")] };
+    expect(currentResultPhotos(card)).toEqual([]);
+    const mixed = { ...card, events: [reopened("2026-10-05 11:00:00+05"), reopened("мусор")] };
+    expect(currentResultPhotos(mixed)).toEqual([]);
+    expect(canAccept("done", currentResultPhotos(card).length)).toBe(false);
+  });
+
   test("сданная повторно без новых фото: принять нельзя, вернуть можно", () => {
     const card = { attachments: [att("old", "2026-10-05 10:00:00+05")], events: [reopened("2026-10-05 11:00:00+05")] };
     const n = currentResultPhotos(card).length;

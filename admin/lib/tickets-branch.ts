@@ -131,7 +131,9 @@ export function resultColumn(status: TicketStatus, resultPhotos: number): Result
 // работу» встала бы против них же. Время вложения и события одни и те же часы
 // (оба defaultNow() в Postgres). Если возврата не было, результатные все; если
 // был, а время вложения не разобралось, оно не считается текущим: принимать
-// работу по снимку неизвестной давности нельзя.
+// работу по снимку неизвестной давности нельзя. По тому же правилу возврат с
+// неразобранным временем делает неизвестной давность ВСЕХ снимков: где он
+// стоял, неясно, и отвергнутые фото не должны вернуться в результат.
 export function currentResultPhotos<A extends { phase: string; created_at: string }>(card: {
   attachments?: readonly A[] | null;
   events?: readonly { type: string; created_at: string }[] | null;
@@ -141,7 +143,8 @@ export function currentResultPhotos<A extends { phase: string; created_at: strin
   for (const e of card.events ?? []) {
     if (e.type !== "reopened") continue;
     const ms = parseTs(e.created_at);
-    if (Number.isFinite(ms) && ms > lastReopen) lastReopen = ms;
+    if (!Number.isFinite(ms)) return [];
+    if (ms > lastReopen) lastReopen = ms;
   }
   if (lastReopen === -Infinity) return results;
   return results.filter((a) => parseTs(a.created_at) > lastReopen);
