@@ -9,11 +9,13 @@ import {
   canReturn,
   cardHasUnread,
   countGroups,
+  currentResultPhotos,
   createdIdFrom,
   groupTickets,
   hasUnread,
   lastEventOf,
   resultColumn,
+  showUnreadDot,
 } from "./tickets-branch";
 import type { TicketPriority, TicketStatus } from "./tickets-api";
 
@@ -203,5 +205,81 @@ describe("панель приёмки: правая колонка и кнопк
     expect(resultColumn("closed", 0)).toBe("none");
     expect(resultColumn("cancelled", 0)).toBe("none");
     expect(resultColumn("closed", 1)).toBe("photos");
+  });
+});
+
+describe("resultColumn: статус раньше числа фото", () => {
+  test("в работе и новая с фото прошлой сдачи: «ещё не сдал», не фото", () => {
+    expect(resultColumn("in_progress", 2)).toBe("not_submitted");
+    expect(resultColumn("new", 1)).toBe("not_submitted");
+    expect(canAccept("in_progress", 2)).toBe(false);
+  });
+});
+
+const att = (id: string, created_at: string, phase = "result") => ({ id, phase, created_at });
+const reopened = (created_at: string) => ({ type: "reopened", created_at });
+
+describe("currentResultPhotos", () => {
+  test("возврата не было: все результатные, фото проблемы не берутся", () => {
+    const card = { attachments: [att("a", "2026-10-05 10:00:00+05"), att("p", "2026-10-05 09:00:00+05", "problem")], events: [] };
+    expect(currentResultPhotos(card).map((a) => a.id)).toEqual(["a"]);
+  });
+
+  test("после возврата прежние фото отвергнуты, новых нет: пусто", () => {
+    const card = {
+      attachments: [att("old1", "2026-10-05 10:00:00+05"), att("old2", "2026-10-05 10:01:00+05")],
+      events: [reopened("2026-10-05 11:00:00+05")],
+    };
+    expect(currentResultPhotos(card)).toEqual([]);
+  });
+
+  test("после возврата и повторной сдачи: только новые снимки", () => {
+    const card = {
+      attachments: [att("old", "2026-10-05 10:00:00+05"), att("new", "2026-10-05 12:00:00+05")],
+      events: [reopened("2026-10-05 11:00:00+05")],
+    };
+    expect(currentResultPhotos(card).map((a) => a.id)).toEqual(["new"]);
+  });
+
+  test("несколько возвратов: считается последний", () => {
+    const card = {
+      attachments: [att("r1", "2026-10-05 10:00:00+05"), att("r2", "2026-10-05 12:00:00+05"), att("r3", "2026-10-05 14:00:00+05")],
+      events: [reopened("2026-10-05 11:00:00+05"), reopened("2026-10-05 13:00:00+05")],
+    };
+    expect(currentResultPhotos(card).map((a) => a.id)).toEqual(["r3"]);
+  });
+
+  test("сравнивается момент, а не текст (другой пояс)", () => {
+    // 10:30Z-снимок позже 10:00:00.250Z-возврата, хотя как строка меньше.
+    const card = { attachments: [att("a", "2026-10-05 10:30:00+00")], events: [reopened("2026-10-05 15:00:00.250+05")] };
+    expect(currentResultPhotos(card).map((a) => a.id)).toEqual(["a"]);
+  });
+
+  test("возврат был, время вложения не разобралось: не текущее; возврата нет, не разобралось: остаётся", () => {
+    expect(currentResultPhotos({ attachments: [att("a", "мусор")], events: [reopened("2026-10-05 11:00:00+05")] })).toEqual([]);
+    expect(currentResultPhotos({ attachments: [att("a", "мусор")], events: [] })).toHaveLength(1);
+  });
+
+  test("сданная повторно без новых фото: принять нельзя, вернуть можно", () => {
+    const card = { attachments: [att("old", "2026-10-05 10:00:00+05")], events: [reopened("2026-10-05 11:00:00+05")] };
+    const n = currentResultPhotos(card).length;
+    expect(resultColumn("done", n)).toBe("submitted_without_photos");
+    expect(canAccept("done", n)).toBe(false);
+    expect(canReturn("done")).toBe(true);
+  });
+});
+
+describe("showUnreadDot: закрытые заявки без точки", () => {
+  const unread = { manager_seen_at: "2026-10-05 10:00:00+05", last_event_at: "2026-10-05 12:00:00+05" };
+  test("событие оплаты после отметки у закрытой и отменённой точку не зажигает", () => {
+    expect(showUnreadDot({ status: "closed", ...unread })).toBe(false);
+    expect(showUnreadDot({ status: "cancelled", ...unread })).toBe(false);
+    expect(showUnreadDot({ status: "closed", manager_seen_at: null, last_event_at: null })).toBe(false);
+  });
+  test("у активных точка как у hasUnread", () => {
+    for (const status of ["new", "in_progress", "done"] as const) {
+      expect(showUnreadDot({ status, ...unread })).toBe(true);
+      expect(showUnreadDot({ status, manager_seen_at: unread.last_event_at, last_event_at: unread.manager_seen_at })).toBe(false);
+    }
   });
 });

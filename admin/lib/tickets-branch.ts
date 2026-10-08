@@ -50,6 +50,20 @@ export function lastEventOf(card: Pick<TicketCard, "events">): string | null {
   return best;
 }
 
+// Точка на карточке списка. У закрытой и отменённой заявки её нет: офис пишет
+// событие оплаты по каждой принятой заявке, оно новее отметки, и без этого
+// почти каждая заявка во вкладке «Закрытые» горела бы вечно, а точка, которая
+// никогда не гаснет, перестаёт значить что-либо. Закрытую заявку читать уже
+// не нужно.
+export function showUnreadDot(row: {
+  status: TicketStatus;
+  manager_seen_at: string | null | undefined;
+  last_event_at: string | null | undefined;
+}): boolean {
+  if (row.status === "closed" || row.status === "cancelled") return false;
+  return hasUnread(row);
+}
+
 export function cardHasUnread(card: Pick<TicketCard, "events" | "manager_seen_at">): boolean {
   return hasUnread({ manager_seen_at: card.manager_seen_at, last_event_at: lastEventOf(card) });
 }
@@ -102,10 +116,35 @@ export type ResultColumn =
   | "none"; // closed, cancelled: фото не приложены
 
 export function resultColumn(status: TicketStatus, resultPhotos: number): ResultColumn {
-  if (resultPhotos > 0) return "photos";
+  // Статус раньше числа фото: возврат в работу вложений не удаляет (удаляющего
+  // роута нет), и у заявки в работе фото прошлой, отвергнутой сдачи не должны
+  // выдаваться за результат.
   if (status === "new" || status === "in_progress") return "not_submitted";
+  if (resultPhotos > 0) return "photos";
   if (status === "done") return "submitted_without_photos";
   return "none";
+}
+
+// Фото результата ТЕКУЩЕЙ сдачи: созданные позже последнего возврата в работу.
+// Возврат оставляет вложения на месте, так что без этого отвергнутые снимки
+// остались бы результатом, а после повторной сдачи без новых фото «Принять
+// работу» встала бы против них же. Время вложения и события одни и те же часы
+// (оба defaultNow() в Postgres). Если возврата не было, результатные все; если
+// был, а время вложения не разобралось, оно не считается текущим: принимать
+// работу по снимку неизвестной давности нельзя.
+export function currentResultPhotos<A extends { phase: string; created_at: string }>(card: {
+  attachments?: readonly A[] | null;
+  events?: readonly { type: string; created_at: string }[] | null;
+}): A[] {
+  const results = (card.attachments ?? []).filter((a) => a.phase === "result");
+  let lastReopen = -Infinity;
+  for (const e of card.events ?? []) {
+    if (e.type !== "reopened") continue;
+    const ms = parseTs(e.created_at);
+    if (Number.isFinite(ms) && ms > lastReopen) lastReopen = ms;
+  }
+  if (lastReopen === -Infinity) return results;
+  return results.filter((a) => parseTs(a.created_at) > lastReopen);
 }
 
 // «Принять работу» есть только там, где есть что принимать: статус «сдана» (из

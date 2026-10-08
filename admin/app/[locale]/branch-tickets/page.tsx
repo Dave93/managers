@@ -29,7 +29,7 @@
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Plus, RotateCw, ShieldAlert, X } from "lucide-react";
+import { CheckCircle2, Plus, RotateCw, ShieldAlert, Store, X } from "lucide-react";
 
 import { apiClient } from "@admin/utils/eden";
 import { Link, useRouter } from "@admin/i18n/routing";
@@ -48,7 +48,7 @@ import {
 import { useTicketCard, useTicketList } from "@admin/lib/use-tickets";
 
 import { symptomOf } from "../tickets/columns";
-import { LoadFailedPanel, UnassignedPanel } from "./_components/gate-panels";
+import { LoadFailedPanel } from "./_components/gate-panels";
 import { useCreatableTypes, useMyBranches } from "./_components/use-branch-tickets";
 import { AcceptPanel } from "./_components/accept-panel";
 import { BranchTicketCard } from "./_components/ticket-card";
@@ -99,6 +99,25 @@ function NoListAccess({ missing, serverDenied }: { missing: string[]; serverDeni
           </ul>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
             Попросите администратора добавить их роли, затем перезагрузите страницу.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Не то же, что UnassignedPanel экрана создания: тот объясняет, почему нельзя
+// СОЗДАТЬ заявку, а сюда приходят смотреть и принимать.
+function NoBranchPanel() {
+  return (
+    <div role="alert" className="rounded-lg border bg-card">
+      <div className="flex items-start gap-3 px-5 py-6">
+        <Store className="mt-0.5 size-6 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 space-y-2">
+          <p className="text-base font-semibold leading-tight">У вашей роли нет привязки к филиалу</p>
+          <p className="max-w-xl text-sm leading-snug text-muted-foreground">
+            Заявки показываются по филиалу сотрудника, а за вашей ролью филиал не закреплён, поэтому показывать
+            нечего. Если вы менеджер, попросите администратора закрепить за вами филиал и войдите заново.
           </p>
         </div>
       </div>
@@ -349,19 +368,21 @@ function BranchTicketsPage() {
   } else if (!dataEnabled || (!branches.data && branches.isPending)) {
     body = <Loading />;
   } else if (!branches.data) {
-    body =
-      branches.error?.status === 403 ? (
-        <NoListAccess missing={REQUIRED} serverDenied />
-      ) : (
-        <LoadFailedPanel
-          title="Не удалось определить ваш филиал"
-          detail={branches.error?.message}
-          onRetry={() => branches.refetch()}
-          retrying={branches.isFetching}
-        />
-      );
+    // Данные в кэше важнее ошибки обновления, поэтому ветка ошибки идёт после.
+    body = (
+      <LoadFailedPanel
+        title="Не удалось определить ваш филиал"
+        detail={
+          branches.error?.status === 403
+            ? "Сервер отказал в доступе к данным сессии (403). Войдите заново; если не помогло, обратитесь к администратору."
+            : branches.error?.message
+        }
+        onRetry={() => branches.refetch()}
+        retrying={branches.isFetching}
+      />
+    );
   } else if (!hasBranch) {
-    body = <UnassignedPanel />;
+    body = <NoBranchPanel />;
   } else {
     body = (
       <div className="space-y-5">

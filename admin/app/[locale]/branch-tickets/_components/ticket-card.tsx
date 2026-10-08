@@ -3,7 +3,7 @@
 // Карточка заявки в списке филиала. Вся карточка одна кнопка: на планшете
 // попасть в мелкую ссылку с номером тяжелее, чем в блок на пол-экрана.
 //
-// Точка непрочитанного: hasUnread(row), то есть событие новее manager_seen_at
+// Точка непрочитанного: showUnreadDot(row), то есть событие новее manager_seen_at
 // или отметки нет вовсе. Сама карточка markSeen НЕ вызывает: список листают, а
 // «филиал посмотрел» утверждает только открытая панель (accept-panel.tsx).
 
@@ -12,7 +12,7 @@ import { ImageOff } from "lucide-react";
 
 import { cn } from "@admin/lib/utils";
 import { attachmentUrl, type TicketRow } from "@admin/lib/tickets-api";
-import { hasUnread } from "@admin/lib/tickets-branch";
+import { showUnreadDot } from "@admin/lib/tickets-branch";
 import { PriorityBadge, StatusBadge, WaitingFor, parseTs } from "@admin/components/tickets/status";
 
 function fmtDate(value: string | null): string | null {
@@ -44,6 +44,7 @@ function Preview({ id }: { id: string | null }) {
       src={attachmentUrl(id)}
       alt=""
       className="size-20 shrink-0 rounded-md border object-cover"
+      loading="lazy"
       onError={() => setBroken(true)}
     />
   );
@@ -75,7 +76,7 @@ export function BranchTicketCard({
   highlighted: boolean;
   onOpen: (id: string) => void;
 }) {
-  const unread = hasUnread(row);
+  const unread = showUnreadDot(row);
   const closedOn = row.status === "closed" ? fmtDate(row.closed_at) : null;
   return (
     <button

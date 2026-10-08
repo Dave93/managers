@@ -14,7 +14,10 @@
 //    ?created= и неудачная загрузка карточки отметку не ставят. Сбой markSeen
 //    молчит: точка останется гореть, а панель не сломается.
 //  * Своё же действие не должно зажигать точку. Комментарий, приёмка и возврат
-//    пишут события новее отметки, поэтому после них отметка ставится снова.
+//    пишут события новее отметки, поэтому отметка ставится внутри самого
+//    действия (usePanelActions), и это переживает закрытие панели.
+//  * Фото результата это только снимки текущей сдачи (позже последнего
+//    возврата в работу): возврат вложений не удаляет.
 //  * Статусы, подписи, акт и текст 409 общие с карточкой офиса
 //    (tickets/_components/ticket-sheet.tsx): здесь они импортируются, а не
 //    переписываются.
@@ -25,7 +28,7 @@
 //    мышью, поэтому «Принять работу» спрашивает подтверждение.
 
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Hourglass, RotateCw, ShieldAlert, TriangleAlert } from "lucide-react";
 
 import { Button } from "@components/ui/buttonOrigin";
@@ -44,9 +47,25 @@ import {
 } from "@components/ui/alert-dialog";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@components/ui/sheet";
 import { formatAmount } from "@admin/lib/tickets-money";
-import { apiMessage, markSeen, type ApiError, type TicketCard } from "@admin/lib/tickets-api";
-import { canAccept, canReturn, cardHasUnread, lastEventOf, resultColumn, type ResultColumn } from "@admin/lib/tickets-branch";
-import { useTicketActions, useTicketCard } from "@admin/lib/use-tickets";
+import {
+  addComment,
+  apiMessage,
+  closeTicket,
+  markSeen,
+  reopenTicket,
+  type ApiError,
+  type TicketCard,
+} from "@admin/lib/tickets-api";
+import {
+  canAccept,
+  canReturn,
+  cardHasUnread,
+  currentResultPhotos,
+  lastEventOf,
+  resultColumn,
+  type ResultColumn,
+} from "@admin/lib/tickets-branch";
+import { useTicketCard } from "@admin/lib/use-tickets";
 import { PriorityBadge, StatusBadge, WaitingFor } from "@admin/components/tickets/status";
 
 import { PhotoStrip } from "../../tickets/_components/photo-strip";
@@ -77,20 +96,62 @@ function stampSeen(qc: QueryClient, id: string) {
 }
 
 // Пока панель открыта и карточка загружена, отметка держится новее последнего
-// события: открытие, свой комментарий и комментарий исполнителя, пришедший при
-// открытой панели, не оставят точку. ref не даёт повторять одну и ту же попытку
-// (StrictMode, перерисовки) и зациклиться, если сервер отказывает: следующая
-// попытка возможна, только когда карточка стала другой.
+// события: открытие и комментарий исполнителя, пришедший при открытой панели,
+// не оставят точку. Ключ повтора это (заявка, последнее событие) и НЕ включает
+// manager_seen_at: успешный штамп меняет отметку, и с ней в ключе карточка,
+// всё ещё считающаяся непрочитанной, штамповалась бы снова и снова. А она может
+// ею остаться: отметку ставят часы Node, время события часы Postgres, и при
+// расхождении (или событии из будущего) условие «событие новее отметки»
+// держится после штампа. По этому ключу цикл невозможен ни при каких часах:
+// одна попытка на каждое новое событие, после отказа тоже.
 function useKeepSeen(card: TicketCard, open: boolean) {
   const qc = useQueryClient();
   const tried = useRef<string | null>(null);
   useEffect(() => {
     if (!open || !cardHasUnread(card)) return;
-    const key = `${card.id}|${card.manager_seen_at ?? ""}|${lastEventOf(card) ?? ""}`;
+    const key = `${card.id}|${lastEventOf(card) ?? ""}`;
     if (tried.current === key) return;
     tried.current = key;
     stampSeen(qc, card.id);
   }, [open, card, qc]);
+}
+
+// Действия панели. Отметка «филиал посмотрел» входит в саму mutationFn, а не
+// в обработчик успеха из mutate(): те не вызываются, если панель уже закрыта и
+// карточка размонтирована (отправил комментарий и сразу закрыл), а mutationFn
+// и обработчик самого хука доезжают всегда. Сбой отметки глотается: действие
+// уже выполнено, а точка у приёмки не нужна (закрытая заявка её не носит).
+// Инвалидация идёт после отметки, и одно перечитывание видит оба результата.
+function usePanelActions() {
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["tickets"] });
+  const quietSeen = (id: string) => markSeen(id).catch(() => {});
+  return {
+    close: useMutation({
+      mutationFn: async (id: string) => {
+        const r = await closeTicket(id);
+        await quietSeen(id);
+        return r;
+      },
+      onSuccess: invalidate,
+    }),
+    reopen: useMutation({
+      mutationFn: async (v: { id: string; comment: string }) => {
+        const r = await reopenTicket(v.id, v.comment);
+        await quietSeen(v.id);
+        return r;
+      },
+      onSuccess: invalidate,
+    }),
+    comment: useMutation({
+      mutationFn: async (v: { id: string; body: string }) => {
+        const r = await addComment(v.id, v.body);
+        await quietSeen(v.id);
+        return r;
+      },
+      onSuccess: invalidate,
+    }),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -197,10 +258,9 @@ function CardView({
   onClose: () => void;
 }) {
   const qc = useQueryClient();
-  // Без onDone: хук вызывает его после ЛЮБОЙ мутации, и отправка комментария
-  // закрыла бы панель. Закрытие передаётся в mutate() только для приёмки и
-  // возврата.
-  const actions = useTicketActions();
+  // Закрытие панели передаётся в mutate() только для приёмки и возврата:
+  // отправка комментария панель оставляет.
+  const actions = usePanelActions();
   const [draft, setDraft] = useState("");
   const [returnComment, setReturnComment] = useState("");
   // Защёлка от двойного нажатия: isPending мутации меняется только на
@@ -219,12 +279,8 @@ function CardView({
     latch.current = true;
     statusMutations.forEach((m) => m.reset());
     start({
-      onSuccess: () => {
-        // Приёмка и возврат пишут событие новее отметки; без этого заявка,
-        // которую менеджер только что обработал, загорелась бы точкой.
-        stampSeen(qc, card.id);
-        onClose();
-      },
+      // Отметка после приёмки и возврата уже поставлена в mutationFn.
+      onSuccess: onClose,
       onError: (e) => {
         latch.current = false;
         // При 409 карточка на экране устарела: обновляем её, чтобы кнопки
@@ -238,7 +294,8 @@ function CardView({
   const terminal = card.terminal_name ?? "Филиал не найден";
   const executor = card.assigned_executor_id ? (card.executor_name ?? "Исполнитель удалён") : "не назначен";
   const problem = (card.attachments ?? []).filter((a) => a.phase === "problem");
-  const result = (card.attachments ?? []).filter((a) => a.phase === "result");
+  // Только снимки текущей сдачи: возврат в работу вложений не удаляет.
+  const result = currentResultPhotos(card);
   const column = resultColumn(card.status, result.length);
   const accept = canAccept(card.status, result.length);
   const hasAmount = card.work_total_amount !== null && card.work_total_amount !== undefined;
