@@ -50,7 +50,7 @@ async function productInfo(db: DbLike, ids: string[]): Promise<Map<string, Produ
  */
 export async function storeHasChangeableCount(db: DbLike, storeId: string, now = new Date()): Promise<boolean> {
   const counts = await db
-    .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period })
+    .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period, kind: inventory_counts.kind })
     .from(inventory_counts)
     .where(
       and(

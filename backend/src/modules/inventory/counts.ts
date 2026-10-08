@@ -663,7 +663,7 @@ export async function mayReopen(
   db: DbLike,
   actor: Actor,
   access: Awaited<ReturnType<typeof storeAccess>>,
-  row: { store_id: string; period: string }
+  row: { store_id: string; period: string; kind: string }
 ): Promise<boolean> {
   if (actor.perms.includes("inventory.reconcile")) return true;
   if (!canManage(actor, access)) return false;
@@ -671,7 +671,10 @@ export async function mayReopen(
 }
 
 /** Может ли филиал (менеджер склада) ещё вернуть отправленный пересчёт — по правилу inventory.reopen_rule. */
-export async function branchMayReopen(db: DbLike, row: { store_id: string; period: string }): Promise<boolean> {
+export async function branchMayReopen(db: DbLike, row: { store_id: string; period: string; kind: string }): Promise<boolean> {
+  // Промежуточный фиксируется сразу после отправки: вернуть его может только офис, при любом правиле
+  // (иначе он оставался бы открытым до месячной сверки, и остатки у филиала были бы закрыты почти весь месяц).
+  if (row.kind === "interim") return false;
   const rule = await reopenRule(db);
   if (rule === "office_only") return false;
   const [recon] = await db

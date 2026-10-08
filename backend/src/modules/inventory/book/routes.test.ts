@@ -37,7 +37,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     if (rule) await drizzleDb.insert(schema.settings).values({ key: "inventory.reopen_rule", value: rule });
   }
 
-  async function seed() {
+  async function seed(kind: "monthly" | "interim" = "interim") {
     const store = randomUUID();
     const other = randomUUID();
     const [p1, p2, p3] = [randomUUID(), randomUUID(), randomUUID()];
@@ -56,7 +56,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     const [c] = await drizzleDb
       .insert(schema.inventory_counts)
       .values({
-        store_id: store, template_name: "10 kun", period: "2026-10-31", kind: "interim", count_date: "2026-10-07",
+        store_id: store, template_name: "10 kun", period: "2026-10-31", kind, count_date: kind === "interim" ? "2026-10-07" : "2026-10-31",
         status: "draft", created_by: managerId, book_fetched_at: "2026-10-08T00:00:00Z",
       })
       .returning({ id: schema.inventory_counts.id });
@@ -118,7 +118,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     });
 
     it("филиал: черновик и отправленный, который можно вернуть, — 403; зафиксирован — 200; чужой склад — 403", async () => {
-      const w = await seed();
+      const w = await seed("monthly");
       try {
         await setRule("until_accept");
         const m = await manager(w);
@@ -159,6 +159,34 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         } finally {
           await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, draft.id));
         }
+      } finally {
+        await setRule(null);
+        await w.cleanup();
+      }
+    });
+
+    it("промежуточный фиксируется сразу после отправки: при until_accept филиал видит сравнение и остатки", async () => {
+      const w = await seed("interim");
+      setStockIikoRunner(async (fn) =>
+        fn({
+          async inventoryDocs() { return []; },
+          async corrections() { return []; },
+          async balance() { return [{ product_id: w.p1, amount: 1, sum: 0 }]; },
+          async movements() { return []; },
+        })
+      );
+      clearStockCache();
+      try {
+        await setRule("until_accept");
+        const m = await manager(w);
+        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(true);
+        await w.submit();
+        expect((await api(m, "GET", `/api/inventory/counts/${w.countId}/book`)).status).toBe(200);
+        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(false);
+        const d = await api(m, "GET", `/api/inventory/counts/${w.countId}`);
+        expect(d.body.can_reopen).toBe(false);
+        expect((await api(m, "POST", `/api/inventory/counts/${w.countId}/reopen`, {})).status).toBe(403);
+        expect((await api(await office(), "POST", `/api/inventory/counts/${w.countId}/reopen`, {})).status).toBe(200);
       } finally {
         await setRule(null);
         await w.cleanup();
@@ -267,7 +295,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     });
 
     it("филиал: пока пересчёт можно менять — скрыто; зафиксирован — видно; чужой склад — 403", async () => {
-      const w = await seed();
+      const w = await seed("monthly");
       fakeIiko(w);
       try {
         await setRule("until_accept");
