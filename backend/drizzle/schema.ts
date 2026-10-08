@@ -2437,6 +2437,12 @@ export const inventory_counts = pgTable(
     template_id: uuid("template_id").references(() => inventory_templates.id),
     template_name: varchar("template_name", { length: 255 }).notNull(),
     period: date("period", { mode: "string" }).notNull(),
+    // monthly — месячный (count_date = period); interim — промежуточный за прошедший день
+    // (spec 2026-10-08-inventory-interim-and-stock-design.md).
+    kind: varchar("kind", { length: 16 }).default("monthly").notNull(),
+    count_date: date("count_date", { mode: "string" }).notNull(),
+    // Когда загружен снимок книжного количества iiko (inventory_count_book).
+    book_fetched_at: timestamp("book_fetched_at", { withTimezone: true, mode: "string" }),
     status: varchar("status", { length: 32 }).default("draft").notNull(),
     // Снимок: строки построены как шаблон ∩ товары филиала из exord (§13 спеки).
     exord_filtered: boolean("exord_filtered").default(false).notNull(),
@@ -2449,11 +2455,17 @@ export const inventory_counts = pgTable(
   (t) => ({
     store_period_template_uq: uniqueIndex("inventory_counts_store_period_template_uq")
       .on(t.store_id, t.period, t.template_id)
-      .where(sql`status <> 'cancelled'`),
+      .where(sql`kind = 'monthly' and status <> 'cancelled'`),
     store_period_idx: index("inventory_counts_store_period_idx").on(t.store_id, t.period),
     store_period_branch_uq: uniqueIndex("inventory_counts_store_period_branch_uq")
       .on(t.store_id, t.period)
-      .where(sql`template_id is null and status <> 'cancelled'`),
+      .where(sql`kind = 'monthly' and template_id is null and status <> 'cancelled'`),
+    store_date_template_uq: uniqueIndex("inventory_counts_store_date_template_uq")
+      .on(t.store_id, t.count_date, t.template_id)
+      .where(sql`kind = 'interim' and status <> 'cancelled'`),
+    store_date_branch_uq: uniqueIndex("inventory_counts_store_date_branch_uq")
+      .on(t.store_id, t.count_date)
+      .where(sql`kind = 'interim' and template_id is null and status <> 'cancelled'`),
   })
 );
 
@@ -2674,4 +2686,26 @@ export const inventory_reconciliation_line_marks = pgTable(
     checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+// Снимок книжного количества iiko по пересчёту (spec 2026-10-08, §4): на count_date 23:58,
+// с разбивкой «начало месяца + приход − реализация ± перемещения − списания ± прочее».
+export const inventory_count_book = pgTable(
+  "inventory_count_book",
+  {
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    book_qty: numeric("book_qty", { precision: 14, scale: 4 }).notNull(),
+    start_qty: numeric("start_qty", { precision: 14, scale: 4 }).notNull(),
+    in_invoice: numeric("in_invoice", { precision: 14, scale: 4 }).notNull(),
+    out_sales: numeric("out_sales", { precision: 14, scale: 4 }).notNull(),
+    transfer_in: numeric("transfer_in", { precision: 14, scale: 4 }).notNull(),
+    transfer_out: numeric("transfer_out", { precision: 14, scale: 4 }).notNull(),
+    out_writeoff: numeric("out_writeoff", { precision: 14, scale: 4 }).notNull(),
+    other_net: numeric("other_net", { precision: 14, scale: 4 }).notNull(),
+    consistent: boolean("consistent").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
 );
