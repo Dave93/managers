@@ -97,13 +97,26 @@ async function notFoundOrConflict(
 // Проверку права ставят ПОСЛЕ дешёвых проверок входа (формат id, пустое тело):
 // иначе мусорный запрос стоил бы обращения к кэшу ролей до своего 404/422.
 //
+// Пустой снимок терминалов не значит «все филиалы». Он значил это раньше, и
+// сессия без филиалов и без права видела и меняла заявки всех филиалов: на
+// тот же снимок садится и гонка в context/index.ts (user_data вытеснен между
+// beforeHandle и resolve → role: null, terminals: []), и забытый на учётке
+// users_terminals. Теперь, как и при создании заявки, межфилиальный доступ при
+// пустом снимке даёт только право tickets.list_all; без него снимок значит
+// «ни одного филиала», а нет роли в контексте — то же самое: отказ в
+// расширении безопаснее, чем его молчаливая выдача.
+//
 // Возвращает список филиалов для фильтра или undefined, если фильтровать не
-// нужно. Пустой terminals и так значит «все филиалы», поэтому без филиалов
-// права не читаем вовсе. Нет роли в контексте — тоже оставляем скоуп как есть:
-// отказ в расширении безопаснее, чем его молчаливая выдача. Право читается
-// тем же кэшем ролей, что и макрос permission (getPermissionsByRoleId), а не
-// отдельным запросом, — так же, как в resolveIsHq и в списке типов выше.
+// нужно (только держатель права). «Ни одного филиала» выражен списком из
+// одного id, которого нет ни у одного филиала (NO_BRANCH_ID), а не пустым
+// массивом: все потребители ниже читают непустой список как фильтр, и тогда
+// каждый роут отвечает так же, как на чужую заявку (404 по id, пустая выдача,
+// «пропущено» в оплате), без ветки в самом роуте. Пустой массив опять стал бы
+// «без фильтра». Право читается тем же кэшем ролей, что и макрос permission
+// (getPermissionsByRoleId), а не отдельным запросом, — так же, как в
+// resolveIsHq и в списке типов выше.
 const LIST_ALL_PERMISSION = "tickets.list_all";
+const NO_BRANCH_ID = "00000000-0000-0000-0000-000000000000";
 
 async function effectiveTerminals(args: {
   userTerminals: string[] | undefined;
@@ -111,10 +124,11 @@ async function effectiveTerminals(args: {
   cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
 }): Promise<string[] | undefined> {
   const { userTerminals, role, cacheController } = args;
-  if (!userTerminals || userTerminals.length === 0) return userTerminals;
-  if (!role) return userTerminals;
+  const hasBranches = !!userTerminals && userTerminals.length > 0;
+  if (!role) return hasBranches ? userTerminals : [NO_BRANCH_ID];
   const permissions = await cacheController.getPermissionsByRoleId(role.id);
-  return permissions.includes(LIST_ALL_PERMISSION) ? undefined : userTerminals;
+  if (permissions.includes(LIST_ALL_PERMISSION)) return undefined;
+  return hasBranches ? userTerminals : [NO_BRANCH_ID];
 }
 
 const MAX_PAYMENT_IDS = 200;
@@ -227,9 +241,9 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
 //
 // Принимает скоуп после effectiveTerminals, а не терминалы сессии. Признак
 // офиса — право tickets.list_all: оно даёт undefined, и вид выходит "office"
-// даже у учётки с назначенными терминалами. Запасной признак — пустой
-// terminals, который в этом проекте читается как «все филиалы». Остаётся один
-// компромисс, и он безобиднее прежнего: офисная роль без права list_all, но с
+// даже у учётки с назначенными терминалами. Пустой список сюда уже не
+// доходит (effectiveTerminals отдаёт для него undefined или заглушку), ветка
+// остаётся защитой. Остаётся один компромисс, и он безобиднее прежнего: офисная роль без права list_all, но с
 // выданными терминалами, определится как менеджер (раньше менеджер со всеми
 // выданными филиалами определялся как офис). Роут утверждения оплаты ставит
 // "office" безусловно, потому что он только офисный.
@@ -546,10 +560,10 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       }
 
       const where: (SQLWrapper | undefined)[] = filters ? parseFilterFields(filters, tickets, {}) : [];
-      // Скоупинг по филиалам сессии. Пустой массив у офисной роли означает
-      // "все филиалы" — тот же смысл, что в остальных модулях. Право
-      // tickets.list_all снимает скоуп, и тогда тот же where считает и total
-      // (очередь «К оплате», предупреждения редактора типов), и строки.
+      // Скоупинг по филиалам сессии. Пустой снимок сам по себе не значит "все
+      // филиалы": это даёт только право tickets.list_all (см. effectiveTerminals),
+      // и тогда тот же where считает и total (очередь «К оплате»,
+      // предупреждения редактора типов), и строки.
       const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
@@ -950,8 +964,15 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       }
       // Скоуп здесь терминалы сессии, а не effectiveTerminals: см. комментарий у
       // tickets.list_all выше, отметка «филиал посмотрел» офису не принадлежит.
-      const where: SQLWrapper[] = [eq(tickets.id, id)];
-      if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+      // Пустой снимок поэтому не расширяется ничем, ни правом, ни пустотой: без
+      // филиалов «посмотрел» утверждать некому, и ответ тот же, что на чужую
+      // заявку. Раньше пустой снимок просто не добавлял фильтр и ставил отметку
+      // на заявке любого филиала.
+      if (!userTerminals || userTerminals.length === 0) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.terminal_id, userTerminals)];
       const updated = await drizzle
         .update(tickets)
         .set({ manager_seen_at: new Date().toISOString() })

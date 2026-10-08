@@ -308,10 +308,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
-      it("офисная роль без ограничения по филиалу видит заявки обоих филиалов", async () => {
+      it("офисная роль (tickets.list_all) без снимка филиалов видит заявки обоих филиалов", async () => {
         const mine = must(mineTicketId, "mineTicketId");
         const other = must(otherTicketId, "otherTicketId");
-        const s = await withSession({ permissions: ["tickets.list"] });
+        const s = await withSession({ permissions: ["tickets.list", "tickets.list_all"] });
         try {
           const res = await call("/api/tickets?limit=200&offset=0", { headers: s.headers });
           expect(res.status).toBe(200);
@@ -773,12 +773,15 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       });
 
-      it("сессия без филиалов видит обе заявки с правом и без него", async () => {
+      it("сессия без филиалов: с правом обе заявки, без права ни одной (пустой снимок не значит «все»)", async () => {
         const b = must(ticketB, "ticketB");
         const plain = await withSession({ permissions: ["tickets.list"] });
         const wide = await withSession({ permissions: ["tickets.list", "tickets.list_all"] });
         try {
-          expect((await listAs(plain.headers, typeFilter())).ids).toContain(b);
+          const none = await listAs(plain.headers, typeFilter());
+          expect(none.ids).toEqual([]);
+          expect(none.total).toBe(0);
+          expect((await listAs(wide.headers, typeFilter())).ids).toContain(b);
           expect((await listAs(wide.headers, typeFilter())).total).toBe(2);
         } finally {
           await plain.cleanup();
@@ -1090,6 +1093,209 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           await s.cleanup();
         }
       });
+
+      // Пустой снимок терминалов (terminals: []) не значит «все филиалы»:
+      // межфилиальный доступ при нём даёт только tickets.list_all, как и при
+      // создании заявки. Без права снимок значит «ни одного филиала», и каждый
+      // роут отвечает так, как отвечает на чужую заявку. Негативная половина
+      // главная: если проверку права в effectiveTerminals вернуть к «пустой
+      // снимок — без фильтра», она краснеет. Тип заявки — staff без
+      // исполнителя: 200-пути ничего не ставят в очередь уведомлений.
+      const emptySession = (wide: boolean) =>
+        withSession({
+          permissions: [
+            "tickets.list",
+            "tickets.close",
+            "tickets.cancel",
+            "tickets.payment.approve",
+            ...(wide ? ["tickets.list_all"] : []),
+          ],
+          terminals: [],
+        });
+
+      it("пустой снимок без tickets.list_all: список и total пусты", async () => {
+        const s = await emptySession(false);
+        try {
+          const list = await listAs(s.headers, typeFilter());
+          expect(list.ids).toEqual([]);
+          expect(list.total).toBe(0);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all: список и total охватывают оба филиала", async () => {
+        const s = await emptySession(true);
+        try {
+          const list = await listAs(s.headers, typeFilter());
+          // Не toBe(2): свежие заявки соседних тестов лежат под тем же типом.
+          expect(list.ids).toContain(must(ticketA, "ticketA"));
+          expect(list.ids).toContain(must(ticketB, "ticketB"));
+          expect(list.total).toBeGreaterThanOrEqual(2);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок: карточка по id — 404 без tickets.list_all, 200 с ним", async () => {
+        const b = must(ticketB, "ticketB");
+        const narrow = await emptySession(false);
+        const wide = await emptySession(true);
+        try {
+          expect((await call(`/api/tickets/${b}`, { headers: narrow.headers })).status).toBe(404);
+          const res = await call(`/api/tickets/${b}`, { headers: wide.headers });
+          expect(res.status).toBe(200);
+          expect((await res.json()).id).toBe(b);
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      it("пустой снимок: файл вложения — 404 без tickets.list_all, 200 с ним", async () => {
+        const path = `/api/tickets/attachments/${must(attachmentB, "attachmentB")}/file`;
+        const narrow = await emptySession(false);
+        const wide = await emptySession(true);
+        try {
+          expect((await call(path, { headers: narrow.headers })).status).toBe(404);
+          expect((await call(path, { headers: wide.headers })).status).toBe(200);
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      it("пустой снимок без tickets.list_all: приём (close) — 404, статус прежний", async () => {
+        const id = await freshTicket("done");
+        const s = await emptySession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/close`)).status).toBe(404);
+          expect((await stateOf(id)).status).toBe("done");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all: приём (close) проходит как office", async () => {
+        const id = await freshTicket("done");
+        const s = await emptySession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/close`)).status).toBe(200);
+          expect((await stateOf(id)).status).toBe("closed");
+          const ev = await drizzleDb.select({ k: ticket_events.actor_kind }).from(ticket_events).where(eq(ticket_events.ticket_id, id));
+          expect(ev.map((e) => e.k)).toEqual(["office"]);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок без tickets.list_all: возврат (reopen) и отмена (cancel) — 404, статус прежний", async () => {
+        const doneId = await freshTicket("done");
+        const newId = await freshTicket("new");
+        const s = await emptySession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${doneId}/reopen`, { comment: "переделать" })).status).toBe(404);
+          expect((await post(s.headers, `/api/tickets/${newId}/cancel`, { comment: "дубль" })).status).toBe(404);
+          expect((await stateOf(doneId)).status).toBe("done");
+          expect((await stateOf(newId)).status).toBe("new");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all: возврат (reopen) и отмена (cancel) проходят", async () => {
+        const doneId = await freshTicket("done");
+        const newId = await freshTicket("new");
+        const s = await emptySession(true);
+        try {
+          expect((await post(s.headers, `/api/tickets/${doneId}/reopen`, { comment: "переделать" })).status).toBe(200);
+          expect((await post(s.headers, `/api/tickets/${newId}/cancel`, { comment: "дубль" })).status).toBe(200);
+          expect((await stateOf(doneId)).status).toBe("in_progress");
+          expect((await stateOf(newId)).status).toBe("cancelled");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок без tickets.list_all: комментарий — 404, строки нет", async () => {
+        const id = await freshTicket("new");
+        const s = await emptySession(false);
+        try {
+          expect((await post(s.headers, `/api/tickets/${id}/comments`, { body: "не должен записаться" })).status).toBe(404);
+          const rows = await drizzleDb.select({ id: ticket_comments.id }).from(ticket_comments).where(eq(ticket_comments.ticket_id, id));
+          expect(rows).toHaveLength(0);
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок с tickets.list_all: комментарий пишется как office", async () => {
+        const id = await freshTicket("new");
+        const s = await emptySession(true);
+        try {
+          const res = await post(s.headers, `/api/tickets/${id}/comments`, { body: "от офиса" });
+          expect(res.status).toBe(200);
+          expect((await res.json()).author_kind).toBe("office");
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      it("пустой снимок: оплата — без tickets.list_all пропущена, с ним утверждена и отклонена", async () => {
+        const forApprove = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const forReject = await freshTicket("closed", { payment_status: "pending", work_total_amount: "150.00" });
+        const narrow = await emptySession(false);
+        const wide = await emptySession(true);
+        try {
+          const a0 = await (await post(narrow.headers, "/api/tickets/payment/approve", { ids: [forApprove] })).json();
+          expect(a0).toEqual({ approved: 0, skipped: 1 });
+          const r0 = await (await post(narrow.headers, "/api/tickets/payment/reject", { ids: [forReject], comment: "нет акта" })).json();
+          expect(r0).toEqual({ rejected: 0, skipped: 1 });
+          expect((await stateOf(forApprove)).payment_status).toBe("pending");
+          expect((await stateOf(forReject)).payment_status).toBe("pending");
+
+          const a1 = await (await post(wide.headers, "/api/tickets/payment/approve", { ids: [forApprove] })).json();
+          expect(a1).toEqual({ approved: 1, skipped: 0 });
+          const r1 = await (await post(wide.headers, "/api/tickets/payment/reject", { ids: [forReject], comment: "нет акта" })).json();
+          expect(r1).toEqual({ rejected: 1, skipped: 0 });
+          expect((await stateOf(forApprove)).payment_status).toBe("approved");
+          expect((await stateOf(forReject)).payment_status).toBe("rejected");
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      // seen скоплен при любых правах: пустой снимок не открывает его ни
+      // пустотой, ни tickets.list_all. Это была найденная дыра: сессия с
+      // tickets.list и terminals: [] ставила manager_seen_at в чужом филиале.
+      it("пустой снимок: seen — 404 и без tickets.list_all, и с ним, поле пусто", async () => {
+        const id = await freshTicket("new");
+        const narrow = await emptySession(false);
+        const wide = await emptySession(true);
+        try {
+          expect((await post(narrow.headers, `/api/tickets/${id}/seen`)).status).toBe(404);
+          expect((await post(wide.headers, `/api/tickets/${id}/seen`)).status).toBe(404);
+          expect((await stateOf(id)).manager_seen_at).toBeNull();
+        } finally {
+          await narrow.cleanup();
+          await wide.cleanup();
+        }
+      });
+
+      // Непустой снимок не тронут: те же роуты, тот же результат, что до правила.
+      it("непустой снимок: свой филиал работает как раньше (seen и close — 200)", async () => {
+        const own = await freshTicket("done", { terminal_id: terminalA });
+        const ownSeen = await freshTicket("new", { terminal_id: terminalA });
+        const s = await withSession({ permissions: ["tickets.list", "tickets.close"], terminals: [terminalA] });
+        try {
+          expect((await post(s.headers, `/api/tickets/${own}/close`)).status).toBe(200);
+          expect((await post(s.headers, `/api/tickets/${ownSeen}/seen`)).status).toBe(200);
+          expect((await stateOf(ownSeen)).manager_seen_at).not.toBeNull();
+        } finally {
+          await s.cleanup();
+        }
+      });
     });
 
     // Карточке нужны имена филиала, исполнителя и автора, и все три приходят с
@@ -1207,7 +1413,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
 
       const getCard = async (id: string) => {
-        const s = await withSession({ permissions: ["tickets.list"] });
+        // Карточку читает офис: пустой снимок без tickets.list_all ничего не видит.
+        const s = await withSession({ permissions: ["tickets.list", "tickets.list_all"] });
         try {
           const res = await call(`/api/tickets/${id}`, { headers: s.headers });
           return { status: res.status, body: await res.json() };
@@ -1419,7 +1626,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
 
       const comment = async (opts: { terminals?: string[] }, text: string) => {
-        const s = await withSession({ permissions: ["tickets.list"], ...opts });
+        // Без терминалов сессия — офис и несёт tickets.list_all; со скоупом
+        // филиала право не выдаётся, иначе она тоже стала бы офисом.
+        const permissions = opts.terminals ? ["tickets.list"] : ["tickets.list", "tickets.list_all"];
+        const s = await withSession({ permissions, ...opts });
         try {
           const res = await call(`/api/tickets/${must(ticketId, "ticketId")}/comments`, {
             method: "POST",
@@ -1443,7 +1653,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         }
       };
 
-      it("офисная сессия без филиалов пишет office в комментарий и событие", async () => {
+      it("офисная сессия (tickets.list_all, без филиалов) пишет office в комментарий и событие", async () => {
         const r = await comment({}, "от офиса");
         expect(r.returned).toBe("office");
         expect(r.row).toBe("office");
@@ -1576,7 +1786,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
 
       const listMine = async () => {
-        const s = await withSession({ permissions: ["tickets.list"] });
+        const s = await withSession({ permissions: ["tickets.list", "tickets.list_all"] });
         try {
           const filters = JSON.stringify([
             { field: "type_id", operator: "in", value: [must(typeWithFirmId, "typeWithFirmId"), must(typeNoFirmId, "typeNoFirmId")] },
