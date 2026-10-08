@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -14,13 +14,14 @@ import { buildNav } from "./nav-config";
 export function AdminBreadcrumbs() {
   const pathname = usePathname();
   const locale = useLocale();
+  const tTickets = useTranslations("tickets.nav");
   let group: string | null = null;
   let page: string | null = null;
   let bestLen = 0;
   const match = (href: string) =>
     (pathname === href || pathname.startsWith(href + "/")) &&
     href.length > bestLen;
-  for (const e of buildNav(locale)) {
+  for (const e of buildNav(locale, tTickets)) {
     if (e.kind === "link") {
       if (match(e.href)) {
         group = null;
