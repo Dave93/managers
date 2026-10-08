@@ -604,8 +604,9 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           // запроса и потому не может размножить строки, сколько бы join-ов выше
           // ни стояло (join к ticket_events дал бы строку на каждое событие).
           // idx_ticket_events_ticket_id делает его индексным поиском, а считается
-          // он только для строк страницы (не больше MAX_LIST_LIMIT). Без событий
-          // — null.
+          // он обычно лишь для строк страницы (не больше MAX_LIST_LIMIT): это
+          // зависит от плана, Postgres вправе вычислить SubPlan из списка
+          // выборки и ниже Limit/Sort. Без событий — null.
           last_event_at: sql<string | null>`(SELECT max(${ticket_events.created_at}) FROM ${ticket_events} WHERE ${ticket_events.ticket_id} = ${tickets.id})`,
           // Превью на карточке планшета: первое фото проблемы. Тот же приём, что
           // выше, и по той же причине: отдельный запрос на карточку списка дал бы
@@ -975,7 +976,11 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.terminal_id, userTerminals)];
       const updated = await drizzle
         .update(tickets)
-        .set({ manager_seen_at: new Date().toISOString() })
+        // Время базы, а не Node: ticket_events.created_at ставит Postgres
+        // (defaultNow()), и точка непрочитанного на планшете сравнивает эти два
+        // момента. Часы двух процессов расходятся, и тогда отметка то не гасит
+        // точку, то задним числом «прочитывает» событие внутри расхождения.
+        .set({ manager_seen_at: sql`now()` })
         .where(and(...where))
         .returning({ id: tickets.id, manager_seen_at: tickets.manager_seen_at });
       if (updated.length === 0) {

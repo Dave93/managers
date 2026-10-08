@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it, setSystemTime } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -1292,6 +1292,29 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           expect((await post(s.headers, `/api/tickets/${own}/close`)).status).toBe(200);
           expect((await post(s.headers, `/api/tickets/${ownSeen}/seen`)).status).toBe(200);
           expect((await stateOf(ownSeen)).manager_seen_at).not.toBeNull();
+        } finally {
+          await s.cleanup();
+        }
+      });
+
+      // manager_seen_at ставит база (now()), а не Node: ticket_events.created_at
+      // тоже ставит Postgres, и точка непрочитанного сравнивает эти два момента.
+      // Часы процесса здесь сдвинуты на 2000 год: отметка от Node легла бы туда,
+      // отметка от базы остаётся в настоящем.
+      it("seen берёт время базы, а не часов процесса", async () => {
+        const id = await freshTicket("new", { terminal_id: terminalA });
+        const s = await withSession({ permissions: ["tickets.list"], terminals: [terminalA] });
+        try {
+          setSystemTime(new Date("2000-01-01T00:00:00.000Z"));
+          let status: number;
+          try {
+            status = (await post(s.headers, `/api/tickets/${id}/seen`)).status;
+          } finally {
+            setSystemTime();
+          }
+          expect(status).toBe(200);
+          const seen = (await stateOf(id)).manager_seen_at;
+          expect(new Date(String(seen)).getFullYear()).toBeGreaterThan(2020);
         } finally {
           await s.cleanup();
         }
