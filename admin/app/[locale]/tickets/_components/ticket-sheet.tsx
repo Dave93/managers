@@ -471,7 +471,13 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
         <FieldsSection card={card} />
         <PhotoStrip title="Фото проблемы" items={problem} empty="Менеджер не приложил фото" />
-        <PhotoStrip title="Фото результата" items={result} empty={resultEmpty} />
+        {/* Решает колонка, как на планшете: у заявки в работе снимки новее
+            последнего возврата полосой не показываются, там заглушка. */}
+        <PhotoStrip
+          title="Фото результата"
+          items={accept.column === "photos" ? result : []}
+          empty={resultEmpty}
+        />
         <ActSection card={card} />
         <PaymentSection card={card} />
         <ConversationSection

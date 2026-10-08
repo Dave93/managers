@@ -11,6 +11,7 @@ import { RotateCw, TriangleAlert } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Skeleton } from "@components/ui/skeleton";
 import { apiMessage, type ApiError, type TicketRow } from "@admin/lib/tickets-api";
+import { currentResultPhotos } from "@admin/lib/tickets-branch";
 import { useTicketCard } from "@admin/lib/use-tickets";
 
 import { PhotoStrip } from "../../_components/photo-strip";
@@ -67,7 +68,10 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
   } else {
     const c = card.data;
     const items = c.work_items ?? [];
-    const result = (c.attachments ?? []).filter((a) => a.phase === "result");
+    // Только снимки текущей сдачи: возврат в работу вложений не удаляет, и по
+    // заявке, которую возвращали и потом закрыли, отвергнутые снимки лежат
+    // рядом с принятыми. Финансист не должен утверждать сумму по ним.
+    const result = currentResultPhotos(c);
     const itemsSum = sumMinor(items.map((w) => w.amount));
     const totalMinor = toMinor(c.work_total_amount);
     // Четыре повода не утверждать вслепую, и у каждого свой текст: человеку
