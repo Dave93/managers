@@ -7,8 +7,8 @@
 //  * Пункт 3 из Review Focus. Если фото результата нет (исполнитель ещё не
 //    сдал работу), правая колонка так и говорит, кнопки «Принять работу» нет:
 //    принимать нечего. Панель при этом открыта и показывает левую половину.
-//    Правила вынесены в lib/tickets-branch.ts (resultColumn, canAccept) и
-//    покрыты тестами.
+//    Правила вынесены в lib/tickets-branch.ts (acceptanceState, общий с
+//    карточкой офиса) и покрыты тестами.
 //  * «Филиал посмотрел» (markSeen) утверждается ЗДЕСЬ и только здесь, и только
 //    когда карточка реально загружена в открытой панели. Прокрутка списка, ссылка
 //    ?created= и неудачная загрузка карточки отметку не ставят. Сбой markSeen
@@ -56,15 +56,7 @@ import {
   type ApiError,
   type TicketCard,
 } from "@admin/lib/tickets-api";
-import {
-  canAccept,
-  canReturn,
-  cardHasUnread,
-  currentResultPhotos,
-  lastEventOf,
-  resultColumn,
-  type ResultColumn,
-} from "@admin/lib/tickets-branch";
+import { acceptanceState, canReturn, cardHasUnread, lastEventOf, type ResultColumn } from "@admin/lib/tickets-branch";
 import { useTicketCard } from "@admin/lib/use-tickets";
 import { PriorityBadge, StatusBadge, WaitingFor } from "@admin/components/tickets/status";
 
@@ -306,9 +298,7 @@ function CardView({
   const executor = card.assigned_executor_id ? (card.executor_name ?? "Исполнитель удалён") : "не назначен";
   const problem = (card.attachments ?? []).filter((a) => a.phase === "problem");
   // Только снимки текущей сдачи: возврат в работу вложений не удаляет.
-  const result = currentResultPhotos(card);
-  const column = resultColumn(card.status, result.length);
-  const accept = canAccept(card.status, result.length);
+  const { result, column, accept } = acceptanceState(card);
   const hasAmount = card.work_total_amount !== null && card.work_total_amount !== undefined;
 
   return (
@@ -472,7 +462,7 @@ function CardView({
 
         {failure ? (
           <p role="alert" className="text-sm leading-snug text-destructive">
-            {actionError(failure)}
+            {actionError(failure, "tickets.close")}
           </p>
         ) : null}
       </div>

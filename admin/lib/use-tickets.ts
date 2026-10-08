@@ -93,6 +93,27 @@ export function useTicketTerminals() {
   });
 }
 
+// Права сессии для показа действий. Тот же ключ, что у CanAccess, layout и
+// экранов раздела: один запрос на приложение. Eden не бросает на не-2xx, а
+// отдаёт {data: null, error}, и запрос прав на истёкшей сессии «успешен» со
+// значением null. Поэтому «осело, но списка нет» (settled, known: false) не
+// держит экран скелетом: действия показываются, решает сервер, а его 403
+// читается человеком через actionError. has() без списка прав отвечает да.
+export function useMyRights() {
+  const perms = useQuery({
+    queryKey: ["my_permissions"],
+    queryFn: async () => (await apiClient.api.users.my_permissions.get()).data,
+    retry: false,
+  });
+  const granted = (perms.data as { permissions?: string[] } | null | undefined)?.permissions;
+  const known = Array.isArray(granted);
+  return {
+    settled: known || perms.isError || perms.isSuccess,
+    known,
+    has: (right: string) => (Array.isArray(granted) ? granted.includes(right) : true),
+  };
+}
+
 export function useTicketActions(onDone?: () => void) {
   const qc = useQueryClient();
   const invalidate = () => {

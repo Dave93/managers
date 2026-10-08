@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   ACTIVE_STATUSES,
+  acceptanceState,
   FINISHED_STATUSES,
   branchFilters,
   canAccept,
@@ -288,6 +289,41 @@ describe("showUnreadDot: закрытые заявки без точки", () =>
     for (const status of ["new", "in_progress", "done"] as const) {
       expect(showUnreadDot({ status, ...unread })).toBe(true);
       expect(showUnreadDot({ status, manager_seen_at: unread.last_event_at, last_event_at: unread.manager_seen_at })).toBe(false);
+    }
+  });
+});
+
+describe("acceptanceState: одно решение для планшета и карточки офиса", () => {
+  const rejectedRound = [att("old", "2026-10-05 10:00:00+05")];
+  const ev = [reopened("2026-10-05 11:00:00+05")];
+
+  test("возвращена в работу, старые снимки на месте: приёмки нет, колонка «не сдал»", () => {
+    const s = acceptanceState({ status: "in_progress", attachments: rejectedRound, events: ev });
+    expect(s).toMatchObject({ result: [], column: "not_submitted", accept: false, ret: false });
+  });
+
+  test("сдана повторно без новых снимков: принять нельзя, вернуть можно", () => {
+    const s = acceptanceState({ status: "done", attachments: rejectedRound, events: ev });
+    expect(s).toMatchObject({ column: "submitted_without_photos", accept: false, ret: true });
+  });
+
+  test("сдана повторно с новыми снимками: принять можно только по ним", () => {
+    const s = acceptanceState({ status: "done", attachments: [...rejectedRound, att("new", "2026-10-05 12:00:00+05")], events: ev });
+    expect(s.result.map((a) => a.id)).toEqual(["new"]);
+    expect(s).toMatchObject({ column: "photos", accept: true, ret: true });
+  });
+
+  test("первая сдача без возвратов: все результатные снимки", () => {
+    const s = acceptanceState({ status: "done", attachments: [att("a", "2026-10-05 10:00:00+05"), att("p", "2026-10-05 09:00:00+05", "problem")], events: [] });
+    expect(s.result.map((a) => a.id)).toEqual(["a"]);
+    expect(s.accept).toBe(true);
+  });
+
+  test("закрытая и отменённая: ни приёмки, ни возврата", () => {
+    for (const status of ["closed", "cancelled"] as const) {
+      const s = acceptanceState({ status, attachments: [att("a", "2026-10-05 10:00:00+05")], events: [] });
+      expect(s.accept).toBe(false);
+      expect(s.ret).toBe(false);
     }
   });
 });

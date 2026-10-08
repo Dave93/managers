@@ -15,7 +15,14 @@
 //  * действия не закрывают панель на любую мутацию. Закрывает только успех
 //    «Принять», «Вернуть» и «Отменить»; отправка комментария панель оставляет;
 //  * markSeen не вызывается: это отметка «менеджер филиала увидел», офис её не
-//    ставит.
+//    ставит;
+//  * офис принимает работу по любому филиалу, поэтому блок действий несёт те же
+//    защиты, что панель планшета: действия по правам (tickets.close для приёмки
+//    и возврата, tickets.cancel для отмены), приёмка только по фото ТЕКУЩЕЙ
+//    сдачи (acceptanceState из lib/tickets-branch.ts, общий с планшетом, а
+//    значит они не расходятся) и подтверждение: приёмка необратима. Прежних
+//    сдач (возвращённых в работу) здесь нет: возврат вложений не удаляет, и
+//    отвергнутые снимки не должны выглядеть результатом.
 
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -54,7 +61,8 @@ import {
   type TicketEventType,
 } from "@admin/lib/tickets-api";
 import { detailValue } from "@admin/lib/tickets-details";
-import { useTicketActions, useTicketCard } from "@admin/lib/use-tickets";
+import { acceptanceState, type ResultColumn } from "@admin/lib/tickets-branch";
+import { useMyRights, useTicketActions, useTicketCard } from "@admin/lib/use-tickets";
 import { PriorityBadge, StatusBadge, parseTs } from "@admin/components/tickets/status";
 
 import { PhotoStrip } from "./photo-strip";
@@ -111,15 +119,34 @@ function fmtQty(value: string): string {
   return Number.isFinite(n) ? String(n) : value;
 }
 
+const CLOSE_RIGHT = "tickets.close";
+const CANCEL_RIGHT = "tickets.cancel";
+
 // 409 у действий над заявкой значит одно: статус успели поменять до нас
 // (другой сотрудник, исполнитель). Текст сервера для close говорит про
 // «состояние „сдана“» и человеку ничего не объясняет, поэтому подменяем.
-export function actionError(error: unknown): string {
-  if ((error as ApiError)?.status === 409) {
+// 403 приходит от макроса прав английским «You don't have permissions»: вместо
+// него русский текст с кодом права (как панели прав на других экранах раздела).
+// Нужное право знает вызывающий, он и передаёт его вторым аргументом.
+export function actionError(error: unknown, right?: string): string {
+  const status = (error as ApiError)?.status;
+  if (status === 409) {
     return "Статус заявки уже изменился: её успели обработать раньше. Карточка обновлена, проверьте текущий статус.";
+  }
+  if (status === 403) {
+    return right
+      ? `У вашей роли нет права ${right}. Попросите администратора добавить его в форме роли, затем перезагрузите страницу.`
+      : "У вашей роли нет права на это действие. Попросите администратора добавить его в форме роли.";
   }
   return apiMessage(error);
 }
+
+const RESULT_EMPTY: Record<Exclude<ResultColumn, "photos">, string> = {
+  not_submitted: "Исполнитель ещё не сдал работу",
+  submitted_without_photos:
+    "Исполнитель сдал работу без фото результата: принять её нельзя, верните в работу и попросите приложить фото",
+  none: "Фото результата не приложены",
+};
 
 // ---------------------------------------------------------------------------
 // поля по схеме типа
@@ -377,17 +404,35 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
   const [returnComment, setReturnComment] = useState("");
   const [cancelReason, setCancelReason] = useState("");
 
+  const rights = useMyRights();
+  const canClose = rights.has(CLOSE_RIGHT);
+  const canCancel = rights.has(CANCEL_RIGHT);
+  // Защёлка от двойного нажатия: isPending мутации меняется только на
+  // следующем рендере. После успеха остаётся поднятой (панель закрывается),
+  // после сбоя снимается.
+  const latch = useRef(false);
+
   const statusMutations = [actions.close, actions.reopen, actions.cancel];
   const busy = statusMutations.some((m) => m.isPending);
-  const failure = statusMutations.find((m) => m.isError)?.error;
+  // Какое право нужно отказавшему действию: по нему 403 называет право.
+  const failed = (
+    [
+      [actions.close, CLOSE_RIGHT],
+      [actions.reopen, CLOSE_RIGHT],
+      [actions.cancel, CANCEL_RIGHT],
+    ] as const
+  ).find(([m]) => m.isError);
 
   const run = (start: (opts: { onSuccess: () => void; onError: (e: Error) => void }) => void) => {
+    if (latch.current) return;
+    latch.current = true;
     statusMutations.forEach((m) => m.reset());
     start({
       onSuccess: onClose,
       // При 409 карточка на экране устарела: обновляем её, чтобы кнопки
       // соответствовали настоящему статусу.
       onError: (e) => {
+        latch.current = false;
         if ((e as ApiError).status === 409) qc.invalidateQueries({ queryKey: ["tickets"] });
       },
     });
@@ -399,11 +444,12 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
     ? (card.executor_name ?? "Исполнитель удалён")
     : "не назначен";
   const problem = (card.attachments ?? []).filter((a) => a.phase === "problem");
-  const result = (card.attachments ?? []).filter((a) => a.phase === "result");
-  const resultEmpty =
-    card.status === "new" || card.status === "in_progress"
-      ? "Исполнитель ещё не сдал работу"
-      : "Фото результата не приложены";
+  // Фото и кнопки приёмки решает та же функция, что у планшета: только снимки
+  // текущей сдачи (возврат в работу вложений не удаляет).
+  const accept = acceptanceState(card);
+  const result = accept.result;
+  const resultEmpty = RESULT_EMPTY[accept.column === "photos" ? "none" : accept.column];
+  const hasAmount = card.work_total_amount !== null && card.work_total_amount !== undefined;
 
   return (
     <>
@@ -444,80 +490,129 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
       </div>
 
       <div className="shrink-0 space-y-3 border-t bg-background px-5 py-3">
-        {card.status === "done" && (
-          <div className="space-y-2">
-            <Textarea
-              value={returnComment}
-              onChange={(e) => setReturnComment(e.target.value)}
-              placeholder="Что переделать (нужно, чтобы вернуть в работу)"
-              aria-label="Комментарий к возврату в работу"
-              rows={2}
-              disabled={busy}
-            />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button disabled={busy} onClick={() => run((o) => actions.close.mutate(card.id, o))}>
-                {actions.close.isPending ? "Принимаем…" : "Принять работу"}
-              </Button>
-              <Button
-                variant="outline"
-                disabled={busy || returnComment.trim() === ""}
-                onClick={() =>
-                  run((o) => actions.reopen.mutate({ id: card.id, comment: returnComment.trim() }, o))
-                }
-              >
-                {actions.reopen.isPending ? "Возвращаем…" : "Вернуть в работу"}
-              </Button>
-            </div>
-          </div>
+        {!rights.settled ? (
+          <Skeleton className="h-9 w-48" />
+        ) : (
+          <>
+            {card.status === "done" && canClose && (
+              <div className="space-y-2">
+                {accept.ret && (
+                  <Textarea
+                    value={returnComment}
+                    onChange={(e) => setReturnComment(e.target.value)}
+                    placeholder="Что переделать (нужно, чтобы вернуть в работу)"
+                    aria-label="Комментарий к возврату в работу"
+                    rows={2}
+                    disabled={busy}
+                  />
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {accept.accept && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button disabled={busy}>{actions.close.isPending ? "Принимаем…" : "Принять работу"}</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Принять работу по заявке {card.number}?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Заявка закроется, исполнитель получит сообщение.
+                            {hasAmount ? ` Сумма ${formatAmount(card.work_total_amount)} уйдёт на утверждение оплаты.` : ""}{" "}
+                            Отменить приёмку нельзя.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Не принимать</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => run((o) => actions.close.mutate(card.id, o))}>
+                            Принять работу
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  )}
+                  <Button
+                    variant="outline"
+                    disabled={busy || returnComment.trim() === ""}
+                    onClick={() =>
+                      run((o) => actions.reopen.mutate({ id: card.id, comment: returnComment.trim() }, o))
+                    }
+                  >
+                    {actions.reopen.isPending ? "Возвращаем…" : "Вернуть в работу"}
+                  </Button>
+                </div>
+                {!accept.accept && (
+                  <p className="text-[12.5px] leading-snug text-muted-foreground">
+                    Принять работу без фото результата нельзя: верните её в работу и попросите приложить фото.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {card.status === "done" && !canClose && (
+              <p className="text-[12.5px] leading-snug text-muted-foreground">
+                Принять работу или вернуть её в работу может роль с правом{" "}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{CLOSE_RIGHT}</code>. У вашей роли его
+                нет: попросите администратора.
+              </p>
+            )}
+
+            {(card.status === "new" || card.status === "in_progress") && canCancel && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" disabled={busy}>
+                    {actions.cancel.isPending ? "Отменяем…" : "Отменить"}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Отменить заявку {card.number}?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Отменённую заявку нельзя вернуть в работу: если работа всё же нужна, придётся создать новую заявку.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <Textarea
+                    value={cancelReason}
+                    onChange={(e) => setCancelReason(e.target.value)}
+                    placeholder="Причина (необязательно)"
+                    aria-label="Причина отмены"
+                    rows={2}
+                  />
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Не отменять</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => {
+                        const comment = cancelReason.trim();
+                        run((o) =>
+                          actions.cancel.mutate({ id: card.id, ...(comment ? { comment } : {}) }, o)
+                        );
+                      }}
+                    >
+                      Отменить заявку
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+
+            {(card.status === "new" || card.status === "in_progress") && !canCancel && (
+              <p className="text-[12.5px] leading-snug text-muted-foreground">
+                Отменить заявку может роль с правом{" "}
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{CANCEL_RIGHT}</code>. У вашей роли
+                его нет: попросите администратора. Принять работу можно, когда исполнитель её сдаст.
+              </p>
+            )}
+
+            {(card.status === "closed" || card.status === "cancelled") && (
+              <p className="text-sm text-muted-foreground">
+                {card.status === "closed" ? "Заявка закрыта" : "Заявка отменена"}, действий нет.
+              </p>
+            )}
+          </>
         )}
 
-        {(card.status === "new" || card.status === "in_progress") && (
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" disabled={busy}>
-                {actions.cancel.isPending ? "Отменяем…" : "Отменить"}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Отменить заявку {card.number}?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  Отменённую заявку нельзя вернуть в работу: если работа всё же нужна, придётся создать новую заявку.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <Textarea
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder="Причина (необязательно)"
-                aria-label="Причина отмены"
-                rows={2}
-              />
-              <AlertDialogFooter>
-                <AlertDialogCancel>Не отменять</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={() => {
-                    const comment = cancelReason.trim();
-                    run((o) =>
-                      actions.cancel.mutate({ id: card.id, ...(comment ? { comment } : {}) }, o)
-                    );
-                  }}
-                >
-                  Отменить заявку
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        )}
-
-        {(card.status === "closed" || card.status === "cancelled") && (
-          <p className="text-sm text-muted-foreground">
-            {card.status === "closed" ? "Заявка закрыта" : "Заявка отменена"}, действий нет.
-          </p>
-        )}
-
-        {failure ? (
+        {failed ? (
           <p role="alert" className="text-[12.5px] leading-snug text-destructive">
-            {actionError(failure)}
+            {actionError(failed[0].error, failed[1])}
           </p>
         ) : null}
       </div>

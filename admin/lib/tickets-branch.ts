@@ -162,6 +162,24 @@ export function canReturn(status: TicketStatus): boolean {
   return status === "done";
 }
 
+// Единственное место, где решается «когда приёмка доступна»: его зовут и панель
+// планшета, и карточка офиса, поэтому они не могут разойтись. Фото берутся
+// только текущей сдачи (currentResultPhotos), колонка и обе кнопки выводятся из
+// них и из статуса. Права (tickets.close) экран проверяет сам.
+export function acceptanceState<A extends { phase: string; created_at: string }>(card: {
+  status: TicketStatus;
+  attachments?: readonly A[] | null;
+  events?: readonly { type: string; created_at: string }[] | null;
+}): { result: A[]; column: ResultColumn; accept: boolean; ret: boolean } {
+  const result = currentResultPhotos(card);
+  return {
+    result,
+    column: resultColumn(card.status, result.length),
+    accept: canAccept(card.status, result.length),
+    ret: canReturn(card.status),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // фильтры списка
 // ---------------------------------------------------------------------------
