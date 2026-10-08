@@ -111,17 +111,19 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
       ],
     },
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
-    // Заявки. Право пункта берётся с самого экрана, а не с плана: экран «Все
-    // заявки» читает GET /tickets, который проверяет только tickets.list
-    // (tickets.list_all снимает скоуп по филиалам, а не открывает экран);
-    // «К оплате» и «Заявки филиала» требуют по два права. Группа без своего
-    // permission: useFilteredNav прячет её, когда не осталось ни одного пункта.
+    // Заявки. Право пункта берётся с самого экрана, а не с плана. Офисный
+    // список читает GET /tickets, а он проверяет tickets.list; но сессия без
+    // филиалов и без tickets.list_all получает там 200 с пустым списком, то есть
+    // «нет заявок» вместо «нет филиалов». Поэтому пункт показывается только тем,
+    // у кого есть оба права; менеджеру филиала достаточно «Заявок филиала».
+    // «К оплате» и «Заявки филиала» тоже требуют по два права. Группа без
+    // своего permission: useFilteredNav прячет её, когда не осталось пунктов.
     {
       kind: "group",
       title: tTickets("group"),
       icon: Wrench,
       items: [
-        { title: tTickets("list"), href: p("/tickets"), permission: "tickets.list" },
+        { title: tTickets("list"), href: p("/tickets"), permission: ["tickets.list_all", "tickets.list"] },
         { title: tTickets("payments"), href: p("/tickets/payments"), permission: ["tickets.payment.approve", "tickets.list"] },
         { title: tTickets("contractors"), href: p("/tickets/contractors"), permission: "tickets.contractors.manage" },
         { title: tTickets("types"), href: p("/tickets/types"), permission: "tickets.types.manage" },
