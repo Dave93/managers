@@ -2,7 +2,7 @@
 
 import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
+import { Plus, Download, Search, Filter, RefreshCw, Info } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Facets } from "./data-table";
 import { buildFiltersJson, officeStatusLabel, type ColumnFilters } from "./filters";
@@ -364,7 +364,21 @@ function HangingOrdersContent() {
             </Card>
 
             {canIiko && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border px-4 py-2 text-sm">
+                // Для того, кто отменяет: iikoCloud гарантирует доступ к заказам
+                // только за 7 дней — старше отмена может не пройти.
+                <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                        iiko гарантирует отмену только заказов <b>за последние 7 дней</b>. Старше — пока
+                        iikoCloud их ещё хранит, а это не обещано и может кончиться в любой момент. Заказ,
+                        который облако уже не хранит, отменяется только вручную на кассе. Отменяйте
+                        висящие, пока им нет недели.
+                    </span>
+                </div>
+            )}
+
+            {canIiko && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border px-4 py-2 text-sm">
                     <span className="text-muted-foreground">
                         Выбрано: <span className="font-medium text-foreground">{selectedIds.length}</span>
                     </span>

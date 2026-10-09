@@ -159,7 +159,8 @@ export function IikoActions({ record }: { record: Record }) {
                         <DialogTitle>Отменить заказ в iiko</DialogTitle>
                         <DialogDescription>
                             {describe(record)}. Если в iikoServer заказ уже закрыт и оплачен — отмена
-                            будет отклонена.
+                            будет отклонена. iiko гарантирует отмену только заказов за последние 7 дней;
+                            старше — пока iikoCloud их хранит, иначе только вручную на кассе.
                         </DialogDescription>
                     </DialogHeader>
 
