@@ -7,6 +7,7 @@ import {
   eq,
   getTableColumns,
   gte,
+  inArray,
   isNull,
   notInArray,
   or,
@@ -14,7 +15,7 @@ import {
   desc,
   asc,
 } from "drizzle-orm";
-import { SelectedFields } from "drizzle-orm/pg-core";
+import { PgColumn, SelectedFields } from "drizzle-orm/pg-core";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
@@ -36,6 +37,9 @@ import dayjs from "dayjs";
 // ---------------------------------------------------------------------------
 
 const IIKO_URL = "https://api-ru.iiko.services/api/1/";
+
+// iikoServer — бэк-офис, на нём построен iikoChain. Источник правды о закрытии.
+const IIKO_SERVER = "https://les-ailes-co-co.iiko.it/resto/api";
 
 // Резолвим организацию по organization.code, а не по захардкоженному uuid:
 // id организаций на разных стендах отличаются. В БД коды — 'chopar' и 'les'.
@@ -330,9 +334,47 @@ export const hangingOrdersController = new Elysia({
       }),
     }
   )
+  .get(
+    "/hanging-orders/facets",
+    async ({ query: { filters }, drizzle }) => {
+      let whereClause: (SQLWrapper | undefined)[] = [];
+      if (filters) {
+        whereClause = parseFilterFields(filters, hangingOrders, {});
+      }
+
+      const pick = async (column: PgColumn): Promise<string[]> => {
+        // selectDistinct по динамической колонке не выводит тип значения.
+        const rows = (await drizzle
+          .selectDistinct({ value: column })
+          .from(hangingOrders)
+          .where(and(...whereClause))
+          .execute()) as { value: string | null }[];
+
+        return rows
+          .map((r) => r.value)
+          .filter((v): v is string => typeof v === "string" && v.length > 0)
+          .sort((a, b) => a.localeCompare(b, "ru"));
+      };
+
+      return {
+        data: {
+          conception: await pick(hangingOrders.conception),
+          orderType: await pick(hangingOrders.orderType),
+          paymentType: await pick(hangingOrders.paymentType),
+          orderStatus: await pick(hangingOrders.orderStatus),
+        },
+      };
+    },
+    {
+      permission: "hanging_orders.list",
+      query: t.Object({
+        filters: t.Optional(t.String()),
+      }),
+    }
+  )
   .post(
     "/hanging-orders/refresh",
-    async ({ body: { brand, days }, drizzle }) => {
+    async ({ body: { brand, days }, drizzle, cacheController }) => {
       const windowDays = days ?? 3;
       const brands = brand ? [brand] : Object.keys(BRAND_ORG_CODE);
       const since = dayjs().subtract(windowDays, "day").format("YYYY-MM-DD");
@@ -485,8 +527,11 @@ export const hangingOrdersController = new Elysia({
             const nextStatus: string | undefined = fresh.order?.status;
             // NULL не пишем: список в админке фильтруется через NOT IN, а он
             // отбрасывает строки с NULL — заказ бы просто исчез со страницы.
-            if (!nextStatus || nextStatus === row.orderStatus) continue;
+            if (!nextStatus) continue;
 
+            // Пишем всегда, а не только при смене статуса: отметки этапов
+            // двигаются и у заказа, который так и остался в Waiting — именно
+            // они показывают, на чём он застрял.
             await drizzle
               .update(hangingOrders)
               .set({
@@ -497,16 +542,137 @@ export const hangingOrdersController = new Elysia({
                     .trim() || null,
                 amount:
                   fresh.order?.sum != null ? String(fresh.order.sum) : null,
+                whenPrinted: fresh.order?.whenPrinted ?? null,
+                whenCookingCompleted: fresh.order?.whenCookingCompleted ?? null,
+                whenSended: fresh.order?.whenSended ?? null,
+                whenDelivered: fresh.order?.whenDelivered ?? null,
+                whenClosed: fresh.order?.whenClosed ?? null,
                 updatedAt: new Date(),
               })
               .where(eq(hangingOrders.id, row.id))
               .execute();
 
-            report.updated++;
-            if (FINAL_STATUSES.includes(nextStatus)) {
-              report.closed++;
+            if (nextStatus !== row.orderStatus) {
+              report.updated++;
+              if (FINAL_STATUSES.includes(nextStatus)) {
+                report.closed++;
+              }
             }
           }
+        }
+      }
+
+      // Второй проход — iikoServer (OLAP). iikoCloud не всегда получает
+      // закрытие, сделанное в бэк-офисе: 08.10 пачка заказов, закрытых в
+      // iikoChain за 17:40–17:43, так и осталась в облаке в Waiting с пустыми
+      // whenSended/whenClosed. OLAP видит закрытие по Delivery.CloseTime, а
+      // Delivery.Id в нём совпадает с нашим order_id.
+      const stillOpen = await drizzle
+        .select({
+          id: hangingOrders.id,
+          orderId: hangingOrders.orderId,
+          brand: hangingOrders.brand,
+        })
+        .from(hangingOrders)
+        .where(
+          and(
+            inArray(hangingOrders.brand, brands),
+            gte(hangingOrders.date, since),
+            or(
+              isNull(hangingOrders.orderStatus),
+              notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
+            )
+          )
+        )
+        .execute();
+
+      const ids = stillOpen
+        .map((r) => r.orderId)
+        .filter((v): v is string => !!v);
+
+      if (ids.length > 0) {
+        const fail = (why: string) =>
+          summary.forEach((r) => r.errors.push(`OLAP: ${why}`));
+
+        try {
+          const token = await cacheController.getIikoChainToken();
+          const res = await fetch(
+            `${IIKO_SERVER}/v2/reports/olap?key=${encodeURIComponent(token)}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                reportType: "SALES",
+                buildSummary: "false",
+                groupByRowFields: [
+                  "Delivery.Id",
+                  "Delivery.PrintTime",
+                  "Delivery.CookingFinishTime",
+                  "Delivery.SendTime",
+                  "Delivery.ActualTime",
+                  "Delivery.CloseTime",
+                ],
+                aggregateFields: ["DishDiscountSumInt"],
+                filters: {
+                  "OpenDate.Typed": {
+                    filterType: "DateRange",
+                    periodType: "CUSTOM",
+                    // Заказ мог открыться накануне даты доставки.
+                    from: dayjs(since).subtract(1, "day").format("YYYY-MM-DD"),
+                    to: dayjs().add(1, "day").format("YYYY-MM-DD"),
+                    includeLow: true,
+                    includeHigh: false,
+                  },
+                  OrderDeleted: {
+                    filterType: "IncludeValues",
+                    values: ["NOT_DELETED"],
+                  },
+                  "Delivery.Id": { filterType: "IncludeValues", values: ids },
+                },
+              }),
+            }
+          );
+
+          if (!res.ok) {
+            fail(`iikoServer ответил ${res.status}`);
+          } else {
+            const payload: any = await res.json();
+            const byId = new Map<string, any>();
+            for (const r of payload?.data ?? []) {
+              if (r?.["Delivery.Id"]) byId.set(r["Delivery.Id"], r);
+            }
+            // OLAP отдаёт "" вместо null у пустых полей.
+            const val = (v: unknown) =>
+              typeof v === "string" && v.trim() !== "" ? v : null;
+
+            for (const row of stillOpen) {
+              const o = row.orderId ? byId.get(row.orderId) : undefined;
+              const closedAt = val(o?.["Delivery.CloseTime"]);
+              if (!closedAt) continue;
+
+              await drizzle
+                .update(hangingOrders)
+                .set({
+                  orderStatus: "Closed",
+                  whenPrinted: val(o["Delivery.PrintTime"]),
+                  whenCookingCompleted: val(o["Delivery.CookingFinishTime"]),
+                  whenSended: val(o["Delivery.SendTime"]),
+                  whenDelivered: val(o["Delivery.ActualTime"]),
+                  whenClosed: closedAt,
+                  updatedAt: new Date(),
+                })
+                .where(eq(hangingOrders.id, row.id))
+                .execute();
+
+              const report = summary.find((r) => r.brand === row.brand);
+              if (report) {
+                report.updated++;
+                report.closed++;
+              }
+            }
+          }
+        } catch (e: any) {
+          fail(e?.message ?? String(e));
         }
       }
 
