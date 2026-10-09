@@ -1461,7 +1461,7 @@ export const hangingOrdersController = new Elysia({
             for (const row of rowsOfBrand) {
               const st = statuses.get(row.orderId!);
               if (!st) {
-                await log(row, "Refused", "нет в iikoCloud — стёрт по сроку хранения (~120 дней)");
+                await log(row, "Refused", "нет в iikoCloud — облако его уже не хранит, отменить можно только на кассе");
                 stats.notInCloud++;
                 stats.done++;
               } else if (st === "Cancelled" || st === "Closed") {

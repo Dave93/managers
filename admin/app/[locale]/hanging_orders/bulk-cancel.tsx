@@ -60,7 +60,7 @@ const summary = (s: Stats) =>
         `отменено ${s.cancelled}`,
         s.alreadyClosed && `уже были закрыты или отменены в iiko ${s.alreadyClosed} — статус обновлён`,
         s.pending && `касса не подтвердила ${s.pending}`,
-        s.notInCloud && `нет в iikoCloud — старше ~120 дней ${s.notInCloud}`,
+        s.notInCloud && `облако уже не хранит — отменить можно только вручную на кассе ${s.notInCloud}`,
         s.tooOld && `старше 130 дней, не трогали ${s.tooOld}`,
         s.errors && `ошибок ${s.errors}`,
     ]
@@ -168,7 +168,7 @@ export function BulkCancelDialog({
                         {target?.mode === "ids" ? "выбранных заказов" : "заказов по фильтру"} в iiko
                     </DialogTitle>
                     <DialogDescription>
-                        Только висящие и не старше ~120 дней — старше iikoCloud их уже не хранит. Закрытые в iikoServer пропускаются — это
+                        Только висящие. Отменяются только заказы, которые iikoCloud ещё хранит: гарантированно — за последние 7 дней. Закрытые в iikoServer пропускаются — это
                         оплаченные заказы. Если касса откажет 5 раз подряд — отмена остановится сама.
                     </DialogDescription>
                 </DialogHeader>
