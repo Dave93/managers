@@ -1,5 +1,10 @@
 import Elysia, { t } from "elysia";
-import { credentials, hangingOrders, organization } from "@backend/../drizzle/schema";
+import {
+  credentials,
+  hangingOrderActions,
+  hangingOrders,
+  organization,
+} from "@backend/../drizzle/schema";
 import {
   InferSelectModel,
   SQLWrapper,
@@ -78,6 +83,170 @@ async function fetchIikoWithRetry(
     res = await fetch(url, init);
   }
   return res;
+}
+
+// ---------------------------------------------------------------------------
+// Действия над заказом в iiko: закрыть и отменить. Только для admin
+// (право hanging_orders.iiko_actions).
+//
+// Команды iikoCloud асинхронны: облако отдаёт correlationId, а выполняет
+// их iikoFront на точке. Результат ждём через commands/status.
+//
+// Перед каждым действием перепроверяем iikoServer: облако бывает не в курсе
+// закрытия, сделанного в бэк-офисе (08.10 чеки Les Ailes полдня числились
+// Waiting, будучи закрытыми и оплаченными). Отменить такой заказ — сторно
+// оплаченного заказа, поэтому отмену в этом случае запрещаем.
+// ---------------------------------------------------------------------------
+
+const ACTION_PERMISSION = "hanging_orders.iiko_actions";
+const COMMAND_TIMEOUT_MS = 45_000;
+const COMMAND_POLL_MS = 1_500;
+
+type CloudSession = { token: string; iikoOrgId: string };
+
+/** Токен и id организации iikoCloud для бренда; бросает с понятным текстом. */
+async function cloudSession(drizzle: any, brand: string): Promise<CloudSession> {
+  const orgCode = BRAND_ORG_CODE[brand];
+  if (!orgCode) throw new Error(`Неизвестный бренд: ${brand}`);
+
+  const org = await drizzle
+    .select({ id: organization.id })
+    .from(organization)
+    .where(eq(organization.code, orgCode))
+    .execute();
+  if (!org[0]) throw new Error(`Организация code=${orgCode} не найдена`);
+
+  const creds: { type: string; key: string }[] = await drizzle
+    .select({ type: credentials.type, key: credentials.key })
+    .from(credentials)
+    .where(
+      and(
+        eq(credentials.model, "organization"),
+        eq(credentials.model_id, org[0].id)
+      )
+    )
+    .execute();
+  const apiLogin = creds.find((c) => c.type === "iiko_login")?.key;
+  const iikoOrgId = creds.find((c) => c.type === "iiko_id")?.key;
+  if (!apiLogin || !iikoOrgId) {
+    throw new Error("Нет iiko-кредов организации (iiko_login / iiko_id)");
+  }
+
+  const body: any = await (
+    await fetchIikoWithRetry(`${IIKO_URL}access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiLogin }),
+    })
+  ).json();
+  if (!body?.token) {
+    throw new Error(`iiko не выдал токен: ${body?.errorDescription ?? "нет описания"}`);
+  }
+
+  return { token: body.token, iikoOrgId };
+}
+
+/** Отправляет команду iikoCloud и ждёт, пока касса её выполнит. */
+async function runCommand(
+  session: CloudSession,
+  path: string,
+  payload: Record<string, unknown>
+): Promise<{ state: string; error: string | null }> {
+  const res = await fetchIikoWithRetry(`${IIKO_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${session.token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ organizationId: session.iikoOrgId, ...payload }),
+  });
+  const body: any = await res.json().catch(() => null);
+  if (!res.ok || !body?.correlationId) {
+    return {
+      state: "Error",
+      error: body?.errorDescription ?? `iiko ответил ${res.status} на ${path}`,
+    };
+  }
+
+  const startedAt = Date.now();
+  while (Date.now() - startedAt < COMMAND_TIMEOUT_MS) {
+    await new Promise((r) => setTimeout(r, COMMAND_POLL_MS));
+    const st: any = await (
+      await fetchIikoWithRetry(`${IIKO_URL}commands/status`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationId: session.iikoOrgId,
+          correlationId: body.correlationId,
+        }),
+      })
+    )
+      .json()
+      .catch(() => null);
+
+    if (st?.state === "Success") return { state: "Success", error: null };
+    if (st?.state === "Error") {
+      return {
+        state: "Error",
+        error: st.errorReason ?? JSON.stringify(st.exception ?? null),
+      };
+    }
+  }
+
+  // Касса не ответила за отведённое время — скорее всего, офлайн. Команда
+  // в облаке может выполниться позже, поэтому это не отказ, а неизвестность.
+  return {
+    state: "InProgress",
+    error: "Касса не подтвердила команду за 45 с — возможно, офлайн",
+  };
+}
+
+/** Время закрытия доставки по iikoServer или null, если там не закрыта. */
+async function serverCloseTime(
+  cacheController: any,
+  orderId: string,
+  date: string
+): Promise<string | null> {
+  const token = await cacheController.getIikoChainToken();
+  const res = await fetch(
+    `${IIKO_SERVER}/v2/reports/olap?key=${encodeURIComponent(token)}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reportType: "SALES",
+        buildSummary: "false",
+        groupByRowFields: ["Delivery.Id", "Delivery.CloseTime"],
+        aggregateFields: ["DishDiscountSumInt"],
+        filters: {
+          "OpenDate.Typed": {
+            filterType: "DateRange",
+            periodType: "CUSTOM",
+            from: dayjs(date).subtract(1, "day").format("YYYY-MM-DD"),
+            to: dayjs(date).add(2, "day").format("YYYY-MM-DD"),
+            includeLow: true,
+            includeHigh: false,
+          },
+          OrderDeleted: { filterType: "IncludeValues", values: ["NOT_DELETED"] },
+          // Delivery.Id в фильтр не ставим — iikoServer отдаёт по нему 0 строк.
+        },
+      }),
+    }
+  );
+  if (!res.ok) throw new Error(`iikoServer ответил ${res.status}`);
+
+  const payload: any = await res.json();
+  for (const r of payload?.data ?? []) {
+    if (r?.["Delivery.Id"] === orderId) {
+      const v = r["Delivery.CloseTime"];
+      return typeof v === "string" && v.trim() !== "" ? v : null;
+    }
+  }
+
+  return null;
 }
 
 type RefreshReport = {
@@ -369,6 +538,233 @@ export const hangingOrdersController = new Elysia({
       permission: "hanging_orders.list",
       query: t.Object({
         filters: t.Optional(t.String()),
+      }),
+    }
+  )
+  .get(
+    "/hanging-orders/iiko-actions/options",
+    async ({ query: { brand }, drizzle, set }) => {
+      try {
+        const session = await cloudSession(drizzle, brand);
+        const call = async (path: string) =>
+          (await (
+            await fetchIikoWithRetry(`${IIKO_URL}${path}`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${session.token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ organizationIds: [session.iikoOrgId] }),
+            })
+          ).json()) as any;
+
+        const causes = await call("cancel_causes");
+        const removal = await call("removal_types");
+
+        return {
+          data: {
+            cancelCauses: (causes?.cancelCauses ?? [])
+              .filter((c: any) => !c.isDeleted)
+              .map((c: any) => ({ id: c.id, name: c.name })),
+            removalTypes: (removal?.removalTypes ?? [])
+              .filter((t: any) => !t.isDeleted)
+              .map((t: any) => ({ id: t.id, name: t.name })),
+          },
+        };
+      } catch (e: any) {
+        set.status = 502;
+        return { message: e?.message ?? String(e) };
+      }
+    },
+    {
+      permission: ACTION_PERMISSION,
+      query: t.Object({
+        brand: t.Union([t.Literal("chopar"), t.Literal("les_ailes")]),
+      }),
+    }
+  )
+  .post(
+    "/hanging-orders/:id/iiko-close",
+    async ({ params: { id }, drizzle, cacheController, user, set }) => {
+      const [row] = await drizzle
+        .select()
+        .from(hangingOrders)
+        .where(eq(hangingOrders.id, id))
+        .execute();
+      if (!row) {
+        set.status = 404;
+        return { message: "Заказ не найден" };
+      }
+      if (!row.orderId) {
+        set.status = 409;
+        return { message: "У строки нет id заказа iiko" };
+      }
+      if (row.orderStatus && FINAL_STATUSES.includes(row.orderStatus)) {
+        set.status = 409;
+        return { message: `Заказ уже в статусе ${row.orderStatus}` };
+      }
+
+      const log = (state: string, error: string | null, params: unknown = null) =>
+        drizzle
+          .insert(hangingOrderActions)
+          .values({
+            hangingOrderId: row.id,
+            orderId: row.orderId,
+            action: "close",
+            userId: user?.id ?? null,
+            userLogin: user?.login ?? null,
+            params,
+            state,
+            error,
+          })
+          .execute();
+
+      try {
+        // Уже закрыт в бэк-офисе — кассе ничего не шлём, просто догоняем.
+        const closedAt = await serverCloseTime(cacheController, row.orderId, row.date);
+        if (closedAt) {
+          await drizzle
+            .update(hangingOrders)
+            .set({ orderStatus: "Closed", whenClosed: closedAt, updatedAt: new Date() })
+            .where(eq(hangingOrders.id, row.id))
+            .execute();
+          await log("Success", null, { alreadyClosedInServer: closedAt });
+          return { data: { state: "Success", message: `Уже закрыт в iikoServer (${closedAt})` } };
+        }
+
+        const session = await cloudSession(drizzle, row.brand);
+
+        if (row.orderStatus !== "Delivered") {
+          const delivered = await runCommand(session, "deliveries/update_order_delivery_status", {
+            orderId: row.orderId,
+            deliveryStatus: "Delivered",
+          });
+          if (delivered.state !== "Success") {
+            await log(delivered.state, delivered.error, { step: "delivered" });
+            set.status = delivered.state === "InProgress" ? 202 : 502;
+            return { data: delivered, message: delivered.error };
+          }
+        }
+
+        const closed = await runCommand(session, "deliveries/close", { orderId: row.orderId });
+        await log(closed.state, closed.error, { step: "close" });
+        if (closed.state !== "Success") {
+          set.status = closed.state === "InProgress" ? 202 : 502;
+          return { data: closed, message: closed.error };
+        }
+
+        await drizzle
+          .update(hangingOrders)
+          .set({
+            orderStatus: "Closed",
+            whenClosed: dayjs().format("YYYY-MM-DD HH:mm:ss"),
+            updatedAt: new Date(),
+          })
+          .where(eq(hangingOrders.id, row.id))
+          .execute();
+
+        return { data: { state: "Success", message: "Заказ закрыт в iiko" } };
+      } catch (e: any) {
+        const message = e?.message ?? String(e);
+        await log("Error", message);
+        set.status = 502;
+        return { message };
+      }
+    },
+    {
+      permission: ACTION_PERMISSION,
+      params: t.Object({ id: t.String() }),
+    }
+  )
+  .post(
+    "/hanging-orders/:id/iiko-cancel",
+    async ({ params: { id }, body, drizzle, cacheController, user, set }) => {
+      const [row] = await drizzle
+        .select()
+        .from(hangingOrders)
+        .where(eq(hangingOrders.id, id))
+        .execute();
+      if (!row) {
+        set.status = 404;
+        return { message: "Заказ не найден" };
+      }
+      if (!row.orderId) {
+        set.status = 409;
+        return { message: "У строки нет id заказа iiko" };
+      }
+      if (row.orderStatus && FINAL_STATUSES.includes(row.orderStatus)) {
+        set.status = 409;
+        return { message: `Заказ уже в статусе ${row.orderStatus}` };
+      }
+
+      const log = (state: string, error: string | null) =>
+        drizzle
+          .insert(hangingOrderActions)
+          .values({
+            hangingOrderId: row.id,
+            orderId: row.orderId,
+            action: "cancel",
+            userId: user?.id ?? null,
+            userLogin: user?.login ?? null,
+            params: body,
+            state,
+            error,
+          })
+          .execute();
+
+      try {
+        // Закрыт в бэк-офисе = оплачен. Отмена стала бы сторно — запрещаем
+        // и заодно чиним статус у себя.
+        const closedAt = await serverCloseTime(cacheController, row.orderId, row.date);
+        if (closedAt) {
+          await drizzle
+            .update(hangingOrders)
+            .set({ orderStatus: "Closed", whenClosed: closedAt, updatedAt: new Date() })
+            .where(eq(hangingOrders.id, row.id))
+            .execute();
+          const message = `Отмена запрещена: в iikoServer заказ закрыт ${closedAt}`;
+          await log("Refused", message);
+          set.status = 409;
+          return { message };
+        }
+
+        const session = await cloudSession(drizzle, row.brand);
+        const cancelled = await runCommand(session, "deliveries/cancel", {
+          orderId: row.orderId,
+          cancelCauseId: body.cancelCauseId,
+          removalTypeId: body.removalTypeId,
+          ...(body.comment
+            ? { cancelComment: body.comment, removalComment: body.comment }
+            : {}),
+        });
+        await log(cancelled.state, cancelled.error);
+
+        if (cancelled.state !== "Success") {
+          set.status = cancelled.state === "InProgress" ? 202 : 502;
+          return { data: cancelled, message: cancelled.error };
+        }
+
+        await drizzle
+          .update(hangingOrders)
+          .set({ orderStatus: "Cancelled", updatedAt: new Date() })
+          .where(eq(hangingOrders.id, row.id))
+          .execute();
+
+        return { data: { state: "Success", message: "Заказ отменён в iiko" } };
+      } catch (e: any) {
+        const message = e?.message ?? String(e);
+        await log("Error", message);
+        set.status = 502;
+        return { message };
+      }
+    },
+    {
+      permission: ACTION_PERMISSION,
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        cancelCauseId: t.String({ minLength: 1 }),
+        removalTypeId: t.String({ minLength: 1 }),
+        comment: t.Optional(t.String({ maxLength: 500 })),
       }),
     }
   )

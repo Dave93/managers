@@ -8,6 +8,8 @@ import dayjs from "dayjs";
 import { StatusUpdateSheet } from "./status-update-sheet";
 import { CommentEditor } from "./comment-editor";
 import { StatusDropdown } from "./status-dropdown";
+import { IikoActions } from "./iiko-actions";
+import CanAccess from "@admin/components/can-access";
 import {
     HoverCard,
     HoverCardContent,
@@ -299,6 +301,12 @@ ${last.next}` : chain}
                             </Button>
                         }
                     />
+                    {/* Закрыть/отменить в iiko — только admin и только пока заказ висит. */}
+                    {!FINAL_ORDER_STATUSES.includes(record.orderStatus ?? "") && (
+                        <CanAccess permission="hanging_orders.iiko_actions">
+                            <IikoActions record={record} />
+                        </CanAccess>
+                    )}
                 </div>
             );
         },

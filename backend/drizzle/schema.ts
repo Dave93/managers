@@ -1353,6 +1353,27 @@ export const hangingOrders = pgTable(
     })
 );
 
+// Журнал действий над заказом в iiko из админки: закрытие и отмена. Пишется
+// и при отказе — видно, кто пытался, с какими параметрами и что ответила касса.
+export const hangingOrderActions = pgTable(
+    "managers_hanging_order_actions",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        hangingOrderId: uuid("hanging_order_id").notNull(),
+        orderId: text("order_id"),
+        action: text("action").notNull(), // 'close' | 'cancel'
+        userId: uuid("user_id"),
+        userLogin: text("user_login"),
+        params: jsonb("params"),
+        state: text("state").notNull(), // Success | Error | Refused | InProgress
+        error: text("error"),
+        createdAt: timestamp("created_at").defaultNow(),
+    },
+    (table) => ({
+        orderIdx: index(`managers_hoa_order_idx`).on(table.hangingOrderId),
+    })
+);
+
 export const externalPartners = pgTable("external_partners", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
   name: varchar("name", { length: 255 }),
