@@ -49,9 +49,12 @@ const IIKO_URL = "https://api-ru.iiko.services/api/1/";
 // iikoServer — бэк-офис, на нём построен iikoChain. Источник правды о закрытии.
 const IIKO_SERVER = "https://les-ailes-co-co.iiko.it/resto/api";
 
-// Глубже сверку не пускаем: старше касса заказы не обрабатывает, а iikoCloud
-// за частые обращения блокирует логин (Locked).
-const MAX_WINDOW_MONTHS = 4;
+// Глубже не пускаем ни сверку, ни отмену: хвост старше полугода не нужен
+// (так решили 2026-10-09), а на длинном окне iikoCloud за частые обращения
+// блокирует логин (Locked). Принимает ли касса отмену старых заказов, не
+// проверено — на этот случай массовая отмена останавливается после пяти
+// отказов подряд.
+const MAX_WINDOW_MONTHS = 6;
 // Пауза между запросами в iikoCloud по дням — та же причина.
 const CLOUD_PAUSE_MS = 400;
 
@@ -1225,7 +1228,7 @@ export const hangingOrdersController = new Elysia({
         return { message: "Нужны выбранные заказы или фильтр" };
       }
 
-      // Только висящие, с id в iiko и не старше 4 месяцев — что бы ни
+      // Только висящие, с id в iiko и не старше MAX_WINDOW_MONTHS — что бы ни
       // пришло с клиента.
       const rows = await drizzle
         .select({
@@ -1253,7 +1256,7 @@ export const hangingOrdersController = new Elysia({
       if (rows.length === 0) {
         set.status = 400;
         return {
-          message: "Ни одного висящего заказа за последние 4 месяца под условие не попало",
+          message: `Ни одного висящего заказа за последние ${MAX_WINDOW_MONTHS} месяцев под условие не попало`,
         };
       }
       if (rows.length > BULK_MAX) {
