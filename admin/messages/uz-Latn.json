@@ -731,7 +731,11 @@
           "status": "Holat",
           "mismatch": "A ≠ iiko",
           "checked": "Tekshirildi"
-        }
+        },
+        "title": "Kunlar bo'yicha solishtirish",
+        "hidden": "sanoq yopilgach ochiladi",
+        "hiddenDetail": "Sanoq ketmoqda — sanoq yopilgach solishtirish ochiladi",
+        "checkedByOffice": "Ofis tekshirgan"
       }
     },
     "kind": {

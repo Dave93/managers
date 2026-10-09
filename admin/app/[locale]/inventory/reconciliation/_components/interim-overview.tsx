@@ -9,7 +9,7 @@ import { inventoryApi } from "@admin/lib/inventory-api";
 import { formatDay, periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 
 /** Сверка по дням: промежуточные пересчёты месяца против книжного количества iiko на конец дня. */
-export function InterimOverview() {
+export function InterimOverview({ basePath = "/inventory/reconciliation/interim" }: { basePath?: string }) {
   const t = useTranslations("inventory.reconcile.interim");
   const tStatus = useTranslations("inventory.status");
   const locale = useLocale();
@@ -50,7 +50,7 @@ export function InterimOverview() {
               {(list.data ?? []).map((r) => (
                 <TableRow key={r.count_id}>
                   <TableCell>
-                    <Link className="underline" href={`/inventory/reconciliation/interim/${r.count_id}`}>
+                    <Link className="underline" href={`${basePath}/${r.count_id}`}>
                       {r.store_name}
                     </Link>
                   </TableCell>
@@ -61,7 +61,7 @@ export function InterimOverview() {
                     {r.status === "submitted" && !r.book_fetched_at && <div className="text-xs text-muted-foreground">{t("loading")}</div>}
                   </TableCell>
                   <TableCell className={`text-right tabular-nums ${r.mismatch_count ? "font-semibold text-orange-600" : ""}`}>
-                    {r.mismatch_count ? `${r.mismatch_count} / ${r.lines_counted}` : "—"}
+                    {r.hidden ? <span className="text-xs text-muted-foreground">{t("hidden")}</span> : r.mismatch_count ? `${r.mismatch_count} / ${r.lines_counted}` : "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {r.mismatch_count ? `${r.checked_count} / ${r.mismatch_count}` : "—"}

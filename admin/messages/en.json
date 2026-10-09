@@ -768,7 +768,11 @@
           "status": "Status",
           "mismatch": "A ≠ iiko",
           "checked": "Checked"
-        }
+        },
+        "title": "Daily reconciliation",
+        "hidden": "opens once the count is closed",
+        "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
+        "checkedByOffice": "Checked by office"
       }
     },
     "kind": {
