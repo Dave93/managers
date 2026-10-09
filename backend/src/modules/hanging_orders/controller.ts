@@ -13,6 +13,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  lte,
   isNull,
   notInArray,
   or,
@@ -25,6 +26,7 @@ import { parseSelectFields } from "@backend/lib/parseSelectFields";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
 import { ctx } from "@backend/context";
+import type { DrizzleDB } from "@backend/lib/db";
 import dayjs from "dayjs";
 
 
@@ -45,6 +47,12 @@ const IIKO_URL = "https://api-ru.iiko.services/api/1/";
 
 // iikoServer — бэк-офис, на нём построен iikoChain. Источник правды о закрытии.
 const IIKO_SERVER = "https://les-ailes-co-co.iiko.it/resto/api";
+
+// Глубже сверку не пускаем: старше касса заказы не обрабатывает, а iikoCloud
+// за частые обращения блокирует логин (Locked).
+const MAX_WINDOW_MONTHS = 4;
+// Пауза между запросами в iikoCloud по дням — та же причина.
+const CLOUD_PAUSE_MS = 400;
 
 // Резолвим организацию по organization.code, а не по захардкоженному uuid:
 // id организаций на разных стендах отличаются. В БД коды — 'chopar' и 'les'.
@@ -105,7 +113,7 @@ const COMMAND_POLL_MS = 1_500;
 type CloudSession = { token: string; iikoOrgId: string };
 
 /** Токен и id организации iikoCloud для бренда; бросает с понятным текстом. */
-async function cloudSession(drizzle: any, brand: string): Promise<CloudSession> {
+async function cloudSession(drizzle: DrizzleDB, brand: string): Promise<CloudSession> {
   const orgCode = BRAND_ORG_CODE[brand];
   if (!orgCode) throw new Error(`Неизвестный бренд: ${brand}`);
 
@@ -257,6 +265,357 @@ type RefreshReport = {
   closed: number;
   errors: string[];
 };
+
+// Сверка с iiko за окно [since, until]: облако по дням, затем iikoServer
+// понедельно. Вызывается и прямо из запроса, и фоновой задачей.
+type RefreshArgs = {
+  brands: string[];
+  since: string;
+  until: string;
+  drizzle: DrizzleDB;
+  cacheController: any;
+  progress?: (text: string) => unknown;
+};
+
+async function runRefresh({
+  brands,
+  since,
+  until,
+  drizzle,
+  cacheController,
+  progress,
+}: RefreshArgs): Promise<RefreshReport[]> {
+  const summary: RefreshReport[] = [];
+
+  for (const currentBrand of brands) {
+    const report: RefreshReport = {
+      brand: currentBrand,
+      dates: [],
+      checked: 0,
+      updated: 0,
+      closed: 0,
+      errors: [],
+    };
+    summary.push(report);
+
+    const orgCode = BRAND_ORG_CODE[currentBrand];
+    if (!orgCode) {
+      report.errors.push(`Неизвестный бренд: ${currentBrand}`);
+      continue;
+    }
+
+    const openRows = await drizzle
+      .select({
+        id: hangingOrders.id,
+        orderId: hangingOrders.orderId,
+        date: hangingOrders.date,
+        orderStatus: hangingOrders.orderStatus,
+      })
+      .from(hangingOrders)
+      .where(
+        and(
+          eq(hangingOrders.brand, currentBrand),
+          gte(hangingOrders.date, since),
+          lte(hangingOrders.date, until),
+          or(
+            isNull(hangingOrders.orderStatus),
+            notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
+          )
+        )
+      )
+      .execute();
+
+    report.checked = openRows.length;
+    if (openRows.length === 0) continue;
+
+    const org = await drizzle
+      .select({ id: organization.id })
+      .from(organization)
+      .where(eq(organization.code, orgCode))
+      .execute();
+
+    if (!org[0]) {
+      report.errors.push(
+        `${currentBrand}: организация с code=${orgCode} не найдена`
+      );
+      continue;
+    }
+
+    const orgCreds = await drizzle
+      .select({ type: credentials.type, key: credentials.key })
+      .from(credentials)
+      .where(
+        and(
+          eq(credentials.model, "organization"),
+          eq(credentials.model_id, org[0].id)
+        )
+      )
+      .execute();
+
+    const apiLogin = orgCreds.find((c) => c.type === "iiko_login")?.key;
+    const iikoOrgId = orgCreds.find((c) => c.type === "iiko_id")?.key;
+    if (!apiLogin || !iikoOrgId) {
+      report.errors.push(
+        `${currentBrand}: нет iiko-кредов организации (iiko_login / iiko_id)`
+      );
+      continue;
+    }
+
+    let token: string | undefined;
+    try {
+      const tokenBody: any = await (
+        await fetchIikoWithRetry(`${IIKO_URL}access_token`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ apiLogin }),
+        })
+      ).json();
+      token = tokenBody?.token;
+      if (!token) {
+        report.errors.push(
+          `${currentBrand}: iiko не выдал токен — ${
+            tokenBody?.errorDescription ?? "нет описания"
+          }`
+        );
+        continue;
+      }
+    } catch (e: any) {
+      report.errors.push(
+        `${currentBrand}: ошибка access_token — ${e.message}`
+      );
+      continue;
+    }
+
+    const dates = [...new Set(openRows.map((r) => r.date))].sort();
+    report.dates = dates;
+
+    for (const [di, date] of dates.entries()) {
+      await progress?.(
+        `${currentBrand}: iikoCloud, день ${di + 1} из ${dates.length}`
+      );
+      if (date !== dates[0]) {
+        await new Promise((r) => setTimeout(r, CLOUD_PAUSE_MS));
+      }
+      const freshById = new Map<string, any>();
+      try {
+        const res = await fetchIikoWithRetry(
+          `${IIKO_URL}deliveries/by_delivery_date_and_status`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              organizationIds: [iikoOrgId],
+              deliveryDateFrom: `${date} 00:00:00.123`,
+              deliveryDateTo: `${date} 23:59:59.123`,
+              statuses: ALL_DELIVERY_STATUSES,
+            }),
+          }
+        );
+        if (!res.ok) {
+          report.errors.push(
+            `${currentBrand} ${date}: iiko ответил ${res.status} ${res.statusText}`
+          );
+          continue;
+        }
+        const payload: any = await res.json();
+        for (const byOrg of payload?.ordersByOrganizations ?? []) {
+          for (const order of byOrg?.orders ?? []) {
+            if (order?.id) freshById.set(order.id, order);
+          }
+        }
+      } catch (e: any) {
+        report.errors.push(`${currentBrand} ${date}: ${e.message}`);
+        continue;
+      }
+
+      for (const row of openRows.filter((r) => r.date === date)) {
+        const fresh = row.orderId ? freshById.get(row.orderId) : undefined;
+        // Заказа нет в ответе — строку не трогаем: устаревший статус лучше,
+        // чем затирание по неполному ответу iiko.
+        if (!fresh) continue;
+
+        const nextStatus: string | undefined = fresh.order?.status;
+        // NULL не пишем: список в админке фильтруется через NOT IN, а он
+        // отбрасывает строки с NULL — заказ бы просто исчез со страницы.
+        if (!nextStatus) continue;
+
+        // Пишем всегда, а не только при смене статуса: отметки этапов
+        // двигаются и у заказа, который так и остался в Waiting — именно
+        // они показывают, на чём он застрял.
+        await drizzle
+          .update(hangingOrders)
+          .set({
+            orderStatus: nextStatus,
+            problem:
+              fresh.order?.problem?.description
+                ?.replace(/\n/g, " ")
+                .trim() || null,
+            amount:
+              fresh.order?.sum != null ? String(fresh.order.sum) : null,
+            whenPrinted: fresh.order?.whenPrinted ?? null,
+            whenCookingCompleted: fresh.order?.whenCookingCompleted ?? null,
+            whenSended: fresh.order?.whenSended ?? null,
+            whenDelivered: fresh.order?.whenDelivered ?? null,
+            whenClosed: fresh.order?.whenClosed ?? null,
+            updatedAt: new Date(),
+          })
+          .where(eq(hangingOrders.id, row.id))
+          .execute();
+
+        if (nextStatus !== row.orderStatus) {
+          report.updated++;
+          if (FINAL_STATUSES.includes(nextStatus)) {
+            report.closed++;
+          }
+        }
+      }
+    }
+  }
+
+  // Второй проход — iikoServer (OLAP). iikoCloud не всегда получает
+  // закрытие, сделанное в бэк-офисе: 08.10 пачка заказов, закрытых в
+  // iikoChain за 17:40–17:43, так и осталась в облаке в Waiting с пустыми
+  // whenSended/whenClosed. OLAP видит закрытие по Delivery.CloseTime, а
+  // Delivery.Id в нём совпадает с нашим order_id.
+  const stillOpen = await drizzle
+    .select({
+      id: hangingOrders.id,
+      orderId: hangingOrders.orderId,
+      brand: hangingOrders.brand,
+      date: hangingOrders.date,
+    })
+    .from(hangingOrders)
+    .where(
+      and(
+        inArray(hangingOrders.brand, brands),
+        gte(hangingOrders.date, since),
+        lte(hangingOrders.date, until),
+        or(
+          isNull(hangingOrders.orderStatus),
+          notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
+        )
+      )
+    )
+    .execute();
+
+  const ids = stillOpen
+    .map((r) => r.orderId)
+    .filter((v): v is string => !!v);
+
+  if (ids.length > 0) {
+    const dates = stillOpen.map((r) => r.date).sort();
+    const minDate = dates[0];
+    const maxDate = dates[dates.length - 1];
+    const fail = (why: string) =>
+      summary.forEach((r) => r.errors.push(`OLAP: ${why}`));
+    // OLAP отдаёт "" вместо null у пустых полей.
+    const val = (v: unknown) =>
+      typeof v === "string" && v.trim() !== "" ? v : null;
+
+    try {
+      const token = await cacheController.getIikoChainToken();
+      const byId = new Map<string, any>();
+
+      // Понедельно: неделя — ~17 тыс. строк за ~4 с, а четыре месяца
+      // одним запросом — сотни тысяч.
+      for (
+        let from = minDate;
+        from <= maxDate;
+        from = dayjs(from).add(7, "day").format("YYYY-MM-DD")
+      ) {
+        await progress?.(
+          `iikoServer: неделя с ${dayjs(from).format("DD.MM")} по ${dayjs(maxDate).format("DD.MM")}`
+        );
+        const res = await fetch(
+          `${IIKO_SERVER}/v2/reports/olap?key=${encodeURIComponent(token)}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reportType: "SALES",
+              buildSummary: "false",
+              groupByRowFields: [
+                "Delivery.Id",
+                "Delivery.PrintTime",
+                "Delivery.CookingFinishTime",
+                "Delivery.SendTime",
+                "Delivery.ActualTime",
+                "Delivery.CloseTime",
+              ],
+              aggregateFields: ["DishDiscountSumInt"],
+              filters: {
+                "OpenDate.Typed": {
+                  filterType: "DateRange",
+                  periodType: "CUSTOM",
+                  // Заказ мог открыться накануне даты доставки.
+                  from: dayjs(from).subtract(1, "day").format("YYYY-MM-DD"),
+                  to: dayjs(from).add(8, "day").format("YYYY-MM-DD"),
+                  includeLow: true,
+                  includeHigh: false,
+                },
+                OrderDeleted: {
+                  filterType: "IncludeValues",
+                  values: ["NOT_DELETED"],
+                },
+                // Фильтр по Delivery.Id сюда не ставим: iikoServer
+                // принимает его, но молча отдаёт 0 строк (проверено
+                // 2026-10-09). Сверяем по id уже в памяти.
+              },
+            }),
+          }
+        );
+
+        if (!res.ok) {
+          fail(`iikoServer ответил ${res.status} за неделю с ${from}`);
+          continue;
+        }
+        const payload: any = await res.json();
+        for (const r of payload?.data ?? []) {
+          if (r?.["Delivery.Id"]) byId.set(r["Delivery.Id"], r);
+        }
+      }
+
+      for (const row of stillOpen) {
+        const o = row.orderId ? byId.get(row.orderId) : undefined;
+        const closedAt = val(o?.["Delivery.CloseTime"]);
+        if (!closedAt) continue;
+
+        await drizzle
+          .update(hangingOrders)
+          .set({
+            orderStatus: "Closed",
+            whenPrinted: val(o["Delivery.PrintTime"]),
+            whenCookingCompleted: val(o["Delivery.CookingFinishTime"]),
+            whenSended: val(o["Delivery.SendTime"]),
+            whenDelivered: val(o["Delivery.ActualTime"]),
+            whenClosed: closedAt,
+            updatedAt: new Date(),
+          })
+          .where(eq(hangingOrders.id, row.id))
+          .execute();
+
+        const report = summary.find((r) => r.brand === row.brand);
+        if (report) {
+          report.updated++;
+          report.closed++;
+        }
+      }
+    } catch (e: any) {
+      fail(e?.message ?? String(e));
+    }
+  }
+
+  return summary;
+}
+
+// До недели сверяем прямо в запросе, дольше — фоновой задачей.
+const INLINE_MAX_DAYS = 7;
+const REFRESH_LOCK = `${process.env.PROJECT_PREFIX}hanging_refresh:lock`;
+const refreshJobKey = (id: string) =>
+  `${process.env.PROJECT_PREFIX}hanging_refresh:${id}`;
 
 export const hangingOrdersController = new Elysia({
   name: "@api/hanging-orders",
@@ -768,318 +1127,77 @@ export const hangingOrdersController = new Elysia({
       }),
     }
   )
+  .get(
+    "/hanging-orders/refresh/:jobId",
+    async ({ params: { jobId }, redis, set }) => {
+      const raw = await redis.get(refreshJobKey(jobId));
+      if (!raw) {
+        set.status = 404;
+        return { message: "Задача не найдена или устарела" };
+      }
+      return JSON.parse(raw);
+    },
+    {
+      permission: "hanging_orders.edit",
+      params: t.Object({ jobId: t.String() }),
+    }
+  )
   .post(
     "/hanging-orders/refresh",
-    async ({ body: { brand, days }, drizzle, cacheController }) => {
-      const windowDays = days ?? 3;
+    async ({ body: { brand, days, dateFrom, dateTo }, drizzle, cacheController, redis }) => {
       const brands = brand ? [brand] : Object.keys(BRAND_ORG_CODE);
-      const since = dayjs().subtract(windowDays, "day").format("YYYY-MM-DD");
+      // Окно: период из фильтра страницы или последние `days` дней,
+      // но не глубже MAX_WINDOW_MONTHS.
+      const floor = dayjs()
+        .subtract(MAX_WINDOW_MONTHS, "month")
+        .format("YYYY-MM-DD");
+      const requested =
+        dateFrom ?? dayjs().subtract(days ?? 3, "day").format("YYYY-MM-DD");
+      const since = requested < floor ? floor : requested;
+      const until = dateTo ?? dayjs().format("YYYY-MM-DD");
 
-      const summary: RefreshReport[] = [];
+      const window = { from: since, to: until };
+      const span = dayjs(until).diff(dayjs(since), "day") + 1;
 
-      for (const currentBrand of brands) {
-        const report: RefreshReport = {
-          brand: currentBrand,
-          dates: [],
-          checked: 0,
-          updated: 0,
-          closed: 0,
-          errors: [],
-        };
-        summary.push(report);
-
-        const orgCode = BRAND_ORG_CODE[currentBrand];
-        if (!orgCode) {
-          report.errors.push(`Неизвестный бренд: ${currentBrand}`);
-          continue;
-        }
-
-        const openRows = await drizzle
-          .select({
-            id: hangingOrders.id,
-            orderId: hangingOrders.orderId,
-            date: hangingOrders.date,
-            orderStatus: hangingOrders.orderStatus,
-          })
-          .from(hangingOrders)
-          .where(
-            and(
-              eq(hangingOrders.brand, currentBrand),
-              gte(hangingOrders.date, since),
-              or(
-                isNull(hangingOrders.orderStatus),
-                notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
-              )
-            )
-          )
-          .execute();
-
-        report.checked = openRows.length;
-        if (openRows.length === 0) continue;
-
-        const org = await drizzle
-          .select({ id: organization.id })
-          .from(organization)
-          .where(eq(organization.code, orgCode))
-          .execute();
-
-        if (!org[0]) {
-          report.errors.push(
-            `${currentBrand}: организация с code=${orgCode} не найдена`
-          );
-          continue;
-        }
-
-        const orgCreds = await drizzle
-          .select({ type: credentials.type, key: credentials.key })
-          .from(credentials)
-          .where(
-            and(
-              eq(credentials.model, "organization"),
-              eq(credentials.model_id, org[0].id)
-            )
-          )
-          .execute();
-
-        const apiLogin = orgCreds.find((c) => c.type === "iiko_login")?.key;
-        const iikoOrgId = orgCreds.find((c) => c.type === "iiko_id")?.key;
-        if (!apiLogin || !iikoOrgId) {
-          report.errors.push(
-            `${currentBrand}: нет iiko-кредов организации (iiko_login / iiko_id)`
-          );
-          continue;
-        }
-
-        let token: string | undefined;
-        try {
-          const tokenBody: any = await (
-            await fetchIikoWithRetry(`${IIKO_URL}access_token`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ apiLogin }),
-            })
-          ).json();
-          token = tokenBody?.token;
-          if (!token) {
-            report.errors.push(
-              `${currentBrand}: iiko не выдал токен — ${
-                tokenBody?.errorDescription ?? "нет описания"
-              }`
-            );
-            continue;
-          }
-        } catch (e: any) {
-          report.errors.push(
-            `${currentBrand}: ошибка access_token — ${e.message}`
-          );
-          continue;
-        }
-
-        const dates = [...new Set(openRows.map((r) => r.date))].sort();
-        report.dates = dates;
-
-        for (const date of dates) {
-          const freshById = new Map<string, any>();
-          try {
-            const res = await fetchIikoWithRetry(
-              `${IIKO_URL}deliveries/by_delivery_date_and_status`,
-              {
-                method: "POST",
-                headers: {
-                  Authorization: `Bearer ${token}`,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  organizationIds: [iikoOrgId],
-                  deliveryDateFrom: `${date} 00:00:00.123`,
-                  deliveryDateTo: `${date} 23:59:59.123`,
-                  statuses: ALL_DELIVERY_STATUSES,
-                }),
-              }
-            );
-            if (!res.ok) {
-              report.errors.push(
-                `${currentBrand} ${date}: iiko ответил ${res.status} ${res.statusText}`
-              );
-              continue;
-            }
-            const payload: any = await res.json();
-            for (const byOrg of payload?.ordersByOrganizations ?? []) {
-              for (const order of byOrg?.orders ?? []) {
-                if (order?.id) freshById.set(order.id, order);
-              }
-            }
-          } catch (e: any) {
-            report.errors.push(`${currentBrand} ${date}: ${e.message}`);
-            continue;
-          }
-
-          for (const row of openRows.filter((r) => r.date === date)) {
-            const fresh = row.orderId ? freshById.get(row.orderId) : undefined;
-            // Заказа нет в ответе — строку не трогаем: устаревший статус лучше,
-            // чем затирание по неполному ответу iiko.
-            if (!fresh) continue;
-
-            const nextStatus: string | undefined = fresh.order?.status;
-            // NULL не пишем: список в админке фильтруется через NOT IN, а он
-            // отбрасывает строки с NULL — заказ бы просто исчез со страницы.
-            if (!nextStatus) continue;
-
-            // Пишем всегда, а не только при смене статуса: отметки этапов
-            // двигаются и у заказа, который так и остался в Waiting — именно
-            // они показывают, на чём он застрял.
-            await drizzle
-              .update(hangingOrders)
-              .set({
-                orderStatus: nextStatus,
-                problem:
-                  fresh.order?.problem?.description
-                    ?.replace(/\n/g, " ")
-                    .trim() || null,
-                amount:
-                  fresh.order?.sum != null ? String(fresh.order.sum) : null,
-                whenPrinted: fresh.order?.whenPrinted ?? null,
-                whenCookingCompleted: fresh.order?.whenCookingCompleted ?? null,
-                whenSended: fresh.order?.whenSended ?? null,
-                whenDelivered: fresh.order?.whenDelivered ?? null,
-                whenClosed: fresh.order?.whenClosed ?? null,
-                updatedAt: new Date(),
-              })
-              .where(eq(hangingOrders.id, row.id))
-              .execute();
-
-            if (nextStatus !== row.orderStatus) {
-              report.updated++;
-              if (FINAL_STATUSES.includes(nextStatus)) {
-                report.closed++;
-              }
-            }
-          }
-        }
+      // Короткий период — сразу, в этом же запросе.
+      if (span <= INLINE_MAX_DAYS) {
+        const summary = await runRefresh({
+          brands, since, until, drizzle, cacheController,
+        });
+        return { data: summary, window };
       }
 
-      // Второй проход — iikoServer (OLAP). iikoCloud не всегда получает
-      // закрытие, сделанное в бэк-офисе: 08.10 пачка заказов, закрытых в
-      // iikoChain за 17:40–17:43, так и осталась в облаке в Waiting с пустыми
-      // whenSended/whenClosed. OLAP видит закрытие по Delivery.CloseTime, а
-      // Delivery.Id в нём совпадает с нашим order_id.
-      const stillOpen = await drizzle
-        .select({
-          id: hangingOrders.id,
-          orderId: hangingOrders.orderId,
-          brand: hangingOrders.brand,
-          date: hangingOrders.date,
-        })
-        .from(hangingOrders)
-        .where(
-          and(
-            inArray(hangingOrders.brand, brands),
-            gte(hangingOrders.date, since),
-            or(
-              isNull(hangingOrders.orderStatus),
-              notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
-            )
-          )
-        )
-        .execute();
-
-      const ids = stillOpen
-        .map((r) => r.orderId)
-        .filter((v): v is string => !!v);
-
-      if (ids.length > 0) {
-        const dates = stillOpen.map((r) => r.date).sort();
-        const minDate = dates[0];
-        const maxDate = dates[dates.length - 1];
-        const fail = (why: string) =>
-          summary.forEach((r) => r.errors.push(`OLAP: ${why}`));
-
-        try {
-          const token = await cacheController.getIikoChainToken();
-          const res = await fetch(
-            `${IIKO_SERVER}/v2/reports/olap?key=${encodeURIComponent(token)}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                reportType: "SALES",
-                buildSummary: "false",
-                groupByRowFields: [
-                  "Delivery.Id",
-                  "Delivery.PrintTime",
-                  "Delivery.CookingFinishTime",
-                  "Delivery.SendTime",
-                  "Delivery.ActualTime",
-                  "Delivery.CloseTime",
-                ],
-                aggregateFields: ["DishDiscountSumInt"],
-                filters: {
-                  "OpenDate.Typed": {
-                    filterType: "DateRange",
-                    periodType: "CUSTOM",
-                    // Только дни, где есть открытые строки; заказ мог
-                    // открыться накануне даты доставки.
-                    from: dayjs(minDate).subtract(1, "day").format("YYYY-MM-DD"),
-                    to: dayjs(maxDate).add(2, "day").format("YYYY-MM-DD"),
-                    includeLow: true,
-                    includeHigh: false,
-                  },
-                  OrderDeleted: {
-                    filterType: "IncludeValues",
-                    values: ["NOT_DELETED"],
-                  },
-                  // Фильтр по Delivery.Id сюда не ставим: iikoServer
-                  // принимает его, но молча отдаёт 0 строк (проверено
-                  // 2026-10-09). Сверяем по id уже в памяти.
-                },
-              }),
-            }
-          );
-
-          if (!res.ok) {
-            fail(`iikoServer ответил ${res.status}`);
-          } else {
-            const payload: any = await res.json();
-            const byId = new Map<string, any>();
-            for (const r of payload?.data ?? []) {
-              if (r?.["Delivery.Id"]) byId.set(r["Delivery.Id"], r);
-            }
-            // OLAP отдаёт "" вместо null у пустых полей.
-            const val = (v: unknown) =>
-              typeof v === "string" && v.trim() !== "" ? v : null;
-
-            for (const row of stillOpen) {
-              const o = row.orderId ? byId.get(row.orderId) : undefined;
-              const closedAt = val(o?.["Delivery.CloseTime"]);
-              if (!closedAt) continue;
-
-              await drizzle
-                .update(hangingOrders)
-                .set({
-                  orderStatus: "Closed",
-                  whenPrinted: val(o["Delivery.PrintTime"]),
-                  whenCookingCompleted: val(o["Delivery.CookingFinishTime"]),
-                  whenSended: val(o["Delivery.SendTime"]),
-                  whenDelivered: val(o["Delivery.ActualTime"]),
-                  whenClosed: closedAt,
-                  updatedAt: new Date(),
-                })
-                .where(eq(hangingOrders.id, row.id))
-                .execute();
-
-              const report = summary.find((r) => r.brand === row.brand);
-              if (report) {
-                report.updated++;
-                report.closed++;
-              }
-            }
-          }
-        } catch (e: any) {
-          fail(e?.message ?? String(e));
-        }
+      // Длинный — фоновой задачей: прокси ждёт бэкенд 60 с, а четыре месяца
+      // сверяются минутами. Статус в Redis — бэкенд крутится в нескольких
+      // процессах, и опрос может прийти не в тот, где идёт задача.
+      const jobId = crypto.randomUUID();
+      const locked = await redis.set(REFRESH_LOCK, jobId, "EX", 1800, "NX");
+      if (!locked) {
+        const running = await redis.get(REFRESH_LOCK);
+        return { job: { id: running, alreadyRunning: true }, window };
       }
 
-      return { data: summary };
+      const save = (state: unknown) =>
+        redis.set(refreshJobKey(jobId), JSON.stringify(state), "EX", 3600);
+      await save({ state: "running", progress: "старт", window });
+
+      void (async () => {
+        try {
+          const summary = await runRefresh({
+            brands, since, until, drizzle, cacheController,
+            progress: (text) => save({ state: "running", progress: text, window }),
+          });
+          await save({ state: "done", data: summary, window });
+        } catch (e: any) {
+          await save({ state: "error", message: e?.message ?? String(e), window });
+        } finally {
+          if ((await redis.get(REFRESH_LOCK)) === jobId) {
+            await redis.del(REFRESH_LOCK);
+          }
+        }
+      })();
+
+      return { job: { id: jobId }, window };
     },
     {
       permission: "hanging_orders.edit",
@@ -1088,6 +1206,8 @@ export const hangingOrdersController = new Elysia({
           t.Union([t.Literal("chopar"), t.Literal("les_ailes")])
         ),
         days: t.Optional(t.Number({ minimum: 1, maximum: 30 })),
+        dateFrom: t.Optional(t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
+        dateTo: t.Optional(t.String({ pattern: "^\\d{4}-\\d{2}-\\d{2}$" })),
       }),
     }
   );

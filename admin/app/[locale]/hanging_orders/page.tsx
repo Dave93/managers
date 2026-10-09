@@ -63,18 +63,52 @@ function HangingOrdersContent() {
 
     // Ночной бот пишет снимок один раз и существующие строки не обновляет, так
     // что заказ, закрытый филиалом после снимка, висит здесь со старым статусом.
-    // Кнопка перечитывает iiko по открытым строкам за последние 3 дня.
+    // Кнопка перечитывает iiko по открытым строкам за период из фильтра
+    // (без фильтра — за последние 3 дня). Сервер не пускает глубже 4 месяцев.
     const refreshFromIiko = useMutation({
         mutationFn: async () => {
             const { data, error } = await apiClient.api["hanging-orders"].refresh.post({
                 ...(brandFilter !== "all" && { brand: brandFilter as "chopar" | "les_ailes" }),
-                days: 3,
+                ...(dateRange?.from
+                    ? {
+                        dateFrom: dayjs(dateRange.from).format("YYYY-MM-DD"),
+                        dateTo: dayjs(dateRange.to ?? dateRange.from).format("YYYY-MM-DD"),
+                    }
+                    : { days: 3 }),
             });
             if (error) throw new Error((error.value as any)?.message ?? "Не удалось обновить статусы");
-            return data;
+
+            // Длинный период сервер сверяет фоновой задачей — опрашиваем её.
+            const job = (data as { job?: { id: string; alreadyRunning?: boolean } } | null)?.job;
+            if (!job) return data;
+
+            const toastId = toast.loading(
+                job.alreadyRunning ? "Сверка уже идёт — подключаюсь к ней…" : "Сверка с iiko запущена…",
+            );
+            try {
+                const startedAt = Date.now();
+                while (Date.now() - startedAt < 30 * 60 * 1000) {
+                    await new Promise((r) => setTimeout(r, 3000));
+                    const { data: st, error: stErr } = await apiClient.api["hanging-orders"]
+                        .refresh({ jobId: job.id })
+                        .get();
+                    if (stErr) throw new Error((stErr.value as any)?.message ?? "Статус сверки недоступен");
+                    const status = st as { state: string; progress?: string; message?: string };
+                    if (status.state === "done") return status;
+                    if (status.state === "error") throw new Error(status.message ?? "Сверка упала");
+                    toast.loading(`Сверка с iiko: ${status.progress ?? "идёт"}…`, { id: toastId });
+                }
+                throw new Error("Сверка идёт дольше 30 минут — проверьте позже");
+            } finally {
+                toast.dismiss(toastId);
+            }
         },
         onSuccess: (result) => {
             const reports: RefreshReport[] = (result?.data as RefreshReport[]) ?? [];
+            const win = (result as { window?: { from: string; to: string } } | null)?.window;
+            const period = win
+                ? `${dayjs(win.from).format("DD.MM")}–${dayjs(win.to).format("DD.MM")}: `
+                : "";
             const updated = reports.reduce((sum, r) => sum + r.updated, 0);
             const checked = reports.reduce((sum, r) => sum + r.checked, 0);
             const errors = reports.flatMap((r) => r.errors);
@@ -82,9 +116,9 @@ function HangingOrdersContent() {
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
 
             if (errors.length > 0) {
-                toast.warning(`Обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
+                toast.warning(`${period}обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
             } else {
-                toast.success(`Проверено ${checked} заказов, обновлено ${updated}`);
+                toast.success(`${period}проверено ${checked} заказов, обновлено ${updated}`);
             }
         },
         onError: (e: Error) => toast.error(e.message),
