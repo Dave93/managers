@@ -164,7 +164,7 @@ export function BulkCancelDialog({
                         {target?.mode === "ids" ? "выбранных заказов" : "заказов по фильтру"} в iiko
                     </DialogTitle>
                     <DialogDescription>
-                        Только висящие и не старше 4 месяцев. Закрытые в iikoServer пропускаются — это
+                        Только висящие и не старше 6 месяцев. Закрытые в iikoServer пропускаются — это
                         оплаченные заказы. Если касса откажет 5 раз подряд — отмена остановится сама.
                     </DialogDescription>
                 </DialogHeader>
