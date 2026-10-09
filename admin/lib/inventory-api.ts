@@ -22,6 +22,7 @@ import type {
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
 import type { ReconDetail, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
+import type { BookView, InterimReconDetail, InterimReconRow, StockMovement, StockView } from "@backend/modules/inventory/book/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
@@ -47,9 +48,15 @@ export const inventoryApi = {
   availableTemplates: (storeId: string) =>
     call<InventoryStartOptions>(inv.templates.available.get({ query: { store_id: storeId } })),
   listCounts: (storeId: string) => call<InventoryCountSummary[]>(inv.counts.get({ query: { store_id: storeId } })),
-  /** Без template_id — «Все товары филиала». */
-  createCount: (body: { store_id: string; template_id?: string; period: string }) =>
+  /** Без template_id — «Все товары филиала». Промежуточный — kind: "interim" и count_date вместо period. */
+  createCount: (body: { store_id: string; template_id?: string; period?: string; kind?: "monthly" | "interim"; count_date?: string }) =>
     call<{ id: string; existing: boolean }>(inv.counts.post(body)),
+  interimDates: () => call<{ min: string; max: string; default: string }>(inv["interim-dates"].get()),
+  book: (countId: string) => call<BookView>(inv.counts({ id: countId }).book.get()),
+  refreshBook: (countId: string) => call<{ queued: boolean }>(inv.counts({ id: countId }).book.refresh.post({})),
+  stock: (storeId: string) => call<StockView>(inv.stock.get({ query: { store_id: storeId } })),
+  stockMovement: (storeId: string, productId: string) =>
+    call<StockMovement>(inv.stock.movements.get({ query: { store_id: storeId, product_id: productId } })),
   getCount: (id: string) => call<InventoryCountDetail>(inv.counts({ id }).get()),
   sync: (id: string, ops: InventorySyncOp[]) => call<InventorySyncResult>(inv.counts({ id }).entries.sync.post({ ops })),
   addLine: (id: string, productId: string) =>
@@ -78,6 +85,10 @@ export const inventoryApi = {
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>
       call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
+    interimList: (period: string) => call<InterimReconRow[]>(inv["interim-reconciliations"].get({ query: { period } })),
+    interimGet: (id: string) => call<InterimReconDetail>(inv["interim-reconciliations"]({ id }).get()),
+    interimMark: (id: string, productId: string, checked: boolean) =>
+      call<{ ok: true }>(inv["interim-reconciliations"]({ id }).lines({ productId }).mark.post({ checked })),
     reopenRule: () => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].get()),
     setReopenRule: (rule: InventoryReopenRule) => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].put({ rule })),
     markLine: (id: string, productId: string, checked: boolean) =>

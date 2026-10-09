@@ -1,7 +1,7 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
-import { periodLabel } from "@admin/lib/inventory/periods";
+import { formatDay, periodLabel } from "@admin/lib/inventory/periods";
 import type { OverlayDetail } from "@admin/lib/inventory/queue";
 import { StatusBadge } from "./status-badge";
 
@@ -33,7 +33,8 @@ export function CountHeader({
         {detail.access === "read" && <span className="text-sm text-muted-foreground">{t("readOnly")}</span>}
       </div>
       <div className="text-sm text-muted-foreground">
-        {detail.template_id ? detail.template_name : t("branchAll")} · {periodLabel(detail.period, locale)}
+        {detail.template_id ? detail.template_name : t("branchAll")} ·{" "}
+        {detail.kind === "interim" ? `${t("kind.interim")} · ${formatDay(detail.count_date)}` : periodLabel(detail.period, locale)}
       </div>
       <div className="flex items-center gap-3">
         <div className="h-2 flex-1 rounded bg-muted overflow-hidden">

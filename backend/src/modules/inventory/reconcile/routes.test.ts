@@ -70,7 +70,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     const author = randomUUID();
     const [count] = await drizzleDb
       .insert(schema.inventory_counts)
-      .values({ store_id: storeId, template_name: "Все товары филиала", period: PERIOD, status: "submitted", created_by: author })
+      .values({ store_id: storeId, template_name: "Все товары филиала", period: PERIOD, count_date: PERIOD, status: "submitted", created_by: author })
       .returning({ id: schema.inventory_counts.id });
     const [line] = await drizzleDb
       .insert(schema.inventory_count_lines)

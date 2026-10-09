@@ -1,7 +1,7 @@
 "use client";
 import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
-import { periodLabel } from "@admin/lib/inventory/periods";
+import { formatDay, periodLabel } from "@admin/lib/inventory/periods";
 import type { InventoryCountSummary } from "@backend/modules/inventory/types";
 import { StatusBadge } from "./status-badge";
 
@@ -18,7 +18,9 @@ export function CountCard({ count }: { count: InventoryCountSummary }) {
         <div className="font-medium">{count.template_id ? count.template_name : t("branchAll")}</div>
         <StatusBadge status={count.status} />
       </div>
-      <div className="mt-1 text-sm text-muted-foreground">{periodLabel(count.period, locale)}</div>
+      <div className="mt-1 text-sm text-muted-foreground">
+        {count.kind === "interim" ? `${t("kind.interim")} · ${formatDay(count.count_date)}` : periodLabel(count.period, locale)}
+      </div>
       <div className="mt-3 h-2 rounded bg-muted overflow-hidden">
         <div className="h-full bg-primary" style={{ width: `${pct}%` }} />
       </div>

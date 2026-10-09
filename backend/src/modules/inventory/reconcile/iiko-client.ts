@@ -3,6 +3,7 @@
 // (корректировки), balance/stores (учёт). Токен занимает лицензионный слот
 // iiko, поэтому один токен на вызов withIikoClient и logout в finally.
 import { createHash } from "node:crypto";
+import type { Movement } from "../book/pure";
 import {
   inventoryDocs,
   nextDay,
@@ -21,6 +22,8 @@ export interface IikoClient {
   corrections(period: string): Promise<Correction[]>;
   /** Учётный остаток склада на момент at (YYYY-MM-DDTHH:mm:ss, местное время iiko). */
   balance(storeId: string, at: string): Promise<BookRow[]>;
+  /** Движение склада по товару и типу проводки за даты [from, toInclusive], без INVENTORY_CORRECTION. */
+  movements(storeId: string, from: string, toInclusive: string): Promise<Movement[]>;
 }
 
 export type IikoClientOptions = {
@@ -31,6 +34,8 @@ export type IikoClientOptions = {
   retries?: number;
   /** logout не должен держать задачу, если iiko завис. */
   logoutTimeoutMs?: number;
+  /** Тайм-аут одного запроса; для экранов — короткий. */
+  timeoutMs?: number;
 };
 
 export class IikoError extends Error {}
@@ -55,7 +60,7 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
     for (let attempt = 0; ; attempt++) {
       let res: Response;
       try {
-        res = await f(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
+        res = await f(url, { ...init, signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS) });
       } catch (e) {
         if (attempt >= retries) throw new IikoError(`iiko: ${(e as Error).message}`);
         continue;
@@ -102,6 +107,41 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
       });
       const j = (await res.json()) as { data?: Record<string, unknown>[] };
       return parseOlapCorrections(j.data ?? []);
+    },
+    async movements(storeId, from, toInclusive) {
+      const body = {
+        reportType: "TRANSACTIONS",
+        buildSummary: "false",
+        groupByRowFields: ["Product.Id", "TransactionType"],
+        aggregateFields: ["Amount.In", "Amount.Out"],
+        filters: {
+          "DateTime.DateTyped": {
+            filterType: "DateRange",
+            periodType: "CUSTOM",
+            from,
+            to: nextDay(toInclusive),
+            includeLow: true,
+            includeHigh: false,
+          },
+          "Account.Id": { filterType: "IncludeValues", values: [storeId] },
+          // Документ инвентаризации в 23:59 не входит в книжное на 23:58 (spec 2026-10-08, §4).
+          TransactionType: { filterType: "ExcludeValues", values: ["INVENTORY_CORRECTION"] },
+        },
+      };
+      const res = await request(`${base}/v2/reports/olap?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { data?: Record<string, unknown>[] };
+      return (j.data ?? [])
+        .filter((r) => r["Product.Id"])
+        .map((r) => ({
+          product_id: String(r["Product.Id"]),
+          type: String(r["TransactionType"] ?? ""),
+          in: Number(r["Amount.In"] ?? 0),
+          out: Number(r["Amount.Out"] ?? 0),
+        }));
     },
     async balance(storeId, at) {
       const res = await request(

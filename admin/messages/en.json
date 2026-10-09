@@ -750,6 +750,83 @@
         "until_accept": "until the office accepts the reconciliation",
         "office_only": "never — only the office can",
         "saved": "Rule saved"
+      },
+      "mode": {
+        "monthly": "Monthly",
+        "daily": "By day"
+      },
+      "interim": {
+        "empty": "No interim counts this month",
+        "loading": "iiko book stock is loading…",
+        "fetchedAt": "iiko book stock loaded {at}",
+        "onlyMismatch": "Only A ≠ iiko",
+        "iikoCol": "iiko (book qty at day end)",
+        "col": {
+          "store": "Store",
+          "date": "Date",
+          "template": "Template",
+          "status": "Status",
+          "mismatch": "A ≠ iiko",
+          "checked": "Checked"
+        },
+        "title": "Daily reconciliation",
+        "hidden": "opens once the count is closed",
+        "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
+        "checkedByOffice": "Checked by office"
+      }
+    },
+    "kind": {
+      "label": "Count type",
+      "monthly": "Monthly",
+      "interim": "Interim",
+      "date": "Count date",
+      "dateHint": "Past days only: stock at the end of that day"
+    },
+    "book": {
+      "tab": "Compare with book stock",
+      "inputTab": "Input",
+      "loading": "Loading book stock from iiko…",
+      "refresh": "Reload book stock",
+      "queued": "iiko load queued",
+      "fetchedAt": "iiko book stock loaded {at}",
+      "onlyDiff": "Only with difference",
+      "notInCount": "not in the count",
+      "notCounted": "not counted",
+      "inconsistent": "breakdown doesn't add up",
+      "col": {
+        "n": "#",
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "fact": "Actual",
+        "book": "Book qty",
+        "diff": "Difference"
+      },
+      "breakdown": {
+        "start": "Stock on {date}",
+        "invoice": "Received",
+        "sales": "Sales",
+        "transferIn": "Transfer in",
+        "transferOut": "Transfer out",
+        "writeoff": "Write-off",
+        "other": "Other",
+        "book": "Book quantity"
+      },
+      "alreadyQueued": "An iiko load is already queued"
+    },
+    "stock": {
+      "title": "Warehouse stock",
+      "hidden": "A count is in progress — stock will open once the count is closed",
+      "at": "iiko book stock at {at}",
+      "onlyNegative": "Negative only",
+      "empty": "No stock",
+      "search": "Search by name",
+      "movement": "Movement since {from}",
+      "col": {
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "qty": "Stock"
       }
     }
   }
