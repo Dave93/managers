@@ -49,12 +49,11 @@ const IIKO_URL = "https://api-ru.iiko.services/api/1/";
 // iikoServer — бэк-офис, на нём построен iikoChain. Источник правды о закрытии.
 const IIKO_SERVER = "https://les-ailes-co-co.iiko.it/resto/api";
 
-// Глубже не пускаем ни сверку, ни отмену: хвост старше полугода не нужен
-// (так решили 2026-10-09), а на длинном окне iikoCloud за частые обращения
-// блокирует логин (Locked). Принимает ли касса отмену старых заказов, не
-// проверено — на этот случай массовая отмена останавливается после пяти
-// отказов подряд.
-const MAX_WINDOW_MONTHS = 6;
+// iikoCloud хранит доставки ~120 дней и потом стирает: проверено 2026-10-09 —
+// за 11.06 в облаке 997 заказов из ~1150, за 10.06 — 12, за 01.06 — 7. Старше
+// отменить через облако нельзя: оно заказа уже не знает («Delivery order …
+// doesn't exist»). Берём с запасом. Глубже не пускаем ни сверку, ни отмену.
+const MAX_WINDOW_DAYS = 115;
 // Пауза между запросами в iikoCloud по дням — та же причина.
 const CLOUD_PAUSE_MS = 400;
 
@@ -216,6 +215,36 @@ async function runCommand(
   };
 }
 
+/**
+ * Статусы доставок в iikoCloud по id. Заказа нет в ответе — облако его не
+ * знает (стёрто по сроку хранения), отменять через облако нечего.
+ */
+async function cloudStatuses(
+  session: CloudSession,
+  orderIds: string[]
+): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  for (let i = 0; i < orderIds.length; i += 100) {
+    const res = await fetchIikoWithRetry(`${IIKO_URL}deliveries/by_id`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        organizationId: session.iikoOrgId,
+        orderIds: orderIds.slice(i, i + 100),
+      }),
+    });
+    if (!res.ok) throw new Error(`iikoCloud ответил ${res.status} на deliveries/by_id`);
+    const body: any = await res.json();
+    for (const o of body?.orders ?? []) {
+      if (o?.id) out.set(o.id, o.order?.status ?? o.creationStatus ?? "Unknown");
+    }
+  }
+  return out;
+}
+
 /** Время закрытия доставки по iikoServer или null, если там не закрыта. */
 async function serverCloseTime(
   cacheController: any,
@@ -337,6 +366,7 @@ type BulkStats = {
   alreadyClosed: number;
   errors: number;
   pending: number;
+  notInCloud: number;
   stopped: boolean;
   errorSamples: string[];
 };
@@ -1215,7 +1245,7 @@ export const hangingOrdersController = new Elysia({
     "/hanging-orders/iiko-cancel-bulk",
     async ({ body, drizzle, cacheController, redis, user, set }) => {
       const floor = dayjs()
-        .subtract(MAX_WINDOW_MONTHS, "month")
+        .subtract(MAX_WINDOW_DAYS, "day")
         .format("YYYY-MM-DD");
 
       let where: (SQLWrapper | undefined)[];
@@ -1228,7 +1258,7 @@ export const hangingOrdersController = new Elysia({
         return { message: "Нужны выбранные заказы или фильтр" };
       }
 
-      // Только висящие, с id в iiko и не старше MAX_WINDOW_MONTHS — что бы ни
+      // Только висящие, с id в iiko и не старше MAX_WINDOW_DAYS — что бы ни
       // пришло с клиента.
       const rows = await drizzle
         .select({
@@ -1256,7 +1286,7 @@ export const hangingOrdersController = new Elysia({
       if (rows.length === 0) {
         set.status = 400;
         return {
-          message: `Ни одного висящего заказа за последние ${MAX_WINDOW_MONTHS} месяцев под условие не попало`,
+          message: `Ни одного висящего заказа за последние ${MAX_WINDOW_DAYS} дней под условие не попало (старше iikoCloud их уже не хранит)`,
         };
       }
       if (rows.length > BULK_MAX) {
@@ -1281,6 +1311,7 @@ export const hangingOrdersController = new Elysia({
         alreadyClosed: 0,
         errors: 0,
         pending: 0,
+        notInCloud: 0,
         stopped: false,
         errorSamples: [],
       };
@@ -1388,7 +1419,47 @@ export const hangingOrdersController = new Elysia({
             return pr;
           };
 
-          // 3. Отмена. Комментарий — «Заметка» заказа, без неё — общий.
+          // 3. Знает ли облако заказ. Не знает — стёрт по сроку хранения:
+          // это не ошибка кассы, и стоп-кран на нём срабатывать не должен.
+          const known: typeof toCancel = [];
+          for (const brand of [...new Set(toCancel.map((r) => r.brand))]) {
+            const rowsOfBrand = toCancel.filter((r) => r.brand === brand);
+            let statuses: Map<string, string>;
+            try {
+              const prep = await prepare(brand);
+              await save("running", `проверяю iikoCloud: ${brand}`);
+              statuses = await cloudStatuses(prep.session, rowsOfBrand.map((r) => r.orderId!));
+            } catch (e: any) {
+              // Не смогли спросить — отменяем как есть, касса разберётся.
+              known.push(...rowsOfBrand);
+              continue;
+            }
+            for (const row of rowsOfBrand) {
+              const st = statuses.get(row.orderId!);
+              if (!st) {
+                await log(row, "Refused", "нет в iikoCloud — стёрт по сроку хранения (~120 дней)");
+                stats.notInCloud++;
+                stats.done++;
+              } else if (st === "Cancelled" || st === "Closed") {
+                // Облако уже знает финал — догоняем у себя, кассе не шлём.
+                await drizzle
+                  .update(hangingOrders)
+                  .set({ orderStatus: st, updatedAt: new Date() })
+                  .where(eq(hangingOrders.id, row.id))
+                  .execute();
+                await log(row, "Refused", `в iikoCloud уже ${st}`);
+                if (st === "Cancelled") stats.cancelled++;
+                else stats.alreadyClosed++;
+                stats.done++;
+              } else {
+                known.push(row);
+              }
+            }
+          }
+          toCancel.length = 0;
+          toCancel.push(...known);
+
+          // 4. Отмена. Комментарий — «Заметка» заказа, без неё — общий.
           let next = 0;
           let streak = 0;
           const worker = async () => {
@@ -1418,8 +1489,25 @@ export const hangingOrdersController = new Elysia({
                   stats.pending++;
                   streak = 0;
                 } else {
-                  fail(row, result.error ?? "касса отказала");
-                  streak++;
+                  // Касса может ответить ошибкой, а облако отмену всё равно
+                  // провести (09.10 чек 10: «Cannot find an order», а в облаке
+                  // Cancelled). Перепроверяем, прежде чем считать отказом.
+                  const after = await cloudStatuses(prep.session, [row.orderId!]).catch(
+                    () => new Map<string, string>()
+                  );
+                  if (after.get(row.orderId!) === "Cancelled") {
+                    await drizzle
+                      .update(hangingOrders)
+                      .set({ orderStatus: "Cancelled", updatedAt: new Date() })
+                      .where(eq(hangingOrders.id, row.id))
+                      .execute();
+                    await log(row, "Success", `касса: ${result.error}; облако: Cancelled`, { comment });
+                    stats.cancelled++;
+                    streak = 0;
+                  } else {
+                    fail(row, result.error ?? "касса отказала");
+                    streak++;
+                  }
                 }
               } catch (e: any) {
                 const why = e?.message ?? String(e);
@@ -1495,9 +1583,9 @@ export const hangingOrdersController = new Elysia({
     async ({ body: { brand, days, dateFrom, dateTo }, drizzle, cacheController, redis }) => {
       const brands = brand ? [brand] : Object.keys(BRAND_ORG_CODE);
       // Окно: период из фильтра страницы или последние `days` дней,
-      // но не глубже MAX_WINDOW_MONTHS.
+      // но не глубже MAX_WINDOW_DAYS.
       const floor = dayjs()
-        .subtract(MAX_WINDOW_MONTHS, "month")
+        .subtract(MAX_WINDOW_DAYS, "day")
         .format("YYYY-MM-DD");
       const requested =
         dateFrom ?? dayjs().subtract(days ?? 3, "day").format("YYYY-MM-DD");
