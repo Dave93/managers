@@ -572,6 +572,7 @@ export const hangingOrdersController = new Elysia({
           id: hangingOrders.id,
           orderId: hangingOrders.orderId,
           brand: hangingOrders.brand,
+          date: hangingOrders.date,
         })
         .from(hangingOrders)
         .where(
@@ -591,6 +592,9 @@ export const hangingOrdersController = new Elysia({
         .filter((v): v is string => !!v);
 
       if (ids.length > 0) {
+        const dates = stillOpen.map((r) => r.date).sort();
+        const minDate = dates[0];
+        const maxDate = dates[dates.length - 1];
         const fail = (why: string) =>
           summary.forEach((r) => r.errors.push(`OLAP: ${why}`));
 
@@ -617,9 +621,10 @@ export const hangingOrdersController = new Elysia({
                   "OpenDate.Typed": {
                     filterType: "DateRange",
                     periodType: "CUSTOM",
-                    // Заказ мог открыться накануне даты доставки.
-                    from: dayjs(since).subtract(1, "day").format("YYYY-MM-DD"),
-                    to: dayjs().add(1, "day").format("YYYY-MM-DD"),
+                    // Только дни, где есть открытые строки; заказ мог
+                    // открыться накануне даты доставки.
+                    from: dayjs(minDate).subtract(1, "day").format("YYYY-MM-DD"),
+                    to: dayjs(maxDate).add(2, "day").format("YYYY-MM-DD"),
                     includeLow: true,
                     includeHigh: false,
                   },
@@ -627,7 +632,9 @@ export const hangingOrdersController = new Elysia({
                     filterType: "IncludeValues",
                     values: ["NOT_DELETED"],
                   },
-                  "Delivery.Id": { filterType: "IncludeValues", values: ids },
+                  // Фильтр по Delivery.Id сюда не ставим: iikoServer
+                  // принимает его, но молча отдаёт 0 строк (проверено
+                  // 2026-10-09). Сверяем по id уже в памяти.
                 },
               }),
             }
