@@ -9,6 +9,7 @@ import { actorFrom } from "../access";
 import { assertUuid } from "../counts";
 import { InventoryError, run } from "../errors";
 import { enqueueBookFor } from "./queue";
+import { listInterimRecons, loadInterimRecon, markInterimLine } from "./interim";
 import { loadBook, loadStock, loadStockMovement } from "./stock";
 
 export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
@@ -44,4 +45,24 @@ export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
         loadStockMovement(drizzle, await actorFrom(cacheController, user, role), query.store_id, query.product_id)
       ),
     { permission: "inventory.count", query: t.Object({ store_id: t.String(), product_id: t.String() }) }
+  )
+  .get(
+    "/inventory/interim-reconciliations",
+    async ({ query, drizzle, set }) => run(set, async () => listInterimRecons(drizzle, query.period)),
+    { permission: "inventory.reconcile", query: t.Object({ period: t.String() }) }
+  )
+  .get(
+    "/inventory/interim-reconciliations/:id",
+    async ({ params, drizzle, set }) => run(set, async () => loadInterimRecon(drizzle, params.id)),
+    { permission: "inventory.reconcile", params: t.Object({ id: t.String() }) }
+  )
+  .post(
+    "/inventory/interim-reconciliations/:id/lines/:productId/mark",
+    async ({ params, body, drizzle, user, set }) =>
+      run(set, async () => markInterimLine(drizzle, params.id, params.productId, body.checked, user!.id)),
+    {
+      permission: "inventory.reconcile",
+      params: t.Object({ id: t.String(), productId: t.String() }),
+      body: t.Object({ checked: t.Boolean() }),
+    }
   );

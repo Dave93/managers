@@ -232,6 +232,13 @@
       "when": 1791458581879,
       "tag": "0032_inventory_interim_book",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791524272987,
+      "tag": "0033_inventory_count_book_marks",
+      "breakpoints": true
     }
   ]
 }

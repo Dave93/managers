@@ -2709,3 +2709,18 @@ export const inventory_count_book = pgTable(
   },
   (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
 );
+
+// Отметка офиса «проверено» по строке сверки промежуточного пересчёта (по дням).
+export const inventory_count_book_marks = pgTable(
+  "inventory_count_book_marks",
+  {
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    checked_by: uuid("checked_by").notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
+);
+

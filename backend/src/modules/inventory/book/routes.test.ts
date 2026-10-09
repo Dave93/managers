@@ -317,4 +317,113 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
   });
+
+  // ── Сверка по дням (промежуточные пересчёты) ──
+  const I_PERIOD = "2026-07-31";
+  async function seedInterim() {
+    const store = randomUUID();
+    const [p1, p2, p3, p4] = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
+    const tag = randomUUID().slice(0, 6);
+    const author = randomUUID();
+    await drizzleDb.insert(schema.corporation_store).values({ id: store, name: `Склад по дням ${tag}`, type: "STORE" });
+    await drizzleDb.insert(schema.nomenclature_element).values([
+      { id: p1, name: `Сыр ${tag}`, num: `S${tag}`, type: "GOODS", deleted: false },
+      { id: p4, name: `Фри ${tag}`, num: `F${tag}`, type: "GOODS", deleted: false },
+    ]);
+    const [c] = await drizzleDb
+      .insert(schema.inventory_counts)
+      .values({
+        store_id: store, template_name: "10 kun", period: I_PERIOD, kind: "interim", count_date: "2026-07-10",
+        status: "submitted", created_by: author, book_fetched_at: "2026-07-11T00:00:00Z",
+      })
+      .returning({ id: schema.inventory_counts.id });
+    const [monthly] = await drizzleDb
+      .insert(schema.inventory_counts)
+      .values({ store_id: store, template_name: "Все товары филиала", period: I_PERIOD, count_date: I_PERIOD, status: "submitted", created_by: author })
+      .returning({ id: schema.inventory_counts.id });
+    await drizzleDb.insert(schema.inventory_count_lines).values([
+      { count_id: c.id, product_id: p1, product_name: `Сыр ${tag}`, unit_name: "кг", group_name: "Склад", source: "template", fact_qty: "9" },
+      { count_id: c.id, product_id: p2, product_name: `Мясо ${tag}`, unit_name: "кг", group_name: "Склад", source: "template", skipped: true },
+      { count_id: c.id, product_id: p4, product_name: `Фри ${tag}`, unit_name: "кг", group_name: "Склад", source: "template", fact_qty: "2" },
+    ]);
+    const z = { start_qty: "0", in_invoice: "0", out_sales: "0", transfer_in: "0", transfer_out: "0", out_writeoff: "0", other_net: "0", consistent: true };
+    await drizzleDb.insert(schema.inventory_count_book).values([
+      { count_id: c.id, product_id: p1, ...z, start_qty: "10", in_invoice: "5", out_sales: "3", book_qty: "12" },
+      { count_id: c.id, product_id: p2, ...z, book_qty: "4" },
+      { count_id: c.id, product_id: p3, ...z, book_qty: "7" },
+      { count_id: c.id, product_id: p4, ...z, book_qty: "2" },
+    ]);
+    async function cleanup() {
+      await drizzleDb.delete(schema.inventory_counts).where(inArray(schema.inventory_counts.id, [c.id, monthly.id]));
+      await drizzleDb.delete(schema.nomenclature_element).where(inArray(schema.nomenclature_element.id, [p1, p4]));
+      await drizzleDb.delete(schema.corporation_store).where(eq(schema.corporation_store.id, store));
+    }
+    return { store, countId: c.id, monthlyId: monthly.id, p1, p2, p3, p4, tag, cleanup };
+  }
+
+  const officeI = () => withSession({ permissions: ["inventory.count", "inventory.templates", "inventory.reconcile"] });
+  const branchI = () => withSession({ permissions: ["inventory.count", "inventory.manage"] });
+
+  describe("сверка по дням (промежуточные пересчёты)", () => {
+    it("список за месяц: только промежуточные, расхождения и проверено", async () => {
+      const w = await seedInterim();
+      try {
+        const r = await api(await officeI(), "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`);
+        expect(r.status).toBe(200);
+        const mine = r.body.filter((x: any) => x.store_id === w.store);
+        expect(mine.length).toBe(1);
+        expect(mine[0]).toMatchObject({ count_id: w.countId, count_date: "2026-07-10", template_name: "10 kun", status: "submitted", lines_counted: 2, mismatch_count: 1, checked_count: 0 });
+        expect(mine[0].store_name).toContain("Склад по дням");
+        expect((await api(await officeI(), "GET", "/api/inventory/interim-reconciliations?period=2026-07-30")).status).toBe(422);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("детали: только товары, введённые в админке; A, iiko, разница; разбивка", async () => {
+      const w = await seedInterim();
+      try {
+        const r = await api(await officeI(), "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+        expect(r.status).toBe(200);
+        expect(r.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p4].sort());
+        const p1 = r.body.lines.find((l: any) => l.product_id === w.p1);
+        expect(p1).toMatchObject({ code: `S${w.tag}`, admin_qty: "9", iiko_qty: "12", diff_qty: "-3", start_qty: "10", in_invoice: "5", out_sales: "3", checked: false });
+        expect(r.body.lines.find((l: any) => l.product_id === w.p4)).toMatchObject({ admin_qty: "2", iiko_qty: "2", diff_qty: "0" });
+        // месячный пересчёт через этот маршрут не открывается
+        expect((await api(await officeI(), "GET", `/api/inventory/interim-reconciliations/${w.monthlyId}`)).status).toBe(404);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("«Проверено»: отметить и снять; счётчик в списке; чужой товар — 404", async () => {
+      const w = await seedInterim();
+      try {
+        const o = await officeI();
+        expect((await api(o, "POST", `/api/inventory/interim-reconciliations/${w.countId}/lines/${w.p1}/mark`, { checked: true })).status).toBe(200);
+        const d = await api(o, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+        const p1 = d.body.lines.find((l: any) => l.product_id === w.p1);
+        expect(p1.checked).toBe(true);
+        expect(typeof p1.checked_by_name).toBe("string");
+        const list = await api(o, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`);
+        expect(list.body.find((x: any) => x.count_id === w.countId).checked_count).toBe(1);
+        expect((await api(o, "POST", `/api/inventory/interim-reconciliations/${w.countId}/lines/${w.p1}/mark`, { checked: false })).status).toBe(200);
+        expect((await api(o, "POST", `/api/inventory/interim-reconciliations/${w.countId}/lines/${w.p3}/mark`, { checked: true })).status).toBe(404);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("филиал — 403 на всех маршрутах сверки по дням", async () => {
+      const w = await seedInterim();
+      try {
+        const b = await branchI();
+        expect((await api(b, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`)).status).toBe(403);
+        expect((await api(b, "GET", `/api/inventory/interim-reconciliations/${w.countId}`)).status).toBe(403);
+        expect((await api(b, "POST", `/api/inventory/interim-reconciliations/${w.countId}/lines/${w.p1}/mark`, { checked: true })).status).toBe(403);
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
 }
