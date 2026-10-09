@@ -11,8 +11,10 @@ import {
   ticket_executors,
   tickets,
   terminals,
+  users,
 } from "backend/drizzle/schema";
-import { and, desc, eq, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, inArray, isNotNull, sql, SQLWrapper } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import fs from "node:fs";
 import Elysia, { t } from "elysia";
 import { writeEvent } from "./events";
@@ -20,8 +22,21 @@ import { recordNotifications, enqueueNotifications } from "./notify";
 import { validateDetails, validateSchema, type FieldDef } from "./fields";
 import { checkUpload, MAX_FILES_PER_PHASE, saveAttachment, uploadsBase, UUID_RE } from "./storage";
 import { allowedFrom, targetStatus, type TicketStatus } from "./state";
+import { ticketNumber } from "./number";
 
-const ticketNumber = (prefix: string, seq: number) => `${prefix}-${String(seq).padStart(6, "0")}`;
+
+// Имя автора заявки для карточки. users.first_name и last_name оба nullable, а
+// учётка, заведённая интеграцией, часто не имеет ни того ни другого, поэтому
+// последняя инстанция — login: строка не должна выглядеть как «никто не
+// создавал». Тот же порядок, что у personName в passport/controller.ts; сюда
+// скопирован, а не импортирован, чтобы модули не тянули друг друга.
+function authorName(firstName: string | null, lastName: string | null, login: string | null): string | null {
+  const name = [firstName, lastName]
+    .map((p) => (p ?? "").trim())
+    .filter((p) => p.length > 0)
+    .join(" ");
+  return name || login || null;
+}
 
 const MAX_LIST_LIMIT = 200;
 
@@ -63,6 +78,57 @@ async function notFoundOrConflict(
     return { status: 404, body: { message: "Заявка не найдена" } };
   }
   return { status: 409, body: { message: conflictMessage } };
+}
+
+// Право tickets.list_all снимает скоуп по филиалам в чтении (список, карточка,
+// вложение) и в записи (close, reopen, cancel, comments, payment/approve,
+// payment/reject). Фильтр по терминалам в этих роутах достался от планшета
+// филиала; для офисной сессии он оставлял кнопки, которые всегда отвечают 404,
+// и очередь «К оплате», где ничего не утвердить. Границей полномочий служит
+// само право, а не список филиалов. Сессия без права скоупится по своим
+// терминалам ровно как раньше.
+//
+// Единственное исключение — POST /tickets/:id/seen. manager_seen_at
+// утверждает «филиал посмотрел», офисная сессия этого утверждать не может, а
+// колонка не хранит актора, так что след молчал бы. Правдивость записи важнее
+// единообразия: seen остаётся на терминалах сессии, и право на него не
+// действует.
+//
+// Проверку права ставят ПОСЛЕ дешёвых проверок входа (формат id, пустое тело):
+// иначе мусорный запрос стоил бы обращения к кэшу ролей до своего 404/422.
+//
+// Пустой снимок терминалов не значит «все филиалы». Он значил это раньше, и
+// сессия без филиалов и без права видела и меняла заявки всех филиалов: на
+// тот же снимок садится и гонка в context/index.ts (user_data вытеснен между
+// beforeHandle и resolve → role: null, terminals: []), и забытый на учётке
+// users_terminals. Теперь, как и при создании заявки, межфилиальный доступ при
+// пустом снимке даёт только право tickets.list_all; без него снимок значит
+// «ни одного филиала», а нет роли в контексте — то же самое: отказ в
+// расширении безопаснее, чем его молчаливая выдача.
+//
+// Возвращает список филиалов для фильтра или undefined, если фильтровать не
+// нужно (только держатель права). «Ни одного филиала» выражен списком из
+// одного id, которого нет ни у одного филиала (NO_BRANCH_ID), а не пустым
+// массивом: все потребители ниже читают непустой список как фильтр, и тогда
+// каждый роут отвечает так же, как на чужую заявку (404 по id, пустая выдача,
+// «пропущено» в оплате), без ветки в самом роуте. Пустой массив опять стал бы
+// «без фильтра». Право читается тем же кэшем ролей, что и макрос permission
+// (getPermissionsByRoleId), а не отдельным запросом, — так же, как в
+// resolveIsHq и в списке типов выше.
+const LIST_ALL_PERMISSION = "tickets.list_all";
+const NO_BRANCH_ID = "00000000-0000-0000-0000-000000000000";
+
+export async function effectiveTerminals(args: {
+  userTerminals: string[] | undefined;
+  role: { id: string } | null | undefined;
+  cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
+}): Promise<string[] | undefined> {
+  const { userTerminals, role, cacheController } = args;
+  const hasBranches = !!userTerminals && userTerminals.length > 0;
+  if (!role) return hasBranches ? userTerminals : [NO_BRANCH_ID];
+  const permissions = await cacheController.getPermissionsByRoleId(role.id);
+  if (permissions.includes(LIST_ALL_PERMISSION)) return undefined;
+  return hasBranches ? userTerminals : [NO_BRANCH_ID];
 }
 
 const MAX_PAYMENT_IDS = 200;
@@ -115,10 +181,10 @@ async function applyPaymentDecision(
       eq(tickets.payment_status, "pending"),
       isNotNull(tickets.work_total_amount),
     ];
-    // Офисные роли несут пустой terminals (= все филиалы), но если у сессии
-    // филиалы всё же есть — например, роль с tickets.payment.approve по
-    // ошибке выдали филиалу — скоуп применяется всё равно: чужие деньги
-    // трогать нельзя.
+    // userTerminals приходит уже после effectiveTerminals: держатель
+    // tickets.list_all (офис) утверждает по всем филиалам, а сессия без этого
+    // права — например, роль с tickets.payment.approve по ошибке выдали
+    // филиалу — остаётся в своих: чужие деньги ей трогать нельзя.
     if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
 
     const rows = await tx
@@ -169,6 +235,33 @@ function buildPatch<T extends Record<string, unknown>>(body: Record<string, unkn
   return patch;
 }
 
+// Кто действует: филиал или офис. Роуты close, reopen, cancel и comments
+// общие для планшета филиала и карточки офиса, а в событии и комментарии
+// должно быть видно, кто на самом деле нажал.
+//
+// Принимает скоуп после effectiveTerminals, а не терминалы сессии. Признак
+// офиса — право tickets.list_all: оно даёт undefined, и вид выходит "office"
+// даже у учётки с назначенными терминалами. Пустой список сюда уже не
+// доходит (effectiveTerminals отдаёт для него undefined или заглушку), ветка
+// остаётся защитой. Остаётся один компромисс, и он безобиднее прежнего:
+// офисная роль без права list_all, но с выданными терминалами, определится
+// как менеджер (раньше менеджер со всеми выданными филиалами определялся как
+// офис). Роут утверждения оплаты ставит "office" безусловно, потому что он
+// только офисный.
+function actorKindOf(userTerminals: string[] | undefined): "manager" | "office" {
+  return userTerminals && userTerminals.length > 0 ? "manager" : "office";
+}
+
+// invite_code — одноразовый токен входа исполнителя в Telegram-бота. Его
+// должен видеть только тот, кто нажал «выдать ссылку» (POST
+// /ticket_executors/:id/invite), а список, создание и правка отдают строку
+// справочника всем, у кого есть право его читать. Поэтому из этих трёх
+// ответов код вырезается.
+function withoutInviteCode<T extends { invite_code?: unknown }>(row: T): Omit<T, "invite_code"> {
+  const { invite_code: _inviteCode, ...rest } = row;
+  return rest;
+}
+
 // 0 обновлённых строк для справочников однозначно значит "не найдена" — в
 // отличие от tickets, здесь нет статусного скоупа, который стоило бы отличать
 // отдельным SELECT (см. notFoundOrConflict выше).
@@ -176,6 +269,46 @@ function rowOrNotFound<T>(rows: T[], notFoundMessage: string): { status: 200; bo
   const row = rows[0];
   return row ? { status: 200, body: row } : { status: 404, body: { message: notFoundMessage } };
 }
+
+// Чтение справочника типов отдают два роута: /ticket_types (право
+// tickets.create — список рисует форму заявки на планшете) и
+// /ticket_types/manage (право tickets.types.manage — экран админки). Макрос
+// permission проверяет ровно одно право, поэтому роутов два, а обработчик и
+// схема запроса общие: копия тела разъехалась бы при первой же правке.
+// Контекст описан минимально вручную, а не выводится из цепочки: тип
+// цепочки уже упирался в TS2589 (см. комментарий ниже).
+const listTicketTypesQuery = t.Object({ include_inactive: t.Optional(t.String()) });
+
+const listTicketTypesHandler = async ({
+  query: { include_inactive },
+  role,
+  cacheController,
+  drizzle,
+}: {
+  query: { include_inactive?: string };
+  role?: { id: string } | null;
+  cacheController: { getPermissionsByRoleId: (roleId: string) => Promise<string[]> };
+  drizzle: DrizzleDB;
+}) => {
+  // По умолчанию отдаём только active: этот список рисует форму создания
+  // заявки на планшете, и POST /tickets отвергает неактивный тип 404-й —
+  // раньше планшет предлагал заведомо мёртвые типы. include_inactive нужен
+  // только экрану админки и потому проверяется отдельно, правом
+  // tickets.types.manage, а не общим route-permission роута.
+  let showInactive = false;
+  if (include_inactive === "true" && role) {
+    const permissions = await cacheController.getPermissionsByRoleId(role.id);
+    showInactive = permissions.includes("tickets.types.manage");
+  }
+  return {
+    data: await drizzle
+      .select()
+      .from(ticket_types)
+      .where(showInactive ? undefined : eq(ticket_types.active, true))
+      .orderBy(ticket_types.sort, ticket_types.name_ru)
+      .execute(),
+  };
+};
 
 // Registered on the app root (src/app.ts) with an explicit /api prefix and a
 // widened export, same as stoplistController: inside the apiController .use()
@@ -187,7 +320,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   .guard({ detail: { hide: true } })
   .post(
     "/tickets",
-    async ({ body, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body, user, role, cacheController, terminals: userTerminals, set, drizzle }) => {
       // type_id уходит прямиком в eq() ниже: мусорная строка вместо UUID
       // иначе доезжает до Postgres как сырая 500 "invalid input syntax for
       // type uuid" вместо понятной 422 — стухший кэш на планшете легко
@@ -215,16 +348,33 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
 
       // Филиал берётся из сессии, а не из тела запроса: менеджер физически
       // не должен иметь возможности завести заявку на чужой филиал.
+      //
+      // Непустой снимок терминалов сессии: terminal_id обязан в нём лежать.
+      // Пустой снимок раньше значил «проверять нечего» и пропускал любой
+      // terminal_id из тела: сессия без филиалов заводила заявку в чужой. Тот
+      // же принцип, что в effectiveTerminals: границей служит право
+      // tickets.list_all, а не пустота списка. С правом (офис) явный terminal_id
+      // принимается; без права, как и без явного terminal_id, — 403. Право
+      // читается кэшем ролей, как в effectiveTerminals, и только когда снимок
+      // пуст: менеджеру с филиалами обращение к кэшу не нужно.
       const terminal_id = body.terminal_id ?? userTerminals?.[0];
-      if (!terminal_id || (userTerminals?.length && !userTerminals.includes(terminal_id))) {
+      let terminalAllowed = false;
+      if (terminal_id) {
+        if (userTerminals && userTerminals.length > 0) {
+          terminalAllowed = userTerminals.includes(terminal_id);
+        } else if (role) {
+          const permissions = await cacheController.getPermissionsByRoleId(role.id);
+          terminalAllowed = permissions.includes(LIST_ALL_PERMISSION);
+        }
+      }
+      if (!terminal_id || !terminalAllowed) {
         set.status = 403;
         return { message: "Филиал недоступен" };
       }
-      // Офисная роль несёт пустой userTerminals, и тогда includes() выше не
-      // выполняется — terminal_id из тела долетает до eq() ниже непроверенным
-      // и падает сырой 500 на мусорной строке. Ветка с непустыми
-      // userTerminals уже гарантированно валидна (id из сессии), но проверяем
-      // всё равно — единообразия ради.
+      // Офис (tickets.list_all) несёт пустой userTerminals, и его terminal_id
+      // из тела долетает до eq() ниже непроверенным по составу и падает сырой
+      // 500 на мусорной строке. У сессии с филиалами id уже сверен со снимком,
+      // но формат проверяем всё равно — единообразия ради.
       if (!UUID_RE.test(terminal_id)) {
         set.status = 422;
         return { message: "terminal_id должен быть UUID" };
@@ -291,6 +441,11 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       // дойдёт — без onPath такой частично записанный файл не имел пути,
       // по которому его можно откатить, и оставался сиротой на диске.
       const attemptedPaths: string[] = [];
+      // Заявка записана и зафиксирована. С этого момента любой сбой в хвосте —
+      // не «создание не состоялось»: файлы на диске нужны строкам вложений, а
+      // клиент по 5xx с JSON-телом решает, что можно повторить, и завёл бы
+      // вторую заявку с теми же фото.
+      let committed: typeof tickets.$inferSelect | null = null;
       try {
         for (const f of files) {
           const r = await saveAttachment(f, ticket_id, (p) => attemptedPaths.push(p));
@@ -346,9 +501,24 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           return { row, notificationIds };
         });
 
-        await enqueueNotifications(notificationIds);
+        committed = created;
+        // Уведомления ставятся в очередь уже после коммита: строки outbox лежат
+        // как pending, и sweep() воркера подберёт их сам. Сбой здесь (скажем,
+        // getTicketsQueue() не смог создать очередь) не повод ни сносить файлы,
+        // ни отвечать ошибкой на созданную заявку.
+        try {
+          await enqueueNotifications(notificationIds);
+        } catch (enqueueErr) {
+          console.error("tickets: enqueue after commit failed, sweep will pick it up", ticket_id, enqueueErr);
+        }
         return { ...created, number: ticketNumber(type.number_prefix, created.seq) };
       } catch (e) {
+        if (committed) {
+          // Страховка на остаток хвоста после коммита (сборка ответа): заявка
+          // есть, файлы не трогаем, отвечаем так, будто она создана.
+          console.error("tickets: post-commit step failed, ticket kept", ticket_id, e);
+          return { ...committed, number: null };
+        }
         // Файлы легли раньше строк. Если транзакция упала (или один из файлов
         // партии не сохранился), на диске остаются сироты, на которые ничто
         // не ссылается — убираем их здесь. attemptedPaths, а не saved: он
@@ -396,7 +566,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets",
-    async ({ query: { limit, offset, filters }, terminals: userTerminals, set, drizzle }) => {
+    async ({ query: { limit, offset, filters }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       // +limit/+offset без проверки превращают мусорную строку в NaN, который
       // доезжает до drizzle и падает сырой ошибкой Postgres вместо 422.
       const limitNum = Number(limit);
@@ -411,8 +581,11 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       }
 
       const where: (SQLWrapper | undefined)[] = filters ? parseFilterFields(filters, tickets, {}) : [];
-      // Скоупинг по филиалам сессии. Пустой массив у офисной роли означает
-      // "все филиалы" — тот же смысл, что в остальных модулях.
+      // Скоупинг по филиалам сессии. Пустой снимок сам по себе не значит "все
+      // филиалы": это даёт только право tickets.list_all (см. effectiveTerminals),
+      // и тогда тот же where считает и total (очередь «К оплате»,
+      // предупреждения редактора типов), и строки.
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
       }
@@ -422,6 +595,15 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         .from(tickets)
         .where(and(...where))
         .execute();
+
+      // Фирма в строке списка: экран «К оплате» платит за уже сделанную работу,
+      // поэтому берётся фирма исполнителя, который её делал, а не нынешняя
+      // фирма типа (её могли переназначить после закрытия заявки). Фирма типа —
+      // только запасной вариант для заявки, на которую исполнителя не назначали.
+      // Назначенный исполнитель без фирмы (staff) даёт null, а не фирму типа:
+      // работу сделал сотрудник, и приписывать её подрядчику было бы неправдой.
+      const executorFirm = alias(ticket_contractors, "executor_firm");
+      const typeFirm = alias(ticket_contractors, "type_firm");
 
       const rows = await drizzle
         .select({
@@ -433,18 +615,39 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           created_at: tickets.created_at,
           assigned_at: tickets.assigned_at,
           done_at: tickets.done_at,
+          closed_at: tickets.closed_at,
           manager_seen_at: tickets.manager_seen_at,
+          // Для точки непрочитанного на планшете: «в заявке есть события новее
+          // manager_seen_at». Ни одна колонка tickets этого не выражает:
+          // комментарий исполнителя пишет строку в ticket_comments и событие, а
+          // tickets.updated_at не трогает. Коррелированный скалярный подзапрос, а
+          // не ещё один join: он отдаёт ровно одно значение на строку внешнего
+          // запроса и потому не может размножить строки, сколько бы join-ов выше
+          // ни стояло (join к ticket_events дал бы строку на каждое событие).
+          // idx_ticket_events_ticket_id делает его индексным поиском, а считается
+          // он обычно лишь для строк страницы (не больше MAX_LIST_LIMIT): это
+          // зависит от плана, Postgres вправе вычислить SubPlan из списка
+          // выборки и ниже Limit/Sort. Без событий — null.
+          last_event_at: sql<string | null>`(SELECT max(${ticket_events.created_at}) FROM ${ticket_events} WHERE ${ticket_events.ticket_id} = ${tickets.id})`,
+          // Превью на карточке планшета: первое фото проблемы. Тот же приём, что
+          // выше, и по той же причине: отдельный запрос на карточку списка дал бы
+          // N запросов каждую минуту. Порядок по (created_at, id), чтобы при
+          // фото, загруженных одним запросом, превью не прыгало между обновлениями.
+          preview_attachment_id: sql<string | null>`(SELECT ${ticket_attachments.id} FROM ${ticket_attachments} WHERE ${ticket_attachments.ticket_id} = ${tickets.id} AND ${ticket_attachments.phase} = 'problem' ORDER BY ${ticket_attachments.created_at}, ${ticket_attachments.id} LIMIT 1)`,
           work_total_amount: tickets.work_total_amount,
           payment_status: tickets.payment_status,
           type_name: ticket_types.name_ru,
           type_prefix: ticket_types.number_prefix,
           terminal_name: terminals.name,
           executor_name: ticket_executors.full_name,
+          contractor_name: sql<string | null>`CASE WHEN ${tickets.assigned_executor_id} IS NULL THEN ${typeFirm.name} ELSE ${executorFirm.name} END`,
         })
         .from(tickets)
         .leftJoin(ticket_types, eq(tickets.type_id, ticket_types.id))
         .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
         .leftJoin(ticket_executors, eq(tickets.assigned_executor_id, ticket_executors.id))
+        .leftJoin(executorFirm, eq(ticket_executors.contractor_id, executorFirm.id))
+        .leftJoin(typeFirm, eq(ticket_types.contractor_id, typeFirm.id))
         .where(and(...where))
         .orderBy(desc(tickets.created_at))
         .limit(limitNum)
@@ -469,26 +672,44 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets/:id",
-    async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       // Не-UUID в params.id иначе долетает до драйвера как "invalid input
       // syntax for type uuid" — сырая 500 вместо предназначенной 404.
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) {
         where.push(inArray(tickets.terminal_id, userTerminals));
       }
-      const [ticket] = await drizzle
-        .select()
+      // Имена филиала, исполнителя и автора берём тем же join-ом, что и список
+      // (GET /tickets), чтобы карточке не нужен был второй запрос из браузера.
+      // Всё leftJoin: у tickets.terminal_id и created_by нет FK, и заявка с
+      // повисшим id должна открываться с null вместо имени, а не пропадать 404.
+      // Поля users перечислены поштучно: голый select() с join-ом вложил бы
+      // в ответ всю строку users (password, salt, api_token).
+      const [row] = await drizzle
+        .select({
+          ...getTableColumns(tickets),
+          terminal_name: terminals.name,
+          executor_name: ticket_executors.full_name,
+          author_first_name: users.first_name,
+          author_last_name: users.last_name,
+          author_login: users.login,
+        })
         .from(tickets)
+        .leftJoin(terminals, eq(tickets.terminal_id, terminals.id))
+        .leftJoin(ticket_executors, eq(tickets.assigned_executor_id, ticket_executors.id))
+        .leftJoin(users, eq(tickets.created_by, users.id))
         .where(and(...where))
         .execute();
-      if (!ticket) {
+      if (!row) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const { author_first_name, author_last_name, author_login, ...ticket } = row;
 
       const [type] = await drizzle.select().from(ticket_types).where(eq(ticket_types.id, ticket.type_id)).execute();
       const [attachments, comments, workItems, events] = await Promise.all([
@@ -500,6 +721,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
 
       return {
         ...ticket,
+        author_name: authorName(author_first_name, author_last_name, author_login),
         number: ticketNumber(type?.number_prefix ?? "T", ticket.seq),
         type,
         attachments: attachments.map(({ file_path, ...rest }) => rest),
@@ -512,11 +734,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .get(
     "/tickets/attachments/:id/file",
-    async ({ params: { id }, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Файл не найден" };
       }
+      // Вложения открывает та же карточка, что и GET /tickets/:id: если заявку
+      // офис видит, фото к ней должно отдаваться по тому же правилу.
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const [row] = await drizzle
         .select({ file_path: ticket_attachments.file_path, mime: ticket_attachments.mime, terminal_id: tickets.terminal_id })
         .from(ticket_attachments)
@@ -540,11 +765,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/close",
-    async ({ params: { id }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const result = await drizzle.transaction(async (tx) => {
         // Переход проверяется тем же запросом, что и пишет: между SELECT и
         // UPDATE заявку успевают вернуть в работу с другого планшета. Область
@@ -562,12 +789,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           .where(and(...where))
           .returning();
         if (updated.length === 0) return null;
-        const event = await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: "manager", actor_user_id: user!.id });
+        const event = await writeEvent(tx, { ticket_id: id, type: "closed", actor_kind: actor, actor_user_id: user!.id });
         const notificationIds = await recordNotifications(tx, {
           eventId: event.id,
           ticketId: id,
           eventType: "closed",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -589,7 +816,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/reopen",
-    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -598,6 +825,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 422;
         return { message: "Нужен комментарий: без него исполнитель не поймёт, что переделывать" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const result = await drizzle.transaction(async (tx) => {
         const where = scopedTicketWhere(id, userTerminals, allowedFrom("reopen"));
         const updated = await tx
@@ -613,14 +842,14 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         if (updated.length === 0) return null;
         await tx.insert(ticket_comments).values({
           ticket_id: id,
-          author_kind: "manager",
+          author_kind: actor,
           author_user_id: user!.id,
           body: comment.trim(),
         });
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "reopened",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment: comment.trim() },
         });
@@ -628,7 +857,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "reopened",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -649,11 +878,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/cancel",
-    async ({ params: { id }, body: { comment }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, body: { comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       // Пустая или пробельная строка после trim — это отсутствие комментария,
       // а не комментарий из пустой строки: не даём "" осесть в payload.
       const trimmedComment = comment?.trim() || null;
@@ -673,7 +904,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "cancelled",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment: trimmedComment },
         });
@@ -681,7 +912,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "cancelled",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { row: updated[0], notificationIds };
       });
@@ -702,7 +933,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/:id/comments",
-    async ({ params: { id }, body: { body: text }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ params: { id }, body: { body: text }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       if (!UUID_RE.test(id)) {
         set.status = 404;
         return { message: "Заявка не найдена" };
@@ -711,6 +942,8 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 422;
         return { message: "Пустой комментарий" };
       }
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
+      const actor = actorKindOf(userTerminals);
       const where: SQLWrapper[] = [eq(tickets.id, id)];
       if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
       const [ticket] = await drizzle.select({ id: tickets.id }).from(tickets).where(and(...where)).execute();
@@ -722,12 +955,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const { comment, notificationIds } = await drizzle.transaction(async (tx) => {
         const [comment] = await tx
           .insert(ticket_comments)
-          .values({ ticket_id: id, author_kind: "manager", author_user_id: user!.id, body: text.trim() })
+          .values({ ticket_id: id, author_kind: actor, author_user_id: user!.id, body: text.trim() })
           .returning();
         const event = await writeEvent(tx, {
           ticket_id: id,
           type: "comment",
-          actor_kind: "manager",
+          actor_kind: actor,
           actor_user_id: user!.id,
           payload: { comment_id: comment.id },
         });
@@ -735,7 +968,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           eventId: event.id,
           ticketId: id,
           eventType: "comment",
-          actorKind: "manager",
+          actorKind: actor,
         });
         return { comment, notificationIds };
       });
@@ -751,11 +984,24 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 404;
         return { message: "Заявка не найдена" };
       }
-      const where: SQLWrapper[] = [eq(tickets.id, id)];
-      if (userTerminals && userTerminals.length > 0) where.push(inArray(tickets.terminal_id, userTerminals));
+      // Скоуп здесь терминалы сессии, а не effectiveTerminals: см. комментарий у
+      // tickets.list_all выше, отметка «филиал посмотрел» офису не принадлежит.
+      // Пустой снимок поэтому не расширяется ничем, ни правом, ни пустотой: без
+      // филиалов «посмотрел» утверждать некому, и ответ тот же, что на чужую
+      // заявку. Раньше пустой снимок просто не добавлял фильтр и ставил отметку
+      // на заявке любого филиала.
+      if (!userTerminals || userTerminals.length === 0) {
+        set.status = 404;
+        return { message: "Заявка не найдена" };
+      }
+      const where: SQLWrapper[] = [eq(tickets.id, id), inArray(tickets.terminal_id, userTerminals)];
       const updated = await drizzle
         .update(tickets)
-        .set({ manager_seen_at: new Date().toISOString() })
+        // Время базы, а не Node: ticket_events.created_at ставит Postgres
+        // (defaultNow()), и точка непрочитанного на планшете сравнивает эти два
+        // момента. Часы двух процессов расходятся, и тогда отметка то не гасит
+        // точку, то задним числом «прочитывает» событие внутри расхождения.
+        .set({ manager_seen_at: sql`now()` })
         .where(and(...where))
         .returning({ id: tickets.id, manager_seen_at: tickets.manager_seen_at });
       if (updated.length === 0) {
@@ -768,7 +1014,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/payment/approve",
-    async ({ body: { ids }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body: { ids }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
@@ -779,6 +1025,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       // approved/skipped в ответе не сойдётся с тем, что реально произошло.
       const uniqueIds = [...new Set(idsCheck.ids)];
 
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const approved = await applyPaymentDecision(
         drizzle,
         uniqueIds,
@@ -799,7 +1046,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
   )
   .post(
     "/tickets/payment/reject",
-    async ({ body: { ids, comment }, user, terminals: userTerminals, set, drizzle }) => {
+    async ({ body: { ids, comment }, user, terminals: sessionTerminals, role, cacheController, set, drizzle }) => {
       const idsCheck = validatePaymentIds(ids);
       if (!idsCheck.ok) {
         set.status = 422;
@@ -812,6 +1059,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const trimmedComment = comment.trim();
       const uniqueIds = [...new Set(idsCheck.ids)];
 
+      const userTerminals = await effectiveTerminals({ userTerminals: sessionTerminals, role, cacheController });
       const rejected = await applyPaymentDecision(
         drizzle,
         uniqueIds,
@@ -834,32 +1082,12 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       body: t.Object({ ids: t.Array(t.String()), comment: t.String() }),
     }
   )
-  .get(
-    "/ticket_types",
-    // По умолчанию отдаём только active: этот список рисует форму создания
-    // заявки на планшете, и POST /tickets отвергает неактивный тип 404-й —
-    // раньше планшет предлагал заведомо мёртвые типы. include_inactive нужен
-    // только экрану админки и потому проверяется отдельно, правом
-    // tickets.types.manage, а не общим tickets.create route-permission.
-    async ({ query: { include_inactive }, role, cacheController, drizzle }) => {
-      let showInactive = false;
-      if (include_inactive === "true" && role) {
-        const permissions = await cacheController.getPermissionsByRoleId(role.id);
-        showInactive = permissions.includes("tickets.types.manage");
-      }
-      return {
-        data: await drizzle
-          .select()
-          .from(ticket_types)
-          .where(showInactive ? undefined : eq(ticket_types.active, true))
-          .orderBy(ticket_types.sort, ticket_types.name_ru)
-          .execute(),
-      };
-    },
-    // tickets.create, а не tickets.types.manage: список типов рисует форму
-    // создания заявки на планшете филиала, а не только экран админки.
-    { permission: "tickets.create", query: t.Object({ include_inactive: t.Optional(t.String()) }) }
-  )
+  // tickets.create, а не tickets.types.manage: список типов рисует форму
+  // создания заявки на планшете филиала, а не только экран админки.
+  .get("/ticket_types", listTicketTypesHandler, { permission: "tickets.create", query: listTicketTypesQuery })
+  // Тот же ответ для управляющего типами: без tickets.create он иначе
+  // получал 403 на чтение собственного справочника.
+  .get("/ticket_types/manage", listTicketTypesHandler, { permission: "tickets.types.manage", query: listTicketTypesQuery })
   .post(
     "/ticket_types",
     async ({ body, set, drizzle }) => {
@@ -1068,14 +1296,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         return { message: "contractor_id должен быть UUID" };
       }
       const where = contractor_id ? [eq(ticket_executors.contractor_id, contractor_id)] : [];
-      return {
-        data: await drizzle
-          .select()
-          .from(ticket_executors)
-          .where(and(...where))
-          .orderBy(ticket_executors.full_name)
-          .execute(),
-      };
+      const rows = await drizzle
+        .select()
+        .from(ticket_executors)
+        .where(and(...where))
+        .orderBy(ticket_executors.full_name)
+        .execute();
+      return { data: rows.map(withoutInviteCode) };
     },
     { permission: "tickets.contractors.manage", query: t.Object({ contractor_id: t.Optional(t.String()) }) }
   )
@@ -1135,7 +1362,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
           lang: body.lang ?? "ru",
         })
         .returning();
-      return row;
+      return withoutInviteCode(row);
     },
     {
       permission: "tickets.contractors.manage",
@@ -1159,7 +1386,7 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const patch = buildPatch<typeof ticket_executors.$inferInsert>(body, ["full_name", "phone", "lang", "is_active"]);
       patch.updated_at = new Date().toISOString();
       const rows = await drizzle.update(ticket_executors).set(patch).where(eq(ticket_executors.id, id)).returning();
-      const result = rowOrNotFound(rows, "Исполнитель не найден");
+      const result = rowOrNotFound(rows.map(withoutInviteCode), "Исполнитель не найден");
       set.status = result.status;
       return result.body;
     },
@@ -1180,6 +1407,23 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
         set.status = 404;
         return { message: "Исполнитель не найден" };
       }
+      // Выключенного исполнителя бот не привяжет (is_active стоит в WHERE
+      // привязки, bot-controller.ts), так что ссылка для него бесполезна, а
+      // выдача погасила бы действующую. Проверяем до ротации кода.
+      const [target] = await drizzle
+        .select({ is_active: ticket_executors.is_active })
+        .from(ticket_executors)
+        .where(eq(ticket_executors.id, id))
+        .limit(1)
+        .execute();
+      if (!target) {
+        set.status = 404;
+        return { message: "Исполнитель не найден" };
+      }
+      if (!target.is_active) {
+        set.status = 422;
+        return { message: "Исполнитель выключен: бот не привяжет выключенного. Включите его и повторите." };
+      }
       // Без имени бота ссылка получается вида https://t.me/?start=inv_...  —
       // формально 200, а на деле открывает пустой t.me и никуда не ведёт.
       // Проверяем до ротации кода: если ссылку выдать нельзя, старая ссылка
@@ -1195,11 +1439,13 @@ const ticketsControllerImpl = new Elysia({ name: "@api/tickets", prefix: "/api" 
       const [row] = await drizzle
         .update(ticket_executors)
         .set({ invite_code: sql`gen_random_uuid()`, invite_used_at: null, updated_at: new Date().toISOString() })
-        .where(eq(ticket_executors.id, id))
+        .where(and(eq(ticket_executors.id, id), eq(ticket_executors.is_active, true)))
         .returning({ invite_code: ticket_executors.invite_code });
       if (!row) {
-        set.status = 404;
-        return { message: "Исполнитель не найден" };
+        // Строка была секунду назад: её успели выключить или удалить между
+        // проверкой выше и этим UPDATE. Код не провёрнут.
+        set.status = 409;
+        return { message: "Исполнитель изменился: обновите страницу и повторите." };
       }
       return { invite_code: row.invite_code, link: `https://t.me/${bot}?start=inv_${row.invite_code}` };
     },

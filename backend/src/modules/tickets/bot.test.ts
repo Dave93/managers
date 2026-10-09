@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { parseStartPayload } from "./bot-controller";
+import { parseStartPayload, resolveBindLang } from "./bot-controller";
 
 describe("parseStartPayload", () => {
   it("достаёт код приглашения", () => {
@@ -29,5 +29,27 @@ describe("parseStartPayload", () => {
   it("любое другое сообщение игнорируется", () => {
     expect(parseStartPayload("привет")).toBeNull();
     expect(parseStartPayload("")).toBeNull();
+  });
+});
+
+describe("resolveBindLang", () => {
+  it("сохраняет язык, заданный в карточке", () => {
+    expect(resolveBindLang("uz", "ru")).toBe("uz");
+    expect(resolveBindLang("ru", "uz")).toBe("ru");
+  });
+
+  it("берёт язык телеграма, только если в карточке не ru и не uz", () => {
+    expect(resolveBindLang(null, "uz")).toBe("uz");
+    expect(resolveBindLang(undefined, "uz")).toBe("uz");
+  });
+
+  it("падает на русский, когда неизвестно ничего", () => {
+    expect(resolveBindLang(null, undefined)).toBe("ru");
+    expect(resolveBindLang(null, "en")).toBe("ru");
+  });
+
+  it("не принимает мусор вместо языка", () => {
+    expect(resolveBindLang(null, { evil: true } as any)).toBe("ru");
+    expect(resolveBindLang(42 as any, "uz")).toBe("uz");
   });
 });

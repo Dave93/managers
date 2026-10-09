@@ -364,15 +364,21 @@ export const usersController = new Elysia({
   .get("/users/me", async ({
     user,
     role,
+    terminals,
     status
   }) => {
     if (!user) {
       return status(401, "Unauthorized");
     }
 
+    // terminals — снимок филиалов сессии, снятый при входе: тот самый список,
+    // по которому остальные роуты (например POST /tickets) решают, куда
+    // сессии можно. Пустой список остаётся пустым: у офисной роли он значит
+    // «без привязки к филиалу», а не «все».
     return {
       user,
       role,
+      terminals: terminals ?? [],
     };
   }, {
     userAuth: true

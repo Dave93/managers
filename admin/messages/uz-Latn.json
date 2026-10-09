@@ -495,5 +495,23 @@
       "traineeOfRequired": "Stajyor qaysi rolga o‘qishini ko‘rsating",
       "codeFormat": "Kod: lotin harflari, raqamlar va pastki chiziq, 2–50 belgi"
     }
+  },
+  "tickets": {
+    "nav": {
+      "group": "Arizalar",
+      "list": "Arizalar",
+      "payments": "To'lovga",
+      "contractors": "Pudratchi firmalar",
+      "types": "Ariza turlari",
+      "branch": "Filial arizalari"
+    },
+    "screens": {
+      "office": "Arizalar",
+      "payments": "To'lovga",
+      "contractors": "Firmalar va ijrochilar",
+      "types": "Ariza turlari",
+      "branch": "Filial arizalari",
+      "newTicket": "Yangi ariza"
+    }
   }
 }
