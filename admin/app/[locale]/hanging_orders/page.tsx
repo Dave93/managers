@@ -6,12 +6,14 @@ import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Facets } from "./data-table";
 import { buildFiltersJson, type ColumnFilters } from "./filters";
+import { BulkCancelDialog, type BulkTarget } from "./bulk-cancel";
+import { useCanAccess } from "@admin/components/use-can-access";
 import { hangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { toast } from "sonner";
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Input } from "@admin/components/ui/input";
@@ -42,6 +44,23 @@ function HangingOrdersContent() {
     const [hideClosed, setHideClosed] = useState(true);
     const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
     const { dateRange } = useDateRangeState();
+
+    // Массовая отмена — только admin (право hanging_orders.iiko_actions).
+    const canIiko = useCanAccess("hanging_orders.iiko_actions");
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [total, setTotal] = useState(0);
+    const [bulkTarget, setBulkTarget] = useState<BulkTarget | null>(null);
+
+    // Те же фильтры, что у таблицы, — для «отменить всё по фильтру».
+    const tableFilters = buildFiltersJson({
+        brandFilter, statusFilter, searchTerm,
+        dateRange: dateRange || undefined, hideClosed, columnFilters,
+    });
+
+    // Сменился фильтр — выбор с прежней выдачи больше не относится к экрану.
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [tableFilters]);
 
     // Справочник значений для выпадающих фильтров в шапке. Считается по тем же
     // верхним фильтрам, что и таблица, без колоночных — иначе выбор в одном
@@ -344,6 +363,44 @@ function HangingOrdersContent() {
                 </CardContent>
             </Card>
 
+            {canIiko && (
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border px-4 py-2 text-sm">
+                    <span className="text-muted-foreground">
+                        Выбрано: <span className="font-medium text-foreground">{selectedIds.length}</span>
+                    </span>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={selectedIds.length === 0}
+                        onClick={() => setBulkTarget({ mode: "ids", ids: selectedIds, count: selectedIds.length })}
+                    >
+                        Отменить выбранные в iiko
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={total === 0}
+                        onClick={() => setBulkTarget({ mode: "filter", filters: tableFilters, count: total })}
+                    >
+                        Отменить все по фильтру ({total})
+                    </Button>
+                    {selectedIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                            Снять выбор
+                        </Button>
+                    )}
+                </div>
+            )}
+
+            <BulkCancelDialog
+                target={bulkTarget}
+                onClose={() => setBulkTarget(null)}
+                onDone={() => {
+                    setSelectedIds([]);
+                    queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
+                }}
+            />
+
             <div className="py-10">
                 <DataTable 
                     columns={hangingOrdersColumns} 
@@ -355,6 +412,10 @@ function HangingOrdersContent() {
                     columnFilters={columnFilters}
                     onColumnFiltersChange={setColumnFilters}
                     facets={facets}
+                    selectable={canIiko}
+                    selectedIds={selectedIds}
+                    onSelectedIdsChange={setSelectedIds}
+                    onTotalChange={setTotal}
                 />
             </div>
         </div>

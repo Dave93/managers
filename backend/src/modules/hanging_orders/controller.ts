@@ -13,6 +13,7 @@ import {
   getTableColumns,
   gte,
   inArray,
+  isNotNull,
   lte,
   isNull,
   notInArray,
@@ -256,6 +257,86 @@ async function serverCloseTime(
 
   return null;
 }
+
+/** OLAP отдаёт "" вместо null у пустых полей. */
+const olapVal = (v: unknown) =>
+  typeof v === "string" && v.trim() !== "" ? v : null;
+
+/**
+ * Доставки из iikoServer за [minDate, maxDate], понедельно, по Delivery.Id.
+ * Фильтр по Delivery.Id не ставим — iikoServer отдаёт по нему 0 строк.
+ */
+async function olapDeliveries(
+  cacheController: any,
+  minDate: string,
+  maxDate: string,
+  onWeek?: (from: string) => unknown
+): Promise<Map<string, any>> {
+  const token = await cacheController.getIikoChainToken();
+  const byId = new Map<string, any>();
+
+  for (
+    let from = minDate;
+    from <= maxDate;
+    from = dayjs(from).add(7, "day").format("YYYY-MM-DD")
+  ) {
+    await onWeek?.(from);
+    const res = await fetch(
+      `${IIKO_SERVER}/v2/reports/olap?key=${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportType: "SALES",
+          buildSummary: "false",
+          groupByRowFields: ["Delivery.Id", "Delivery.CloseTime"],
+          aggregateFields: ["DishDiscountSumInt"],
+          filters: {
+            "OpenDate.Typed": {
+              filterType: "DateRange",
+              periodType: "CUSTOM",
+              from: dayjs(from).subtract(1, "day").format("YYYY-MM-DD"),
+              to: dayjs(from).add(8, "day").format("YYYY-MM-DD"),
+              includeLow: true,
+              includeHigh: false,
+            },
+            OrderDeleted: { filterType: "IncludeValues", values: ["NOT_DELETED"] },
+          },
+        }),
+      }
+    );
+    if (!res.ok) throw new Error(`iikoServer ответил ${res.status} за неделю с ${from}`);
+    const payload: any = await res.json();
+    for (const r of payload?.data ?? []) {
+      if (r?.["Delivery.Id"]) byId.set(r["Delivery.Id"], r);
+    }
+  }
+
+  return byId;
+}
+
+// Массовая отмена: фоновой задачей, статус в Redis.
+const BULK_MAX = 2000;
+// Сколько заказов отменяем одновременно. Команды уходят на разные кассы,
+// но iikoCloud один — не разгоняем.
+const BULK_CONCURRENCY = 3;
+// Столько ошибок кассы подряд — и прогон останавливается: что-то не так
+// системно (касса офлайн, старые заказы не принимаются), а не с заказом.
+const BULK_STOP_AFTER_ERRORS = 5;
+const BULK_LOCK = `${process.env.PROJECT_PREFIX}hanging_bulk_cancel:lock`;
+const bulkJobKey = (id: string) =>
+  `${process.env.PROJECT_PREFIX}hanging_bulk_cancel:${id}`;
+
+type BulkStats = {
+  total: number;
+  done: number;
+  cancelled: number;
+  alreadyClosed: number;
+  errors: number;
+  pending: number;
+  stopped: boolean;
+  errorSamples: string[];
+};
 
 type RefreshReport = {
   brand: string;
@@ -1125,6 +1206,270 @@ export const hangingOrdersController = new Elysia({
         removalTypeId: t.String({ minLength: 1 }),
         comment: t.Optional(t.String({ maxLength: 500 })),
       }),
+    }
+  )
+  .post(
+    "/hanging-orders/iiko-cancel-bulk",
+    async ({ body, drizzle, cacheController, redis, user, set }) => {
+      const floor = dayjs()
+        .subtract(MAX_WINDOW_MONTHS, "month")
+        .format("YYYY-MM-DD");
+
+      let where: (SQLWrapper | undefined)[];
+      if (body.ids?.length) {
+        where = [inArray(hangingOrders.id, body.ids)];
+      } else if (body.filters) {
+        where = parseFilterFields(body.filters, hangingOrders, {});
+      } else {
+        set.status = 400;
+        return { message: "Нужны выбранные заказы или фильтр" };
+      }
+
+      // Только висящие, с id в iiko и не старше 4 месяцев — что бы ни
+      // пришло с клиента.
+      const rows = await drizzle
+        .select({
+          id: hangingOrders.id,
+          orderId: hangingOrders.orderId,
+          brand: hangingOrders.brand,
+          date: hangingOrders.date,
+          comment: hangingOrders.comment,
+        })
+        .from(hangingOrders)
+        .where(
+          and(
+            ...where,
+            gte(hangingOrders.date, floor),
+            isNotNull(hangingOrders.orderId),
+            or(
+              isNull(hangingOrders.orderStatus),
+              notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
+            )
+          )
+        )
+        .limit(BULK_MAX + 1)
+        .execute();
+
+      if (rows.length === 0) {
+        set.status = 400;
+        return {
+          message: "Ни одного висящего заказа за последние 4 месяца под условие не попало",
+        };
+      }
+      if (rows.length > BULK_MAX) {
+        set.status = 400;
+        return { message: `Больше ${BULK_MAX} заказов — сузьте фильтр` };
+      }
+
+      const jobId = crypto.randomUUID();
+      const locked = await redis.set(BULK_LOCK, jobId, "EX", 7200, "NX");
+      if (!locked) {
+        set.status = 409;
+        return {
+          message: "Массовая отмена уже идёт — дождитесь её",
+          job: { id: await redis.get(BULK_LOCK) },
+        };
+      }
+
+      const stats: BulkStats = {
+        total: rows.length,
+        done: 0,
+        cancelled: 0,
+        alreadyClosed: 0,
+        errors: 0,
+        pending: 0,
+        stopped: false,
+        errorSamples: [],
+      };
+      const save = (state: string, progress: string) =>
+        redis.set(
+          bulkJobKey(jobId),
+          JSON.stringify({ state, progress, stats }),
+          "EX",
+          86400
+        );
+      await save("running", "старт");
+
+      const log = (
+        row: (typeof rows)[number],
+        state: string,
+        error: string | null,
+        extra: Record<string, unknown> = {}
+      ) =>
+        drizzle
+          .insert(hangingOrderActions)
+          .values({
+            hangingOrderId: row.id,
+            orderId: row.orderId,
+            action: "cancel",
+            userId: user?.id ?? null,
+            userLogin: user?.login ?? null,
+            params: {
+              bulkJobId: jobId,
+              cancelCause: body.cancelCauseName,
+              removalType: body.removalTypeName,
+              ...extra,
+            },
+            state,
+            error,
+          })
+          .execute();
+
+      const fail = (row: (typeof rows)[number], why: string) => {
+        stats.errors++;
+        if (stats.errorSamples.length < 10) {
+          stats.errorSamples.push(`${row.date}: ${why}`);
+        }
+      };
+
+      void (async () => {
+        try {
+          // 1. Закрытые в бэк-офисе не отменяем: это оплаченные заказы.
+          const dates = rows.map((r) => r.date).sort();
+          const server = await olapDeliveries(
+            cacheController,
+            dates[0],
+            dates[dates.length - 1],
+            (from) =>
+              save("running", `проверяю iikoServer: неделя с ${dayjs(from).format("DD.MM")}`)
+          );
+
+          const toCancel: typeof rows = [];
+          for (const row of rows) {
+            const closedAt = olapVal(server.get(row.orderId!)?.["Delivery.CloseTime"]);
+            if (!closedAt) {
+              toCancel.push(row);
+              continue;
+            }
+            await drizzle
+              .update(hangingOrders)
+              .set({ orderStatus: "Closed", whenClosed: closedAt, updatedAt: new Date() })
+              .where(eq(hangingOrders.id, row.id))
+              .execute();
+            await log(row, "Refused", `в iikoServer закрыт ${closedAt}`);
+            stats.alreadyClosed++;
+            stats.done++;
+          }
+
+          // 2. Сессия и id причины/типа удаления — свои у каждого бренда.
+          type Prep = { session: CloudSession; causeId: string; removalId: string };
+          const preps = new Map<string, Promise<Prep>>();
+          const prepare = (brand: string) => {
+            let pr = preps.get(brand);
+            if (!pr) {
+              pr = (async () => {
+                const session = await cloudSession(drizzle, brand);
+                const list = async (path: string) =>
+                  (await (
+                    await fetchIikoWithRetry(`${IIKO_URL}${path}`, {
+                      method: "POST",
+                      headers: {
+                        Authorization: `Bearer ${session.token}`,
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({ organizationIds: [session.iikoOrgId] }),
+                    })
+                  ).json()) as any;
+                const cause = ((await list("cancel_causes"))?.cancelCauses ?? []).find(
+                  (c: any) => !c.isDeleted && c.name === body.cancelCauseName
+                );
+                const removal = ((await list("removal_types"))?.removalTypes ?? []).find(
+                  (t: any) => !t.isDeleted && t.name === body.removalTypeName
+                );
+                if (!cause) throw new Error(`у ${brand} нет причины «${body.cancelCauseName}»`);
+                if (!removal) throw new Error(`у ${brand} нет типа удаления «${body.removalTypeName}»`);
+                return { session, causeId: cause.id, removalId: removal.id };
+              })();
+              preps.set(brand, pr);
+            }
+            return pr;
+          };
+
+          // 3. Отмена. Комментарий — «Заметка» заказа, без неё — общий.
+          let next = 0;
+          let streak = 0;
+          const worker = async () => {
+            while (next < toCancel.length && !stats.stopped) {
+              const row = toCancel[next++];
+              const comment = (row.comment?.trim() || body.fallbackComment?.trim() || "").slice(0, 500);
+
+              try {
+                const prep = await prepare(row.brand);
+                const result = await runCommand(prep.session, "deliveries/cancel", {
+                  orderId: row.orderId,
+                  cancelCauseId: prep.causeId,
+                  removalTypeId: prep.removalId,
+                  ...(comment ? { cancelComment: comment, removalComment: comment } : {}),
+                });
+                await log(row, result.state, result.error, { comment });
+
+                if (result.state === "Success") {
+                  await drizzle
+                    .update(hangingOrders)
+                    .set({ orderStatus: "Cancelled", updatedAt: new Date() })
+                    .where(eq(hangingOrders.id, row.id))
+                    .execute();
+                  stats.cancelled++;
+                  streak = 0;
+                } else if (result.state === "InProgress") {
+                  stats.pending++;
+                  streak = 0;
+                } else {
+                  fail(row, result.error ?? "касса отказала");
+                  streak++;
+                }
+              } catch (e: any) {
+                const why = e?.message ?? String(e);
+                await log(row, "Error", why, { comment });
+                fail(row, why);
+                streak++;
+              }
+
+              stats.done++;
+              if (streak >= BULK_STOP_AFTER_ERRORS) stats.stopped = true;
+              await save(
+                "running",
+                `отменено ${stats.cancelled}, обработано ${stats.done} из ${stats.total}`
+              );
+            }
+          };
+          await Promise.all(Array.from({ length: BULK_CONCURRENCY }, worker));
+
+          await save(stats.stopped ? "stopped" : "done", "готово");
+        } catch (e: any) {
+          stats.errorSamples.push(e?.message ?? String(e));
+          await save("error", e?.message ?? String(e));
+        } finally {
+          if ((await redis.get(BULK_LOCK)) === jobId) await redis.del(BULK_LOCK);
+        }
+      })();
+
+      return { job: { id: jobId }, total: rows.length };
+    },
+    {
+      permission: ACTION_PERMISSION,
+      body: t.Object({
+        ids: t.Optional(t.Array(t.String(), { maxItems: BULK_MAX })),
+        filters: t.Optional(t.String()),
+        cancelCauseName: t.String({ minLength: 1 }),
+        removalTypeName: t.String({ minLength: 1 }),
+        fallbackComment: t.Optional(t.String({ maxLength: 500 })),
+      }),
+    }
+  )
+  .get(
+    "/hanging-orders/iiko-cancel-bulk/:jobId",
+    async ({ params: { jobId }, redis, set }) => {
+      const raw = await redis.get(bulkJobKey(jobId));
+      if (!raw) {
+        set.status = 404;
+        return { message: "Задача не найдена или устарела" };
+      }
+      return JSON.parse(raw);
+    },
+    {
+      permission: ACTION_PERMISSION,
+      params: t.Object({ jobId: t.String() }),
     }
   )
   .get(

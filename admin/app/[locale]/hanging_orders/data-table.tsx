@@ -72,6 +72,11 @@ interface DataTableProps<TValue> {
     columnFilters?: ColumnFilters;
     onColumnFiltersChange?: (next: ColumnFilters) => void;
     facets?: Facets;
+    /** Колонка с галочками для массовых действий — только у admin. */
+    selectable?: boolean;
+    selectedIds?: string[];
+    onSelectedIdsChange?: (ids: string[]) => void;
+    onTotalChange?: (total: number) => void;
 }
 
 export function DataTable<TValue>({
@@ -84,6 +89,10 @@ export function DataTable<TValue>({
     columnFilters,
     onColumnFiltersChange,
     facets,
+    selectable,
+    selectedIds,
+    onSelectedIdsChange,
+    onTotalChange,
 }: DataTableProps<TValue>) {
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
@@ -234,13 +243,61 @@ export function DataTable<TValue>({
         [pageIndex, pageSize]
     );
 
+    useEffect(() => {
+        onTotalChange?.(data?.total ?? 0);
+    }, [data?.total, onTotalChange]);
+
+    // Выбор держим по id строки, а не по индексу: при смене страницы
+    // выбранное на других страницах не теряется.
+    const rowSelection = useMemo(
+        () => Object.fromEntries((selectedIds ?? []).map((id) => [id, true])),
+        [selectedIds],
+    );
+
+    // Галочки — в конце, рядом с кнопками действий: слева sticky-колонки
+    // бренда и концепции, лишняя колонка перед ними сбила бы их смещения.
+    const allColumns = useMemo(() => {
+        if (!selectable) return columns;
+        const select: ColumnDef<typeof hangingOrders.$inferSelect, TValue> = {
+            id: "select",
+            header: ({ table }) => (
+                <input
+                    type="checkbox"
+                    aria-label="Выбрать висящие на странице"
+                    className="h-4 w-4 cursor-pointer accent-red-600"
+                    checked={table.getIsAllPageRowsSelected()}
+                    onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
+                />
+            ),
+            cell: ({ row }) =>
+                row.getCanSelect() ? (
+                    <input
+                        type="checkbox"
+                        aria-label="Выбрать заказ"
+                        className="h-4 w-4 cursor-pointer accent-red-600"
+                        checked={row.getIsSelected()}
+                        onChange={row.getToggleSelectedHandler()}
+                    />
+                ) : null,
+        };
+        return [...columns, select];
+    }, [columns, selectable]);
+
     const table = useReactTable({
         data: data?.data ?? defaultData,
         // @ts-ignore
-        columns: columns as ColumnDef<{ [x: string]: unknown; }, TValue>[],
+        columns: allColumns as ColumnDef<{ [x: string]: unknown; }, TValue>[],
         pageCount: data?.total ? Math.ceil(data.total / pageSize) : -1,
+        getRowId: (row: any) => row.id,
+        enableRowSelection: (row: any) =>
+            !["Closed", "Cancelled"].includes(row.original.orderStatus ?? ""),
         state: {
             pagination,
+            rowSelection,
+        },
+        onRowSelectionChange: (updater) => {
+            const next = typeof updater === "function" ? updater(rowSelection) : updater;
+            onSelectedIdsChange?.(Object.keys(next).filter((id) => next[id]));
         },
         onPaginationChange: setPagination,
         getCoreRowModel: getCoreRowModel(),
