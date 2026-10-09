@@ -27,7 +27,7 @@ import {
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
     Select,
     SelectContent,
@@ -50,6 +50,17 @@ import dayjs from "dayjs";
 
 import { useIsMobile } from "@admin/utils/use-is-mobile";
 import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
+import { Input } from "@admin/components/ui/input";
+import { buildFiltersJson, type ColumnFilters } from "./filters";
+import { ordersStatusText } from "./columns";
+
+/** Справочник значений для выпадающих фильтров. */
+export type Facets = {
+    conception: string[];
+    orderType: string[];
+    paymentType: string[];
+    orderStatus: string[];
+};
 
 interface DataTableProps<TValue> {
     columns: ColumnDef<typeof hangingOrders.$inferSelect, TValue>[];
@@ -58,10 +69,10 @@ interface DataTableProps<TValue> {
     statusFilter?: string;
     dateRange?: DateRange;
     hideClosed?: boolean;
+    columnFilters?: ColumnFilters;
+    onColumnFiltersChange?: (next: ColumnFilters) => void;
+    facets?: Facets;
 }
-
-// Заказ в этих статусах уже не висит — филиал закрыл или отменил его.
-const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
 export function DataTable<TValue>({
     columns,
@@ -70,6 +81,9 @@ export function DataTable<TValue>({
     statusFilter,
     dateRange,
     hideClosed,
+    columnFilters,
+    onColumnFiltersChange,
+    facets,
 }: DataTableProps<TValue>) {
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
@@ -78,35 +92,104 @@ export function DataTable<TValue>({
     const isMobileHook = useIsMobile();
 
 
-    // Create filters based on all filter parameters
-    const filters = useMemo(() => {
-        const filterArray = [];
-        
-        if (brandFilter && brandFilter !== "all") {
-            filterArray.push({ field: "brand", operator: "eq", value: brandFilter });
-        }
-        
-        if (statusFilter && statusFilter !== "all") {
-            filterArray.push({ field: "status", operator: "eq", value: statusFilter });
-        }
+    const filters = useMemo(
+        () =>
+            buildFiltersJson({
+                brandFilter,
+                statusFilter,
+                searchTerm,
+                dateRange,
+                hideClosed,
+                columnFilters,
+            }),
+        [brandFilter, statusFilter, searchTerm, dateRange, hideClosed, columnFilters],
+    );
 
-        if (hideClosed) {
-            filterArray.push({ field: "orderStatus", operator: "notIn", value: FINAL_ORDER_STATUSES });
+    // Текстовые поля правим локально и отдаём наверх с задержкой, иначе
+    // запрос уходил бы на каждое нажатие клавиши.
+    const [draft, setDraft] = useState<ColumnFilters>(columnFilters ?? {});
+
+    useEffect(() => {
+        setDraft(columnFilters ?? {});
+    }, [columnFilters]);
+
+    useEffect(() => {
+        if (!onColumnFiltersChange) return;
+        const id = setTimeout(() => {
+            if (JSON.stringify(draft) !== JSON.stringify(columnFilters ?? {})) {
+                onColumnFiltersChange(draft);
+            }
+        }, 350);
+
+        return () => clearTimeout(id);
+    }, [draft, columnFilters, onColumnFiltersChange]);
+
+    // Выбор в списке применяем сразу — ждать там нечего.
+    const applyNow = (next: ColumnFilters) => {
+        setDraft(next);
+        onColumnFiltersChange?.(next);
+    };
+
+    const textFilter = (field: keyof ColumnFilters, placeholder: string) => (
+        <Input
+            value={draft[field] ?? ""}
+            onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}
+            placeholder={placeholder}
+            className="h-7 text-xs"
+        />
+    );
+
+    const selectFilter = (field: keyof ColumnFilters, options: string[], label: (v: string) => string) => (
+        <Select
+            value={draft[field] ?? "all"}
+            onValueChange={(v) => applyNow({ ...draft, [field]: v })}
+        >
+            <SelectTrigger className="h-7 text-xs">
+                <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+                <SelectItem value="all">Все</SelectItem>
+                {options.map((o) => (
+                    <SelectItem key={o} value={o}>
+                        {label(o)}
+                    </SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
+    );
+
+    const filterCell = (columnId: string) => {
+        switch (columnId) {
+            case "conception":
+                return textFilter("conception", "поиск");
+            case "orderType":
+                return selectFilter("orderType", facets?.orderType ?? [], (v) =>
+                    v === "Доставка курьером" ? "Курьер" : v,
+                );
+            case "paymentType":
+                return selectFilter("paymentType", facets?.paymentType ?? [], (v) => v);
+            case "orderStatus":
+                return selectFilter(
+                    "orderStatus",
+                    facets?.orderStatus ?? [],
+                    (v) => ordersStatusText[v as keyof typeof ordersStatusText] || v,
+                );
+            case "comments":
+                return textFilter("comments", "поиск");
+            case "amount":
+                return textFilter("amountFrom", "от");
+            case "phoneNumber":
+                return textFilter("phoneNumber", "поиск");
+            case "receiptNumber":
+                return textFilter("receiptNumber", "№");
+            case "problem":
+                return textFilter("problem", "поиск");
+            case "comment":
+                return textFilter("comment", "поиск");
+            default:
+                return null;
         }
-        
-        if (searchTerm) {
-            filterArray.push({ field: "orderId", operator: "contains", value: searchTerm });
-        }
-        
-        if (dateRange?.from) {
-            filterArray.push({ field: "date", operator: "gte", value: dayjs(dateRange.from).format('YYYY-MM-DD') });
-        }
-        
-        if (dateRange?.to) {
-            filterArray.push({ field: "date", operator: "lte", value: dayjs(dateRange.to).format('YYYY-MM-DD') });
-        }
-        return filterArray.length > 0 ? JSON.stringify(filterArray) : undefined;
-    }, [brandFilter, statusFilter, searchTerm, dateRange, hideClosed]);
+    };
 
     const { data, isLoading } = useQuery({
         queryKey: [
@@ -226,6 +309,39 @@ export function DataTable<TValue>({
                                 </TableRow>
                             );
                         })}
+                        {onColumnFiltersChange && (
+                            <TableRow className="hover:bg-transparent">
+                                {table.getHeaderGroups()[0]?.headers.map((header) => {
+                                    const isSticky =
+                                        header.column.columnDef.meta?.sticky === "left";
+                                    const left = header.column.id === "conception" ? 100 : 0;
+
+                                    return (
+                                        <TableHead
+                                            key={`filter-${header.id}`}
+                                            className={
+                                                isSticky
+                                                    ? "sticky z-10 bg-background border-r shadow-sm py-1"
+                                                    : "py-1"
+                                            }
+                                            style={
+                                                isSticky
+                                                    ? {
+                                                        left: `${left}px`,
+                                                        minWidth:
+                                                            header.column.id === "brand"
+                                                                ? "100px"
+                                                                : "140px",
+                                                    }
+                                                    : {}
+                                            }
+                                        >
+                                            {filterCell(header.column.id)}
+                                        </TableHead>
+                                    );
+                                })}
+                            </TableRow>
+                        )}
                     </TableHeader>
                     <TableBody>
                         {isLoading ? (

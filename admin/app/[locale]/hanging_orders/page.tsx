@@ -4,7 +4,8 @@ import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
 import Link from "next/link";
-import { DataTable } from "./data-table";
+import { DataTable, type Facets } from "./data-table";
+import { buildFiltersJson, type ColumnFilters } from "./filters";
 import { hangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -39,7 +40,25 @@ function HangingOrdersContent() {
     // По умолчанию прячем закрытые: страница про висящие заказы, а закрытые
     // после ре-синка перестают быть таковыми.
     const [hideClosed, setHideClosed] = useState(true);
+    const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
     const { dateRange } = useDateRangeState();
+
+    // Справочник значений для выпадающих фильтров в шапке. Считается по тем же
+    // верхним фильтрам, что и таблица, без колоночных — иначе выбор в одном
+    // списке сужал бы варианты в нём же.
+    const facetsFilters = buildFiltersJson({
+        brandFilter, statusFilter, searchTerm,
+        dateRange: dateRange || undefined, hideClosed,
+    });
+    const { data: facets } = useQuery({
+        queryKey: ["hanging-orders-facets", facetsFilters],
+        queryFn: async () => {
+            const { data } = await apiClient.api["hanging-orders"].facets.get({
+                query: { ...(facetsFilters && { filters: facetsFilters }) },
+            });
+            return (data as { data: Facets } | null)?.data;
+        },
+    });
     const queryClient = useQueryClient();
 
     // Ночной бот пишет снимок один раз и существующие строки не обновляет, так
@@ -75,32 +94,17 @@ function HangingOrdersContent() {
     const { data: exportData, refetch } = useQuery({
         queryKey: ["hanging-orders-export"],
         queryFn: async () => {
-            const filters = [];
-            
-            if (brandFilter !== "all") {
-                filters.push({ field: "brand", operator: "eq", value: brandFilter });
-            }
-            if (statusFilter !== "all") {
-                filters.push({ field: "status", operator: "eq", value: statusFilter });
-            }
-            if (hideClosed) {
-                filters.push({ field: "orderStatus", operator: "notIn", value: ["Closed", "Cancelled"] });
-            }
-            if (searchTerm) {
-                filters.push({ field: "orderId", operator: "contains", value: searchTerm });
-            }
-            if (dateRange?.from) {
-                filters.push({ field: "date", operator: "gte", value: dayjs(dateRange.from).format('YYYY-MM-DD') });
-            }
-            if (dateRange?.to) {
-                filters.push({ field: "date", operator: "lte", value: dayjs(dateRange.to).format('YYYY-MM-DD') });
-            }
+            // Тот же сборщик, что у таблицы: выгрузка = то, что на экране.
+            const filters = buildFiltersJson({
+                brandFilter, statusFilter, searchTerm,
+                dateRange: dateRange || undefined, hideClosed, columnFilters,
+            });
 
             const { data } = await apiClient.api["hanging-orders"].get({
                 query: {
                     limit: "10000",
                     offset: "0",
-                    ...(filters.length > 0 && { filters: JSON.stringify(filters) }),
+                    ...(filters && { filters }),
                 },
             });
             return data;
@@ -188,6 +192,7 @@ function HangingOrdersContent() {
         setSearchTerm("");
         setBrandFilter("all");
         setStatusFilter("all");
+        setColumnFilters({});
         // hideClosed намеренно не сбрасываем: если менеджер открыл закрытые,
         // чтобы найти конкретный заказ, сброс фильтров не должен их прятать.
         // DateRange очищается через его собственный хук через URL параметры
@@ -313,6 +318,9 @@ function HangingOrdersContent() {
                     statusFilter={statusFilter}
                     dateRange={dateRange || undefined}
                     hideClosed={hideClosed}
+                    columnFilters={columnFilters}
+                    onColumnFiltersChange={setColumnFilters}
+                    facets={facets}
                 />
             </div>
         </div>

@@ -14,7 +14,7 @@ import {
     HoverCardTrigger,
 } from "@admin/components/ui/hover-card";
 
-const ordersStatusText = {
+export const ordersStatusText = {
     "Unconfirmed": "Не подтвержден",
     "WaitCooking": "Ожидает приготовления",
     "ReadyForCooking": "Готов к приготовлению",
@@ -30,6 +30,16 @@ const ordersStatusText = {
 // Закрыт/Отменён — заказ больше не висит; после ре-синка из iiko такие строки
 // гасим визуально, но не удаляем: в status/comment лежит ручная работа менеджеров.
 const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
+
+// Этапы доставки в порядке прохождения. iiko отдаёт отметку времени на каждый;
+// последняя заполненная и есть место, где заказ встал.
+const STAGES = [
+    { key: "whenPrinted", label: "принят", next: "не приготовлен" },
+    { key: "whenCookingCompleted", label: "приготовлен", next: "курьеру не передан" },
+    { key: "whenSended", label: "у курьера", next: "не доставлен" },
+    { key: "whenDelivered", label: "доставлен", next: "не закрыт" },
+    { key: "whenClosed", label: "закрыт", next: "" },
+] as const;
 
 const getBrandBadgeVariant = (brand: string) => {
     switch (brand) {
@@ -133,6 +143,40 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
                 <span className="text-muted-foreground">{label}</span>
             ) : (
                 label
+            );
+        },
+    },
+    {
+        id: "stuckAt",
+        header: () => <span title="На каком этапе доставки заказ встал">Застрял на</span>,
+        cell: ({ row }) => {
+            const record = row.original as Record<string, string | null>;
+            const reached = STAGES.filter((s) => record[s.key]);
+
+            // Строка ещё ни разу не обновлялась из iiko — этапов не знаем.
+            if (reached.length === 0) {
+                return <span className="text-muted-foreground">—</span>;
+            }
+
+            const last = reached[reached.length - 1];
+            const at = dayjs(record[last.key] as string);
+            const time = at.isValid() ? at.format("HH:mm") : "";
+            const chain = reached
+                .map((s) => {
+                    const t = dayjs(record[s.key] as string);
+                    return `${s.label} ${t.isValid() ? t.format("DD.MM HH:mm") : "?"}`;
+                })
+                .join(" → ");
+            const done = last.key === "whenClosed";
+
+            return (
+                <span
+                    className={done ? "text-muted-foreground" : "text-amber-600"}
+                    title={last.next ? `${chain}
+${last.next}` : chain}
+                >
+                    {last.label} {time}
+                </span>
             );
         },
     },

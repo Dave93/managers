@@ -1335,6 +1335,14 @@ export const hangingOrders = pgTable(
         composition: text("composition"),
         status: text("status"), // Manual tracking status
         comment: text("comment"), // Manual comment
+        // Отметки этапов доставки из iiko, как есть — строками местного времени.
+        // Текстом, а не timestamp: драйвер пересчитал бы их в UTC и сдвинул на 5
+        // часов, как это уже произошло с updated_at.
+        whenPrinted: text("when_printed"),
+        whenCookingCompleted: text("when_cooking_completed"),
+        whenSended: text("when_sended"),
+        whenDelivered: text("when_delivered"),
+        whenClosed: text("when_closed"),
         createdAt: timestamp("created_at").defaultNow(),
         updatedAt: timestamp("updated_at").defaultNow(),
     },
