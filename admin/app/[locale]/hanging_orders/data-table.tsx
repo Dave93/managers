@@ -51,8 +51,7 @@ import dayjs from "dayjs";
 import { useIsMobile } from "@admin/utils/use-is-mobile";
 import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
 import { Input } from "@admin/components/ui/input";
-import { buildFiltersJson, type ColumnFilters } from "./filters";
-import { ordersStatusText } from "./columns";
+import { buildFiltersJson, OFFICE_STATUSES, type ColumnFilters } from "./filters";
 
 /** Справочник значений для выпадающих фильтров. */
 export type Facets = {
@@ -178,10 +177,13 @@ export function DataTable<TValue>({
             case "paymentType":
                 return selectFilter("paymentType", facets?.paymentType ?? [], (v) => v);
             case "orderStatus":
+                // Группы iikoOffice, а не сырые статусы облака: только те, что есть в выдаче.
                 return selectFilter(
                     "orderStatus",
-                    facets?.orderStatus ?? [],
-                    (v) => ordersStatusText[v as keyof typeof ordersStatusText] || v,
+                    OFFICE_STATUSES.filter((g) =>
+                        g.values.some((v) => facets?.orderStatus?.includes(v)),
+                    ).map((g) => g.key),
+                    (k) => OFFICE_STATUSES.find((g) => g.key === k)?.label ?? k,
                 );
             case "comments":
                 return textFilter("comments", "поиск");

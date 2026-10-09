@@ -4,6 +4,30 @@ import type { DateRange } from "react-day-picker";
 /** Заказ в этих статусах уже не висит — филиал закрыл или отменил его. */
 export const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
+/**
+ * Статусы так, как их показывает iikoOffice. Храним статус iikoCloud, а он
+ * дробит «Новую» на кухонные этапы — бэк-офис их не различает: для него заказ
+ * новый, пока его не отдали курьеру. Кухонный этап виден в «Застрял на».
+ */
+export const OFFICE_STATUSES = [
+    {
+        key: "new",
+        label: "Новая",
+        values: ["Unconfirmed", "WaitCooking", "ReadyForCooking", "CookingStarted", "CookingCompleted"],
+    },
+    { key: "waiting", label: "Ждет отправки", values: ["Waiting"] },
+    { key: "onWay", label: "В пути", values: ["OnWay"] },
+    { key: "delivered", label: "Доставлена", values: ["Delivered"] },
+    { key: "closed", label: "Закрыта", values: ["Closed"] },
+    { key: "cancelled", label: "Отменена", values: ["Cancelled"] },
+];
+
+export const officeStatusOf = (raw: string | null | undefined) =>
+    OFFICE_STATUSES.find((s) => s.values.includes(raw ?? ""));
+
+export const officeStatusLabel = (raw: string | null | undefined) =>
+    officeStatusOf(raw)?.label ?? raw ?? "";
+
 /** Фильтры из шапки таблицы, по одному на колонку. */
 export type ColumnFilters = {
     conception?: string;
@@ -43,7 +67,6 @@ const CONTAINS: (keyof ColumnFilters)[] = [
 const EQUALS: (keyof ColumnFilters)[] = [
     "orderType",
     "paymentType",
-    "orderStatus",
 ];
 
 /**
@@ -102,6 +125,12 @@ export function buildFilters(input: FilterInput): Filter[] {
     for (const field of EQUALS) {
         const value = cols[field];
         if (value && value !== "all") out.push({ field, operator: "eq", value });
+    }
+
+    // Статус выбирается группой iikoOffice: «Новая» — это пять статусов облака.
+    const group = OFFICE_STATUSES.find((s) => s.key === cols.orderStatus);
+    if (group) {
+        out.push({ field: "orderStatus", operator: "in", value: group.values });
     }
 
     const from = cols.amountFrom?.trim();

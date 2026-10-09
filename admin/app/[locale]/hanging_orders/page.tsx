@@ -5,7 +5,7 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { DataTable, type Facets } from "./data-table";
-import { buildFiltersJson, type ColumnFilters } from "./filters";
+import { buildFiltersJson, officeStatusLabel, type ColumnFilters } from "./filters";
 import { BulkCancelDialog, type BulkTarget } from "./bulk-cancel";
 import { useCanAccess } from "@admin/components/use-can-access";
 import { hangingOrdersColumns } from "./columns";
@@ -204,7 +204,7 @@ function HangingOrdersContent() {
                 order.orderType || "",
                 order.paymentType || "",
                 order.receiptNumber || "",
-                order.orderStatus || "",
+                officeStatusLabel(order.orderStatus),
                 order.comments || "",
                 order.problem || "",
                 order.phoneNumber ? `'${order.phoneNumber}` : "",
