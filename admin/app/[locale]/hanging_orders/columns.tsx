@@ -9,6 +9,7 @@ import { StatusUpdateSheet } from "./status-update-sheet";
 import { CommentEditor } from "./comment-editor";
 import { StatusDropdown } from "./status-dropdown";
 import { IikoActions } from "./iiko-actions";
+import { officeStatusLabel } from "./filters";
 import CanAccess from "@admin/components/can-access";
 import {
     HoverCard,
@@ -16,18 +17,6 @@ import {
     HoverCardTrigger,
 } from "@admin/components/ui/hover-card";
 
-export const ordersStatusText = {
-    "Unconfirmed": "Не подтвержден",
-    "WaitCooking": "Ожидает приготовления",
-    "ReadyForCooking": "Готов к приготовлению",
-    "CookingStarted": "Приготовление начато",
-    "CookingCompleted": "Приготовление завершено",
-    "Waiting": "Ожидает доставки",
-    "OnWay": "В пути",
-    "Delivered": "Доставлен",
-    "Closed": "Закрыт",
-    "Cancelled": "Отменён",
-}
 
 // Закрыт/Отменён — заказ больше не висит; после ре-синка из iiko такие строки
 // гасим визуально, но не удаляем: в status/comment лежит ручная работа менеджеров.
@@ -140,7 +129,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         header: () => <span title="Статус заказа">Статус</span>,
         cell: ({ row }) => {
             const orderStatus = row.getValue("orderStatus") as string;
-            const label = ordersStatusText[orderStatus as keyof typeof ordersStatusText] || orderStatus;
+            const label = officeStatusLabel(orderStatus);
             return FINAL_ORDER_STATUSES.includes(orderStatus) ? (
                 <span className="text-muted-foreground">{label}</span>
             ) : (
