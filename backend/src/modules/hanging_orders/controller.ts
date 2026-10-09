@@ -14,6 +14,7 @@ import {
   gte,
   inArray,
   isNotNull,
+  lt,
   lte,
   isNull,
   notInArray,
@@ -52,8 +53,10 @@ const IIKO_SERVER = "https://les-ailes-co-co.iiko.it/resto/api";
 // iikoCloud хранит доставки ~120 дней и потом стирает: проверено 2026-10-09 —
 // за 11.06 в облаке 997 заказов из ~1150, за 10.06 — 12, за 01.06 — 7. Старше
 // отменить через облако нельзя: оно заказа уже не знает («Delivery order …
-// doesn't exist»). Берём с запасом. Глубже не пускаем ни сверку, ни отмену.
-const MAX_WINDOW_DAYS = 115;
+// doesn't exist»). Точную границу решает проверка deliveries/by_id перед
+// отменой — стёртое она пропускает; это лишь потолок, чтобы не гонять заведомо
+// пустые запросы.
+const MAX_WINDOW_DAYS = 130;
 // Пауза между запросами в iikoCloud по дням — та же причина.
 const CLOUD_PAUSE_MS = 400;
 
@@ -367,6 +370,7 @@ type BulkStats = {
   errors: number;
   pending: number;
   notInCloud: number;
+  tooOld: number;
   stopped: boolean;
   errorSamples: string[];
 };
@@ -1294,6 +1298,22 @@ export const hangingOrdersController = new Elysia({
         return { message: `Больше ${BULK_MAX} заказов — сузьте фильтр` };
       }
 
+      // Сколько под условие попало, но старше границы — их не трогаем.
+      const [{ count: tooOld }] = await drizzle
+        .select({ count: sql<number>`count(*)::int` })
+        .from(hangingOrders)
+        .where(
+          and(
+            ...where,
+            lt(hangingOrders.date, floor),
+            or(
+              isNull(hangingOrders.orderStatus),
+              notInArray(hangingOrders.orderStatus, FINAL_STATUSES)
+            )
+          )
+        )
+        .execute();
+
       const jobId = crypto.randomUUID();
       const locked = await redis.set(BULK_LOCK, jobId, "EX", 7200, "NX");
       if (!locked) {
@@ -1312,6 +1332,7 @@ export const hangingOrdersController = new Elysia({
         errors: 0,
         pending: 0,
         notInCloud: 0,
+        tooOld,
         stopped: false,
         errorSamples: [],
       };
@@ -1448,8 +1469,7 @@ export const hangingOrdersController = new Elysia({
                   .where(eq(hangingOrders.id, row.id))
                   .execute();
                 await log(row, "Refused", `в iikoCloud уже ${st}`);
-                if (st === "Cancelled") stats.cancelled++;
-                else stats.alreadyClosed++;
+                stats.alreadyClosed++;
                 stats.done++;
               } else {
                 known.push(row);
