@@ -12,6 +12,8 @@ import type { ReconOverviewRow, ReconStatus } from "@backend/modules/inventory/r
 import { FetchPanel } from "./_components/fetch-panel";
 import { ReconStatusBadge } from "./_components/recon-status-badge";
 import { ReopenRule } from "./_components/reopen-rule";
+import { InterimOverview } from "./_components/interim-overview";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 
 const ALL = "__all__";
 const STATUSES: ReconStatus[] = ["needs_choice", "ready", "in_review", "accepted", "waiting_iiko"];
@@ -142,7 +144,18 @@ export default function ReconciliationPage() {
     <div className="space-y-4 p-4 pb-24">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <CanAccess permission="inventory.reconcile">
-        <Overview />
+        <Tabs defaultValue="monthly">
+          <TabsList>
+            <TabsTrigger value="monthly">{t("mode.monthly")}</TabsTrigger>
+            <TabsTrigger value="daily">{t("mode.daily")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="monthly" className="pt-4">
+            <Overview />
+          </TabsContent>
+          <TabsContent value="daily" className="pt-4">
+            <InterimOverview />
+          </TabsContent>
+        </Tabs>
       </CanAccess>
     </div>
   );

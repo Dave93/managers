@@ -22,7 +22,7 @@ import type {
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
 import type { ReconDetail, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
-import type { BookView, StockMovement, StockView } from "@backend/modules/inventory/book/types";
+import type { BookView, InterimReconDetail, InterimReconRow, StockMovement, StockView } from "@backend/modules/inventory/book/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
@@ -85,6 +85,10 @@ export const inventoryApi = {
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>
       call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
+    interimList: (period: string) => call<InterimReconRow[]>(inv["interim-reconciliations"].get({ query: { period } })),
+    interimGet: (id: string) => call<InterimReconDetail>(inv["interim-reconciliations"]({ id }).get()),
+    interimMark: (id: string, productId: string, checked: boolean) =>
+      call<{ ok: true }>(inv["interim-reconciliations"]({ id }).lines({ productId }).mark.post({ checked })),
     reopenRule: () => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].get()),
     setReopenRule: (rule: InventoryReopenRule) => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].put({ rule })),
     markLine: (id: string, productId: string, checked: boolean) =>

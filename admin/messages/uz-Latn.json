@@ -713,6 +713,25 @@
         "until_accept": "ofis solishtirishni qabul qilmaguncha",
         "office_only": "hech qachon — faqat ofis qaytaradi",
         "saved": "Qoida saqlandi"
+      },
+      "mode": {
+        "monthly": "Oylik",
+        "daily": "Kunlar bo'yicha"
+      },
+      "interim": {
+        "empty": "Bu oyda oraliq sanoqlar yo'q",
+        "loading": "iiko hisobi yuklanmoqda…",
+        "fetchedAt": "iiko hisobi yuklangan {at}",
+        "onlyMismatch": "Faqat A ≠ iiko",
+        "iikoCol": "iiko (kun oxiridagi hisob)",
+        "col": {
+          "store": "Ombor",
+          "date": "Sana",
+          "template": "Shablon",
+          "status": "Holat",
+          "mismatch": "A ≠ iiko",
+          "checked": "Tekshirildi"
+        }
       }
     },
     "kind": {

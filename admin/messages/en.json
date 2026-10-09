@@ -750,6 +750,25 @@
         "until_accept": "until the office accepts the reconciliation",
         "office_only": "never — only the office can",
         "saved": "Rule saved"
+      },
+      "mode": {
+        "monthly": "Monthly",
+        "daily": "By day"
+      },
+      "interim": {
+        "empty": "No interim counts this month",
+        "loading": "iiko book stock is loading…",
+        "fetchedAt": "iiko book stock loaded {at}",
+        "onlyMismatch": "Only A ≠ iiko",
+        "iikoCol": "iiko (book qty at day end)",
+        "col": {
+          "store": "Store",
+          "date": "Date",
+          "template": "Template",
+          "status": "Status",
+          "mismatch": "A ≠ iiko",
+          "checked": "Checked"
+        }
       }
     },
     "kind": {

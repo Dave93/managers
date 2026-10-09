@@ -780,6 +780,25 @@
         "until_accept": "пока офис не принял сверку",
         "office_only": "никогда — возвращает только офис",
         "saved": "Правило сохранено"
+      },
+      "mode": {
+        "monthly": "Месячная",
+        "daily": "По дням"
+      },
+      "interim": {
+        "empty": "За этот месяц промежуточных пересчётов нет",
+        "loading": "книжное iiko загружается…",
+        "fetchedAt": "учёт iiko загружен {at}",
+        "onlyMismatch": "Только A ≠ iiko",
+        "iikoCol": "iiko (книжное на конец дня)",
+        "col": {
+          "store": "Склад",
+          "date": "Дата",
+          "template": "Шаблон",
+          "status": "Статус",
+          "mismatch": "A ≠ iiko",
+          "checked": "Проверено"
+        }
       }
     },
     "kind": {

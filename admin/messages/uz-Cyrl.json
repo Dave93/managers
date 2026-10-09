@@ -725,6 +725,25 @@
         "until_accept": "офис солиштиришни қабул қилмагунча",
         "office_only": "ҳеч қачон — фақат офис қайтаради",
         "saved": "Қоида сақланди"
+      },
+      "mode": {
+        "monthly": "Ойлик",
+        "daily": "Кунлар бўйича"
+      },
+      "interim": {
+        "empty": "Бу ойда оралиқ саноқлар йўқ",
+        "loading": "iiko ҳисоби юкланмоқда…",
+        "fetchedAt": "iiko ҳисоби юкланган {at}",
+        "onlyMismatch": "Фақат A ≠ iiko",
+        "iikoCol": "iiko (кун охиридаги ҳисоб)",
+        "col": {
+          "store": "Омбор",
+          "date": "Сана",
+          "template": "Шаблон",
+          "status": "Ҳолат",
+          "mismatch": "A ≠ iiko",
+          "checked": "Текширилди"
+        }
       }
     },
     "kind": {
