@@ -72,6 +72,8 @@ export interface InterimReconRow {
   mismatch_count: number;
   /** Отмечено «проверено» среди расхождений. */
   checked_count: number;
+  /** Филиалу цифры iiko скрыты: у склада есть пересчёт, который он ещё может менять. */
+  hidden: boolean;
 }
 
 export interface InterimReconLine extends BookBreakdown {

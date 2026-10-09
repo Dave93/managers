@@ -2,7 +2,8 @@
 // Только товары, по которым филиал ввёл количество. Офис (inventory.reconcile).
 import { inventory_count_book_marks, inventory_count_lines } from "backend/drizzle/schema";
 import { and, eq, sql } from "drizzle-orm";
-import type { DbLike } from "../access";
+import { storeAccess, type Actor, type DbLike } from "../access";
+import { storeHasChangeableCount } from "./stock";
 import { assertUuid, normalizeNumeric, userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
@@ -69,10 +70,12 @@ type RawCount = {
   status: string; book_fetched_at: string | Date | null;
 };
 
-async function build(db: DbLike, counts: RawCount[]): Promise<InterimReconDetail[]> {
+async function build(db: DbLike, counts: RawCount[], hiddenStores: Set<string> = new Set()): Promise<InterimReconDetail[]> {
   if (!counts.length) return [];
-  const ids = sql.join(counts.map((c) => sql`${c.count_id}::uuid`), sql`, `);
-  const raw = (await db.execute(LINES_SQL(ids))).rows as RawLine[];
+  // Скрытым складам строки не нужны: цифры iiko филиалу не показываем.
+  const visible = counts.filter((c) => !hiddenStores.has(c.store_id));
+  const ids = sql.join(visible.map((c) => sql`${c.count_id}::uuid`), sql`, `);
+  const raw = visible.length ? ((await db.execute(LINES_SQL(ids))).rows as RawLine[]) : [];
   const names = await userNames(db, raw.map((r) => r.checked_by ?? ""));
   const by = new Map<string, InterimReconLine[]>();
   for (const r of raw) by.set(r.count_id, [...(by.get(r.count_id) ?? []), toLine(r, names)]);
@@ -92,6 +95,7 @@ async function build(db: DbLike, counts: RawCount[]): Promise<InterimReconDetail
       lines_counted: lines.length,
       mismatch_count: mism.length,
       checked_count: mism.filter((l) => l.checked).length,
+      hidden: hiddenStores.has(c.store_id),
       lines,
     };
   });
@@ -102,21 +106,40 @@ const COUNTS_SQL = sql`
     c.template_name, c.status, c.book_fetched_at
   from inventory_counts c left join corporation_store s on s.id = c.store_id`;
 
-export async function listInterimRecons(db: DbLike, period: string): Promise<InterimReconRow[]> {
-  if (!isValidPeriod(period)) throw new InventoryError(422, "invalid_period");
-  const counts = (
-    await db.execute(sql`${COUNTS_SQL}
-      where c.kind = 'interim' and c.period = ${period} and c.status <> 'cancelled'
-      order by c.count_date desc, s.name`)
-  ).rows as RawCount[];
-  return (await build(db, counts)).map(({ lines: _lines, ...row }) => row);
+const isOffice = (actor: Actor) => actor.perms.includes("inventory.reconcile");
+
+/** Склады, где филиалу цифры iiko сейчас скрыты (правило слепого пересчёта, spec 2026-10-08 §6). */
+async function hiddenFor(db: DbLike, actor: Actor, storeIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  if (isOffice(actor)) return out;
+  for (const id of new Set(storeIds)) if (await storeHasChangeableCount(db, id)) out.add(id);
+  return out;
 }
 
-export async function loadInterimRecon(db: DbLike, countId: string): Promise<InterimReconDetail> {
+/** Офис — все склады; филиал — только свои (users_stores), только просмотр. */
+export async function listInterimRecons(db: DbLike, actor: Actor, period: string): Promise<InterimReconRow[]> {
+  if (!isValidPeriod(period)) throw new InventoryError(422, "invalid_period");
+  const mine = isOffice(actor)
+    ? sql``
+    : sql` and c.store_id in (select us.corporation_store_id from users_stores us where us.user_id = ${actor.userId}::uuid)`;
+  const counts = (
+    await db.execute(sql`${COUNTS_SQL}
+      where c.kind = 'interim' and c.period = ${period} and c.status <> 'cancelled'${mine}
+      order by c.count_date desc, s.name`)
+  ).rows as RawCount[];
+  const hidden = await hiddenFor(db, actor, counts.map((c) => c.store_id));
+  return (await build(db, counts, hidden)).map(({ lines: _lines, ...row }) => row);
+}
+
+export async function loadInterimRecon(db: DbLike, actor: Actor, countId: string): Promise<InterimReconDetail> {
   assertUuid(countId);
   const counts = (await db.execute(sql`${COUNTS_SQL} where c.id = ${countId}::uuid and c.kind = 'interim'`)).rows as RawCount[];
   if (!counts.length) throw new InventoryError(404, "not_found");
-  return (await build(db, counts))[0];
+  if (!isOffice(actor) && (await storeAccess(db, actor, counts[0].store_id)) !== "write") {
+    throw new InventoryError(403, "store_forbidden");
+  }
+  const hidden = await hiddenFor(db, actor, [counts[0].store_id]);
+  return (await build(db, counts, hidden))[0];
 }
 
 export async function markInterimLine(db: DbLike, countId: string, productId: string, checked: boolean, userId: string) {

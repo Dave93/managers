@@ -48,13 +48,16 @@ export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
   )
   .get(
     "/inventory/interim-reconciliations",
-    async ({ query, drizzle, set }) => run(set, async () => listInterimRecons(drizzle, query.period)),
-    { permission: "inventory.reconcile", query: t.Object({ period: t.String() }) }
+    async ({ query, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => listInterimRecons(drizzle, await actorFrom(cacheController, user, role), query.period)),
+    // Филиал видит свои склады только для просмотра; отметка «проверено» — только офис.
+    { permission: "inventory.count", query: t.Object({ period: t.String() }) }
   )
   .get(
     "/inventory/interim-reconciliations/:id",
-    async ({ params, drizzle, set }) => run(set, async () => loadInterimRecon(drizzle, params.id)),
-    { permission: "inventory.reconcile", params: t.Object({ id: t.String() }) }
+    async ({ params, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => loadInterimRecon(drizzle, await actorFrom(cacheController, user, role), params.id)),
+    { permission: "inventory.count", params: t.Object({ id: t.String() }) }
   )
   .post(
     "/inventory/interim-reconciliations/:id/lines/:productId/mark",
