@@ -92,7 +92,7 @@ function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Стоп-лист", href: p("/admin/stoplist"), permission: "stoplist.list" },
     { kind: "link", title: "Конфиги", href: p("/settings"), permission: "settings.list" },
     { kind: "link", title: "Дашборд", href: p("/dashboard"), permission: "charts.list" },
-    { kind: "link", title: "Висячие заказы", href: p("/hanging_orders"), permission: "hanging_orders.list" },
+    { kind: "link", title: "Незакрытые заказы", href: p("/hanging_orders"), permission: "hanging_orders.list" },
     {
       kind: "group",
       title: "Отчеты",
