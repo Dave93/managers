@@ -20,7 +20,7 @@ export const OFFICE_STATUSES = [
     { key: "delivered", label: "Доставлена", values: ["Delivered"] },
     { key: "closed", label: "Закрыта", values: ["Closed"] },
     // iikoCloud пометил Closed, а продажи в iikoServer нет: на кассе заказ висит.
-    { key: "cloudClosed", label: "Закрыт в облаке, не пробит", values: ["CloudClosed"] },
+    { key: "cloudClosed", label: "Закрыт только в облаке", values: ["CloudClosed"] },
     { key: "cancelled", label: "Отменена", values: ["Cancelled"] },
 ];
 

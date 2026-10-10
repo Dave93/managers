@@ -1,6 +1,6 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
-import { Edit2Icon, Eye } from "lucide-react";
+import { Cloud, Edit2Icon, Eye } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { hangingOrders } from "@backend/../drizzle/schema";
 import { Badge } from "@admin/components/ui/badge";
@@ -129,6 +129,30 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
         header: () => <span title="Статус заказа">Статус</span>,
         cell: ({ row }) => {
             const orderStatus = row.getValue("orderStatus") as string;
+
+            // Облако считает заказ закрытым, но продажи нет — сам по себе это не
+            // статус, а расхождение. Показываем статус по последнему реальному
+            // этапу, как его увидят в iikoOffice, а расхождение — значком.
+            if (orderStatus === "CloudClosed") {
+                const r = row.original;
+                const real = r.whenDelivered
+                    ? "Доставлена"
+                    : r.whenSended
+                      ? "В пути"
+                      : r.whenCookingCompleted
+                        ? "Ждет отправки"
+                        : "Новая";
+                return (
+                    <span
+                        className="inline-flex items-center gap-1"
+                        title="В iikoCloud заказ помечен закрытым, но продажи в iikoServer нет: на кассе он висит. Закрыть или отменить — только на кассе."
+                    >
+                        {real}
+                        <Cloud className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-label="закрыт только в облаке" />
+                    </span>
+                );
+            }
+
             const label = officeStatusLabel(orderStatus);
             return FINAL_ORDER_STATUSES.includes(orderStatus) ? (
                 <span className="text-muted-foreground">{label}</span>
