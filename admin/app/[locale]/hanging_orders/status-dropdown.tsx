@@ -130,7 +130,7 @@ export function StatusDropdown({
                                 variant={getStatusBadgeVariant(currentStatus || "pending")}
                                 className={cn(
                                     "cursor-pointer transition-all hover:opacity-80",
-                                    size === "sm" && "text-xs px-2 py-1",
+                                    size === "sm" && "text-xs px-2 py-0.5",
                                     size === "default" && "text-sm px-3 py-1",
                                     size === "lg" && "text-base px-4 py-2"
                                 )}

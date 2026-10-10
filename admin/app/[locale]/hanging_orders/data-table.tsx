@@ -456,7 +456,7 @@ export function DataTable<TValue>({
                                             return (
                                                 <TableCell 
                                                     key={cell.id}
-                                                    className={isSticky ? "sticky z-10 bg-background border-r shadow-sm" : ""}
+                                                    className={isSticky ? "sticky z-10 bg-background border-r shadow-sm py-0.5" : "py-0.5"}
                                                     style={isSticky ? { 
                                                         left: `${currentLeft}px`,
                                                         minWidth: cell.column.id === "brand" ? "100px" : "140px"

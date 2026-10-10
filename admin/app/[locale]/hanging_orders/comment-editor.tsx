@@ -121,7 +121,7 @@ export function CommentEditor({
                     <Button
                         variant="ghost"
                         className={cn(
-                            "h-auto p-2 justify-start text-left font-normal w-full",
+                            "h-auto px-2 py-0.5 justify-start text-left font-normal w-full",
                             !lastSavedComment && "text-muted-foreground"
                         )}
                     >
