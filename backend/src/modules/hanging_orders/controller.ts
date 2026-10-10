@@ -1466,8 +1466,15 @@ export const hangingOrdersController = new Elysia({
               await save("running", `проверяю iikoCloud: ${brand}`);
               statuses = await cloudStatuses(prep.session, rowsOfBrand.map((r) => r.orderId!));
             } catch (e: any) {
-              // Не смогли спросить — отменяем как есть, касса разберётся.
-              known.push(...rowsOfBrand);
+              // Не смогли проверить — не отменяем (fail-closed): без проверки
+              // можно послать отмену заказу, который облако уже считает
+              // закрытым. Строки остаются висящими, их можно прогнать снова.
+              const why = `проверка iikoCloud не прошла: ${e?.message ?? String(e)}`;
+              for (const row of rowsOfBrand) {
+                await log(row, "Error", why);
+                fail(row, why);
+                stats.done++;
+              }
               continue;
             }
             for (const row of rowsOfBrand) {
