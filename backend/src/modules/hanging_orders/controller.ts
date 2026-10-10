@@ -87,6 +87,13 @@ const ALL_DELIVERY_STATUSES = [
 
 const FINAL_STATUSES = ["Closed", "Cancelled"];
 
+// Облачный Closed закрытием не считаем. 10.10 нашлось 562 заказа, которые
+// iikoCloud пометил Closed ровно во время доставки — курьеру не передавались,
+// на кассе висят «СОБРАН», а в iikoServer продажи нет. Закрыт заказ только
+// тогда, когда iikoServer видит продажу (Delivery.CloseTime); до тех пор
+// облачный Closed — это висящий заказ со статусом CloudClosed.
+const CLOUD_CLOSED = "CloudClosed";
+
 // iiko лимитирует частоту; повторяем только на 429, как в боте.
 async function fetchIikoWithRetry(
   url: string,
@@ -373,6 +380,7 @@ type BulkStats = {
   errors: number;
   pending: number;
   notInCloud: number;
+  cloudClosed: number;
   tooOld: number;
   stopped: boolean;
   errorSamples: string[];
@@ -558,10 +566,13 @@ async function runRefresh({
         // чем затирание по неполному ответу iiko.
         if (!fresh) continue;
 
-        const nextStatus: string | undefined = fresh.order?.status;
+        const cloudStatus: string | undefined = fresh.order?.status;
         // NULL не пишем: список в админке фильтруется через NOT IN, а он
         // отбрасывает строки с NULL — заказ бы просто исчез со страницы.
-        if (!nextStatus) continue;
+        if (!cloudStatus) continue;
+        // Closed из облака — не закрытие; закроет только второй проход по
+        // iikoServer, если увидит продажу.
+        const nextStatus = cloudStatus === "Closed" ? CLOUD_CLOSED : cloudStatus;
 
         // Пишем всегда, а не только при смене статуса: отметки этапов
         // двигаются и у заказа, который так и остался в Waiting — именно
@@ -1335,6 +1346,7 @@ export const hangingOrdersController = new Elysia({
         errors: 0,
         pending: 0,
         notInCloud: 0,
+        cloudClosed: 0,
         tooOld,
         stopped: false,
         errorSamples: [],
@@ -1464,15 +1476,26 @@ export const hangingOrdersController = new Elysia({
                 await log(row, "Refused", "нет в iikoCloud — облако его уже не хранит, отменить можно только на кассе");
                 stats.notInCloud++;
                 stats.done++;
-              } else if (st === "Cancelled" || st === "Closed") {
-                // Облако уже знает финал — догоняем у себя, кассе не шлём.
+              } else if (st === "Cancelled") {
+                // Облако уже отменило — догоняем у себя, кассе не шлём.
                 await drizzle
                   .update(hangingOrders)
-                  .set({ orderStatus: st, updatedAt: new Date() })
+                  .set({ orderStatus: "Cancelled", updatedAt: new Date() })
                   .where(eq(hangingOrders.id, row.id))
                   .execute();
-                await log(row, "Refused", `в iikoCloud уже ${st}`);
+                await log(row, "Refused", "в iikoCloud уже Cancelled");
                 stats.alreadyClosed++;
+                stats.done++;
+              } else if (st === "Closed") {
+                // Закрыт в облаке, а продажи в iikoServer нет (проверили выше):
+                // облако закрытый заказ не отменит — только на кассе.
+                await drizzle
+                  .update(hangingOrders)
+                  .set({ orderStatus: CLOUD_CLOSED, updatedAt: new Date() })
+                  .where(eq(hangingOrders.id, row.id))
+                  .execute();
+                await log(row, "Refused", "в iikoCloud закрыт, а в iikoServer продажи нет — только вручную на кассе");
+                stats.cloudClosed++;
                 stats.done++;
               } else {
                 known.push(row);
