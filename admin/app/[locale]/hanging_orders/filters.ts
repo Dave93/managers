@@ -90,8 +90,11 @@ export function buildFilters(input: FilterInput): Filter[] {
     }
 
     // Явный выбор статуса заказа важнее тумблера «скрыть закрытые»:
-    // иначе выбор «Закрыт» давал бы заведомо пустую выдачу.
-    if (hideClosed && !cols.orderStatus) {
+    // иначе выбор «Закрыт» давал бы заведомо пустую выдачу. «Все» — это не
+    // выбор: раньше `!cols.orderStatus` считал "all" выбором, и тумблер
+    // переставал работать, стоило открыть фильтр и вернуть «Все».
+    const statusPicked = !!cols.orderStatus && cols.orderStatus !== "all";
+    if (hideClosed && !statusPicked) {
         out.push({
             field: "orderStatus",
             operator: "notIn",
