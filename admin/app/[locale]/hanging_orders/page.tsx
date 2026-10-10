@@ -7,6 +7,7 @@ import Link from "next/link";
 import { DataTable, type Facets } from "./data-table";
 import { buildFiltersJson, officeStatusLabel, type ColumnFilters } from "./filters";
 import { BulkCancelDialog, type BulkTarget } from "./bulk-cancel";
+import { JobProgressBanner, type JobProgress } from "./job-progress";
 import { useCanAccess } from "@admin/components/use-can-access";
 import { hangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
@@ -50,6 +51,8 @@ function HangingOrdersContent() {
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [total, setTotal] = useState(0);
     const [bulkTarget, setBulkTarget] = useState<BulkTarget | null>(null);
+    // Ход фоновой задачи — сверки или массовой отмены — для заметной панели.
+    const [jobProgress, setJobProgress] = useState<JobProgress | null>(null);
 
     // Те же фильтры, что у таблицы, — для «отменить всё по фильтру».
     const tableFilters = buildFiltersJson({
@@ -101,9 +104,11 @@ function HangingOrdersContent() {
             const job = (data as { job?: { id: string; alreadyRunning?: boolean } } | null)?.job;
             if (!job) return data;
 
-            const toastId = toast.loading(
-                job.alreadyRunning ? "Сверка уже идёт — подключаюсь к ней…" : "Сверка с iiko запущена…",
-            );
+            const title = "Сверка с iiko";
+            setJobProgress({
+                title,
+                text: job.alreadyRunning ? "уже идёт — подключаюсь к ней…" : "запущена…",
+            });
             try {
                 const startedAt = Date.now();
                 while (Date.now() - startedAt < 30 * 60 * 1000) {
@@ -115,11 +120,11 @@ function HangingOrdersContent() {
                     const status = st as { state: string; progress?: string; message?: string };
                     if (status.state === "done") return status;
                     if (status.state === "error") throw new Error(status.message ?? "Сверка упала");
-                    toast.loading(`Сверка с iiko: ${status.progress ?? "идёт"}…`, { id: toastId });
+                    setJobProgress({ title, text: status.progress ?? "идёт…" });
                 }
                 throw new Error("Сверка идёт дольше 30 минут — проверьте позже");
             } finally {
-                toast.dismiss(toastId);
+                setJobProgress(null);
             }
         },
         onSuccess: (result) => {
@@ -254,6 +259,7 @@ function HangingOrdersContent() {
 
     return (
         <div className="w-full min-w-0 overflow-x-hidden">
+            <JobProgressBanner progress={jobProgress} />
             <div className="flex justify-between items-start gap-2">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
@@ -408,6 +414,7 @@ function HangingOrdersContent() {
 
             <BulkCancelDialog
                 target={bulkTarget}
+                onProgress={setJobProgress}
                 onClose={() => setBulkTarget(null)}
                 onDone={() => {
                     setSelectedIds([]);
