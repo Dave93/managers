@@ -120,7 +120,7 @@ export function IikoActions({ record }: { record: Record }) {
         <div className="flex items-center">
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" title="Закрыть заказ в iiko" disabled={busy}>
+                    <Button variant="ghost" size="sm" title="Закрыть заказ в iiko" disabled={busy} className="h-7 w-7 p-0">
                         {close.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
@@ -146,7 +146,7 @@ export function IikoActions({ record }: { record: Record }) {
 
             <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" title="Отменить заказ в iiko" disabled={busy}>
+                    <Button variant="ghost" size="sm" title="Отменить заказ в iiko" disabled={busy} className="h-7 w-7 p-0">
                         {cancel.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (

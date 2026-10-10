@@ -285,7 +285,7 @@ ${last.next}` : chain}
                         currentStatus={record.status}
                         currentComment={record.comment}
                         trigger={
-                            <Button variant="ghost" size="sm" title="Подробнее">
+                            <Button variant="ghost" size="sm" title="Подробнее" className="h-7 w-7 p-0">
                                 <Eye className="h-4 w-4" />
                             </Button>
                         }
