@@ -262,6 +262,40 @@ async function cloudStatuses(
   return out;
 }
 
+/**
+ * Можно ли слать кассе команду по заказу. Облако не хранит заказ или считает
+ * его закрытым — команда не пройдёт или результат непредсказуем: что iiko
+ * делает с отменой закрытого в облаке заказа, документация не говорит.
+ * Такие заказы закрывают и отменяют только на кассе.
+ */
+type CloudGuard =
+  | { ok: true }
+  | { ok: false; status: "Cancelled" | "CloudClosed" | null; message: string };
+
+async function cloudGuard(session: CloudSession, orderId: string): Promise<CloudGuard> {
+  const st = (await cloudStatuses(session, [orderId])).get(orderId);
+  if (!st) {
+    return {
+      ok: false,
+      status: null,
+      message: "iikoCloud этот заказ уже не хранит — закрыть или отменить можно только на кассе",
+    };
+  }
+  if (st === "Closed") {
+    return {
+      ok: false,
+      status: "CloudClosed",
+      message:
+        "В iikoCloud заказ закрыт, а продажи в iikoServer нет — команду не отправляю, " +
+        "закрыть или отменить можно только на кассе",
+    };
+  }
+  if (st === "Cancelled") {
+    return { ok: false, status: "Cancelled", message: "Заказ уже отменён в iiko" };
+  }
+  return { ok: true };
+}
+
 /** Время закрытия доставки по iikoServer или null, если там не закрыта. */
 async function serverCloseTime(
   cacheController: any,
@@ -1132,6 +1166,20 @@ export const hangingOrdersController = new Elysia({
 
         const session = await cloudSession(drizzle, row.brand);
 
+        const guard = await cloudGuard(session, row.orderId);
+        if (!guard.ok) {
+          if (guard.status) {
+            await drizzle
+              .update(hangingOrders)
+              .set({ orderStatus: guard.status, updatedAt: new Date() })
+              .where(eq(hangingOrders.id, row.id))
+              .execute();
+          }
+          await log("Refused", guard.message);
+          set.status = 409;
+          return { message: guard.message };
+        }
+
         if (row.orderStatus !== "Delivered") {
           const delivered = await runCommand(session, "deliveries/update_order_delivery_status", {
             orderId: row.orderId,
@@ -1227,6 +1275,21 @@ export const hangingOrdersController = new Elysia({
         }
 
         const session = await cloudSession(drizzle, row.brand);
+
+        const guard = await cloudGuard(session, row.orderId);
+        if (!guard.ok) {
+          if (guard.status) {
+            await drizzle
+              .update(hangingOrders)
+              .set({ orderStatus: guard.status, updatedAt: new Date() })
+              .where(eq(hangingOrders.id, row.id))
+              .execute();
+          }
+          await log("Refused", guard.message);
+          set.status = 409;
+          return { message: guard.message };
+        }
+
         const cancelled = await runCommand(session, "deliveries/cancel", {
           orderId: row.orderId,
           cancelCauseId: body.cancelCauseId,
