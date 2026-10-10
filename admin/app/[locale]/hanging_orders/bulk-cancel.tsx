@@ -77,10 +77,13 @@ export function BulkCancelDialog({
     target,
     onClose,
     onDone,
+    onProgress,
 }: {
     target: BulkTarget | null;
     onClose: () => void;
     onDone: () => void;
+    /** Ход прогона — для заметной панели на странице; null — прогон закончен. */
+    onProgress?: (progress: { title: string; text: string } | null) => void;
 }) {
     const [cause, setCause] = useState("");
     const [removal, setRemoval] = useState("");
@@ -118,7 +121,8 @@ export function BulkCancelDialog({
             const jobId = (data as { job: { id: string } }).job.id;
             onClose();
 
-            const toastId = toast.loading("Массовая отмена запущена…");
+            const title = "Массовая отмена в iiko";
+            onProgress?.({ title, text: "запущена…" });
             try {
                 const startedAt = Date.now();
                 while (Date.now() - startedAt < 3 * 60 * 60 * 1000) {
@@ -129,14 +133,14 @@ export function BulkCancelDialog({
                     if (stErr) throw new Error((stErr.value as any)?.message ?? "Статус отмены недоступен");
                     const status = st as { state: string; progress: string; stats: Stats };
                     if (status.state === "running") {
-                        toast.loading(`Отмена: ${status.progress}`, { id: toastId });
+                        onProgress?.({ title, text: status.progress });
                         continue;
                     }
                     return status;
                 }
                 throw new Error("Отмена идёт дольше 3 часов — проверьте журнал позже");
             } finally {
-                toast.dismiss(toastId);
+                onProgress?.(null);
             }
         },
         onSuccess: (status) => {
