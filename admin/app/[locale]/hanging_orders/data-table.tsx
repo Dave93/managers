@@ -292,8 +292,9 @@ export function DataTable<TValue>({
         columns: allColumns as ColumnDef<{ [x: string]: unknown; }, TValue>[],
         pageCount: data?.total ? Math.ceil(data.total / pageSize) : -1,
         getRowId: (row: any) => row.id,
+        // Закрытые в облаке тоже не выбираем: отменить их можно только на кассе.
         enableRowSelection: (row: any) =>
-            !["Closed", "Cancelled"].includes(row.original.orderStatus ?? ""),
+            !["Closed", "Cancelled", "CloudClosed"].includes(row.original.orderStatus ?? ""),
         state: {
             pagination,
             rowSelection,

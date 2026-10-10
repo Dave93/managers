@@ -291,10 +291,23 @@ ${last.next}` : chain}
                         }
                     />
                     {/* Закрыть/отменить в iiko — только admin и только пока заказ висит. */}
-                    {!FINAL_ORDER_STATUSES.includes(record.orderStatus ?? "") && (
+                    {record.orderStatus === "CloudClosed" ? (
+                        // Облако считает заказ закрытым — команду оно не примет,
+                        // а результат отмены закрытого заказа документация не описывает.
                         <CanAccess permission="hanging_orders.iiko_actions">
-                            <IikoActions record={record} />
+                            <span
+                                className="whitespace-nowrap rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
+                                title="iikoCloud считает этот заказ закрытым, а продажи в iikoServer нет. Облако команду не примет — закрыть или отменить заказ можно только на кассе (iikoFront)."
+                            >
+                                только на кассе
+                            </span>
                         </CanAccess>
+                    ) : (
+                        !FINAL_ORDER_STATUSES.includes(record.orderStatus ?? "") && (
+                            <CanAccess permission="hanging_orders.iiko_actions">
+                                <IikoActions record={record} />
+                            </CanAccess>
+                        )
                     )}
                 </div>
             );
