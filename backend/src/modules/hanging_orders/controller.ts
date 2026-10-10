@@ -87,11 +87,15 @@ const ALL_DELIVERY_STATUSES = [
 
 const FINAL_STATUSES = ["Closed", "Cancelled"];
 
-// Облачный Closed закрытием не считаем. 10.10 нашлось 562 заказа, которые
-// iikoCloud пометил Closed ровно во время доставки — курьеру не передавались,
-// на кассе висят «СОБРАН», а в iikoServer продажи нет. Закрыт заказ только
-// тогда, когда iikoServer видит продажу (Delivery.CloseTime); до тех пор
-// облачный Closed — это висящий заказ со статусом CloudClosed.
+// Облачный Closed закрытием не считаем. По документации iikoDelivery
+// закрытие — ручное действие (кнопка «Закрыть», когда курьер сдал выручку)
+// и всегда сопровождается оплатой и фискальным чеком; просроченная доставка
+// не закрывается сама, а подсвечивается красным. А iikoCloud отдаёт Closed
+// заказам с processedPaymentsSum = 0, whenBillPrinted = null, без отправки
+// курьеру и с whenClosed, до миллисекунды равным плановому completeBefore
+// (10.10: 562 таких заказа, на кассе они висят «СОБРАН»). Поэтому закрыт
+// заказ только тогда, когда iikoServer видит продажу (Delivery.CloseTime);
+// облачный Closed без неё — висящий статус CloudClosed.
 const CLOUD_CLOSED = "CloudClosed";
 
 // iiko лимитирует частоту; повторяем только на 429, как в боте.
@@ -591,7 +595,10 @@ async function runRefresh({
             whenCookingCompleted: fresh.order?.whenCookingCompleted ?? null,
             whenSended: fresh.order?.whenSended ?? null,
             whenDelivered: fresh.order?.whenDelivered ?? null,
-            whenClosed: fresh.order?.whenClosed ?? null,
+            // У облачного Closed без продажи «время закрытия» — это плановое
+            // completeBefore, а не событие: не сохраняем, иначе «Застрял на»
+            // покажет «закрыт» у висящего заказа.
+            whenClosed: nextStatus === CLOUD_CLOSED ? null : fresh.order?.whenClosed ?? null,
             updatedAt: new Date(),
           })
           .where(eq(hangingOrders.id, row.id))
