@@ -36,6 +36,7 @@ type Stats = {
     errors: number;
     pending: number;
     notInCloud: number;
+    cloudClosed: number;
     tooOld: number;
     stopped: boolean;
     errorSamples: string[];
@@ -61,6 +62,7 @@ const summary = (s: Stats) =>
         s.alreadyClosed && `уже были закрыты или отменены в iiko ${s.alreadyClosed} — статус обновлён`,
         s.pending && `касса не подтвердила ${s.pending}`,
         s.notInCloud && `облако уже не хранит — отменить можно только вручную на кассе ${s.notInCloud}`,
+        s.cloudClosed && `закрыты в облаке, но не пробиты — только вручную на кассе ${s.cloudClosed}`,
         s.tooOld && `старше 130 дней, не трогали ${s.tooOld}`,
         s.errors && `ошибок ${s.errors}`,
     ]
