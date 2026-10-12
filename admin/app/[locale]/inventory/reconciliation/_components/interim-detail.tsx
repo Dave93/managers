@@ -7,7 +7,7 @@ import { Link } from "@admin/i18n/routing";
 import { Switch } from "@admin/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { inventoryApi } from "@admin/lib/inventory-api";
-import { formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
+import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import { formatDay } from "@admin/lib/inventory/periods";
 import { BookBreakdownView } from "@admin/app/[locale]/inventory/_components/book-compare";
 import type { InterimReconLine } from "@backend/modules/inventory/book/types";
@@ -114,7 +114,7 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
                         </TableCell>
                         <TableCell className={`text-right tabular-nums ${diff ? "font-semibold" : ""}`}>{formatQty(l.admin_qty)}</TableCell>
                         <TableCell className={`text-right tabular-nums ${diff ? "font-semibold" : ""}`}>{formatQty(l.iiko_qty)}</TableCell>
-                        <TableCell className={`text-right tabular-nums ${diff ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>
+                        <TableCell className={`text-right tabular-nums ${diffClass(l.diff_qty)}`}>
                           {formatDiff(l.diff_qty)}
                         </TableCell>
                         <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>

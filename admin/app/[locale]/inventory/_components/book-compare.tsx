@@ -7,7 +7,7 @@ import { Button } from "@admin/components/ui/button";
 import { Switch } from "@admin/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { inventoryApi } from "@admin/lib/inventory-api";
-import { formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
+import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import { formatDay } from "@admin/lib/inventory/periods";
 import type { BookBreakdown, BookView } from "@backend/modules/inventory/book/types";
 
@@ -113,7 +113,6 @@ export function BookCompare({
             </TableHeader>
             <TableBody>
               {lines.map((l, i) => {
-                const diff = l.diff_qty !== null && Number(l.diff_qty) !== 0;
                 return (
                   <Fragment key={l.product_id}>
                     <TableRow className="cursor-pointer" onClick={() => setOpen(open === l.product_id ? null : l.product_id)}>
@@ -128,7 +127,7 @@ export function BookCompare({
                       <TableCell className="text-muted-foreground">{l.unit_name ?? ""}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatQty(l.fact_qty)}</TableCell>
                       <TableCell className="text-right tabular-nums">{formatQty(l.book_qty)}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${diff ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>
+                      <TableCell className={`text-right tabular-nums ${diffClass(l.diff_qty)}`}>
                         {formatDiff(l.diff_qty)}
                       </TableCell>
                     </TableRow>
