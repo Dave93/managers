@@ -87,7 +87,8 @@ function MoreMenu() {
               {t("title")}
             </Link>
           </CanAccess>
-          <CanAccess permission="inventory.count">
+          {/* «Остатки склада» — только офис: филиалу учёт iiko не показываем (слепой пересчёт). */}
+          <CanAccess permission="inventory.templates">
             <Link
               href="/inventory/stock"
               onClick={() => setOpen(false)}

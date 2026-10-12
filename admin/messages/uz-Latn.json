@@ -784,7 +784,6 @@
     },
     "stock": {
       "title": "Ombor qoldiqlari",
-      "hidden": "Sanoq ketmoqda — sanoq yopilgach qoldiqlar ochiladi",
       "at": "{at} holatiga iiko hisobi",
       "onlyNegative": "Faqat manfiylar",
       "empty": "Qoldiq yo'q",

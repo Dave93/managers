@@ -43,9 +43,8 @@ export interface StockLine {
   qty: string;
 }
 
+/** «Остатки склада» — только офис (inventory.templates). */
 export interface StockView {
-  /** Филиалу остатки скрыты, пока у склада есть пересчёт, который он ещё может менять. */
-  hidden: boolean;
   at: string | null;
   lines: StockLine[];
 }

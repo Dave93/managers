@@ -14,7 +14,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
   const { bookQueue, closeBookQueue } = await import("./queue");
-  const { setStockIikoRunner, clearStockCache } = await import("./stock");
+  const { setStockIikoRunner, clearStockCache, storeHasChangeableCount } = await import("./stock");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
 
@@ -165,7 +165,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
-    it("промежуточный фиксируется сразу после отправки: при until_accept филиал видит сравнение и остатки", async () => {
+    it("промежуточный фиксируется сразу после отправки: при until_accept филиал видит сравнение, остатков — нет", async () => {
       const w = await seed("interim");
       setStockIikoRunner(async (fn) =>
         fn({
@@ -179,10 +179,9 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       try {
         await setRule("until_accept");
         const m = await manager(w);
-        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(true);
         await w.submit();
         expect((await api(m, "GET", `/api/inventory/counts/${w.countId}/book`)).status).toBe(200);
-        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(false);
+        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).status).toBe(403);
         const d = await api(m, "GET", `/api/inventory/counts/${w.countId}`);
         expect(d.body.can_reopen).toBe(false);
         expect((await api(m, "POST", `/api/inventory/counts/${w.countId}/reopen`, {})).status).toBe(403);
@@ -248,7 +247,6 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         const o = await office();
         const r = await api(o, "GET", `/api/inventory/stock?store_id=${w.store}`);
         expect(r.status).toBe(200);
-        expect(r.body.hidden).toBe(false);
         const by = new Map(r.body.lines.map((l: any) => [l.product_id, l]));
         expect(by.get(w.p1)).toMatchObject({ code: `S${w.tag}`, qty: "7.5" });
         expect(by.get(w.p2)).toMatchObject({ qty: "-2" });
@@ -277,7 +275,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
-    it("старый отправленный пересчёт прошлых периодов (без сверки) не скрывает остатки навсегда", async () => {
+    it("старый отправленный пересчёт прошлых периодов (без сверки) не скрывает цифры iiko от филиала навсегда", async () => {
       const w = await seed();
       fakeIiko(w);
       try {
@@ -286,31 +284,23 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         await setRule("until_iiko");
         // пересчёт давно прошедшего периода: сверки по нему нет, по правилу «можно вернуть», но он вне окна
         await drizzleDb.update(schema.inventory_counts).set({ period: "2026-01-31", count_date: "2026-01-20" }).where(eq(schema.inventory_counts.id, w.countId));
-        const m = await manager(w);
-        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(false);
+        expect(await storeHasChangeableCount(drizzleDb, w.store)).toBe(false);
       } finally {
         await setRule(null);
         await w.cleanup();
       }
     });
 
-    it("филиал: пока пересчёт можно менять — скрыто; зафиксирован — видно; чужой склад — 403", async () => {
+    it("«Остатки склада» — только офис: филиал получает 403 и по своему складу", async () => {
       const w = await seed("monthly");
       fakeIiko(w);
       try {
-        await setRule("until_accept");
-        const m = await manager(w);
-        const draft = await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`);
-        expect(draft.status).toBe(200);
-        expect(draft.body).toEqual({ hidden: true, at: null, lines: [] });
-        expect((await api(m, "GET", `/api/inventory/stock/movements?store_id=${w.store}&product_id=${w.p1}`)).status).toBe(403);
-        await w.submit();
-        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).body.hidden).toBe(true);
         await setRule("office_only");
-        const open = await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`);
-        expect(open.body.hidden).toBe(false);
-        expect(open.body.lines.length).toBe(2);
-        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.other}`)).status).toBe(403);
+        await w.submit();
+        const m = await manager(w);
+        expect((await api(m, "GET", `/api/inventory/stock?store_id=${w.store}`)).status).toBe(403);
+        expect((await api(m, "GET", `/api/inventory/stock/movements?store_id=${w.store}&product_id=${w.p1}`)).status).toBe(403);
+        expect((await api(await office(), "GET", `/api/inventory/stock?store_id=${w.store}`)).status).toBe(200);
       } finally {
         await setRule(null);
         await w.cleanup();

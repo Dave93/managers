@@ -821,7 +821,6 @@
     },
     "stock": {
       "title": "Warehouse stock",
-      "hidden": "A count is in progress — stock will open once the count is closed",
       "at": "iiko book stock at {at}",
       "onlyNegative": "Negative only",
       "empty": "No stock",

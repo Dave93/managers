@@ -1,4 +1,6 @@
 // Видимость книжного количества и «Остатки склада» (spec 2026-10-08, §6).
+// «Остатки склада» — только офис (inventory.templates, проверяет маршрут): филиалу текущее
+// книжное iiko не показываем, иначе он видел бы учёт перед слепым пересчётом (решение 6, 12.10.2026).
 import { inventory_count_book, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
@@ -124,13 +126,6 @@ export async function loadBook(db: DbLike, actor: Actor, countId: string): Promi
   return { fetched_at: count.book_fetched_at, lines: view };
 }
 
-async function assertStockVisible(db: DbLike, actor: Actor, storeId: string): Promise<boolean> {
-  assertUuid(storeId);
-  if (actor.perms.includes("inventory.templates")) return true;
-  if ((await storeAccess(db, actor, storeId)) !== "write") throw new InventoryError(403, "store_forbidden");
-  return !(await storeHasChangeableCount(db, storeId));
-}
-
 // Кэш на 2 минуты по складу: каждое открытие экрана иначе — новая сессия iiko (лицензионный слот).
 const CACHE_MS = 2 * 60_000;
 type Cached<T> = { ts: number; value: T };
@@ -145,8 +140,8 @@ function fresh<T>(m: Map<string, Cached<T>>, key: string): T | null {
   return c && Date.now() - c.ts < CACHE_MS ? c.value : null;
 }
 
-export async function loadStock(db: DbLike, actor: Actor, storeId: string): Promise<StockView> {
-  if (!(await assertStockVisible(db, actor, storeId))) return { hidden: true, at: null, lines: [] };
+export async function loadStock(db: DbLike, storeId: string): Promise<StockView> {
+  assertUuid(storeId);
   let cached = fresh(balanceCache, storeId);
   if (!cached) {
     const at = nowLocal();
@@ -162,7 +157,7 @@ export async function loadStock(db: DbLike, actor: Actor, storeId: string): Prom
       return { product_id: b.product_id, code: m?.code ?? null, name: m?.name ?? b.product_id, unit_name: m?.unit_name ?? null, group_name: m?.group_name ?? "Без группы", qty: q(b.amount) };
     })
     .sort((x, y) => x.group_name.localeCompare(y.group_name, "ru") || x.name.localeCompare(y.name, "ru"));
-  return { hidden: false, at, lines };
+  return { at, lines };
 }
 
 const breakdown = (l: BookLine) => ({
@@ -177,9 +172,9 @@ const breakdown = (l: BookLine) => ({
 });
 
 /** Движение товара с 1-го числа текущего месяца по сейчас. */
-export async function loadStockMovement(db: DbLike, actor: Actor, storeId: string, productId: string): Promise<StockMovement> {
+export async function loadStockMovement(db: DbLike, storeId: string, productId: string): Promise<StockMovement> {
+  assertUuid(storeId);
   assertUuid(productId);
-  if (!(await assertStockVisible(db, actor, storeId))) throw new InventoryError(403, "stock_hidden");
   let cached = fresh(movementCache, storeId);
   if (!cached) {
     const at = nowLocal();

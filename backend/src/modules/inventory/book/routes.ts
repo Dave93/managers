@@ -1,6 +1,6 @@
 // Маршруты «Сравнение с учётом» и «Остатки склада» (spec 2026-10-08, §6). Плагин без своего
-// префикса: подключается внутри inventoryControllerImpl (/api). Доступ проверяется в коде:
-// офис и филиал видят разное (см. stock.ts).
+// префикса: подключается внутри inventoryControllerImpl (/api). «Сравнение с учётом»: офис и филиал
+// видят разное (см. stock.ts). «Остатки склада» — только офис (inventory.templates).
 import { ctx } from "@backend/context";
 import { inventory_counts } from "backend/drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -34,17 +34,13 @@ export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
   )
   .get(
     "/inventory/stock",
-    async ({ query, user, role, drizzle, cacheController, set }) =>
-      run(set, async () => loadStock(drizzle, await actorFrom(cacheController, user, role), query.store_id)),
-    { permission: "inventory.count", query: t.Object({ store_id: t.String() }) }
+    async ({ query, drizzle, set }) => run(set, async () => loadStock(drizzle, query.store_id)),
+    { permission: "inventory.templates", query: t.Object({ store_id: t.String() }) }
   )
   .get(
     "/inventory/stock/movements",
-    async ({ query, user, role, drizzle, cacheController, set }) =>
-      run(set, async () =>
-        loadStockMovement(drizzle, await actorFrom(cacheController, user, role), query.store_id, query.product_id)
-      ),
-    { permission: "inventory.count", query: t.Object({ store_id: t.String(), product_id: t.String() }) }
+    async ({ query, drizzle, set }) => run(set, async () => loadStockMovement(drizzle, query.store_id, query.product_id)),
+    { permission: "inventory.templates", query: t.Object({ store_id: t.String(), product_id: t.String() }) }
   )
   .get(
     "/inventory/interim-reconciliations",
