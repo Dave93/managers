@@ -27,7 +27,6 @@ export const playgroundTicketsController = new Elysia({
       }
 
       const apiTokens = await cacheController.getCachedApiTokens({});
-      console.log("apiTokens", apiTokens);
       const token = apiTokens.find((item: any) => item.token === accessToken);
 
       if (!token) {
