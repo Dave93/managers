@@ -631,6 +631,11 @@
       "period": "Ой",
       "fetch": "iiko'дан юклаш",
       "refresh": "iiko'дан янгилаш",
+      "allStores": "Барча омборлар",
+      "storeScope": "Омбор: {store}",
+      "storeQueued": "{store}: iiko'дан юклаш навбатига қўйилди",
+      "storeFailed": "{store}: iiko'дан юклашда хато — {error}",
+      "storesRunning": "навбатдаги омборлар: {count}",
       "alreadyRunning": "Бу ой учун юклаш аллақачон кетмоқда",
       "state": {
         "idle": "Ҳали юкланмаган",

@@ -120,3 +120,8 @@ export interface ReconFetchStatus {
   missing: { store_id: string; store_name: string }[];
   error: string | null;
 }
+
+/** Статус загрузки месяца + загрузки отдельных складов (кнопка ↻ в строке списка). */
+export interface ReconFetchOverview extends ReconFetchStatus {
+  stores: ReconFetchStatus[];
+}

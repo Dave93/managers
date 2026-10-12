@@ -656,6 +656,11 @@
       "period": "Month",
       "fetch": "Load from iiko",
       "refresh": "Reload from iiko",
+      "allStores": "All stores",
+      "storeScope": "Store: {store}",
+      "storeQueued": "{store}: queued for loading from iiko",
+      "storeFailed": "{store}: loading from iiko failed — {error}",
+      "storesRunning": "stores in queue: {count}",
       "alreadyRunning": "A load for this month is already running",
       "state": {
         "idle": "Not loaded yet",

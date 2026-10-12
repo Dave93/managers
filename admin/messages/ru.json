@@ -686,6 +686,11 @@
       "period": "Месяц",
       "fetch": "Загрузить из iiko",
       "refresh": "Обновить из iiko",
+      "allStores": "Все склады",
+      "storeScope": "Склад: {store}",
+      "storeQueued": "{store}: поставлен в очередь загрузки из iiko",
+      "storeFailed": "{store}: ошибка загрузки из iiko — {error}",
+      "storesRunning": "склады в очереди: {count}",
       "alreadyRunning": "Загрузка за этот месяц уже идёт",
       "state": {
         "idle": "Ещё не загружали",

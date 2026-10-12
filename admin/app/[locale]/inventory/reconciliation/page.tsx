@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 import type { ReconOverviewRow, ReconStatus } from "@backend/modules/inventory/reconcile/types";
-import { FetchPanel } from "./_components/fetch-panel";
+import { FetchPanel, RowRefresh } from "./_components/fetch-panel";
 import { ReconStatusBadge } from "./_components/recon-status-badge";
 import { ReopenRule } from "./_components/reopen-rule";
 import { InterimOverview } from "./_components/interim-overview";
@@ -99,6 +99,7 @@ function Overview() {
                 <TableHead>{t("col.status")}</TableHead>
                 <TableHead className="text-right">{t("col.mismatch")}</TableHead>
                 <TableHead className="text-right">{t("col.reopens")}</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -127,6 +128,9 @@ function Overview() {
                   {/* Повторные отправки: пересчёт возвращали в черновик и меняли после отправки. */}
                   <TableCell className={`text-right tabular-nums ${r.reopen_count ? "font-semibold text-orange-600" : ""}`}>
                     {r.reopen_count || "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <RowRefresh reconId={r.id} storeId={r.store_id} period={r.period} />
                   </TableCell>
                 </TableRow>
               ))}

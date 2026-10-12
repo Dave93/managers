@@ -21,7 +21,7 @@ import type {
   InventoryTemplateDetail,
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
-import type { ReconDetail, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
+import type { ReconDetail, ReconFetchOverview, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
 import type { BookView, InterimReconDetail, InterimReconRow, StockMovement, StockView } from "@backend/modules/inventory/book/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
@@ -79,8 +79,9 @@ export const inventoryApi = {
   folders: () => call<InventoryFolders>(inv.folders.get()),
   reconcile: {
     list: (period: string) => call<ReconOverviewRow[]>(inv.reconciliations.get({ query: { period } })),
-    fetch: (period: string) => call<ReconFetchStatus>(inv.reconciliations.fetch.post({ period })),
-    status: (period: string) => call<ReconFetchStatus>(inv.reconciliations["fetch-status"].get({ query: { period } })),
+    fetch: (period: string, storeId?: string) =>
+      call<ReconFetchStatus>(inv.reconciliations.fetch.post(storeId ? { period, store_id: storeId } : { period })),
+    status: (period: string) => call<ReconFetchOverview>(inv.reconciliations["fetch-status"].get({ query: { period } })),
     get: (id: string) => call<ReconDetail>(inv.reconciliations({ id }).get()),
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>

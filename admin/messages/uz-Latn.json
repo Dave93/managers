@@ -619,6 +619,11 @@
       "period": "Oy",
       "fetch": "iiko'dan yuklash",
       "refresh": "iiko'dan yangilash",
+      "allStores": "Barcha omborlar",
+      "storeScope": "Ombor: {store}",
+      "storeQueued": "{store}: iiko'dan yuklash navbatiga qo'yildi",
+      "storeFailed": "{store}: iiko'dan yuklashda xato — {error}",
+      "storesRunning": "navbatdagi omborlar: {count}",
       "alreadyRunning": "Bu oy uchun yuklash allaqachon ketmoqda",
       "state": {
         "idle": "Hali yuklanmagan",

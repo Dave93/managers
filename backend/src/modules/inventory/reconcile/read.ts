@@ -95,6 +95,13 @@ export async function reconTarget(db: DbLike, id: string) {
   return { store_id: r.store_id, period: r.period };
 }
 
+/** Склад для загрузки «только по складу»: должен существовать, иначе в сверке не будет названия и организации. */
+export async function assertStore(db: DbLike, storeId: string) {
+  if (!UUID_RE.test(storeId)) throw new InventoryError(404, "store_not_found");
+  const [s] = await db.select({ id: corporation_store.id }).from(corporation_store).where(eq(corporation_store.id, storeId));
+  if (!s) throw new InventoryError(404, "store_not_found");
+}
+
 async function branchEdits(db: DbLike, countIds: string[]): Promise<ReconBranchEdit[]> {
   if (!countIds.length) return [];
   const ids = sql.join(countIds.map((id) => sql`${id}::uuid`), sql`, `);
