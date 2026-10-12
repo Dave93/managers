@@ -123,11 +123,48 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
           ["POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/status`, { status: "accepted" }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/lines/${w.waterId}/mark`, { checked: true }],
+          ["GET", "/api/inventory/settings/reopen-rule"],
+          ["PUT", "/api/inventory/settings/reopen-rule", { rule: "office_only" }],
         ];
         for (const [m, p, body] of calls) {
           const r = await api(b, m, p, body);
           expect(`${m} ${p} ${r.status}`).toBe(`${m} ${p} 403`);
         }
+      } finally {
+        await w.cleanup();
+      }
+    });
+  });
+
+  describe("reconcile: правило возврата пересчёта филиалом", () => {
+    it("по умолчанию until_iiko; офис меняет; кривое значение — 422", async () => {
+      const o = await office();
+      await drizzleDb.delete(schema.settings).where(eq(schema.settings.key, "inventory.reopen_rule"));
+      try {
+        expect((await api(o, "GET", "/api/inventory/settings/reopen-rule")).body).toEqual({ rule: "until_iiko" });
+        expect((await api(o, "PUT", "/api/inventory/settings/reopen-rule", { rule: "whatever" })).status).toBe(422);
+        expect((await api(o, "PUT", "/api/inventory/settings/reopen-rule", { rule: "until_accept" })).status).toBe(200);
+        expect((await api(o, "PUT", "/api/inventory/settings/reopen-rule", { rule: "office_only" })).status).toBe(200);
+        expect((await api(o, "GET", "/api/inventory/settings/reopen-rule")).body).toEqual({ rule: "office_only" });
+        const rows = await drizzleDb.select().from(schema.settings).where(eq(schema.settings.key, "inventory.reopen_rule"));
+        expect(rows.length).toBe(1);
+      } finally {
+        await drizzleDb.delete(schema.settings).where(eq(schema.settings.key, "inventory.reopen_rule"));
+      }
+    });
+
+    it("в обзоре — число возвратов отправленного пересчёта в черновик", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        const author = randomUUID();
+        await drizzleDb.insert(schema.inventory_count_events).values([
+          { count_id: w.countId, type: "reopened", user_id: author },
+          { count_id: w.countId, type: "reopened", user_id: author },
+        ]);
+        const r = await api(o, "GET", `/api/inventory/reconciliations?period=${PERIOD}`);
+        expect(r.body.find((x: any) => x.id === w.readyId).reopen_count).toBe(2);
+        expect(r.body.find((x: any) => x.id === w.waitingId).reopen_count).toBe(0);
       } finally {
         await w.cleanup();
       }
@@ -180,6 +217,28 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(row.admin_state).toBe("submitted");
         expect(row.deadline).toBeUndefined();
         expect(row.diff_ab_sum).toBe("-100.00");
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("пересчёт филиала изменён после расчёта — детали показывают свежую админку (A)", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        // расчёт был давно, пересчёт склада отправлен позже (в seed — сейчас)
+        await drizzleDb
+          .update(schema.inventory_reconciliations)
+          .set({ calculated_at: "2026-09-01T00:00:00Z" })
+          .where(eq(schema.inventory_reconciliations.id, w.readyId));
+        const r = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(r.status).toBe(200);
+        expect(r.body.lines.map((l: any) => l.product_name).sort()).toEqual(["Вода", "Соль"]);
+        const salt = r.body.lines.find((l: any) => l.product_name === "Соль");
+        expect(salt.admin_state).toBe("counted");
+        const water = r.body.lines.find((l: any) => l.product_name === "Вода");
+        expect(water.admin_state).toBe("absent");
+        expect(water.book_qty).toBe("15.0000");
       } finally {
         await w.cleanup();
       }

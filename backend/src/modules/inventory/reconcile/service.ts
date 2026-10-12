@@ -26,6 +26,7 @@ import {
   totals,
   totalsToDb,
   type AdminAgg,
+  type BookRow,
   type CorrLine,
   type IikoDoc,
   type ProductMeta,
@@ -245,6 +246,85 @@ async function productMeta(db: DbLike, ids: string[]): Promise<Map<string, Produ
 const s = (x: number | null) => (x === null ? null : String(x));
 
 /** Этап 2: учёт на book_at, A из админки, расчёт строк и итогов. Статусы не меняет. */
+/** Строки и итоги сверки из учёта `book` + сохранённых корректировок iiko + текущей админки. */
+async function calcAndWrite(
+  db: DbLike,
+  row: ReconRow,
+  book: BookRow[],
+  userId: string | null | undefined,
+  // Снимок названий из прошлого расчёта: товар могли удалить из номенклатуры.
+  knownMeta: Map<string, ProductMeta> = new Map()
+) {
+  const { admin, state } = await adminAggregate(db, row.store_id, row.period);
+  // B считаем только по реально загруженным корректировкам (см. hadDoc в этапе 1).
+  const hasDoc = !!row.iiko_doc_state;
+  const corrections = hasDoc
+    ? (
+        await db
+          .select()
+          .from(inventory_reconciliation_iiko_lines)
+          .where(eq(inventory_reconciliation_iiko_lines.reconciliation_id, row.id))
+      ).map(toCorrLine)
+    : null;
+  const adminIds = new Set(admin.map((a) => a.product_id));
+  const otherIds = [...new Set([...book.map((b) => b.product_id), ...(corrections ?? []).map((c) => c.product_id)])].filter(
+    (id) => !adminIds.has(id)
+  );
+  const meta = new Map([...knownMeta, ...(await productMeta(db, otherIds))]);
+  const lines = buildLines({ admin, book, corrections, meta });
+  const t = totalsToDb(totals(lines, hasDoc));
+
+  await db.transaction(async (tx) => {
+    const [locked] = await tx.select().from(inventory_reconciliations).where(eq(inventory_reconciliations.id, row.id)).for("update");
+    await tx.delete(inventory_reconciliation_lines).where(eq(inventory_reconciliation_lines.reconciliation_id, row.id));
+    for (let i = 0; i < lines.length; i += 500) {
+      await tx.insert(inventory_reconciliation_lines).values(
+        lines.slice(i, i + 500).map((l) => ({
+          reconciliation_id: row.id,
+          product_id: l.product_id,
+          product_name: l.product_name,
+          unit_name: l.unit_name,
+          group_name: l.group_name,
+          admin_state: l.admin_state,
+          admin_qty: s(l.admin_qty),
+          admin_counts_n: l.admin_counts_n,
+          book_qty: String(l.book_qty),
+          book_sum: String(l.book_sum),
+          iiko_correction_qty: String(l.iiko_correction_qty),
+          iiko_correction_sum: String(l.iiko_correction_sum),
+          iiko_fact_qty: s(l.iiko_fact_qty),
+          unit_cost: s(l.unit_cost),
+          cost_source: l.cost_source,
+          diff_ab_qty: s(l.diff_ab_qty),
+          diff_ab_sum: s(l.diff_ab_sum),
+          diff_ac_sum: s(l.diff_ac_sum),
+        }))
+      );
+    }
+    const prev: ReconTotals = {
+      lines_total: locked.lines_total,
+      mismatch_ab_count: locked.mismatch_ab_count,
+      diff_ab_sum: locked.diff_ab_sum,
+      diff_ac_sum: locked.diff_ac_sum,
+      diff_bc_sum: locked.diff_bc_sum,
+    };
+    const changed = !locked.calculated_at || !sameTotals(prev, t);
+    const accepted = locked.accepted_totals as ReconTotals | null;
+    await tx
+      .update(inventory_reconciliations)
+      .set({
+        ...t,
+        admin_state: state,
+        calculated_at: sql`now()`,
+        updated_at: sql`now()`,
+        changed_after_accept: locked.changed_after_accept || (locked.status === "accepted" && !sameTotals(accepted, t)),
+      })
+      .where(eq(inventory_reconciliations.id, row.id));
+    if (changed) await writeReconEvent(tx, row.id, "calculated", userId, { before: locked.calculated_at ? prev : null, after: t });
+  });
+}
+
+/** Этап 2: учёт на book_at, A из админки, расчёт строк и итогов. Статусы не меняет. */
 export async function runStage2(db: DbLike, iiko: IikoClient, input: RunInput & { scope: string[] }): Promise<void> {
   for (const storeId of input.scope) {
     const [row] = await db
@@ -252,75 +332,41 @@ export async function runStage2(db: DbLike, iiko: IikoClient, input: RunInput & 
       .from(inventory_reconciliations)
       .where(and(eq(inventory_reconciliations.store_id, storeId), eq(inventory_reconciliations.period, input.period)));
     if (!row) continue;
-
     const book = await iiko.balance(storeId, toIikoTimestamp(row.book_at ?? `${input.period}T23:58:00`));
-    const { admin, state } = await adminAggregate(db, storeId, input.period);
-    // B считаем только по реально загруженным корректировкам (см. hadDoc в этапе 1).
-    const hasDoc = !!row.iiko_doc_state;
-    const corrections = hasDoc
-      ? (
-          await db
-            .select()
-            .from(inventory_reconciliation_iiko_lines)
-            .where(eq(inventory_reconciliation_iiko_lines.reconciliation_id, row.id))
-        ).map(toCorrLine)
-      : null;
-    const adminIds = new Set(admin.map((a) => a.product_id));
-    const otherIds = [...new Set([...book.map((b) => b.product_id), ...(corrections ?? []).map((c) => c.product_id)])].filter(
-      (id) => !adminIds.has(id)
-    );
-    const lines = buildLines({ admin, book, corrections, meta: await productMeta(db, otherIds) });
-    const t = totalsToDb(totals(lines, hasDoc));
-
-    await db.transaction(async (tx) => {
-      const [locked] = await tx.select().from(inventory_reconciliations).where(eq(inventory_reconciliations.id, row.id)).for("update");
-      await tx.delete(inventory_reconciliation_lines).where(eq(inventory_reconciliation_lines.reconciliation_id, row.id));
-      for (let i = 0; i < lines.length; i += 500) {
-        await tx.insert(inventory_reconciliation_lines).values(
-          lines.slice(i, i + 500).map((l) => ({
-            reconciliation_id: row.id,
-            product_id: l.product_id,
-            product_name: l.product_name,
-            unit_name: l.unit_name,
-            group_name: l.group_name,
-            admin_state: l.admin_state,
-            admin_qty: s(l.admin_qty),
-            admin_counts_n: l.admin_counts_n,
-            book_qty: String(l.book_qty),
-            book_sum: String(l.book_sum),
-            iiko_correction_qty: String(l.iiko_correction_qty),
-            iiko_correction_sum: String(l.iiko_correction_sum),
-            iiko_fact_qty: s(l.iiko_fact_qty),
-            unit_cost: s(l.unit_cost),
-            cost_source: l.cost_source,
-            diff_ab_qty: s(l.diff_ab_qty),
-            diff_ab_sum: s(l.diff_ab_sum),
-            diff_ac_sum: s(l.diff_ac_sum),
-          }))
-        );
-      }
-      const prev: ReconTotals = {
-        lines_total: locked.lines_total,
-        mismatch_ab_count: locked.mismatch_ab_count,
-        diff_ab_sum: locked.diff_ab_sum,
-        diff_ac_sum: locked.diff_ac_sum,
-        diff_bc_sum: locked.diff_bc_sum,
-      };
-      const changed = !locked.calculated_at || !sameTotals(prev, t);
-      const accepted = locked.accepted_totals as ReconTotals | null;
-      await tx
-        .update(inventory_reconciliations)
-        .set({
-          ...t,
-          admin_state: state,
-          calculated_at: sql`now()`,
-          updated_at: sql`now()`,
-          changed_after_accept: locked.changed_after_accept || (locked.status === "accepted" && !sameTotals(accepted, t)),
-        })
-        .where(eq(inventory_reconciliations.id, row.id));
-      if (changed) await writeReconEvent(tx, row.id, "calculated", input.userId, { before: locked.calculated_at ? prev : null, after: t });
-    });
+    await calcAndWrite(db, row, book, input.userId);
   }
+}
+
+/**
+ * Пересчёты склада менялись после расчёта (вернули в черновик, поправили, отправили снова) —
+ * пересчитать сторону админки без запроса в iiko: учёт C берётся из сохранённых строк,
+ * корректировки — из сохранённого документа. Возвращает true, если пересчитал.
+ */
+export async function refreshIfStale(db: DbLike, reconId: string): Promise<boolean> {
+  const [row] = await db.select().from(inventory_reconciliations).where(eq(inventory_reconciliations.id, reconId));
+  if (!row?.calculated_at) return false;
+  const [{ stale }] = (
+    await db.execute(sql`select exists (
+      select 1 from inventory_counts c
+      where c.store_id = ${row.store_id} and c.period = ${row.period} and c.updated_at > ${row.calculated_at}::timestamptz
+    ) as stale`)
+  ).rows as { stale: boolean }[];
+  if (!stale) return false;
+  const stored = await db
+    .select({
+      product_id: inventory_reconciliation_lines.product_id,
+      amount: inventory_reconciliation_lines.book_qty,
+      sum: inventory_reconciliation_lines.book_sum,
+      name: inventory_reconciliation_lines.product_name,
+      unit_name: inventory_reconciliation_lines.unit_name,
+      group_name: inventory_reconciliation_lines.group_name,
+    })
+    .from(inventory_reconciliation_lines)
+    .where(eq(inventory_reconciliation_lines.reconciliation_id, reconId));
+  const book: BookRow[] = stored.map((b) => ({ product_id: b.product_id, amount: Number(b.amount), sum: Number(b.sum) }));
+  const known = new Map(stored.map((b) => [b.product_id, { name: b.name, unit_name: b.unit_name, group_name: b.group_name }]));
+  await calcAndWrite(db, row, book, null, known);
+  return true;
 }
 
 export async function storeNames(db: DbLike, ids: string[]): Promise<Map<string, string>> {

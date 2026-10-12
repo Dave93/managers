@@ -9,6 +9,7 @@ import {
 } from "backend/drizzle/schema";
 import { and, asc, eq, ne, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
+import { refreshIfStale } from "./service";
 import { userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { UUID_RE } from "../rules";
@@ -25,6 +26,12 @@ import type {
 
 type ReconRow = typeof inventory_reconciliations.$inferSelect;
 
+// Сколько раз отправленные пересчёты склада за период возвращали в черновик.
+const REOPEN_COUNT_SQL = sql<number>`(
+  select count(*)::int from inventory_count_events e join inventory_counts c on c.id = e.count_id
+  where e.type = 'reopened' and c.store_id = "inventory_reconciliations"."store_id"
+    and c.period = "inventory_reconciliations"."period")`;
+
 // Живое состояние пересчётов админки за период, не снимок этапа 2.
 const ADMIN_STATE_SQL = sql<ReconAdminState>`(
   select case when bool_or(c.status = 'submitted') then 'submitted' when count(*) > 0 then 'draft' else 'none' end
@@ -32,7 +39,7 @@ const ADMIN_STATE_SQL = sql<ReconAdminState>`(
   where c.store_id = "inventory_reconciliations"."store_id" and c.period = "inventory_reconciliations"."period"
     and c.status <> 'cancelled')`;
 
-function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdminState): ReconOverviewRow {
+function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdminState, reopenCount: number): ReconOverviewRow {
   return {
     id: r.id,
     store_id: r.store_id,
@@ -41,6 +48,7 @@ function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdm
     period: r.period,
     status: r.status as ReconStatus,
     admin_state: adminState,
+    reopen_count: reopenCount,
     iiko_document_num: r.iiko_document_num,
     iiko_document_comment: r.iiko_document_comment,
     iiko_doc_state: r.iiko_doc_state as ReconOverviewRow["iiko_doc_state"],
@@ -56,19 +64,25 @@ function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdm
 }
 
 export async function listReconciliations(db: DbLike, period: string): Promise<ReconOverviewRow[]> {
+  // Пересчёты, изменённые после расчёта, подтягиваются в сверку сразу (без iiko).
+  const stale = await db.execute(sql`
+    select r.id::text as id from inventory_reconciliations r
+    where r.period = ${period} and r.calculated_at is not null and exists (
+      select 1 from inventory_counts c where c.store_id = r.store_id and c.period = r.period and c.updated_at > r.calculated_at)`);
+  for (const x of stale.rows as { id: string }[]) await refreshIfStale(db, x.id);
   const rows = await db
-    .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL })
+    .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL, reopen_count: REOPEN_COUNT_SQL })
     .from(inventory_reconciliations)
     .leftJoin(corporation_store, eq(corporation_store.id, inventory_reconciliations.store_id))
     .where(eq(inventory_reconciliations.period, period))
     .orderBy(asc(corporation_store.name));
-  return rows.map((x) => overviewRow(x.r, x.store_name, x.admin_state));
+  return rows.map((x) => overviewRow(x.r, x.store_name, x.admin_state, x.reopen_count));
 }
 
 async function getRow(db: DbLike, id: string) {
   if (!UUID_RE.test(id)) throw new InventoryError(404, "not_found");
   const [x] = await db
-    .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL })
+    .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL, reopen_count: REOPEN_COUNT_SQL })
     .from(inventory_reconciliations)
     .leftJoin(corporation_store, eq(corporation_store.id, inventory_reconciliations.store_id))
     .where(eq(inventory_reconciliations.id, id));
@@ -112,7 +126,8 @@ async function branchEdits(db: DbLike, countIds: string[]): Promise<ReconBranchE
 }
 
 export async function loadReconciliation(db: DbLike, id: string, now: Date): Promise<ReconDetail> {
-  const { r, store_name, admin_state } = await getRow(db, id);
+  if (UUID_RE.test(id)) await refreshIfStale(db, id);
+  const { r, store_name, admin_state, reopen_count } = await getRow(db, id);
   const l = inventory_reconciliation_lines;
   const lines = await db
     .select({
@@ -160,7 +175,7 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
   const names = await userNames(db, [...events.map((e) => e.user_id ?? ""), r.reviewed_by ?? "", ...lines.map((x) => x.checked_by ?? "")]);
 
   return {
-    ...overviewRow(r, store_name, admin_state),
+    ...overviewRow(r, store_name, admin_state, reopen_count),
     iiko_document_id: r.iiko_document_id,
     iiko_document_at: r.iiko_document_at,
     book_at: r.book_at,

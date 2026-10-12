@@ -34,6 +34,8 @@ export interface ReconOverviewRow extends ReconTotals {
   status: ReconStatus;
   /** Живое состояние пересчётов админки за период (не снимок). */
   admin_state: ReconAdminState;
+  /** Сколько раз отправленные пересчёты склада за период возвращали в черновик. */
+  reopen_count: number;
   iiko_document_num: string | null;
   iiko_document_comment: string | null;
   iiko_doc_state: ReconDocState | null;

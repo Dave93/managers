@@ -673,7 +673,8 @@
         "admin": "Admin count",
         "document": "iiko document",
         "status": "Status",
-        "mismatch": "Rows A ≠ B"
+        "mismatch": "Rows A ≠ B",
+        "reopens": "Resubmissions"
       },
       "admin": {
         "submitted": "Submitted",
@@ -742,7 +743,14 @@
         "title": "Admin counts"
       },
       "checkedBy": "Checked by {name}, {at}",
-      "checkedCount": "Checked {done} of {total} differences"
+      "checkedCount": "Checked {done} of {total} differences",
+      "reopenRule": {
+        "label": "A branch can return a submitted count to draft:",
+        "until_iiko": "while no iiko document is loaded and the reconciliation isn't accepted",
+        "until_accept": "until the office accepts the reconciliation",
+        "office_only": "never — only the office can",
+        "saved": "Rule saved"
+      }
     }
   }
 }

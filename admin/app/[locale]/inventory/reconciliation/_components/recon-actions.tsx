@@ -4,6 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
+import { Link } from "@admin/i18n/routing";
 import { Textarea } from "@admin/components/ui/textarea";
 import { InventoryApiError, inventoryApi } from "@admin/lib/inventory-api";
 import { formatDateTime } from "@admin/lib/inventory/money";
@@ -89,7 +90,11 @@ export function CountsPanel({ detail }: { detail: ReconDetail }) {
       <div className="font-medium">{t("counts.title")}</div>
       {detail.counts.map((c) => (
         <div key={c.id} className="text-sm">
-          {c.template_name} · {tStatus(c.status as any)}
+          {/* Открыть пересчёт: офис возвращает отправленный в черновик со страницы пересчёта. */}
+          <Link className="underline" href={`/inventory/${c.id}`}>
+            {c.template_name}
+          </Link>{" "}
+          · {tStatus(c.status as any)}
         </div>
       ))}
     </div>

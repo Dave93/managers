@@ -13,6 +13,7 @@ import type {
   InventoryFolders,
   InventoryOverviewRow,
   InventoryProduct,
+  InventoryReopenRule,
   InventoryStore,
   InventorySuggestion,
   InventorySyncOp,
@@ -77,6 +78,8 @@ export const inventoryApi = {
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>
       call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
+    reopenRule: () => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].get()),
+    setReopenRule: (rule: InventoryReopenRule) => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].put({ rule })),
     markLine: (id: string, productId: string, checked: boolean) =>
       call<{ ok: true }>(inv.reconciliations({ id }).lines({ productId }).mark.post({ checked })),
     setStatus: (id: string, status: "in_review" | "accepted", comment?: string) =>
