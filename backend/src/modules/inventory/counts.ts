@@ -580,7 +580,8 @@ export async function searchProducts(db: DbLike, q: string, limit: number, scope
     left join nomenclature_group gp on gp.id = g.parent_id
     where coalesce(n.deleted, false) = false
       and n.type in ('GOODS', 'PREPARED')
-      and n.name ilike ${"%" + term + "%"}${excludeF}
+      -- ICU, а не ilike: при LC_CTYPE=C (локальная БД) ilike не сводит регистр кириллицы («мясо» ≠ «Мясо»).
+      and lower(n.name collate "und-x-icu") like lower(${"%" + term + "%"} collate "und-x-icu")${excludeF}
     order by ${branchFirst}n.name
     limit ${Math.min(Math.max(limit, 1), 50)}
   `);
