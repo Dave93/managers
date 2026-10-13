@@ -28,6 +28,28 @@
 PROJECT_PREFIX=managers_test_ DATABASE_URL=postgresql://.../managers_tickets_test bun test <file>
 ```
 
+## Откуда взять TEST_DATABASE_URL
+
+`TEST_DATABASE_URL` нигде не заведён, и в `backend/.env` его нет и быть не
+должно: `test:http` намеренно подставляет пустой `DATABASE_URL`, если переменная
+не экспортирована, чтобы прогон по ошибке не ушёл в живую базу.
+
+Строку собирают на лету из `DATABASE_URL` в `backend/.env`, меняя только имя
+базы на `managers_tickets_test`, и не печатают (в ней пароль):
+
+```
+cd backend
+URL=$(grep '^DATABASE_URL=' .env | cut -d= -f2- | sed -E 's#/managers(\?.*)?$#/managers_tickets_test#')
+case "$URL" in *managers_tickets_test) ;; *) echo "не тестовая база"; exit 1;; esac
+TEST_DATABASE_URL="$URL" bun run test:http
+```
+
+Проверка `case` нужна: если в `.env` имя базы не `managers`, подстановка ничего
+не заменит, и без неё прогон пошёл бы не туда (хотя `http.ts` и так упадёт на
+чужом имени). Строка подключения из плана Задачи 2
+(`docs/superpowers/plans/2026-09-14-tickets-2-notifications.md`, Step 2)
+устарела: её пароль больше не подходит, не копируйте её оттуда.
+
 ## Зачем это всё
 
 - **Отдельная база.** `DATABASE_URL` (провалидированный в `TEST_DB_URL`)

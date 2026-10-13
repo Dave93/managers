@@ -2,15 +2,19 @@
 
 import { Metadata } from "next";
 import { Button } from "@admin/components/ui/buttonOrigin";
-import { Plus, Download, Search, Filter, RefreshCw } from "lucide-react";
+import { Plus, Download, Search, Filter, RefreshCw, Info } from "lucide-react";
 import Link from "next/link";
-import { DataTable } from "./data-table";
+import { DataTable, type Facets } from "./data-table";
+import { buildFiltersJson, officeStatusLabel, type ColumnFilters } from "./filters";
+import { BulkCancelDialog, type BulkTarget } from "./bulk-cancel";
+import { JobProgressBanner, type JobProgress } from "./job-progress";
+import { useCanAccess } from "@admin/components/use-can-access";
 import { hangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { toast } from "sonner";
-import { useState, useCallback, Suspense } from "react";
+import { useState, useCallback, useEffect, Suspense } from "react";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Input } from "@admin/components/ui/input";
@@ -39,23 +43,96 @@ function HangingOrdersContent() {
     // По умолчанию прячем закрытые: страница про висящие заказы, а закрытые
     // после ре-синка перестают быть таковыми.
     const [hideClosed, setHideClosed] = useState(true);
+    const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
     const { dateRange } = useDateRangeState();
+
+    // Массовая отмена — только admin (право hanging_orders.iiko_actions).
+    const canIiko = useCanAccess("hanging_orders.iiko_actions");
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [total, setTotal] = useState(0);
+    const [bulkTarget, setBulkTarget] = useState<BulkTarget | null>(null);
+    // Ход фоновой задачи — сверки или массовой отмены — для заметной панели.
+    const [jobProgress, setJobProgress] = useState<JobProgress | null>(null);
+
+    // Те же фильтры, что у таблицы, — для «отменить всё по фильтру».
+    const tableFilters = buildFiltersJson({
+        brandFilter, statusFilter, searchTerm,
+        dateRange: dateRange || undefined, hideClosed, columnFilters,
+    });
+
+    // Сменился фильтр — выбор с прежней выдачи больше не относится к экрану.
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [tableFilters]);
+
+    // Справочник значений для выпадающих фильтров в шапке. Считается по тем же
+    // верхним фильтрам, что и таблица, без колоночных — иначе выбор в одном
+    // списке сужал бы варианты в нём же.
+    const facetsFilters = buildFiltersJson({
+        brandFilter, statusFilter, searchTerm,
+        dateRange: dateRange || undefined, hideClosed,
+    });
+    const { data: facets } = useQuery({
+        queryKey: ["hanging-orders-facets", facetsFilters],
+        queryFn: async () => {
+            const { data } = await apiClient.api["hanging-orders"].facets.get({
+                query: { ...(facetsFilters && { filters: facetsFilters }) },
+            });
+            return (data as { data: Facets } | null)?.data;
+        },
+    });
     const queryClient = useQueryClient();
 
     // Ночной бот пишет снимок один раз и существующие строки не обновляет, так
     // что заказ, закрытый филиалом после снимка, висит здесь со старым статусом.
-    // Кнопка перечитывает iiko по открытым строкам за последние 3 дня.
+    // Кнопка перечитывает iiko по открытым строкам за период из фильтра
+    // (без фильтра — за последние 3 дня). Сервер не пускает глубже 130 дней — iikoCloud хранит доставки ~120.
     const refreshFromIiko = useMutation({
         mutationFn: async () => {
             const { data, error } = await apiClient.api["hanging-orders"].refresh.post({
                 ...(brandFilter !== "all" && { brand: brandFilter as "chopar" | "les_ailes" }),
-                days: 3,
+                ...(dateRange?.from
+                    ? {
+                        dateFrom: dayjs(dateRange.from).format("YYYY-MM-DD"),
+                        dateTo: dayjs(dateRange.to ?? dateRange.from).format("YYYY-MM-DD"),
+                    }
+                    : { days: 3 }),
             });
             if (error) throw new Error((error.value as any)?.message ?? "Не удалось обновить статусы");
-            return data;
+
+            // Длинный период сервер сверяет фоновой задачей — опрашиваем её.
+            const job = (data as { job?: { id: string; alreadyRunning?: boolean } } | null)?.job;
+            if (!job) return data;
+
+            const title = "Сверка с iiko";
+            setJobProgress({
+                title,
+                text: job.alreadyRunning ? "уже идёт — подключаюсь к ней…" : "запущена…",
+            });
+            try {
+                const startedAt = Date.now();
+                while (Date.now() - startedAt < 30 * 60 * 1000) {
+                    await new Promise((r) => setTimeout(r, 3000));
+                    const { data: st, error: stErr } = await apiClient.api["hanging-orders"]
+                        .refresh({ jobId: job.id })
+                        .get();
+                    if (stErr) throw new Error((stErr.value as any)?.message ?? "Статус сверки недоступен");
+                    const status = st as { state: string; progress?: string; message?: string };
+                    if (status.state === "done") return status;
+                    if (status.state === "error") throw new Error(status.message ?? "Сверка упала");
+                    setJobProgress({ title, text: status.progress ?? "идёт…" });
+                }
+                throw new Error("Сверка идёт дольше 30 минут — проверьте позже");
+            } finally {
+                setJobProgress(null);
+            }
         },
         onSuccess: (result) => {
             const reports: RefreshReport[] = (result?.data as RefreshReport[]) ?? [];
+            const win = (result as { window?: { from: string; to: string } } | null)?.window;
+            const period = win
+                ? `${dayjs(win.from).format("DD.MM")}–${dayjs(win.to).format("DD.MM")}: `
+                : "";
             const updated = reports.reduce((sum, r) => sum + r.updated, 0);
             const checked = reports.reduce((sum, r) => sum + r.checked, 0);
             const errors = reports.flatMap((r) => r.errors);
@@ -63,9 +140,9 @@ function HangingOrdersContent() {
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
 
             if (errors.length > 0) {
-                toast.warning(`Обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
+                toast.warning(`${period}обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
             } else {
-                toast.success(`Проверено ${checked} заказов, обновлено ${updated}`);
+                toast.success(`${period}проверено ${checked} заказов, обновлено ${updated}`);
             }
         },
         onError: (e: Error) => toast.error(e.message),
@@ -75,32 +152,17 @@ function HangingOrdersContent() {
     const { data: exportData, refetch } = useQuery({
         queryKey: ["hanging-orders-export"],
         queryFn: async () => {
-            const filters = [];
-            
-            if (brandFilter !== "all") {
-                filters.push({ field: "brand", operator: "eq", value: brandFilter });
-            }
-            if (statusFilter !== "all") {
-                filters.push({ field: "status", operator: "eq", value: statusFilter });
-            }
-            if (hideClosed) {
-                filters.push({ field: "orderStatus", operator: "notIn", value: ["Closed", "Cancelled"] });
-            }
-            if (searchTerm) {
-                filters.push({ field: "orderId", operator: "contains", value: searchTerm });
-            }
-            if (dateRange?.from) {
-                filters.push({ field: "date", operator: "gte", value: dayjs(dateRange.from).format('YYYY-MM-DD') });
-            }
-            if (dateRange?.to) {
-                filters.push({ field: "date", operator: "lte", value: dayjs(dateRange.to).format('YYYY-MM-DD') });
-            }
+            // Тот же сборщик, что у таблицы: выгрузка = то, что на экране.
+            const filters = buildFiltersJson({
+                brandFilter, statusFilter, searchTerm,
+                dateRange: dateRange || undefined, hideClosed, columnFilters,
+            });
 
             const { data } = await apiClient.api["hanging-orders"].get({
                 query: {
                     limit: "10000",
                     offset: "0",
-                    ...(filters.length > 0 && { filters: JSON.stringify(filters) }),
+                    ...(filters && { filters }),
                 },
             });
             return data;
@@ -147,7 +209,7 @@ function HangingOrdersContent() {
                 order.orderType || "",
                 order.paymentType || "",
                 order.receiptNumber || "",
-                order.orderStatus || "",
+                officeStatusLabel(order.orderStatus),
                 order.comments || "",
                 order.problem || "",
                 order.phoneNumber ? `'${order.phoneNumber}` : "",
@@ -188,6 +250,7 @@ function HangingOrdersContent() {
         setSearchTerm("");
         setBrandFilter("all");
         setStatusFilter("all");
+        setColumnFilters({});
         // hideClosed намеренно не сбрасываем: если менеджер открыл закрытые,
         // чтобы найти конкретный заказ, сброс фильтров не должен их прятать.
         // DateRange очищается через его собственный хук через URL параметры
@@ -196,10 +259,11 @@ function HangingOrdersContent() {
 
     return (
         <div className="w-full min-w-0 overflow-x-hidden">
+            <JobProgressBanner progress={jobProgress} />
             <div className="flex justify-between items-start gap-2">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Висячие заказы
+                        Незакрытые заказы
                     </h1>
                     <p className="text-muted-foreground mt-2">
                         Управление и отслеживание проблемных заказов
@@ -305,6 +369,59 @@ function HangingOrdersContent() {
                 </CardContent>
             </Card>
 
+            {canIiko && (
+                // Для того, кто отменяет: iikoCloud гарантирует доступ к заказам
+                // только за 7 дней — старше отмена может не пройти.
+                <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                        iiko гарантирует отмену только заказов <b>за последние 7 дней</b>. Старше — пока
+                        iikoCloud их ещё хранит, а это не обещано и может кончиться в любой момент. Заказ,
+                        который облако уже не хранит, отменяется только вручную на кассе. Отменяйте
+                        висящие, пока им нет недели.
+                    </span>
+                </div>
+            )}
+
+            {canIiko && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border px-4 py-2 text-sm">
+                    <span className="text-muted-foreground">
+                        Выбрано: <span className="font-medium text-foreground">{selectedIds.length}</span>
+                    </span>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={selectedIds.length === 0}
+                        onClick={() => setBulkTarget({ mode: "ids", ids: selectedIds, count: selectedIds.length })}
+                    >
+                        Отменить выбранные в iiko
+                    </Button>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={total === 0}
+                        onClick={() => setBulkTarget({ mode: "filter", filters: tableFilters, count: total })}
+                    >
+                        Отменить все по фильтру ({total})
+                    </Button>
+                    {selectedIds.length > 0 && (
+                        <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
+                            Снять выбор
+                        </Button>
+                    )}
+                </div>
+            )}
+
+            <BulkCancelDialog
+                target={bulkTarget}
+                onProgress={setJobProgress}
+                onClose={() => setBulkTarget(null)}
+                onDone={() => {
+                    setSelectedIds([]);
+                    queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
+                }}
+            />
+
             <div className="py-10">
                 <DataTable 
                     columns={hangingOrdersColumns} 
@@ -313,6 +430,13 @@ function HangingOrdersContent() {
                     statusFilter={statusFilter}
                     dateRange={dateRange || undefined}
                     hideClosed={hideClosed}
+                    columnFilters={columnFilters}
+                    onColumnFiltersChange={setColumnFilters}
+                    facets={facets}
+                    selectable={canIiko}
+                    selectedIds={selectedIds}
+                    onSelectedIdsChange={setSelectedIds}
+                    onTotalChange={setTotal}
                 />
             </div>
         </div>

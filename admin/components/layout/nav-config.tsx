@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import {
@@ -25,25 +25,36 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavLeaf = { title: string; href: string; permission?: string };
+// Один слаг или список: список означает «нужны все». Экран «К оплате» и планшет
+// филиала сами требуют по два права, и пункт меню, который ведёт на панель
+// отказа, хуже отсутствующего пункта.
+export type NavPermission = string | string[];
+
+// Переводчик раздела tickets.nav (useTranslations("tickets.nav")). Остальное меню
+// пока жёстко по-русски, поэтому buildNav принимает переводчик только для заявок.
+export type TicketsNavT = (
+  key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
+) => string;
+
+export type NavLeaf = { title: string; href: string; permission?: NavPermission };
 export type NavEntry =
   | {
       kind: "link";
       title: string;
       href: string;
       icon: LucideIcon;
-      permission?: string;
+      permission?: NavPermission;
     }
   | {
       kind: "group";
       title: string;
       icon: LucideIcon;
-      permission?: string;
+      permission?: NavPermission;
       items: NavLeaf[];
     };
 
 // Mirrors the prod main-nav data (single source for sidebar + breadcrumbs).
-export function buildNav(locale: string): NavEntry[] {
+export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
   const p = (path: string) => `/${locale}${path}`;
   return [
     {
@@ -113,6 +124,25 @@ export function buildNav(locale: string): NavEntry[] {
       ],
     },
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
+    // Заявки. Право пункта берётся с самого экрана, а не с плана. Офисный
+    // список читает GET /tickets, а он проверяет tickets.list; но сессия без
+    // филиалов и без tickets.list_all получает там 200 с пустым списком, то есть
+    // «нет заявок» вместо «нет филиалов». Поэтому пункт показывается только тем,
+    // у кого есть оба права; менеджеру филиала достаточно «Заявок филиала».
+    // «К оплате» и «Заявки филиала» тоже требуют по два права. Группа без
+    // своего permission: useFilteredNav прячет её, когда не осталось пунктов.
+    {
+      kind: "group",
+      title: tTickets("group"),
+      icon: Wrench,
+      items: [
+        { title: tTickets("list"), href: p("/tickets"), permission: ["tickets.list_all", "tickets.list"] },
+        { title: tTickets("payments"), href: p("/tickets/payments"), permission: ["tickets.payment.approve", "tickets.list"] },
+        { title: tTickets("contractors"), href: p("/tickets/contractors"), permission: "tickets.contractors.manage" },
+        { title: tTickets("types"), href: p("/tickets/types"), permission: "tickets.types.manage" },
+      ],
+    },
+    { kind: "link", title: tTickets("branch"), href: p("/branch-tickets"), icon: Wrench, permission: ["tickets.create", "tickets.list"] },
     {
       kind: "group",
       title: "Детская площадка",
@@ -136,7 +166,7 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Стоп-лист", href: p("/admin/stoplist"), icon: Ban, permission: "stoplist.list" },
     { kind: "link", title: "Конфиги", href: p("/settings"), icon: Wrench, permission: "settings.list" },
     { kind: "link", title: "Дашборд", href: p("/dashboard"), icon: LayoutDashboard, permission: "charts.list" },
-    { kind: "link", title: "Висячие заказы", href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
+    { kind: "link", title: "Незакрытые заказы", href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
     {
       kind: "group",
       title: "Отчеты",
@@ -169,6 +199,7 @@ export function buildNav(locale: string): NavEntry[] {
 // Permission-filtered nav; same my_permissions query CanAccess uses.
 export function useFilteredNav(): NavEntry[] {
   const locale = useLocale();
+  const tTickets = useTranslations("tickets.nav");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -179,9 +210,10 @@ export function useFilteredNav(): NavEntry[] {
   return React.useMemo(() => {
     const perms: string[] | undefined = (data as any)?.permissions;
     if (!perms) return [];
-    const has = (p?: string) => !p || perms.includes(p);
+    const has = (p?: NavPermission) =>
+      !p || (Array.isArray(p) ? p.every((x) => perms.includes(x)) : perms.includes(p));
     const out: NavEntry[] = [];
-    for (const e of buildNav(locale)) {
+    for (const e of buildNav(locale, tTickets)) {
       if (e.kind === "link") {
         if (has(e.permission)) out.push(e);
       } else {
@@ -192,5 +224,5 @@ export function useFilteredNav(): NavEntry[] {
       }
     }
     return out;
-  }, [data, locale]);
+  }, [data, locale, tTickets]);
 }

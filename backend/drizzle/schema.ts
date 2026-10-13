@@ -1335,6 +1335,14 @@ export const hangingOrders = pgTable(
         composition: text("composition"),
         status: text("status"), // Manual tracking status
         comment: text("comment"), // Manual comment
+        // Отметки этапов доставки из iiko, как есть — строками местного времени.
+        // Текстом, а не timestamp: драйвер пересчитал бы их в UTC и сдвинул на 5
+        // часов, как это уже произошло с updated_at.
+        whenPrinted: text("when_printed"),
+        whenCookingCompleted: text("when_cooking_completed"),
+        whenSended: text("when_sended"),
+        whenDelivered: text("when_delivered"),
+        whenClosed: text("when_closed"),
         createdAt: timestamp("created_at").defaultNow(),
         updatedAt: timestamp("updated_at").defaultNow(),
     },
@@ -1342,6 +1350,27 @@ export const hangingOrders = pgTable(
         brandDateIdx: index(`managers_brand_date_idx`).on(table.brand, table.date),
         orderIdIdx: index(`managers_order_id_idx`).on(table.orderId),
         timestampIdx: index(`managers_timestamp_idx`).on(table.timestamp),
+    })
+);
+
+// Журнал действий над заказом в iiko из админки: закрытие и отмена. Пишется
+// и при отказе — видно, кто пытался, с какими параметрами и что ответила касса.
+export const hangingOrderActions = pgTable(
+    "managers_hanging_order_actions",
+    {
+        id: uuid("id").primaryKey().defaultRandom(),
+        hangingOrderId: uuid("hanging_order_id").notNull(),
+        orderId: text("order_id"),
+        action: text("action").notNull(), // 'close' | 'cancel'
+        userId: uuid("user_id"),
+        userLogin: text("user_login"),
+        params: jsonb("params"),
+        state: text("state").notNull(), // Success | Error | Refused | InProgress
+        error: text("error"),
+        createdAt: timestamp("created_at").defaultNow(),
+    },
+    (table) => ({
+        orderIdx: index(`managers_hoa_order_idx`).on(table.hangingOrderId),
     })
 );
 

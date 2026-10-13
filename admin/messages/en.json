@@ -533,6 +533,24 @@
       "codeFormat": "Code: lowercase latin, digits and underscore, 2–50 characters"
     }
   },
+  "tickets": {
+    "nav": {
+      "group": "Tickets",
+      "list": "Tickets",
+      "payments": "Awaiting payment",
+      "contractors": "Contractors",
+      "types": "Ticket types",
+      "branch": "Branch tickets"
+    },
+    "screens": {
+      "office": "Tickets",
+      "payments": "Awaiting payment",
+      "contractors": "Firms and executors",
+      "types": "Ticket types",
+      "branch": "Branch tickets",
+      "newTicket": "New ticket"
+    }
+  },
   "inventory": {
     "title": "Stock count",
     "store": "Store",
