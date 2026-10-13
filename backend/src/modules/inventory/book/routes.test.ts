@@ -404,6 +404,26 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("«Обновить книжное из iiko»: ставит задачи по отправленным промежуточным месяца; book_loading; повтор — без дублей; филиал — 403", async () => {
+      const w = await seedInterim();
+      try {
+        const o = await officeI();
+        const r = await api(o, "POST", "/api/inventory/interim-reconciliations/refresh", { period: I_PERIOD, store_id: w.store });
+        expect(r.status).toBe(200);
+        expect(r.body).toEqual({ total: 1, queued: 1 });
+        const list = await api(o, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`);
+        expect(list.body.find((x: any) => x.count_id === w.countId).book_loading).toBe(true);
+        expect((await api(o, "GET", `/api/inventory/interim-reconciliations/${w.countId}`)).body.book_loading).toBe(true);
+        const again = await api(o, "POST", "/api/inventory/interim-reconciliations/refresh", { period: I_PERIOD, store_id: w.store });
+        expect(again.body).toEqual({ total: 1, queued: 0 });
+        expect((await api(o, "POST", "/api/inventory/interim-reconciliations/refresh", { period: "2026-07-30" })).status).toBe(422);
+        expect((await api(await branchI(), "POST", "/api/inventory/interim-reconciliations/refresh", { period: I_PERIOD })).status).toBe(403);
+      } finally {
+        await (await bookQueue().getJob(`book-${w.countId}`))?.remove();
+        await w.cleanup();
+      }
+    });
+
     it("филиал без своих складов: пустой список, чужой пересчёт — 403, отметка — 403", async () => {
       const w = await seedInterim();
       try {

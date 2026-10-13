@@ -724,6 +724,10 @@
         "daily": "Kunlar bo'yicha"
       },
       "interim": {
+        "refreshAll": "Hisob qoldig'ini iiko'dan yangilash",
+        "refreshOne": "Hisob qoldig'ini iiko'dan yangilash",
+        "refreshQueued": "Navbatga qo'yildi: {queued} / {total}",
+        "refreshNothing": "Yuborilgan oraliq sanoqlar yo'q",
         "empty": "Bu oyda oraliq sanoqlar yo'q",
         "loading": "iiko hisobi yuklanmoqda…",
         "fetchedAt": "iiko hisobi yuklangan {at}",
@@ -741,6 +745,10 @@
         "hidden": "sanoq yopilgach ochiladi",
         "hiddenDetail": "Sanoq ketmoqda — sanoq yopilgach solishtirish ochiladi",
         "checkedByOffice": "Ofis tekshirgan"
+      },
+      "worker": {
+        "title": "Ishlov beruvchi ishga tushirilmagan",
+        "hint": "iiko'dan yuklash {since} dan beri navbatda kutmoqda, lekin uni bajaradigan yo'q. inventory_reconcile_worker ni ishga tushiring (serverda — PM2 da)."
       }
     },
     "kind": {

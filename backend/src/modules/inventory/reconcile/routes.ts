@@ -7,6 +7,7 @@ import { reopenRule, setReopenRule } from "../counts";
 import { InventoryError, run } from "../errors";
 import { isValidPeriod } from "../rules";
 import { assertNotRunning, enqueueReconcile, readStatusOverview, reconcileQueue } from "./queue";
+import { readWorkerStatus } from "./worker-health";
 import { assertStore, chooseDocument, listReconciliations, loadReconciliation, reconTarget, setLineMark, setReconStatus } from "./read";
 
 function assertPeriod(period: string) {
@@ -46,6 +47,7 @@ export const reconcileRoutes = new Elysia({ name: "@api/inventory/reconcile" })
       }),
     { permission: P, query: t.Object({ period: t.String() }) }
   )
+  .get("/inventory/worker-status", async () => readWorkerStatus(), { permission: P })
   .get(
     "/inventory/reconciliations/:id",
     async ({ params, drizzle, set }) => run(set, async () => loadReconciliation(drizzle, params.id, new Date())),

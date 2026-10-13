@@ -54,6 +54,21 @@ export async function enqueueBookFor(db: DbLike, countId: string, now = new Date
   return enqueueBook(bookQueue(), countId, bookDelayMs(bookTimestamp(count.count_date), now));
 }
 
+/** Пересчёты, по которым снимок сейчас в очереди или загружается. Redis недоступен — пусто (не ломаем экран). */
+export async function bookLoadingIds(countIds: string[]): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const q = bookQueue();
+    for (const id of countIds) {
+      const job = await q.getJob(bookJobId(id));
+      if (job && RUNNING.has(await job.getState())) out.add(id);
+    }
+  } catch (e) {
+    console.error("[inventory/book] queue state failed:", (e as Error).message);
+  }
+  return out;
+}
+
 /** После отправки пересчёта: снимок — не повод проваливать отправку, если Redis недоступен. */
 export async function enqueueBookSafe(db: DbLike, countId: string) {
   try {

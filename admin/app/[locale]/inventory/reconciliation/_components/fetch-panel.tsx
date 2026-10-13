@@ -8,6 +8,7 @@ import { Button } from "@admin/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { InventoryApiError, inventoryApi } from "@admin/lib/inventory-api";
 import { formatDateTime } from "@admin/lib/inventory/money";
+import { WorkerWarning } from "./worker-warning";
 import type { ReconFetchOverview, ReconFetchState, ReconFetchStatus } from "@backend/modules/inventory/reconcile/types";
 
 const RUNNING: ReconFetchState[] = ["queued", "stage1", "stage2"];
@@ -143,6 +144,7 @@ export function FetchPanel({ period }: { period: string }) {
           {storesRunning > 0 ? ` · ${t("storesRunning", { count: storesRunning })}` : ""}
         </span>
       </div>
+      <WorkerWarning active={anyRunning(s)} />
       {s && s.stage1_done_at && (
         <div className="text-sm">
           {t("saved", { received: s.received.length, missing: s.missing.length })}

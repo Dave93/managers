@@ -1,6 +1,6 @@
 // Снимок книжного количества iiko по пересчёту (spec 2026-10-08, §4–5). iiko подаётся снаружи.
-import { inventory_count_book, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
-import { eq, sql } from "drizzle-orm";
+import { inventory_count_book, inventory_count_book_marks, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { InventoryError } from "../errors";
 import type { IikoClient } from "../reconcile/iiko-client";
@@ -29,6 +29,21 @@ export async function fetchBook(db: DbLike, iiko: IikoClient, countId: string): 
   const lines = buildBook({ productIds, start, end, movements });
 
   await db.transaction(async (tx) => {
+    // Обновление снимка: книжное по товару изменилось — значит, и разница; отметку «проверено»
+    // снимаем, чтобы офис посмотрел товар заново. Первый снимок отметок не трогает.
+    const old = await tx
+      .select({ product_id: inventory_count_book.product_id, book_qty: inventory_count_book.book_qty })
+      .from(inventory_count_book)
+      .where(eq(inventory_count_book.count_id, countId));
+    if (old.length) {
+      const was = new Map(old.map((o) => [o.product_id, Number(o.book_qty)]));
+      const changed = lines.filter((l) => Math.abs((was.get(l.product_id) ?? 0) - l.book_qty) > 0.00005).map((l) => l.product_id);
+      if (changed.length) {
+        await tx
+          .delete(inventory_count_book_marks)
+          .where(and(eq(inventory_count_book_marks.count_id, countId), inArray(inventory_count_book_marks.product_id, changed)));
+      }
+    }
     await tx.delete(inventory_count_book).where(eq(inventory_count_book.count_id, countId));
     for (let i = 0; i < lines.length; i += 500) {
       await tx.insert(inventory_count_book).values(

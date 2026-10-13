@@ -81,6 +81,36 @@ if (!dbLooksLikeTest) {
       }
     });
 
+    it("обновление снимка: книжное товара изменилось — отметка «проверено» снимается, у остальных остаётся", async () => {
+      const w = await seed("2026-10-07", "interim");
+      try {
+        await fetchBook(drizzleDb, w.iiko, w.countId);
+        const marks = schema.inventory_count_book_marks;
+        await drizzleDb.insert(marks).values([
+          { count_id: w.countId, product_id: w.p1, checked_by: randomUUID() },
+          { count_id: w.countId, product_id: w.p2, checked_by: randomUUID() },
+        ]);
+        // В iiko задним числом провели приход по p1: книжное на конец дня 12 → 14.
+        const moved: IikoClient = {
+          ...w.iiko,
+          async balance(_s, at) {
+            return at.endsWith("T00:00:00") ? [{ product_id: w.p1, amount: 10, sum: 0 }] : [{ product_id: w.p1, amount: 14, sum: 0 }];
+          },
+          async movements() {
+            return [
+              { product_id: w.p1, type: "INVOICE", in: 7, out: 0 },
+              { product_id: w.p1, type: "SESSION_WRITEOFF", in: 0, out: 3 },
+            ];
+          },
+        };
+        await fetchBook(drizzleDb, moved, w.countId);
+        const left = await drizzleDb.select({ product_id: marks.product_id }).from(marks).where(eq(marks.count_id, w.countId));
+        expect(left.map((m) => m.product_id)).toEqual([w.p2]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("черновик — снимок не берётся (409)", async () => {
       const w = await seed("2026-10-07", "interim");
       try {

@@ -82,6 +82,8 @@ PK (`count_id`, `product_id`), `count_id` → `inventory_counts` ON DELETE CASCA
 | `GET /inventory/interim-dates` | `inventory.count` | Допустимые даты промежуточного: `{ min, max, default }` |
 | `GET /inventory/counts/:id/book` | офис `inventory.reconcile` — всегда; филиал со своим складом — если пересчёт зафиксирован | `{ fetched_at, lines: [{ product_id, code, product_name, unit_name, group_name, fact_qty, book_qty, diff_qty, start_qty, in_invoice, out_sales, transfer_in, transfer_out, out_writeoff, other_net, consistent }] }`; 403 `book_hidden`, если ещё нельзя |
 | `POST /inventory/counts/:id/book/refresh` | `inventory.reconcile` | Ставит задачу снимка |
+| `POST /inventory/interim-reconciliations/refresh` `{ period, store_id? }` | `inventory.reconcile` | Снимок заново по всем отправленным промежуточным месяца (или склада): `{ total, queued }`. Если при обновлении книжное товара изменилось, отметка «проверено» по нему снимается (12.10.2026) |
+| `GET /inventory/worker-status` | `inventory.reconcile` | `{ stalled, waiting_since }`: задача книжного или сверки ждёт в очереди дольше минуты, а обработчика (`inventory_reconcile_worker`) нет. Офис видит предупреждение «Обработчик не запущен» во вкладках «Месячная» и «По дням» и на странице пересчёта (13.10.2026) |
 | `GET /inventory/stock?store_id=` | только офис `inventory.templates` (решение 6) | `{ at, lines: [{ product_id, code, name, unit_name, group_name, qty }] }` — `balance/stores` на сейчас |
 | `GET /inventory/stock/movements?store_id&product_id` | те же | Разбивка с 1-го числа текущего месяца по сейчас |
 

@@ -125,3 +125,10 @@ export interface ReconFetchStatus {
 export interface ReconFetchOverview extends ReconFetchStatus {
   stores: ReconFetchStatus[];
 }
+
+/** «Обработчик не запущен»: задача ждёт в очереди дольше минуты, а взять её некому. */
+export interface WorkerStatus {
+  stalled: boolean;
+  /** С какого времени ждёт самая старая такая задача. */
+  waiting_since: string | null;
+}

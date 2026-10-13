@@ -14,6 +14,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
   const { closeReconcileQueue, reconcileQueue, statusKey } = await import("./queue");
+  const { bookQueue, closeBookQueue } = await import("../book/queue");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
   const PERIOD = "2026-08-31";
@@ -106,6 +107,8 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   afterAll(async () => {
     await reconcileQueue().obliterate({ force: true });
     await closeReconcileQueue();
+    await bookQueue().obliterate({ force: true });
+    await closeBookQueue();
     await sweepTestRoles();
     await closeTestRedis();
   });
@@ -119,6 +122,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
           ["GET", `/api/inventory/reconciliations?period=${PERIOD}`],
           ["GET", `/api/inventory/reconciliations/${w.readyId}`],
           ["GET", `/api/inventory/reconciliations/fetch-status?period=${PERIOD}`],
+          ["GET", "/api/inventory/worker-status"],
           ["POST", "/api/inventory/reconciliations/fetch", { period: PERIOD }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {}],
           ["POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id }],
@@ -409,6 +413,26 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       } finally {
         await w.cleanup();
       }
+    });
+  });
+
+  describe("reconcile: «Обработчик не запущен»", () => {
+    it("задача ждёт меньше минуты — тихо; дольше минуты без обработчика — stalled и с какого времени", async () => {
+      // Тестовые очереди без обработчика: ровно ситуация «воркер не запущен».
+      await reconcileQueue().obliterate({ force: true });
+      await bookQueue().obliterate({ force: true });
+      const o = await office();
+      const empty = await api(o, "GET", "/api/inventory/worker-status");
+      expect(empty.status).toBe(200);
+      expect(empty.body).toEqual({ stalled: false, waiting_since: null });
+
+      await bookQueue().add("book", { countId: randomUUID() }, { jobId: `book-${randomUUID()}` });
+      expect((await api(o, "GET", "/api/inventory/worker-status")).body.stalled).toBe(false);
+
+      const since = Date.now() - 5 * 60_000;
+      await reconcileQueue().add("reconcile", { period: PERIOD }, { jobId: `reconcile-old-${randomUUID()}`, timestamp: since });
+      const stalled = await api(o, "GET", "/api/inventory/worker-status");
+      expect(stalled.body).toEqual({ stalled: true, waiting_since: new Date(since).toISOString() });
     });
   });
 }

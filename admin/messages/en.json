@@ -761,6 +761,10 @@
         "daily": "By day"
       },
       "interim": {
+        "refreshAll": "Reload book quantity from iiko",
+        "refreshOne": "Reload book quantity from iiko",
+        "refreshQueued": "Queued: {queued} of {total}",
+        "refreshNothing": "No submitted interim counts",
         "empty": "No interim counts this month",
         "loading": "iiko book stock is loading…",
         "fetchedAt": "iiko book stock loaded {at}",
@@ -778,6 +782,10 @@
         "hidden": "opens once the count is closed",
         "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
         "checkedByOffice": "Checked by office"
+      },
+      "worker": {
+        "title": "The worker is not running",
+        "hint": "An iiko load has been waiting in the queue since {since}, but nothing is processing it. Start inventory_reconcile_worker (in PM2 on the server)."
       }
     },
     "kind": {

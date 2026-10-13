@@ -4,6 +4,7 @@ import { inventory_count_book_marks, inventory_count_lines } from "backend/drizz
 import { and, eq, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
 import { storeHasChangeableCount } from "./stock";
+import { bookLoadingIds, enqueueBookFor } from "./queue";
 import { assertUuid, normalizeNumeric, userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
@@ -77,6 +78,7 @@ async function build(db: DbLike, counts: RawCount[], hiddenStores: Set<string> =
   const ids = sql.join(visible.map((c) => sql`${c.count_id}::uuid`), sql`, `);
   const raw = visible.length ? ((await db.execute(LINES_SQL(ids))).rows as RawLine[]) : [];
   const names = await userNames(db, raw.map((r) => r.checked_by ?? ""));
+  const loading = await bookLoadingIds(counts.map((c) => c.count_id));
   const by = new Map<string, InterimReconLine[]>();
   for (const r of raw) by.set(r.count_id, [...(by.get(r.count_id) ?? []), toLine(r, names)]);
   return counts.map((c) => {
@@ -96,6 +98,7 @@ async function build(db: DbLike, counts: RawCount[], hiddenStores: Set<string> =
       mismatch_count: mism.length,
       checked_count: mism.filter((l) => l.checked).length,
       hidden: hiddenStores.has(c.store_id),
+      book_loading: loading.has(c.count_id),
       lines,
     };
   });
@@ -157,4 +160,21 @@ export async function markInterimLine(db: DbLike, countId: string, productId: st
     await db.delete(m).where(and(eq(m.count_id, countId), eq(m.product_id, productId)));
   }
   return { ok: true as const };
+}
+
+/**
+ * «Обновить книжное из iiko» во вкладке «По дням»: снимок заново для всех отправленных промежуточных
+ * пересчётов месяца (или одного склада). Задачи — в общую очередь книжного, по одной на пересчёт.
+ */
+export async function refreshInterimBooks(db: DbLike, period: string, storeId?: string | null) {
+  if (!isValidPeriod(period)) throw new InventoryError(422, "invalid_period");
+  if (storeId) assertUuid(storeId);
+  const store = storeId ? sql` and store_id = ${storeId}::uuid` : sql``;
+  const rows = (
+    await db.execute(sql`select id::text as id from inventory_counts
+      where kind = 'interim' and period = ${period} and status = 'submitted'${store}`)
+  ).rows as { id: string }[];
+  let queued = 0;
+  for (const r of rows) if ((await enqueueBookFor(db, r.id)).queued) queued++;
+  return { total: rows.length, queued };
 }

@@ -21,7 +21,7 @@ import type {
   InventoryTemplateDetail,
   InventoryTemplateSummary,
 } from "@backend/modules/inventory/types";
-import type { ReconDetail, ReconFetchOverview, ReconFetchStatus, ReconOverviewRow } from "@backend/modules/inventory/reconcile/types";
+import type { ReconDetail, ReconFetchOverview, ReconFetchStatus, ReconOverviewRow, WorkerStatus } from "@backend/modules/inventory/reconcile/types";
 import type { BookView, InterimReconDetail, InterimReconRow, StockMovement, StockView } from "@backend/modules/inventory/book/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
@@ -82,12 +82,19 @@ export const inventoryApi = {
     fetch: (period: string, storeId?: string) =>
       call<ReconFetchStatus>(inv.reconciliations.fetch.post(storeId ? { period, store_id: storeId } : { period })),
     status: (period: string) => call<ReconFetchOverview>(inv.reconciliations["fetch-status"].get({ query: { period } })),
+    /** Задачи ждут дольше минуты, а обработчик очереди не подключён. */
+    workerStatus: () => call<WorkerStatus>(inv["worker-status"].get()),
     get: (id: string) => call<ReconDetail>(inv.reconciliations({ id }).get()),
     refresh: (id: string) => call<ReconFetchStatus>(inv.reconciliations({ id }).refresh.post({})),
     chooseDocument: (id: string, documentId: string) =>
       call<ReconFetchStatus>(inv.reconciliations({ id }).document.post({ document_id: documentId })),
     interimList: (period: string) => call<InterimReconRow[]>(inv["interim-reconciliations"].get({ query: { period } })),
     interimGet: (id: string) => call<InterimReconDetail>(inv["interim-reconciliations"]({ id }).get()),
+    /** Снимок книжного заново по всем отправленным промежуточным месяца (или одного склада). */
+    interimRefresh: (period: string, storeId?: string) =>
+      call<{ total: number; queued: number }>(
+        inv["interim-reconciliations"].refresh.post(storeId ? { period, store_id: storeId } : { period })
+      ),
     interimMark: (id: string, productId: string, checked: boolean) =>
       call<{ ok: true }>(inv["interim-reconciliations"]({ id }).lines({ productId }).mark.post({ checked })),
     reopenRule: () => call<{ rule: InventoryReopenRule }>(inv.settings["reopen-rule"].get()),

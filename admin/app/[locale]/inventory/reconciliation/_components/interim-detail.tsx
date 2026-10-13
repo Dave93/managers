@@ -10,6 +10,8 @@ import { inventoryApi } from "@admin/lib/inventory-api";
 import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import { formatDay } from "@admin/lib/inventory/periods";
 import { BookBreakdownView } from "@admin/app/[locale]/inventory/_components/book-compare";
+import { InterimRowRefresh, bookPending } from "./interim-overview";
+import { WorkerWarning } from "./worker-warning";
 import type { InterimReconLine } from "@backend/modules/inventory/book/types";
 
 const mismatch = (l: InterimReconLine) => l.diff_qty !== null && Number(l.diff_qty) !== 0;
@@ -18,7 +20,11 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
   const t = useTranslations("inventory.reconcile");
   const ti = useTranslations("inventory.reconcile.interim");
   const locale = useLocale();
-  const q = useQuery({ queryKey: ["recon_interim", id], queryFn: () => inventoryApi.reconcile.interimGet(id) });
+  const q = useQuery({
+    queryKey: ["recon_interim", id],
+    queryFn: () => inventoryApi.reconcile.interimGet(id),
+    refetchInterval: (s) => (s.state.data && bookPending(s.state.data) ? 3000 : false),
+  });
   const [only, setOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
@@ -68,11 +74,13 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
       </Link>
       <div>
         <h1 className="text-xl font-semibold">{d.store_name}</h1>
-        <div className="text-sm text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
           {formatDay(d.count_date)} · {d.template_name}
-          {d.book_fetched_at ? ` · ${ti("fetchedAt", { at: formatDateTime(d.book_fetched_at, locale) })}` : ` · ${ti("loading")}`}
+          {bookPending(d) ? ` · ${ti("loading")}` : d.book_fetched_at ? ` · ${ti("fetchedAt", { at: formatDateTime(d.book_fetched_at, locale) })}` : ""}
+          {!readOnly && <InterimRowRefresh row={d} onQueued={() => void q.refetch()} />}
         </div>
       </div>
+      {!readOnly && <WorkerWarning active={bookPending(d)} />}
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={only} onCheckedChange={setOnly} />

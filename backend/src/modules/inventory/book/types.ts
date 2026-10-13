@@ -73,6 +73,8 @@ export interface InterimReconRow {
   checked_count: number;
   /** Филиалу цифры iiko скрыты: у склада есть пересчёт, который он ещё может менять. */
   hidden: boolean;
+  /** Снимок книжного сейчас в очереди или загружается (кнопка ↻ / «Обновить книжное из iiko»). */
+  book_loading: boolean;
 }
 
 export interface InterimReconLine extends BookBreakdown {

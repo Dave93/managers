@@ -9,7 +9,7 @@ import { actorFrom } from "../access";
 import { assertUuid } from "../counts";
 import { InventoryError, run } from "../errors";
 import { enqueueBookFor } from "./queue";
-import { listInterimRecons, loadInterimRecon, markInterimLine } from "./interim";
+import { listInterimRecons, loadInterimRecon, markInterimLine, refreshInterimBooks } from "./interim";
 import { loadBook, loadStock, loadStockMovement } from "./stock";
 
 export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
@@ -48,6 +48,11 @@ export const bookRoutes = new Elysia({ name: "@api/inventory/book" })
       run(set, async () => listInterimRecons(drizzle, await actorFrom(cacheController, user, role), query.period)),
     // Филиал видит свои склады только для просмотра; отметка «проверено» — только офис.
     { permission: "inventory.count", query: t.Object({ period: t.String() }) }
+  )
+  .post(
+    "/inventory/interim-reconciliations/refresh",
+    async ({ body, drizzle, set }) => run(set, async () => refreshInterimBooks(drizzle, body.period, body.store_id ?? null)),
+    { permission: "inventory.reconcile", body: t.Object({ period: t.String(), store_id: t.Optional(t.String()) }) }
   )
   .get(
     "/inventory/interim-reconciliations/:id",
