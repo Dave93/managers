@@ -1,5 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import { Boxes, ClipboardList, ListChecks } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
 
@@ -13,6 +15,9 @@ const labelClass =
 // Secondary destinations live in the "Ещё" dropdown so the bar itself never
 // overflows on narrow screens.
 function MoreMenu() {
+  const t = useTranslations("inventory");
+  const tStock = useTranslations("inventory.stock");
+  const tDaily = useTranslations("inventory.reconcile.interim");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,6 +77,37 @@ function MoreMenu() {
             </svg>
             Asrabox
           </Link>
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {t("title")}
+            </Link>
+          </CanAccess>
+          {/* «Остатки склада» — только офис: филиалу учёт iiko не показываем (слепой пересчёт). */}
+          <CanAccess permission="inventory.templates">
+            <Link
+              href="/inventory/stock"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Boxes aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tStock("title")}
+            </Link>
+          </CanAccess>
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory/daily"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ListChecks aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tDaily("title")}
+            </Link>
+          </CanAccess>
           <CanAccess permission="medical.list">
             <Link
               href="/medical"
@@ -108,7 +144,8 @@ export default function ManagerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="md:container">
+    // pb-20: нижнее меню закреплено (h-16) и иначе закрывает конец длинных страниц.
+    <div className="md:container pb-20">
       {children}
       <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid h-full max-w-lg grid-cols-6 mx-auto font-medium">

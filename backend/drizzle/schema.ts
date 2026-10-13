@@ -2425,6 +2425,146 @@ export const ticket_notifications = pgTable(
   })
 );
 
+// ── Инвентаризации (spec 2026-10-02-inventory-counts-design.md) ──
+// Внешних ключей на users/corporation_store/nomenclature_* нет намеренно:
+// тестовая база пустая, а данные iiko синкаются отдельно.
+
+export const inventory_templates = pgTable("inventory_templates", {
+  id: uuid("id").defaultRandom().primaryKey().notNull(),
+  organization_id: uuid("organization_id").notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  sort: integer("sort").default(0).notNull(),
+  created_by: uuid("created_by"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const inventory_template_items = pgTable(
+  "inventory_template_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    template_id: uuid("template_id")
+      .notNull()
+      .references(() => inventory_templates.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    template_product_uq: uniqueIndex("inventory_template_items_template_product_uq").on(t.template_id, t.product_id),
+  })
+);
+
+export const inventory_counts = pgTable(
+  "inventory_counts",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    store_id: uuid("store_id").notNull(),
+    // null у складов без организации (31 из 94 в проде, включая новые филиалы).
+    organization_id: uuid("organization_id"),
+    // null — «Все товары филиала» (без шаблона, список из exord; §13 спеки).
+    template_id: uuid("template_id").references(() => inventory_templates.id),
+    template_name: varchar("template_name", { length: 255 }).notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    // monthly — месячный (count_date = period); interim — промежуточный за прошедший день
+    // (spec 2026-10-08-inventory-interim-and-stock-design.md).
+    kind: varchar("kind", { length: 16 }).default("monthly").notNull(),
+    count_date: date("count_date", { mode: "string" }).notNull(),
+    // Когда загружен снимок книжного количества iiko (inventory_count_book).
+    book_fetched_at: timestamp("book_fetched_at", { withTimezone: true, mode: "string" }),
+    status: varchar("status", { length: 32 }).default("draft").notNull(),
+    // Снимок: строки построены как шаблон ∩ товары филиала из exord (§13 спеки).
+    exord_filtered: boolean("exord_filtered").default(false).notNull(),
+    created_by: uuid("created_by").notNull(),
+    submitted_by: uuid("submitted_by"),
+    submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    store_period_template_uq: uniqueIndex("inventory_counts_store_period_template_uq")
+      .on(t.store_id, t.period, t.template_id)
+      .where(sql`kind = 'monthly' and status <> 'cancelled'`),
+    store_period_idx: index("inventory_counts_store_period_idx").on(t.store_id, t.period),
+    store_period_branch_uq: uniqueIndex("inventory_counts_store_period_branch_uq")
+      .on(t.store_id, t.period)
+      .where(sql`kind = 'monthly' and template_id is null and status <> 'cancelled'`),
+    store_date_template_uq: uniqueIndex("inventory_counts_store_date_template_uq")
+      .on(t.store_id, t.count_date, t.template_id)
+      .where(sql`kind = 'interim' and status <> 'cancelled'`),
+    store_date_branch_uq: uniqueIndex("inventory_counts_store_date_branch_uq")
+      .on(t.store_id, t.count_date)
+      .where(sql`kind = 'interim' and template_id is null and status <> 'cancelled'`),
+  })
+);
+
+export const inventory_count_lines = pgTable(
+  "inventory_count_lines",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    unit_id: uuid("unit_id"),
+    unit_name: varchar("unit_name", { length: 255 }),
+    group_id: uuid("group_id"),
+    group_name: varchar("group_name", { length: 512 }).notNull(),
+    source: varchar("source", { length: 16 }).notNull(),
+    added_by: uuid("added_by"),
+    skipped: boolean("skipped").default(false).notNull(),
+    skipped_by: uuid("skipped_by"),
+    fact_qty: numeric("fact_qty", { precision: 14, scale: 4 }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    count_product_uq: uniqueIndex("inventory_count_lines_count_product_uq").on(t.count_id, t.product_id),
+  })
+);
+
+export const inventory_count_entries = pgTable(
+  "inventory_count_entries",
+  {
+    // id генерирует устройство — это ключ идемпотентности синхронизации.
+    id: uuid("id").primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    line_id: uuid("line_id")
+      .notNull()
+      .references(() => inventory_count_lines.id, { onDelete: "cascade" }),
+    qty: numeric("qty", { precision: 14, scale: 4 }).notNull(),
+    created_by: uuid("created_by").notNull(),
+    client_created_at: timestamp("client_created_at", { withTimezone: true, mode: "string" }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    deleted_at: timestamp("deleted_at", { withTimezone: true, mode: "string" }),
+    deleted_by: uuid("deleted_by"),
+  },
+  (t) => ({
+    count_idx: index("inventory_count_entries_count_idx").on(t.count_id),
+    line_idx: index("inventory_count_entries_line_idx").on(t.line_id),
+    qty_check: check("inventory_count_entries_qty_check", sql`qty >= 0`),
+  })
+);
+
+export const inventory_count_events = pgTable(
+  "inventory_count_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    type: varchar("type", { length: 32 }).notNull(),
+    user_id: uuid("user_id").notNull(),
+    payload: jsonb("payload"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    count_idx: index("inventory_count_events_count_idx").on(t.count_id),
+  })
+);
+
 // exord → managers: which products each branch (warehouse) orders.
 // Keyed by iiko store uuid (corporation_store.id). Replaced wholesale by
 // cron/product_links_sync.ts; spec:
@@ -2457,3 +2597,159 @@ export const product_links_meta = pgTable("product_links_meta", {
     .defaultNow()
     .notNull(),
 });
+
+// ── Сверка инвентаризаций с iiko (spec 2026-10-06-inventory-reconciliation-design.md) ──
+// Внешних ключей на users/corporation_store/nomenclature_* нет намеренно (как у inventory_counts).
+
+export const inventory_reconciliations = pgTable(
+  "inventory_reconciliations",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    store_id: uuid("store_id").notNull(),
+    organization_id: uuid("organization_id"),
+    period: date("period", { mode: "string" }).notNull(),
+    // waiting_iiko / needs_choice / ready / in_review / accepted
+    status: varchar("status", { length: 32 }).default("waiting_iiko").notNull(),
+    iiko_document_id: uuid("iiko_document_id"),
+    iiko_document_num: varchar("iiko_document_num", { length: 64 }),
+    iiko_document_comment: varchar("iiko_document_comment", { length: 1024 }),
+    // Местное время сервера iiko, без зоны.
+    iiko_document_at: timestamp("iiko_document_at", { mode: "string" }),
+    // posted / unposted_after_fetch
+    iiko_doc_state: varchar("iiko_doc_state", { length: 32 }),
+    iiko_candidates: jsonb("iiko_candidates"),
+    book_at: timestamp("book_at", { mode: "string" }),
+    admin_state: varchar("admin_state", { length: 16 }).default("none").notNull(),
+    lines_total: integer("lines_total").default(0).notNull(),
+    mismatch_ab_count: integer("mismatch_ab_count").default(0).notNull(),
+    diff_ab_sum: numeric("diff_ab_sum", { precision: 18, scale: 2 }),
+    diff_ac_sum: numeric("diff_ac_sum", { precision: 18, scale: 2 }),
+    diff_bc_sum: numeric("diff_bc_sum", { precision: 18, scale: 2 }),
+    fetched_at: timestamp("fetched_at", { withTimezone: true, mode: "string" }),
+    fetched_by: uuid("fetched_by"),
+    calculated_at: timestamp("calculated_at", { withTimezone: true, mode: "string" }),
+    review_comment: text("review_comment"),
+    reviewed_by: uuid("reviewed_by"),
+    reviewed_at: timestamp("reviewed_at", { withTimezone: true, mode: "string" }),
+    accepted_totals: jsonb("accepted_totals"),
+    changed_after_accept: boolean("changed_after_accept").default(false).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({
+    store_period_uq: uniqueIndex("inventory_reconciliations_store_period_uq").on(t.store_id, t.period),
+    period_idx: index("inventory_reconciliations_period_idx").on(t.period),
+  })
+);
+
+// Корректировки выбранного документа iiko (сырые данные этапа 1).
+export const inventory_reconciliation_iiko_lines = pgTable(
+  "inventory_reconciliation_iiko_lines",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    qty: numeric("qty", { precision: 14, scale: 4 }).notNull(),
+    sum: numeric("sum", { precision: 18, scale: 2 }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+// Результат этапа 2: строки отчёта сверки.
+export const inventory_reconciliation_lines = pgTable(
+  "inventory_reconciliation_lines",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    product_name: varchar("product_name", { length: 255 }).notNull(),
+    unit_name: varchar("unit_name", { length: 255 }),
+    group_name: varchar("group_name", { length: 512 }).notNull(),
+    // counted / skipped / absent
+    admin_state: varchar("admin_state", { length: 16 }).notNull(),
+    admin_qty: numeric("admin_qty", { precision: 14, scale: 4 }),
+    admin_counts_n: integer("admin_counts_n").default(0).notNull(),
+    book_qty: numeric("book_qty", { precision: 14, scale: 4 }).default("0").notNull(),
+    book_sum: numeric("book_sum", { precision: 18, scale: 2 }).default("0").notNull(),
+    iiko_correction_qty: numeric("iiko_correction_qty", { precision: 14, scale: 4 }).default("0").notNull(),
+    iiko_correction_sum: numeric("iiko_correction_sum", { precision: 18, scale: 2 }).default("0").notNull(),
+    iiko_fact_qty: numeric("iiko_fact_qty", { precision: 14, scale: 4 }),
+    unit_cost: numeric("unit_cost", { precision: 18, scale: 4 }),
+    cost_source: varchar("cost_source", { length: 16 }),
+    diff_ab_qty: numeric("diff_ab_qty", { precision: 14, scale: 4 }),
+    diff_ab_sum: numeric("diff_ab_sum", { precision: 18, scale: 2 }),
+    diff_ac_sum: numeric("diff_ac_sum", { precision: 18, scale: 2 }),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+export const inventory_reconciliation_events = pgTable(
+  "inventory_reconciliation_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    // fetched / doc_missing / doc_chosen / calculated / status_changed
+    type: varchar("type", { length: 32 }).notNull(),
+    user_id: uuid("user_id"),
+    payload: jsonb("payload"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ recon_idx: index("inventory_reconciliation_events_recon_idx").on(t.reconciliation_id) })
+);
+
+// Отметка офиса «проверено» по строке сверки. Отдельная таблица: строки сверки
+// пересоздаются при каждом расчёте, а отметки должны сохраняться.
+export const inventory_reconciliation_line_marks = pgTable(
+  "inventory_reconciliation_line_marks",
+  {
+    reconciliation_id: uuid("reconciliation_id")
+      .notNull()
+      .references(() => inventory_reconciliations.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    checked_by: uuid("checked_by").notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.reconciliation_id, t.product_id] }) })
+);
+
+// Снимок книжного количества iiko по пересчёту (spec 2026-10-08, §4): на count_date 23:58,
+// с разбивкой «начало месяца + приход − реализация ± перемещения − списания ± прочее».
+export const inventory_count_book = pgTable(
+  "inventory_count_book",
+  {
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    book_qty: numeric("book_qty", { precision: 14, scale: 4 }).notNull(),
+    start_qty: numeric("start_qty", { precision: 14, scale: 4 }).notNull(),
+    in_invoice: numeric("in_invoice", { precision: 14, scale: 4 }).notNull(),
+    out_sales: numeric("out_sales", { precision: 14, scale: 4 }).notNull(),
+    transfer_in: numeric("transfer_in", { precision: 14, scale: 4 }).notNull(),
+    transfer_out: numeric("transfer_out", { precision: 14, scale: 4 }).notNull(),
+    out_writeoff: numeric("out_writeoff", { precision: 14, scale: 4 }).notNull(),
+    other_net: numeric("other_net", { precision: 14, scale: 4 }).notNull(),
+    consistent: boolean("consistent").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
+);
+
+// Отметка офиса «проверено» по строке сверки промежуточного пересчёта (по дням).
+export const inventory_count_book_marks = pgTable(
+  "inventory_count_book_marks",
+  {
+    count_id: uuid("count_id")
+      .notNull()
+      .references(() => inventory_counts.id, { onDelete: "cascade" }),
+    product_id: uuid("product_id").notNull(),
+    checked_by: uuid("checked_by").notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
+);
+
