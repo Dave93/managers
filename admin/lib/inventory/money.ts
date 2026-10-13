@@ -24,6 +24,13 @@ export function formatDiff(v: string | number | null): string {
   return (n > 0 ? "+" : "") + formatQty(n);
 }
 
+/** Цвет разницы: «+» (излишек) — зелёный, «−» (недостача) — красный, 0 и «—» — приглушённый. */
+export function diffClass(v: string | number | null): string {
+  const n = v === null || v === undefined || v === "" ? NaN : Number(v);
+  if (!Number.isFinite(n) || Math.abs(n) < 0.00005) return "text-muted-foreground";
+  return n > 0 ? "font-semibold text-green-600 dark:text-green-500" : "font-semibold text-red-600 dark:text-red-500";
+}
+
 export function formatDateTime(iso: string | null, locale: string): string {
   if (!iso) return "—";
   const d = new Date(iso);

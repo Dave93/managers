@@ -9,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 import type { ReconOverviewRow, ReconStatus } from "@backend/modules/inventory/reconcile/types";
-import { FetchPanel } from "./_components/fetch-panel";
+import { FetchPanel, RowRefresh } from "./_components/fetch-panel";
 import { ReconStatusBadge } from "./_components/recon-status-badge";
 import { ReopenRule } from "./_components/reopen-rule";
+import { InterimOverview } from "./_components/interim-overview";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 
 const ALL = "__all__";
 const STATUSES: ReconStatus[] = ["needs_choice", "ready", "in_review", "accepted", "waiting_iiko"];
@@ -97,6 +99,7 @@ function Overview() {
                 <TableHead>{t("col.status")}</TableHead>
                 <TableHead className="text-right">{t("col.mismatch")}</TableHead>
                 <TableHead className="text-right">{t("col.reopens")}</TableHead>
+                <TableHead className="w-10" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -126,6 +129,9 @@ function Overview() {
                   <TableCell className={`text-right tabular-nums ${r.reopen_count ? "font-semibold text-orange-600" : ""}`}>
                     {r.reopen_count || "—"}
                   </TableCell>
+                  <TableCell className="text-right">
+                    <RowRefresh reconId={r.id} storeId={r.store_id} period={r.period} />
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -142,7 +148,18 @@ export default function ReconciliationPage() {
     <div className="space-y-4 p-4 pb-24">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <CanAccess permission="inventory.reconcile">
-        <Overview />
+        <Tabs defaultValue="monthly">
+          <TabsList>
+            <TabsTrigger value="monthly">{t("mode.monthly")}</TabsTrigger>
+            <TabsTrigger value="daily">{t("mode.daily")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="monthly" className="pt-4">
+            <Overview />
+          </TabsContent>
+          <TabsContent value="daily" className="pt-4">
+            <InterimOverview />
+          </TabsContent>
+        </Tabs>
       </CanAccess>
     </div>
   );

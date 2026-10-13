@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Switch } from "@admin/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { inventoryApi } from "@admin/lib/inventory-api";
-import { formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
+import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import type { ReconLine } from "@backend/modules/inventory/reconcile/types";
 
 const mismatch = (l: ReconLine) => l.diff_ab_qty !== null && Number(l.diff_ab_qty) !== 0;
@@ -91,7 +91,7 @@ export function ReconLines({ reconId, lines, onChanged }: { reconId: string; lin
                       </TableCell>
                       <TableCell className={`text-right tabular-nums ${diff ? "font-semibold" : ""}`}>{formatQty(l.admin_qty)}</TableCell>
                       <TableCell className={`text-right tabular-nums ${diff ? "font-semibold" : ""}`}>{formatQty(l.iiko_fact_qty)}</TableCell>
-                      <TableCell className={`text-right tabular-nums ${diff ? "font-semibold text-orange-600" : "text-muted-foreground"}`}>
+                      <TableCell className={`text-right tabular-nums ${diffClass(l.diff_ab_qty)}`}>
                         {formatDiff(l.diff_ab_qty)}
                       </TableCell>
                       <TableCell className="text-center">

@@ -15,7 +15,7 @@ if (!period || !isValidPeriod(period)) {
   console.error("usage: bun inventory_reconcile_once.ts YYYY-MM-DD(last day) [storeId]");
   process.exit(1);
 }
-const key = statusKey(period);
+const key = statusKey(period, storeId);
 await processReconcileJob(drizzleDb, client, { period, storeId: storeId ?? null, userId: null, statusKey: key });
 console.log(await client.get(key));
 process.exit(0);

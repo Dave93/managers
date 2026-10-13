@@ -30,14 +30,14 @@ type ReconRow = typeof inventory_reconciliations.$inferSelect;
 const REOPEN_COUNT_SQL = sql<number>`(
   select count(*)::int from inventory_count_events e join inventory_counts c on c.id = e.count_id
   where e.type = 'reopened' and c.store_id = "inventory_reconciliations"."store_id"
-    and c.period = "inventory_reconciliations"."period")`;
+    and c.period = "inventory_reconciliations"."period" and c.kind = 'monthly')`;
 
 // Живое состояние пересчётов админки за период, не снимок этапа 2.
 const ADMIN_STATE_SQL = sql<ReconAdminState>`(
   select case when bool_or(c.status = 'submitted') then 'submitted' when count(*) > 0 then 'draft' else 'none' end
   from inventory_counts c
   where c.store_id = "inventory_reconciliations"."store_id" and c.period = "inventory_reconciliations"."period"
-    and c.status <> 'cancelled')`;
+    and c.kind = 'monthly' and c.status <> 'cancelled')`;
 
 function overviewRow(r: ReconRow, storeName: string | null, adminState: ReconAdminState, reopenCount: number): ReconOverviewRow {
   return {
@@ -68,7 +68,7 @@ export async function listReconciliations(db: DbLike, period: string): Promise<R
   const stale = await db.execute(sql`
     select r.id::text as id from inventory_reconciliations r
     where r.period = ${period} and r.calculated_at is not null and exists (
-      select 1 from inventory_counts c where c.store_id = r.store_id and c.period = r.period and c.updated_at > r.calculated_at)`);
+      select 1 from inventory_counts c where c.store_id = r.store_id and c.period = r.period and c.kind = 'monthly' and c.updated_at > r.calculated_at)`);
   for (const x of stale.rows as { id: string }[]) await refreshIfStale(db, x.id);
   const rows = await db
     .select({ r: inventory_reconciliations, store_name: corporation_store.name, admin_state: ADMIN_STATE_SQL, reopen_count: REOPEN_COUNT_SQL })
@@ -93,6 +93,13 @@ async function getRow(db: DbLike, id: string) {
 export async function reconTarget(db: DbLike, id: string) {
   const { r } = await getRow(db, id);
   return { store_id: r.store_id, period: r.period };
+}
+
+/** Склад для загрузки «только по складу»: должен существовать, иначе в сверке не будет названия и организации. */
+export async function assertStore(db: DbLike, storeId: string) {
+  if (!UUID_RE.test(storeId)) throw new InventoryError(404, "store_not_found");
+  const [s] = await db.select({ id: corporation_store.id }).from(corporation_store).where(eq(corporation_store.id, storeId));
+  if (!s) throw new InventoryError(404, "store_not_found");
 }
 
 async function branchEdits(db: DbLike, countIds: string[]): Promise<ReconBranchEdit[]> {
@@ -170,7 +177,7 @@ export async function loadReconciliation(db: DbLike, id: string, now: Date): Pro
       status: inventory_counts.status,
     })
     .from(inventory_counts)
-    .where(and(eq(inventory_counts.store_id, r.store_id), eq(inventory_counts.period, r.period), ne(inventory_counts.status, "cancelled")))
+    .where(and(eq(inventory_counts.store_id, r.store_id), eq(inventory_counts.period, r.period), eq(inventory_counts.kind, "monthly"), ne(inventory_counts.status, "cancelled")))
     .orderBy(asc(inventory_counts.created_at));
   const names = await userNames(db, [...events.map((e) => e.user_id ?? ""), r.reviewed_by ?? "", ...lines.map((x) => x.checked_by ?? "")]);
 

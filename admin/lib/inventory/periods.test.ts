@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { periodLabel, recentPeriods } from "./periods";
+import { formatDay, periodLabel, recentPeriods } from "./periods";
 
 describe("recentPeriods", () => {
   test("последние n периодов по Ташкенту, текущий первым", () => {
@@ -12,5 +12,12 @@ describe("periodLabel", () => {
   test("месяц и год по локали", () => {
     expect(periodLabel("2026-10-31", "ru").toLowerCase()).toContain("2026");
     expect(periodLabel("2026-10-31", "ru").toLowerCase()).toContain("октябр");
+  });
+});
+
+describe("formatDay", () => {
+  test("YYYY-MM-DD → ДД.ММ.ГГГГ", () => {
+    expect(formatDay("2026-10-07")).toBe("07.10.2026");
+    expect(formatDay("garbage")).toBe("garbage");
   });
 });

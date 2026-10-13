@@ -61,6 +61,30 @@ describe("withIikoClient", () => {
     expect(calls.at(-1)!.url).toBe(`${BASE}/logout?key=KEY1`);
   });
 
+  it("movements: движение по складу и типам, без проводок инвентаризации, конец периода включительно", async () => {
+    const { f, calls } = fakeFetch((url) => {
+      if (url.includes("/auth?")) return new Response("K");
+      if (url.includes("/v2/reports/olap")) {
+        return Response.json({ data: [
+          { "Product.Id": "p1", TransactionType: "INVOICE", "Amount.In": 5, "Amount.Out": null },
+          { "Product.Id": "p1", TransactionType: "SESSION_WRITEOFF", "Amount.In": 0, "Amount.Out": 2.5 },
+        ] });
+      }
+      return new Response("");
+    });
+    const res = await withIikoClient((c) => c.movements("s1", "2026-10-01", "2026-10-07"), opts(f));
+    expect(res).toEqual([
+      { product_id: "p1", type: "INVOICE", in: 5, out: 0 },
+      { product_id: "p1", type: "SESSION_WRITEOFF", in: 0, out: 2.5 },
+    ]);
+    const body = JSON.parse(String(calls.find((c) => c.url.includes("/v2/reports/olap"))!.init?.body));
+    expect(body.groupByRowFields).toEqual(["Product.Id", "TransactionType"]);
+    expect(body.aggregateFields).toEqual(["Amount.In", "Amount.Out"]);
+    expect(body.filters["DateTime.DateTyped"]).toEqual({ filterType: "DateRange", periodType: "CUSTOM", from: "2026-10-01", to: "2026-10-08", includeLow: true, includeHigh: false });
+    expect(body.filters["Account.Id"]).toEqual({ filterType: "IncludeValues", values: ["s1"] });
+    expect(body.filters.TransactionType).toEqual({ filterType: "ExcludeValues", values: ["INVENTORY_CORRECTION"] });
+  });
+
   it("logout вызывается, даже если fn бросил", async () => {
     const { f, calls } = fakeFetch((url) => new Response(url.includes("/auth?") ? "K" : ""));
     await expect(withIikoClient(async () => { throw new Error("boom"); }, opts(f))).rejects.toThrow("boom");

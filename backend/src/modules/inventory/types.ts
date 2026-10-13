@@ -43,6 +43,10 @@ export interface InventoryCountSummary {
   template_id: string | null;
   template_name: string;
   period: string;
+  /** monthly — месячный; interim — промежуточный за прошедший день. */
+  kind: "monthly" | "interim";
+  /** Дата пересчёта: у месячного = period, у промежуточного — выбранный день. */
+  count_date: string;
   status: InventoryCountStatus;
   /** Строки построены как шаблон ∩ товары филиала из exord. */
   exord_filtered: boolean;

@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@admin/components/ui/dialog";
+import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { periodLabel } from "@admin/lib/inventory/periods";
@@ -18,6 +19,13 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
   const [open, setOpen] = useState(false);
   const [templateId, setTemplateId] = useState("");
   const [period, setPeriod] = useState("");
+  // Промежуточный — за прошедший день (spec 2026-10-08): дата вместо месяца.
+  const [kind, setKind] = useState<"monthly" | "interim">("monthly");
+  const [countDate, setCountDate] = useState("");
+  const dates = useQuery({ queryKey: ["inventory_interim_dates"], queryFn: inventoryApi.interimDates, enabled: open });
+  useEffect(() => {
+    if (dates.data) setCountDate((d) => d || dates.data!.default);
+  }, [dates.data]);
 
   const options = useQuery({
     queryKey: ["inventory_available_templates", storeId],
@@ -43,9 +51,11 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
 
   const create = useMutation({
     mutationFn: () =>
-      inventoryApi.createCount(
-        templateId === BRANCH ? { store_id: storeId, period } : { store_id: storeId, template_id: templateId, period }
-      ),
+      inventoryApi.createCount({
+        store_id: storeId,
+        ...(templateId === BRANCH ? {} : { template_id: templateId }),
+        ...(kind === "interim" ? { kind, count_date: countDate } : { period }),
+      }),
     onSuccess: (r) => {
       setOpen(false);
       onCreated(r.id);
@@ -65,6 +75,18 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
           <DialogTitle>{t("start")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          <div className="space-y-1">
+            <div className="text-sm font-medium">{t("kind.label")}</div>
+            <Select value={kind} onValueChange={(v) => setKind(v as "monthly" | "interim")}>
+              <SelectTrigger className="h-11">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="monthly">{t("kind.monthly")}</SelectItem>
+                <SelectItem value="interim">{t("kind.interim")}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">{t("template")}</div>
             {templates && templates.length === 0 && !branch?.available ? (
@@ -92,6 +114,20 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
           {branch && !branch.available && (
             <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">{t("noExord")}</div>
           )}
+          {kind === "interim" ? (
+            <div className="space-y-1">
+              <div className="text-sm font-medium">{t("kind.date")}</div>
+              <Input
+                type="date"
+                className="h-11"
+                value={countDate}
+                min={dates.data?.min}
+                max={dates.data?.max}
+                onChange={(e) => setCountDate(e.target.value)}
+              />
+              <div className="text-xs text-muted-foreground">{t("kind.dateHint")}</div>
+            </div>
+          ) : (
           <div className="space-y-1">
             <div className="text-sm font-medium">{t("period")}</div>
             <Select value={period} onValueChange={setPeriod}>
@@ -107,9 +143,14 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
               </SelectContent>
             </Select>
           </div>
+          )}
         </div>
         <DialogFooter>
-          <Button size="lg" onClick={() => create.mutate()} disabled={!templateId || !period || create.isPending}>
+          <Button
+            size="lg"
+            onClick={() => create.mutate()}
+            disabled={!templateId || (kind === "interim" ? !countDate : !period) || create.isPending}
+          >
             {t("create")}
           </Button>
         </DialogFooter>

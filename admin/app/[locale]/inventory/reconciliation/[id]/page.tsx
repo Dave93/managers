@@ -13,24 +13,22 @@ import { ChooseDocument, CountsPanel, RefreshButton, ReviewControls } from "../_
 import { ReconLines } from "../_components/recon-lines";
 import { ReconLog } from "../_components/recon-log";
 import { ReconStatusBadge } from "../_components/recon-status-badge";
+import { storeStatus, useReconStatus } from "../_components/fetch-panel";
 
 function Detail({ id }: { id: string }) {
   const t = useTranslations("inventory.reconcile");
   const locale = useLocale();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["recon_detail", id], queryFn: () => inventoryApi.reconcile.get(id) });
-  const status = useQuery({
-    queryKey: ["recon_status", q.data?.period],
-    queryFn: () => inventoryApi.reconcile.status(q.data!.period),
-    enabled: !!q.data,
-    refetchInterval: (s) => (s.state.data && ["queued", "stage1", "stage2"].includes(s.state.data.state) ? 3000 : false),
-  });
+  const status = useReconStatus(q.data?.period);
   const reload = () => {
     void q.refetch();
     void qc.invalidateQueries({ queryKey: ["recon_list", q.data?.period] });
   };
-  // Загрузка по складу закончилась — перечитать детали.
-  const finished = status.data?.finished_at;
+  // Загрузка этого склада (или всего месяца) закончилась — перечитать детали.
+  const mine = q.data ? storeStatus(status.data, q.data.store_id)?.finished_at : undefined;
+  const all = status.data?.finished_at;
+  const finished = [mine, all].filter(Boolean).sort().pop();
   const calculatedAt = q.data?.calculated_at;
   useEffect(() => {
     if (finished && (!calculatedAt || Date.parse(finished) > Date.parse(calculatedAt) + 1000)) void q.refetch();

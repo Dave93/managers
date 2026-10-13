@@ -14,6 +14,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
   const { closeReconcileQueue, reconcileQueue, statusKey } = await import("./queue");
+  const { bookQueue, closeBookQueue } = await import("../book/queue");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
   const PERIOD = "2026-08-31";
@@ -70,7 +71,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
     const author = randomUUID();
     const [count] = await drizzleDb
       .insert(schema.inventory_counts)
-      .values({ store_id: storeId, template_name: "Все товары филиала", period: PERIOD, status: "submitted", created_by: author })
+      .values({ store_id: storeId, template_name: "Все товары филиала", period: PERIOD, count_date: PERIOD, status: "submitted", created_by: author })
       .returning({ id: schema.inventory_counts.id });
     const [line] = await drizzleDb
       .insert(schema.inventory_count_lines)
@@ -89,8 +90,9 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       await drizzleDb.delete(schema.inventory_reconciliations).where(inArray(schema.inventory_reconciliations.store_id, stores));
       await drizzleDb.delete(schema.inventory_counts).where(inArray(schema.inventory_counts.store_id, stores));
       await drizzleDb.delete(schema.corporation_store).where(inArray(schema.corporation_store.id, stores));
-      const job = await reconcileQueue().getJob(`reconcile-${PERIOD}`);
-      await job?.remove();
+      for (const id of [`reconcile-${PERIOD}`, ...stores.map((x) => `reconcile-${PERIOD}-${x}`)]) {
+        await (await reconcileQueue().getJob(id))?.remove();
+      }
     }
     return { storeId, readyId: ready.id, choiceId: choice.id, waitingId: waiting.id, candA, countId: count.id, waterId, cleanup };
   }
@@ -105,6 +107,8 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   afterAll(async () => {
     await reconcileQueue().obliterate({ force: true });
     await closeReconcileQueue();
+    await bookQueue().obliterate({ force: true });
+    await closeBookQueue();
     await sweepTestRoles();
     await closeTestRedis();
   });
@@ -118,6 +122,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
           ["GET", `/api/inventory/reconciliations?period=${PERIOD}`],
           ["GET", `/api/inventory/reconciliations/${w.readyId}`],
           ["GET", `/api/inventory/reconciliations/fetch-status?period=${PERIOD}`],
+          ["GET", "/api/inventory/worker-status"],
           ["POST", "/api/inventory/reconciliations/fetch", { period: PERIOD }],
           ["POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {}],
           ["POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id }],
@@ -345,6 +350,50 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("загрузка по одному складу: своя задача и статус в stores; неизвестный склад — 404", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        const bad = await api(o, "POST", "/api/inventory/reconciliations/fetch", { period: PERIOD, store_id: randomUUID() });
+        expect(bad.status).toBe(404);
+        expect(bad.body.error).toBe("store_not_found");
+        const ok = await api(o, "POST", "/api/inventory/reconciliations/fetch", { period: PERIOD, store_id: w.storeId });
+        expect(ok.status).toBe(200);
+        expect(ok.body.store_id).toBe(w.storeId);
+        const job = await reconcileQueue().getJob(`reconcile-${PERIOD}-${w.storeId}`);
+        expect(job?.data.storeId).toBe(w.storeId);
+        expect(await reconcileQueue().getJob(`reconcile-${PERIOD}`)).toBeUndefined();
+        const st = await api(o, "GET", `/api/inventory/reconciliations/fetch-status?period=${PERIOD}`);
+        expect(st.body.stores.find((x: any) => x.store_id === w.storeId)?.state).toBe("queued");
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    it("↻ по складам: разные склады встают в очередь, повторное нажатие того же склада — 200 без второй задачи", async () => {
+      const w = await seed();
+      try {
+        const o = await office();
+        const a = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {});
+        expect(a.status).toBe(200);
+        expect(a.body.state).toBe("queued");
+        const again = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {});
+        expect(again.status).toBe(200);
+        expect(again.body.state).toBe("queued");
+        const b = await api(o, "POST", `/api/inventory/reconciliations/${w.choiceId}/refresh`, {});
+        expect(b.status).toBe(200);
+        const waiting = await reconcileQueue().getJobs(["waiting"]);
+        expect(waiting.filter((j) => j.data.period === PERIOD && j.data.storeId === w.storeId)).toHaveLength(1);
+        const st = await api(o, "GET", `/api/inventory/reconciliations/fetch-status?period=${PERIOD}`);
+        expect(st.body.stores.filter((x: any) => x.state === "queued").length).toBeGreaterThanOrEqual(2);
+        // Выбор документа, пока склад в очереди, — 409: загрузка перезапишет выбор.
+        const choose = await api(o, "POST", `/api/inventory/reconciliations/${w.choiceId}/document`, { document_id: w.candA.id });
+        expect(choose.status).toBe(409);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("загрузка: вторая во время первой — 409 already_running; статус — queued", async () => {
       const w = await seed();
       try {
@@ -355,14 +404,35 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         const second = await api(o, "POST", "/api/inventory/reconciliations/fetch", { period: PERIOD });
         expect(second.status).toBe(409);
         expect(second.body.error).toBe("already_running");
+        // Склад во время загрузки месяца встаёт в очередь за ней (воркер — по одной задаче).
         const one = await api(o, "POST", `/api/inventory/reconciliations/${w.readyId}/refresh`, {});
-        expect(one.status).toBe(409);
+        expect(one.status).toBe(200);
         const st = await api(o, "GET", `/api/inventory/reconciliations/fetch-status?period=${PERIOD}`);
         expect(st.status).toBe(200);
         expect(st.body.state).toBe("queued");
       } finally {
         await w.cleanup();
       }
+    });
+  });
+
+  describe("reconcile: «Обработчик не запущен»", () => {
+    it("задача ждёт меньше минуты — тихо; дольше минуты без обработчика — stalled и с какого времени", async () => {
+      // Тестовые очереди без обработчика: ровно ситуация «воркер не запущен».
+      await reconcileQueue().obliterate({ force: true });
+      await bookQueue().obliterate({ force: true });
+      const o = await office();
+      const empty = await api(o, "GET", "/api/inventory/worker-status");
+      expect(empty.status).toBe(200);
+      expect(empty.body).toEqual({ stalled: false, waiting_since: null });
+
+      await bookQueue().add("book", { countId: randomUUID() }, { jobId: `book-${randomUUID()}` });
+      expect((await api(o, "GET", "/api/inventory/worker-status")).body.stalled).toBe(false);
+
+      const since = Date.now() - 5 * 60_000;
+      await reconcileQueue().add("reconcile", { period: PERIOD }, { jobId: `reconcile-old-${randomUUID()}`, timestamp: since });
+      const stalled = await api(o, "GET", "/api/inventory/worker-status");
+      expect(stalled.body).toEqual({ stalled: true, waiting_since: new Date(since).toISOString() });
     });
   });
 }

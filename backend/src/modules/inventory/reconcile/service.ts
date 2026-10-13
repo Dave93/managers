@@ -57,7 +57,7 @@ export async function computeScope(db: DbLike, iiko: IikoClient, input: RunInput
   const admin = await db
     .selectDistinct({ store_id: inventory_counts.store_id })
     .from(inventory_counts)
-    .where(and(eq(inventory_counts.period, input.period), inArray(inventory_counts.status, ["draft", "submitted"])));
+    .where(and(eq(inventory_counts.period, input.period), eq(inventory_counts.kind, "monthly"), inArray(inventory_counts.status, ["draft", "submitted"])));
   for (const a of admin) ids.add(a.store_id);
   if (!ids.size) return { scope: [], docs };
 
@@ -199,7 +199,7 @@ async function adminAggregate(db: DbLike, storeId: string, period: string): Prom
   const counts = await db
     .select({ id: inventory_counts.id, status: inventory_counts.status })
     .from(inventory_counts)
-    .where(and(eq(inventory_counts.store_id, storeId), eq(inventory_counts.period, period), inArray(inventory_counts.status, ["draft", "submitted"])));
+    .where(and(eq(inventory_counts.store_id, storeId), eq(inventory_counts.period, period), eq(inventory_counts.kind, "monthly"), inArray(inventory_counts.status, ["draft", "submitted"])));
   const submitted = counts.filter((c) => c.status === "submitted").map((c) => c.id);
   const state: ReconAdminState = submitted.length ? "submitted" : counts.length ? "draft" : "none";
   if (!submitted.length) return { admin: [], state };
@@ -348,7 +348,7 @@ export async function refreshIfStale(db: DbLike, reconId: string): Promise<boole
   const [{ stale }] = (
     await db.execute(sql`select exists (
       select 1 from inventory_counts c
-      where c.store_id = ${row.store_id} and c.period = ${row.period} and c.updated_at > ${row.calculated_at}::timestamptz
+      where c.store_id = ${row.store_id} and c.period = ${row.period} and c.kind = 'monthly' and c.updated_at > ${row.calculated_at}::timestamptz
     ) as stale`)
   ).rows as { stale: boolean }[];
   if (!stale) return false;
