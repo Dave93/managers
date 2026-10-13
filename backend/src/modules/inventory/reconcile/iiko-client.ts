@@ -52,7 +52,8 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
   const base = opts.base ?? DEFAULT_BASE;
   const f = opts.fetch ?? fetch;
   const login = opts.login ?? process.env.IIKO_LOGIN;
-  const password = opts.password ?? process.env.IIKO_PASSWORD;
+  // В backend/.env на проде пароль исторически лежит как IIKO_PASS (его читает cache_control), в cron/.env — IIKO_PASSWORD.
+  const password = opts.password ?? process.env.IIKO_PASSWORD ?? process.env.IIKO_PASS;
   const retries = opts.retries ?? 2;
   if (!login || !password) throw new IikoError("IIKO_LOGIN / IIKO_PASSWORD are not set");
 
