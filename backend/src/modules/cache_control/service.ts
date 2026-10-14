@@ -725,10 +725,6 @@ export class CacheControlService {
     const { permissions, ...userRoles } = roles.find(
       (role) => role.id === foundUser.role_id
     )!;
-    console.log(
-      "session_data",
-      `${process.env.PROJECT_PREFIX}user_data:${sessionId}`
-    );
 
 
     // getting user terminals

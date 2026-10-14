@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { clientTime } from "../modules/inventory/counts";
-import { corsOrigins, isDbError, LOGIN_LOCK_SECONDS, LOGIN_MAX_FAILS, loginFailed, loginLocked, loginSucceeded } from "./security";
+import { corsOrigins, isDbError, LOGIN_LOCK_SECONDS, LOGIN_MAX_FAILS, loginAttempt, loginSucceeded } from "./security";
 
 function fakeRedis() {
   const data = new Map<string, number>();
@@ -8,12 +8,16 @@ function fakeRedis() {
   return {
     data,
     ttl,
-    get: async (k: string) => (data.has(k) ? String(data.get(k)) : null),
+    set: async (k: string, v: string, _ex: "EX", seconds: number, _nx: "NX") => {
+      if (data.has(k)) return null;
+      data.set(k, Number(v));
+      ttl.set(k, seconds);
+      return "OK";
+    },
     incr: async (k: string) => {
       data.set(k, (data.get(k) ?? 0) + 1);
       return data.get(k)!;
     },
-    expire: async (k: string, s: number) => void ttl.set(k, s),
     del: async (k: string) => void data.delete(k),
   };
 }
@@ -50,17 +54,15 @@ describe("isDbError", () => {
 });
 
 describe("лимит попыток входа", () => {
-  it(`после ${LOGIN_MAX_FAILS} ошибок логин закрыт, окно — от первой ошибки, регистр логина не важен`, async () => {
+  it(`${LOGIN_MAX_FAILS} попыток можно, следующая — нет; срок ставится сразу; регистр логина не важен`, async () => {
     const r = fakeRedis();
-    for (let i = 0; i < LOGIN_MAX_FAILS - 1; i++) await loginFailed(r, "Ivan");
-    expect(await loginLocked(r, "ivan")).toBe(false);
-    await loginFailed(r, " IVAN ");
-    expect(await loginLocked(r, "ivan")).toBe(true);
+    for (let i = 0; i < LOGIN_MAX_FAILS; i++) expect(await loginAttempt(r, i % 2 ? "Ivan" : " IVAN ")).toBe(true);
+    expect(await loginAttempt(r, "ivan")).toBe(false);
     expect([...r.ttl.values()]).toEqual([LOGIN_LOCK_SECONDS]);
   });
-  it("успешный вход сбрасывает счётчик", async () => {
+  it("удачный вход сбрасывает счётчик", async () => {
     const r = fakeRedis();
-    for (let i = 0; i < 5; i++) await loginFailed(r, "ivan");
+    for (let i = 0; i < 5; i++) await loginAttempt(r, "ivan");
     await loginSucceeded(r, "ivan");
     expect(r.data.size).toBe(0);
   });

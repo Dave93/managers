@@ -28,28 +28,28 @@ export function isDbError(e: unknown): boolean {
   return e.name === "PostgresError" || (cause instanceof Error && cause.name === "PostgresError");
 }
 
-/** После стольких неверных паролей подряд вход по этому логину закрывается на LOGIN_LOCK_SECONDS. */
+/** Столько попыток входа по одному логину за окно LOGIN_LOCK_SECONDS; удачный вход окно сбрасывает. */
 export const LOGIN_MAX_FAILS = 10;
 export const LOGIN_LOCK_SECONDS = 15 * 60;
 
 type RedisLike = {
-  get(key: string): Promise<string | null>;
+  set(key: string, value: string, ex: "EX", seconds: number, nx: "NX"): Promise<unknown>;
   incr(key: string): Promise<number>;
-  expire(key: string, seconds: number): Promise<unknown>;
   del(key: string): Promise<unknown>;
 };
 
 // По логину, а не по IP: вход из админки идёт через её прокси, и бэкенд видит 127.0.0.1 у всех.
 const failKey = (login: string) => `${process.env.PROJECT_PREFIX}login_fail:${login.trim().toLowerCase()}`;
 
-export async function loginLocked(redis: RedisLike, login: string): Promise<boolean> {
-  return Number((await redis.get(failKey(login))) ?? 0) >= LOGIN_MAX_FAILS;
-}
-
-/** Считает неверный пароль; окно отсчитывается от первой ошибки. */
-export async function loginFailed(redis: RedisLike, login: string): Promise<void> {
-  const n = await redis.incr(failKey(login));
-  if (n === 1) await redis.expire(failKey(login), LOGIN_LOCK_SECONDS);
+/**
+ * Засчитывает попытку ДО проверки пароля и говорит, можно ли проверять. Сначала счётчик, потом
+ * пароль: иначе пачка параллельных запросов успевает пройти проверку, пока никто не увеличил счётчик.
+ * SET NX EX создаёт ключ сразу со сроком — без вечной блокировки, если процесс упал между командами.
+ */
+export async function loginAttempt(redis: RedisLike, login: string): Promise<boolean> {
+  const key = failKey(login);
+  await redis.set(key, "0", "EX", LOGIN_LOCK_SECONDS, "NX");
+  return (await redis.incr(key)) <= LOGIN_MAX_FAILS;
 }
 
 export async function loginSucceeded(redis: RedisLike, login: string): Promise<void> {

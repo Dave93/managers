@@ -21,7 +21,7 @@ import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
 import { ctx } from "@backend/context";
 import dayjs from "dayjs";
-import { loginFailed, loginLocked, loginSucceeded } from "@backend/lib/security";
+import { loginAttempt, loginSucceeded } from "@backend/lib/security";
 const { password, salt, tg_id, ...userDataFields } = getTableColumns(users);
 type UsersModel = InferSelectModel<typeof users>;
 
@@ -53,8 +53,8 @@ export const usersController = new Elysia({
       redis,
       cookie,
     }) => {
-      // Перебор паролей: после LOGIN_MAX_FAILS ошибок логин закрыт до конца окна.
-      if (await loginLocked(redis, login)) {
+      // Перебор паролей: после LOGIN_MAX_FAILS попыток логин закрыт до конца окна.
+      if (!(await loginAttempt(redis, login))) {
         set.status = 429;
         return {
           message: "Too many login attempts",
@@ -74,7 +74,6 @@ export const usersController = new Elysia({
       )[0];
       // Один ответ на «нет такого логина» и «неверный пароль»: иначе по ответу видно, какие логины есть.
       if (!userPasswords) {
-        await loginFailed(redis, login);
         set.status = 401;
         return {
           message: "Invalid login or password",
@@ -88,7 +87,6 @@ export const usersController = new Elysia({
       );
 
       if (!isPasswordSame) {
-        await loginFailed(redis, login);
         set.status = 401;
         return {
           message: "Invalid login or password",
@@ -143,8 +141,8 @@ export const usersController = new Elysia({
     },
     {
       body: t.Object({
-        login: t.String(),
-        password: t.String(),
+        login: t.String({ maxLength: 100 }),
+        password: t.String({ maxLength: 200 }),
       }),
     }
   )
