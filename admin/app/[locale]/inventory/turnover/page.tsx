@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo } from "react";
+import { Suspense, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { parseAsString, useQueryState } from "nuqs";
@@ -17,7 +17,10 @@ const ALL = "__all__";
 export default function TurnoverPage() {
   return (
     <CanAccess permission="inventory.count">
-      <Turnover />
+      {/* Фильтры в URL (nuqs → useSearchParams): без границы Suspense `next build` падает на пререндере. */}
+      <Suspense>
+        <Turnover />
+      </Suspense>
     </CanAccess>
   );
 }
@@ -49,7 +52,8 @@ function Turnover() {
   const summary = useQuery({
     queryKey: ["inventory_turnover", "summary", period],
     queryFn: () => inventoryApi.turnover.summary(period),
-    enabled: office && !!period && storeId === ALL,
+    // И при выбранном складе: из сводной — список складов офиса (агрегаты SQL, дёшево).
+    enabled: office && !!period,
   });
   const view = useQuery({
     queryKey: ["inventory_turnover", "store", period, storeId],
