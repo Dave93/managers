@@ -136,16 +136,18 @@ export function buildStoreSnapshot(storeId: string, start: IikoBal[], end: IikoB
   return { balances, turnover };
 }
 
-export type MonthlyState = { exists: boolean; changeable: boolean };
+/** exists/changeable — месячный пересчёт в админке; iikoPosted — документ инвентаризации iiko проведён (сверка). */
+export type MonthlyState = { exists: boolean; changeable: boolean; iikoPosted: boolean };
 
 /**
- * Какие месяцы видит филиал (spec 2026-10-14, решение 5): текущий — никогда; прошедший — пока месячный
- * пересчёт склада за него можно изменить (черновик или возврат: старые тоже можно вернуть), закрыт;
- * прошлый ещё и без пересчёта закрыт — за его дни разрешён промежуточный.
+ * Какие месяцы видит филиал (spec 2026-10-14, решение 5): текущий — никогда; прошедший — закрыт, пока месячный
+ * пересчёт за него можно изменить (черновик или возврат: старые тоже можно вернуть). Прошлый ещё закрыт без
+ * инвентаризации вовсе — ни пересчёта, ни проведённого документа iiko: тогда «Конец» — учётный остаток, а за дни
+ * прошлого месяца разрешён промежуточный. С проведённым документом iiko «Конец» — уже факт.
  */
 export function branchMonthState(period: string, now: Date, m: MonthlyState): { open: boolean; reason: "current" | "not_fixed" | null } {
   const [current, previous] = allowedPeriods(now);
   if (period >= current) return { open: false, reason: "current" };
-  if (m.changeable || (period === previous && !m.exists)) return { open: false, reason: "not_fixed" };
+  if (m.changeable || (period === previous && !m.exists && !m.iikoPosted)) return { open: false, reason: "not_fixed" };
   return { open: true, reason: null };
 }

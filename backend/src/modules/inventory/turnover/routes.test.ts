@@ -12,7 +12,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const { callApi, closeTestRedis, ensureApp, withSession, sweepTestRoles } = await import("../../../../tests/helpers/http");
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
-  const { eq, inArray } = await import("drizzle-orm");
+  const { and, eq, inArray } = await import("drizzle-orm");
   const { allowedPeriods, lastDayOfMonth } = await import("../rules");
   const { closeTurnoverQueue, turnoverQueue } = await import("./queue");
 
@@ -75,6 +75,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         await drizzleDb.delete(t).where(inArray(t.store_id, [store, other]));
       }
       await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.store_id, store));
+      await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, store));
       await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, managerId));
       await drizzleDb.delete(schema.nomenclature_element).where(eq(schema.nomenclature_element.id, p));
       await drizzleDb.delete(schema.corporation_store).where(inArray(schema.corporation_store.id, [store, other]));
@@ -177,6 +178,24 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect((await api(m, "GET", url(previous, w.store))).body).toMatchObject({ error: "month_closed", reason: "not_fixed" });
       } finally {
         await setRule(null);
+        await w.cleanup();
+      }
+    });
+
+    it("филиал: прошлый без пересчёта, но с проведённым документом iiko — 200; документ не проведён — 403", async () => {
+      const w = await seed();
+      try {
+        const m = await branch(w);
+        await drizzleDb.insert(schema.inventory_reconciliations).values({ store_id: w.store, period: previous, iiko_doc_state: "unposted_after_fetch" });
+        expect((await api(m, "GET", url(previous, w.store))).body).toMatchObject({ error: "month_closed", reason: "not_fixed" });
+        await drizzleDb
+          .update(schema.inventory_reconciliations)
+          .set({ iiko_doc_state: "posted" })
+          .where(and(eq(schema.inventory_reconciliations.store_id, w.store), eq(schema.inventory_reconciliations.period, previous)));
+        expect((await api(m, "GET", url(previous, w.store))).status).toBe(200);
+        const periods = await api(m, "GET", `/api/inventory/turnover/periods?store_id=${w.store}`);
+        expect(periods.body[1]).toMatchObject({ period: previous, open: true });
+      } finally {
         await w.cleanup();
       }
     });

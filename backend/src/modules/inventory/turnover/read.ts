@@ -1,6 +1,6 @@
 // Выдача ОСВ (spec 2026-10-14, §7). Офис (inventory.templates) — все склады, количество и суммы.
 // Филиал — свой склад (users_stores), только количество, только открытые месяцы (branchMonthState).
-import { corporation_store, inventory_counts, inventory_turnover, inventory_turnover_balance, inventory_turnover_fetch } from "backend/drizzle/schema";
+import { corporation_store, inventory_counts, inventory_reconciliations, inventory_turnover, inventory_turnover_balance, inventory_turnover_fetch } from "backend/drizzle/schema";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import { storeAccess, type Actor, type DbLike } from "../access";
@@ -36,24 +36,34 @@ function assertPeriod(period: string) {
 }
 
 /**
- * Месячные пересчёты склада по периодам: есть ли и можно ли ещё изменить (черновик или отправленный,
- * который филиал может вернуть — старые месяцы тоже).
+ * По периодам: месячный пересчёт склада в админке — есть ли и можно ли ещё изменить (черновик или отправленный,
+ * который филиал может вернуть — старые месяцы тоже); проведён ли документ инвентаризации iiko (по сверке).
  */
 export async function monthlyStates(db: DbLike, storeId: string): Promise<Map<string, MonthlyState>> {
+  const out = new Map<string, MonthlyState>();
+  const at = (period: string) => {
+    const cur = out.get(period) ?? { exists: false, changeable: false, iikoPosted: false };
+    out.set(period, cur);
+    return cur;
+  };
   const counts = await db
     .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period, kind: inventory_counts.kind })
     .from(inventory_counts)
     .where(and(eq(inventory_counts.store_id, storeId), eq(inventory_counts.kind, "monthly"), ne(inventory_counts.status, "cancelled")));
-  const out = new Map<string, MonthlyState>();
   for (const c of counts) {
-    const cur = out.get(c.period) ?? { exists: true, changeable: false };
+    const cur = at(c.period);
+    cur.exists = true;
     if (!cur.changeable && (c.status === "draft" || (await branchMayReopen(db, c)))) cur.changeable = true;
-    out.set(c.period, cur);
   }
+  const recons = await db
+    .select({ period: inventory_reconciliations.period })
+    .from(inventory_reconciliations)
+    .where(and(eq(inventory_reconciliations.store_id, storeId), eq(inventory_reconciliations.iiko_doc_state, "posted")));
+  for (const r of recons) at(r.period).iikoPosted = true;
   return out;
 }
 
-const NO_COUNT: MonthlyState = { exists: false, changeable: false };
+const NO_COUNT: MonthlyState = { exists: false, changeable: false, iikoPosted: false };
 
 /** Филиал: свой склад; иначе 403. */
 async function assertBranchStore(db: DbLike, actor: Actor, storeId: string) {

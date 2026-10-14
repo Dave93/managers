@@ -115,16 +115,22 @@ describe("buildStoreSnapshot: пустые проводки", () => {
 });
 
 describe("branchMonthState", () => {
-  const none = { exists: false, changeable: false };
-  const fixed = { exists: true, changeable: false };
-  const open = { exists: true, changeable: true };
-  it("текущий — закрыт всегда", () => {
+  const none = { exists: false, changeable: false, iikoPosted: false };
+  const fixed = { exists: true, changeable: false, iikoPosted: false };
+  const open = { exists: true, changeable: true, iikoPosted: false };
+  const iikoOnly = { exists: false, changeable: false, iikoPosted: true };
+  it("текущий — закрыт всегда, даже с документом iiko", () => {
     expect(branchMonthState("2026-10-31", NOW, fixed)).toEqual({ open: false, reason: "current" });
+    expect(branchMonthState("2026-10-31", NOW, iikoOnly)).toEqual({ open: false, reason: "current" });
   });
-  it("прошлый — только с зафиксированным пересчётом", () => {
+  it("прошлый — с зафиксированным пересчётом или проведённым документом iiko", () => {
     expect(branchMonthState("2026-09-30", NOW, none)).toEqual({ open: false, reason: "not_fixed" });
     expect(branchMonthState("2026-09-30", NOW, open)).toEqual({ open: false, reason: "not_fixed" });
     expect(branchMonthState("2026-09-30", NOW, fixed)).toEqual({ open: true, reason: null });
+    expect(branchMonthState("2026-09-30", NOW, iikoOnly)).toEqual({ open: true, reason: null });
+  });
+  it("пересчёт ещё можно изменить — закрыт, даже если документ iiko проведён", () => {
+    expect(branchMonthState("2026-09-30", NOW, { ...open, iikoPosted: true })).toEqual({ open: false, reason: "not_fixed" });
   });
   it("старше прошлого — открыт, если месячный пересчёт нельзя изменить", () => {
     expect(branchMonthState("2026-08-31", NOW, none)).toEqual({ open: true, reason: null });
