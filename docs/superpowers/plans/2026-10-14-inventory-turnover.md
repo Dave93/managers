@@ -31,6 +31,14 @@
 4. **Новый тип проводки iiko** — уходит в «Прочее ±», тождество не ломается. Тест — Task 2.
 5. **Утечка сумм филиалу** — в ответе ведомости у филиала нет ключа `sum` ни в строках, ни `cost_correction` в колонках. Тест — Task 7.
 
+## Поправки после ревью плана (14.10.2026) — имеют приоритет над кодом задач ниже
+
+1. **Правило месяца филиала** (спека, решение 5, обновлено): вернуть/править можно и старые месячные пересчёты. `branchMonthState(period, now, m: { exists: boolean; changeable: boolean })`: текущий и будущий → `current`; `m.changeable` → `not_fixed`; прошлый и `!m.exists` → `not_fixed`; иначе открыт. В `read.ts` вместо `monthlyFixed` — `monthlyStates(db, storeId): Promise<Map<period, { exists; changeable }>>` (все неотменённые месячные пересчёты склада одним запросом, `changeable` = есть черновик или отправленный с `branchMayReopen`). Юнит-тест и HTTP-кейс: старый месяц с черновиком месячного → 403 `not_fixed`.
+2. **Сводная — агрегатами SQL**, а не построчно в JS: `group by store_id, tx_type` (`sum(sum_in)`, `sum(sum_out)`) и `group by store_id` (`sum(start_sum)`, `sum(end_sum)`, `count(*) filter (where not consistent)`). `group()` — через `push`.
+3. **Тестовая БД:** `TEST_DATABASE_URL` = `DATABASE_URL` из `backend/.env` с заменой имени БД на `managers_tickets_test` (а не `postgres:postgres@…`). Миграцию применять к ней же.
+4. **service.test.ts:** загрузка «все склады» пишет снимки по всем `corporation_store` тестовой БД — в `afterAll` удалять `inventory_turnover*` по периодам `2026-09-30` и `2026-10-31`.
+5. В `cron/inventory_reconcile_worker.ts` — комментарий: три Worker'а могут держать до трёх сессий iiko одновременно (сверка, книжное, ОСВ ~6 мин).
+
 ---
 
 ## File Structure
