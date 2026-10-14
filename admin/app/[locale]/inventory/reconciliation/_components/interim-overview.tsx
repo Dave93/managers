@@ -17,6 +17,9 @@ import { WorkerWarning } from "./worker-warning";
 const ALL = "__all__";
 /** Книжное ещё не пришло: снимок в очереди/загружается или отправленный пересчёт без снимка. */
 export const bookPending = (r: InterimReconRow) => r.book_loading || (r.status === "submitted" && !r.book_fetched_at);
+// Книжное может не прийти совсем (iiko упал, обработчик не запущен): первые ~2 минуты опрашиваем
+// каждые 3 с, дальше раз в 30 с, чтобы открытые вкладки не нагружали сервер без конца.
+export const pollDelay = (updates: number) => (updates < 40 ? 3000 : 30_000);
 
 /** ↻ в строке: снимок книжного заново по одному пересчёту (офис). */
 export function InterimRowRefresh({ row, onQueued }: { row: InterimReconRow; onQueued: () => void }) {
@@ -98,7 +101,7 @@ export function InterimOverview({ basePath = "/inventory/reconciliation/interim"
     queryKey: ["recon_interim_list", period],
     queryFn: () => inventoryApi.reconcile.interimList(period),
     // Пока где-то грузится книжное — опрашиваем, строка обновится сама.
-    refetchInterval: (q) => ((q.state.data ?? []).some(bookPending) ? 3000 : false),
+    refetchInterval: (q) => ((q.state.data ?? []).some(bookPending) ? pollDelay(q.state.dataUpdateCount) : false),
   });
   const refetch = () => void list.refetch();
 
