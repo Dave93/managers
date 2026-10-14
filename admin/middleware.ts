@@ -11,8 +11,6 @@ export async function middleware(request: NextRequest) {
     // First, handle the authentication check
     const sessionKey = request.cookies.get("sessionId")?.value;
     const refreshToken = request.cookies.get("refreshToken")?.value;
-    console.log("sessionKey", sessionKey);
-    console.log("refreshToken", refreshToken);
     const isLoginRoute = request.nextUrl.pathname === '/login' ||
         request.nextUrl.pathname.match(/^\/(en|ru|uz-Latn|uz-Cyrl)\/login$/) !== null;
     const isForbiddenRoute = request.nextUrl.pathname === '/forbidden' ||
