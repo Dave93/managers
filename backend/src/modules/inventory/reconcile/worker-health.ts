@@ -31,8 +31,23 @@ async function probe(q: Queue): Promise<QueueProbe> {
   return { oldestReadyAt: ready.length ? Math.min(...ready) : null, workers, active: active ?? 0 };
 }
 
+// Экран спрашивает каждые 15 с из каждой открытой вкладки, а проверка — CLIENT LIST и список
+// ожидающих задач в Redis: один ответ на всех на 10 с.
+const STATUS_TTL_MS = 10_000;
+let lastStatus: { at: number; value: Promise<WorkerStatus> } | null = null;
+
 /** Обе очереди обработчика. Redis недоступен — «всё в порядке»: эта проверка не должна ломать экран. */
-export async function readWorkerStatus(now = Date.now()): Promise<WorkerStatus> {
+export function readWorkerStatus(now = Date.now()): Promise<WorkerStatus> {
+  if (lastStatus && now - lastStatus.at < STATUS_TTL_MS) return lastStatus.value;
+  lastStatus = { at: now, value: probeWorkers(now) };
+  return lastStatus.value;
+}
+
+export function clearWorkerStatusCache() {
+  lastStatus = null;
+}
+
+async function probeWorkers(now: number): Promise<WorkerStatus> {
   try {
     const stalled = (await Promise.all([bookQueue(), reconcileQueue()].map(probe))).filter((p) => isStalled(p, now));
     if (!stalled.length) return { stalled: false, waiting_since: null };

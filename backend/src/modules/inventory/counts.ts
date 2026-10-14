@@ -40,6 +40,16 @@ export function assertUuid(id: string) {
   if (!UUID_RE.test(id)) throw new InventoryError(404, "not_found");
 }
 
+/**
+ * Время записи с устройства. Офлайн-очередь шлёт записи с опозданием, поэтому прошлое
+ * принимаем; нечитаемое или из будущего (часы телефона, подделка) — время сервера.
+ * Возвращаем ISO от сервера: «1» Date.parse понимает, а Postgres как timestamptz — нет.
+ */
+export function clientTime(raw: string, now: number): string {
+  const ms = Date.parse(raw);
+  return Number.isNaN(ms) || ms > now + 5 * 60_000 ? new Date(now).toISOString() : new Date(ms).toISOString();
+}
+
 export async function lockCount(tx: DbLike, id: string): Promise<CountRow> {
   assertUuid(id);
   const rows = await tx.select().from(inventory_counts).where(eq(inventory_counts.id, id)).for("update");
@@ -460,7 +470,7 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
           result.rejected.push({ id: op.id, reason: "not_found_line" });
           continue;
         }
-        const clientAt = Number.isNaN(Date.parse(op.client_created_at)) ? new Date().toISOString() : op.client_created_at;
+        const clientAt = clientTime(op.client_created_at, Date.now());
         await tx
           .insert(inventory_count_entries)
           .values({
@@ -583,7 +593,7 @@ export async function searchProducts(db: DbLike, q: string, limit: number, scope
       -- ICU, а не ilike: при LC_CTYPE=C (локальная БД) ilike не сводит регистр кириллицы («мясо» ≠ «Мясо»).
       and lower(n.name collate "und-x-icu") like lower(${"%" + term + "%"} collate "und-x-icu")${excludeF}
     order by ${branchFirst}n.name
-    limit ${Math.min(Math.max(limit, 1), 50)}
+    limit ${Math.min(Math.max(Math.trunc(limit), 1), 50)}
   `);
   return rows.rows as unknown as InventoryProduct[];
 }

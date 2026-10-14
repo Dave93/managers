@@ -1,7 +1,7 @@
 // Видимость книжного количества и «Остатки склада» (spec 2026-10-08, §6).
 // «Остатки склада» — только офис (inventory.templates, проверяет маршрут): филиалу текущее
 // книжное iiko не показываем, иначе он видел бы учёт перед слепым пересчётом (решение 6, 12.10.2026).
-import { inventory_count_book, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
+import { corporation_store, inventory_count_book, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
 import { assertUuid, branchMayReopen, GROUP_NAME_SQL, normalizeNumeric } from "../counts";
@@ -127,27 +127,50 @@ export async function loadBook(db: DbLike, actor: Actor, countId: string): Promi
 }
 
 // Кэш на 2 минуты по складу: каждое открытие экрана иначе — новая сессия iiko (лицензионный слот).
+// Одновременные запросы по одному складу ждут одну загрузку, а не открывают каждый свою сессию.
 const CACHE_MS = 2 * 60_000;
-type Cached<T> = { ts: number; value: T };
-const balanceCache = new Map<string, Cached<{ at: string; rows: Awaited<ReturnType<IikoClient["balance"]>> }>>();
-const movementCache = new Map<string, Cached<{ from: string; at: string; start: Awaited<ReturnType<IikoClient["balance"]>>; end: Awaited<ReturnType<IikoClient["balance"]>>; movements: Awaited<ReturnType<IikoClient["movements"]>> }>>();
+type Balance = Awaited<ReturnType<IikoClient["balance"]>>;
+function stockCache<T>() {
+  const done = new Map<string, { ts: number; value: T }>();
+  const running = new Map<string, Promise<T>>();
+  return {
+    clear: () => done.clear(),
+    get(key: string, load: () => Promise<T>): Promise<T> {
+      const c = done.get(key);
+      if (c && Date.now() - c.ts < CACHE_MS) return Promise.resolve(c.value);
+      const r = running.get(key);
+      if (r) return r;
+      const p = load()
+        .then((value) => {
+          done.set(key, { ts: Date.now(), value });
+          return value;
+        })
+        .finally(() => running.delete(key));
+      running.set(key, p);
+      return p;
+    },
+  };
+}
+const balanceCache = stockCache<{ at: string; rows: Balance }>();
+const movementCache = stockCache<{ from: string; at: string; start: Balance; end: Balance; movements: Awaited<ReturnType<IikoClient["movements"]>> }>();
 export function clearStockCache() {
   balanceCache.clear();
   movementCache.clear();
 }
-function fresh<T>(m: Map<string, Cached<T>>, key: string): T | null {
-  const c = m.get(key);
-  return c && Date.now() - c.ts < CACHE_MS ? c.value : null;
+
+/** Только существующий склад: иначе случайный UUID — промах кэша и новая сессия iiko на каждый запрос. */
+async function assertStoreExists(db: DbLike, storeId: string) {
+  assertUuid(storeId);
+  const [s] = await db.select({ id: corporation_store.id }).from(corporation_store).where(eq(corporation_store.id, storeId));
+  if (!s) throw new InventoryError(404, "store_not_found");
 }
 
 export async function loadStock(db: DbLike, storeId: string): Promise<StockView> {
-  assertUuid(storeId);
-  let cached = fresh(balanceCache, storeId);
-  if (!cached) {
+  await assertStoreExists(db, storeId);
+  const cached = await balanceCache.get(storeId, async () => {
     const at = nowLocal();
-    cached = { at, rows: await iikoRun((c) => c.balance(storeId, at)) };
-    balanceCache.set(storeId, { ts: Date.now(), value: cached });
-  }
+    return { at, rows: await iikoRun((c) => c.balance(storeId, at)) };
+  });
   const at = cached.at;
   const bal = cached.rows.filter((b) => Math.abs(b.amount) > 0.00005);
   const info = await productInfo(db, bal.map((b) => b.product_id));
@@ -173,10 +196,9 @@ const breakdown = (l: BookLine) => ({
 
 /** Движение товара с 1-го числа текущего месяца по сейчас. */
 export async function loadStockMovement(db: DbLike, storeId: string, productId: string): Promise<StockMovement> {
-  assertUuid(storeId);
   assertUuid(productId);
-  let cached = fresh(movementCache, storeId);
-  if (!cached) {
+  await assertStoreExists(db, storeId);
+  const cached = await movementCache.get(storeId, async () => {
     const at = nowLocal();
     const today = at.slice(0, 10);
     const from = `${today.slice(0, 8)}01`;
@@ -185,9 +207,8 @@ export async function loadStockMovement(db: DbLike, storeId: string, productId: 
       await c.balance(storeId, at),
       await c.movements(storeId, from, today),
     ] as const);
-    cached = { from, at, start, end, movements };
-    movementCache.set(storeId, { ts: Date.now(), value: cached });
-  }
+    return { from, at, start, end, movements };
+  });
   const { from, at, start, end, movements } = cached;
   const [line] = buildBook({ productIds: [productId], start, end, movements: movements.filter((m) => m.product_id === productId) });
   return { product_id: productId, from, at, book_qty: q(line.book_qty), ...breakdown(line) };
