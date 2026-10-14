@@ -114,11 +114,14 @@ export type SnapshotBalance = { product_id: string; start_qty: number; start_sum
 
 const isZeroBal = (b: IikoBal) => Math.abs(b.amount) <= 0.00005 && Math.abs(b.sum) <= 0.005;
 
-/** Снимок одного склада: товары с ненулевым началом, концом или любым движением. */
+/** Снимок одного склада: товары с ненулевым началом, концом или ненулевым движением. */
 export function buildStoreSnapshot(storeId: string, start: IikoBal[], end: IikoBal[], txs: IikoTx[]) {
   const s = new Map(start.filter((b) => b.store_id === storeId && !isZeroBal(b)).map((b) => [b.product_id, b]));
   const e = new Map(end.filter((b) => b.store_id === storeId && !isZeroBal(b)).map((b) => [b.product_id, b]));
-  const turnover = txs.filter((t) => t.store_id === storeId);
+  // Инвентаризация iiko перечисляет все товары, и с нулевой разницей: такие проводки — половина строк месяца.
+  const isEmpty = (t: IikoTx) =>
+    Math.abs(t.qty_in) <= 0.00005 && Math.abs(t.qty_out) <= 0.00005 && Math.abs(t.sum_in) <= 0.005 && Math.abs(t.sum_out) <= 0.005;
+  const turnover = txs.filter((t) => t.store_id === storeId && !isEmpty(t));
   const byProduct = new Map<string, TxAgg[]>();
   for (const t of turnover) {
     const list = byProduct.get(t.product_id) ?? [];

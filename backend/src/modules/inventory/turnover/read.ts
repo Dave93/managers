@@ -61,7 +61,7 @@ async function assertBranchStore(db: DbLike, actor: Actor, storeId: string) {
 }
 
 async function fetchInfo(db: DbLike, period: string | null, storeId?: string) {
-  return db
+  const rows = await db
     .select({
       period: inventory_turnover_fetch.period,
       store_id: inventory_turnover_fetch.store_id,
@@ -70,6 +70,8 @@ async function fetchInfo(db: DbLike, period: string | null, storeId?: string) {
     })
     .from(inventory_turnover_fetch)
     .where(and(period ? eq(inventory_turnover_fetch.period, period) : undefined, storeId ? eq(inventory_turnover_fetch.store_id, storeId) : undefined));
+  // Postgres отдаёт «2026-10-14 14:36:44.6+05» — браузеру нужен ISO.
+  return rows.map((r) => ({ ...r, fetched_at: new Date(r.fetched_at).toISOString() }));
 }
 
 export async function listTurnoverPeriods(db: DbLike, actor: Actor, storeId: string | undefined, now: Date): Promise<TurnoverPeriod[]> {
@@ -83,7 +85,7 @@ export async function listTurnoverPeriods(db: DbLike, actor: Actor, storeId: str
   const byPeriod = new Map<string, { fetched_at: string; data_through: string }>();
   for (const r of await fetchInfo(db, null, storeId)) {
     const cur = byPeriod.get(r.period);
-    if (!cur || new Date(cur.fetched_at) < new Date(r.fetched_at)) byPeriod.set(r.period, { fetched_at: r.fetched_at, data_through: r.data_through });
+    if (!cur || cur.fetched_at < r.fetched_at) byPeriod.set(r.period, { fetched_at: r.fetched_at, data_through: r.data_through });
   }
   const states = office ? null : await monthlyStates(db, storeId!);
   return periodsDesc(now).map((period) => {
@@ -144,7 +146,8 @@ export async function loadSummary(db: DbLike, redis: Redis, period: string): Pro
   const rows: TurnoverSummaryRow[] = stores
     .map((s) => ({
       store_id: s.id,
-      store_name: names.get(s.id) ?? "",
+      // Склад есть в iiko, но ещё не синхронизирован в corporation_store — хотя бы id.
+      store_name: names.get(s.id) || s.id,
       sum: cells(s.agg.sum),
       inconsistent: s.inconsistent,
       fetched_at: info.get(s.id)?.fetched_at ?? null,
@@ -195,7 +198,9 @@ export async function loadStoreTurnover(db: DbLike, actor: Actor, period: string
     const bal = b && { start_qty: Number(b.start_qty), start_sum: Number(b.start_sum), end_qty: Number(b.end_qty), end_sum: Number(b.end_sum) };
     return { id, agg: aggregate(bal, txByProduct.get(id) ?? []), consistent: b?.consistent ?? false };
   });
-  const lines: TurnoverLine[] = aggs
+  // Строка, где в количестве всё по нулям (менялась только сумма), филиалу — шум: он видит только количество.
+  const shown = office ? aggs : aggs.filter((a) => Object.entries(a.agg.qty).some(([k, v]) => k !== "cost_correction" && Math.abs(v ?? 0) > 0.00005));
+  const lines: TurnoverLine[] = shown
     .map(({ id, agg, consistent }) => {
       const p = info.get(id);
       const qty = { ...agg.qty };
@@ -224,10 +229,10 @@ export async function loadStoreTurnover(db: DbLike, actor: Actor, period: string
   return {
     period,
     store_id: storeId,
-    store_name: store?.name ?? "",
+    store_name: store?.name || storeId,
     with_sums: office,
     columns: visibleColumns(
-      aggs.map((a) => a.agg),
+      shown.map((a) => a.agg),
       office
     ),
     lines,

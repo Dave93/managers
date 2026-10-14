@@ -133,6 +133,25 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("товар, у которого менялась только сумма: офису — есть, филиалу — нет", async () => {
+      const w = await seed();
+      const p2 = randomUUID();
+      try {
+        await drizzleDb.insert(schema.inventory_turnover_balance).values({
+          period: older, store_id: w.store, product_id: p2, start_qty: "0", start_sum: "0", end_qty: "0", end_sum: "4", consistent: true,
+        });
+        await drizzleDb.insert(schema.inventory_turnover).values({
+          period: older, store_id: w.store, product_id: p2, tx_type: "STORE_COST_CORRECTION", qty_in: "0", qty_out: "0", sum_in: "4", sum_out: "0",
+        });
+        const o = await api(await office(), "GET", url(older, w.store));
+        expect(o.body.lines.map((l: any) => l.product_id)).toContain(p2);
+        const b = await api(await branch(w), "GET", url(older, w.store));
+        expect(b.body.lines.map((l: any) => l.product_id)).toEqual([w.p]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
     it("филиал: текущий месяц — 403 current; чужой склад — 403", async () => {
       const w = await seed();
       try {
@@ -185,6 +204,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(r.body[0]).toMatchObject({ period: current, open: false, reason: "current" });
         expect(r.body[1]).toMatchObject({ period: previous, open: false, reason: "not_fixed" });
         expect(r.body[2]).toMatchObject({ period: older, open: true, reason: null, data_through: older });
+        expect(r.body[2].fetched_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
         expect((await api(m, "GET", `/api/inventory/turnover/periods`)).status).toBe(422);
         expect((await api(m, "GET", `/api/inventory/turnover/periods?store_id=${w.other}`)).status).toBe(403);
       } finally {

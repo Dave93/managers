@@ -103,6 +103,17 @@ describe("buildStoreSnapshot", () => {
   });
 });
 
+describe("buildStoreSnapshot: пустые проводки", () => {
+  it("проводка из одних нулей (инвентаризация без разницы) — не пишется и товар не создаёт", () => {
+    const s = buildStoreSnapshot("s1", [], [], [
+      { store_id: "s1", product_id: "p1", type: "INVENTORY_CORRECTION", qty_in: 0, qty_out: 0, sum_in: 0, sum_out: 0 },
+      { store_id: "s1", product_id: "p2", type: "STORE_COST_CORRECTION", qty_in: 0, qty_out: 0, sum_in: 5, sum_out: 0 },
+    ]);
+    expect(s.turnover.map((t) => t.product_id)).toEqual(["p2"]);
+    expect(s.balances.map((b) => b.product_id)).toEqual(["p2"]);
+  });
+});
+
 describe("branchMonthState", () => {
   const none = { exists: false, changeable: false };
   const fixed = { exists: true, changeable: false };

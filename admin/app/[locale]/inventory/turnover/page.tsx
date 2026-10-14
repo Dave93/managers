@@ -99,7 +99,8 @@ function Turnover() {
       )}
       {(summary.error || view.error) && <div className="text-sm text-destructive">{((summary.error || view.error) as Error).message}</div>}
       {storeId === ALL && summary.data && <SummaryTable data={summary.data} onPick={(id) => setStore(id)} />}
-      {storeId !== ALL && view.data && <StoreTable view={view.data} />}
+      {/* Без снимка за месяц строка состояния уже пишет «данных пока нет». */}
+      {storeId !== ALL && view.data?.data_through && <StoreTable view={view.data} />}
     </div>
   );
 }

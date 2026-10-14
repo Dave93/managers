@@ -18,10 +18,12 @@ export function StoreTable({ view }: { view: TurnoverStoreView }) {
     const by = new Map<string, TurnoverLine[]>();
     for (const l of view.lines) {
       if (q && !l.name.toLowerCase().includes(q) && !(l.code ?? "").toLowerCase().includes(q)) continue;
+      // В этом режиме одни нули (например, менялась только сумма) — строку не показываем.
+      if (!Object.values((m === "sum" ? l.sum : l.qty) ?? {}).some((v) => Math.abs(Number(v)) > 0.00005)) continue;
       by.set(l.group_name, [...(by.get(l.group_name) ?? []), l]);
     }
     return [...by.entries()];
-  }, [view.lines, search]);
+  }, [view.lines, search, m]);
   const span = 3 + cols.length;
   if (!view.lines.length) return <div className="text-muted-foreground">{t("empty")}</div>;
   return (
