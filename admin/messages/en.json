@@ -840,6 +840,51 @@
         "unit": "Unit",
         "qty": "Stock"
       }
+    },
+    "turnover": {
+      "title": "Stock turnover",
+      "month": "Month",
+      "store": "Store",
+      "allStores": "All stores",
+      "mode": {
+        "qty": "Quantity",
+        "sum": "Amount"
+      },
+      "search": "Search by name or code",
+      "through": "Data through {date}",
+      "fetched": "loaded {at}",
+      "noData": "No data for this month yet",
+      "refresh": "Refresh from iiko",
+      "loading": "Loading from iiko: {done} / {total}",
+      "failedStores": "Stores not loaded: {stores}",
+      "closed": {
+        "current": "current month unavailable",
+        "not_fixed": "opens after the count is locked"
+      },
+      "inconsistent": "does not add up",
+      "inconsistentCount": "does not add up: {n}",
+      "transferHint": "In {in} · out {out}",
+      "total": "Total",
+      "empty": "No stock and no movement",
+      "col": {
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "store": "Store",
+        "start": "Opening",
+        "invoice": "Received (invoices)",
+        "sales": "Sales",
+        "transfer": "Transfers ±",
+        "writeoff": "Write-offs",
+        "inventory": "Inventory ±",
+        "outgoing_invoice": "Outgoing invoices",
+        "returned_invoice": "Returns to supplier",
+        "transformation": "Processing ±",
+        "production": "Production ±",
+        "cost_correction": "Cost correction",
+        "other": "Other ±",
+        "end": "Closing"
+      }
     }
   }
 }

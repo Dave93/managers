@@ -23,6 +23,13 @@ import type {
 } from "@backend/modules/inventory/types";
 import type { ReconDetail, ReconFetchOverview, ReconFetchStatus, ReconOverviewRow, WorkerStatus } from "@backend/modules/inventory/reconcile/types";
 import type { BookView, InterimReconDetail, InterimReconRow, StockMovement, StockView } from "@backend/modules/inventory/book/types";
+import type {
+  TurnoverFetchOverview,
+  TurnoverFetchStatus,
+  TurnoverPeriod,
+  TurnoverStoreView,
+  TurnoverSummary,
+} from "@backend/modules/inventory/turnover/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
@@ -57,6 +64,15 @@ export const inventoryApi = {
   stock: (storeId: string) => call<StockView>(inv.stock.get({ query: { store_id: storeId } })),
   stockMovement: (storeId: string, productId: string) =>
     call<StockMovement>(inv.stock.movements.get({ query: { store_id: storeId, product_id: productId } })),
+  /** Оборотно-сальдовая ведомость (spec 2026-10-14). Офис — с суммами и сводной; филиал — свой склад, количество. */
+  turnover: {
+    periods: (storeId?: string) => call<TurnoverPeriod[]>(inv.turnover.periods.get({ query: storeId ? { store_id: storeId } : {} })),
+    summary: (period: string) => call<TurnoverSummary>(inv.turnover.summary.get({ query: { period } })),
+    store: (period: string, storeId: string) => call<TurnoverStoreView>(inv.turnover.get({ query: { period, store_id: storeId } })),
+    status: (period: string) => call<TurnoverFetchOverview>(inv.turnover.status.get({ query: { period } })),
+    refresh: (period: string, storeId?: string) =>
+      call<TurnoverFetchStatus>(inv.turnover.refresh.post(storeId ? { period, store_id: storeId } : { period })),
+  },
   getCount: (id: string) => call<InventoryCountDetail>(inv.counts({ id }).get()),
   sync: (id: string, ops: InventorySyncOp[]) => call<InventorySyncResult>(inv.counts({ id }).entries.sync.post({ ops })),
   addLine: (id: string, productId: string) =>

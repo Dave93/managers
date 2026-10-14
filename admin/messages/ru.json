@@ -870,6 +870,51 @@
         "unit": "Ед.",
         "qty": "Остаток"
       }
+    },
+    "turnover": {
+      "title": "Оборотная ведомость",
+      "month": "Месяц",
+      "store": "Склад",
+      "allStores": "Все склады",
+      "mode": {
+        "qty": "Количество",
+        "sum": "Сумма"
+      },
+      "search": "Поиск по названию или коду",
+      "through": "Данные по {date} включительно",
+      "fetched": "загружено {at}",
+      "noData": "Данных за этот месяц пока нет",
+      "refresh": "Обновить из iiko",
+      "loading": "Загрузка из iiko: {done} / {total}",
+      "failedStores": "Не загружено складов: {stores}",
+      "closed": {
+        "current": "текущий месяц недоступен",
+        "not_fixed": "откроется после фиксации пересчёта"
+      },
+      "inconsistent": "не сходится",
+      "inconsistentCount": "не сходится: {n}",
+      "transferHint": "Приход {in} · расход {out}",
+      "total": "Итого",
+      "empty": "Нет остатков и движения",
+      "col": {
+        "code": "Код",
+        "product": "Товар",
+        "unit": "Ед.",
+        "store": "Склад",
+        "start": "Начало",
+        "invoice": "Приход (накладные)",
+        "sales": "Реализация",
+        "transfer": "Перемещения ±",
+        "writeoff": "Списания",
+        "inventory": "Инвентаризация ±",
+        "outgoing_invoice": "Расходные накладные",
+        "returned_invoice": "Возврат поставщику",
+        "transformation": "Переработка ±",
+        "production": "Приготовление ±",
+        "cost_correction": "Корректировка себестоимости",
+        "other": "Прочее ±",
+        "end": "Конец"
+      }
     }
   }
 }
