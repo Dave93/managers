@@ -31,7 +31,7 @@ const n = (x: string | null) => (x === null ? null : normalizeNumeric(String(x))
 
 type ProductInfo = { code: string | null; name: string; unit_name: string | null; group_name: string };
 
-async function productInfo(db: DbLike, ids: string[]): Promise<Map<string, ProductInfo>> {
+export async function productInfo(db: DbLike, ids: string[]): Promise<Map<string, ProductInfo>> {
   const out = new Map<string, ProductInfo>();
   if (!ids.length) return out;
   const res = await db.execute(sql`

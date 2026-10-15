@@ -53,7 +53,8 @@ export default function LoginPage() {
             await signIn(data.login, data.password);
             // The redirect will happen automatically in the useAuth hook
         } catch (error) {
-            console.error("Login submission error:", error);
+            // Expected failure (see lib/auth.ts): show it, don't console.error —
+            // that would pop the Next.js dev error overlay.
             toast.error(error instanceof Error ? error.message : "Login failed");
         }
     };

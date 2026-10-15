@@ -2753,3 +2753,48 @@ export const inventory_count_book_marks = pgTable(
   (t) => ({ pk: primaryKey({ columns: [t.count_id, t.product_id] }) })
 );
 
+
+// Оборотно-сальдовая ведомость (spec 2026-10-14, §5): снимок iiko за месяц по складу.
+// Сырые проводки по типам; раскладку по колонкам делает inventory/turnover/pure.ts.
+// Внешних ключей на corporation_store/номенклатуру нет намеренно (как у inventory_counts).
+export const inventory_turnover = pgTable(
+  "inventory_turnover",
+  {
+    period: date("period", { mode: "string" }).notNull(),
+    store_id: uuid("store_id").notNull(),
+    product_id: uuid("product_id").notNull(),
+    tx_type: varchar("tx_type", { length: 40 }).notNull(),
+    qty_in: numeric("qty_in", { precision: 14, scale: 4 }).notNull(),
+    qty_out: numeric("qty_out", { precision: 14, scale: 4 }).notNull(),
+    sum_in: numeric("sum_in", { precision: 18, scale: 4 }).notNull(),
+    sum_out: numeric("sum_out", { precision: 18, scale: 4 }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.period, t.store_id, t.product_id, t.tx_type] }) })
+);
+
+export const inventory_turnover_balance = pgTable(
+  "inventory_turnover_balance",
+  {
+    period: date("period", { mode: "string" }).notNull(),
+    store_id: uuid("store_id").notNull(),
+    product_id: uuid("product_id").notNull(),
+    start_qty: numeric("start_qty", { precision: 14, scale: 4 }).notNull(),
+    start_sum: numeric("start_sum", { precision: 18, scale: 4 }).notNull(),
+    end_qty: numeric("end_qty", { precision: 14, scale: 4 }).notNull(),
+    end_sum: numeric("end_sum", { precision: 18, scale: 4 }).notNull(),
+    consistent: boolean("consistent").notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.period, t.store_id, t.product_id] }) })
+);
+
+export const inventory_turnover_fetch = pgTable(
+  "inventory_turnover_fetch",
+  {
+    period: date("period", { mode: "string" }).notNull(),
+    store_id: uuid("store_id").notNull(),
+    fetched_at: timestamp("fetched_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    // Последний день, вошедший в снимок: закрытый месяц — period, текущий — вчера.
+    data_through: date("data_through", { mode: "string" }).notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.period, t.store_id] }) })
+);

@@ -1,7 +1,8 @@
-// «Обработчик не запущен»: задачи книжного и сверки обрабатывает inventory_reconcile_worker (cron/).
+// «Обработчик не запущен»: задачи книжного, сверки и ОСВ обрабатывает inventory_reconcile_worker (cron/).
 // Если он не запущен, задачи молча висят в очереди, а на экране — вечное «загружается».
 import type { Queue } from "bullmq";
 import { bookQueue } from "../book/queue";
+import { turnoverQueue } from "../turnover/queue";
 import { reconcileQueue } from "./queue";
 import type { WorkerStatus } from "./types";
 
@@ -31,10 +32,10 @@ async function probe(q: Queue): Promise<QueueProbe> {
   return { oldestReadyAt: ready.length ? Math.min(...ready) : null, workers, active: active ?? 0 };
 }
 
-/** Обе очереди обработчика. Redis недоступен — «всё в порядке»: эта проверка не должна ломать экран. */
+/** Все очереди обработчика. Redis недоступен — «всё в порядке»: эта проверка не должна ломать экран. */
 export async function readWorkerStatus(now = Date.now()): Promise<WorkerStatus> {
   try {
-    const stalled = (await Promise.all([bookQueue(), reconcileQueue()].map(probe))).filter((p) => isStalled(p, now));
+    const stalled = (await Promise.all([bookQueue(), reconcileQueue(), turnoverQueue()].map(probe))).filter((p) => isStalled(p, now));
     if (!stalled.length) return { stalled: false, waiting_since: null };
     return { stalled: true, waiting_since: new Date(Math.min(...stalled.map((p) => p.oldestReadyAt!))).toISOString() };
   } catch (e) {

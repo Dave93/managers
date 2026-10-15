@@ -821,6 +821,51 @@
         "unit": "O'lch.",
         "qty": "Qoldiq"
       }
+    },
+    "turnover": {
+      "title": "Aylanma qaydnoma",
+      "month": "Oy",
+      "store": "Ombor",
+      "allStores": "Barcha omborlar",
+      "mode": {
+        "qty": "Miqdor",
+        "sum": "Summa"
+      },
+      "search": "Nomi yoki kodi bo‘yicha qidirish",
+      "through": "{date} sanagacha ma’lumot (shu kun bilan)",
+      "fetched": "yuklangan {at}",
+      "noData": "Bu oy uchun hali ma’lumot yo‘q",
+      "refresh": "iiko’dan yangilash",
+      "loading": "iiko’dan yuklanmoqda: {done} / {total}",
+      "failedStores": "Yuklanmagan omborlar: {stores}",
+      "closed": {
+        "current": "joriy oy mavjud emas",
+        "not_fixed": "sanoq qayd etilgach ochiladi"
+      },
+      "inconsistent": "mos kelmaydi",
+      "inconsistentCount": "mos kelmaydi: {n}",
+      "transferHint": "Kirim {in} · chiqim {out}",
+      "total": "Jami",
+      "empty": "Qoldiq va harakat yo‘q",
+      "col": {
+        "code": "Kod",
+        "product": "Mahsulot",
+        "unit": "Birl.",
+        "store": "Ombor",
+        "start": "Boshlang‘ich",
+        "invoice": "Kirim (yuk xatlari)",
+        "sales": "Sotuv",
+        "transfer": "Ko‘chirishlar ±",
+        "writeoff": "Hisobdan chiqarish",
+        "inventory": "Inventarizatsiya ±",
+        "outgoing_invoice": "Chiqim yuk xatlari",
+        "returned_invoice": "Yetkazib beruvchiga qaytarish",
+        "transformation": "Qayta ishlash ±",
+        "production": "Tayyorlash ±",
+        "cost_correction": "Tannarx tuzatmasi",
+        "other": "Boshqa ±",
+        "end": "Yakuniy"
+      }
     }
   }
 }
