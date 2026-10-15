@@ -833,6 +833,51 @@
         "unit": "Ўлч.",
         "qty": "Қолдиқ"
       }
+    },
+    "turnover": {
+      "title": "Айланма қайднома",
+      "month": "Ой",
+      "store": "Омбор",
+      "allStores": "Барча омборлар",
+      "mode": {
+        "qty": "Миқдор",
+        "sum": "Сумма"
+      },
+      "search": "Номи ёки коди бўйича қидириш",
+      "through": "{date} санагача маълумот (шу кун билан)",
+      "fetched": "юкланган {at}",
+      "noData": "Бу ой учун ҳали маълумот йўқ",
+      "refresh": "iiko’дан янгилаш",
+      "loading": "iiko’дан юкланмоқда: {done} / {total}",
+      "failedStores": "Юкланмаган омборлар: {stores}",
+      "closed": {
+        "current": "жорий ой мавжуд эмас",
+        "not_fixed": "саноқ қайд этилгач очилади"
+      },
+      "inconsistent": "мос келмайди",
+      "inconsistentCount": "мос келмайди: {n}",
+      "transferHint": "Кирим {in} · чиқим {out}",
+      "total": "Жами",
+      "empty": "Қолдиқ ва ҳаракат йўқ",
+      "col": {
+        "code": "Код",
+        "product": "Маҳсулот",
+        "unit": "Бирл.",
+        "store": "Омбор",
+        "start": "Бошланғич",
+        "invoice": "Кирим (юк хатлари)",
+        "sales": "Сотув",
+        "transfer": "Кўчиришлар ±",
+        "writeoff": "Ҳисобдан чиқариш",
+        "inventory": "Инвентаризация ±",
+        "outgoing_invoice": "Чиқим юк хатлари",
+        "returned_invoice": "Етказиб берувчига қайтариш",
+        "transformation": "Қайта ишлаш ±",
+        "production": "Тайёрлаш ±",
+        "cost_correction": "Таннарх тузатмаси",
+        "other": "Бошқа ±",
+        "end": "Якуний"
+      }
     }
   }
 }

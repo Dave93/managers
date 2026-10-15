@@ -125,3 +125,47 @@ describe("withIikoClient", () => {
     expect(calls.length).toBe(0);
   });
 });
+
+describe("TurnoverSource", () => {
+  it("balances без store и со store; turnover — все типы, суммы, Account.Id", async () => {
+    const bodies: any[] = [];
+    const { f, calls } = fakeFetch((url, init) => {
+      if (url.includes("/auth?")) return new Response("KEY1");
+      if (url.includes("/v2/reports/balance/stores")) return Response.json([{ store: "s1", product: "p1", amount: 4, sum: 40 }]);
+      if (url.includes("/v2/reports/olap")) {
+        bodies.push(JSON.parse(String(init!.body)));
+        return Response.json({ data: [
+          { "Product.Id": "p1", TransactionType: "INVOICE", "Amount.In": 3, "Amount.Out": 0, "Sum.Incoming": 30, "Sum.Outgoing": 0 },
+          { "Product.Id": null, TransactionType: "INVOICE", "Amount.In": 1, "Amount.Out": 0, "Sum.Incoming": 1, "Sum.Outgoing": 0 },
+        ] });
+      }
+      if (url.includes("/logout")) return new Response("");
+      return new Response("nope", { status: 404 });
+    });
+    const res = await withIikoClient(async (c) => ({
+      all: await c.balances("2026-09-01T00:00:00"),
+      one: await c.balances("2026-09-01T00:00:00", "s1"),
+      tx: await c.turnover("s1", "2026-09-01", "2026-09-30"),
+    }), opts(f));
+    expect(res.all).toEqual([{ store_id: "s1", product_id: "p1", amount: 4, sum: 40 }]);
+    const balUrls = calls.filter((c) => c.url.includes("balance/stores")).map((c) => c.url);
+    expect(balUrls[0]).not.toContain("store=");
+    expect(balUrls[1]).toContain("store=s1");
+    expect(res.tx).toEqual([{ store_id: "s1", product_id: "p1", type: "INVOICE", qty_in: 3, qty_out: 0, sum_in: 30, sum_out: 0 }]);
+    expect(bodies[0].aggregateFields).toEqual(["Amount.In", "Amount.Out", "Sum.Incoming", "Sum.Outgoing"]);
+    expect(bodies[0].filters["Account.Id"]).toEqual({ filterType: "IncludeValues", values: ["s1"] });
+    expect(bodies[0].filters.TransactionType).toBeUndefined();
+    expect(bodies[0].filters["DateTime.DateTyped"]).toMatchObject({ from: "2026-09-01", to: "2026-10-01", includeLow: true, includeHigh: false });
+  });
+
+  it("balances со store: ответ без поля store — склад берём из запроса", async () => {
+    const { f } = fakeFetch((url) => {
+      if (url.includes("/auth?")) return new Response("KEY1");
+      if (url.includes("/v2/reports/balance/stores")) return Response.json([{ product: "p1", amount: 4, sum: 40 }]);
+      if (url.includes("/logout")) return new Response("");
+      return new Response("nope", { status: 404 });
+    });
+    const one = await withIikoClient((c) => c.balances("2026-09-01T00:00:00", "s1"), opts(f));
+    expect(one).toEqual([{ store_id: "s1", product_id: "p1", amount: 4, sum: 40 }]);
+  });
+});

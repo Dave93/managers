@@ -9,6 +9,8 @@ import { fetchBook } from "@backend/modules/inventory/book/service";
 import { bookQueueName, type BookJobData } from "@backend/modules/inventory/book/queue";
 import { withIikoClient } from "@backend/modules/inventory/reconcile/iiko-client";
 import { reconcileQueueName, type ReconcileJobData } from "@backend/modules/inventory/reconcile/queue";
+import { processTurnoverJob } from "@backend/modules/inventory/turnover/job";
+import { turnoverQueueName, type TurnoverJobData } from "@backend/modules/inventory/turnover/queue";
 import client from "./src/redis";
 
 const worker = new Worker(
@@ -53,8 +55,25 @@ const bookWorker = new Worker(
 );
 bookWorker.on("failed", (job, err) => console.error(`[book] job ${job?.id} failed:`, err.message));
 
+// Снимки оборотно-сальдовой ведомости (spec 2026-10-14, §6): тот же процесс, своя очередь.
+// Три Worker'а — до трёх сессий iiko одновременно (сверка, книжное, ОСВ ~6 мин на месяц).
+const turnoverWorker = new Worker(
+  turnoverQueueName(),
+  async (job) => {
+    const data = job.data as TurnoverJobData;
+    console.log(`[turnover] job ${job.id}: ${data.period} ${data.storeId ?? "all"}`);
+    const r = await processTurnoverJob(drizzleDb, client, data);
+    console.log(`[turnover] job ${job.id}: ${r.stores} stores, failed ${r.failed.length}`);
+  },
+  {
+    connection: { host: process.env.REDIS_HOST || "localhost", port: parseInt(process.env.REDIS_PORT || "6379"), maxRetriesPerRequest: null },
+    concurrency: 1,
+  }
+);
+turnoverWorker.on("failed", (job, err) => console.error(`[turnover] job ${job?.id} failed:`, err.message));
+
 async function shutdown() {
-  await Promise.all([worker.close(), bookWorker.close()]);
+  await Promise.all([worker.close(), bookWorker.close(), turnoverWorker.close()]);
   process.exit(0);
 }
 process.on("SIGTERM", shutdown);

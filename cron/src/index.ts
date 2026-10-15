@@ -4,7 +4,8 @@ import { IikoDictionariesService } from "../iiko_sync";
 import cron from "node-cron";
 import client from "./redis";
 import { enqueueReconcile, reconcileQueue } from "@backend/modules/inventory/reconcile/queue";
-import { previousPeriod } from "@backend/modules/inventory/rules";
+import { allowedPeriods, previousPeriod } from "@backend/modules/inventory/rules";
+import { enqueueTurnover, turnoverQueue } from "@backend/modules/inventory/turnover/queue";
 
 const terminalService = new TerminalsService(client);
 const iikoDictionariesService = new IikoDictionariesService(client);
@@ -29,6 +30,22 @@ cron.schedule(
       console.log(`[reconcile] queued ${period}`);
     } catch (e) {
       console.error(`[reconcile] not queued ${period}:`, (e as Error).message);
+    }
+  },
+  { timezone: "Asia/Tashkent" }
+);
+
+// ОСВ: каждую ночь текущий и прошлый месяц, все склады (spec 2026-10-14, §6).
+cron.schedule(
+  "0 3 * * *",
+  async () => {
+    for (const period of allowedPeriods(new Date())) {
+      try {
+        await enqueueTurnover(turnoverQueue(), client, { period });
+        console.log(`[turnover] queued ${period}`);
+      } catch (e) {
+        console.error(`[turnover] not queued ${period}:`, (e as Error).message);
+      }
     }
   },
   { timezone: "Asia/Tashkent" }

@@ -1,9 +1,10 @@
 // Клиент iiko resto API для сверки — ТОЛЬКО ЧТЕНИЕ (spec 2026-10-06, §3).
 // Методы: storeOperations (документы с комментарием), OLAP TRANSACTIONS
-// (корректировки), balance/stores (учёт). Токен занимает лицензионный слот
+// (корректировки), balance/stores (учёт); для ОСВ — остатки всех складов и обороты с суммами. Токен занимает лицензионный слот
 // iiko, поэтому один токен на вызов withIikoClient и logout в finally.
 import { createHash } from "node:crypto";
 import type { Movement } from "../book/pure";
+import type { IikoBal, IikoTx } from "../turnover/pure";
 import {
   inventoryDocs,
   nextDay,
@@ -24,6 +25,14 @@ export interface IikoClient {
   balance(storeId: string, at: string): Promise<BookRow[]>;
   /** Движение склада по товару и типу проводки за даты [from, toInclusive], без INVENTORY_CORRECTION. */
   movements(storeId: string, from: string, toInclusive: string): Promise<Movement[]>;
+}
+
+/** Оборотно-сальдовая ведомость (spec 2026-10-14, §3). */
+export interface TurnoverSource {
+  /** balance/stores на момент at; без storeId — все склады. */
+  balances(at: string, storeId?: string): Promise<IikoBal[]>;
+  /** OLAP TRANSACTIONS склада за даты [from, toInclusive], все типы, с суммами. */
+  turnover(storeId: string, from: string, toInclusive: string): Promise<IikoTx[]>;
 }
 
 export type IikoClientOptions = {
@@ -48,7 +57,7 @@ export function passwordHash(p: string): string {
   return /^[0-9a-f]{40}$/i.test(p) ? p.toLowerCase() : createHash("sha1").update(p).digest("hex");
 }
 
-export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts: IikoClientOptions = {}): Promise<T> {
+export async function withIikoClient<T>(fn: (c: IikoClient & TurnoverSource) => Promise<T>, opts: IikoClientOptions = {}): Promise<T> {
   const base = opts.base ?? DEFAULT_BASE;
   const f = opts.fetch ?? fetch;
   const login = opts.login ?? process.env.IIKO_LOGIN;
@@ -75,7 +84,7 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
   const auth = await request(`${base}/auth?login=${encodeURIComponent(login)}&pass=${passwordHash(password)}`);
   const key = (await auth.text()).trim();
 
-  const client: IikoClient = {
+  const client: IikoClient & TurnoverSource = {
     async inventoryDocs(date) {
       const d = toIikoDate(date);
       const res = await request(
@@ -150,6 +159,45 @@ export async function withIikoClient<T>(fn: (c: IikoClient) => Promise<T>, opts:
       );
       const j = (await res.json()) as { product: string; amount: number; sum: number }[];
       return j.map((x) => ({ product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
+    },
+    async balances(at, storeId) {
+      const store = storeId ? `&store=${storeId}` : "";
+      const res = await request(`${base}/v2/reports/balance/stores?key=${key}&timestamp=${encodeURIComponent(at)}${store}`);
+      const j = (await res.json()) as { store?: string; product: string; amount: number; sum: number }[];
+      // С фильтром &store= поле store не гарантировано: без него снимок склада вышел бы пустым (всё нули).
+      return j.map((x) => ({ store_id: x.store ?? storeId ?? "", product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
+    },
+    // ОСВ (spec 2026-10-14, §3): все типы, включая INVENTORY_CORRECTION, — начало 1-го + обороты = конец.
+    async turnover(storeId, from, toInclusive) {
+      const body = {
+        reportType: "TRANSACTIONS",
+        buildSummary: "false",
+        groupByRowFields: ["Product.Id", "TransactionType"],
+        aggregateFields: ["Amount.In", "Amount.Out", "Sum.Incoming", "Sum.Outgoing"],
+        filters: {
+          "DateTime.DateTyped": {
+            filterType: "DateRange", periodType: "CUSTOM", from, to: nextDay(toInclusive), includeLow: true, includeHigh: false,
+          },
+          "Account.Id": { filterType: "IncludeValues", values: [storeId] },
+        },
+      };
+      const res = await request(`${base}/v2/reports/olap?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { data?: Record<string, unknown>[] };
+      return (j.data ?? [])
+        .filter((r) => r["Product.Id"])
+        .map((r) => ({
+          store_id: storeId,
+          product_id: String(r["Product.Id"]),
+          type: String(r["TransactionType"] ?? ""),
+          qty_in: Number(r["Amount.In"] ?? 0),
+          qty_out: Number(r["Amount.Out"] ?? 0),
+          sum_in: Number(r["Sum.Incoming"] ?? 0),
+          sum_out: Number(r["Sum.Outgoing"] ?? 0),
+        }));
     },
   };
 

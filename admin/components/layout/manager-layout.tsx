@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Boxes, ClipboardList, ListChecks } from "lucide-react";
+import { Boxes, ClipboardList, ListChecks, Sheet } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
@@ -18,6 +18,7 @@ function MoreMenu() {
   const t = useTranslations("inventory");
   const tStock = useTranslations("inventory.stock");
   const tDaily = useTranslations("inventory.reconcile.interim");
+  const tTurnover = useTranslations("inventory.turnover");
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -106,6 +107,17 @@ function MoreMenu() {
             >
               <ListChecks aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               {tDaily("title")}
+            </Link>
+          </CanAccess>
+          {/* Оборотная ведомость: филиалу — свой склад, только количество и только закрытые месяцы (spec 2026-10-14). */}
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory/turnover"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Sheet aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tTurnover("title")}
             </Link>
           </CanAccess>
           <CanAccess permission="medical.list">
