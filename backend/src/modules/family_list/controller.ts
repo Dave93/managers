@@ -1,5 +1,6 @@
 // src/modules/family_list/controller.ts
 
+import { publicMessage } from "@backend/lib/security";
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { candidates, family_list} from "backend/drizzle/schema"
@@ -65,7 +66,7 @@ export const familyListController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to fetch family list",
-                message: err.message
+                message: publicMessage(err)
             };
         }   
     }, {
@@ -101,7 +102,7 @@ export const familyListController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to create family list",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
@@ -142,7 +143,7 @@ export const familyListController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to update family list",      
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
@@ -174,7 +175,7 @@ export const familyListController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to delete family list",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {

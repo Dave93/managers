@@ -21,7 +21,6 @@ const handler = NextAuth({
             login: credentials.login,
             password: credentials.password,
           });
-          console.log("response", response);
           if (!response.data) {
             return null;
           }

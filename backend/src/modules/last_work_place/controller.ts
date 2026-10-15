@@ -1,5 +1,6 @@
 //* Контроллер для работы с последним местом работы
 
+import { publicMessage } from "@backend/lib/security";
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { candidates, last_work_place, vacancy } from "backend/drizzle/schema"
@@ -67,7 +68,7 @@ export const lastWorkPlaceController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to fetch last work places",
-                message: err.message
+                message: publicMessage(err)
             };
         }   
     }, {
@@ -195,7 +196,7 @@ export const lastWorkPlaceController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to create last work place",
-                message: error?.message || 'Unknown error'
+                message: publicMessage(error)
             };
         }
     }, {
@@ -245,7 +246,7 @@ export const lastWorkPlaceController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to update last work place",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
@@ -290,7 +291,7 @@ export const lastWorkPlaceController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to delete last work place",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
