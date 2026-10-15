@@ -1,3 +1,4 @@
+import { publicMessage } from "@backend/lib/security";
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { candidates, education, vacancy } from "backend/drizzle/schema"
@@ -64,7 +65,7 @@ export const educationController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to fetch education",
-                message: err.message
+                message: publicMessage(err)
             };
         }   
     }, {
@@ -189,7 +190,7 @@ export const educationController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to create education",
-                message: error?.message || 'Unknown error'
+                message: publicMessage(error)
             };
         }
     }, {
@@ -273,7 +274,7 @@ export const educationController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to delete education",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {

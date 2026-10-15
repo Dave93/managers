@@ -133,19 +133,28 @@ type Balance = Awaited<ReturnType<IikoClient["balance"]>>;
 function stockCache<T>() {
   const done = new Map<string, { ts: number; value: T }>();
   const running = new Map<string, Promise<T>>();
+  // Загрузка, начатая до clear(), не кладёт свой (уже старый) результат обратно в кэш.
+  let generation = 0;
   return {
-    clear: () => done.clear(),
+    clear: () => {
+      generation++;
+      done.clear();
+      running.clear();
+    },
     get(key: string, load: () => Promise<T>): Promise<T> {
       const c = done.get(key);
       if (c && Date.now() - c.ts < CACHE_MS) return Promise.resolve(c.value);
       const r = running.get(key);
       if (r) return r;
+      const gen = generation;
       const p = load()
         .then((value) => {
-          done.set(key, { ts: Date.now(), value });
+          if (gen === generation) done.set(key, { ts: Date.now(), value });
           return value;
         })
-        .finally(() => running.delete(key));
+        .finally(() => {
+          if (running.get(key) === p) running.delete(key);
+        });
       running.set(key, p);
       return p;
     },

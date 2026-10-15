@@ -38,22 +38,31 @@ let lastStatus: { at: number; value: Promise<WorkerStatus> } | null = null;
 
 /** Обе очереди обработчика. Redis недоступен — «всё в порядке»: эта проверка не должна ломать экран. */
 export function readWorkerStatus(now = Date.now()): Promise<WorkerStatus> {
-  if (lastStatus && now - lastStatus.at < STATUS_TTL_MS) return lastStatus.value;
-  lastStatus = { at: now, value: probeWorkers(now) };
-  return lastStatus.value;
+  const age = lastStatus ? now - lastStatus.at : Infinity;
+  if (lastStatus && age >= 0 && age < STATUS_TTL_MS) return lastStatus.value;
+  const entry = {
+    at: now,
+    value: probeWorkers(now).then(({ probeFailed, ...status }) => {
+      // Ответ-заглушку при недоступном Redis не кэшируем: следующий запрос проверит заново.
+      if (probeFailed && lastStatus === entry) lastStatus = null;
+      return status;
+    }),
+  };
+  lastStatus = entry;
+  return entry.value;
 }
 
 export function clearWorkerStatusCache() {
   lastStatus = null;
 }
 
-async function probeWorkers(now: number): Promise<WorkerStatus> {
+async function probeWorkers(now: number): Promise<WorkerStatus & { probeFailed?: true }> {
   try {
     const stalled = (await Promise.all([bookQueue(), reconcileQueue()].map(probe))).filter((p) => isStalled(p, now));
     if (!stalled.length) return { stalled: false, waiting_since: null };
     return { stalled: true, waiting_since: new Date(Math.min(...stalled.map((p) => p.oldestReadyAt!))).toISOString() };
   } catch (e) {
     console.error("[inventory] worker status failed:", (e as Error).message);
-    return { stalled: false, waiting_since: null };
+    return { stalled: false, waiting_since: null, probeFailed: true };
   }
 }

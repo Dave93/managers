@@ -42,12 +42,16 @@ export function assertUuid(id: string) {
 
 /**
  * Время записи с устройства. Офлайн-очередь шлёт записи с опозданием, поэтому прошлое
- * принимаем; нечитаемое или из будущего (часы телефона, подделка) — время сервера.
+ * принимаем — но не раньше создания пересчёта (notBefore): запись старше своего пересчёта
+ * встала бы первой в порядке записей. Нечитаемое, из будущего или до пересчёта (часы телефона,
+ * подделка, «0» — это 2000 год) — время сервера. 5 минут допуска на расхождение часов в обе стороны.
  * Возвращаем ISO от сервера: «1» Date.parse понимает, а Postgres как timestamptz — нет.
  */
-export function clientTime(raw: string, now: number): string {
+export function clientTime(raw: string, now: number, notBefore = -Infinity): string {
   const ms = Date.parse(raw);
-  return Number.isNaN(ms) || ms > now + 5 * 60_000 ? new Date(now).toISOString() : new Date(ms).toISOString();
+  const skew = 5 * 60_000;
+  const ok = !Number.isNaN(ms) && ms <= now + skew && ms >= notBefore - skew;
+  return new Date(ok ? ms : now).toISOString();
 }
 
 export async function lockCount(tx: DbLike, id: string): Promise<CountRow> {
@@ -448,7 +452,8 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
   return db.transaction(async (tx) => {
     // FOR UPDATE: submit ждёт конца этой пачки, поэтому принятая запись
     // всегда попадает в fact_qty, а пачка после submit получает 409.
-    const { manage } = await requireWritableDraft(tx, actor, id);
+    const { row, manage } = await requireWritableDraft(tx, actor, id);
+    const countCreatedAt = Date.parse(row.created_at);
     const lineRows = await tx
       .select({ id: inventory_count_lines.id })
       .from(inventory_count_lines)
@@ -470,7 +475,7 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
           result.rejected.push({ id: op.id, reason: "not_found_line" });
           continue;
         }
-        const clientAt = clientTime(op.client_created_at, Date.now());
+        const clientAt = clientTime(op.client_created_at, Date.now(), countCreatedAt);
         await tx
           .insert(inventory_count_entries)
           .values({

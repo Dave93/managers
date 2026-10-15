@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
@@ -17,9 +17,21 @@ import { WorkerWarning } from "./worker-warning";
 const ALL = "__all__";
 /** Книжное ещё не пришло: снимок в очереди/загружается или отправленный пересчёт без снимка. */
 export const bookPending = (r: InterimReconRow) => r.book_loading || (r.status === "submitted" && !r.book_fetched_at);
-// Книжное может не прийти совсем (iiko упал, обработчик не запущен): первые ~2 минуты опрашиваем
-// каждые 3 с, дальше раз в 30 с, чтобы открытые вкладки не нагружали сервер без конца.
-export const pollDelay = (updates: number) => (updates < 40 ? 3000 : 30_000);
+// Книжное может не прийти совсем (iiko упал, обработчик не запущен): первые 2 минуты ожидания
+// опрашиваем каждые 3 с, дальше раз в 30 с, чтобы открытые вкладки не нагружали сервер без конца.
+// Отсчёт — от момента, когда экран увидел ожидание, а не по числу обновлений запроса: тот счётчик
+// живёт столько же, сколько кэш, и растёт от каждого refetch по фокусу окна.
+export function usePollDelay() {
+  const since = useRef<number | null>(null);
+  return (pending: boolean): number | false => {
+    if (!pending) {
+      since.current = null;
+      return false;
+    }
+    since.current ??= Date.now();
+    return Date.now() - since.current < 120_000 ? 3000 : 30_000;
+  };
+}
 
 /** ↻ в строке: снимок книжного заново по одному пересчёту (офис). */
 export function InterimRowRefresh({ row, onQueued }: { row: InterimReconRow; onQueued: () => void }) {
@@ -97,11 +109,12 @@ export function InterimOverview({ basePath = "/inventory/reconciliation/interim"
   const locale = useLocale();
   const periods = useMemo(() => recentPeriods(new Date(), 13), []);
   const [period, setPeriod] = useState(periods[0]);
+  const pollDelay = usePollDelay();
   const list = useQuery({
     queryKey: ["recon_interim_list", period],
     queryFn: () => inventoryApi.reconcile.interimList(period),
     // Пока где-то грузится книжное — опрашиваем, строка обновится сама.
-    refetchInterval: (q) => ((q.state.data ?? []).some(bookPending) ? pollDelay(q.state.dataUpdateCount) : false),
+    refetchInterval: (q) => pollDelay((q.state.data ?? []).some(bookPending)),
   });
   const refetch = () => void list.refetch();
 
