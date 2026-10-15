@@ -91,11 +91,15 @@ export async function listTurnoverPeriods(db: DbLike, actor: Actor, storeId: str
     if (!storeId) throw new InventoryError(422, "store_required");
     await assertBranchStore(db, actor, storeId);
   }
-  // Без склада (офис) — самая свежая загрузка по месяцу.
+  // Без склада (офис) — по самому отстающему складу: «данные по X, загружено в Y» верно для всего
+  // месяца, только если X и Y есть у каждого склада. Обновление одного склада не делает месяц свежим.
   const byPeriod = new Map<string, { fetched_at: string; data_through: string }>();
   for (const r of await fetchInfo(db, null, storeId)) {
     const cur = byPeriod.get(r.period);
-    if (!cur || cur.fetched_at < r.fetched_at) byPeriod.set(r.period, { fetched_at: r.fetched_at, data_through: r.data_through });
+    byPeriod.set(r.period, {
+      fetched_at: cur && cur.fetched_at < r.fetched_at ? cur.fetched_at : r.fetched_at,
+      data_through: cur && cur.data_through < r.data_through ? cur.data_through : r.data_through,
+    });
   }
   const states = office ? null : await monthlyStates(db, storeId!);
   return periodsDesc(now).map((period) => {

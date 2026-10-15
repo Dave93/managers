@@ -157,4 +157,15 @@ describe("TurnoverSource", () => {
     expect(bodies[0].filters.TransactionType).toBeUndefined();
     expect(bodies[0].filters["DateTime.DateTyped"]).toMatchObject({ from: "2026-09-01", to: "2026-10-01", includeLow: true, includeHigh: false });
   });
+
+  it("balances со store: ответ без поля store — склад берём из запроса", async () => {
+    const { f } = fakeFetch((url) => {
+      if (url.includes("/auth?")) return new Response("KEY1");
+      if (url.includes("/v2/reports/balance/stores")) return Response.json([{ product: "p1", amount: 4, sum: 40 }]);
+      if (url.includes("/logout")) return new Response("");
+      return new Response("nope", { status: 404 });
+    });
+    const one = await withIikoClient((c) => c.balances("2026-09-01T00:00:00", "s1"), opts(f));
+    expect(one).toEqual([{ store_id: "s1", product_id: "p1", amount: 4, sum: 40 }]);
+  });
 });

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
@@ -30,19 +30,29 @@ export function StatusLine({ period, fetchedAt, dataThrough, storeId }: { period
   );
 }
 
+const busy = (x?: { state: string } | null) => !!x && ["queued", "running"].includes(x.state);
+
 function Refresh({ period, storeId }: { period: string; storeId?: string }) {
   const t = useTranslations("inventory.turnover");
   const qc = useQueryClient();
   const status = useQuery({
     queryKey: ["inventory_turnover_status", period],
     queryFn: () => inventoryApi.turnover.status(period),
-    refetchInterval: (q) => (q.state.data && ["queued", "running"].includes(q.state.data.state) ? 3000 : false),
+    // Опрашиваем, пока идёт загрузка месяца или любого склада: у склада свой статус, а статус
+    // месяца может оставаться «done» от ночной загрузки.
+    refetchInterval: (q) => (q.state.data && (busy(q.state.data) || q.state.data.stores.some(busy)) ? 3000 : false),
   });
   const s = status.data;
   const mine = storeId ? s?.stores.find((x) => x.store_id === storeId) : s;
-  const active = !!mine && ["queued", "running"].includes(mine.state);
+  // Загрузка всего месяца занимает и выбранный склад: повторный запрос получил бы 409.
+  const active = busy(mine) || busy(s);
+  // Данные перезапрашиваем на переходе «грузится → done», а не при каждом открытии:
+  // статус «done» хранится в Redis 30 дней.
+  const prevState = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (mine?.state === "done") qc.invalidateQueries({ queryKey: ["inventory_turnover"] });
+    const was = prevState.current;
+    prevState.current = mine?.state;
+    if (mine?.state === "done" && (was === "queued" || was === "running")) qc.invalidateQueries({ queryKey: ["inventory_turnover"] });
   }, [mine?.state, qc]);
   const m = useMutation({
     mutationFn: () => inventoryApi.turnover.refresh(period, storeId),

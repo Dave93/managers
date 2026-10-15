@@ -163,8 +163,9 @@ export async function withIikoClient<T>(fn: (c: IikoClient & TurnoverSource) => 
     async balances(at, storeId) {
       const store = storeId ? `&store=${storeId}` : "";
       const res = await request(`${base}/v2/reports/balance/stores?key=${key}&timestamp=${encodeURIComponent(at)}${store}`);
-      const j = (await res.json()) as { store: string; product: string; amount: number; sum: number }[];
-      return j.map((x) => ({ store_id: x.store, product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
+      const j = (await res.json()) as { store?: string; product: string; amount: number; sum: number }[];
+      // С фильтром &store= поле store не гарантировано: без него снимок склада вышел бы пустым (всё нули).
+      return j.map((x) => ({ store_id: x.store ?? storeId ?? "", product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
     },
     // ОСВ (spec 2026-10-14, §3): все типы, включая INVENTORY_CORRECTION, — начало 1-го + обороты = конец.
     async turnover(storeId, from, toInclusive) {

@@ -1,9 +1,9 @@
 // Маршруты ОСВ (spec 2026-10-14, §7). Плагин без префикса: подключается внутри inventoryControllerImpl (/api).
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
-import { actorFrom } from "../access";
+import { actorFrom, storeAccess } from "../access";
 import { assertUuid } from "../counts";
-import { run } from "../errors";
+import { InventoryError, run } from "../errors";
 import { turnoverBounds } from "./pure";
 import { enqueueTurnover, readTurnoverOverview, turnoverQueue } from "./queue";
 import { listTurnoverPeriods, loadStoreTurnover, loadSummary } from "./read";
@@ -24,7 +24,8 @@ export const turnoverRoutes = new Elysia({ name: "@api/inventory/turnover" })
   .get(
     "/inventory/turnover/status",
     async ({ query, redis, set }) => run(set, async () => readTurnoverOverview(redis, query.period, turnoverQueue())),
-    { permission: "inventory.templates", query: t.Object({ period: t.String() }) }
+    // Статус нужен только кнопке «Обновить» — те же права, что у POST /refresh.
+    { permission: "inventory.reconcile", query: t.Object({ period: t.String() }) }
   )
   .get(
     "/inventory/turnover",
@@ -36,11 +37,18 @@ export const turnoverRoutes = new Elysia({ name: "@api/inventory/turnover" })
   )
   .post(
     "/inventory/turnover/refresh",
-    async ({ body, redis, set }) =>
+    async ({ body, user, role, drizzle, redis, cacheController, set }) =>
       run(set, async () => {
         // 422 на кривой или будущий месяц; 1-е число текущего — задача просто ничего не загрузит.
         turnoverBounds(body.period, new Date());
-        if (body.store_id) assertUuid(body.store_id);
+        const actor = await actorFrom(cacheController, user, role);
+        // Склад — только доступный пользователю; весь месяц (все склады, ~6 мин iiko) — только офису.
+        if (body.store_id) {
+          assertUuid(body.store_id);
+          if ((await storeAccess(drizzle, actor, body.store_id)) === "none") throw new InventoryError(403, "store_forbidden");
+        } else if (!actor.perms.includes("inventory.templates")) {
+          throw new InventoryError(403, "store_required");
+        }
         return enqueueTurnover(turnoverQueue(), redis, { period: body.period, storeId: body.store_id ?? null });
       }),
     { permission: "inventory.reconcile", body: t.Object({ period: t.String(), store_id: t.Optional(t.String()) }) }

@@ -72,7 +72,7 @@ if (!dbLooksLikeTest) {
         expect(bal[0]).toMatchObject({ period: "2026-09-30", product_id: p, start_qty: "5.0000", end_qty: "7.0000", consistent: true });
         const fetch = await drizzleDb.select().from(schema.inventory_turnover_fetch).where(inArray(schema.inventory_turnover_fetch.store_id, s.ids));
         expect(fetch.map((f) => f.data_through)).toEqual(["2026-09-30", "2026-09-30"]);
-        expect(progress.at(-1)).toMatchObject({ state: "done", failed: [] });
+        expect(progress[progress.length - 1]).toMatchObject({ state: "done", failed: [] });
       } finally {
         await s.cleanup();
       }
@@ -115,7 +115,7 @@ if (!dbLooksLikeTest) {
       const r = await fetchTurnover(drizzleDb, iiko, { period: "2026-10-31", storeId: null }, async (x) => { progress.push(x); }, new Date("2026-10-01T03:00:00Z"));
       expect(r).toEqual({ stores: 0, failed: [] });
       expect(calls).toEqual([]);
-      expect(progress.at(-1)).toMatchObject({ state: "done", total: 0 });
+      expect(progress[progress.length - 1]).toMatchObject({ state: "done", total: 0 });
     });
 
     it("текущий месяц — по вчера", async () => {

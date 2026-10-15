@@ -265,6 +265,10 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect((await api(o, "POST", `/api/inventory/turnover/refresh`, { period: older, store_id: w.store })).status).toBe(409);
         expect((await api(o, "POST", `/api/inventory/turnover/refresh`, { period: "2099-12-31" })).status).toBe(422);
         expect((await api(await branch(w), "POST", `/api/inventory/turnover/refresh`, { period: older })).status).toBe(403);
+        // филиал с правом обновления: чужой склад и весь месяц (все склады) — 403
+        const br = await withSession({ permissions: ["inventory.count", "inventory.reconcile"], userId: w.managerId });
+        expect((await api(br, "POST", `/api/inventory/turnover/refresh`, { period: older, store_id: w.other })).status).toBe(403);
+        expect((await api(br, "POST", `/api/inventory/turnover/refresh`, { period: older })).status).toBe(403);
         const st = await api(o, "GET", `/api/inventory/turnover/status?period=${older}`);
         expect(st.body.state).toBe("queued");
       } finally {

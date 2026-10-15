@@ -109,8 +109,8 @@ PK (`period`, `store_id`).
 | `GET /inventory/turnover/periods?store_id` | `inventory.count` | Месяцы с 2026-01 по текущий (новые сверху): `period`, `open`, `reason` (`current` / `not_fixed` / null), `data_through`, `fetched_at`. Офис — без `store_id`: открыты все; филиал — `store_id` обязателен и свой |
 | `GET /inventory/turnover/summary?period` | `inventory.templates` | Строки-склады в суммах по колонкам §4, итог, `columns`, `fetched_at`/`data_through` по складу, `inconsistent` (число строк), статус загрузки |
 | `GET /inventory/turnover?period&store_id` | `inventory.count` + доступ к складу | Ведомость склада: `columns`, строки товаров (`code`, `name`, `unit_name`, `group_name`, `qty` по колонкам, `sum` по колонкам — **только офису**, `consistent`). Филиал: свой склад и открытый месяц, иначе 403 |
-| `POST /inventory/turnover/refresh` `{period, store_id?}` | `inventory.reconcile` | Ставит задачу; 409 при идущей загрузке; 422 — некорректный или будущий месяц |
-| `GET /inventory/turnover/status?period` | `inventory.templates` | Статус загрузки месяца и отдельных складов |
+| `POST /inventory/turnover/refresh` `{period, store_id?}` | `inventory.reconcile` | Ставит задачу; 409 при идущей загрузке; 422 — некорректный или будущий месяц; 403 — склад без доступа, или весь месяц без `inventory.templates` |
+| `GET /inventory/turnover/status?period` | `inventory.reconcile` | Статус загрузки месяца и отдельных складов (нужен только кнопке «Обновить») |
 
 `columns` строит сервер: только видимые колонки в порядке §4 (ведомость филиала — без `cost_correction`).
 
