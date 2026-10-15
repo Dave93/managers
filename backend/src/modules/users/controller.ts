@@ -21,6 +21,7 @@ import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
 import { ctx } from "@backend/context";
 import dayjs from "dayjs";
+import { loginAttempt, loginSucceeded } from "@backend/lib/security";
 const { password, salt, tg_id, ...userDataFields } = getTableColumns(users);
 type UsersModel = InferSelectModel<typeof users>;
 
@@ -49,8 +50,16 @@ export const usersController = new Elysia({
       set,
       cacheController,
       drizzle,
+      redis,
       cookie,
     }) => {
+      // Перебор паролей: после LOGIN_MAX_FAILS попыток логин закрыт до конца окна.
+      if (!(await loginAttempt(redis, login))) {
+        set.status = 429;
+        return {
+          message: "Too many login attempts",
+        };
+      }
       const userPasswords = (
         await drizzle
           .select({
@@ -63,10 +72,11 @@ export const usersController = new Elysia({
           .where(eq(users.login, login))
           .execute()
       )[0];
+      // Один ответ на «нет такого логина» и «неверный пароль»: иначе по ответу видно, какие логины есть.
       if (!userPasswords) {
         set.status = 401;
         return {
-          message: "User not found",
+          message: "Invalid login or password",
         };
       }
 
@@ -79,9 +89,10 @@ export const usersController = new Elysia({
       if (!isPasswordSame) {
         set.status = 401;
         return {
-          message: "Password is incorrect",
+          message: "Invalid login or password",
         };
       }
+      await loginSucceeded(redis, login);
 
       if (userPasswords.status == "blocked") {
         set.status = 401;
@@ -107,12 +118,18 @@ export const usersController = new Elysia({
       cookie.sessionId.value = generatedSessionId;
       cookie.refreshToken.value = generatedRefreshToken;
 
+      // httpOnly: скрипты страницы куки сессии не читают, и XSS не может их украсть.
+      cookie.sessionId.httpOnly = true;
+      cookie.refreshToken.httpOnly = true;
       if (process.env.ENV == "development") {
         // Host-only cookie (no explicit domain) so it works for localhost
         // and any tunnel host (ngrok, etc.) without code changes.
         cookie.sessionId.sameSite = "lax"; // или "none" с secure: true
         cookie.refreshToken.sameSite = "lax";
     } else {
+        // Только по HTTPS: по открытому HTTP браузер куки сессии не отправит.
+        cookie.sessionId.secure = true;
+        cookie.refreshToken.secure = true;
         // Use .arryt.uz as the domain to make cookies work across all subdomains
         cookie.sessionId.domain = "lesailes.uz";
         cookie.refreshToken.domain = "lesailes.uz";
@@ -124,8 +141,8 @@ export const usersController = new Elysia({
     },
     {
       body: t.Object({
-        login: t.String(),
-        password: t.String(),
+        login: t.String({ maxLength: 100 }),
+        password: t.String({ maxLength: 200 }),
       }),
     }
   )

@@ -15,6 +15,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
   const { eq, inArray } = await import("drizzle-orm");
   const { closeReconcileQueue, reconcileQueue, statusKey } = await import("./queue");
   const { bookQueue, closeBookQueue } = await import("../book/queue");
+  const { clearWorkerStatusCache } = await import("./worker-health");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
   const PERIOD = "2026-08-31";
@@ -422,15 +423,18 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       await reconcileQueue().obliterate({ force: true });
       await bookQueue().obliterate({ force: true });
       const o = await office();
+      clearWorkerStatusCache();
       const empty = await api(o, "GET", "/api/inventory/worker-status");
       expect(empty.status).toBe(200);
       expect(empty.body).toEqual({ stalled: false, waiting_since: null });
 
       await bookQueue().add("book", { countId: randomUUID() }, { jobId: `book-${randomUUID()}` });
+      clearWorkerStatusCache(); // ответ кэшируется на 10 с
       expect((await api(o, "GET", "/api/inventory/worker-status")).body.stalled).toBe(false);
 
       const since = Date.now() - 5 * 60_000;
       await reconcileQueue().add("reconcile", { period: PERIOD }, { jobId: `reconcile-old-${randomUUID()}`, timestamp: since });
+      clearWorkerStatusCache();
       const stalled = await api(o, "GET", "/api/inventory/worker-status");
       expect(stalled.body).toEqual({ stalled: true, waiting_since: new Date(since).toISOString() });
     });

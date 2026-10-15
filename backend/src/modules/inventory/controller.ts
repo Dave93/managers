@@ -99,7 +99,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
               id: t.String(),
               line_id: t.String(),
               qty: t.Number(),
-              client_created_at: t.String(),
+              client_created_at: t.String({ maxLength: 40 }),
             }),
             t.Object({ op: t.Literal("delete"), id: t.String() }),
           ]),
@@ -133,11 +133,12 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
         const scope = query.count_id
           ? await productScope(drizzle, redis, await actorFrom(cacheController, user, role), query.count_id)
           : {};
-        return searchProducts(drizzle, query.q ?? "", Number(query.limit ?? 20), scope);
+        const limit = Number(query.limit ?? 20);
+        return searchProducts(drizzle, query.q ?? "", Number.isFinite(limit) ? limit : 20, scope);
       }),
     {
       permission: "inventory.count",
-      query: t.Object({ q: t.Optional(t.String()), limit: t.Optional(t.String()), count_id: t.Optional(t.String()) }),
+      query: t.Object({ q: t.Optional(t.String({ maxLength: 100 })), limit: t.Optional(t.String()), count_id: t.Optional(t.String()) }),
     }
   )
   .post(
@@ -180,9 +181,9 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
       permission: "inventory.templates",
       body: t.Object({
         organization_id: t.String(),
-        name: t.String(),
+        name: t.String({ minLength: 1, maxLength: 255 }),
         active: t.Optional(t.Boolean()),
-        sort: t.Optional(t.Number()),
+        sort: t.Optional(t.Integer({ minimum: -1_000_000, maximum: 1_000_000 })),
       }),
     }
   )
@@ -197,7 +198,11 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
     {
       permission: "inventory.templates",
       params: t.Object({ id: t.String() }),
-      body: t.Object({ name: t.Optional(t.String()), active: t.Optional(t.Boolean()), sort: t.Optional(t.Number()) }),
+      body: t.Object({
+        name: t.Optional(t.String({ minLength: 1, maxLength: 255 })),
+        active: t.Optional(t.Boolean()),
+        sort: t.Optional(t.Integer({ minimum: -1_000_000, maximum: 1_000_000 })),
+      }),
     }
   )
   .delete(

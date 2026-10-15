@@ -10,7 +10,7 @@ import { inventoryApi } from "@admin/lib/inventory-api";
 import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import { formatDay } from "@admin/lib/inventory/periods";
 import { BookBreakdownView } from "@admin/app/[locale]/inventory/_components/book-compare";
-import { InterimRowRefresh, bookPending } from "./interim-overview";
+import { InterimRowRefresh, bookPending, usePollDelay } from "./interim-overview";
 import { WorkerWarning } from "./worker-warning";
 import type { InterimReconLine } from "@backend/modules/inventory/book/types";
 
@@ -20,10 +20,11 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
   const t = useTranslations("inventory.reconcile");
   const ti = useTranslations("inventory.reconcile.interim");
   const locale = useLocale();
+  const pollDelay = usePollDelay();
   const q = useQuery({
     queryKey: ["recon_interim", id],
     queryFn: () => inventoryApi.reconcile.interimGet(id),
-    refetchInterval: (s) => (s.state.data && bookPending(s.state.data) ? 3000 : false),
+    refetchInterval: (s) => pollDelay(!!s.state.data && bookPending(s.state.data)),
   });
   const [only, setOnly] = useState(false);
   const [open, setOpen] = useState<string | null>(null);

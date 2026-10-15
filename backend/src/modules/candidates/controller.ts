@@ -1,3 +1,4 @@
+import { publicMessage } from "@backend/lib/security";
 import { ctx } from "@backend/context";
 import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { parseSelectFields } from "@backend/lib/parseSelectFields";
@@ -205,7 +206,7 @@ export const candidatesController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to fetch candidates",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
@@ -399,7 +400,7 @@ export const candidatesController = new Elysia({
             set.status = 500;
             return {
                 error: 'Failed to create candidate',
-                message: error?.message || 'Unknown error'
+                message: publicMessage(error)
             };
         }
     }, {
@@ -604,7 +605,7 @@ export const candidatesController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to update candidate",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
@@ -769,7 +770,7 @@ export const candidatesController = new Elysia({
             set.status = 500;
             return {
                 error: "Failed to delete candidate",
-                message: err.message
+                message: publicMessage(err)
             };
         }
     }, {
