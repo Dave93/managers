@@ -36,6 +36,12 @@ type RefreshReport = {
     errors: string[];
 };
 
+// По умолчанию — вчерашний день целиком; своё значение в URL (?date=) важнее.
+const yesterdayRange = {
+    from: dayjs().subtract(1, "day").startOf("day").toDate(),
+    to: dayjs().subtract(1, "day").endOf("day").toDate(),
+};
+
 function HangingOrdersContent() {
     const [searchTerm, setSearchTerm] = useState("");
     const [brandFilter, setBrandFilter] = useState<string>("all");
@@ -44,7 +50,7 @@ function HangingOrdersContent() {
     // после ре-синка перестают быть таковыми.
     const [hideClosed, setHideClosed] = useState(true);
     const [columnFilters, setColumnFilters] = useState<ColumnFilters>({});
-    const { dateRange } = useDateRangeState();
+    const { dateRange } = useDateRangeState(yesterdayRange);
 
     // Массовая отмена — только admin (право hanging_orders.iiko_actions).
     const canIiko = useCanAccess("hanging_orders.iiko_actions");
@@ -299,7 +305,7 @@ function HangingOrdersContent() {
                         {/* Период */}
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-medium whitespace-nowrap">Период:</label>
-                            <DateRangeFilter />
+                            <DateRangeFilter defaultRange={yesterdayRange} />
                         </div>
 
                         {/* Поиск по ID заказа */}

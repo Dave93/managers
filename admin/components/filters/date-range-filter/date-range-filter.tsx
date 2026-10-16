@@ -11,8 +11,9 @@ import { useTranslations, useLocale } from "next-intl";
 import * as dateLocales from "date-fns/locale";
 import { useDateRangeState } from "./date-range-state.hook";
 import { useState } from "react";
+import type { DateRange } from "react-day-picker";
 
-export function DateRangeFilter() {
+export function DateRangeFilter({ defaultRange }: { defaultRange?: DateRange }) {
   const t = useTranslations("charts.filters.dateRange");
   const locale = useLocale();
   const dateFnsLocale =
@@ -20,7 +21,7 @@ export function DateRangeFilter() {
       ? dateLocales.enUS
       : dateLocales[locale as keyof typeof dateLocales] || dateLocales.enUS;
 
-  const { dateRange, setDateRange, today, todayRange, yesterday, last7Days, last30Days, monthToDate, lastMonth, yearToDate, lastYear } = useDateRangeState();
+  const { dateRange, setDateRange, today, todayRange, yesterday, last7Days, last30Days, monthToDate, lastMonth, yearToDate, lastYear } = useDateRangeState(defaultRange);
   const [month, setMonth] = useState(today);
   return (
     <div className="grid gap-2">
