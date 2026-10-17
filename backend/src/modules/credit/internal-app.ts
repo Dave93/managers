@@ -164,15 +164,22 @@ export function resolveGroupGid(spec: string): number {
 // socket's parent directory. Pointed at a shared directory such as /tmp that
 // would lock it down for everyone (it once broke MariaDB temp tables and with
 // them every OTP login). So the dir must be a dedicated one: not a symlink, not
-// sticky or world-writable, owned by this process, and not on the deny list.
-// `euid` is a parameter only so tests can exercise the ownership branch.
+// sticky or world-writable, owned by this process, not on the deny list, and
+// (when others can traverse it) holding nothing but our own socket. That last
+// rule keeps a root-owned 0755 system dir such as /run from being narrowed, while
+// a hand-made 0755 run/ that only holds the stale socket is still narrowed.
+// `euid` is a parameter only so tests can exercise the ownership branch;
+// `ownEntry` is the socket's file name.
 export function assertDedicatedSocketDir(
   dir: string,
   euid: number | undefined = process.geteuid?.(),
+  ownEntry?: string,
 ): void {
   const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
-  const resolved = real(dir);
-  const st = fs.lstatSync(dir);
+  // path.resolve drops a trailing slash: lstat("link/") follows the link.
+  const abs = path.resolve(dir);
+  const resolved = real(abs);
+  const st = fs.lstatSync(abs);
   const shared = ["/", "/tmp", "/var/tmp", "/dev/shm", os.tmpdir()].map(real);
   let why: string | undefined;
   if (st.isSymbolicLink()) why = "it is a symlink";
@@ -180,9 +187,15 @@ export function assertDedicatedSocketDir(
   else if (st.mode & 0o1000) why = "it has the sticky bit";
   else if (st.mode & 0o002) why = "it is world-writable";
   else if (euid !== undefined && st.uid !== euid) why = `it is owned by uid ${st.uid}, not this process (uid ${euid})`;
+  else if (st.mode & 0o007) {
+    const foreign = fs.readdirSync(abs).filter((e) => e !== ownEntry);
+    if (foreign.length) {
+      why = `others can traverse it and it holds entries that are not ours (${foreign.slice(0, 3).join(", ")})`;
+    }
+  }
   if (why) {
     throw new Error(
-      `credit socket dir ${resolved} refused: ${why}; put CREDIT_SOCKET_PATH in a dedicated directory owned by this process`,
+      `credit socket dir ${abs} refused: ${why}; put CREDIT_SOCKET_PATH in a dedicated directory owned by this process`,
     );
   }
 }
@@ -190,7 +203,7 @@ export function assertDedicatedSocketDir(
 const fmtMode = (m: number, mask: number) => (m & mask).toString(8).padStart(4, "0");
 
 export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
-  const dir = path.dirname(socketPath);
+  const dir = path.resolve(path.dirname(socketPath));
   // An unresolvable group must not take the credit socket down: index.ts catches
   // a throw from here and carries on without a socket, so Laravel (the live
   // consumer) would get ECONNREFUSED because of a typo. Serving without the
@@ -214,7 +227,7 @@ export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
   // would strip it again. (On Linux a non-root caller outside the dir's group
   // gets the bit dropped silently; the verification below reports that.)
   fs.mkdirSync(dir, { recursive: true, mode: 0o2750 });
-  assertDedicatedSocketDir(dir); // before ANY chmod/chown
+  assertDedicatedSocketDir(dir, process.geteuid?.(), path.basename(socketPath)); // before ANY chmod/chown
   // The group first: a client needs x on run/ through its group, so the dir's
   // group is as much part of the contract as the socket's.
   if (gid !== undefined) fs.chownSync(dir, -1, gid);
@@ -232,18 +245,19 @@ export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
   } finally {
     process.umask(prevUmask);
   }
+  let dirSt: fs.Stats, sockSt: fs.Stats;
   try {
     // Group first, mode second, so 0660 is the last word on the socket's permissions.
     if (gid !== undefined) fs.chownSync(socketPath, -1, gid);
     fs.chmodSync(socketPath, 0o660);
+    dirSt = fs.statSync(dir);
+    sockSt = fs.statSync(socketPath);
   } catch (e) {
     // Never leave a live listener behind a "failed to start" log.
-    try { app.stop(true); } catch {}
+    try { void app.stop(true).catch(() => {}); } catch {}
     try { fs.unlinkSync(socketPath); } catch {}
     throw e;
   }
-  const dirSt = fs.statSync(dir);
-  const sockSt = fs.statSync(socketPath);
   const problems: string[] = [];
   if ((dirSt.mode & 0o7777) !== 0o2750) problems.push(`dir mode ${fmtMode(dirSt.mode, 0o7777)} (want 2750)`);
   if ((sockSt.mode & 0o777) !== 0o660) problems.push(`socket mode ${fmtMode(sockSt.mode, 0o777)} (want 0660)`);

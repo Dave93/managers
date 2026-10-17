@@ -43,7 +43,9 @@ cp app app.bak_$(date +%s)
 stat -c '%a %U:%G' /tmp   # must print: 1777 root:root
 SMOKE_DIR=$(mktemp -d /tmp/credit-smoke.XXXXXX)
 NODE_ENV=development PORT=6798 CREDIT_SOCKET_GROUP= \
-CREDIT_SOCKET_PATH=$SMOKE_DIR/credit.sock \
+# ${SMOKE_DIR:?} aborts the line if mktemp failed, so the path can never
+# degrade to /credit.sock (that line is also reused for builds without the guard).
+CREDIT_SOCKET_PATH=${SMOKE_DIR:?mktemp failed}/credit.sock \
   ./app.new &
 SMOKE_PID=$!
 # MEASURED 2026-08-11: this binary takes ~21s to bind. `sleep 3` (the old value
@@ -55,7 +57,7 @@ done
 
 # 4. Prove it actually serves. Both must answer.
 curl -sS -m 5 http://127.0.0.1:6798/ -o /dev/null -w 'http: %{http_code}\n'
-curl -sS -m 5 --unix-socket $SMOKE_DIR/credit.sock \
+curl -sS -m 5 --unix-socket "${SMOKE_DIR:?}/credit.sock" \
   -X POST http://localhost/internal/credit/check \
   -H 'content-type: application/json' -d '{"phone":"+998000000000"}'
 # expected: {"allowed":false,"reason":"unknown_phone"}
@@ -65,10 +67,14 @@ curl -sS -m 5 --unix-socket $SMOKE_DIR/credit.sock \
 # 5. Stop the smoke instance BEFORE swapping (it holds the DB pool and, on a
 #    dev-mode boot, its own bullmq workers).
 kill $SMOKE_PID; wait $SMOKE_PID 2>/dev/null
-rm -rf "$SMOKE_DIR"
+rm -rf "${SMOKE_DIR:?}"
 stat -c '%a %U:%G' /tmp   # must still print: 1777 root:root (else: chmod 1777 /tmp)
 
-# 6. Swap and restart. mv is atomic within the filesystem.
+# 6. Swap and restart. First check the run dir the app will chmod/chown: it must
+#    be a real directory owned by root (the app refuses a symlink or a foreign
+#    owner, and then Laravel's credit calls fail until rollback).
+stat -c '%F %U:%G %a' /home/davr/managers/run   # directory root:root 750 (or 2750)
+#    mv is atomic within the filesystem.
 mv app.new app
 pm2 restart office_api
 
@@ -76,7 +82,8 @@ pm2 restart office_api
 #    re-created (mode must be srw-rw---- and the mtime must be from just now).
 pm2 list | grep office_api
 ls -l /home/davr/managers/run/credit-internal.sock
-pm2 logs office_api --lines 100 --nostream | grep 'credit internal'
+pm2 logs office_api --lines 40 --nostream
+pm2 logs office_api --lines 100 --nostream | grep 'credit internal' | tail -3   # the last line is this start
 ```
 
 ## Rollback
@@ -156,12 +163,15 @@ have it dropped silently on every start (the log line above would show it).
 If the group name is unknown, the app does **not** refuse to start: it logs
 `credit internal socket: CREDIT_SOCKET_GROUP="...": unknown group ...; serving
 WITHOUT the group chown` and serves the socket with the run/ dir's group, so
-Laravel keeps working and orderly just cannot connect. If chown/chmod of the
+Laravel keeps working and orderly just cannot connect. If chown of `run/` fails (non-root, outside the group) nothing is started and the
+stale socket file stays; if chown/chmod of the
 socket fails after listen, the app stops the listener, removes the socket and
 `index.ts` logs `credit internal socket failed to start` (public API continues,
-credit does not). The app also refuses to use a shared directory (`/`, `/tmp`, a
-sticky or world-writable dir, a symlink, a dir owned by another user) as the
-socket dir. Note `backend/pm2.config.js` is not the prod config (it runs
+credit does not). The app also refuses to use a shared directory as the socket dir: `/`, `/tmp`,
+`/var/tmp`, `/dev/shm`, a sticky or world-writable dir, a symlink (a trailing slash
+does not hide it), a dir owned by another user, or a dir that others can traverse
+and that holds entries other than the socket (so `/run` is refused; a hand-made
+0755 `run/` holding only the socket is narrowed to 2750). Note `backend/pm2.config.js` is not the prod config (it runs
 `src/index.ts`, not the compiled `app`).
 
 In production `index.ts` starts the credit socket, the bullmq jobs and the

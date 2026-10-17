@@ -38,7 +38,10 @@ function start(sock: string) {
 // A group this process belongs to that differs from the one new dirs get, so a
 // missing chown cannot pass by accident.
 const probe = mkBase();
-const alt = process.getgroups?.().find((g) => g !== fs.statSync(probe).gid);
+// Root may chown to any gid, and its own group list is just [0].
+const alt =
+  process.getgroups?.().find((g) => g !== fs.statSync(probe).gid) ??
+  (process.geteuid?.() === 0 ? 65534 : undefined);
 
 afterEach(async () => {
   for (const s of servers) await s.stop(true);
@@ -94,7 +97,7 @@ describe("credit internal socket permissions", () => {
     }
   });
 
-  test("a failure after listen stops the server, unlinks the socket and rethrows", () => {
+  test("a failure after listen unlinks the socket and rethrows", () => {
     delete process.env.CREDIT_SOCKET_GROUP;
     const { sock } = runDir(0o2750);
     const real = fs.chmodSync;
@@ -162,6 +165,42 @@ describe("shared or foreign socket dir is refused before any chmod/chown", () =>
     const euid = process.geteuid!();
     expect(() => assertDedicatedSocketDir(dir, euid + 1)).toThrow(/owned by uid/);
     expect(() => assertDedicatedSocketDir(dir, euid)).not.toThrow();
+  });
+
+  test("trailing slash cannot slip a symlink past the guard", () => {
+    const base = mkBase();
+    const target = path.join(base, "target");
+    fs.mkdirSync(target);
+    fs.chmodSync(target, 0o755);
+    const link = path.join(base, "link");
+    fs.symlinkSync(target, link);
+    expect(() => startInternalCreditApp(stubDb, `${link}//s.sock`)).toThrow(/symlink/);
+    expect(() => startInternalCreditApp(stubDb, `${link}/s.sock`)).toThrow(/symlink/);
+    expect(fs.statSync(target).mode & 0o7777).toBe(0o755);
+  });
+
+  test("0755 dir holding foreign entries is refused and left at 0755 (a /run-like dir)", () => {
+    const { dir, sock } = runDir(0o755);
+    fs.writeFileSync(path.join(dir, "mysqld.pid"), "1");
+    expect(() => startInternalCreditApp(stubDb, sock)).toThrow(/entries that are not ours \(mysqld.pid\)/);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o755);
+    expect(fs.existsSync(sock)).toBe(false);
+  });
+
+  test("0755 dir holding only the stale socket file is still narrowed to 2750", () => {
+    delete process.env.CREDIT_SOCKET_GROUP;
+    const { dir, sock } = runDir(0o755);
+    fs.writeFileSync(sock, "");
+    start(sock);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o2750);
+  });
+
+  test("0750 dir with extra files starts (others cannot traverse, contents are not read)", () => {
+    delete process.env.CREDIT_SOCKET_GROUP;
+    const { dir, sock } = runDir(0o750);
+    fs.writeFileSync(path.join(dir, "other.file"), "x");
+    start(sock);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o2750);
   });
 
   test("deny list: /, /tmp, /var/tmp, os.tmpdir() (guard only, real perms untouched)", () => {
