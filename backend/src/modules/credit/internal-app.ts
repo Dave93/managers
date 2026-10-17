@@ -2,6 +2,7 @@ import Elysia, { t } from "elysia";
 import { sql } from "drizzle-orm";
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   authorize, capture, voidHold, refund, amendHold,
   resolveCompanyByPhone, ensureAccount, dayKey, monthKey,
@@ -122,15 +123,49 @@ export function buildInternalCreditApp(db: DrizzleDb) {
     }, { body: orderRef });
 }
 
+// CREDIT_SOCKET_GROUP: a numeric gid, or a group name looked up in /etc/group
+// (falling back to `getent group` for NSS-backed groups). Dependency-free on
+// purpose; an unknown name throws, so the process refuses to start instead of
+// serving a socket the intended consumer (orderly-prod, via SupplementaryGroups=)
+// can never open.
+export function resolveGroupGid(spec: string): number {
+  const name = spec.trim();
+  if (/^\d+$/.test(name)) return Number(name);
+  const fromLine = (line: string) => {
+    const [n, , gid] = line.split(":");
+    return n === name && /^\d+$/.test(gid ?? "") ? Number(gid) : undefined;
+  };
+  try {
+    for (const line of fs.readFileSync("/etc/group", "utf8").split("\n")) {
+      const gid = fromLine(line);
+      if (gid !== undefined) return gid;
+    }
+  } catch {}
+  try {
+    const out = spawnSync("getent", ["group", name], { encoding: "utf8" });
+    if (out.status === 0) {
+      const gid = fromLine(out.stdout.trim());
+      if (gid !== undefined) return gid;
+    }
+  } catch {}
+  throw new Error(`CREDIT_SOCKET_GROUP=${JSON.stringify(spec)}: unknown group (not a numeric gid, not in /etc/group or getent)`);
+}
+
 export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
   const dir = path.dirname(socketPath);
+  const gid = process.env.CREDIT_SOCKET_GROUP
+    ? resolveGroupGid(process.env.CREDIT_SOCKET_GROUP)
+    : undefined;
   // mkdirSync's `mode` only applies to directories it actually creates — it does
   // NOT chmod an already-existing dir, so the explicit chmodSync below is not
   // redundant: unix filesystem permissions are the entire auth boundary for this
   // socket (no app-level secret), so the run/ dir must never be left wider than
-  // 0750 from a previous deploy or manual `mkdir`.
-  fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
-  fs.chmodSync(dir, 0o750);
+  // 2750 from a previous deploy or manual `mkdir`. The setgid bit (the leading 2)
+  // is part of that mode on purpose: the owner sets `chmod 2750 run/` so the
+  // socket inherits the run/ dir's group, and a plain chmod 0750 on every start
+  // would strip it again.
+  fs.mkdirSync(dir, { recursive: true, mode: 0o2750 });
+  fs.chmodSync(dir, 0o2750);
   try { fs.unlinkSync(socketPath); } catch {}
   // Narrow the listen()->chmod() window so the socket is never briefly
   // world-or-group-writable at creation: 0o117 makes the OS create it at exactly
@@ -144,7 +179,9 @@ export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
   } finally {
     process.umask(prevUmask);
   }
+  // Group first, mode second, so 0660 is the last word on the socket's permissions.
+  if (gid !== undefined) fs.chownSync(socketPath, -1, gid);
   fs.chmodSync(socketPath, 0o660);
-  console.log(`credit internal API on unix:${socketPath}`);
+  console.log(`credit internal API on unix:${socketPath}${gid !== undefined ? ` (group ${gid})` : ""}`);
   return app;
 }

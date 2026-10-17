@@ -129,6 +129,15 @@ redis-cli ZRANGE bull:credit-maintenance:repeat 0 -1
 # the same job name. Remove with queue.removeRepeatableByKey(<member>).
 ```
 
+**Socket group (orderly access).** After deploy, `ls -ld run && ls -l run/credit-internal.sock`
+(from `/home/davr/managers`) must show group `credit-sock`, the setgid bit on the
+dir (`drwxr-s---`) and `srw-rw----` on the socket. The app re-applies `2750` to
+`run/` on every start, so the setgid bit the owner sets with `chmod 2750 run/`
+survives restarts. Put `CREDIT_SOCKET_GROUP=credit-sock` in the pm2 env of
+`office_api`; the socket is then chowned to that group before its final `0660`,
+and the process refuses to start if the group name is unknown. The existing
+`pm2 --update-env` rules in this file are unchanged.
+
 In production `index.ts` starts the credit socket, the bullmq jobs and the
 config cache **only on the cluster primary**; the two forked HTTP workers never
 open a credit DB pool. If you are looking for credit log lines, they are in the
