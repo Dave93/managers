@@ -592,7 +592,7 @@ export const passportController = new Elysia({ name: "@api/passport" })
 
 - [ ] **Step 3: Смоук роутов локально**
 
-Run: `cd /home/davr/managers/backend && NODE_ENV=development PORT=6799 CREDIT_SOCKET_PATH=/tmp/pass-dev-$$.sock timeout 8 bun run src/index.ts & sleep 4 && curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:6799/api/passport/programs`
+Run: `cd /home/davr/managers/backend && D=$(mktemp -d /tmp/pass-dev.XXXXXX) && NODE_ENV=development PORT=6799 CREDIT_SOCKET_GROUP= CREDIT_SOCKET_PATH=$D/credit.sock timeout 8 bun run src/index.ts & sleep 4 && curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:6799/api/passport/programs; rm -rf "$D"` (сокет только в собственном mktemp-каталоге, не в голом /tmp: приложение делает chmod родительского каталога сокета)
 Expected: 401 (роут есть, без сессии отлуп) — не 404.
 
 - [ ] **Step 4: Достроить остальные эндпоинты**
@@ -906,11 +906,13 @@ Expected: quiz start → question_ids; submit с верными ответами
 cd /home/davr/managers/backend
 cp app app.bak_$(date +%s)
 /root/.bun/bin/bun build --compile src/index.ts --outfile app.new
-NODE_ENV=development PORT=6798 CREDIT_SOCKET_PATH=/tmp/credit-smoke-$$.sock ./app.new &
+SMOKE_DIR=$(mktemp -d /tmp/credit-smoke.XXXXXX)   # не голый /tmp: chmod родителя сокета
+NODE_ENV=development PORT=6798 CREDIT_SOCKET_GROUP= CREDIT_SOCKET_PATH=$SMOKE_DIR/credit.sock ./app.new &
 SMOKE_PID=$!; sleep 3
 curl -sS -m 5 http://127.0.0.1:6798/ -o /dev/null -w 'http: %{http_code}\n'
 curl -sS -m 5 http://127.0.0.1:6798/api/passport/programs -o /dev/null -w 'passport: %{http_code}\n'
-kill $SMOKE_PID; wait $SMOKE_PID 2>/dev/null
+kill $SMOKE_PID; wait $SMOKE_PID 2>/dev/null; rm -rf "$SMOKE_DIR"
+stat -c '%a %U:%G' /tmp   # 1777 root:root
 mv app.new app
 pm2 restart office_api
 ```

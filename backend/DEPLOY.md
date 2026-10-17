@@ -35,8 +35,15 @@ cp app app.bak_$(date +%s)
 #    - a THROWAWAY port and a THROWAWAY socket path: the real socket at
 #      /home/davr/managers/run/credit-internal.sock is live and serving Laravel.
 #      Binding it here would yank production's socket out from under it.
-NODE_ENV=development PORT=6798 \
-CREDIT_SOCKET_PATH=/tmp/credit-smoke-$$.sock \
+#    - a DEDICATED mktemp dir for the socket, never a bare /tmp/x.sock: the app
+#      chmods the socket's parent dir, and on /tmp that is the known OTP/login
+#      outage (it now refuses a shared dir, but do not rely on that).
+#    - CREDIT_SOCKET_GROUP= (empty, overrides backend/.env) so the smoke instance
+#      does no group chown.
+stat -c '%a %U:%G' /tmp   # must print: 1777 root:root
+SMOKE_DIR=$(mktemp -d /tmp/credit-smoke.XXXXXX)
+NODE_ENV=development PORT=6798 CREDIT_SOCKET_GROUP= \
+CREDIT_SOCKET_PATH=$SMOKE_DIR/credit.sock \
   ./app.new &
 SMOKE_PID=$!
 # MEASURED 2026-08-11: this binary takes ~21s to bind. `sleep 3` (the old value
@@ -48,7 +55,7 @@ done
 
 # 4. Prove it actually serves. Both must answer.
 curl -sS -m 5 http://127.0.0.1:6798/ -o /dev/null -w 'http: %{http_code}\n'
-curl -sS -m 5 --unix-socket /tmp/credit-smoke-$$.sock \
+curl -sS -m 5 --unix-socket $SMOKE_DIR/credit.sock \
   -X POST http://localhost/internal/credit/check \
   -H 'content-type: application/json' -d '{"phone":"+998000000000"}'
 # expected: {"allowed":false,"reason":"unknown_phone"}
@@ -58,6 +65,8 @@ curl -sS -m 5 --unix-socket /tmp/credit-smoke-$$.sock \
 # 5. Stop the smoke instance BEFORE swapping (it holds the DB pool and, on a
 #    dev-mode boot, its own bullmq workers).
 kill $SMOKE_PID; wait $SMOKE_PID 2>/dev/null
+rm -rf "$SMOKE_DIR"
+stat -c '%a %U:%G' /tmp   # must still print: 1777 root:root (else: chmod 1777 /tmp)
 
 # 6. Swap and restart. mv is atomic within the filesystem.
 mv app.new app
@@ -67,7 +76,7 @@ pm2 restart office_api
 #    re-created (mode must be srw-rw---- and the mtime must be from just now).
 pm2 list | grep office_api
 ls -l /home/davr/managers/run/credit-internal.sock
-pm2 logs office_api --lines 40 --nostream
+pm2 logs office_api --lines 100 --nostream | grep 'credit internal'
 ```
 
 ## Rollback
@@ -129,14 +138,31 @@ redis-cli ZRANGE bull:credit-maintenance:repeat 0 -1
 # the same job name. Remove with queue.removeRepeatableByKey(<member>).
 ```
 
-**Socket group (orderly access).** After deploy, `ls -ld run && ls -l run/credit-internal.sock`
+**Socket group (orderly access).** Add `CREDIT_SOCKET_GROUP=credit-sock` to
+`/home/davr/managers/backend/.env` (the compiled binary autoloads `.env` from its
+working directory; confirm with `pm2 describe office_api | grep 'exec cwd'`).
+A plain `pm2 restart office_api` picks it up; do not use `--update-env`. On start
+the app chowns `run/` and then the socket to that group, re-applies `2750` to
+`run/` and `0660` to the socket, and logs
+`credit internal API on unix:... (group <gid>, sock 0660, dir 2750 gid <gid>)`;
+compare `<gid>` with `getent group credit-sock`. A line starting
+`credit internal socket permissions differ from expected` means the result was not
+what was asked for. After deploy, `ls -ld run && ls -l run/credit-internal.sock`
 (from `/home/davr/managers`) must show group `credit-sock`, the setgid bit on the
-dir (`drwxr-s---`) and `srw-rw----` on the socket. The app re-applies `2750` to
-`run/` on every start, so the setgid bit the owner sets with `chmod 2750 run/`
-survives restarts. Put `CREDIT_SOCKET_GROUP=credit-sock` in the pm2 env of
-`office_api`; the socket is then chowned to that group before its final `0660`,
-and the process refuses to start if the group name is unknown. The existing
-`pm2 --update-env` rules in this file are unchanged.
+dir (`drwxr-s---`) and `srw-rw----` on the socket. The setgid bit survives
+restarts because office_api runs as root; a non-root user outside the group would
+have it dropped silently on every start (the log line above would show it).
+
+If the group name is unknown, the app does **not** refuse to start: it logs
+`credit internal socket: CREDIT_SOCKET_GROUP="...": unknown group ...; serving
+WITHOUT the group chown` and serves the socket with the run/ dir's group, so
+Laravel keeps working and orderly just cannot connect. If chown/chmod of the
+socket fails after listen, the app stops the listener, removes the socket and
+`index.ts` logs `credit internal socket failed to start` (public API continues,
+credit does not). The app also refuses to use a shared directory (`/`, `/tmp`, a
+sticky or world-writable dir, a symlink, a dir owned by another user) as the
+socket dir. Note `backend/pm2.config.js` is not the prod config (it runs
+`src/index.ts`, not the compiled `app`).
 
 In production `index.ts` starts the credit socket, the bullmq jobs and the
 config cache **only on the cluster primary**; the two forked HTTP workers never

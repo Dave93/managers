@@ -1,8 +1,12 @@
-import { describe, test, expect, afterEach } from "bun:test";
+import { describe, test, expect, afterEach, spyOn } from "bun:test";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { startInternalCreditApp, resolveGroupGid } from "../../src/modules/credit/internal-app";
+import {
+  startInternalCreditApp,
+  resolveGroupGid,
+  assertDedicatedSocketDir,
+} from "../../src/modules/credit/internal-app";
 
 // No DB: the routes only touch `db` per request, and nothing here makes one.
 const stubDb = {} as any;
@@ -12,10 +16,14 @@ let tmp: string[] = [];
 let servers: any[] = [];
 const savedEnv = process.env.CREDIT_SOCKET_GROUP;
 
-function runDir(mode: number) {
+function mkBase() {
   const base = fs.mkdtempSync(path.join(os.tmpdir(), "credit-perms-"));
   tmp.push(base);
-  const dir = path.join(base, "run");
+  return base;
+}
+
+function runDir(mode: number) {
+  const dir = path.join(mkBase(), "run");
   fs.mkdirSync(dir);
   fs.chmodSync(dir, mode);
   return { dir, sock: path.join(dir, "credit-internal.sock") };
@@ -26,6 +34,11 @@ function start(sock: string) {
   servers.push(app);
   return app;
 }
+
+// A group this process belongs to that differs from the one new dirs get, so a
+// missing chown cannot pass by accident.
+const probe = mkBase();
+const alt = process.getgroups?.().find((g) => g !== fs.statSync(probe).gid);
 
 afterEach(async () => {
   for (const s of servers) await s.stop(true);
@@ -54,29 +67,52 @@ describe("credit internal socket permissions", () => {
     expect(fs.statSync(dir).mode & 0o7777).toBe(0o2750);
   });
 
-  test("CREDIT_SOCKET_GROUP (numeric gid) sets the socket group", () => {
-    const gid = process.getgid!();
-    process.env.CREDIT_SOCKET_GROUP = String(gid);
-    const { sock } = runDir(0o2750);
-    try {
-      start(sock);
-    } catch (e: any) {
-      if (e?.code === "EPERM") return; // chown to this group not permitted here
-      throw e;
-    }
-    const st = fs.statSync(sock);
-    expect(st.gid).toBe(gid);
-    expect(st.mode & 0o777).toBe(0o660);
+  test.skipIf(alt === undefined)("CREDIT_SOCKET_GROUP (numeric gid) sets the group of dir and socket", () => {
+    process.env.CREDIT_SOCKET_GROUP = String(alt);
+    const { dir, sock } = runDir(0o2750);
+    expect(fs.statSync(dir).gid).not.toBe(alt);
+    start(sock);
+    expect(fs.statSync(sock).gid).toBe(alt!);
+    expect(fs.statSync(dir).gid).toBe(alt!);
+    expect(fs.statSync(sock).mode & 0o777).toBe(0o660);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o2750);
   });
 
-  test("unknown group name fails loudly and creates no socket", () => {
+  test("unknown group name: logs loudly and still serves, without the chown", () => {
     process.env.CREDIT_SOCKET_GROUP = "no-such-group-credit-sock-xyz";
+    const err = spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const { sock } = runDir(0o2750);
+      const gidBefore = fs.statSync(path.dirname(sock)).gid;
+      start(sock);
+      expect(fs.statSync(sock).mode & 0o777).toBe(0o660);
+      expect(fs.statSync(sock).gid).toBe(gidBefore);
+      const logged = err.mock.calls.map((c) => String(c[0])).join("\n");
+      expect(logged).toMatch(/CREDIT_SOCKET_GROUP.*unknown group.*WITHOUT the group chown/);
+    } finally {
+      err.mockRestore();
+    }
+  });
+
+  test("a failure after listen stops the server, unlinks the socket and rethrows", () => {
+    delete process.env.CREDIT_SOCKET_GROUP;
     const { sock } = runDir(0o2750);
-    expect(() => start(sock)).toThrow(/CREDIT_SOCKET_GROUP.*unknown group/);
+    const real = fs.chmodSync;
+    const spy = spyOn(fs, "chmodSync").mockImplementation(((p: any, m: any) => {
+      if (String(p) === sock) throw Object.assign(new Error("boom"), { code: "EPERM" });
+      return real(p, m);
+    }) as any);
+    try {
+      expect(() => startInternalCreditApp(stubDb, sock)).toThrow(/boom/);
+    } finally {
+      spy.mockRestore();
+    }
     expect(fs.existsSync(sock)).toBe(false);
   });
+});
 
-  test("resolveGroupGid: numeric id and a name from /etc/group", () => {
+describe("resolveGroupGid", () => {
+  test("numeric id and a name from /etc/group", () => {
     expect(resolveGroupGid("1234")).toBe(1234);
     let line: string | undefined;
     try {
@@ -86,5 +122,53 @@ describe("credit internal socket permissions", () => {
     if (!line) return;
     const [name, , gid] = line.split(":");
     expect(resolveGroupGid(name)).toBe(Number(gid));
+  });
+
+  test("out-of-range numeric gid and unknown names throw", () => {
+    expect(() => resolveGroupGid("4294967295")).toThrow(/out of range/);
+    expect(() => resolveGroupGid("99999999999999999999")).toThrow(/out of range/);
+    expect(() => resolveGroupGid("no-such-group-credit-sock-xyz")).toThrow(/unknown group/);
+    expect(() => resolveGroupGid("--service=files")).toThrow(/unknown group/);
+  });
+});
+
+describe("shared or foreign socket dir is refused before any chmod/chown", () => {
+  test("sticky dir (1777) is left untouched and start throws", () => {
+    const { dir, sock } = runDir(0o1777);
+    expect(() => startInternalCreditApp(stubDb, sock)).toThrow(/refused/);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o1777);
+    expect(fs.existsSync(sock)).toBe(false);
+  });
+
+  test("world-writable dir (0777) is left untouched and start throws", () => {
+    const { dir, sock } = runDir(0o777);
+    expect(() => startInternalCreditApp(stubDb, sock)).toThrow(/world-writable/);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o777);
+  });
+
+  test("symlinked dir is refused and its target is untouched", () => {
+    const base = mkBase();
+    const target = path.join(base, "target");
+    fs.mkdirSync(target);
+    fs.chmodSync(target, 0o755);
+    const link = path.join(base, "link");
+    fs.symlinkSync(target, link);
+    expect(() => startInternalCreditApp(stubDb, path.join(link, "s.sock"))).toThrow(/symlink/);
+    expect(fs.statSync(target).mode & 0o7777).toBe(0o755);
+  });
+
+  test("dir owned by someone else is refused", () => {
+    const { dir } = runDir(0o2750);
+    const euid = process.geteuid!();
+    expect(() => assertDedicatedSocketDir(dir, euid + 1)).toThrow(/owned by uid/);
+    expect(() => assertDedicatedSocketDir(dir, euid)).not.toThrow();
+  });
+
+  test("deny list: /, /tmp, /var/tmp, os.tmpdir() (guard only, real perms untouched)", () => {
+    const before = ["/tmp", "/var/tmp"].map((p) => fs.statSync(p).mode);
+    for (const p of ["/", "/tmp", "/var/tmp", os.tmpdir()]) {
+      expect(() => assertDedicatedSocketDir(p)).toThrow(/refused/);
+    }
+    expect(["/tmp", "/var/tmp"].map((p) => fs.statSync(p).mode)).toEqual(before);
   });
 });
