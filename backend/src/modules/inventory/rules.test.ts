@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   allowedPeriods,
+  interimBookHiddenForBranch,
   interimDates,
   isValidInterimDate,
   lastDayOf,
@@ -112,3 +113,15 @@ describe("isValidInterimDate / lastDayOf", () => {
   });
 });
 
+
+describe("interimBookHiddenForBranch — сравнение промежуточного после 25-го филиалу не показываем", () => {
+  it("промежуточный: до 25-го включительно — виден, с 26-го — скрыт", () => {
+    expect(interimBookHiddenForBranch({ kind: "interim", count_date: "2026-10-25" })).toBe(false);
+    expect(interimBookHiddenForBranch({ kind: "interim", count_date: "2026-10-26" })).toBe(true);
+    expect(interimBookHiddenForBranch({ kind: "interim", count_date: "2026-10-31" })).toBe(true);
+    expect(interimBookHiddenForBranch({ kind: "interim", count_date: "2026-10-07" })).toBe(false);
+  });
+  it("месячный не затрагивается", () => {
+    expect(interimBookHiddenForBranch({ kind: "monthly", count_date: "2026-10-31" })).toBe(false);
+  });
+});

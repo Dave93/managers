@@ -168,7 +168,7 @@ export function InterimOverview({ basePath = "/inventory/reconciliation/interim"
                     {bookPending(r) && <div className="text-xs text-muted-foreground">{t("loading")}</div>}
                   </TableCell>
                   <TableCell className={`text-right tabular-nums ${r.mismatch_count ? "font-semibold text-orange-600" : ""}`}>
-                    {r.hidden ? <span className="text-xs text-muted-foreground">{t("hidden")}</span> : r.mismatch_count ? `${r.mismatch_count} / ${r.lines_counted}` : "—"}
+                    {r.hidden ? <span className="text-xs text-muted-foreground">{t(r.hidden_reason === "month_end" ? "hiddenMonthEnd" : "hidden")}</span> : r.mismatch_count ? `${r.mismatch_count} / ${r.lines_counted}` : "—"}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {r.mismatch_count ? `${r.checked_count} / ${r.mismatch_count}` : "—"}

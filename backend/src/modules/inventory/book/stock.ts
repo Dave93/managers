@@ -5,7 +5,7 @@ import { corporation_store, inventory_count_book, inventory_count_lines, invento
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
 import { assertUuid, branchMayReopen, GROUP_NAME_SQL, normalizeNumeric } from "../counts";
-import { allowedPeriods } from "../rules";
+import { allowedPeriods, interimBookHiddenForBranch } from "../rules";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
 import { withIikoClient, type IikoClient } from "../reconcile/iiko-client";
@@ -66,7 +66,8 @@ export async function storeHasChangeableCount(db: DbLike, storeId: string, now =
   return false;
 }
 
-/** «Сравнение с учётом»: офис (inventory.reconcile) — всегда; филиал — свой склад и пересчёт зафиксирован. */
+/** «Сравнение с учётом»: офис (inventory.reconcile) — всегда; филиал — свой склад, пересчёт зафиксирован
+ * и, если промежуточный, — с датой не позже 25-го. */
 export async function loadBook(db: DbLike, actor: Actor, countId: string): Promise<BookView> {
   assertUuid(countId);
   const [count] = await db.select().from(inventory_counts).where(eq(inventory_counts.id, countId));
@@ -75,6 +76,7 @@ export async function loadBook(db: DbLike, actor: Actor, countId: string): Promi
   if (!office) {
     if ((await storeAccess(db, actor, count.store_id)) !== "write") throw new InventoryError(403, "store_forbidden");
     if (count.status !== "submitted" || (await branchMayReopen(db, count))) throw new InventoryError(403, "book_hidden");
+    if (interimBookHiddenForBranch(count)) throw new InventoryError(403, "book_hidden");
     // Книжное по складу нельзя видеть, пока другой пересчёт склада ещё открыт для филиала (ревью, C1).
     if (await storeHasChangeableCount(db, count.store_id)) throw new InventoryError(403, "book_hidden");
   }

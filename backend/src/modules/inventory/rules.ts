@@ -95,6 +95,15 @@ export function isValidInterimDate(date: string, now: Date): boolean {
   return date >= min && date <= max;
 }
 
+/** Последний день месяца, за который филиал видит «Сравнение с учётом» промежуточного (19.10.2026). */
+export const INTERIM_BRANCH_BOOK_LAST_DAY = 25;
+
+/** Промежуточный с датой после 25-го: книжное iiko филиалу не показываем, иначе перед месячным
+ * пересчётом он узнал бы учётные остатки и мог бы подправить свои (19.10.2026). Офис видит всегда. */
+export function interimBookHiddenForBranch(count: { kind: string; count_date: string }): boolean {
+  return count.kind === "interim" && Number(count.count_date.slice(8, 10)) > INTERIM_BRANCH_BOOK_LAST_DAY;
+}
+
 export const MAX_QTY = 1_000_000;
 
 export function isValidQty(q: unknown): q is number {

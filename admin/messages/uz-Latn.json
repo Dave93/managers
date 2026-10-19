@@ -761,7 +761,9 @@
         },
         "title": "Kunlar bo'yicha solishtirish",
         "hidden": "sanoq yopilgach ochiladi",
+        "hiddenMonthEnd": "25-dan keyin — faqat ofis",
         "hiddenDetail": "Sanoq ketmoqda — sanoq yopilgach solishtirish ochiladi",
+        "hiddenMonthEndDetail": "25-sanadan keyingi sanoqlarni faqat ofis solishtiradi",
         "checkedByOffice": "Ofis tekshirgan"
       },
       "worker": {

@@ -25,6 +25,7 @@
 | 7 | Месячная сверка с iiko | Учитывает только месячные пересчёты; промежуточные в неё не складываются |
 | 8 | «Факт с учётом блюд и заготовок» (iiko) | Не делаем: ПФ — отдельные товары, книжное по ним отдельное |
 | 9 | Возврат промежуточного (08.10.2026) | Промежуточный фиксируется сразу после отправки: вернуть в черновик может только офис, при любом `inventory.reopen_rule`. Иначе он был бы открыт до месячной сверки и «Остатки склада» у филиала были бы закрыты почти весь месяц |
+| 10 | Промежуточный после 25-го (19.10.2026) | Если дата промежуточного позже 25-го числа (25-е — ещё видно, 26-е — уже нет), филиал не видит «Сравнение с учётом» и сверку «По дням» по нему никогда; офис видит всегда. Причина: перед месячным пересчётом филиал узнал бы учётные остатки и мог бы подправить свои. В сверке «По дням» — `hidden_reason: "month_end"` («после 25-го — только офис») |
 
 ## 3. Что известно об iiko (проверено 08.10.2026, только чтение)
 
@@ -80,7 +81,7 @@ PK (`count_id`, `product_id`), `count_id` → `inventory_counts` ON DELETE CASCA
 |---|---|---|
 | `POST /inventory/counts` | как сейчас + `kind`, `count_date` | Промежуточный: `count_date` в диапазоне решения 2 |
 | `GET /inventory/interim-dates` | `inventory.count` | Допустимые даты промежуточного: `{ min, max, default }` |
-| `GET /inventory/counts/:id/book` | офис `inventory.reconcile` — всегда; филиал со своим складом — если пересчёт зафиксирован | `{ fetched_at, lines: [{ product_id, code, product_name, unit_name, group_name, fact_qty, book_qty, diff_qty, start_qty, in_invoice, out_sales, transfer_in, transfer_out, out_writeoff, other_net, consistent }] }`; 403 `book_hidden`, если ещё нельзя |
+| `GET /inventory/counts/:id/book` | офис `inventory.reconcile` — всегда; филиал со своим складом — если пересчёт зафиксирован и, если промежуточный, его дата не позже 25-го (решение 10) | `{ fetched_at, lines: [{ product_id, code, product_name, unit_name, group_name, fact_qty, book_qty, diff_qty, start_qty, in_invoice, out_sales, transfer_in, transfer_out, out_writeoff, other_net, consistent }] }`; 403 `book_hidden`, если ещё нельзя |
 | `POST /inventory/counts/:id/book/refresh` | `inventory.reconcile` | Ставит задачу снимка |
 | `POST /inventory/interim-reconciliations/refresh` `{ period, store_id? }` | `inventory.reconcile` | Снимок заново по всем отправленным промежуточным месяца (или склада): `{ total, queued }`. Если при обновлении книжное товара изменилось, отметка «проверено» по нему снимается (12.10.2026) |
 | `GET /inventory/worker-status` | `inventory.reconcile` | `{ stalled, waiting_since }`: задача книжного или сверки ждёт в очереди дольше минуты, а обработчика (`inventory_reconcile_worker`) нет. Офис видит предупреждение «Обработчик не запущен» во вкладках «Месячная» и «По дням» и на странице пересчёта (13.10.2026) |

@@ -798,7 +798,9 @@
         },
         "title": "Daily reconciliation",
         "hidden": "opens once the count is closed",
+        "hiddenMonthEnd": "after the 25th — office only",
         "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
+        "hiddenMonthEndDetail": "Counts dated after the 25th are reconciled by the office only",
         "checkedByOffice": "Checked by office"
       },
       "worker": {
