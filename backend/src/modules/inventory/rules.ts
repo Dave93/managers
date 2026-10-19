@@ -80,13 +80,13 @@ export function lastDayOf(date: string): string {
   return lastDayOfMonth(y, m);
 }
 
-/** Даты промежуточного пересчёта (spec 2026-10-08, решение 2): только прошедший день,
- * с 1-го числа прошлого месяца по вчера (Ташкент); по умолчанию — вчера. */
+/** Дата промежуточного пересчёта (spec 2026-10-08, решение 2): только вчера по Ташкенту.
+ * Задним числом нельзя (19.10.2026): иначе в конце месяца филиал вводил бы пересчёт за 25-е
+ * и узнавал учётные остатки перед месячным (решение 10). */
 export function interimDates(now: Date): { min: string; max: string; default: string } {
   const { y, m, d } = tashkentParts(now);
   const yesterday = new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
-  const p = prevMonth(y, m);
-  return { min: `${p.y}-${pad(p.m)}-01`, max: yesterday, default: yesterday };
+  return { min: yesterday, max: yesterday, default: yesterday };
 }
 
 export function isValidInterimDate(date: string, now: Date): boolean {

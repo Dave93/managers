@@ -813,7 +813,7 @@
       "monthly": "Monthly",
       "interim": "Interim",
       "date": "Count date",
-      "dateHint": "Past days only: stock at the end of that day"
+      "dateHint": "Yesterday only: stock at the end of yesterday"
     },
     "book": {
       "tab": "Compare with book stock",

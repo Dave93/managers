@@ -776,7 +776,7 @@
       "monthly": "Oylik",
       "interim": "Oraliq",
       "date": "Sanoq sanasi",
-      "dateHint": "Faqat o'tgan kun: shu kun oxiridagi qoldiq"
+      "dateHint": "Faqat kecha uchun: kechagi kun oxiridagi qoldiq"
     },
     "book": {
       "tab": "Hisob bilan solishtirish",

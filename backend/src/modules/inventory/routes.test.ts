@@ -15,7 +15,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray, sql } = await import("drizzle-orm");
-  const { allowedPeriods } = await import("./rules");
+  const { allowedPeriods, lastDayOf } = await import("./rules");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
 
@@ -1077,18 +1077,21 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 
   describe("inventory: промежуточные пересчёты", () => {
-    it("даты: вчера по умолчанию; промежуточный за вчера; сегодня и раньше 1-го числа прошлого месяца — 422", async () => {
+    it("даты: только вчера; сегодня, позавчера и раньше — 422", async () => {
       const w = await seedWorld();
       try {
         const m = await manager(w);
         const dates = await api(m, "GET", "/api/inventory/interim-dates");
         expect(dates.status).toBe(200);
         expect(dates.body.default).toBe(dates.body.max);
+        expect(dates.body.min).toBe(dates.body.max);
         const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
         expect(dates.body.max < today).toBe(true);
+        const dayBefore = new Date(Date.parse(dates.body.max) - 86_400_000).toISOString().slice(0, 10);
 
         const base = { store_id: w.storeId, template_id: w.templateId, kind: "interim" };
         expect((await api(m, "POST", "/api/inventory/counts", { ...base, count_date: today })).status).toBe(422);
+        expect((await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dayBefore })).status).toBe(422);
         expect((await api(m, "POST", "/api/inventory/counts", { ...base, count_date: "2020-01-01" })).status).toBe(422);
         expect((await api(m, "POST", "/api/inventory/counts", { ...base })).status).toBe(422);
 
@@ -1130,9 +1133,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const a = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.max });
         const again = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.max });
         expect(again.body).toEqual({ id: a.body.id, existing: true });
-        const other = await api(m, "POST", "/api/inventory/counts", { ...base, count_date: dates.min });
-        expect(other.status).toBe(200);
-        expect(other.body.id).not.toBe(a.body.id);
+        // Через API — только вчера; пересчёт за другой день (введённый раньше) кладём в базу.
+        const dayBefore = new Date(Date.parse(dates.max) - 86_400_000).toISOString().slice(0, 10);
+        const [other] = await drizzleDb
+          .insert(schema.inventory_counts)
+          .values({
+            store_id: w.storeId, template_id: w.templateId, template_name: "10 kun", period: lastDayOf(dayBefore),
+            kind: "interim", count_date: dayBefore, status: "submitted", created_by: randomUUID(),
+          })
+          .returning({ id: schema.inventory_counts.id });
+        expect(other.id).not.toBe(a.body.id);
         const monthly = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
         expect(monthly.status).toBe(200);
         expect(monthly.body.existing).toBe(false);
