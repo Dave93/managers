@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@admin/components/ui/dialog";
-import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { periodLabel } from "@admin/lib/inventory/periods";
@@ -117,14 +116,10 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
           {kind === "interim" ? (
             <div className="space-y-1">
               <div className="text-sm font-medium">{t("kind.date")}</div>
-              <Input
-                type="date"
-                className="h-11"
-                value={countDate}
-                min={dates.data?.min}
-                max={dates.data?.max}
-                onChange={(e) => setCountDate(e.target.value)}
-              />
+              {/* Дата одна — вчера (решение 2 спеки, 19.10.2026): только показываем. */}
+              <div className="flex h-11 items-center rounded-md border px-3 text-sm tabular-nums">
+                {countDate ? countDate.split("-").reverse().join(".") : "…"}
+              </div>
               <div className="text-xs text-muted-foreground">{t("kind.dateHint")}</div>
             </div>
           ) : (
