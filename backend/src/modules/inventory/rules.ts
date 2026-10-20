@@ -80,19 +80,28 @@ export function lastDayOf(date: string): string {
   return lastDayOfMonth(y, m);
 }
 
-/** Даты промежуточного пересчёта (spec 2026-10-08, решение 2): только прошедший день,
- * с 1-го числа прошлого месяца по вчера (Ташкент); по умолчанию — вчера. */
+/** Дата промежуточного пересчёта (spec 2026-10-08, решение 2): только вчера по Ташкенту.
+ * Задним числом нельзя (19.10.2026): иначе в конце месяца филиал вводил бы пересчёт за 25-е
+ * и узнавал учётные остатки перед месячным (решение 10). */
 export function interimDates(now: Date): { min: string; max: string; default: string } {
   const { y, m, d } = tashkentParts(now);
   const yesterday = new Date(Date.UTC(y, m - 1, d) - 86_400_000).toISOString().slice(0, 10);
-  const p = prevMonth(y, m);
-  return { min: `${p.y}-${pad(p.m)}-01`, max: yesterday, default: yesterday };
+  return { min: yesterday, max: yesterday, default: yesterday };
 }
 
 export function isValidInterimDate(date: string, now: Date): boolean {
   if (!isValidDate(date)) return false;
   const { min, max } = interimDates(now);
   return date >= min && date <= max;
+}
+
+/** Последний день месяца, за который филиал видит «Сравнение с учётом» промежуточного (19.10.2026). */
+export const INTERIM_BRANCH_BOOK_LAST_DAY = 25;
+
+/** Промежуточный с датой после 25-го: книжное iiko филиалу не показываем, иначе перед месячным
+ * пересчётом он узнал бы учётные остатки и мог бы подправить свои (19.10.2026). Офис видит всегда. */
+export function interimBookHiddenForBranch(count: { kind: string; count_date: string }): boolean {
+  return count.kind === "interim" && Number(count.count_date.slice(8, 10)) > INTERIM_BRANCH_BOOK_LAST_DAY;
 }
 
 export const MAX_QTY = 1_000_000;

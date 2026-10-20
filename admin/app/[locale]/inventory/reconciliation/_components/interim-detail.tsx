@@ -63,7 +63,7 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
           ← {t("back")}
         </Link>
         <h1 className="text-xl font-semibold">{d.store_name}</h1>
-        <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">{ti("hiddenDetail")}</div>
+        <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">{ti(d.hidden_reason === "month_end" ? "hiddenMonthEndDetail" : "hiddenDetail")}</div>
       </div>
     );
   }

@@ -8,7 +8,7 @@ import { bookLoadingIds, enqueueBookFor } from "./queue";
 import { assertUuid, normalizeNumeric, userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
-import { isValidPeriod } from "../rules";
+import { interimBookHiddenForBranch, isValidPeriod } from "../rules";
 import type { InterimReconDetail, InterimReconLine, InterimReconRow } from "./types";
 
 const EPS = 0.00005;
@@ -71,10 +71,12 @@ type RawCount = {
   status: string; book_fetched_at: string | Date | null;
 };
 
-async function build(db: DbLike, counts: RawCount[], hiddenStores: Set<string> = new Set()): Promise<InterimReconDetail[]> {
+type HiddenReason = InterimReconDetail["hidden_reason"];
+
+async function build(db: DbLike, counts: RawCount[], hidden: Map<string, HiddenReason> = new Map()): Promise<InterimReconDetail[]> {
   if (!counts.length) return [];
-  // Скрытым складам строки не нужны: цифры iiko филиалу не показываем.
-  const visible = counts.filter((c) => !hiddenStores.has(c.store_id));
+  // Скрытым пересчётам строки не нужны: цифры iiko филиалу не показываем.
+  const visible = counts.filter((c) => !hidden.has(c.count_id));
   const ids = sql.join(visible.map((c) => sql`${c.count_id}::uuid`), sql`, `);
   const raw = visible.length ? ((await db.execute(LINES_SQL(ids))).rows as RawLine[]) : [];
   const names = await userNames(db, raw.map((r) => r.checked_by ?? ""));
@@ -97,7 +99,8 @@ async function build(db: DbLike, counts: RawCount[], hiddenStores: Set<string> =
       lines_counted: lines.length,
       mismatch_count: mism.length,
       checked_count: mism.filter((l) => l.checked).length,
-      hidden: hiddenStores.has(c.store_id),
+      hidden: hidden.has(c.count_id),
+      hidden_reason: hidden.get(c.count_id) ?? null,
       book_loading: loading.has(c.count_id),
       lines,
     };
@@ -111,11 +114,17 @@ const COUNTS_SQL = sql`
 
 const isOffice = (actor: Actor) => actor.perms.includes("inventory.reconcile");
 
-/** Склады, где филиалу цифры iiko сейчас скрыты (правило слепого пересчёта, spec 2026-10-08 §6). */
-async function hiddenFor(db: DbLike, actor: Actor, storeIds: string[]): Promise<Set<string>> {
-  const out = new Set<string>();
+/** Пересчёты, где филиалу цифры iiko скрыты: дата после 25-го (насовсем) или у склада идёт
+ * пересчёт (правило слепого пересчёта, spec 2026-10-08 §6). */
+async function hiddenFor(db: DbLike, actor: Actor, counts: RawCount[]): Promise<Map<string, HiddenReason>> {
+  const out = new Map<string, HiddenReason>();
   if (isOffice(actor)) return out;
-  for (const id of new Set(storeIds)) if (await storeHasChangeableCount(db, id)) out.add(id);
+  const changeable = new Set<string>();
+  for (const id of new Set(counts.map((c) => c.store_id))) if (await storeHasChangeableCount(db, id)) changeable.add(id);
+  for (const c of counts) {
+    if (interimBookHiddenForBranch({ kind: "interim", count_date: c.count_date })) out.set(c.count_id, "month_end");
+    else if (changeable.has(c.store_id)) out.set(c.count_id, "open_count");
+  }
   return out;
 }
 
@@ -130,7 +139,7 @@ export async function listInterimRecons(db: DbLike, actor: Actor, period: string
       where c.kind = 'interim' and c.period = ${period} and c.status <> 'cancelled'${mine}
       order by c.count_date desc, s.name`)
   ).rows as RawCount[];
-  const hidden = await hiddenFor(db, actor, counts.map((c) => c.store_id));
+  const hidden = await hiddenFor(db, actor, counts);
   return (await build(db, counts, hidden)).map(({ lines: _lines, ...row }) => row);
 }
 
@@ -141,7 +150,7 @@ export async function loadInterimRecon(db: DbLike, actor: Actor, countId: string
   if (!isOffice(actor) && (await storeAccess(db, actor, counts[0].store_id)) !== "write") {
     throw new InventoryError(403, "store_forbidden");
   }
-  const hidden = await hiddenFor(db, actor, [counts[0].store_id]);
+  const hidden = await hiddenFor(db, actor, counts);
   return (await build(db, counts, hidden))[0];
 }
 

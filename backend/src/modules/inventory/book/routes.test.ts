@@ -192,6 +192,26 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
       }
     });
 
+    it("промежуточный с датой после 25-го: филиалу — 403 насовсем, 25-е — видно; офису — всегда", async () => {
+      const w = await seed("interim");
+      try {
+        await setRule("office_only");
+        await w.submit();
+        const m = await manager(w);
+        const o = await office();
+        await drizzleDb.update(schema.inventory_counts).set({ count_date: "2026-10-26" }).where(eq(schema.inventory_counts.id, w.countId));
+        const hidden = await api(m, "GET", `/api/inventory/counts/${w.countId}/book`);
+        expect(hidden.status).toBe(403);
+        expect(hidden.body.error).toBe("book_hidden");
+        expect((await api(o, "GET", `/api/inventory/counts/${w.countId}/book`)).status).toBe(200);
+        await drizzleDb.update(schema.inventory_counts).set({ count_date: "2026-10-25" }).where(eq(schema.inventory_counts.id, w.countId));
+        expect((await api(m, "GET", `/api/inventory/counts/${w.countId}/book`)).status).toBe(200);
+      } finally {
+        await setRule(null);
+        await w.cleanup();
+      }
+    });
+
     it("снимка ещё нет — строк нет (а не нули)", async () => {
       const w = await seed();
       try {
@@ -475,6 +495,29 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, draft.id));
         await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, userId));
         await other.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("промежуточный с датой после 25-го: филиалу скрыт с причиной month_end, офис видит строки", async () => {
+      const w = await seedInterim();
+      const userId = randomUUID();
+      await drizzleDb.insert(schema.users_stores).values({ user_id: userId, corporation_store_id: w.store });
+      const m = await withSession({ permissions: ["inventory.count", "inventory.manage"], userId });
+      try {
+        await drizzleDb.update(schema.inventory_counts).set({ count_date: "2026-07-26" }).where(eq(schema.inventory_counts.id, w.countId));
+        const list = await api(m, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`);
+        expect(list.body[0]).toMatchObject({ hidden: true, hidden_reason: "month_end", lines_counted: 0 });
+        const d = await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+        expect(d.body).toMatchObject({ hidden: true, hidden_reason: "month_end", lines: [] });
+        const o = await api(await office(), "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+        expect(o.body).toMatchObject({ hidden: false, hidden_reason: null });
+        expect(o.body.lines.length).toBeGreaterThan(0);
+
+        await drizzleDb.update(schema.inventory_counts).set({ count_date: "2026-07-25" }).where(eq(schema.inventory_counts.id, w.countId));
+        expect((await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`)).body).toMatchObject({ hidden: false, hidden_reason: null });
+      } finally {
+        await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, userId));
         await w.cleanup();
       }
     });
