@@ -1,29 +1,29 @@
 "use client";
 import { Fragment, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
-import type { TurnoverLine, TurnoverStoreView } from "@backend/modules/inventory/turnover/types";
+import type { TurnoverStoreView } from "@backend/modules/inventory/turnover/types";
+import { fileName, turnoverStoreSheet } from "@admin/lib/inventory/excel";
 import { diffClass, formatDiff, formatQty } from "@admin/lib/inventory/money";
-import { cellOf, columnsFor, isSigned, type TurnoverMode } from "@admin/lib/inventory/turnover";
+import { formatDay, periodLabel } from "@admin/lib/inventory/periods";
+import { cellOf, columnsFor, isSigned, turnoverGroups, type TurnoverMode } from "@admin/lib/inventory/turnover";
+import { ExcelButton } from "../../_components/excel-button";
 
 export function StoreTable({ view }: { view: TurnoverStoreView }) {
   const t = useTranslations("inventory.turnover");
+  const locale = useLocale();
   const [search, setSearch] = useState("");
   const [mode, setMode] = useState<TurnoverMode>("qty");
   const cols = columnsFor(view.columns, view.with_sums ? mode : "qty");
   const m = view.with_sums ? mode : "qty";
-  const groups = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    const by = new Map<string, TurnoverLine[]>();
-    for (const l of view.lines) {
-      if (q && !l.name.toLowerCase().includes(q) && !(l.code ?? "").toLowerCase().includes(q)) continue;
-      // В этом режиме одни нули (например, менялась только сумма) — строку не показываем.
-      if (!Object.values((m === "sum" ? l.sum : l.qty) ?? {}).some((v) => Math.abs(Number(v)) > 0.00005)) continue;
-      by.set(l.group_name, [...(by.get(l.group_name) ?? []), l]);
-    }
-    return [...by.entries()];
-  }, [view.lines, search, m]);
+  const groups = useMemo(() => turnoverGroups(view.lines, m, search), [view.lines, search, m]);
+  // В Excel — вся таблица в текущем режиме, поиск не применяем.
+  const excel = () => {
+    const through = view.data_through ? t("through", { date: formatDay(view.data_through) }) : "";
+    const title = [view.store_name, periodLabel(view.period, locale), t(`mode.${m}`), through].filter(Boolean).join(" · ");
+    return { name: fileName([t("title"), view.store_name, view.period, t(`mode.${m}`)]), sheet: turnoverStoreSheet(view, m, t, title) };
+  };
   const span = 3 + cols.length;
   if (!view.lines.length) return <div className="text-muted-foreground">{t("empty")}</div>;
   return (
@@ -39,6 +39,7 @@ export function StoreTable({ view }: { view: TurnoverStoreView }) {
             ))}
           </div>
         )}
+        <ExcelButton label={t("excel")} file={excel} />
       </div>
       <div className="overflow-x-auto">
         <Table>

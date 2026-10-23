@@ -751,13 +751,16 @@
         "fetchedAt": "iiko hisobi yuklangan {at}",
         "onlyMismatch": "Faqat A ≠ iiko",
         "iikoCol": "iiko (kun oxiridagi hisob)",
+        "excel": "Excel’ga yuklab olish",
         "col": {
           "store": "Ombor",
           "date": "Sana",
           "template": "Shablon",
           "status": "Holat",
           "mismatch": "A ≠ iiko",
-          "checked": "Tekshirildi"
+          "checked": "Tekshirildi",
+          "code": "Kod",
+          "unit": "Birl."
         },
         "title": "Kunlar bo'yicha solishtirish",
         "hidden": "sanoq yopilgach ochiladi",
@@ -846,6 +849,7 @@
       },
       "inconsistent": "mos kelmaydi",
       "inconsistentCount": "mos kelmaydi: {n}",
+      "excel": "Excel’ga yuklab olish",
       "transferHint": "Kirim {in} · chiqim {out}",
       "total": "Jami",
       "empty": "Qoldiq va harakat yo‘q",

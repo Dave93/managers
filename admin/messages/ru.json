@@ -818,13 +818,16 @@
         "fetchedAt": "учёт iiko загружен {at}",
         "onlyMismatch": "Только A ≠ iiko",
         "iikoCol": "iiko (книжное на конец дня)",
+        "excel": "Скачать Excel",
         "col": {
           "store": "Склад",
           "date": "Дата",
           "template": "Шаблон",
           "status": "Статус",
           "mismatch": "A ≠ iiko",
-          "checked": "Проверено"
+          "checked": "Проверено",
+          "code": "Код",
+          "unit": "Ед."
         },
         "title": "Сверка по дням",
         "hidden": "откроется после закрытия пересчёта",
@@ -913,6 +916,7 @@
       },
       "inconsistent": "не сходится",
       "inconsistentCount": "не сходится: {n}",
+      "excel": "Скачать Excel",
       "transferHint": "Приход {in} · расход {out}",
       "total": "Итого",
       "empty": "Нет остатков и движения",
