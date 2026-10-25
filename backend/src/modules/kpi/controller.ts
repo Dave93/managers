@@ -16,12 +16,14 @@ import { reviewsRoutes } from "./routes/reviews";
 import { sanitaryRoutes } from "./routes/sanitary";
 import { settingsRoutes } from "./routes/settings";
 import { telegramRoutes } from "./routes/telegram";
+import { terminalsRoutes } from "./routes/terminals";
 import { violationsRoutes } from "./routes/violations";
 
 const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(ctx)
   .guard({ detail: { hide: true } })
   .use(meRoutes)
+  .use(terminalsRoutes)
   .use(settingsRoutes)
   .use(periodsRoutes)
   .use(cardsRoutes)

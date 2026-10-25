@@ -24,6 +24,7 @@ import type {
   DisputeRow,
   EmployeeRow,
   KpiInvite,
+  KpiTerminal,
   KpiUserOption,
   MeResponse,
   PeriodSummary,
@@ -82,7 +83,7 @@ export type {
   ViolationRow,
 } from "@backend/modules/kpi/types";
 export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
-export type { KpiUserOption } from "@backend/modules/kpi/types";
+export type { KpiTerminal, KpiUserOption } from "@backend/modules/kpi/types";
 export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
 export type { SanitaryTemplate } from "@backend/modules/kpi/types";
 
@@ -150,6 +151,7 @@ function q(obj: Record<string, string | number | boolean | null | undefined>): {
 export function createKpiApi(kpi: any) {
   return {
     me: () => call<MeResponse>(kpi.me.get()),
+    terminals: () => call<KpiTerminal[]>(kpi.terminals.get()),
     settings: {
       get: () => call<KpiSettings>(kpi.settings.get()),
       save: (patch: Partial<KpiSettings>) => call<KpiSettings>(kpi.settings.put(patch)),

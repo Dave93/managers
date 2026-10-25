@@ -28,6 +28,12 @@ export interface KpiUserOption {
   login: string;
 }
 
+// Филиал в списке выбора экранов KPI.
+export interface KpiTerminal {
+  id: string;
+  name: string;
+}
+
 export interface MeResponse {
   user_id: string;
   perms: KpiPerm[];

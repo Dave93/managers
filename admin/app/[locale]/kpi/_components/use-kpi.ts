@@ -77,17 +77,16 @@ export function useKpiMe(opts?: { refetchOnWindowFocus?: boolean }): UseQueryRes
   });
 }
 
-export function useKpiTerminals(): UseQueryResult<Option[], Error> {
-  return useQuery<Option[], Error>({
+export function useKpiTerminals(): UseQueryResult<Option[], KpiApiError> {
+  return useQuery<Option[], KpiApiError>({
     queryKey: qk.terminals,
     queryFn: async () => {
-      const res: any = await apiClient.api.terminals.cached.get();
-      const rows = (res?.data?.data ?? res?.data ?? []) as any[];
+      const rows = await kpiApi.terminals();
       return rows
         .map((t) => ({ id: String(t.id), name: String(t.name ?? t.id) }))
         .sort((a, b) => a.name.localeCompare(b.name, "ru"));
     },
-    retry: false,
+    retry: shouldRetry,
     staleTime: 10 * 60 * 1000,
   });
 }
