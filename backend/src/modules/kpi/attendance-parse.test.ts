@@ -53,6 +53,49 @@ describe("файл", () => {
       expect((e as KpiError).code).toBe("bad_file");
     }
   });
+  // Писатель SheetJS обходит каждую ячейку диапазона, поэтому заявленный диапазон
+  // отдаём только в тег dimension (третье чтение !ref в write_ws_xml), данные пишутся по A1:B2
+  const declared = (ref: string) => {
+    const ws = XLSX.utils.aoa_to_sheet([["a", "b"], ["c", "d"]]);
+    let reads = 0;
+    Object.defineProperty(ws, "!ref", { get: () => (++reads === 3 ? ref : "A1:B2"), enumerable: true, configurable: true });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Лист1");
+    return xlsx(wb);
+  };
+  const tooLarge = (bytes: Uint8Array) => {
+    const t0 = performance.now();
+    const e = caught(() => A.readGrids(bytes, "xlsx"));
+    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(e).toBeInstanceOf(KpiError);
+    expect((e as KpiError).code).toBe("sheet_too_large");
+    expect((e as KpiError).extra).toEqual({ max_rows: A.MAX_ROWS, max_cols: A.MAX_COLS });
+  };
+  it("лист шире 100 столбцов — sheet_too_large быстро", () => {
+    tooLarge(declared("A1:XFD1000"));
+    tooLarge(declared("A1:CW5"));
+  });
+  it("лист длиннее 50000 строк — sheet_too_large быстро", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(Array.from({ length: A.MAX_ROWS + 1 }, (_, i) => [i])), "Лист1");
+    tooLarge(xlsx(wb));
+  });
+  it("заявленный диапазон A1:XFD1048576 не раздувает сетку: читаются только реальные ячейки", () => {
+    const t0 = performance.now();
+    const g = A.readGrids(declared("A1:XFD1048576"), "xlsx");
+    expect(performance.now() - t0).toBeLessThan(2000);
+    expect(g[0].raw).toEqual([["a", "b"], ["c", "d"]]);
+  });
+  it("лист ровно на пределе столбцов читается", () => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([Array.from({ length: A.MAX_COLS }, (_, i) => `c${i}`)]), "Лист1");
+    expect(A.readGrids(xlsx(wb), "xlsx")[0].raw[0]).toHaveLength(A.MAX_COLS);
+  });
+  it("HTML под видом xls с BOM и пробелами читается", () => {
+    const html = new TextEncoder().encode("<table><tr><td>Табель</td><td>Дата</td></tr></table>");
+    const withBom = Uint8Array.from([0xef, 0xbb, 0xbf, 0x0d, 0x0a, 0x20, ...html]);
+    expect(A.readGrids(withBom, "xls")[0].raw).toEqual([["Табель", "Дата"]]);
+  });
   it("csv: cp1251, точка с запятой, дата остаётся строкой", () => {
     const g = A.readGrids(cp1251("Табель;Дата;Приход\nT-1;01.09.2025;9:05\n"), "csv");
     expect(g[0].raw).toEqual([["Табель", "Дата", "Приход"], ["T-1", "01.09.2025", "9:05"]]);
@@ -110,7 +153,9 @@ describe("ячейки", () => {
     expect(A.parseLate("0:15")).toBe(15);
     expect(A.parseLate("01:02:30")).toBe(62);
     expect(A.parseLate(15 / 1440)).toBe(15);
-    for (const bad of [-1, 2.5, "-3", "15 мин", true]) expect(A.parseLate(bad as A.Cell)).toBe("bad");
+    expect(A.parseLate(1440)).toBe(1440);
+    expect(A.parseLate("24:00")).toBe(1440);
+    for (const bad of [-1, 2.5, "-3", "15 мин", true, 1441, "1441", "24:01"]) expect(A.parseLate(bad as A.Cell)).toBe("bad");
   });
   it("parseAbsent", () => {
     for (const yes of [1, "1", "да", "ДА", " Yes ", "true", "+", "Прогул", true]) expect(A.parseAbsent(yes as A.Cell)).toBe(true);

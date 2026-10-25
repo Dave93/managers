@@ -7,6 +7,9 @@ import type { AttendanceMapping, AttendanceSheetPreview, UnmatchedRow } from "./
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const PREVIEW_ROWS = 20;
+// Пределы листа: заявленный в файле диапазон без них может съесть всю память
+export const MAX_ROWS = 50000;
+export const MAX_COLS = 100;
 const HEADER_SCAN_ROWS = 20;
 const TASHKENT_OFFSET_SEC = 5 * 3600;
 const DAY_SEC = 24 * 3600;
@@ -27,6 +30,16 @@ export function fileKind(fileName: string): FileKind | null {
 
 const badFile = () => new KpiError(422, "bad_file");
 
+// Индекс первого значимого байта: после BOM и пробелов
+function htmlStart(b: Uint8Array): number {
+  let i = startsWith(b, [0xef, 0xbb, 0xbf]) ? 3 : 0;
+  while (i < b.length && (b[i] === 0x20 || b[i] === 0x09 || b[i] === 0x0a || b[i] === 0x0d)) i++;
+  return i;
+}
+
+// HTML-таблица под видом xls: перед "<" могут идти BOM и пробелы
+const looksLikeHtml = (b: Uint8Array) => b[htmlStart(b)] === 0x3c;
+
 const startsWith = (b: Uint8Array, sig: number[]) => b.length >= sig.length && sig.every((x, i) => b[i] === x);
 
 function decodeCsv(bytes: Uint8Array): string {
@@ -44,14 +57,16 @@ export function readGrids(bytes: Uint8Array, kind: FileKind): Grid[] {
   try {
     if (kind === "csv") {
       if (bytes.length === 0) return [];
-      wb = XLSX.read(decodeCsv(bytes), { type: "string", raw: true });
+      wb = XLSX.read(decodeCsv(bytes), { type: "string", raw: true, sheetRows: MAX_ROWS + 1 });
     } else {
       const ok =
         kind === "xlsx"
           ? startsWith(bytes, [0x50, 0x4b, 0x03, 0x04])
-          : startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0]) || startsWith(bytes, [0x3c]);
+          : startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0]) || looksLikeHtml(bytes);
       if (!ok) throw badFile();
-      wb = XLSX.read(bytes, { type: "array", raw: true, cellDates: false });
+      // SheetJS узнаёт HTML только по первому символу: BOM и пробелы срезаем сами
+      const body = kind === "xls" && !startsWith(bytes, [0xd0, 0xcf, 0x11, 0xe0]) ? bytes.subarray(htmlStart(bytes)) : bytes;
+      wb = XLSX.read(body, { type: "array", raw: true, cellDates: false, sheetRows: MAX_ROWS + 1 });
     }
   } catch (e) {
     if (e instanceof KpiError) throw e;
@@ -63,7 +78,9 @@ export function readGrids(bytes: Uint8Array, kind: FileKind): Grid[] {
     const ws = wb.Sheets[name];
     if (!ws || !ws["!ref"]) continue;
     // Диапазон всегда от A1, чтобы номера строк и колонок совпадали с Excel
-    const range = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: XLSX.utils.decode_range(ws["!ref"]).e });
+    const e = XLSX.utils.decode_range(ws["!ref"]).e;
+    if (e.r + 1 > MAX_ROWS || e.c + 1 > MAX_COLS) throw new KpiError(422, "sheet_too_large", { max_rows: MAX_ROWS, max_cols: MAX_COLS });
+    const range = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e });
     const raw = XLSX.utils.sheet_to_json<Cell[]>(ws, { header: 1, raw: true, defval: null, blankrows: true, range });
     const text = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "", blankrows: true, range });
     if (text.every((r) => r.every((c) => String(c).trim() === ""))) continue;
@@ -169,7 +186,14 @@ export function parseTime(v: Cell, day: string): string | null | "bad" {
   return p && p.time ? isoAt(p.date, p.time.H * 3600 + p.time.M * 60 + p.time.S) : "bad";
 }
 
+const MAX_LATE = 1440; // сутки; колонка int4, больше — это не опоздание
+
 export function parseLate(v: Cell): number | "bad" {
+  const n = lateRaw(v);
+  return n !== "bad" && n > MAX_LATE ? "bad" : n;
+}
+
+function lateRaw(v: Cell): number | "bad" {
   if (isBlank(v)) return 0;
   if (typeof v === "number") {
     if (!Number.isFinite(v) || v < 0) return "bad";
