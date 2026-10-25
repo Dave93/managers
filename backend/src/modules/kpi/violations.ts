@@ -29,7 +29,7 @@ type VRow = typeof kpi_violations.$inferSelect;
 
 const FUTURE_SLACK_MS = 5 * 60 * 1000;
 // Дата и время с явным смещением: Z или ±hh:mm. Без смещения время читалось бы в поясе сервера.
-const OCCURRED_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/i;
+export const OCCURRED_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/i;
 
 const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
   (db as DrizzleDB).transaction((tx) => fn(tx));

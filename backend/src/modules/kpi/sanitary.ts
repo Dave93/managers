@@ -4,14 +4,15 @@ import { kpi_sanitary_checks, terminals } from "backend/drizzle/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { has, loadScopes, parsePeriod, viewsTerminal, type Actor, type DbLike } from "./access";
 import { coversTerminal, parseSanitaryItems, sanitaryPct } from "./branch-rules";
-import { loadBranchSettings } from "./branch-settings";
 import { now } from "./clock";
 import { terminalNames, userNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
 import { lockPeriodShared } from "./periods";
-import { isPeriod, periodOf, type Period } from "./time";
+import { loadBranchSettings } from "./branch-settings";
+import { OCCURRED_RE } from "./violations";
+import { addMonths, dayStart, isPeriod, periodOf, type Period } from "./time";
 import type { SanitaryCheckRow, SanitaryItem, SanitaryTemplate } from "./types";
 
 const FUTURE_SLACK_MS = 5 * 60 * 1000;
@@ -47,13 +48,26 @@ export async function createCheck(db: DrizzleDB, actor: Actor, body: Record<stri
 
   const items = parseSanitaryItems(body.items);
   if (!items) throw new KpiError(422, "bad_items");
+  // Пункты ровно по текущему шаблону: каждый один раз, чужих нет
+  const template = (await loadBranchSettings(db)).sanitary_items.map((s) => s.trim());
+  const titles = items.map((i) => i.title);
+  if (titles.length !== template.length || new Set(titles).size !== titles.length || !template.every((x) => titles.includes(x))) {
+    throw new KpiError(422, "bad_items");
+  }
 
   const nowTs = now();
   let checkedAt = nowTs;
   if (body.checked_at !== undefined && body.checked_at !== null) {
-    checkedAt = typeof body.checked_at === "string" ? new Date(body.checked_at) : new Date(Number.NaN);
-    // Не разобралось, из будущего (запас 5 минут на часы телефона) или месяц вне YYYY-MM
-    if (Number.isNaN(checkedAt.getTime()) || checkedAt.getTime() > nowTs.getTime() + FUTURE_SLACK_MS || !isPeriod(periodOf(checkedAt))) {
+    // Как у нарушений: явное смещение (Z или ±hh:mm), не из будущего (запас 5 минут), не раньше прошлого месяца
+    const raw = body.checked_at;
+    checkedAt = typeof raw === "string" && OCCURRED_RE.test(raw) ? new Date(raw) : new Date(Number.NaN);
+    const earliest = dayStart(addMonths(periodOf(nowTs), -1), 1);
+    if (
+      Number.isNaN(checkedAt.getTime()) ||
+      checkedAt.getTime() > nowTs.getTime() + FUTURE_SLACK_MS ||
+      checkedAt.getTime() < earliest.getTime() ||
+      !isPeriod(periodOf(checkedAt))
+    ) {
       throw new KpiError(422, "bad_checked_at");
     }
   }

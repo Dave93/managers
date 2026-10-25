@@ -85,11 +85,42 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await post(hr, { terminal_id: t.id, items: items(), comment: "x".repeat(1001) })).body).toEqual({ error: "comment_too_long" });
     });
 
+    it("checked_at: явное смещение и окно не раньше прошлого месяца", async () => {
+      const t = await makeTerminal(db);
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      const bad = { error: "bad_checked_at" };
+      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-11-01T10:00:00" })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-11-01" })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-09-30T23:59:59+05:00" })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2020-01-01T00:00:00Z" })).body).toEqual(bad);
+      const edge = await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-10-01T00:00:00+05:00" });
+      expect(edge.status).toBe(200);
+      expect(edge.body.period).toBe("2026-10-01");
+      await db.delete(kpi_sanitary_checks).where(eq(kpi_sanitary_checks.terminal_id, t.id));
+    });
+
+    it("пункты ровно по шаблону: пропуск, чужой пункт, повтор — bad_items; новый шаблон действует", async () => {
+      const t = await makeTerminal(db);
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      const bad = { error: "bad_items" };
+      expect((await post(hr, { terminal_id: t.id, items: items().slice(1) })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: [...items(), { title: "Чужой", ok: true }] })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: [...items().slice(1), { title: "Чистота", ok: true }, { title: "Чистота", ok: false }] })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: items().map((i, k) => (k === 0 ? { ...i, title: " Чистота " } : i)) })).status).toBe(200);
+      await api(hr, "PUT", "/api/kpi/branch-indicators", { settings: { sanitary_items: ["Двери", "Окна"] } });
+      expect((await post(hr, { terminal_id: t.id, items: items() })).body).toEqual(bad);
+      expect((await post(hr, { terminal_id: t.id, items: [{ title: "Окна", ok: true }, { title: "Двери", ok: false }] })).body.pct).toBe(50);
+      await db.delete(kpi_sanitary_checks).where(eq(kpi_sanitary_checks.terminal_id, t.id));
+      await api(hr, "PUT", "/api/kpi/branch-indicators", { settings: { sanitary_items: ITEMS } });
+    });
+
     it("закрытый месяц — 409 period_closed", async () => {
       const t = await makeTerminal(db);
       const hr = await withSession({ permissions: ["kpi.manage"] });
-      await db.insert(kpi_periods).values({ period: "2026-09-01", status: "closed" });
-      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-09-15T10:00:00+05:00" })).body).toEqual({ error: "period_closed" });
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, "2026-10-01")); // строку open заводят прошлые записи
+      await db.insert(kpi_periods).values({ period: "2026-10-01", status: "closed" });
+      expect((await post(hr, { terminal_id: t.id, items: items(), checked_at: "2026-10-15T10:00:00+05:00" })).body).toEqual({ error: "period_closed" });
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, "2026-10-01")); // дальше тесты пишут в октябрь
       expect(await db.select().from(kpi_sanitary_checks).where(eq(kpi_sanitary_checks.terminal_id, t.id))).toEqual([]);
     });
 

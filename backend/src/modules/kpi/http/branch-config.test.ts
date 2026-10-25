@@ -69,6 +69,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await put(hr, { settings: { sanitary_items: [] } })).body).toEqual({ error: "bad_sanitary_items" });
     });
 
+    it("запись атомарна: верные показатели и неверная настройка — 422, показатели не меняются", async () => {
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      const before = (await api(hr, "GET", "/api/kpi/branch-indicators")).body;
+      const ind = seedInput().map((i) => (i.code === "sales" ? { ...i, weight: 40 } : i.code === "discipline" ? { ...i, weight: 5 } : i));
+      const r = await put(hr, { indicators: ind, settings: { service_norm_hall_min: 0 } });
+      expect(r.status).toBe(422);
+      expect(r.body).toEqual({ error: "bad_value" });
+      expect((await api(hr, "GET", "/api/kpi/branch-indicators")).body).toEqual(before);
+    });
+
     it("запись: веса, нормативы и шаблон сохраняются; общие настройки KPI их не видят", async () => {
       const hr = await withSession({ permissions: ["kpi.manage"] });
       const ind = seedInput().map((i) => (i.code === "sanitary" ? { ...i, active: false } : i.code === "sales" ? { ...i, weight: 45 } : i));
