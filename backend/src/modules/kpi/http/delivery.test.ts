@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles } = await import("../../../../tests/helpers/http");
   const { bindTelegram, cleanupKpi, fakeBotApi, makeEmployee, makeUser, setNow, setup } = await import("./fixtures");
-  const { employees, kpi_notifications, kpi_periods } = await import("backend/drizzle/schema");
+  const { employees, kpi_notifications, kpi_periods, kpi_tg_bindings } = await import("backend/drizzle/schema");
   const { users } = await import("backend/drizzle/schema");
   const { enqueue } = await import("../notify");
   const { deliverOne, pendingIds, stuckSendingCount, sweepPending } = await import("../worker/deliver");
@@ -107,7 +107,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
     it("постоянная ошибка — failed; временная — pending, на последней попытке — failed", async () => {
       const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
-      const blocked = { ok: false as const, permanent: true, error: "Forbidden: bot was blocked by the user" };
+      // Не «человек ушёл»: привязка остаётся, следующие строки идут по обычному пути.
+      const blocked = { ok: false as const, permanent: true, error: "Bad Request: have no rights to send a message" };
       const temp = { ok: false as const, permanent: false, error: "Bad Gateway" };
       const a = await note({ employee_id: e.id });
       expect(await go(a, fakeBotApi([blocked]).api)).toEqual({ result: "failed", error: blocked.error });
@@ -116,6 +117,34 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await row(b)).status).toBe("pending");
       expect(await go(b, fakeBotApi([temp]).api, true)).toEqual({ result: "failed", error: "Bad Gateway" });
       expect([(await row(b)).status, (await row(b)).attempts]).toEqual(["failed", 2]);
+    });
+
+    it("бот заблокирован или аккаунт удалён — failed и привязка гасится; дальше no_binding", async () => {
+      for (const error of ["Forbidden: bot was blocked by the user", "Forbidden: user is deactivated", "Bad Request: chat not found"]) {
+        const e = await makeEmployee(db);
+        const b = await bindTelegram(db, { employee_id: e.id });
+        const other = await bindTelegram(db, { employee_id: (await makeEmployee(db)).id });
+        const id = await note({ employee_id: e.id });
+        expect(await go(id, fakeBotApi([{ ok: false, permanent: true, error }]).api)).toEqual({ result: "failed", error });
+        const r = await row(id);
+        expect([r.status, r.last_error]).toEqual(["failed", error]);
+        const [bind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, b.id));
+        expect(bind.active).toBe(false);
+        const [otherBind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, other.id));
+        expect(otherBind.active).toBe(true);
+        const f = fakeBotApi();
+        expect(await go(await note({ employee_id: e.id }), f.api)).toEqual({ result: "skipped", reason: "no_binding" });
+        expect(f.sent).toHaveLength(0);
+      }
+    });
+
+    it("постоянная ошибка не про пользователя (нет прав) привязку не гасит", async () => {
+      const e = await makeEmployee(db);
+      const b = await bindTelegram(db, { employee_id: e.id });
+      const error = "Forbidden: bot was kicked from the group chat";
+      await go(await note({ employee_id: e.id }), fakeBotApi([{ ok: false, permanent: true, error }]).api);
+      const [bind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, b.id));
+      expect(bind.active).toBe(true);
     });
 
     it("неизвестный kind — failed unknown_kind", async () => {

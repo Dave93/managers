@@ -9,7 +9,7 @@ import { KPI_DELIVER_JOB, deliverJobOptions } from "../queue";
 import { loadSettings } from "../settings";
 import { disputeDeadline, isPeriod } from "../time";
 import type { BotApi } from "../tg/bot-api";
-import { recipientOf } from "../tg/bindings";
+import { deactivateByTelegramId, inTx, recipientOf } from "../tg/bindings";
 import { DISPUTABLE_KINDS, UnknownKindError, buildMessage, type OutMessage } from "../tg/messages";
 
 export type DeliverOutcome =
@@ -20,6 +20,9 @@ export type DeliverOutcome =
   | { result: "retry"; error: string; retryAfterMs?: number };
 
 type Row = typeof kpi_notifications.$inferSelect;
+
+// Постоянные ответы Telegram, после которых писать этому чату бессмысленно.
+const USER_GONE_RE = /bot was blocked by the user|user is deactivated|chat not found/i;
 
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -124,7 +127,16 @@ export async function deliverOne(
     return { result: "sent" };
   }
   if (res.permanent) {
-    await settle(db, id, "failed", { last_error: res.error });
+    if (USER_GONE_RE.test(res.error)) {
+      // Человек заблокировал бота или удалил аккаунт: привязку гасим в том же шаге, что и итог строки.
+      // Админка тогда покажет «Не привязан», а новые уведомления получат no_binding вместо новой попытки.
+      await inTx(db, async (tx) => {
+        await deactivateByTelegramId(tx, chat.chat_id);
+        await settle(tx, id, "failed", { last_error: res.error });
+      });
+    } else {
+      await settle(db, id, "failed", { last_error: res.error });
+    }
     return { result: "failed", error: res.error };
   }
   if (res.retryAfterMs !== undefined) {
