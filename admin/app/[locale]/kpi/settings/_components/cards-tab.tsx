@@ -5,6 +5,7 @@ import { Button } from "@admin/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { kpiApi, type Card, type CardItem } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { ITEM_SOURCE_OPTIONS } from "@admin/lib/kpi/settings";
 import { SOURCE_LABEL } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
@@ -100,7 +101,7 @@ export function CardsTab() {
                         </TableCell>
                         <TableCell>
                           {SOURCE_LABEL[item.source]}
-                          {item.source !== "manual" && <span className="text-muted-foreground"> (пока вручную)</span>}
+                          {!ITEM_SOURCE_OPTIONS.find((o) => o.value === item.source)?.ready && <span className="text-muted-foreground"> (пока вручную)</span>}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{item.weight}</TableCell>
                         <TableCell>{item.group_key === "base" ? "Основной" : "Дополнительный"}</TableCell>

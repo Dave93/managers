@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
@@ -11,7 +12,14 @@ import { Textarea } from "@admin/components/ui/textarea";
 import { kpiApi, type Card, type EmployeeRow, type EmployeesQuery } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL, employeeName } from "@admin/lib/kpi/filters";
-import { assignBody, assignValue, cardAssignLabel, type AssignValue } from "@admin/lib/kpi/settings";
+import {
+  assignBody,
+  assignValue,
+  cardAssignLabel,
+  externalIdIssue,
+  externalIdValue,
+  type AssignValue,
+} from "@admin/lib/kpi/settings";
 import { qk, useKpiMe, useKpiTerminals } from "../../_components/use-kpi";
 
 const MIN_SEARCH = 2;
@@ -23,6 +31,8 @@ export function EmployeesTab() {
   const [search, setSearch] = useState("");
   const [terminal, setTerminal] = useState(ALL);
   const [target, setTarget] = useState<EmployeeRow | null>(null);
+  // Табельный номер правится в одной строке за раз.
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchText.trim()), 300);
@@ -52,6 +62,9 @@ export function EmployeesTab() {
 
   return (
     <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        Табельный номер нужен для загрузки Workly: строки файла сопоставляются с сотрудниками по нему
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <Input
           aria-label="Поиск сотрудника"
@@ -98,7 +111,7 @@ export function EmployeesTab() {
                 <TableHead>Филиал</TableHead>
                 <TableHead>Должность</TableHead>
                 <TableHead>Карта</TableHead>
-                <TableHead>Табельный номер (правка — с загрузкой Workly)</TableHead>
+                <TableHead>Табельный номер</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -109,7 +122,14 @@ export function EmployeesTab() {
                   <TableCell>{r.terminal_name ?? "—"}</TableCell>
                   <TableCell>{r.staff_role_name ?? "—"}</TableCell>
                   <TableCell>{cardAssignLabel(r)}</TableCell>
-                  <TableCell>{r.external_id ?? "—"}</TableCell>
+                  <TableCell>
+                    <ExternalIdCell
+                      row={r}
+                      editing={editingId === r.id}
+                      onEdit={() => setEditingId(r.id)}
+                      onClose={() => setEditingId((id) => (id === r.id ? null : id))}
+                    />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" onClick={() => setTarget(r)}>
                       Карта…
@@ -123,6 +143,91 @@ export function EmployeesTab() {
       )}
 
       <AssignDialog row={target} onClose={() => setTarget(null)} />
+    </div>
+  );
+}
+
+function ExternalIdCell({
+  row,
+  editing,
+  onEdit,
+  onClose,
+}: {
+  row: EmployeeRow;
+  editing: boolean;
+  onEdit: () => void;
+  onClose: () => void;
+}) {
+  const qc = useQueryClient();
+  const [text, setText] = useState(row.external_id ?? "");
+  const issue = externalIdIssue(text);
+
+  const save = useMutation({
+    mutationFn: (value: string | null) => kpiApi.employees.setExternalId(row.id, value),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.employeesAll });
+      toast.success("Табельный номер сохранён");
+      onClose();
+    },
+    onError: (e) => toast.error(kpiErrorText(e)),
+  });
+
+  if (!editing) {
+    return (
+      <span className="inline-flex items-center gap-1">
+        <span>{row.external_id ?? "—"}</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="size-11"
+          aria-label="Изменить табельный номер"
+          onClick={() => {
+            setText(row.external_id ?? "");
+            onEdit();
+          }}
+        >
+          <Pencil className="size-4" />
+        </Button>
+      </span>
+    );
+  }
+
+  const submit = () => {
+    if (save.isPending || issue) return;
+    const value = externalIdValue(text);
+    if (value === row.external_id) return onClose();
+    save.mutate(value);
+  };
+
+  return (
+    <div className="min-w-48 space-y-1">
+      <Input
+        autoFocus
+        maxLength={100}
+        aria-label="Табельный номер"
+        className="h-11"
+        value={text}
+        disabled={save.isPending}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            submit();
+          } else if (e.key === "Escape" && !save.isPending) {
+            onClose();
+          }
+        }}
+      />
+      {issue && <p className="text-xs text-destructive">{issue}</p>}
+      <div className="flex gap-2">
+        <Button type="button" className="h-11" disabled={save.isPending || issue !== null} onClick={submit}>
+          Сохранить
+        </Button>
+        <Button type="button" variant="outline" className="h-11" disabled={save.isPending} onClick={onClose}>
+          Отмена
+        </Button>
+      </div>
     </div>
   );
 }

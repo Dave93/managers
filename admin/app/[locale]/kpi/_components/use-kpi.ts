@@ -41,6 +41,8 @@ export const qk = {
   settings: ["kpi_settings"] as const,
   evaluators: ["kpi_evaluators"] as const,
   users: (search: string) => ["kpi_users", search] as const,
+  attendanceImports: (period: string) => ["kpi_attendance_imports", period] as const,
+  attendanceImportsAll: ["kpi_attendance_imports"] as const,
 };
 
 /** Права текущего пользователя. Тот же ключ и queryFn, что у useMyPermissions: один кэш. */

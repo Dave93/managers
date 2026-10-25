@@ -139,6 +139,7 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
         { title: KPI_SCREEN_TITLE.disputes, href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
         { title: KPI_SCREEN_TITLE.month, href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
         { title: KPI_SCREEN_TITLE.raises, href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
+        { title: KPI_SCREEN_TITLE.attendance, href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
         { title: KPI_SCREEN_TITLE.settings, href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },
       ],
     },
