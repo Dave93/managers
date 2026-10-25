@@ -163,7 +163,8 @@ export async function redeemInvite(db: DbLike, token: string, telegramId: number
           .select({ id: kpi_tg_bindings.id })
           .from(kpi_tg_bindings)
           .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true), samePerson(kpi_tg_bindings, person)));
-        return mine ? { status: "already", name: await personName(tx, person) } : INVALID;
+        // Привязка и «уже» только пока человек активен: бот ему всё равно не ответит (см. bindingOf).
+        return mine && (await personActive(tx, person)) ? { status: "already", name: await personName(tx, person) } : INVALID;
       }
       const at = now();
       if (new Date(iso(inv.expires_at)).getTime() <= at.getTime()) return INVALID;

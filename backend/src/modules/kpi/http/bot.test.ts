@@ -13,7 +13,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { callApi, sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, bindTelegram, cleanupKpi, fakeBotApi, makeEmployee, makeScope, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
-  const { kpi_disputes, kpi_notifications, kpi_reviews, kpi_tg_bindings, kpi_violations } = await import("backend/drizzle/schema");
+  const { employees, kpi_disputes, kpi_notifications, kpi_reviews, kpi_tg_bindings, kpi_violations } = await import("backend/drizzle/schema");
   const { getKpiQueue } = await import("../queue");
   const { setTestBotApi } = await import("../tg/bot-api");
   const { LANG_KEYBOARD } = await import("../tg/messages");
@@ -107,8 +107,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await hook(say(tg, `/start kpi_${inv.token}`))).status).toBe(200);
       expect(last().text).toContain("Готово!");
       expect(last().reply_markup).toEqual(LANG_KEYBOARD);
+      const [emp] = await db.select().from(employees).where(eq(employees.id, e.id));
+      expect(last().text).toContain(`Вы подключены как <b>Тест Повар ${emp.last_name}</b>. Если это не вы — сообщите HR.`);
       await hook(say(tg, `/start kpi_${inv.token}`));
       expect(last().text).toContain("Готово!");
+      expect(last().text).toContain(`<b>Тест Повар ${emp.last_name}</b>`);
       const rows = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, tg));
       expect(rows.map((r) => [r.employee_id, r.active, r.lang])).toEqual([[e.id, true, "ru"]]);
       await hook(say(newTelegramId(), `/start kpi_${inv.token}`));
@@ -217,6 +220,39 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await hook(say(b.telegram_id, "Всё ещё не согласен"));
       expect(last().text).toBe("Спор по этой записи уже открыт.");
       expect(await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, reviewId))).toHaveLength(1);
+    });
+
+    it("/start: имя в ответе экранируется как HTML", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const e = await makeEmployee(db, { first_name: "Тест <b>&Повар" });
+      const hr = await makeUser(db);
+      const inv = await createInvite(db, hr.id, { employee_id: e.id });
+      const [emp] = await db.select().from(employees).where(eq(employees.id, e.id));
+      await hook(say(newTelegramId(), `/start kpi_${inv.token}`));
+      expect(last().text).toContain(`<b>Тест &lt;b&gt;&amp;Повар ${emp.last_name}</b>`);
+      expect(last().text).not.toContain("<b>Тест <b>");
+    });
+
+    it("уволенный сотрудник: /my и язык — «не подключён», причина спора не создаёт запись", async () => {
+      const { reviewId, employee } = await submittedReview();
+      const b = await bindTelegram(db, { employee_id: employee.id });
+      setNow("2025-11-05T10:00:00+05:00");
+      await hook(say(b.telegram_id, "/my"));
+      expect(last().text).not.toContain("Этот чат не подключён");
+      await hook(press(b.telegram_id, `dispute:review:${reviewId}`));
+      expect(last().text).toContain("Напишите причину спора");
+      expect(await redis.get(disputeStateKey(b.telegram_id))).not.toBeNull();
+      await db.update(employees).set({ active: false }).where(eq(employees.id, employee.id));
+      await hook(say(b.telegram_id, "Не согласен с баллом за чистоту"));
+      expect(last().text).toBe("Эту запись оспорить нельзя.");
+      expect(await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, reviewId))).toHaveLength(0);
+      expect(await redis.get(disputeStateKey(b.telegram_id))).toBeNull();
+      await hook(say(b.telegram_id, "/my"));
+      expect(last().text).toContain("Этот чат не подключён");
+      await hook(press(b.telegram_id, "lang:uz"));
+      expect(last().text).toContain("Этот чат не подключён");
+      const [row] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, b.id));
+      expect(row.lang).toBe("ru");
     });
 
     it("чужая оценка и смена привязки между кнопкой и причиной — «нельзя оспорить»", async () => {

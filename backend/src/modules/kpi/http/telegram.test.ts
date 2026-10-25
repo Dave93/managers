@@ -162,6 +162,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const t2 = newTelegramId();
       expect(await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, t2)).toEqual({ status: "bound", name: "Тест Оценщик" });
       expect(await redeemInvite(db, "not-a-token", t2)).toEqual({ status: "invalid", name: null });
+      // Человека уволили после привязки: повтор той же ссылки уже не «уже подключены».
+      await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "invalid", name: null });
     });
 
     it("bindingOf и setLang не отдают привязку уволенного сотрудника и заблокированного пользователя", async () => {
