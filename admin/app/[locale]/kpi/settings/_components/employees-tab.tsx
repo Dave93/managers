@@ -75,10 +75,6 @@ export function EmployeesTab() {
         </Select>
       </div>
 
-      <p className="text-sm text-muted-foreground">
-        Если сотрудника без карты нет в списке, сервер ещё не отдаёт таких сотрудников (include_uncarded)
-      </p>
-
       {me.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {kpiErrorText(me.error)}
