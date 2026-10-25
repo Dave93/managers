@@ -3,7 +3,7 @@ import { kpi_card_items, kpi_cards, kpi_review_events, kpi_review_items, kpi_rev
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
-import { canEvaluate, canSeeEmployee, loadDirectory, userNames, type DirEmployee } from "./directory";
+import { canEvaluate, canSeeEither, loadDirectory, userNames, type DirEmployee } from "./directory";
 import { listEmployeeRows, UUID_RE, type EmployeeQuery } from "./employees";
 import { KpiError } from "./errors";
 import { isPeriodClosed } from "./periods";
@@ -14,12 +14,14 @@ import {
   missingManual,
   noteRequired,
   scorePct,
+  violationHint,
   type ItemSource,
   type Scope,
 } from "./rules";
 import { loadSettings } from "./settings";
 import { enqueue } from "./notify";
 import { disputeDeadline, reviewDeadline, submitOpensAt, type Period } from "./time";
+import { violationsFor } from "./violations";
 import type { Deadlines, EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./types";
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
@@ -245,19 +247,25 @@ async function buildForm(
       (meta.get(a.item_id)?.sort ?? 1e9) - (meta.get(b.item_id)?.sort ?? 1e9) || a.item_id.localeCompare(b.item_id)
   );
   const suggestions = await loadSuggestions(db, review, work);
-  const items: ReviewFormItem[] = work.map((w) => ({
-    item_id: w.item_id,
-    title_ru: w.title_ru,
-    title_uz: w.title_uz,
-    hint_ru: meta.get(w.item_id)?.hint_ru ?? null,
-    weight: w.weight,
-    source: w.source,
-    group_key: meta.get(w.item_id)?.group_key ?? "base",
-    score: w.score,
-    note: w.note,
-    suggestion: suggestions.get(w.item_id) ?? null,
-    violations: [],
-  }));
+  const violations = await violationsFor(db, emp.id, period);
+  const itemIds = new Set(work.map((w) => w.item_id));
+  const items: ReviewFormItem[] = work.map((w) => {
+    const own = violations.filter((v) => v.card_item_id === w.item_id);
+    return {
+      item_id: w.item_id,
+      title_ru: w.title_ru,
+      title_uz: w.title_uz,
+      hint_ru: meta.get(w.item_id)?.hint_ru ?? null,
+      weight: w.weight,
+      source: w.source,
+      group_key: meta.get(w.item_id)?.group_key ?? "base",
+      score: w.score,
+      note: w.note,
+      suggestion: suggestions.get(w.item_id) ?? null,
+      violations: own,
+      violation_hint: own.length > 0 ? violationHint(own.length, settings.violation_penalty_hint) : null,
+    };
+  });
 
   const submitted = review?.status === "submitted";
   const canEdit = submitted
@@ -288,7 +296,7 @@ async function buildForm(
         }
       : null,
     items,
-    other_violations: [],
+    other_violations: violations.filter((v) => v.card_item_id === null || !itemIds.has(v.card_item_id)),
     can_edit: canEdit,
     needs_comment: submitted,
     deadlines: deadlinesOf(period, settings),
@@ -303,9 +311,13 @@ export async function getForm(db: DbLike, actor: Actor, period: Period, employee
     .from(kpi_reviews)
     .where(and(eq(kpi_reviews.period, period), eq(kpi_reviews.employee_id, emp.id)))
     .limit(1);
-  const visible =
-    canSeeEmployee(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id }) ||
-    (review ? canSeeEmployee(actor, scopes, { terminal_id: review.terminal_id, card_id: review.card_id }) : false);
+  // Видно по текущему положению сотрудника или по снимку оценки (общее правило с reviewEvents).
+  const visible = canSeeEither(
+    actor,
+    scopes,
+    { terminal_id: emp.terminal_id, card_id: emp.card_id },
+    review ? { terminal_id: review.terminal_id, card_id: review.card_id } : null
+  );
   if (!visible) throw new KpiError(403, "out_of_scope");
   if (emp.card_id === null && !review) throw new KpiError(422, "no_card");
   return buildForm(db, actor, scopes, emp, period, review ?? null);
@@ -485,9 +497,14 @@ export async function changeReview(
 export async function reviewEvents(db: DbLike, actor: Actor, reviewId: string): Promise<ReviewEvent[]> {
   const review = await loadReview(db, reviewId);
   const scopes = await scopesOf(db, actor);
-  if (!canSeeEmployee(actor, scopes, { terminal_id: review.terminal_id, card_id: review.card_id })) {
-    throw new KpiError(403, "out_of_scope");
-  }
+  const [emp] = await loadDirectory(db, { employeeIds: [review.employee_id], includeInactive: true });
+  const visible = canSeeEither(
+    actor,
+    scopes,
+    emp ? { terminal_id: emp.terminal_id, card_id: emp.card_id } : null,
+    { terminal_id: review.terminal_id, card_id: review.card_id }
+  );
+  if (!visible) throw new KpiError(403, "out_of_scope");
   const rows = await db
     .select()
     .from(kpi_review_events)

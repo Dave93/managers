@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { randomUUID } from "node:crypto";
 
 // Тот же guard, что в me.test.ts: голый `bun test` пропускает файл.
 const dbLooksLikeTest = process.env.DATABASE_URL?.endsWith("/managers_tickets_test") ?? false;
@@ -11,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
-  const { kpi_notifications, kpi_periods, kpi_review_events, kpi_reviews } = await import("backend/drizzle/schema");
+  const { employees, kpi_notifications, kpi_periods, kpi_review_events, kpi_reviews } = await import("backend/drizzle/schema");
   const { and, eq } = await import("drizzle-orm");
   type Card = import("../types").Card;
   type ReviewForm = import("../types").ReviewForm;
@@ -426,6 +427,21 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const r = await api(ev2, "PUT", `/api/kpi/reviews/${did}`, { items: [{ item_id: cookItems[3], score: 0 }], comment: "пересмотр оценки" });
       expect(r.status).toBe(409);
       expect(r.body.error).toBe("not_submitted");
+    });
+
+    it("история оценки видна оценщику нового филиала сотрудника, как и форма", async () => {
+      setNow(OPEN_3);
+      const e = await cook();
+      const evOld = await evaluator(e.terminal_id);
+      const id = (await draft(evOld, P3, e.id, scores(FULL))).body.review.id as string;
+      await api(evOld, "POST", `/api/kpi/reviews/${id}/submit`, {});
+      const newTerminal = randomUUID();
+      const evNew = await evaluator(newTerminal);
+      await db.update(employees).set({ terminal_id: newTerminal }).where(eq(employees.id, e.id));
+      expect((await form(evNew, P3, e.id)).status).toBe(200);
+      expect((await api(evNew, "GET", `/api/kpi/reviews/${id}/events`)).status).toBe(200);
+      // По снимку видит и прежний оценщик.
+      expect((await api(evOld, "GET", `/api/kpi/reviews/${id}/events`)).status).toBe(200);
     });
   });
 }

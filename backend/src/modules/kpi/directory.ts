@@ -81,6 +81,14 @@ export function canSeeEmployee(actor: Actor, scopes: Scope[], e: Target): boolea
   return viewsTerminal(actor, e.terminal_id) || canEvaluate(actor, scopes, e);
 }
 
+// Видимость по текущему положению сотрудника или по снимку (филиал и карта записи на момент события).
+export function canSeeEither(actor: Actor, scopes: Scope[], current: Target | null, snapshot: Target | null): boolean {
+  return (
+    (current !== null && canSeeEmployee(actor, scopes, current)) ||
+    (snapshot !== null && canSeeEmployee(actor, scopes, snapshot))
+  );
+}
+
 // "Имя Фамилия" или login.
 export async function userNames(db: DbLike, ids: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();

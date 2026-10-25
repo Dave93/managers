@@ -111,6 +111,7 @@ export interface ReviewFormItem {
   note: string | null;
   suggestion: { score: number; basis: string } | null;
   violations: ViolationRow[];
+  violation_hint: number | null;
 }
 
 export interface ReviewForm {

@@ -7,6 +7,7 @@ import { meRoutes } from "./routes/me";
 import { periodsRoutes } from "./routes/periods";
 import { reviewsRoutes } from "./routes/reviews";
 import { settingsRoutes } from "./routes/settings";
+import { violationsRoutes } from "./routes/violations";
 
 const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(ctx)
@@ -17,6 +18,7 @@ const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(cardsRoutes)
   .use(evaluatorsRoutes)
   .use(employeesRoutes)
-  .use(reviewsRoutes);
+  .use(reviewsRoutes)
+  .use(violationsRoutes);
 
 export const kpiController = kpiControllerImpl as unknown as Elysia;
