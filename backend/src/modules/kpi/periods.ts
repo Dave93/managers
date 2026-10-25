@@ -10,7 +10,7 @@ import { iso } from "./iso";
 import { commentOk, scopeCovers } from "./rules";
 import { loadSettings } from "./settings";
 import { disputeDeadline, reviewDeadline, submitOpensAt, type Period } from "./time";
-import type { Deadlines, PeriodSummary } from "./types";
+import type { Deadlines, EmployeeRow, PeriodSummary } from "./types";
 
 // Месяц закрыт, если есть строка kpi_periods со статусом closed.
 export async function isPeriodClosed(db: DbLike, period: Period): Promise<boolean> {
@@ -77,6 +77,35 @@ async function blockersOf(
   return { blockers, open_ids: open.map((o) => o.id) };
 }
 
+export type Lagging = { user_id: string; user_name: string; pending: number };
+
+// Отстающие: у каждого оценщика с назначениями считаем покрытых сотрудников без отправленной оценки.
+// Без rows сеть грузится здесь; сводка периода передаёт уже загруженную.
+export async function laggingEvaluators(db: DbLike, period: Period, rows?: EmployeeRow[]): Promise<Lagging[]> {
+  const netRows = rows ?? (await listEmployeeRows(db, NETWORK_VIEW, { period }));
+  const scopeRows = await db
+    .select({
+      user_id: kpi_evaluator_scopes.user_id,
+      card_id: kpi_evaluator_scopes.card_id,
+      terminal_id: kpi_evaluator_scopes.terminal_id,
+    })
+    .from(kpi_evaluator_scopes);
+  const byUser = new Map<string, { card_id: string | null; terminal_id: string | null }[]>();
+  for (const s of scopeRows) byUser.set(s.user_id, [...(byUser.get(s.user_id) ?? []), s]);
+  const pendingRows = netRows.filter((r) => r.active && r.card !== null && r.review?.status !== "submitted");
+  const found: { user_id: string; pending: number }[] = [];
+  for (const [user_id, scopes] of byUser) {
+    const pending = pendingRows.filter((r) =>
+      scopeCovers(scopes, { terminal_id: r.terminal_id, card_id: r.card!.id })
+    ).length;
+    if (pending > 0) found.push({ user_id, pending });
+  }
+  const names = await userNames(db, found.map((f) => f.user_id));
+  return found
+    .map((f) => ({ ...f, user_name: names.get(f.user_id) ?? f.user_id }))
+    .sort((a, b) => b.pending - a.pending || a.user_name.localeCompare(b.user_name, "ru") || a.user_id.localeCompare(b.user_id));
+}
+
 export async function periodSummary(db: DbLike, actor: Actor, period: Period): Promise<PeriodSummary> {
   const settings = await loadSettings(db);
   const [pRow] = await db.select().from(kpi_periods).where(eq(kpi_periods.period, period)).limit(1);
@@ -108,27 +137,7 @@ export async function periodSummary(db: DbLike, actor: Actor, period: Period): P
   // Отстающие: у каждого оценщика с назначениями считаем покрытых сотрудников без отправленной оценки.
   let lagging: PeriodSummary["lagging"] = [];
   if (has(actor, "kpi.approve") || has(actor, "kpi.manage")) {
-    const scopeRows = await db
-      .select({
-        user_id: kpi_evaluator_scopes.user_id,
-        card_id: kpi_evaluator_scopes.card_id,
-        terminal_id: kpi_evaluator_scopes.terminal_id,
-      })
-      .from(kpi_evaluator_scopes);
-    const byUser = new Map<string, { card_id: string | null; terminal_id: string | null }[]>();
-    for (const s of scopeRows) byUser.set(s.user_id, [...(byUser.get(s.user_id) ?? []), s]);
-    const pendingRows = netRows.filter((r) => r.active && r.card !== null && r.review?.status !== "submitted");
-    const found: { user_id: string; pending: number }[] = [];
-    for (const [user_id, scopes] of byUser) {
-      const pending = pendingRows.filter((r) =>
-        scopeCovers(scopes, { terminal_id: r.terminal_id, card_id: r.card!.id })
-      ).length;
-      if (pending > 0) found.push({ user_id, pending });
-    }
-    const names = await userNames(db, found.map((f) => f.user_id));
-    lagging = found
-      .map((f) => ({ ...f, user_name: names.get(f.user_id) ?? f.user_id }))
-      .sort((a, b) => b.pending - a.pending || a.user_name.localeCompare(b.user_name, "ru") || a.user_id.localeCompare(b.user_id));
+    lagging = await laggingEvaluators(db, period, netRows);
   }
 
   const { blockers } = await blockersOf(db, period, settings.dispute_deadline_day);

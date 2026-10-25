@@ -201,23 +201,72 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(f.sent).toHaveLength(0);
     });
 
-    it("sweepPending: убирает старую задачу и добавляет заново с jobId = id", async () => {
-      const e = await makeEmployee(db);
-      const id = await note({ employee_id: e.id });
-      await db.update(kpi_notifications).set({ created_at: sql`now() - interval '5 minutes'` as any }).where(eq(kpi_notifications.id, id));
+    // Подметалка с поддельной очередью: состояние задачи задаётся словарём, остальные ids — «задачи нет».
+    const fakeQueue = (states: Record<string, string>) => {
       const calls: string[] = [];
       const q = {
+        getJob: async (j: string) => (states[j] ? { getState: async () => states[j] } : undefined),
         remove: async (j: string) => { calls.push(`remove:${j}`); },
         add: async (_n: string, data: any, o: any) => { calls.push(`add:${o.jobId}:${data.notificationId}:${o.removeOnComplete ? "roc" : "-"}`); },
       };
+      return { q, calls };
+    };
+    const oldPending = async () => {
+      const e = await makeEmployee(db);
+      const id = await note({ employee_id: e.id });
+      await db.update(kpi_notifications).set({ created_at: sql`now() - interval '5 minutes'` as any }).where(eq(kpi_notifications.id, id));
+      return id;
+    };
+
+    it("sweepPending: завершённую или упавшую задачу убирает и добавляет заново с jobId = id", async () => {
+      const id = await oldPending();
+      const { q, calls } = fakeQueue({ [id]: "failed" });
       const res = await sweepPending(db, q, { olderThanSec: 60, limit: 200 });
       expect(res.queued).toBeGreaterThanOrEqual(1);
       expect(calls.indexOf(`remove:${id}`)).toBeGreaterThanOrEqual(0);
       expect(calls.indexOf(`add:${id}:${id}:roc`)).toBe(calls.indexOf(`remove:${id}`) + 1);
-      const failing = { remove: async () => { throw new Error("job is locked"); }, add: async () => { throw new Error("must not add"); } };
-      const r2 = await sweepPending(db, failing, { olderThanSec: 60 });
-      expect(r2.queued).toBe(0);
-      expect(r2.skipped).toBeGreaterThanOrEqual(1);
+    });
+
+    it("sweepPending: нет задачи — просто add; живая задача (delayed/waiting/active/...) не трогается", async () => {
+      const gone = await oldPending();
+      const live = await Promise.all(["delayed", "waiting", "active", "prioritized", "waiting-children"].map(async (s) => [s, await oldPending()] as const));
+      const { q, calls } = fakeQueue(Object.fromEntries(live.map(([s, id]) => [id, s])));
+      const res = await sweepPending(db, q, { olderThanSec: 60, limit: 200 });
+      expect(calls).toContain(`add:${gone}:${gone}:roc`);
+      for (const [, id] of live) expect(calls.some((c) => c.endsWith(id) || c.includes(`:${id}:`))).toBe(false);
+      expect(res.busy).toBeGreaterThanOrEqual(5);
+    });
+
+    it("sweepPending: сбой remove — строка пропущена, add не вызывается", async () => {
+      const id = await oldPending();
+      const failing = {
+        getJob: async () => ({ getState: async () => "completed" }),
+        remove: async () => { throw new Error("job is locked"); },
+        add: async () => { throw new Error("must not add"); },
+      };
+      const r = await sweepPending(db, failing, { olderThanSec: 60 });
+      expect(r.skipped).toBeGreaterThanOrEqual(1);
+      expect((await row(id)).status).toBe("pending");
+    });
+
+    it("sweepPending: attempts >= 20 — failed too_many_attempts, в очередь не возвращается", async () => {
+      const id = await oldPending();
+      await db.update(kpi_notifications).set({ attempts: 20 }).where(eq(kpi_notifications.id, id));
+      const { q, calls } = fakeQueue({});
+      const res = await sweepPending(db, q, { olderThanSec: 60, limit: 200 });
+      expect(res.failed).toBeGreaterThanOrEqual(1);
+      expect(calls.some((c) => c.includes(id))).toBe(false);
+      const r = await row(id);
+      expect([r.status, r.last_error]).toEqual(["failed", "too_many_attempts"]);
+    });
+
+    it("успех после временной ошибки очищает last_error", async () => {
+      const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
+      const id = await note({ employee_id: e.id });
+      expect(await go(id, fakeBotApi([{ ok: false, permanent: false, error: "Bad Gateway" }]).api)).toEqual({ result: "retry", error: "Bad Gateway" });
+      expect((await row(id)).last_error).toBe("Bad Gateway");
+      expect(await go(id, fakeBotApi().api)).toEqual({ result: "sent" });
+      expect([(await row(id)).status, (await row(id)).last_error]).toEqual(["sent", null]);
     });
   });
 }

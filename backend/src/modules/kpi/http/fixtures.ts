@@ -166,9 +166,11 @@ export async function makeUser(
     const found = await db.select({ id: permissions.id, slug: permissions.slug }).from(permissions).where(inArray(permissions.slug, o.perms));
     const missing = o.perms.filter((p) => !found.some((f) => f.slug === p));
     if (missing.length) throw new Error(`makeUser: нет прав ${missing.join(", ")}: запустите seed-permissions на managers_tickets_test`);
+    // roles.name уникален, поэтому имя несёт тот же суффикс, что и code.
+    const suffix = randomUUID().replace(/-/g, "").slice(0, 8);
     const [role] = await db
       .insert(roles)
-      .values({ name: "test_kpi", code: "test_kpi_" + randomUUID().replace(/-/g, "").slice(0, 8) })
+      .values({ name: "test_kpi_" + suffix, code: "test_kpi_" + suffix })
       .returning({ id: roles.id });
     role_id = role.id;
     await db.insert(roles_permissions).values(found.map((f) => ({ role_id: role.id, permission_id: f.id })));
