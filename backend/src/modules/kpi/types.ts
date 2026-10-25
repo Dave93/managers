@@ -240,3 +240,33 @@ export interface AttendanceImportRow extends AttendanceTotals {
 // Telegram: приглашения и привязки
 export interface KpiInvite { token: string; link: string; expires_at: string }
 export interface TgBindingRow { id: string; employee_id: string | null; user_id: string | null; lang: "ru" | "uz"; active: boolean; created_at: string }
+
+// Балл филиала (фаза 5)
+export type BranchIndicatorCode = "sales" | "food_cost" | "service" | "sanitary" | "discipline";
+export type BranchDirection = "higher_better" | "lower_better";
+export type NoDataReason =
+  | "not_computed"
+  | "no_iiko_link"
+  | "no_plan"
+  | "no_orders"
+  | "no_store"
+  | "no_reconciliation"
+  | "not_accepted"
+  | "no_iiko_document"
+  | "no_cooking_rows"
+  | "no_checks"
+  | "no_attendance";
+export interface BranchIndicator { code: BranchIndicatorCode; title_ru: string; weight: number; floor: number; target: number; max: number; direction: BranchDirection; active: boolean; sort: number }
+export interface BranchSettings { service_norm_hall_min: number; service_norm_delivery_min: number; sanitary_items: string[] }
+export interface BranchConfig { indicators: BranchIndicator[]; settings: BranchSettings }
+export interface SanitaryItem { title: string; ok: boolean }
+export interface SanitaryTemplate { items: string[] }
+export interface SanitaryCheckRow { id: string; terminal_id: string; terminal_name: string | null; period: string; checked_at: string; inspector_user_id: string; inspector_name: string | null; items: SanitaryItem[]; pct: number; comment: string | null; created_at: string }
+export interface RevenuePlanRow { terminal_id: string; terminal_name: string | null; amount: number | null; has_iiko: boolean; updated_at: string | null }
+export interface RevenueSuggestRow { terminal_id: string; base_period: string; base_revenue: number | null; suggested: number | null }
+export interface BranchCell { fact: number | null; points: number | null; data_status: "ok" | "no_data" }
+export interface BranchScoreRow { terminal_id: string; terminal_name: string | null; score: number; tier_pct: number; cells: Partial<Record<BranchIndicatorCode, BranchCell>> }
+export interface BranchNetwork { period: string; version: number | null; computed_at: string | null; indicators: BranchIndicator[]; rows: BranchScoreRow[] }
+export interface BranchIndicatorResult { code: BranchIndicatorCode; title_ru: string; direction: BranchDirection; weight: number; floor: number; target: number; max: number; fact: number | null; points: number | null; weighted: number | null; data_status: "ok" | "no_data"; reason: NoDataReason | null; details: Record<string, number | null> }
+export interface BranchBreakdown { period: string; terminal_id: string; terminal_name: string | null; version: number | null; computed_at: string | null; score: number | null; tier_pct: number | null; next_tier: { tier_pct: number; points_needed: number } | null; indicators: BranchIndicatorResult[]; sanitary_checks: SanitaryCheckRow[] }
+export interface BranchComputeResult { period: string; version: number | null; terminals: number; computed_at: string }
