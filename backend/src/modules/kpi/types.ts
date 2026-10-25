@@ -236,3 +236,7 @@ export interface AttendanceImportRow extends AttendanceTotals {
   rows_total: number; rows_matched: number; rows_unmatched: number; unmatched: UnmatchedRow[];
   status: "committed" | "replaced"; created_at: string;
 }
+
+// Telegram: приглашения и привязки
+export interface KpiInvite { token: string; link: string; expires_at: string }
+export interface TgBindingRow { id: string; employee_id: string | null; user_id: string | null; lang: "ru" | "uz"; active: boolean; created_at: string }
