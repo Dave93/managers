@@ -91,7 +91,8 @@ export function CardsTab() {
                     {card.items.map((item) => (
                       <TableRow key={item.id} className={item.active ? undefined : "opacity-60"}>
                         <TableCell className="tabular-nums">{item.sort}</TableCell>
-                        <TableCell>
+                        {/* Длинные названия пунктов переносятся, иначе «Изменить» уезжает за край таблицы. */}
+                        <TableCell className="min-w-48 whitespace-normal">
                           <span>{item.title_ru}</span>
                           {!item.active && (
                             <span className="ml-2">
