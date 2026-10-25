@@ -96,6 +96,40 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
     });
 
+    it("«Нет данных» при предложении: черновик сохраняется, отправка без заметки — 422, с заметкой — 200", async () => {
+      setNow(OPEN);
+      const { e, x, ev } = await cookWithWorkly();
+      await importAttendance(hr, threeDays(x), P);
+      const d = await draft(ev, e.id, [{ item_id: ATT(), score: null }, ...manual(FULL)]);
+      expect(d.status).toBe(200);
+      expect(d.body.items[0]).toMatchObject({ score: null, note: null, suggestion: { score: 67, basis: BASIS } });
+      const id = d.body.review.id;
+      const submit = (body: unknown) => api(ev, "POST", `/api/kpi/reviews/${id}/submit`, body);
+      expect(await submit({})).toEqual({ status: 422, body: { error: "note_required", item_id: ATT() } });
+      expect((await submit({ items: [{ item_id: ATT(), score: null, note: "   " }] })).body).toEqual({ error: "note_required", item_id: ATT() });
+      const ok = await submit({ items: [{ item_id: ATT(), score: null, note: "Workly не работал на филиале" }] });
+      expect(ok.status).toBe(200);
+      expect(ok.body.review.status).toBe("submitted");
+      expect(ok.body.items[0]).toMatchObject({ score: null, note: "Workly не работал на филиале", suggestion: { score: 67, basis: BASIS } });
+    });
+
+    it("изменение отправленной: «Нет данных» у автопункта без заметки — 422, с заметкой — 200", async () => {
+      setNow(OPEN);
+      const { e, x, ev } = await cookWithWorkly();
+      await importAttendance(hr, threeDays(x), P);
+      const d = await draft(ev, e.id, [{ item_id: ATT(), score: 67 }, ...manual(FULL)]);
+      const id = d.body.review.id;
+      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
+      const items = (note: string | null) => [{ item_id: ATT(), score: null, note }, ...manual(FULL).map((i) => ({ ...i, note: null }))];
+      const change = (note: string | null, comment: string) => api(ev, "PUT", `/api/kpi/reviews/${id}`, { items: items(note), comment });
+      expect(await change(null, "данных Workly нет")).toEqual({ status: 422, body: { error: "note_required", item_id: ATT() } });
+      const ok = await change("терминал не работал", "данных Workly нет");
+      expect(ok.status).toBe(200);
+      expect(ok.body.items[0]).toMatchObject({ score: null, note: "терминал не работал" });
+      // Убрать заметку, оставив «Нет данных», нельзя
+      expect((await change(null, "заметка лишняя")).body).toEqual({ error: "note_required", item_id: ATT() });
+    });
+
     it("снимок предложения: повторный импорт не меняет отправленную оценку, правка ручного пункта — 200", async () => {
       setNow(OPEN);
       const { e, x, ev } = await cookWithWorkly();

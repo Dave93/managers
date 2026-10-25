@@ -15,6 +15,7 @@ import {
   diffScores,
   isScore,
   missingManual,
+  noDataNoteRequired,
   noteRequired,
   scorePct,
   violationHint,
@@ -75,6 +76,16 @@ async function loadSuggestions(
     }
   }
   return out;
+}
+
+// Отправка и изменение: «нет данных» у автопункта с предложением без заметки — 422.
+// Черновик это не проверяет, поэтому проверка отдельно от applyInputs.
+function checkNoDataNotes(items: WorkItem[], suggestions: Map<string, Suggestion>): void {
+  for (const it of items) {
+    if (noDataNoteRequired(it.source, suggestions.get(it.item_id) ?? null, it.score, it.note)) {
+      throw new KpiError(422, "note_required", { item_id: it.item_id });
+    }
+  }
 }
 
 // В ответ API уходят только балл и основание, снимок остаётся внутри.
@@ -434,6 +445,8 @@ export async function submitReview(
     if (rows.length === 0) throw new KpiError(422, "no_items");
     const missing = missingManual(rows.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
     if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
+    // syncDraft записал в auto_value предложение на момент отправки: проверяем по этому снимку.
+    checkNoDataNotes(rows, await loadSuggestions(tx, { employee_id: review.employee_id, period, status: "submitted" }, rows));
 
     const pct = pctOf(rows);
     const at = now().toISOString();
@@ -514,6 +527,7 @@ export async function changeReviewTx(
 
   const missing = missingManual(after.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
   if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
+  checkNoDataNotes(after, suggestions);
 
   const oldPct = pctNum(review.score_pct);
   const newPct = pctOf(after);

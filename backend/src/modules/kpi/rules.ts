@@ -177,3 +177,15 @@ export function noteRequired(
   if (!suggestion || score === null || score === suggestion.score) return false;
   return (note ?? "").trim() === "";
 }
+
+// «Нет данных» у автопункта, для которого есть предложение, тоже требует заметки.
+// Проверяется только при отправке и изменении: черновик можно сохранить без неё.
+export function noDataNoteRequired(
+  source: ItemSource,
+  suggestion: { score: number } | null,
+  score: number | null,
+  note: string | null | undefined,
+): boolean {
+  if (source === "manual" || !suggestion || score !== null) return false;
+  return (note ?? "").trim() === "";
+}

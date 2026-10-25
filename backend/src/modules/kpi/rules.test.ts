@@ -127,6 +127,22 @@ describe("настройки", () => {
   });
 });
 
+describe("noDataNoteRequired", () => {
+  const S = { score: 80 };
+  it("автопункт с предложением и «нет данных» без заметки — нужна", () => {
+    expect(R.noDataNoteRequired("attendance", S, null, null)).toBe(true);
+    expect(R.noDataNoteRequired("attendance", S, null, "  ")).toBe(true);
+    expect(R.noDataNoteRequired("cooking_speed", S, null, undefined)).toBe(true);
+  });
+  it("с заметкой, с баллом, без предложения, ручной пункт — не нужна", () => {
+    expect(R.noDataNoteRequired("attendance", S, null, "сбой терминала")).toBe(false);
+    expect(R.noDataNoteRequired("attendance", S, 80, null)).toBe(false);
+    expect(R.noDataNoteRequired("attendance", S, 40, null)).toBe(false);
+    expect(R.noDataNoteRequired("attendance", null, null, null)).toBe(false);
+    expect(R.noDataNoteRequired("manual", S, null, null)).toBe(false);
+  });
+});
+
 describe("noteRequired", () => {
   it("без предложения заметка не нужна", () => {
     expect(R.noteRequired(null, 40, null)).toBe(false);
