@@ -18,9 +18,20 @@ import { bindingLabel } from "@admin/lib/kpi/telegram";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { InviteDialog } from "./invite-dialog";
+import type { TgState } from "./use-tg-bindings";
 
 /** Ячейка «Telegram»: статус привязки, ссылка-приглашение и отвязка. */
-export function TgCell({ target, binding, name }: { target: TgTarget; binding: TgBindingRow | undefined; name: string }) {
+export function TgCell({
+  target,
+  binding,
+  state,
+  name,
+}: {
+  target: TgTarget;
+  binding: TgBindingRow | undefined;
+  state: TgState;
+  name: string;
+}) {
   const qc = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -32,6 +43,10 @@ export function TgCell({ target, binding, name }: { target: TgTarget; binding: T
     // Сброс и при ошибке: после not_found устаревший статус должен обновиться.
     onSettled: () => qc.invalidateQueries({ queryKey: qk.tgBindingsAll }),
   });
+
+  // Статус неизвестен: не показываем «Не привязан» и не даём действий, которые от него зависят.
+  if (state === "loading") return <span className="text-sm text-muted-foreground" aria-label="Статус Telegram загружается">…</span>;
+  if (state === "error") return <span className="text-sm text-muted-foreground" aria-label="Статус Telegram недоступен">—</span>;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -57,6 +72,7 @@ export function TgCell({ target, binding, name }: { target: TgTarget; binding: T
             <AlertDialogCancel>Отмена</AlertDialogCancel>
             <Button
               type="button"
+              variant="destructive"
               disabled={unbind.isPending || !binding}
               onClick={() => {
                 if (!binding || unbind.isPending) return;

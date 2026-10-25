@@ -17,10 +17,11 @@ import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { kpiApi, type Card, type KpiUserOption, type ScopeRow } from "@admin/lib/kpi-api";
-import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL } from "@admin/lib/kpi/filters";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { scopeLabel } from "@admin/lib/kpi/settings";
+import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiTerminals } from "../../_components/use-kpi";
 import { TgCell } from "./tg-cell";
 import { useTgBindings } from "./use-tg-bindings";
@@ -40,6 +41,7 @@ export function EvaluatorsTab() {
   const rows = useMemo(() => [...(list.data ?? [])].sort((a, b) => a.user_name.localeCompare(b.user_name, "ru")), [list.data]);
 
   const tg = useTgBindings("user", rows.map((r) => r.user_id));
+  const tgLoad = loadErrors({ error: tg.error, data: tg.data });
 
   const remove = useMutation({
     mutationFn: (id: string) => kpiApi.evaluators.remove(id),
@@ -70,6 +72,13 @@ export function EvaluatorsTab() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Оценщиков пока нет</p>
       ) : (
+        <div className="space-y-2">
+          {tgLoad.blocking != null && (
+            <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
+              {kpiErrorText(tgLoad.blocking)}
+            </p>
+          )}
+          {tgLoad.stale != null && <StaleNote error={tgLoad.stale} />}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -88,7 +97,7 @@ export function EvaluatorsTab() {
                   <TableCell>{scopeLabel(r)}</TableCell>
                   <TableCell>{formatTashkent(r.created_at, false)}</TableCell>
                   <TableCell>
-                    <TgCell target={{ user_id: r.user_id }} binding={tg.data?.get(r.user_id)} name={r.user_name} />
+                    <TgCell target={{ user_id: r.user_id }} {...tg.lookup(r.user_id)} name={r.user_name} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" disabled={remove.isPending} onClick={() => setRemoveTarget(r)}>
@@ -99,6 +108,7 @@ export function EvaluatorsTab() {
               ))}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
 

@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { Textarea } from "@admin/components/ui/textarea";
 import { kpiApi, type Card, type EmployeeRow, type EmployeesQuery } from "@admin/lib/kpi-api";
-import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL, employeeName } from "@admin/lib/kpi/filters";
 import {
   assignBody,
@@ -20,6 +20,7 @@ import {
   externalIdValue,
   type AssignValue,
 } from "@admin/lib/kpi/settings";
+import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiMe, useKpiTerminals } from "../../_components/use-kpi";
 import { TgCell } from "./tg-cell";
 import { useTgBindings } from "./use-tg-bindings";
@@ -62,6 +63,7 @@ export function EmployeesTab() {
   });
   const rows = list.data ?? [];
   const tg = useTgBindings("employee", rows.map((r) => r.id));
+  const tgLoad = loadErrors({ error: tg.error, data: tg.data });
 
   return (
     <div className="space-y-4">
@@ -106,6 +108,13 @@ export function EmployeesTab() {
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Никого не нашли</p>
       ) : (
+        <div className="space-y-2">
+          {tgLoad.blocking != null && (
+            <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
+              {kpiErrorText(tgLoad.blocking)}
+            </p>
+          )}
+          {tgLoad.stale != null && <StaleNote error={tgLoad.stale} />}
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -135,7 +144,7 @@ export function EmployeesTab() {
                     />
                   </TableCell>
                   <TableCell>
-                    <TgCell target={{ employee_id: r.id }} binding={tg.data?.get(r.id)} name={employeeName(r)} />
+                    <TgCell target={{ employee_id: r.id }} {...tg.lookup(r.id)} name={employeeName(r)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" onClick={() => setTarget(r)}>
@@ -146,6 +155,7 @@ export function EmployeesTab() {
               ))}
             </TableBody>
           </Table>
+        </div>
         </div>
       )}
 

@@ -13,14 +13,15 @@ import { qk } from "../../_components/use-kpi";
 
 /**
  * Ссылка-приглашение в бота. Создаётся только по кнопке: новая ссылка гасит прежнюю,
- * и случайное открытие окна не должно сломать уже разосланную. Токен виден только в ссылке и QR.
+ * и случайное открытие окна не должно сломать уже разосланную. Токен виден только в ссылке и QR;
+ * `gcTime: 0` не оставляет ответ в кэше мутаций после закрытия окна.
  */
 export function InviteDialog({ target, name, open, onClose }: { target: TgTarget; name: string; open: boolean; onClose: () => void }) {
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
-        {/* Тело монтируется только при открытии: закрыли — ссылка из памяти ушла. */}
+        {/* Тело монтируется только при открытии: закрыли — ссылка из состояния компонента ушла. */}
         {open && <InviteBody target={target} name={name} onClose={onClose} onPending={setPending} />}
       </DialogContent>
     </Dialog>
@@ -43,6 +44,7 @@ function InviteBody({
 
   const create = useMutation({
     mutationFn: () => kpiApi.tg.invite(target),
+    gcTime: 0,
     onMutate: () => onPending(true),
     onSuccess: (r) => setInvite(r),
     onError: (e) => toast.error(kpiErrorText(e)),
