@@ -13,7 +13,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, bindTelegram, cleanupKpi, makeEmployee, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
   const { kpi_tg_bindings } = await import("backend/drizzle/schema");
-  const { bindingOf, createInvite, recipientOf, redeemInvite } = await import("../tg/bindings");
+  const { bindingOf, createInvite, recipientOf, redeemInvite, setLang } = await import("../tg/bindings");
   const { employees, kpi_tg_invites, users } = await import("backend/drizzle/schema");
   const { and, gt, isNull, sql } = await import("drizzle-orm");
   const { eq } = await import("drizzle-orm");
@@ -74,14 +74,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const [t1, t2, t3] = [newTelegramId(), newTelegramId(), newTelegramId()];
       const a = await createInvite(db, u.id, { employee_id: e.id });
       const b = await createInvite(db, u.id, { employee_id: e.id });
-      expect(await redeemInvite(db, a.token, t1)).toBe("invalid");
-      expect(await redeemInvite(db, b.token, t1)).toBe("bound");
-      expect(await redeemInvite(db, b.token, t1)).toBe("already");
-      expect(await redeemInvite(db, b.token, t2)).toBe("invalid");
+      expect((await redeemInvite(db, a.token, t1)).status).toBe("invalid");
+      expect((await redeemInvite(db, b.token, t1)).status).toBe("bound");
+      expect((await redeemInvite(db, b.token, t1)).status).toBe("already");
+      expect((await redeemInvite(db, b.token, t2)).status).toBe("invalid");
       const c = await createInvite(db, u.id, { employee_id: e.id });
       setNow("2025-11-01T10:00:01+05:00");
-      expect(await redeemInvite(db, c.token, t3)).toBe("invalid");
-      expect(await redeemInvite(db, "not-a-token", t3)).toBe("invalid");
+      expect((await redeemInvite(db, c.token, t3)).status).toBe("invalid");
+      expect((await redeemInvite(db, "not-a-token", t3)).status).toBe("invalid");
     });
 
     it("перепривязка: один telegram — один человек; второй телефон гасит первый", async () => {
@@ -140,14 +140,45 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const invU = await createInvite(db, admin.id, { user_id: target.id });
       await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
       await db.update(users).set({ status: "blocked" }).where(eq(users.id, target.id));
-      expect(await redeemInvite(db, invE.token, t1)).toBe("invalid");
-      expect(await redeemInvite(db, invU.token, t2)).toBe("invalid");
+      expect((await redeemInvite(db, invE.token, t1)).status).toBe("invalid");
+      expect((await redeemInvite(db, invU.token, t2)).status).toBe("invalid");
       expect(await bindingOf(db, t1)).toBeNull();
       // Привязка была до увольнения: получателя нет.
       await bindTelegram(db, { employee_id: e.id });
       await bindTelegram(db, { user_id: target.id });
       expect(await recipientOf(db, { recipient_kind: "employee", employee_id: e.id, user_id: null })).toBe("inactive");
       expect(await recipientOf(db, { recipient_kind: "user", employee_id: null, user_id: target.id })).toBe("inactive");
+    });
+
+    it("redeemInvite отдаёт имя: сотрудник — «Имя Фамилия», пользователь — имя; повтор тоже", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const e = await makeEmployee(db, { first_name: "Тест Повар" });
+      const u = await makeUser(db, { first_name: "Тест" });
+      const [emp] = await db.select().from(employees).where(eq(employees.id, e.id));
+      const t = newTelegramId();
+      const inv = await createInvite(db, u.id, { employee_id: e.id });
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "bound", name: `Тест Повар ${emp.last_name}` });
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "already", name: `Тест Повар ${emp.last_name}` });
+      const t2 = newTelegramId();
+      expect(await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, t2)).toEqual({ status: "bound", name: "Тест Оценщик" });
+      expect(await redeemInvite(db, "not-a-token", t2)).toEqual({ status: "invalid", name: null });
+    });
+
+    it("bindingOf и setLang не отдают привязку уволенного сотрудника и заблокированного пользователя", async () => {
+      const e = await makeEmployee(db);
+      const u = await makeUser(db);
+      const be = await bindTelegram(db, { employee_id: e.id });
+      const bu = await bindTelegram(db, { user_id: u.id });
+      expect(await bindingOf(db, be.telegram_id)).toMatchObject({ employee_id: e.id });
+      expect(await bindingOf(db, bu.telegram_id)).toMatchObject({ user_id: u.id });
+      await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
+      await db.update(users).set({ status: "blocked" }).where(eq(users.id, u.id));
+      expect(await bindingOf(db, be.telegram_id)).toBeNull();
+      expect(await bindingOf(db, bu.telegram_id)).toBeNull();
+      expect(await setLang(db, be.telegram_id, "uz")).toBeNull();
+      expect(await setLang(db, bu.telegram_id, "uz")).toBeNull();
+      const [row] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, be.id));
+      expect(row.lang).toBe("ru");
     });
 
     it("перепривязка обновляет created_at", async () => {
@@ -157,7 +188,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const t1 = newTelegramId();
       await bindTelegram(db, { employee_id: e1.id, telegram_id: t1 });
       await db.update(kpi_tg_bindings).set({ created_at: sql`now() - interval '30 days'` as any }).where(eq(kpi_tg_bindings.telegram_id, t1));
-      expect(await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, t1)).toBe("bound");
+      expect((await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, t1)).status).toBe("bound");
       const [r] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, t1));
       expect(Date.now() - new Date(r.created_at).getTime()).toBeLessThan(60_000);
     });
@@ -181,7 +212,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const expires_at = new Date("2025-11-01T10:00:00+05:00").toISOString();
       const tokens = [randomUUID().replace(/-/g, ""), randomUUID().replace(/-/g, "")];
       for (const token of tokens) await db.insert(kpi_tg_invites).values({ token, employee_id: e.id, expires_at, created_by: u.id });
-      const res = await Promise.all(tokens.map((tk) => redeemInvite(db, tk, newTelegramId())));
+      const res = (await Promise.all(tokens.map((tk) => redeemInvite(db, tk, newTelegramId())))).map((r) => r.status);
       expect(res).toContain("bound");
       expect(res.every((r) => r === "bound" || r === "invalid")).toBe(true);
       const active = await db.select().from(kpi_tg_bindings).where(and(eq(kpi_tg_bindings.employee_id, e.id), eq(kpi_tg_bindings.active, true)));

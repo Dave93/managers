@@ -107,8 +107,8 @@ const DISPUTE_ERRORS: Record<string, BotTextKey> = {
 };
 
 async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, api }: Deps, setLangOf: (l: Lang) => void) {
-  const say = async (lang: Lang, key: BotTextKey, extra: { min?: number; reply_markup?: object } = {}) => {
-    const msg: OutMessage = { text: botText(key, lang, { min: extra.min }) };
+  const say = async (lang: Lang, key: BotTextKey, extra: { min?: number; name?: string; reply_markup?: object } = {}) => {
+    const msg: OutMessage = { text: botText(key, lang, { min: extra.min, name: extra.name }) };
     if (extra.reply_markup) msg.reply_markup = extra.reply_markup;
     const res = await api.send(u.chatId, msg);
     if (!res.ok) console.error(`kpi bot: sendMessage не удался (${key}): ${redact(res.error)}`);
@@ -118,8 +118,8 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
   if (u.type === "start") {
     if (u.token) {
       const r = await redeemInvite(db, u.token, u.fromId);
-      if (r === "invalid") return say("ru", "start_bad");
-      return say("ru", "start_ok", { reply_markup: LANG_KEYBOARD });
+      if (r.status === "invalid") return say("ru", "start_bad");
+      return say("ru", "start_ok", { name: r.name, reply_markup: LANG_KEYBOARD });
     }
     if (u.hasPayload) return say("ru", "start_bad");
     const b = await bindingOf(db, u.fromId);

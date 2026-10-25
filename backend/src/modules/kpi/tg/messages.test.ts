@@ -143,6 +143,19 @@ describe("бот", () => {
     expect(M.botText("ask_reason", "ru", { min: 5 })).toBe("Напишите причину спора ответом на это сообщение, не короче 5 символов. Ждём 15 минут.");
     expect(M.botText("start_bad", "uz")).toBe(M.botText("start_bad", "ru"));
   });
+  it("start_ok называет, к кому привязан чат; имя экранируется и не разворачивает «$&»", () => {
+    expect(M.botText("start_ok", "ru", { name: "Тест Повар" })).toBe(
+      "Готово! Уведомления KPI будут приходить сюда.\nTayyor! KPI xabarlari shu yerga keladi.\n\n" +
+        "Вы подключены как <b>Тест Повар</b>. Если это не вы — сообщите HR.\n" +
+        "Siz <b>Тест Повар</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar bering.\n\n" +
+        "Выберите язык / Tilni tanlang:"
+    );
+    expect(M.botText("start_ok", "uz", { name: "A" })).toContain("sifatida ulandingiz. Agar bu siz bo\u02BBlmasangiz, HRga xabar bering.");
+    const evil = M.botText("start_ok", "ru", { name: "<i>$&</i> & {min}" });
+    expect(evil).toContain("<b>&lt;i&gt;$&amp;&lt;/i&gt; &amp; {min}</b>");
+    expect(evil).not.toContain("<i>");
+    expect(M.botText("start_ok", "ru")).toContain("<b>—</b>");
+  });
   it("/my сотрудника и оценщика", () => {
     expect(M.myEmployeeText("ru", [{ period: "2025-10-01", score_pct: 83.33 }, { period: "2025-09-01", score_pct: 90 }],
       [{ occurred_at: "2025-11-03T05:00:00.000Z", title_ru: "Чистота кухни", title_uz: "Oshxona tozaligi" }]))

@@ -382,7 +382,10 @@ export type BotTextKey =
   | "err_generic";
 
 const BOTH_START_OK =
-  "Готово! Уведомления KPI будут приходить сюда.\nTayyor! KPI xabarlari shu yerga keladi.\n\nВыберите язык / Tilni tanlang:";
+  "Готово! Уведомления KPI будут приходить сюда.\nTayyor! KPI xabarlari shu yerga keladi.\n\n" +
+  "Вы подключены как <b>{name}</b>. Если это не вы — сообщите HR.\n" +
+  "Siz <b>{name}</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar bering.\n\n" +
+  "Выберите язык / Tilni tanlang:";
 const BOTH_START_BAD =
   "Ссылка недействительна или устарела. Попросите новую у HR.\nHavola yaroqsiz yoki eskirgan. HR dan yangisini soʻrang.";
 const BOTH_NOT_BOUND =
@@ -422,8 +425,10 @@ const BOT_TEXT: Record<BotTextKey, Record<Lang, string>> = {
 
 export const BOT_TEXT_KEYS = Object.keys(BOT_TEXT) as BotTextKey[];
 
-export function botText(key: BotTextKey, lang: Lang, vars?: { min?: number }): string {
-  return BOT_TEXT[key][lang].replace("{min}", String(vars?.min ?? DASH));
+// Имя вставляется через функцию-замену: «$&» и подобное в имени не должно разворачиваться.
+export function botText(key: BotTextKey, lang: Lang, vars?: { min?: number; name?: string }): string {
+  const name = escapeHtml(clip((vars?.name ?? "").trim(), NAME_MAX) || DASH);
+  return BOT_TEXT[key][lang].replace("{min}", String(vars?.min ?? DASH)).replaceAll("{name}", () => name);
 }
 
 export const LANG_KEYBOARD = {
