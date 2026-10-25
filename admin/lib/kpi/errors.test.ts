@@ -47,6 +47,7 @@ describe("тексты ошибок", () => {
   it("коды плана 5", () => {
     for (const c of PLAN5_CODES) expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
     for (const c of PLAN5_SERVER_CODES) expect(KPI_ERROR_TEXT[c]).toBeTruthy();
+    expect(KPI_ERROR_TEXT.out_of_scope).toBe("Нет доступа: не входит в ваши назначения");
     expect(KPI_ERROR_TEXT.no_indicators).toBe("Показатели балла не заведены: нужен запуск seed-cards");
   });
   it("подробности плана 5", () => {

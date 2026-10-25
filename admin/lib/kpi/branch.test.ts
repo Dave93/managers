@@ -25,6 +25,12 @@ describe("сеть", () => {
     expect(B.networkAverage([{ score: 95.79 }, { score: 100 }, { score: 80 }])).toBe(91.93);
     expect(B.networkAverage([])).toBeNull();
   });
+  it("округление половины вверх, как на backend", () => {
+    expect([B.formatPoints(1.15), B.formatPoints(0.35), B.formatPoints(91.67)]).toEqual(["1,2", "0,4", "91,7"]);
+    expect([B.formatScore(1.005), B.formatScore(95.785)]).toEqual(["1,01", "95,79"]);
+    expect(B.nextTierText({ tier_pct: 100, points_needed: 1.15 })).toBe("До ступени 100\u00a0% не хватает 1,2 балла");
+    expect(B.networkAverage([{ score: 1.005 }])).toBe(1.01);
+  });
   it("форматы", () => {
     expect([B.formatFact(103), B.formatFact(0.6), B.formatFact(null)]).toEqual(["103 %", "0,6 %", "нет данных"]);
     expect([B.formatPoints(91.67), B.formatPoints(104), B.formatPoints(null)]).toEqual(["91,7", "104,0", "—"]);
@@ -58,6 +64,7 @@ describe("настройки балла", () => {
     expect(B.branchSettingsIssues({ hall: "0", delivery: "12,5", items: [] })).toEqual([
       "Норматив зала — целое от 1 до 120 минут", "Норматив доставки — целое от 1 до 120 минут", "Пунктов проверки — от 1 до 30",
     ]);
+    expect(B.branchSettingsIssues({ hall: "8", delivery: "12", items: ["Чистота", "  "] })).toEqual(["Пункт проверки не может быть пустым"]);
     expect(B.parseDecimal(" 0,5 ")).toBe(0.5);
     expect(B.parseDecimal("x")).toBeNull();
   });

@@ -23,6 +23,10 @@ describe("санитарная проверка", () => {
     expect(sanitaryIssues({ ...full, comment: "x".repeat(1001) })).toEqual(["Комментарий — до 1000 символов"]);
     // пункты в теле — ровно заголовки шаблона, в его порядке
     expect(sanitaryBody({ ...full, answers: [false, true, false] }, TITLES).items.map((i) => i.title)).toEqual(TITLES);
+    // число ответов должно совпадать с шаблоном
+    expect(sanitaryIssues(full, 5)).toEqual(["Пункты проверки изменились: обновите страницу"]);
+    expect(sanitaryIssues(full, 3)).toEqual([]);
+    expect(() => sanitaryBody(full, [...TITLES, "Лишний"])).toThrow();
     expect(failedTitles({ items: [{ title: "Чистота", ok: true }, { title: "Маркировка", ok: false }] })).toEqual(["Маркировка"]);
   });
 });

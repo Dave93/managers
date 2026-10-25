@@ -1,6 +1,7 @@
 // Санитарная проверка: кого может проверять пользователь, черновик формы, тело запроса.
 import type { SanitaryCheckRow, SanitaryCreate, ScopeRow } from "@admin/lib/kpi-api";
 import type { Option } from "./filters";
+import { roundTo } from "./format";
 
 const COMMENT_MAX = 1000;
 
@@ -21,12 +22,14 @@ export function emptySanitary(count: number, terminalId: string | null): Sanitar
 export function draftPct(d: SanitaryDraft): number | null {
   if (d.answers.length === 0 || d.answers.some((a) => a === null)) return null;
   const yes = d.answers.filter((a) => a === true).length;
-  return Math.round((yes / d.answers.length) * 10000) / 100;
+  return roundTo((yes / d.answers.length) * 100, 2);
 }
 
-export function sanitaryIssues(d: SanitaryDraft): string[] {
+/** itemsCount — число пунктов текущего шаблона; ответов должно быть столько же (шаблон мог смениться). */
+export function sanitaryIssues(d: SanitaryDraft, itemsCount?: number): string[] {
   const out: string[] = [];
   if (!d.terminal_id) out.push("Выберите филиал");
+  if (itemsCount !== undefined && d.answers.length !== itemsCount) out.push("Пункты проверки изменились: обновите страницу");
   const left = d.answers.filter((a) => a === null).length;
   if (left > 0) out.push(`Отметьте все пункты: осталось ${left}`);
   if (d.comment.trim().length > COMMENT_MAX) out.push("Комментарий — до 1000 символов");
@@ -35,6 +38,7 @@ export function sanitaryIssues(d: SanitaryDraft): string[] {
 
 /** Тело POST: пункты ровно по шаблону, в его порядке. Вызывать, когда sanitaryIssues пуст. */
 export function sanitaryBody(d: SanitaryDraft, titles: readonly string[]): SanitaryCreate {
+  if (d.answers.length !== titles.length) throw new Error("sanitary: число ответов не равно числу пунктов шаблона");
   const body: SanitaryCreate = {
     terminal_id: d.terminal_id as string,
     items: titles.map((title, i) => ({ title, ok: d.answers[i] === true })),

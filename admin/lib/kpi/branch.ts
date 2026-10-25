@@ -10,7 +10,7 @@ import type {
   IndicatorInput,
   NoDataReason,
 } from "@admin/lib/kpi-api";
-import { formatPct, formatSum } from "./format";
+import { formatPct, formatSum, roundTo } from "./format";
 import type { Tone } from "./status";
 
 const NBSP = " ";
@@ -37,7 +37,7 @@ export const NO_DATA_REASON_TEXT: Record<NoDataReason, string> = {
   no_attendance: "Нет загрузки Workly",
 };
 
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const round2 = (n: number) => roundTo(n, 2);
 const comma = (s: string) => s.replace(".", ",");
 
 /** Цвет ячейки «Сети» по баллам показателя: от 100 зелёный, больше 0 жёлтый, 0 красный, без данных серый. */
@@ -71,11 +71,11 @@ export function formatFact(fact: number | null): string {
 }
 
 export function formatPoints(p: number | null): string {
-  return p === null || !Number.isFinite(p) ? "—" : comma(p.toFixed(1));
+  return p === null || !Number.isFinite(p) ? "—" : comma(roundTo(p, 1).toFixed(1));
 }
 
 export function formatScore(s: number | null): string {
-  return s === null || !Number.isFinite(s) ? "—" : comma(s.toFixed(2));
+  return s === null || !Number.isFinite(s) ? "—" : comma(roundTo(s, 2).toFixed(2));
 }
 
 export function nextTierText(n: BranchBreakdown["next_tier"]): string {
@@ -223,6 +223,7 @@ export function branchSettingsIssues(s: { hall: string; delivery: string; items:
   if (parseNorm(s.delivery) === null) out.push("Норматив доставки — целое от 1 до 120 минут");
   if (s.items.length < 1 || s.items.length > 30) out.push("Пунктов проверки — от 1 до 30");
   const titles = s.items.map((i) => i.trim());
+  if (titles.some((t) => t.length < 1)) out.push("Пункт проверки не может быть пустым");
   if (titles.some((t) => t.length > 200)) out.push("Пункт проверки длиннее 200 символов");
   if (new Set(titles).size !== titles.length) out.push("Пункты проверки повторяются");
   return out;

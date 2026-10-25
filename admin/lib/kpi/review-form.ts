@@ -1,6 +1,7 @@
 // Форма оценки: баллы, черновик, проверки перед запросом, предпросмотр процента.
 // Правила повторяют backend/src/modules/kpi (rules.ts: scorePct, noteRequired, noDataNoteRequired, commentOk, diffScores).
 import type { KpiItemInput, ReviewFormItem } from "@admin/lib/kpi-api";
+import { roundTo } from "./format";
 
 export const SCORE_BUTTONS = [0, 25, 50, 75, 100] as const;
 
@@ -76,7 +77,7 @@ export function previewPct(items: readonly FormItemLite[], draft: Draft): number
     w += i.weight;
   }
   if (w <= 0) return null;
-  return Math.round((sum / w) * 100) / 100;
+  return roundTo(sum / w, 2);
 }
 
 /** Букв и цифр не меньше min: пробелы, пунктуация и невидимые символы не считаются (как на сервере). */

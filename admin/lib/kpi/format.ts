@@ -16,13 +16,19 @@ export function formatTashkent(iso: string | null, withTime = true): string {
   return withTime ? `${date} ${pad(t.getUTCHours())}:${pad(t.getUTCMinutes())}` : date;
 }
 
+/** Округление половины вверх без плавающих хвостов, как roundTo на backend (branch-rules.ts). */
+export function roundTo(x: number, d: number): number {
+  const f = 10 ** d;
+  return Math.round(+(x * f).toPrecision(12)) / f;
+}
+
 function group(digits: string): string {
   return digits.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP);
 }
 
 export function formatPct(n: number | null): string {
   if (n === null || !Number.isFinite(n)) return "—";
-  return `${String(Number(n.toFixed(2))).replace(".", ",")}${NBSP}%`;
+  return `${String(roundTo(n, 2)).replace(".", ",")}${NBSP}%`;
 }
 
 export function formatSum(n: number | null): string {
