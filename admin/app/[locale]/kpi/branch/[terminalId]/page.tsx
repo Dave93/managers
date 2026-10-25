@@ -67,6 +67,13 @@ function BranchScreen() {
         ← Сеть
       </Link>
 
+      <div className="flex flex-wrap items-center gap-2">
+        <h1 className="mr-2 text-xl font-semibold">
+          {data?.terminal_name ?? "Филиал"} · {monthLabel(period)}
+        </h1>
+        <PeriodSelect value={period} onChange={change} options={options} className="w-44" />
+      </div>
+
       {load.blocking == null && load.stale != null && <StaleNote error={load.stale} />}
 
       {load.blocking != null ? (
@@ -77,13 +84,6 @@ function BranchScreen() {
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="mr-2 text-xl font-semibold">
-              {data.terminal_name ?? "Филиал"} · {monthLabel(period)}
-            </h1>
-            <PeriodSelect value={period} onChange={change} options={options} className="w-44" />
-          </div>
-
           <div className="space-y-1">
             {data.version === null || data.score === null ? (
               <p className="text-sm text-muted-foreground">Балл за этот месяц не посчитан</p>

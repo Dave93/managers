@@ -37,7 +37,7 @@ export function IndicatorCard({ r }: { r: BranchIndicatorResult }) {
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Нет данных: {r.reason ? NO_DATA_REASON_TEXT[r.reason] : "причина не указана"}
+          Нет данных: {(r.reason && NO_DATA_REASON_TEXT[r.reason]) || "причина не указана"}
         </p>
       )}
     </div>

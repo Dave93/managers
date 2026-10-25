@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type BranchNetwork } from "@admin/lib/kpi-api";
 import { INDICATOR_LABEL, cellTone, formatFact, formatPoints, formatScore, networkAverage, tierCounts, tierTone } from "@admin/lib/kpi/branch";
-import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors, outcomeKnown, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { calendarPeriod, monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import type { Tone } from "@admin/lib/kpi/status";
@@ -98,7 +98,11 @@ function ComputeButton({ period }: { period: string }) {
       );
       await qc.invalidateQueries({ queryKey: qk.branchAll });
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: async (e) => {
+      toast.error(kpiErrorText(e));
+      // Исход неизвестен (сеть, 5xx): расчёт мог пройти, обновляем сеть.
+      if (!outcomeKnown(e)) await qc.invalidateQueries({ queryKey: qk.branchAll });
+    },
     onSettled: () => {
       latch.current = false;
     },

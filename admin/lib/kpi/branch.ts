@@ -43,8 +43,10 @@ const comma = (s: string) => s.replace(".", ",");
 /** Цвет ячейки «Сети» по баллам показателя: от 100 зелёный, больше 0 жёлтый, 0 красный, без данных серый. */
 export function cellTone(c: Pick<BranchCell, "points" | "data_status"> | undefined): Tone {
   if (!c || c.data_status !== "ok" || c.points === null) return "gray";
-  if (c.points >= 100) return "green";
-  return c.points > 0 ? "amber" : "red";
+  // Пороги по баллам, как их показывает экран (до 0,1): 99,96 выводится «100,0» и не должно быть жёлтым.
+  const shown = roundTo(c.points, 1);
+  if (shown >= 100) return "green";
+  return shown > 0 ? "amber" : "red";
 }
 
 export function tierTone(pct: number | null): Tone {

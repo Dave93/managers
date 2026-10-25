@@ -19,6 +19,12 @@ describe("сеть", () => {
     expect(B.cellTone({ points: null, data_status: "no_data" })).toBe("gray");
     expect(B.cellTone(undefined)).toBe("gray");
   });
+  it("цвет ячейки по баллам, как их показывает экран (до 0,1)", () => {
+    expect(B.cellTone({ points: 99.96, data_status: "ok" })).toBe("green");
+    expect(B.cellTone({ points: 99.94, data_status: "ok" })).toBe("amber");
+    expect(B.cellTone({ points: 0.04, data_status: "ok" })).toBe("red");
+    expect(B.cellTone({ points: 0.05, data_status: "ok" })).toBe("amber");
+  });
   it("ступени, средний балл", () => {
     expect(B.tierCounts([{ tier_pct: 100 }, { tier_pct: 120 }, { tier_pct: 100 }, { tier_pct: 0 }])).toEqual([{ pct: 120, count: 1 }, { pct: 100, count: 2 }, { pct: 60, count: 0 }, { pct: 0, count: 1 }]);
     expect([B.tierTone(120), B.tierTone(100), B.tierTone(60), B.tierTone(0), B.tierTone(null)]).toEqual(["blue", "green", "amber", "red", "gray"]);

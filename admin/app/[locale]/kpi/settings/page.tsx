@@ -3,6 +3,7 @@ import React, { Suspense } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 import { ScreenGate } from "../_components/screen-gate";
+import { BranchTab } from "./_components/branch-tab";
 import { CardsTab } from "./_components/cards-tab";
 import { DeadlinesTab } from "./_components/deadlines-tab";
 import { EmployeesTab } from "./_components/employees-tab";
@@ -15,6 +16,7 @@ const TABS = [
   { value: "employees", label: "Сотрудники" },
   { value: "tiers", label: "Шкала" },
   { value: "deadlines", label: "Сроки" },
+  { value: "branch", label: "Балл филиала" },
 ] as const;
 
 export default function SettingsPage() {
@@ -65,6 +67,9 @@ function SettingsScreen() {
         </TabsContent>
         <TabsContent value="deadlines">
           <DeadlinesTab />
+        </TabsContent>
+        <TabsContent value="branch">
+          <BranchTab />
         </TabsContent>
       </Tabs>
     </div>
