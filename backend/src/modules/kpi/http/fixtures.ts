@@ -23,13 +23,20 @@ import {
 } from "backend/drizzle/schema";
 import { eq, like, sql } from "drizzle-orm";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
+import { seedCards } from "../seed-cards";
 
 export type Session = Awaited<ReturnType<typeof withSession>>;
 
-// seedCards появится в задаче 5; до неё setup его не зовёт.
+// Роли, которые нужны карте по умолчанию и тестам.
+const STAFF_ROLES = ["cook", "universal_cook", "cashier", "manager", "senior_cook", "hall_worker"];
+
+// cleanupKpi карты не трогает (кроме test_*), поэтому стартовые карты и роли заводим здесь.
 export async function setup(): Promise<{ db: DrizzleDB }> {
   await ensureApp();
-  return { db: drizzleDb };
+  const db = drizzleDb;
+  await seedCards(db);
+  for (const code of STAFF_ROLES) await ensureStaffRole(db, code);
+  return { db };
 }
 
 // Подмена «сейчас» для clock.now(); null снимает подмену.
@@ -106,6 +113,10 @@ export async function makeScope(
 // Порядок учитывает внешние ключи внутри модуля. kpi_settings чистим целиком,
 // чтобы после тестов снова действовали значения по умолчанию.
 export async function cleanupKpi(db: DrizzleDB): Promise<void> {
+  // Страховка: чистка сносит kpi_* целиком, только в тестовой базе.
+  if (!process.env.DATABASE_URL?.endsWith("/managers_tickets_test")) {
+    throw new Error("cleanupKpi: DATABASE_URL не указывает на managers_tickets_test");
+  }
   await db.delete(kpi_review_events);
   await db.delete(kpi_review_items);
   await db.delete(kpi_reviews);

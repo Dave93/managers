@@ -10,7 +10,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     it("пропущено — нет тестового окружения", () => {});
   });
 } else {
-  const { closeTestRedis, sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
+  const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, setNow, setup } = await import("./fixtures");
 
   describe("kpi: me, настройки, период", () => {
@@ -26,7 +26,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       setNow(null);
       await cleanupKpi(db);
       await sweepTestRoles();
-      await closeTestRedis();
+      // closeTestRedis не зовём: соединение общее для всех файлов прогона.
     });
 
     it("без сессии — 401", async () => expect((await api(null, "GET", "/api/kpi/me")).status).toBe(401));
