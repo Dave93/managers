@@ -302,7 +302,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect([empty.status, empty.body]).toEqual([409, { error: "period_closed" }]);
       // открытый снова — считается
       await db.delete(kpi_periods).where(eq(kpi_periods.period, closed));
-      expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: closed })).body).toMatchObject({ version: 1, terminals: 1 });
+      expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: closed })).body).toMatchObject({ version: 1 });
+      expect(((await api(await hr(), "GET", `/api/kpi/branch/${t.id}?period=${closed}`)).body as BranchBreakdown).score).not.toBeNull();
     });
   });
 }
