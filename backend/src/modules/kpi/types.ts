@@ -224,3 +224,11 @@ export type UnmatchedReason =
   | "duplicate_day";
 export interface UnmatchedRow { row: number; external_id: string | null; reason: UnmatchedReason }
 export interface AttendanceSheetPreview { name: string; header_row: number; headers: string[]; rows: string[][]; total_rows: number }
+
+export interface AttendanceParseResponse { token: string; file_name: string; expires_at: string; sheets: AttendanceSheetPreview[] }
+export interface AttendanceImportRow {
+  id: string; period: string; file_name: string; uploaded_by: string; uploaded_by_name: string | null;
+  sheet: string; header_row: number; mapping: AttendanceMapping;
+  rows_total: number; rows_matched: number; rows_unmatched: number; unmatched: UnmatchedRow[];
+  status: "committed" | "replaced"; created_at: string;
+}

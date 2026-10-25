@@ -25,8 +25,10 @@ import {
   staff_roles,
 } from "backend/drizzle/schema";
 import { eq, like, sql } from "drizzle-orm";
+import * as XLSX from "xlsx";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
 import { seedCards } from "../seed-cards";
+import type { AttendanceMapping } from "../types";
 
 export type Session = Awaited<ReturnType<typeof withSession>>;
 
@@ -163,4 +165,41 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   const testCards = sql`${kpi_cards.code} LIKE 'test\\_%'`;
   await db.delete(kpi_card_items).where(sql`${kpi_card_items.card_id} IN (SELECT id FROM kpi_cards WHERE code LIKE 'test\\_%')`);
   await db.delete(kpi_cards).where(testCards);
+}
+
+// ---------- импорт Workly ----------
+
+export const ATT_HEAD = ["Табель", "Дата", "Приход", "Уход", "Опоздание, мин", "Прогул"];
+export const ATT_MAP: AttendanceMapping = { external_id: 0, date: 1, check_in: 2, check_out: 3, late_minutes: 4, absent: 5 };
+
+export function xlsxFile(aoa: unknown[][], name = "workly.xlsx", sheet = "Лист1"): File {
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(aoa), sheet);
+  return new File([XLSX.write(wb, { type: "buffer", bookType: "xlsx" })], name);
+}
+
+export async function uploadAttendance(s: Session | null, file: File | null): Promise<{ status: number; body: any }> {
+  const fd = new FormData();
+  if (file) fd.append("file", file);
+  const res = await callApi("/api/kpi/attendance/parse", { method: "POST", headers: s ? { ...s.headers } : {}, body: fd });
+  const text = await res.text();
+  let body: any = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = text;
+  }
+  return { status: res.status, body };
+}
+
+// ATT_HEAD + строки → parse → commit (лист «Лист1», заголовки в первой строке)
+export async function importAttendance(
+  s: Session,
+  rows: unknown[][],
+  period: string,
+  mapping: AttendanceMapping = ATT_MAP
+): Promise<{ status: number; body: any }> {
+  const up = await uploadAttendance(s, xlsxFile([ATT_HEAD, ...rows]));
+  if (up.status !== 200) return up;
+  return api(s, "POST", "/api/kpi/attendance/commit", { token: up.body.token, sheet: "Лист1", period, header_row: 1, mapping });
 }
