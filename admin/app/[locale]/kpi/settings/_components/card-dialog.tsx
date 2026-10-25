@@ -92,6 +92,8 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.cardsAll });
+      qc.invalidateQueries({ queryKey: qk.employeesAll });
+      qc.invalidateQueries({ queryKey: qk.formAll });
       toast.success("Карта сохранена");
       onClose();
     },

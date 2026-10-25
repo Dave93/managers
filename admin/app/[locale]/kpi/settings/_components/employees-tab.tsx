@@ -162,14 +162,17 @@ function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: ()
   // Назначенная вручную карта могла быть отключена: оставляем её в списке, иначе Select окажется пустым.
   const options = useMemo(() => {
     const list = (cards.data ?? []).map((c) => ({ id: c.id, title: c.title_ru }));
-    if (row.card && !list.some((c) => c.id === row.card!.id)) list.push({ id: row.card.id, title: row.card.title_ru });
+    if (row.card_source === "override" && row.card && !list.some((c) => c.id === row.card!.id)) {
+      list.push({ id: row.card.id, title: row.card.title_ru });
+    }
     return list;
-  }, [cards.data, row.card]);
+  }, [cards.data, row.card, row.card_source]);
 
   const save = useMutation({
     mutationFn: () => kpiApi.employees.setCard(row.id, assignBody(value), comment.trim() || undefined),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.employeesAll });
+      qc.invalidateQueries({ queryKey: qk.formAll });
       toast.success("Карта сохранена");
       onClose();
     },
