@@ -17,6 +17,10 @@ describe("canOpen", () => {
     expect(canOpen(["kpi_layout", "kpi.evaluate"], "raises")).toBe(false);
     expect(canOpen(undefined, "reviews")).toBe(false);
   });
+  it("загрузка Workly — только kpi.manage", () => {
+    expect(canOpen(["kpi_layout", "kpi.manage"], "attendance")).toBe(true);
+    expect(canOpen(["kpi_layout", "kpi.view", "kpi.approve", "kpi.evaluate"], "attendance")).toBe(false);
+  });
   it("kpiAccess", () => {
     expect(kpiAccess(["kpi.view", "kpi.approve"])).toEqual({ evaluate: false, view: true, manage: false, approve: true });
     expect(kpiAccess(undefined)).toEqual({ evaluate: false, view: false, manage: false, approve: false });

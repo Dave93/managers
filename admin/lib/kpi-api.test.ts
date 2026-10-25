@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { treaty } from "@elysiajs/eden";
-import { createKpiApi, downloadRaisesCsv, photoUrl, postViolation, type KpiApi } from "./kpi-api";
+import { createKpiApi, downloadRaisesCsv, photoUrl, postAttendanceFile, postViolation, type KpiApi } from "./kpi-api";
 import { KpiApiError } from "./kpi/errors";
 
 type Call = { method: string; path: string; body: unknown; credentials?: RequestCredentials };
@@ -59,6 +59,11 @@ const cases: [string, (a: KpiApi) => Promise<unknown>, string, string, unknown][
   ["raises.list", (a) => a.raises.list("2026-10-01"), "GET", "/api/kpi/raises?quarter=2026-10-01", null],
   ["raises.compute", (a) => a.raises.compute("2026-10-01"), "POST", "/api/kpi/raises/compute", { quarter: "2026-10-01" }],
   ["raises.decide", (a) => a.raises.decide("x1", { status: "approved", amount: 300000 }), "POST", "/api/kpi/raises/x1/decide", { status: "approved", amount: 300000 }],
+  ["attendance.commit", (a) => a.attendance.commit({ token: "tk", sheet: "Лист1", period: "2025-09-01", header_row: 1, mapping: { external_id: 0, date: 1 } }),
+    "POST", "/api/kpi/attendance/commit", { token: "tk", sheet: "Лист1", period: "2025-09-01", header_row: 1, mapping: { external_id: 0, date: 1 } }],
+  ["attendance.imports", (a) => a.attendance.imports("2025-09-01"), "GET", "/api/kpi/attendance/imports?period=2025-09-01", null],
+  ["employees.setExternalId", (a) => a.employees.setExternalId("e1", "T-1"), "PUT", "/api/kpi/employees/e1/external-id", { external_id: "T-1" }],
+  ["employees.setExternalId пусто", (a) => a.employees.setExternalId("e1", null), "PUT", "/api/kpi/employees/e1/external-id", { external_id: null }],
   ["tiers.get", (a) => a.tiers.get(), "GET", "/api/kpi/raise-tiers", null],
   ["tiers.save", (a) => a.tiers.save([{ min_pct: 95, amount: 500000 }]), "PUT", "/api/kpi/raise-tiers", { tiers: [{ min_pct: 95, amount: 500000 }] }],
 ];
@@ -130,6 +135,28 @@ describe("postViolation", () => {
     expect([e1.status, e1.code]).toEqual([0, "network"]);
     const e2 = await postViolation(new FormData(), fakeFetch(502, "<html>Bad Gateway</html>", [], "text/html")).catch((x) => x);
     expect([e2.status, e2.code]).toEqual([502, "server_error"]);
+  });
+});
+
+describe("postAttendanceFile", () => {
+  it("POST multipart с полем file и куками", async () => {
+    const calls: Call[] = [];
+    const r = await postAttendanceFile(new File(["a;b"], "w.csv"),
+      fakeFetch(200, { token: "tk", file_name: "w.csv", expires_at: "2025-09-01T10:30:00.000Z", sheets: [] }, calls));
+    expect(r.token).toBe("tk");
+    expect(calls[0]).toMatchObject({ method: "POST", path: "/api/kpi/attendance/parse", credentials: "include" });
+    expect((calls[0].body as FormData).get("file")).toBeInstanceOf(File);
+  });
+  it("отказ — код из body.error", async () => {
+    const e = await postAttendanceFile(new File(["x"], "w.csv"), fakeFetch(422, { error: "file_too_large" }, [])).catch((x) => x);
+    expect([e.status, e.code]).toEqual([422, "file_too_large"]);
+  });
+  it("обрыв сети — network, 2xx без JSON — server_error", async () => {
+    const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    const e1 = await postAttendanceFile(new File(["x"], "w.csv"), boom).catch((x) => x);
+    expect([e1.status, e1.code]).toEqual([0, "network"]);
+    const e2 = await postAttendanceFile(new File(["x"], "w.csv"), fakeFetch(200, "<html>", [], "text/html")).catch((x) => x);
+    expect([e2.status, e2.code]).toEqual([200, "server_error"]);
   });
 });
 

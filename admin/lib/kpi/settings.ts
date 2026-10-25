@@ -20,12 +20,22 @@ export function cardCodeOk(code: string): boolean {
 
 const SOURCE_ORDER: ItemSource[] = ["manual", "attendance", "cooking_speed", "sales_plan", "food_cost"];
 
-/** Данные из источника пока подтягиваются только у ручного: остальные оцениваются вручную. */
+/** Данные из источника подтягиваются у ручного (нечего) и у Workly; остальные оцениваются вручную до плана 5. */
 export const ITEM_SOURCE_OPTIONS: { value: ItemSource; label: string; ready: boolean }[] = SOURCE_ORDER.map((value) => ({
   value,
   label: SOURCE_LABEL[value],
-  ready: value === "manual",
+  ready: value === "manual" || value === "attendance",
 }));
+
+/** Табельный номер из поля ввода: без пробелов по краям, пусто → null (снять номер). */
+export function externalIdValue(text: string): string | null {
+  const v = text.trim();
+  return v === "" ? null : v;
+}
+
+export function externalIdIssue(text: string): string | null {
+  return text.trim().length > 100 ? "Табельный номер — не длиннее 100 символов" : null;
+}
 
 export type AssignValue = "auto" | "none" | string;
 

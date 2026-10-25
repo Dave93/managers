@@ -1,6 +1,6 @@
 // Права экранов KPI. Наборы повторяют права GET-роутов backend/src/modules/kpi.
 
-export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings";
+export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance";
 
 export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   // kpi.approve: HR разбирает споры и правит оценки закрытого месяца (hr_adjusted) — нужна форма и журнал.
@@ -10,6 +10,7 @@ export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   month: ["kpi.view", "kpi.approve", "kpi.manage"],
   raises: ["kpi.view", "kpi.approve"],
   settings: ["kpi.manage"],
+  attendance: ["kpi.manage"],
 };
 
 export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
@@ -19,6 +20,7 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   month: "Месяц",
   raises: "Повышения",
   settings: "Настройки KPI",
+  attendance: "Загрузка Workly",
 };
 
 export function canOpen(perms: readonly string[] | undefined, screen: KpiScreen): boolean {

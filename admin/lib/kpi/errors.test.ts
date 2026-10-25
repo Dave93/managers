@@ -12,6 +12,9 @@ const PLAN1_CODES = [
   "not_closed", "bad_code", "bad_title", "bad_hint", "items_required", "unknown_card", "bad_id", "bad_comment",
 ];
 
+const PLAN3_CODES = ["file_required", "bad_file_type", "file_too_large", "bad_file", "empty_file", "upload_expired", "bad_sheet",
+  "bad_header_row", "bad_mapping", "nothing_matched", "external_id_taken", "bad_external_id", "sheet_too_large", "bad_status"];
+
 describe("тексты ошибок", () => {
   it("у каждого кода плана 1 и у запасных кодов есть русский текст", () => {
     for (const c of [...PLAN1_CODES, "unauthorized", "invalid_input", "server_error", "network"]) {
@@ -19,6 +22,23 @@ describe("тексты ошибок", () => {
       expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
     }
     expect(codeText("weird_code")).toBe("Ошибка сервера (weird_code)");
+  });
+  it("коды плана 3", () => {
+    for (const c of PLAN3_CODES) {
+      expect(KPI_ERROR_TEXT[c]).toBeTruthy();
+      expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
+    }
+    expect(KPI_ERROR_TEXT.sheet_too_large).toBe("Лист слишком большой: не больше 50 000 строк и 100 колонок");
+  });
+  it("подробности плана 3", () => {
+    expect(kpiErrorText(new KpiApiError(409, "external_id_taken", { error: "external_id_taken", employee_id: "e1", employee_name: "Повар Тест" })))
+      .toBe("Этот табельный номер уже у другого сотрудника (Повар Тест)");
+    expect(kpiErrorText(new KpiApiError(409, "external_id_taken", { error: "external_id_taken" })))
+      .toBe("Этот табельный номер уже у другого сотрудника");
+    expect(kpiErrorText(new KpiApiError(422, "nothing_matched", { error: "nothing_matched", rows_total: 12 })))
+      .toBe("Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц (строк в файле: 12)");
+    expect(kpiErrorText(new KpiApiError(422, "nothing_matched", { error: "nothing_matched" })))
+      .toBe("Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц");
   });
   it("toKpiError: код из тела, иначе по статусу", () => {
     expect(toKpiError(409, { error: "dispute_exists" }).code).toBe("dispute_exists");

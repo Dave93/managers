@@ -7,6 +7,8 @@ import {
   assignValue,
   cardAssignLabel,
   cardCodeOk,
+  externalIdIssue,
+  externalIdValue,
   parseRoleCodes,
   scopeLabel,
   settingsIssues,
@@ -23,10 +25,20 @@ describe("карты", () => {
     for (const ok of ["cook", "cashier_plus", "c2"]) expect(cardCodeOk(ok)).toBe(true);
     for (const bad of ["", "c", "Cook", "2cook", "повар", "a".repeat(41)]) expect(cardCodeOk(bad)).toBe(false);
   });
-  it("источники: данные есть только у ручного", () => {
+  it("источники: данные подтягиваются у ручного и Workly", () => {
     expect(ITEM_SOURCE_OPTIONS.map((o) => [o.value, o.ready])).toEqual([
-      ["manual", true], ["attendance", false], ["cooking_speed", false], ["sales_plan", false], ["food_cost", false],
+      ["manual", true], ["attendance", true], ["cooking_speed", false], ["sales_plan", false], ["food_cost", false],
     ]);
+  });
+});
+
+describe("табельный номер", () => {
+  it("значение и проверка", () => {
+    expect(externalIdValue("  T-1 ")).toBe("T-1");
+    expect(externalIdValue("   ")).toBeNull();
+    expect(externalIdIssue("a".repeat(100))).toBeNull();
+    expect(externalIdIssue(` ${"a".repeat(100)} `)).toBeNull();
+    expect(externalIdIssue("a".repeat(101))).toBe("Табельный номер — не длиннее 100 символов");
   });
 });
 

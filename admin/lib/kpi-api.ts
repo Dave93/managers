@@ -11,6 +11,9 @@ import { apiClient } from "@admin/utils/eden";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 import { KpiApiError, toKpiError } from "@admin/lib/kpi/errors";
 import type {
+  AttendanceImportRow,
+  AttendanceMapping,
+  AttendanceParseResponse,
   Card,
   DisputeRow,
   EmployeeRow,
@@ -27,6 +30,11 @@ import type {
 import type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 
 export type {
+  AttendanceField,
+  AttendanceImportRow,
+  AttendanceMapping,
+  AttendanceParseResponse,
+  AttendanceSheetPreview,
   Card,
   CardItem,
   Deadlines,
@@ -40,6 +48,8 @@ export type {
   ReviewFormItem,
   ScopeRow,
   Tier,
+  UnmatchedReason,
+  UnmatchedRow,
   ViolationRow,
 } from "@backend/modules/kpi/types";
 export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
@@ -66,6 +76,7 @@ export type ItemPatch = Partial<ItemCreate> & { active?: boolean };
 export type ScopeCreate = { user_id: string; card_id: string | null; terminal_id: string | null };
 export type ResolveBody = { decision: "accepted" | "rejected"; comment: string; items?: KpiItemInput[] };
 export type DecideBody = { status: "approved" | "rejected"; amount?: number; comment?: string };
+export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
 
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
 // react-query посчитал бы 409/422 успехом.
@@ -122,6 +133,8 @@ export function createKpiApi(kpi: any) {
       list: (query: EmployeesQuery) => call<EmployeeRow[]>(kpi.employees.get(q(query))),
       setCard: (id: string, cardId: string | null | "auto", comment?: string) =>
         call<unknown>(kpi.employees({ id }).card.put(comment && comment.trim() ? { card_id: cardId, comment } : { card_id: cardId })),
+      setExternalId: (id: string, externalId: string | null) =>
+        call<{ id: string; external_id: string | null }>(kpi.employees({ id })["external-id"].put({ external_id: externalId })),
     },
     reviews: {
       form: (period: string, employeeId: string) =>
@@ -154,6 +167,10 @@ export function createKpiApi(kpi: any) {
       compute: (quarter: string) => call<RaiseRow[]>(kpi.raises.compute.post({ quarter })),
       decide: (id: string, b: DecideBody) => call<RaiseRow>(kpi.raises({ id }).decide.post(b)),
     },
+    attendance: {
+      commit: (b: AttendanceCommitBody) => call<AttendanceImportRow>(kpi.attendance.commit.post(b)),
+      imports: (period: string) => call<AttendanceImportRow[]>(kpi.attendance.imports.get({ query: { period } })),
+    },
     tiers: {
       get: () => call<Tier[]>(kpi["raise-tiers"].get()),
       save: (tiers: Tier[]) => call<Tier[]>(kpi["raise-tiers"].put({ tiers })),
@@ -170,6 +187,7 @@ export function photoUrl(photoId: string): string {
 }
 
 const VIOLATION_TIMEOUT_MS = 120_000;
+const ATTENDANCE_TIMEOUT_MS = 120_000;
 
 async function readJson(res: Response): Promise<unknown> {
   try {
@@ -181,13 +199,13 @@ async function readJson(res: Response): Promise<unknown> {
 
 // Multipart идёт обычным fetch: Eden не умеет FormData с файлами надёжно, а код ошибки
 // здесь читается из body.error (у tickets — из body.message).
-export async function postViolation(body: FormData, fetcher: typeof fetch = fetch): Promise<ViolationRow> {
+async function postForm<T>(path: string, body: FormData, fetcher: typeof fetch, timeoutMs: number): Promise<T> {
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), VIOLATION_TIMEOUT_MS);
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
     let res: Response;
     try {
-      res = await fetcher("/api/kpi/violations", { method: "POST", body, credentials: "include", signal: ctrl.signal });
+      res = await fetcher(path, { method: "POST", body, credentials: "include", signal: ctrl.signal });
     } catch {
       throw new KpiApiError(0, "network", {});
     }
@@ -195,10 +213,21 @@ export async function postViolation(body: FormData, fetcher: typeof fetch = fetc
     if (ctrl.signal.aborted) throw new KpiApiError(0, "network", {});
     if (!res.ok) throw toKpiError(res.status, json);
     if (json === null) throw new KpiApiError(res.status, "server_error", {});
-    return json as ViolationRow;
+    return json as T;
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function postViolation(body: FormData, fetcher: typeof fetch = fetch): Promise<ViolationRow> {
+  return postForm<ViolationRow>("/api/kpi/violations", body, fetcher, VIOLATION_TIMEOUT_MS);
+}
+
+/** Загрузка файла Workly: сервер разбирает его и отдаёт токен и предпросмотр листов. */
+export function postAttendanceFile(file: File, fetcher: typeof fetch = fetch): Promise<AttendanceParseResponse> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postForm<AttendanceParseResponse>("/api/kpi/attendance/parse", fd, fetcher, ATTENDANCE_TIMEOUT_MS);
 }
 
 export async function downloadRaisesCsv(quarter: string, fetcher: typeof fetch = fetch): Promise<Blob> {

@@ -84,6 +84,20 @@ export const KPI_ERROR_TEXT: Record<string, string> = {
   unknown_card: "Карта не найдена или отключена",
   bad_id: "Неверный идентификатор",
   bad_comment: "Неверный комментарий",
+  bad_status: "Неверный статус",
+  file_required: "Выберите файл",
+  bad_file_type: "Нужен файл xlsx, xls или csv",
+  file_too_large: "Файл больше 5 МБ",
+  bad_file: "Файл не читается: он повреждён или это не таблица",
+  empty_file: "В файле нет данных",
+  sheet_too_large: "Лист слишком большой: не больше 50 000 строк и 100 колонок",
+  upload_expired: "Файл устарел или загружен другим пользователем. Загрузите его заново",
+  bad_sheet: "В файле нет такого листа",
+  bad_header_row: "Строка заголовков — от 1 до 20",
+  bad_mapping: "Выберите колонки табельного номера и даты",
+  nothing_matched: "Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц",
+  external_id_taken: "Этот табельный номер уже у другого сотрудника",
+  bad_external_id: "Табельный номер — строка до 100 символов",
 };
 
 export function codeText(code: string): string {
@@ -95,6 +109,8 @@ export function kpiErrorText(e: unknown): string {
     const base = codeText(e.code);
     if (e.code === "missing_items" && Array.isArray(e.body.items)) return `${base} (не хватает: ${e.body.items.length})`;
     if (e.code === "open_disputes" && Array.isArray(e.body.ids)) return `${base} (${e.body.ids.length})`;
+    if (e.code === "external_id_taken" && typeof e.body.employee_name === "string" && e.body.employee_name) return `${base} (${e.body.employee_name})`;
+    if (e.code === "nothing_matched" && typeof e.body.rows_total === "number") return `${base} (строк в файле: ${e.body.rows_total})`;
     return base;
   }
   if (e instanceof Error) return e.message;
