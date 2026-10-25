@@ -853,3 +853,35 @@ it("kpi.view видит только свои филиалы", async () => {
 - [ ] **Step 3: Реализовать.**
 - [ ] **Step 4: Run** все тесты модуля: `bun test src/modules/kpi/*.test.ts` и `bun run test:http:kpi` — PASS; типы чисты.
 - [ ] **Step 5: Commit** `feat(kpi): квартальные повышения, шкала, выгрузка`.
+
+---
+
+### Task 10: Доработки API для админки
+
+Пробелы нашёл автор плана 2 (`docs/superpowers/plans/2026-10-25-kpi-2-admin.md`, раздел «Пробелы плана 1»). Закрываем пункты 1, 2, 3 и 8.
+
+**Files:**
+- Modify: `backend/src/modules/kpi/types.ts`, `routes/evaluators.ts`, `routes/employees.ts`, `employees.ts`, `routes/reviews.ts`, `reviews.ts`, `routes/violations.ts`
+- Test: `backend/src/modules/kpi/http/admin-gaps.test.ts`
+
+**Interfaces:**
+- Produces:
+  ```ts
+  // types.ts
+  export interface KpiUserOption { id: string; name: string; login: string }
+  // ReviewForm получает поле
+  open_dispute: boolean; // есть открытый спор по этой оценке
+  ```
+- `GET /kpi/users` возвращает `KpiUserOption[]` (`name` — «Имя Фамилия», пусто → login).
+- `GET /kpi/employees?include_uncarded=1` — только для `kpi.manage` (у остальных параметр игнорируется). Отдаёт всех активных сотрудников в видимости, в том числе без карты (`card: null`, `card_source` как есть: `override` для «не оценивается», `null` без карты).
+- `kpi.approve` получает чтение там, где сейчас только evaluate/view: `GET /kpi/reviews`, `GET /kpi/reviews/form`, `GET /kpi/reviews/:id/events`, `GET /kpi/violations`, `GET /kpi/violation-photos/:id/file`. Видимость у `kpi.approve` — вся сеть (`seesNetwork`).
+
+- [ ] **Step 1: Написать `http/admin-gaps.test.ts`** (период 2025-08, cleanupKpi в beforeAll/afterAll):
+  - `users: элементы ровно с ключами id, name, login`;
+  - `include_uncarded=1 у kpi.manage: техничка без назначения видна с card=null; у kpi.view параметр не расширяет список`;
+  - `kpi.approve без view: форма, события, нарушения и фото — 200`;
+  - `ReviewForm.open_dispute: false без спора; true после вставки строки kpi_disputes status=open по этой оценке`.
+- [ ] **Step 2: Run** `bun run test:http:kpi` — новые тесты FAIL.
+- [ ] **Step 3: Реализовать.**
+- [ ] **Step 4: Run** — PASS всё; типы чисты.
+- [ ] **Step 5: Commit** `feat(kpi): API для админки — пользователи, сотрудники без карты, чтение для approve`.
