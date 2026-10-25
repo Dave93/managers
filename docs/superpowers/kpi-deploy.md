@@ -96,9 +96,10 @@ bun run src/modules/kpi/seed-cards.ts
 
 ### Вебхук
 
-Токен и секрет брать из окружения, в командах они не пишутся:
+Токен и секрет брать из окружения, в командах они не пишутся. Сначала загрузить `backend/.env` в текущую оболочку, иначе `$KPI_BOT_TOKEN` и `$KPI_WEBHOOK_SECRET` окажутся пустыми:
 
 ```bash
+cd /home/davr/managers/backend && set -a && . ./.env && set +a
 curl -sS "https://api.telegram.org/bot$KPI_BOT_TOKEN/setWebhook" \
   -d "url=https://api.office.lesailes.uz/api/kpi/bot/webhook" \
   -d "secret_token=$KPI_WEBHOOK_SECRET" \
@@ -112,7 +113,7 @@ curl -sS "https://api.telegram.org/bot$KPI_BOT_TOKEN/getWebhookInfo"
 
 ### Воркер office_kpi_worker
 
-Процесс описан в `cron/pm2.config.js` и запускается из исходников (`bun kpi_worker.ts`). Первый запуск:
+Процесс описан в `cron/pm2.config.js` и запускается из исходников (`bun kpi_worker.ts`). Запустить его нужно до того, как выдавать приглашения. Старые строки `kpi_notifications` в `pending` (до включения Telegram их никто не отправлял) воркер при первом проходе закроет как `skipped` (`no_binding`), пока ни у кого нет привязки. Если выдать приглашения раньше, человек сразу после `/start` получит пачку устаревших уведомлений. Первый запуск:
 
 ```bash
 cd /home/davr/managers/cron
