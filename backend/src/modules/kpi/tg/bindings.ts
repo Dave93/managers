@@ -3,7 +3,7 @@
 import { randomBytes } from "node:crypto";
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, kpi_tg_bindings, kpi_tg_invites, users } from "backend/drizzle/schema";
-import { and, asc, eq, gt, inArray, isNull, ne, or } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { DbLike } from "../access";
 import { now } from "../clock";
@@ -42,7 +42,8 @@ export async function createInvite(
   createdBy: string,
   target: { employee_id?: unknown; user_id?: unknown }
 ): Promise<KpiInvite> {
-  const botName = (process.env.KPI_BOT_USERNAME ?? "").trim();
+  // В настройках имя часто пишут как @name; в ссылке t.me собачка не нужна.
+  const botName = (process.env.KPI_BOT_USERNAME ?? "").trim().replace(/^@+/, "");
   if (!botName) throw new KpiError(409, "bot_not_configured");
 
   const hasEmp = target.employee_id !== undefined && target.employee_id !== null;
@@ -54,6 +55,8 @@ export async function createInvite(
   const person: Person = hasEmp ? { employee_id: id, user_id: null } : { employee_id: null, user_id: id };
 
   return inTx(db, async (tx) => {
+    // Два одновременных приглашения одному человеку не должны оба остаться действующими.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"kpi_invite:" + id}))`);
     const found = person.employee_id
       ? await tx
           .select({ id: employees.id })
@@ -115,39 +118,59 @@ export async function unbind(db: DbLike, id: string): Promise<void> {
   if (!rows.length) throw new KpiError(404, "not_found");
 }
 
+const isUniqueViolation = (e: unknown): boolean => {
+  const err = e as { code?: string; cause?: { code?: string } } | null;
+  return err?.code === "23505" || err?.cause?.code === "23505";
+};
+
+async function personActive(tx: DbLike, p: Person): Promise<boolean> {
+  const rows = p.employee_id
+    ? await tx.select({ id: employees.id }).from(employees).where(and(eq(employees.id, p.employee_id), eq(employees.active, true)))
+    : await tx.select({ id: users.id }).from(users).where(and(eq(users.id, p.user_id!), eq(users.status, "active")));
+  return rows.length > 0;
+}
+
 export async function redeemInvite(db: DbLike, token: string, telegramId: number): Promise<"bound" | "already" | "invalid"> {
   if (!TOKEN_RE.test(token)) return "invalid";
-  return inTx(db, async (tx) => {
-    const [inv] = await tx.select().from(kpi_tg_invites).where(eq(kpi_tg_invites.token, token)).for("update");
-    if (!inv) return "invalid";
-    const person = { employee_id: inv.employee_id, user_id: inv.user_id } as Person;
+  try {
+    return await inTx(db, async (tx) => {
+      const [inv] = await tx.select().from(kpi_tg_invites).where(eq(kpi_tg_invites.token, token)).for("update");
+      if (!inv) return "invalid";
+      const person = { employee_id: inv.employee_id, user_id: inv.user_id } as Person;
 
-    if (inv.used_at) {
-      // Telegram повторил апдейт или человек нажал ссылку ещё раз: тот же телефон получает «уже привязано».
-      const [mine] = await tx
-        .select({ id: kpi_tg_bindings.id })
-        .from(kpi_tg_bindings)
-        .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true), samePerson(kpi_tg_bindings, person)));
-      return mine ? "already" : "invalid";
-    }
-    const at = now();
-    if (new Date(inv.expires_at).getTime() <= at.getTime()) return "invalid";
+      if (inv.used_at) {
+        // Telegram повторил апдейт или человек нажал ссылку ещё раз: тот же телефон получает «уже привязано».
+        const [mine] = await tx
+          .select({ id: kpi_tg_bindings.id })
+          .from(kpi_tg_bindings)
+          .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true), samePerson(kpi_tg_bindings, person)));
+        return mine ? "already" : "invalid";
+      }
+      const at = now();
+      if (new Date(iso(inv.expires_at)).getTime() <= at.getTime()) return "invalid";
+      // Ссылку могли выдать до увольнения или блокировки: неактивному человеку привязка не нужна.
+      if (!(await personActive(tx, person))) return "invalid";
 
-    await tx
-      .update(kpi_tg_bindings)
-      .set({ active: false })
-      .where(and(samePerson(kpi_tg_bindings, person), eq(kpi_tg_bindings.active, true), ne(kpi_tg_bindings.telegram_id, telegramId)));
-    // Язык при конфликте не трогаем: человек мог выбрать его раньше.
-    await tx
-      .insert(kpi_tg_bindings)
-      .values({ telegram_id: telegramId, employee_id: person.employee_id, user_id: person.user_id, active: true })
-      .onConflictDoUpdate({
-        target: kpi_tg_bindings.telegram_id,
-        set: { employee_id: person.employee_id, user_id: person.user_id, active: true },
-      });
-    await tx.update(kpi_tg_invites).set({ used_at: at.toISOString() }).where(eq(kpi_tg_invites.id, inv.id));
-    return "bound";
-  });
+      await tx
+        .update(kpi_tg_bindings)
+        .set({ active: false })
+        .where(and(samePerson(kpi_tg_bindings, person), eq(kpi_tg_bindings.active, true), ne(kpi_tg_bindings.telegram_id, telegramId)));
+      // Язык при конфликте не трогаем: человек мог выбрать его раньше. created_at обновляем: это новая привязка.
+      await tx
+        .insert(kpi_tg_bindings)
+        .values({ telegram_id: telegramId, employee_id: person.employee_id, user_id: person.user_id, active: true })
+        .onConflictDoUpdate({
+          target: kpi_tg_bindings.telegram_id,
+          set: { employee_id: person.employee_id, user_id: person.user_id, active: true, created_at: sql`now()` },
+        });
+      await tx.update(kpi_tg_invites).set({ used_at: at.toISOString() }).where(eq(kpi_tg_invites.id, inv.id));
+      return "bound";
+    });
+  } catch (e) {
+    // Гонка двух погашений для одного человека упирается в частичный уникальный индекс: проигравший получает «недействительна».
+    if (isUniqueViolation(e)) return "invalid";
+    throw e;
+  }
 }
 
 const toActive = (r: typeof kpi_tg_bindings.$inferSelect): ActiveBinding => ({
@@ -176,10 +199,11 @@ export async function setLang(db: DbLike, telegramId: number, lang: "ru" | "uz")
 }
 
 // Личный чат совпадает с telegram_id пользователя, поэтому chat_id = telegram_id.
+// "inactive": привязка есть, но сотрудник уволен или пользователь не active — писать некому.
 export async function recipientOf(
   db: DbLike,
   r: { recipient_kind: string; employee_id: string | null; user_id: string | null }
-): Promise<{ chat_id: number; lang: "ru" | "uz" } | null> {
+): Promise<{ chat_id: number; lang: "ru" | "uz" } | "inactive" | null> {
   const owner =
     r.recipient_kind === "employee" ? r.employee_id : r.recipient_kind === "user" ? r.user_id : null;
   if (!owner) return null;
@@ -188,5 +212,9 @@ export async function recipientOf(
     .select()
     .from(kpi_tg_bindings)
     .where(and(eq(col, owner), eq(kpi_tg_bindings.active, true)));
-  return b ? { chat_id: b.telegram_id, lang: asLang(b.lang) } : null;
+  if (!b) return null;
+  const person: Person =
+    r.recipient_kind === "employee" ? { employee_id: owner, user_id: null } : { employee_id: null, user_id: owner };
+  if (!(await personActive(db, person))) return "inactive";
+  return { chat_id: b.telegram_id, lang: asLang(b.lang) };
 }

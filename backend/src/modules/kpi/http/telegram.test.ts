@@ -13,7 +13,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, bindTelegram, cleanupKpi, makeEmployee, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
   const { kpi_tg_bindings } = await import("backend/drizzle/schema");
-  const { bindingOf, createInvite, redeemInvite } = await import("../tg/bindings");
+  const { bindingOf, createInvite, recipientOf, redeemInvite } = await import("../tg/bindings");
+  const { employees, kpi_tg_invites, users } = await import("backend/drizzle/schema");
+  const { and, gt, isNull, sql } = await import("drizzle-orm");
   const { eq } = await import("drizzle-orm");
   type TgBindingRow = import("../types").TgBindingRow;
 
@@ -116,6 +118,74 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await api(hr, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).body).toEqual([]);
       const view = await withSession({ permissions: ["kpi.view"] });
       expect((await api(view, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).status).toBe(403);
+    });
+    it("в KPI_BOT_USERNAME ведущая @ не попадает в ссылку", async () => {
+      const e = await makeEmployee(db);
+      const u = await makeUser(db);
+      const saved = process.env.KPI_BOT_USERNAME!;
+      process.env.KPI_BOT_USERNAME = " @kpi_test_bot ";
+      try {
+        const inv = await createInvite(db, u.id, { employee_id: e.id });
+        expect(inv.link).toBe(`https://t.me/kpi_test_bot?start=kpi_${inv.token}`);
+      } finally { process.env.KPI_BOT_USERNAME = saved; }
+    });
+
+    it("неактивный сотрудник и заблокированный пользователь не привязываются; recipientOf их не отдаёт", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const e = await makeEmployee(db);
+      const target = await makeUser(db);
+      const admin = await makeUser(db);
+      const [t1, t2] = [newTelegramId(), newTelegramId()];
+      const invE = await createInvite(db, admin.id, { employee_id: e.id });
+      const invU = await createInvite(db, admin.id, { user_id: target.id });
+      await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
+      await db.update(users).set({ status: "blocked" }).where(eq(users.id, target.id));
+      expect(await redeemInvite(db, invE.token, t1)).toBe("invalid");
+      expect(await redeemInvite(db, invU.token, t2)).toBe("invalid");
+      expect(await bindingOf(db, t1)).toBeNull();
+      // Привязка была до увольнения: получателя нет.
+      await bindTelegram(db, { employee_id: e.id });
+      await bindTelegram(db, { user_id: target.id });
+      expect(await recipientOf(db, { recipient_kind: "employee", employee_id: e.id, user_id: null })).toBe("inactive");
+      expect(await recipientOf(db, { recipient_kind: "user", employee_id: null, user_id: target.id })).toBe("inactive");
+    });
+
+    it("перепривязка обновляет created_at", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const [e1, e2] = [await makeEmployee(db), await makeEmployee(db)];
+      const u = await makeUser(db);
+      const t1 = newTelegramId();
+      await bindTelegram(db, { employee_id: e1.id, telegram_id: t1 });
+      await db.update(kpi_tg_bindings).set({ created_at: sql`now() - interval '30 days'` as any }).where(eq(kpi_tg_bindings.telegram_id, t1));
+      expect(await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, t1)).toBe("bound");
+      const [r] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, t1));
+      expect(Date.now() - new Date(r.created_at).getTime()).toBeLessThan(60_000);
+    });
+
+    it("одновременные приглашения одному человеку: действующее остаётся одно", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const e = await makeEmployee(db);
+      const u = await makeUser(db);
+      await Promise.all(Array.from({ length: 6 }, () => createInvite(db, u.id, { employee_id: e.id })));
+      const live = await db
+        .select({ id: kpi_tg_invites.id })
+        .from(kpi_tg_invites)
+        .where(and(eq(kpi_tg_invites.employee_id, e.id), isNull(kpi_tg_invites.used_at), gt(kpi_tg_invites.expires_at, new Date("2025-10-25T10:00:00+05:00").toISOString())));
+      expect(live).toHaveLength(1);
+    });
+
+    it("гонка двух погашений одного человека: без исключения, привязка одна", async () => {
+      setNow("2025-10-25T10:00:00+05:00");
+      const e = await makeEmployee(db);
+      const u = await makeUser(db);
+      const expires_at = new Date("2025-11-01T10:00:00+05:00").toISOString();
+      const tokens = [randomUUID().replace(/-/g, ""), randomUUID().replace(/-/g, "")];
+      for (const token of tokens) await db.insert(kpi_tg_invites).values({ token, employee_id: e.id, expires_at, created_by: u.id });
+      const res = await Promise.all(tokens.map((tk) => redeemInvite(db, tk, newTelegramId())));
+      expect(res).toContain("bound");
+      expect(res.every((r) => r === "bound" || r === "invalid")).toBe(true);
+      const active = await db.select().from(kpi_tg_bindings).where(and(eq(kpi_tg_bindings.employee_id, e.id), eq(kpi_tg_bindings.active, true)));
+      expect(active).toHaveLength(1);
     });
   });
 }
