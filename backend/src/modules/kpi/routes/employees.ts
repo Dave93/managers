@@ -5,7 +5,7 @@ import Elysia, { t } from "elysia";
 import { actorFrom, has, requireAny } from "../access";
 import { now } from "../clock";
 import { loadDirectory } from "../directory";
-import { listEmployeeRows, UUID_RE } from "../employees";
+import { listEmployeeRows, setExternalId, UUID_RE } from "../employees";
 import { KpiError, run } from "../errors";
 import type { EmployeeRow } from "../types";
 
@@ -72,6 +72,16 @@ export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
         const [e] = await loadDirectory(drizzle, { employeeIds: [params.id], includeInactive: true });
         return e;
       }),
+    {
+      permission: "kpi.manage",
+      params: t.Object({ id: t.String() }),
+      body: t.Record(t.String(), t.Any()),
+    }
+  )
+  .put(
+    "/kpi/employees/:id/external-id",
+    async ({ params, body, drizzle, set }) =>
+      run(set, async () => setExternalId(drizzle, params.id, (body as Record<string, unknown>).external_id)),
     {
       permission: "kpi.manage",
       params: t.Object({ id: t.String() }),

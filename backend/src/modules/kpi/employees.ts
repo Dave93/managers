@@ -1,5 +1,6 @@
-import { kpi_cards, kpi_disputes, kpi_reviews } from "backend/drizzle/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import type { DrizzleDB } from "@backend/lib/db";
+import { employees, kpi_cards, kpi_disputes, kpi_reviews } from "backend/drizzle/schema";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { loadScopes, parsePeriod, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { canEvaluate, canSeeEmployee, loadDirectory } from "./directory";
@@ -118,4 +119,38 @@ export async function listEmployeeRows(
       a.id.localeCompare(b.id)
   );
   return out;
+}
+
+// Табельный номер: обрезка пробелов, пусто = null, не длиннее 100. Уникален среди активных
+// (в базе ограничения нет), проверка и запись идут под одним advisory-локом.
+export async function setExternalId(
+  db: DrizzleDB,
+  employeeId: string,
+  raw: unknown
+): Promise<{ id: string; external_id: string | null }> {
+  if (!UUID_RE.test(employeeId)) throw new KpiError(404, "not_found");
+  if (raw !== null && typeof raw !== "string") throw new KpiError(422, "bad_external_id");
+  const value = raw === null ? null : raw.trim() === "" ? null : raw.trim();
+  if (value !== null && value.length > 100) throw new KpiError(422, "bad_external_id");
+
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('kpi_external_id'))`);
+    const [emp] = await tx.select({ id: employees.id }).from(employees).where(eq(employees.id, employeeId)).limit(1);
+    if (!emp) throw new KpiError(404, "not_found");
+    if (value !== null) {
+      const [dup] = await tx
+        .select({ id: employees.id, first_name: employees.first_name, last_name: employees.last_name })
+        .from(employees)
+        .where(and(ne(employees.id, employeeId), eq(employees.active, true), sql`trim(${employees.external_id}) = ${value}`))
+        .limit(1);
+      if (dup) {
+        throw new KpiError(409, "external_id_taken", {
+          employee_id: dup.id,
+          employee_name: `${dup.last_name} ${dup.first_name}`,
+        });
+      }
+    }
+    await tx.update(employees).set({ external_id: value, updated_at: now().toISOString() }).where(eq(employees.id, employeeId));
+    return { id: employeeId, external_id: value };
+  });
 }
