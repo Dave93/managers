@@ -15,8 +15,6 @@ import { ScreenGate } from "../_components/screen-gate";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
 import { DecideDialog } from "./_components/decide-dialog";
 
-const FALLBACK_CAP = 500000;
-
 export default function RaisesPage() {
   return (
     <ScreenGate screen="raises">
@@ -30,7 +28,8 @@ function RaisesScreen() {
   const qc = useQueryClient();
   const { access } = useKpiPerms();
   const me = useKpiMe();
-  const cap = me.data?.settings.raise_cap ?? FALLBACK_CAP;
+  // Потолок берём только из настроек сервера: пока они не загружены, решать нельзя.
+  const cap = me.data?.settings.raise_cap;
   const options = useMemo(() => quarterOptions(now, 6), [now]);
   const [quarter, setQuarter] = useState(() => defaultQuarter(now));
   const [csvBusy, setCsvBusy] = useState(false);
@@ -41,10 +40,10 @@ function RaisesScreen() {
     queryKey: qk.raises(quarter),
     queryFn: () => kpiApi.raises.list(quarter),
     retry: shouldRetry,
-    placeholderData: (prev) => prev,
   });
   const rows = useMemo(() => list.data ?? [], [list.data]);
-  const decideRow = decideId ? rows.find((r) => r.id === decideId) ?? null : null;
+  // Строку другого квартала решать нельзя: ключ запроса меняется вместе с кварталом, но id мог остаться от прошлого.
+  const decideRow = decideId ? rows.find((r) => r.id === decideId && r.quarter_start === quarter) ?? null : null;
 
   const compute = useMutation({
     mutationFn: () => kpiApi.raises.compute(quarter),
@@ -67,7 +66,7 @@ function RaisesScreen() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      URL.revokeObjectURL(url);
+      setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (e) {
       toast.error(kpiErrorText(e));
     } finally {
@@ -104,6 +103,12 @@ function RaisesScreen() {
           </>
         )}
       </div>
+
+      {me.error && (
+        <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
+          {kpiErrorText(me.error)}
+        </p>
+      )}
 
       {list.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
@@ -170,7 +175,7 @@ function RaisesScreen() {
                     </TableCell>
                     {access.approve && (
                       <TableCell>
-                        <Button type="button" variant="outline" className="h-11" onClick={() => setDecideId(r.id)}>
+                        <Button type="button" variant="outline" className="h-11" disabled={cap === undefined} onClick={() => setDecideId(r.id)}>
                           Решение
                         </Button>
                       </TableCell>
@@ -183,7 +188,7 @@ function RaisesScreen() {
         </div>
       )}
 
-      <DecideDialog row={access.approve ? decideRow : null} cap={cap} onClose={() => setDecideId(null)} />
+      <DecideDialog row={access.approve && cap !== undefined ? decideRow : null} cap={cap ?? 0} onClose={() => setDecideId(null)} />
     </div>
   );
 }

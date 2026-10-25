@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
@@ -15,11 +15,12 @@ import { qk } from "../../_components/use-kpi";
 
 export function DecideDialog({ row, cap, onClose }: { row: RaiseRow | null; cap: number; onClose: () => void }) {
   // Тело держим по id строки: введённое не переживает смену строки.
+  const [pending, setPending] = useState(false);
   return (
-    <Dialog open={row !== null} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={row !== null} onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {row ? (
-          <DecideBody key={row.id} row={row} cap={cap} onClose={onClose} />
+          <DecideBody key={row.id} row={row} cap={cap} onClose={onClose} onPending={setPending} />
         ) : (
           <>
             <DialogTitle className="sr-only">Решение по повышению</DialogTitle>
@@ -31,7 +32,7 @@ export function DecideDialog({ row, cap, onClose }: { row: RaiseRow | null; cap:
   );
 }
 
-function DecideBody({ row, cap, onClose }: { row: RaiseRow; cap: number; onClose: () => void }) {
+function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: number; onClose: () => void; onPending: (p: boolean) => void }) {
   const qc = useQueryClient();
   const [status, setStatus] = useState<DecisionInput["status"]>("approved");
   const [amount, setAmount] = useState(String(row.suggested_amount));
@@ -65,6 +66,10 @@ function DecideBody({ row, cap, onClose }: { row: RaiseRow; cap: number; onClose
   };
 
   const busy = decide.isPending;
+  useEffect(() => {
+    onPending(busy);
+    return () => onPending(false);
+  }, [busy, onPending]);
 
   return (
     <>

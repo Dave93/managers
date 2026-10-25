@@ -36,6 +36,7 @@ export const qk = {
   disputesAll: ["kpi_disputes"] as const,
   period: (p: string) => ["kpi_period", p] as const,
   raises: (q: string) => ["kpi_raises", q] as const,
+  raisesAll: ["kpi_raises"] as const,
   tiers: ["kpi_tiers"] as const,
   settings: ["kpi_settings"] as const,
   evaluators: ["kpi_evaluators"] as const,

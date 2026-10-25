@@ -155,7 +155,7 @@ function SummaryView({ period, data, canApprove }: { period: string; data: Perio
         )}
       </section>
 
-      {canApprove && <MonthActions period={period} data={data} />}
+      {canApprove && <MonthActions key={period} period={period} data={data} />}
     </div>
   );
 }
@@ -169,7 +169,7 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
 
   const done = async (summary: PeriodSummary, message: string) => {
     qc.setQueryData(qk.period(period), summary);
-    await Promise.all([qk.employeesAll, qk.formAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
+    await Promise.all([qk.employeesAll, qk.formAll, qk.raisesAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
     toast.success(message);
   };
 
