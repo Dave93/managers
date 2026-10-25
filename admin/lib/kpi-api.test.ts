@@ -100,6 +100,13 @@ describe("kpiApi: ответы", () => {
     const e = await api.reviews.change("r1", items, "x").catch((x) => x);
     expect(e.code).toBe("invalid_input");
   });
+  it("обрыв сети в обычном вызове — network", async () => {
+    const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    const root: any = (treaty as any)("http://kpi.test", { fetcher: boom });
+    const e = await createKpiApi(root.api.kpi).me().catch((x) => x);
+    expect(e).toBeInstanceOf(KpiApiError);
+    expect([e.status, e.code]).toEqual([0, "network"]);
+  });
   it("photoUrl", () => expect(photoUrl("p1")).toBe("/api/kpi/violation-photos/p1/file"));
 });
 
@@ -126,7 +133,22 @@ describe("postViolation", () => {
   });
 });
 
+describe("postViolation: нечитаемый ответ", () => {
+  it("2xx без JSON — server_error, не http_200", async () => {
+    const e = await postViolation(new FormData(), fakeFetch(200, "<html>", [], "text/html")).catch((x) => x);
+    expect([e.status, e.code]).toEqual([200, "server_error"]);
+  });
+});
+
 describe("downloadRaisesCsv", () => {
+  it("обрыв сети и сбой чтения тела — network", async () => {
+    const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    const e1 = await downloadRaisesCsv("2026-10-01", boom).catch((x) => x);
+    expect(e1.code).toBe("network");
+    const badBody = (async () => ({ ok: true, status: 200, blob: async () => { throw new TypeError("terminated"); } })) as unknown as typeof fetch;
+    const e2 = await downloadRaisesCsv("2026-10-01", badBody).catch((x) => x);
+    expect([e2.status, e2.code]).toEqual([0, "network"]);
+  });
   it("скачивает файл квартала", async () => {
     const calls: Call[] = [];
     const blob = await downloadRaisesCsv("2026-10-01", fakeFetch(200, "\ufeffФИО;Филиал", calls, "text/csv; charset=utf-8"));

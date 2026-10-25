@@ -9,6 +9,7 @@ const PLAN1_CODES = [
   "dispute_window_closed", "dispute_exists", "dispute_closed", "dispute_window_open", "open_disputes", "already_closed",
   "bad_quarter", "periods_open", "bad_amount", "tier_pct_range", "tier_amount_range", "tier_amount_over_cap", "tier_pct_duplicate",
   "stale", "open_dispute", "cap_below_tiers", "no_items",
+  "not_closed", "bad_code", "bad_title", "bad_hint", "items_required", "unknown_card", "bad_id", "bad_comment",
 ];
 
 describe("тексты ошибок", () => {

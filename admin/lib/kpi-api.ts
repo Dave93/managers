@@ -70,7 +70,13 @@ export type DecideBody = { status: "approved" | "rejected"; amount?: number; com
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
 // react-query посчитал бы 409/422 успехом.
 async function call<T>(p: Promise<any>): Promise<T> {
-  const res = await p;
+  let res: any;
+  try {
+    res = await p;
+  } catch (e) {
+    // treaty не ловит отказ fetch: офлайн приходит сырым TypeError.
+    throw e instanceof KpiApiError ? e : new KpiApiError(0, "network", {});
+  }
   if (res?.error) throw toKpiError(res.error.status ?? res.status ?? 0, res.error.value ?? res.error);
   // Eden превращает строки дат в Date — возвращаем их строками (см. inventory/normalize.ts).
   return normalizeDates(res?.data) as T;
@@ -187,7 +193,8 @@ export async function postViolation(body: FormData, fetcher: typeof fetch = fetc
     }
     const json = await readJson(res);
     if (ctrl.signal.aborted) throw new KpiApiError(0, "network", {});
-    if (json === null || !res.ok) throw toKpiError(res.status, json);
+    if (!res.ok) throw toKpiError(res.status, json);
+    if (json === null) throw new KpiApiError(res.status, "server_error", {});
     return json as ViolationRow;
   } finally {
     clearTimeout(timer);
@@ -202,5 +209,9 @@ export async function downloadRaisesCsv(quarter: string, fetcher: typeof fetch =
     throw new KpiApiError(0, "network", {});
   }
   if (!res.ok) throw toKpiError(res.status, await readJson(res));
-  return res.blob();
+  try {
+    return await res.blob();
+  } catch {
+    throw new KpiApiError(0, "network", {});
+  }
 }
