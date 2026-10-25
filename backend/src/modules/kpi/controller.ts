@@ -6,6 +6,7 @@ import { employeesRoutes } from "./routes/employees";
 import { evaluatorsRoutes } from "./routes/evaluators";
 import { meRoutes } from "./routes/me";
 import { periodsRoutes } from "./routes/periods";
+import { raisesRoutes } from "./routes/raises";
 import { reviewsRoutes } from "./routes/reviews";
 import { settingsRoutes } from "./routes/settings";
 import { violationsRoutes } from "./routes/violations";
@@ -21,6 +22,7 @@ const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(employeesRoutes)
   .use(reviewsRoutes)
   .use(violationsRoutes)
-  .use(disputesRoutes);
+  .use(disputesRoutes)
+  .use(raisesRoutes);
 
 export const kpiController = kpiControllerImpl as unknown as Elysia;

@@ -176,3 +176,24 @@ export interface PeriodSummary {
   can_close: boolean;
   close_blockers: string[];
 }
+
+export type { Tier } from "./rules";
+
+export interface RaiseRow {
+  id: string;
+  quarter_start: string;
+  employee_id: string;
+  employee_name: string;
+  terminal_name: string | null;
+  card_title: string | null;
+  months: { period: string; score_pct: number | null }[];
+  months_scored: number;
+  avg_pct: number | null;
+  suggested_amount: number;
+  status: "proposed" | "insufficient" | "approved" | "rejected";
+  approved_amount: number | null;
+  decided_by_name: string | null;
+  decided_at: string | null;
+  comment: string | null;
+  periods_closed: boolean;
+}
