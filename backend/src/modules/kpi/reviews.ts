@@ -2,6 +2,8 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { kpi_card_items, kpi_cards, kpi_review_events, kpi_review_items, kpi_reviews } from "backend/drizzle/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
+import { attendanceStats } from "./attendance";
+import type { AttendanceStats } from "./attendance-parse";
 import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, userNames, type DirEmployee } from "./directory";
 import { listEmployeeRows, UUID_RE, type EmployeeQuery } from "./employees";
@@ -27,7 +29,8 @@ import type { EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./typ
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
 
-type Suggestion = { score: number; basis: string };
+type AutoValue = { source: "attendance" } & AttendanceStats;
+type Suggestion = { score: number; basis: string; auto_value: AutoValue | null };
 type ReviewRow = typeof kpi_reviews.$inferSelect;
 // Рабочая строка пункта: снимок карты плюс оценка.
 type WorkItem = {
@@ -45,10 +48,38 @@ type Meta = { hint_ru: string | null; group_key: "base" | "extra"; sort: number 
 const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
   (db as DrizzleDB).transaction((tx) => fn(tx));
 
-// Предложения для автопунктов появятся в планах 3 и 5; пока их нет.
-async function loadSuggestions(_db: DbLike, _review: ReviewRow | null, _items: WorkItem[]): Promise<Map<string, Suggestion>> {
-  return new Map();
+// Предложения автопунктов. Отправленная оценка берёт их из снимка auto_value,
+// черновик и новая форма считают по живым данным Workly.
+async function loadSuggestions(
+  db: DbLike,
+  target: { employee_id: string; period: Period; status: "draft" | "submitted" | null },
+  items: WorkItem[]
+): Promise<Map<string, Suggestion>> {
+  const out = new Map<string, Suggestion>();
+  if (target.status === "submitted") {
+    for (const i of items) {
+      const v = i.auto_value as { score?: unknown; basis?: unknown } | null;
+      if (v && typeof v === "object" && typeof v.score === "number" && typeof v.basis === "string") {
+        out.set(i.item_id, { score: v.score, basis: v.basis, auto_value: v as AutoValue });
+      }
+    }
+    return out;
+  }
+  const att = items.filter((i) => i.source === "attendance");
+  if (att.length > 0) {
+    const stats = await attendanceStats(db, target.employee_id, target.period);
+    if (stats) {
+      for (const i of att) {
+        out.set(i.item_id, { score: stats.score, basis: stats.basis, auto_value: { source: "attendance", ...stats } });
+      }
+    }
+  }
+  return out;
 }
+
+// В ответ API уходят только балл и основание, снимок остаётся внутри.
+const suggestionOf = (s: Suggestion | undefined): { score: number; basis: string } | null =>
+  s ? { score: s.score, basis: s.basis } : null;
 
 const normNote = (v: unknown): string | null => (typeof v === "string" && v.trim() !== "" ? v.trim() : null);
 const pctStr = (v: number | null): string | null => (v === null ? null : v.toFixed(2));
@@ -115,11 +146,15 @@ function applyInputs(
     if (score !== null && !isScore(score)) throw new KpiError(422, "bad_score", { item_id: inp.item_id });
     it.score = score;
     if (inp.note !== undefined) it.note = normNote(inp.note);
+  }
+  // Заметку проверяем по всем пунктам, а не только по присланным: предложение могло появиться после черновика.
+  const out = base.map((i) => byId.get(i.item_id)!);
+  for (const it of out) {
     if (noteRequired(suggestions.get(it.item_id) ?? null, it.score, it.note)) {
       throw new KpiError(422, "note_required", { item_id: it.item_id });
     }
   }
-  return base.map((i) => byId.get(i.item_id)!);
+  return out;
 }
 
 function pctOf(items: WorkItem[]): number | null {
@@ -146,8 +181,16 @@ async function syncDraft(tx: DbLike, review: ReviewRow, emp: DirEmployee, inputs
     note: prev.get(c.id)?.note ?? null,
     auto_value: prev.get(c.id)?.auto_value ?? null,
   }));
-  const suggestions = await loadSuggestions(tx, review, base);
-  const items = applyInputs(base, inputs, suggestions);
+  const suggestions = await loadSuggestions(
+    tx,
+    { employee_id: review.employee_id, period: review.period, status: review.status as "draft" | "submitted" },
+    base
+  );
+  // В снимок попадает предложение на момент сохранения (при отправке это и есть снимок отправки).
+  const items = applyInputs(base, inputs, suggestions).map((i) => ({
+    ...i,
+    auto_value: suggestions.get(i.item_id)?.auto_value ?? null,
+  }));
   await tx.delete(kpi_review_items).where(eq(kpi_review_items.review_id, review.id));
   if (items.length) {
     await tx.insert(kpi_review_items).values(
@@ -238,7 +281,11 @@ async function buildForm(
     (a, b) =>
       (meta.get(a.item_id)?.sort ?? 1e9) - (meta.get(b.item_id)?.sort ?? 1e9) || a.item_id.localeCompare(b.item_id)
   );
-  const suggestions = await loadSuggestions(db, review, work);
+  const suggestions = await loadSuggestions(
+    db,
+    { employee_id: emp.id, period, status: (review?.status as "draft" | "submitted" | undefined) ?? null },
+    work
+  );
   const violations = await violationsFor(db, emp.id, period);
   const itemIds = new Set(work.map((w) => w.item_id));
   const items: ReviewFormItem[] = work.map((w) => {
@@ -253,7 +300,7 @@ async function buildForm(
       group_key: meta.get(w.item_id)?.group_key ?? "base",
       score: w.score,
       note: w.note,
-      suggestion: suggestions.get(w.item_id) ?? null,
+      suggestion: suggestionOf(suggestions.get(w.item_id)),
       violations: own,
       violation_hint: own.length > 0 ? violationHint(own.length, settings.violation_penalty_hint) : null,
     };
@@ -450,7 +497,12 @@ export async function changeReviewTx(
   }
 
   const before = await reviewRows(tx, review.id);
-  const suggestions = await loadSuggestions(tx, review, before);
+  // Предложения по снимку: живые данные Workly на отправленную оценку не влияют.
+  const suggestions = await loadSuggestions(
+    tx,
+    { employee_id: review.employee_id, period: review.period, status: "submitted" },
+    before
+  );
   const after = applyInputs(before, items, suggestions);
 
   const oldScores = Object.fromEntries(before.map((i) => [i.item_id, i.score]));

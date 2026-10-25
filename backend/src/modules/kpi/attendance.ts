@@ -2,7 +2,7 @@
 import { randomUUID } from "node:crypto";
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, kpi_attendance, kpi_attendance_imports } from "backend/drizzle/schema";
-import { and, desc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import { parsePeriod, type DbLike } from "./access";
 import {
@@ -14,6 +14,8 @@ import {
   previewOf,
   readGrids,
   validateMapping,
+  attendanceSuggestion,
+  type AttendanceStats,
   type FileKind,
 } from "./attendance-parse";
 import { now } from "./clock";
@@ -21,7 +23,7 @@ import { userNames } from "./directory";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
 import { lockPeriodShared } from "./periods";
-import type { Period } from "./time";
+import { addMonths, type Period } from "./time";
 import type { AttendanceImportRow, AttendanceMapping, AttendanceParseResponse, UnmatchedRow } from "./types";
 
 export const UPLOAD_TTL_SECONDS = 1800;
@@ -205,4 +207,19 @@ export async function listImports(db: DbLike, period: Period): Promise<Attendanc
     .orderBy(desc(kpi_attendance_imports.created_at), desc(kpi_attendance_imports.id));
   const names = await userNames(db, rows.map((r) => r.uploaded_by));
   return rows.map((r) => toImportRow(r, names));
+}
+
+// Статистика сотрудника за месяц по действующему импорту; без строк null.
+export async function attendanceStats(db: DbLike, employeeId: string, period: Period): Promise<AttendanceStats | null> {
+  const rows = await db
+    .select({ absent: kpi_attendance.absent, late_minutes: kpi_attendance.late_minutes })
+    .from(kpi_attendance)
+    .where(
+      and(
+        eq(kpi_attendance.employee_id, employeeId),
+        gte(kpi_attendance.day, period),
+        lt(kpi_attendance.day, addMonths(period, 1))
+      )
+    );
+  return attendanceSuggestion(rows);
 }
