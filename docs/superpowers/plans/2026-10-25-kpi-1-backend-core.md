@@ -861,7 +861,7 @@ it("kpi.view видит только свои филиалы", async () => {
 Пробелы нашёл автор плана 2 (`docs/superpowers/plans/2026-10-25-kpi-2-admin.md`, раздел «Пробелы плана 1»). Закрываем пункты 1, 2, 3 и 8.
 
 **Files:**
-- Modify: `backend/src/modules/kpi/types.ts`, `routes/evaluators.ts`, `routes/employees.ts`, `employees.ts`, `routes/reviews.ts`, `reviews.ts`, `routes/violations.ts`
+- Modify: `backend/src/modules/kpi/types.ts`, `routes/evaluators.ts`, `routes/employees.ts`, `employees.ts`, `routes/reviews.ts`, `reviews.ts`, `routes/violations.ts`, `violations.ts`, `disputes.ts`, `raises.ts`, `raises.test.ts`
 - Test: `backend/src/modules/kpi/http/admin-gaps.test.ts`
 
 **Interfaces:**
@@ -876,11 +876,25 @@ it("kpi.view видит только свои филиалы", async () => {
 - `GET /kpi/employees?include_uncarded=1` — только для `kpi.manage` (у остальных параметр игнорируется). Отдаёт всех активных сотрудников в видимости, в том числе без карты (`card: null`, `card_source` как есть: `override` для «не оценивается», `null` без карты).
 - `kpi.approve` получает чтение там, где сейчас только evaluate/view: `GET /kpi/reviews`, `GET /kpi/reviews/form`, `GET /kpi/reviews/:id/events`, `GET /kpi/violations`, `GET /kpi/violation-photos/:id/file`. Видимость у `kpi.approve` — вся сеть (`seesNetwork`).
 
+Заодно — три доработки по ревью задач 7 и 8:
+- **Фото.** `GET /kpi/violation-photos/:id/file` отдаёт файл, только если `path.resolve(file_path)` лежит внутри `uploadsBase()`, иначе 404 `not_found`. Заголовки ответа: `X-Content-Type-Options: nosniff`, `Cache-Control: private, max-age=3600`.
+- **Разбор спора по оценке.** `changeReviewTx` получает опцию `{ rightsChecked?: boolean }`. `resolveDispute` передаёт `true`: права разбирающего уже проверены, и `can_resolve` должен означать, что «принять» сработает (спека 7.5: оценщик, у которого сотрудник в назначениях, — по текущему положению или по снимку). Проверка закрытого месяца остаётся.
+- **Повышения (ревью задачи 9).**
+  - CSV: строковая ячейка (ФИО, филиал, карта, комментарий), которая начинается с `=`, `+`, `-`, `@`, табуляции или `\r`, получает префикс `'` — защита от формул Excel. Числа не трогать.
+  - Решение по умолчанию (сумма = предложение) тоже проходит проверку «целое от 0 до `raise_cap`»: потолок могли снизить после настройки шкалы.
+  - `saveTiers` берёт `pg_advisory_xact_lock(hashtext('kpi_raise_tiers'))` в начале транзакции.
+  - `decided_at` в `history` хранится в ISO (`new Date(...).toISOString()`).
+- **Гонка спора и закрытия месяца.** `openDispute` внутри транзакции делает `insert into kpi_periods (period) … on conflict do nothing` и `select … for update` по строке месяца до проверки `isPeriodClosed`. Порядок блокировок — сначала предмет спора, потом месяц: цикла с `closePeriod` нет.
+
 - [ ] **Step 1: Написать `http/admin-gaps.test.ts`** (период 2025-08, cleanupKpi в beforeAll/afterAll):
   - `users: элементы ровно с ключами id, name, login`;
   - `include_uncarded=1 у kpi.manage: техничка без назначения видна с card=null; у kpi.view параметр не расширяет список`;
   - `kpi.approve без view: форма, события, нарушения и фото — 200`;
   - `ReviewForm.open_dispute: false без спора; true после вставки строки kpi_disputes status=open по этой оценке`.
+  - `фото: ответ с nosniff и Cache-Control private; строка фото с file_path вне uploadsBase — 404`;
+  - `CSV: комментарий "=HYPERLINK(1)" выгружается как "'=HYPERLINK(1)"` (юнит-тест `raisesCsv`);
+  - `решение по умолчанию при raise_cap ниже предложения — 422 bad_amount`;
+  - `спор по оценке после перевода сотрудника: оценщик нового филиала (без назначения на старый) видит can_resolve=true и принимает спор — 200`.
 - [ ] **Step 2: Run** `bun run test:http:kpi` — новые тесты FAIL.
 - [ ] **Step 3: Реализовать.**
 - [ ] **Step 4: Run** — PASS всё; типы чисты.
