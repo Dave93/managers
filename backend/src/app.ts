@@ -13,6 +13,7 @@ import { staffBoardController } from "./modules/terminals/staff-board";
 import { ticketsController } from "./modules/tickets/controller";
 import { ticketsBotController } from "./modules/tickets/bot-controller";
 import { inventoryController } from "./modules/inventory/controller";
+import { kpiController } from "./modules/kpi/controller";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
 import { corsOrigins, isDbError } from "./lib/security";
@@ -54,6 +55,7 @@ const app = new Elysia()
   .use(ticketsController)
   .use(ticketsBotController)
   .use(inventoryController)
+  .use(kpiController)
   .use(apiController)
   .use(medicalController);
 
