@@ -163,3 +163,35 @@ describe("предложения", () => {
     expect([B.planSuggestion(1499, 0), B.planSuggestion(1500, 0)]).toEqual([1000, 2000]);
   });
 });
+
+describe("округление и ввод (исправления)", () => {
+  const service = by("service");
+  it("половина вверх без плавающих хвостов", () => {
+    expect(B.pct2(174, 8000)).toBe(2.18);
+    expect(B.indicatorPoints(service, 80.21)).toBe(50.88);
+    expect([B.roundTo(18.335, 2), B.roundTo(0.125, 2), B.roundTo(14.55, 1)]).toEqual([18.34, 0.13, 14.6]);
+  });
+  it("разрыв до ступени округляется половиной вверх", () => {
+    expect(B.nextTier(60.45)).toEqual({ tier_pct: 60, points_needed: 14.6 });
+  });
+  it("ключи прототипа — неизвестные настройки", () => {
+    expect(B.validateBranchSettingsPatch(JSON.parse('{"constructor":5}'))).toBe("unknown_setting");
+    expect(B.validateBranchSettingsPatch(JSON.parse('{"__proto__":5}'))).toBe("unknown_setting");
+    expect(B.validateBranchSettingsPatch(JSON.parse('{"toString":5}'))).toBe("unknown_setting");
+  });
+  it("нечисловой факт — нет данных, не 120", () => {
+    expect(() => B.indicatorPoints(service, Number.NaN)).toThrow();
+    expect(() => B.indicatorPoints(service, Infinity)).toThrow();
+    const r = B.scoreTerminal(SEED, { ...CONTROL, sales: ok(Infinity), sanitary: ok(Number.NaN) });
+    expect(r.rows.find((x) => x.code === "sales")).toMatchObject({ data_status: "no_data", points: null, weighted: null, fact: null });
+    expect(r.rows.filter((x) => x.data_status === "ok").length).toBe(3);
+  });
+  it("средний процент санитарии округляется", () => {
+    const X: B.TerminalInputs = {
+      has_iiko: true, has_store: true, revenue: 1, plan: 1, recons: [],
+      service: { orders: 1, on_time: 1, hall_min: 8, delivery_min: 12 },
+      sanitary: { checks: 3, avg: 93.3333333 }, attendance: { days: 1, on_time: 1, late: 0, absent: 0 },
+    };
+    expect(B.terminalFacts(X).sanitary.fact).toBe(93.33);
+  });
+});

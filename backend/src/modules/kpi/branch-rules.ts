@@ -14,7 +14,12 @@ export const BRANCH_CODES: readonly BranchIndicatorCode[] = ["sales", "food_cost
 
 export type Thresholds = { floor: number; target: number; max: number; direction: BranchDirection };
 
-const round2 = (x: number) => Math.round((x + Number.EPSILON) * 100) / 100;
+// Округление половины вверх без плавающих хвостов: 12 значащих цифр гасят 1833.4999999999998 → 1833.5
+export const roundTo = (x: number, d: number): number => {
+  const f = 10 ** d;
+  return Math.round(+(x * f).toPrecision(12)) / f;
+};
+const round2 = (x: number) => roundTo(x, 2);
 
 // Доля в процентах до 0,01; знаменатель ≤ 0 — значения нет
 export function pct2(part: number, whole: number): number | null {
@@ -31,6 +36,7 @@ export function monthLastDay(p: Period): string {
 
 // Шкала 7.7: на пороге и ниже 0; порог..цель 50..100; цель..максимум 100..120; выше максимума 120
 export function indicatorPoints(t: Thresholds, fact: number): number {
+  if (!Number.isFinite(fact)) throw new RangeError("indicatorPoints: факт не число");
   // lower_better зеркалим знаком: порядок порогов становится как у higher_better
   const s = t.direction === "lower_better" ? -1 : 1;
   const f = s * fact, floor = s * t.floor, target = s * t.target, max = s * t.max;
@@ -90,9 +96,9 @@ export function terminalFacts(x: TerminalInputs): Record<BranchIndicatorCode, Fa
 
   // Санитария
   const sanitary: FactResult =
-    x.sanitary.checks === 0 || x.sanitary.avg === null
+    x.sanitary.checks === 0 || x.sanitary.avg === null || !Number.isFinite(x.sanitary.avg)
       ? noData("no_checks", { checks: x.sanitary.checks })
-      : { fact: x.sanitary.avg, reason: null, details: { checks: x.sanitary.checks } };
+      : { fact: round2(x.sanitary.avg), reason: null, details: { checks: x.sanitary.checks } };
 
   // Дисциплина
   const a = x.attendance;
@@ -112,7 +118,9 @@ export function scoreTerminal(
   const active = indicators.filter((i) => i.active).sort((a, b) => a.sort - b.sort);
   const pts = active.map((i) => {
     const f = facts[i.code];
-    return { i, f, points: f.fact === null ? null : indicatorPoints(i, f.fact) };
+    // Нечисловой факт (NaN, Infinity) — это «нет данных», а не 120 баллов
+    const usable = f.fact !== null && Number.isFinite(f.fact);
+    return { i, f: usable || f.fact === null ? f : { ...f, fact: null, reason: "not_computed" as const }, points: usable ? indicatorPoints(i, f.fact as number) : null };
   });
   const sumW = pts.reduce((a, p) => (p.points === null ? a : a + p.i.weight), 0);
   let total = 0;
@@ -121,7 +129,7 @@ export function scoreTerminal(
       return { ...f, code: i.code, points: null, weighted: null, data_status: "no_data" as const };
     }
     // Целая арифметика: баллы до 0,1, вклад в сотых, половина вверх
-    const p10 = Math.round(points * 10);
+    const p10 = Math.round(+(points * 10).toPrecision(12));
     const n = p10 * i.weight * 10;
     const hundredths = Math.floor((2 * n + sumW) / (2 * sumW));
     total += hundredths;
@@ -148,7 +156,7 @@ export function tierFor(score: number): number {
 export function nextTier(score: number): { tier_pct: number; points_needed: number } | null {
   const t = TIERS.find((x) => score < x.min);
   if (!t) return null;
-  return { tier_pct: t.pct, points_needed: Math.max(0.1, Math.round((t.min - score) * 10) / 10) };
+  return { tier_pct: t.pct, points_needed: Math.max(0.1, roundTo(t.min - score, 1)) };
 }
 
 export function disciplineMultiplier(lateCount: number): number {
@@ -206,7 +214,7 @@ export const DEFAULT_BRANCH_SETTINGS: BranchSettings = {
 
 export function validateBranchSettingsPatch(p: Record<string, unknown>): string | null {
   const keys = Object.keys(p);
-  if (keys.some((k) => !(k in DEFAULT_BRANCH_SETTINGS))) return "unknown_setting";
+  if (keys.some((k) => !Object.prototype.hasOwnProperty.call(DEFAULT_BRANCH_SETTINGS, k))) return "unknown_setting";
   for (const k of keys) {
     const v = p[k];
     if (k === "sanitary_items") {
@@ -263,7 +271,7 @@ const BASIS: Record<BranchSource, (fact: string, points: string) => string> = {
 
 // Факт до 0,01 с запятой без хвостовых нулей; баллы с одним знаком
 const fmtFact = (x: number) => String(parseFloat(x.toFixed(2))).replace(".", ",");
-const fmtPoints = (x: number) => (Math.round(x * 10) / 10).toFixed(1).replace(".", ",");
+const fmtPoints = (x: number) => roundTo(x, 1).toFixed(1).replace(".", ",");
 
 export function branchSuggestion(source: BranchSource, r: { fact: number; points: number }): { score: number; basis: string } {
   return { score: Math.min(100, Math.round(r.points)), basis: BASIS[source](fmtFact(r.fact), fmtPoints(r.points)) };
@@ -272,6 +280,6 @@ export function branchSuggestion(source: BranchSource, r: { fact: number; points
 // План от выручки прошлого года: рост в процентах, округление до 1 000 сум
 export function planSuggestion(baseRevenue: number | null, growthPct: number): number | null {
   if (baseRevenue === null || !(baseRevenue > 0)) return null;
-  const v = Math.round((baseRevenue * (100 + growthPct)) / 100 / 1000) * 1000;
+  const v = Math.round(roundTo((baseRevenue * (100 + growthPct)) / 100 / 1000, 6)) * 1000;
   return v > 0 ? v : null;
 }
