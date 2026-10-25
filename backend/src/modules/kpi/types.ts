@@ -209,3 +209,18 @@ export interface RaiseRow {
   // (409 stale) до пересчёта; у решённой это только предупреждение.
   stale: boolean;
 }
+
+// Импорт посещаемости Workly (разбор файла: attendance-parse.ts)
+export type AttendanceField = "external_id" | "date" | "check_in" | "check_out" | "late_minutes" | "absent";
+export type AttendanceMapping = { external_id: number; date: number; check_in?: number; check_out?: number; late_minutes?: number; absent?: number };
+export type UnmatchedReason =
+  | "no_external_id"
+  | "bad_date"
+  | "outside_period"
+  | "bad_time"
+  | "bad_late"
+  | "unknown_external_id"
+  | "ambiguous_external_id"
+  | "duplicate_day";
+export interface UnmatchedRow { row: number; external_id: string | null; reason: UnmatchedReason }
+export interface AttendanceSheetPreview { name: string; header_row: number; headers: string[]; rows: string[][]; total_rows: number }
