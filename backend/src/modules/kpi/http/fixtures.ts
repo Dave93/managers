@@ -236,7 +236,9 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
     throw new Error("cleanupKpi: DATABASE_URL не указывает на managers_tickets_test");
   }
   // Проверка раньше удалений: без имени тестовой очереди ничего не трогаем.
-  if (kpiQueueName() === "kpi-notify") throw new Error("cleanupKpi: очередь теста не задана (KPI_NOTIFY_QUEUE), боевую не чистим");
+  if (kpiQueueName() === "kpi-notify" || getKpiQueue().name === "kpi-notify") {
+    throw new Error("cleanupKpi: очередь теста не задана (KPI_NOTIFY_QUEUE), боевую не чистим");
+  }
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);

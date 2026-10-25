@@ -9,15 +9,34 @@ export interface BotApi {
   answerCallback(callbackId: string, text?: string): Promise<TgResult>;
 }
 
-export function realBotApi(token: string): BotApi {
+export const BOT_API_TIMEOUT_MS = 10_000;
+
+// Зависший Telegram не должен держать воркер или вебхук: по таймауту ответ временный, очередь повторит.
+// Токен в тексте ошибки (fetch кладёт URL в сообщение) заменяется, чтобы не попасть в last_error и логи.
+export function realBotApi(token: string, timeoutMs: number = BOT_API_TIMEOUT_MS): BotApi {
+  const redact = (r: TgResult): TgResult => (r.ok ? r : { ...r, error: r.error.replaceAll(token, "***") });
   return {
-    send: (chatId, msg) => sendMessage(token, chatId, msg),
+    async send(chatId, msg) {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<TgResult>((resolve) => {
+        timer = setTimeout(() => resolve({ ok: false, permanent: false, error: "timeout" }), timeoutMs);
+      });
+      try {
+        // sendMessage из tickets не принимает signal: запрос на таймауте остаётся висеть, но мы его уже не ждём.
+        return redact(await Promise.race([sendMessage(token, chatId, msg), timeout]));
+      } catch (e) {
+        return redact({ ok: false, permanent: false, error: (e as Error).message });
+      } finally {
+        clearTimeout(timer);
+      }
+    },
     async answerCallback(callbackId, text) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${token}/answerCallbackQuery`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({ callback_query_id: callbackId, text }),
+          signal: AbortSignal.timeout(timeoutMs),
         });
         let body: any = null;
         try {
@@ -25,9 +44,9 @@ export function realBotApi(token: string): BotApi {
         } catch {
           body = null;
         }
-        return interpretResponse(res.status, body);
+        return redact(interpretResponse(res.status, body));
       } catch (e) {
-        return { ok: false, permanent: false, error: (e as Error).message };
+        return redact({ ok: false, permanent: false, error: (e as Error).message });
       }
     },
   };

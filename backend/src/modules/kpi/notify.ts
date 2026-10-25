@@ -1,4 +1,4 @@
-// Только запись в очередь; доставку делает воркер (план 4).
+// Запись уведомлений в kpi_notifications и постановка задач доставки в очередь после коммита; сама доставка идёт в воркере.
 import { AsyncLocalStorage } from "node:async_hooks";
 import { kpi_notifications } from "backend/drizzle/schema";
 import type { DbLike } from "./access";
