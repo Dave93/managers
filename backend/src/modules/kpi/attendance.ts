@@ -15,6 +15,7 @@ import {
   readGrids,
   validateMapping,
   attendanceSuggestion,
+  importTotals,
   type AttendanceStats,
   type FileKind,
 } from "./attendance-parse";
@@ -24,7 +25,7 @@ import { KpiError } from "./errors";
 import { iso } from "./iso";
 import { lockPeriodShared } from "./periods";
 import { addMonths, type Period } from "./time";
-import type { AttendanceImportRow, AttendanceMapping, AttendanceParseResponse, UnmatchedRow } from "./types";
+import type { AttendanceImportRow, AttendanceMapping, AttendanceParseResponse, AttendanceTotals, UnmatchedRow } from "./types";
 
 export const UPLOAD_TTL_SECONDS = 1800;
 export const UNMATCHED_LIMIT = 500;
@@ -61,8 +62,13 @@ export async function parseUpload(redis: Redis, userId: string, file: unknown): 
 
 type ImportDbRow = typeof kpi_attendance_imports.$inferSelect;
 
+// В mapping лежат и итоги по дням: отдельных колонок под них в таблице нет (миграция 0037 одна).
+type StoredMapping = { sheet: string; header_row: number; mapping: AttendanceMapping; totals?: AttendanceTotals };
+const NO_TOTALS: AttendanceTotals = { days_present: 0, days_late: 0, days_absent: 0 };
+
 function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImportRow {
-  const m = r.mapping as { sheet: string; header_row: number; mapping: AttendanceMapping };
+  const m = r.mapping as StoredMapping;
+  const t = m.totals ?? NO_TOTALS;
   return {
     id: r.id,
     period: r.period,
@@ -75,6 +81,9 @@ function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImpo
     rows_total: r.rows_total,
     rows_matched: r.rows_matched,
     rows_unmatched: r.rows_unmatched,
+    days_present: t.days_present,
+    days_late: t.days_late,
+    days_absent: t.days_absent,
     unmatched: r.unmatched as UnmatchedRow[],
     status: r.status as AttendanceImportRow["status"],
     created_at: iso(r.created_at),
@@ -157,7 +166,7 @@ export async function commitImport(
         period,
         file_name: stored.file_name,
         uploaded_by: userId,
-        mapping: { sheet: grid.name, header_row: headerRow, mapping },
+        mapping: { sheet: grid.name, header_row: headerRow, mapping, totals: importTotals(matched.days) } satisfies StoredMapping,
         rows_total: matched.days.length + unmatchedAll.length,
         rows_matched: matched.days.length,
         rows_unmatched: unmatchedAll.length,

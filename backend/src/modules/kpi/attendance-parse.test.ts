@@ -96,6 +96,43 @@ describe("файл", () => {
     const withBom = Uint8Array.from([0xef, 0xbb, 0xbf, 0x0d, 0x0a, 0x20, ...html]);
     expect(A.readGrids(withBom, "xls")[0].raw).toEqual([["Табель", "Дата"]]);
   });
+  it("объединённые ячейки: значение и текст левой верхней во всех ячейках диапазона", () => {
+    const ws = XLSX.utils.aoa_to_sheet([["Табель", "Дата"], [null, 45901], [null, 45902], [null, 45903], ["T-2", 45901]]);
+    // Номер числом с форматом «000»: в тексте ведущие нули, их и копируем
+    ws["A2"] = { t: "n", v: 7, z: "000" };
+    ws["!merges"] = [{ s: { r: 1, c: 0 }, e: { r: 3, c: 0 } }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Лист1");
+    const g = A.readGrids(xlsx(wb), "xlsx")[0];
+    expect(g.raw.map((r) => r[0])).toEqual(["Табель", 7, 7, 7, "T-2"]);
+    expect(g.text.map((r) => r[0])).toEqual(["Табель", "007", "007", "007", "T-2"]);
+    const r = A.parseRows(g, { headerRow: 1, mapping: { external_id: 0, date: 1 }, period: P });
+    expect(r.rows.map((x) => [x.external_id, x.day])).toEqual([
+      ["007", "2025-09-01"], ["007", "2025-09-02"], ["007", "2025-09-03"], ["T-2", "2025-09-01"],
+    ]);
+    expect(r.bad).toEqual([]);
+  });
+  it("объединённые ячейки HTML (rowspan) и диапазон шире листа", () => {
+    const html = new TextEncoder().encode(
+      `<table><tr><td>Табель</td><td>Дата</td></tr><tr><td rowspan="2">T-1</td><td>01.09.2025</td></tr><tr><td>02.09.2025</td></tr></table>`
+    );
+    expect(A.readGrids(html, "xls")[0].raw).toEqual([["Табель", "Дата"], ["T-1", "01.09.2025"], ["T-1", "02.09.2025"]]);
+    const ws = XLSX.utils.aoa_to_sheet([["a", "b"], ["c", "d"]]);
+    ws["!merges"] = [{ s: { r: 1, c: 1 }, e: { r: 60000, c: 300 } }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Лист1");
+    const g = A.readGrids(xlsx(wb), "xlsx")[0];
+    expect(g.raw).toEqual([["a", "b"], ["c", "d"]]);
+  });
+  it("пересекающиеся объединения — bad_file, а не часы работы", () => {
+    const ws = XLSX.utils.aoa_to_sheet([["a", "b"], ["c", "d"]]);
+    ws["!merges"] = Array.from({ length: 3 }, () => ({ s: { r: 0, c: 0 }, e: { r: 1, c: 1 } }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Лист1");
+    const e = caught(() => A.readGrids(xlsx(wb), "xlsx"));
+    expect(e).toBeInstanceOf(KpiError);
+    expect((e as KpiError).code).toBe("bad_file");
+  });
   it("csv: cp1251, точка с запятой, дата остаётся строкой", () => {
     const g = A.readGrids(cp1251("Табель;Дата;Приход\nT-1;01.09.2025;9:05\n"), "csv");
     expect(g[0].raw).toEqual([["Табель", "Дата", "Приход"], ["T-1", "01.09.2025", "9:05"]]);
@@ -143,7 +180,13 @@ describe("ячейки", () => {
     expect(A.parseTime("2025-09-02T01:30:00", D)).toBe("2025-09-01T20:30:00.000Z");
     expect(A.parseTime("", D)).toBeNull();
     expect(A.parseTime(null, D)).toBeNull();
-    for (const bad of ["25:00", "9.05", "утро", true]) expect(A.parseTime(bad as A.Cell, D)).toBe("bad");
+    for (const bad of ["25:00", "9.05", "утро", true, "---", "-3"]) expect(A.parseTime(bad as A.Cell, D)).toBe("bad");
+  });
+  it("прочерки вместо времени и опоздания — пусто", () => {
+    for (const dash of ["-", "—", "–", "--", "--:--", " -- "]) {
+      expect(A.parseTime(dash, "2025-09-01")).toBeNull();
+      expect(A.parseLate(dash)).toBe(0);
+    }
   });
   it("parseLate", () => {
     expect(A.parseLate(null)).toBe(0);
@@ -158,8 +201,14 @@ describe("ячейки", () => {
     for (const bad of [-1, 2.5, "-3", "15 мин", true, 1441, "1441", "24:01"]) expect(A.parseLate(bad as A.Cell)).toBe("bad");
   });
   it("parseAbsent", () => {
-    for (const yes of [1, "1", "да", "ДА", " Yes ", "true", "+", "Прогул", true]) expect(A.parseAbsent(yes as A.Cell)).toBe(true);
-    for (const no of [0, "0", "нет", "-", "", null, false, "опоздание"]) expect(A.parseAbsent(no as A.Cell)).toBe(false);
+    const yes = [1, "1", "да", "ДА", " Yes ", "true", "+", "Прогул", true, "неявка", "Отсутствие", "не пришел", "НЕ  ПРИШЁЛ", "н", "НН", "нб", "Absent"];
+    for (const v of yes) expect(A.parseAbsent(v as A.Cell)).toBe(true);
+    for (const no of [0, "0", "нет", "-", "", null, false, "опоздание", "выходной", "в", "нбк", "пришел"]) expect(A.parseAbsent(no as A.Cell)).toBe(false);
+  });
+  it("dayKind: прогул, нерабочий день, присутствие", () => {
+    for (const v of ["прогул", "Н", true, 1]) expect(A.dayKind(v as A.Cell)).toBe("absent");
+    for (const v of ["Выходной", "отпуск", "БОЛЬНИЧНЫЙ", "в", "От", "б", "Day  Off", "vacation", "SICK"]) expect(A.dayKind(v)).toBe("off");
+    for (const v of [null, "", "-", 0, "нет", "выходные дни", "больничный лист"]) expect(A.dayKind(v as A.Cell)).toBe("present");
   });
   it("validateMapping", () => {
     expect(A.validateMapping({ external_id: 0, date: 1 }, 3)).toEqual({ external_id: 0, date: 1 });
@@ -211,6 +260,42 @@ describe("строки", () => {
     const r = A.parseRows(grid(raw, text), { headerRow: 1, mapping: { external_id: 0, date: 1 }, period: P });
     expect(r.rows.map((x) => x.external_id)).toEqual(["00123", "1234"]);
   });
+  it("R6: прогул читается первым, нерабочие дни и дни без отметок не считаются", () => {
+    const raw: A.Cell[][] = [
+      H,
+      ["T-1", 45901, "--:--", "--:--", "—", "Неявка"],   // 2 прогул, время-заглушки
+      ["T-1", 45902, "утро", "вечер", "много", "Н"],      // 3 прогул: мусор во времени не мешает
+      ["T-1", 45903, "-", "-", "-", "Выходной"],          // 4 not_working_day
+      ["T-1", 45904, "09:00", "18:00", 0, "ОТПУСК"],      // 5 not_working_day даже с отметками
+      ["T-1", 45905, "–", "--", "", ""],                   // 6 no_marks
+      ["T-1", 45906, null, null, 15, null],                // 7 no_marks: опоздание без отметок
+      ["T-1", 45907, "09:00", "-", "-", "-"],              // 8 есть приход, ухода нет
+      ["T-1", 45908, null, null, null, "не пришёл"],       // 9 прогул
+      ["T-1", 45909, null, null, null, "day off"],         // 10 not_working_day
+    ];
+    const r = A.parseRows(grid(raw), { headerRow: 1, mapping: M, period: P });
+    expect(r.total).toBe(9);
+    expect(r.bad).toEqual([
+      { row: 4, external_id: "T-1", reason: "not_working_day" },
+      { row: 5, external_id: "T-1", reason: "not_working_day" },
+      { row: 6, external_id: "T-1", reason: "no_marks" },
+      { row: 7, external_id: "T-1", reason: "no_marks" },
+      { row: 10, external_id: "T-1", reason: "not_working_day" },
+    ]);
+    const absent = (row: number, day: string) => ({ row, external_id: "T-1", day, check_in: null, check_out: null, late_minutes: 0, absent: true });
+    expect(r.rows).toEqual([
+      absent(2, "2025-09-01"),
+      absent(3, "2025-09-02"),
+      { row: 8, external_id: "T-1", day: "2025-09-07", check_in: "2025-09-07T04:00:00.000Z", check_out: null, late_minutes: 0, absent: false },
+      absent(9, "2025-09-08"),
+    ]);
+  });
+  it("без колонок прихода и ухода строка без отметок — присутствие", () => {
+    const raw: A.Cell[][] = [["Табель", "Дата", "Прогул"], ["T-1", 45901, ""], ["T-1", 45902, "прогул"], ["T-1", 45903, "в"]];
+    const r = A.parseRows(grid(raw), { headerRow: 1, mapping: { external_id: 0, date: 1, absent: 2 }, period: P });
+    expect(r.rows.map((x) => [x.row, x.absent])).toEqual([[2, false], [3, true]]);
+    expect(r.bad).toEqual([{ row: 4, external_id: "T-1", reason: "not_working_day" }]);
+  });
   it("одна колонка даёт и дату, и приход", () => {
     const raw: A.Cell[][] = [["Табель", "Приход"], ["T-1", "02.09.2025 09:10"]];
     const r = A.parseRows(grid(raw), { headerRow: 1, mapping: { external_id: 0, date: 1, check_in: 1 }, period: P });
@@ -242,6 +327,10 @@ describe("сопоставление", () => {
 describe("предложение", () => {
   const d = (absent: boolean, late = 0) => ({ absent, late_minutes: late });
   it("нет строк — null", () => expect(A.attendanceSuggestion([])).toBeNull());
+  it("итоги импорта: присутствие, опоздания, прогулы", () => {
+    expect(A.importTotals([])).toEqual({ days_present: 0, days_late: 0, days_absent: 0 });
+    expect(A.importTotals([d(false), d(false, 5), d(false, 1), d(true), d(true)])).toEqual({ days_present: 3, days_late: 2, days_absent: 2 });
+  });
   it("вовремя ÷ (присутствие + прогулы)", () => {
     expect(A.attendanceSuggestion([d(false), d(false), d(false, 10)])).toEqual({
       days: 3, ontime: 2, late: 1, absent: 0, score: 67, basis: "Workly: 3 дня, вовремя 2, опозданий 1, прогулов 0",

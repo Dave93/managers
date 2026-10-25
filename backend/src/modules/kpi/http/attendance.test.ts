@@ -129,6 +129,55 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expectIsoTimestamps(list, ["created_at"]);
     });
 
+    it("R6: прогулы, нерабочие дни и дни без отметок; итоги в ответе и в списке", async () => {
+      const hr = await hrSession();
+      const x = ext();
+      const e = await makeEmployee(db, { external_id: x });
+      const r = await importAttendance(hr, [
+        [x, 45901, "09:00", "18:00", 0, ""], // 2 вовремя
+        [x, 45902, "09:20", "18:00", 20, "-"], // 3 опоздание
+        [x, 45903, "--:--", "--:--", "—", "Неявка"], // 4 прогул
+        [x, 45904, "-", "-", "-", "Выходной"], // 5 not_working_day
+        [x, 45905, null, null, null, ""], // 6 no_marks
+        [x, 45906, "утро", "--", "много", "Н"], // 7 прогул: время не читается
+      ], P9);
+      expect(r.status).toBe(200);
+      expect(r.body).toMatchObject({ rows_total: 6, rows_matched: 4, rows_unmatched: 2, days_present: 2, days_late: 1, days_absent: 2 });
+      expect(r.body.unmatched).toEqual([
+        { row: 5, external_id: x, reason: "not_working_day" },
+        { row: 6, external_id: x, reason: "no_marks" },
+      ]);
+      const rows = await db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, e.id)).orderBy(asc(kpi_attendance.day));
+      expect(rows.map((d) => [d.day, d.absent, d.late_minutes, d.check_in === null, d.check_out === null])).toEqual([
+        ["2025-09-01", false, 0, false, false],
+        ["2025-09-02", false, 20, false, false],
+        ["2025-09-03", true, 0, true, true],
+        ["2025-09-06", true, 0, true, true],
+      ]);
+      const listed = (await imports(hr)).find((i: any) => i.id === r.body.id);
+      expect(listed).toMatchObject({ days_present: 2, days_late: 1, days_absent: 2 });
+    });
+
+    it("объединённая колонка табельного номера: номер на каждой строке", async () => {
+      const hr = await hrSession();
+      const x = ext();
+      const e = await makeEmployee(db, { external_id: x });
+      const ws = XLSX.utils.aoa_to_sheet([
+        ATT_HEAD,
+        [x, 45901, "09:00", "18:00", 0, ""],
+        [null, 45902, "09:00", "18:00", 0, ""],
+        [null, 45903, "09:10", "18:00", 10, ""],
+      ]);
+      ws["!merges"] = [{ s: { r: 1, c: 0 }, e: { r: 3, c: 0 } }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Лист1");
+      const up = await uploadAttendance(hr, new File([XLSX.write(wb, { type: "buffer", bookType: "xlsx" })], "merged.xlsx"));
+      expect(up.status).toBe(200);
+      const r = await commit(hr, { token: up.body.token, sheet: "Лист1", period: P9, header_row: 1, mapping: ATT_MAP });
+      expect(r.body).toMatchObject({ rows_matched: 3, rows_unmatched: 0, days_present: 3, days_late: 1, days_absent: 0 });
+      expect(await db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, e.id))).toHaveLength(3);
+    });
+
     it("повторный импорт за месяц заменяет прошлый", async () => {
       const hr = await hrSession();
       const xa = ext(), xb = ext();

@@ -3,7 +3,7 @@
 import * as XLSX from "xlsx";
 import { KpiError } from "./errors";
 import { addMonths, type Period } from "./time";
-import type { AttendanceMapping, AttendanceSheetPreview, UnmatchedRow } from "./types";
+import type { AttendanceMapping, AttendanceSheetPreview, AttendanceTotals, UnmatchedRow } from "./types";
 
 export const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 export const PREVIEW_ROWS = 20;
@@ -82,11 +82,40 @@ export function readGrids(bytes: Uint8Array, kind: FileKind): Grid[] {
     if (e.r + 1 > MAX_ROWS || e.c + 1 > MAX_COLS) throw new KpiError(422, "sheet_too_large", { max_rows: MAX_ROWS, max_cols: MAX_COLS });
     const range = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e });
     const raw = XLSX.utils.sheet_to_json<Cell[]>(ws, { header: 1, raw: true, defval: null, blankrows: true, range });
-    const text = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "", blankrows: true, range });
-    if (text.every((r) => r.every((c) => String(c).trim() === ""))) continue;
-    grids.push({ name, raw, text: text.map((r) => r.map((c) => String(c))) });
+    const text = XLSX.utils.sheet_to_json<string[]>(ws, { header: 1, raw: false, defval: "", blankrows: true, range }).map((r) =>
+      r.map((c) => String(c))
+    );
+    fillMerges(ws["!merges"] ?? [], raw, text, e.c + 1);
+    if (text.every((r) => r.every((c) => c.trim() === ""))) continue;
+    grids.push({ name, raw, text });
   }
   return grids;
+}
+
+// Объединённые ячейки: значение левой верхней копируется во весь диапазон (Workly объединяет номер сотрудника).
+// Диапазон обрезается по листу; общая работа не больше площади листа, иначе объединения пересекаются — файл битый.
+function fillMerges(merges: XLSX.Range[], raw: Cell[][], text: string[][], width: number): void {
+  const rows = raw.length;
+  let budget = rows * width;
+  for (const m of merges) {
+    const r1 = Math.min(m.e.r, rows - 1);
+    const c1 = Math.min(m.e.c, width - 1);
+    if (m.s.r < 0 || m.s.c < 0 || m.s.r > r1 || m.s.c > c1) continue;
+    budget -= (r1 - m.s.r + 1) * (c1 - m.s.c + 1);
+    if (budget < 0) throw badFile();
+    const v = raw[m.s.r]?.[m.s.c] ?? null;
+    const t = text[m.s.r]?.[m.s.c] ?? "";
+    for (let r = m.s.r; r <= r1; r++) {
+      const rr = (raw[r] ??= []);
+      const tr = (text[r] ??= []);
+      while (rr.length <= c1) rr.push(null);
+      while (tr.length <= c1) tr.push("");
+      for (let c = m.s.c; c <= c1; c++) {
+        rr[c] = v;
+        tr[c] = t;
+      }
+    }
+  }
 }
 
 const nonEmpty = (r: string[]) => r.filter((c) => c.trim() !== "").length;
@@ -161,7 +190,9 @@ export function parseDay(v: Cell): string | null {
   return p ? dayStr(p.date) : null;
 }
 
-const isBlank = (v: Cell) => v === null || (typeof v === "string" && v.trim() === "");
+// Прочерки вместо времени и опоздания — то же, что пустая ячейка
+const DASHES = new Set(["-", "—", "–", "--", "--:--"]);
+const isBlank = (v: Cell) => v === null || (typeof v === "string" && (v.trim() === "" || DASHES.has(v.trim())));
 
 // Секунды от полуночи ташкентского дня → ISO в UTC
 function isoAt(d: Ymd, secs: number): string {
@@ -207,11 +238,23 @@ function lateRaw(v: Cell): number | "bad" {
   return m ? Number(m[1]) * 60 + Number(m[2]) : "bad";
 }
 
-const ABSENT_WORDS = new Set(["1", "да", "yes", "true", "+", "прогул"]);
+// Слова сравниваются целиком: «н» не должно совпасть с «нет»
+const ABSENT_WORDS = new Set(["1", "да", "yes", "true", "+", "прогул", "неявка", "отсутствие", "не пришел", "н", "нн", "нб", "absent"]);
+const OFF_WORDS = new Set(["выходной", "отпуск", "больничный", "в", "от", "б", "day off", "vacation", "sick"]);
+
+const normWord = (s: string) => s.trim().toLowerCase().replace(/ё/g, "е").replace(/\s+/g, " ");
+
+// Колонка прогула: прогул, нерабочий день (выходной, отпуск, больничный) или обычный день
+export function dayKind(v: Cell): "absent" | "off" | "present" {
+  if (v === true || v === 1) return "absent";
+  if (typeof v !== "string") return "present";
+  const w = normWord(v);
+  if (ABSENT_WORDS.has(w)) return "absent";
+  return OFF_WORDS.has(w) ? "off" : "present";
+}
 
 export function parseAbsent(v: Cell): boolean {
-  if (v === true || v === 1) return true;
-  return typeof v === "string" && ABSENT_WORDS.has(v.trim().toLowerCase());
+  return dayKind(v) === "absent";
 }
 
 const FIELDS = ["external_id", "date", "check_in", "check_out", "late_minutes", "absent"] as const;
@@ -267,6 +310,14 @@ export function parseRows(
     if (!day) { fail("bad_date"); continue; }
     if (day < period || day >= end) { fail("outside_period"); continue; }
 
+    // Колонка прогула читается первой: у прогула время и опоздание не смотрим
+    const kind = m.absent === undefined ? "present" : dayKind(rawAt(i, m.absent));
+    if (kind === "off") { fail("not_working_day"); continue; }
+    if (kind === "absent") {
+      rows.push({ row, external_id, day, check_in: null, check_out: null, late_minutes: 0, absent: true });
+      continue;
+    }
+
     const inRaw = rawAt(i, m.check_in);
     const outRaw = rawAt(i, m.check_out);
     const inT = m.check_in === undefined ? null : parseTime(inRaw, day);
@@ -278,16 +329,13 @@ export function parseRows(
     }
     const late = m.late_minutes === undefined ? 0 : parseLate(rawAt(i, m.late_minutes));
     if (late === "bad") { fail("bad_late"); continue; }
+    // Колонки отметок выбраны, а отметок нет: это не день «вовремя»
+    if ((m.check_in !== undefined || m.check_out !== undefined) && inT === null && outT === null) {
+      fail("no_marks");
+      continue;
+    }
 
-    rows.push({
-      row,
-      external_id,
-      day,
-      check_in: inT,
-      check_out: outT,
-      late_minutes: late,
-      absent: m.absent === undefined ? false : parseAbsent(rawAt(i, m.absent)),
-    });
+    rows.push({ row, external_id, day, check_in: inT, check_out: outT, late_minutes: late, absent: false });
   }
   return { total, rows, bad };
 }
@@ -324,6 +372,21 @@ export function matchRows(rows: ParsedRow[], employees: MatchEmployee[]): { days
 // ---------- предложение ----------
 
 export type AttendanceStats = { days: number; ontime: number; late: number; absent: number; score: number; basis: string };
+
+// Итоги импорта по сопоставленным дням: HR видит, учлись ли прогулы и опоздания
+export function importTotals(rows: { absent: boolean; late_minutes: number }[]): AttendanceTotals {
+  let days_present = 0;
+  let days_late = 0;
+  let days_absent = 0;
+  for (const r of rows) {
+    if (r.absent) days_absent++;
+    else {
+      days_present++;
+      if (r.late_minutes > 0) days_late++;
+    }
+  }
+  return { days_present, days_late, days_absent };
+}
 
 function dayWord(n: number): string {
   const t = n % 100;
