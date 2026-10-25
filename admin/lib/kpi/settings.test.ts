@@ -25,9 +25,9 @@ describe("карты", () => {
     for (const ok of ["cook", "cashier_plus", "c2"]) expect(cardCodeOk(ok)).toBe(true);
     for (const bad of ["", "c", "Cook", "2cook", "повар", "a".repeat(41)]) expect(cardCodeOk(bad)).toBe(false);
   });
-  it("источники: данные подтягиваются у ручного и Workly", () => {
+  it("источники: данные подтягиваются у всех пяти", () => {
     expect(ITEM_SOURCE_OPTIONS.map((o) => [o.value, o.ready])).toEqual([
-      ["manual", true], ["attendance", true], ["cooking_speed", false], ["sales_plan", false], ["food_cost", false],
+      ["manual", true], ["attendance", true], ["cooking_speed", true], ["sales_plan", true], ["food_cost", true],
     ]);
   });
 });

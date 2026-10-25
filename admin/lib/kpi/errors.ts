@@ -1,6 +1,8 @@
 // Ошибки API KPI: код из тела ответа (`{ error: code }`) или из статуса, русские тексты.
 // Роуты за макросом permission отвечают 401/403 телом `{ message }` — для них код берём из статуса.
 
+import { INDICATOR_LABEL } from "@admin/lib/kpi/branch";
+
 export class KpiApiError extends Error {
   constructor(public status: number, public code: string, public body: Record<string, unknown>) {
     super(code);
@@ -101,6 +103,20 @@ export const KPI_ERROR_TEXT: Record<string, string> = {
   bad_target: "Укажите сотрудника или пользователя",
   bot_not_configured: "Бот KPI не настроен на сервере",
   too_many_ids: "Слишком много записей в одном запросе",
+  weights_sum: "Сумма весов активных показателей должна быть 100 %",
+  bad_thresholds: "Порог, цель и максимум идут не по порядку",
+  bad_indicator_weight: "Вес показателя — целое от 0 до 100, у активного не меньше 1",
+  unknown_indicator: "Неизвестный показатель. Обновите страницу",
+  bad_sanitary_items: "Пункты проверки: от 1 до 30, без повторов, до 200 символов",
+  unknown_terminal: "Филиал не найден",
+  duplicate_terminal: "Филиал указан дважды",
+  too_many_items: "Слишком много строк за раз (до 500)",
+  bad_growth: "Рост — число от −50 до 200 %",
+  bad_items: "Отметьте каждый пункт проверки",
+  bad_checked_at: "Время проверки в будущем",
+  comment_too_long: "Комментарий длиннее 1000 символов",
+  future_period: "Этот месяц ещё не начался",
+  no_indicators: "Показатели балла не заведены: нужен запуск seed-cards",
 };
 
 export function codeText(code: string): string {
@@ -114,6 +130,10 @@ export function kpiErrorText(e: unknown): string {
     if (e.code === "open_disputes" && Array.isArray(e.body.ids)) return `${base} (${e.body.ids.length})`;
     if (e.code === "external_id_taken" && typeof e.body.employee_name === "string" && e.body.employee_name) return `${base} (${e.body.employee_name})`;
     if (e.code === "nothing_matched" && typeof e.body.rows_total === "number") return `${base} (строк в файле: ${e.body.rows_total})`;
+    if (e.code === "weights_sum" && typeof e.body.sum === "number") return `${base} (сейчас ${e.body.sum} %)`;
+    if (e.code === "bad_thresholds" && typeof e.body.code === "string" && Object.hasOwn(INDICATOR_LABEL, e.body.code)) {
+      return `${base} (${INDICATOR_LABEL[e.body.code as keyof typeof INDICATOR_LABEL]})`;
+    }
     return base;
   }
   if (e instanceof Error) return e.message;

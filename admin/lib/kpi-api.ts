@@ -14,6 +14,12 @@ import type {
   AttendanceImportRow,
   AttendanceMapping,
   AttendanceParseResponse,
+  BranchBreakdown,
+  BranchComputeResult,
+  BranchConfig,
+  BranchIndicator,
+  BranchNetwork,
+  BranchSettings,
   Card,
   DisputeRow,
   EmployeeRow,
@@ -22,8 +28,13 @@ import type {
   MeResponse,
   PeriodSummary,
   RaiseRow,
+  RevenuePlanRow,
+  RevenueSuggestRow,
   ReviewEvent,
   ReviewForm,
+  SanitaryCheckRow,
+  SanitaryItem,
+  SanitaryTemplate,
   ScopeRow,
   Tier,
   TgBindingRow,
@@ -37,6 +48,17 @@ export type {
   AttendanceMapping,
   AttendanceParseResponse,
   AttendanceSheetPreview,
+  BranchBreakdown,
+  BranchCell,
+  BranchComputeResult,
+  BranchConfig,
+  BranchDirection,
+  BranchIndicator,
+  BranchIndicatorCode,
+  BranchIndicatorResult,
+  BranchNetwork,
+  BranchScoreRow,
+  BranchSettings,
   Card,
   CardItem,
   Deadlines,
@@ -44,10 +66,15 @@ export type {
   EmployeeRow,
   MeResponse,
   PeriodSummary,
+  NoDataReason,
   RaiseRow,
+  RevenuePlanRow,
+  RevenueSuggestRow,
   ReviewEvent,
   ReviewForm,
   ReviewFormItem,
+  SanitaryCheckRow,
+  SanitaryItem,
   ScopeRow,
   Tier,
   UnmatchedReason,
@@ -57,6 +84,7 @@ export type {
 export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 export type { KpiUserOption } from "@backend/modules/kpi/types";
 export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
+export type { SanitaryTemplate } from "@backend/modules/kpi/types";
 
 export type KpiItemInput = { item_id: string; score: number | null; note: string | null };
 export type RowStatusFilter = "none" | "draft" | "submitted" | "disputed";
@@ -81,6 +109,11 @@ export type ResolveBody = { decision: "accepted" | "rejected"; comment: string; 
 export type DecideBody = { status: "approved" | "rejected"; amount?: number; comment?: string };
 export type TgTarget = { employee_id: string } | { user_id: string };
 export type TgBindingsQuery = { employee_ids?: string[]; user_ids?: string[] };
+export type IndicatorInput = Pick<BranchIndicator, "code" | "weight" | "floor" | "target" | "max" | "active">;
+export type BranchConfigBody = { indicators?: IndicatorInput[]; settings?: Partial<BranchSettings> };
+export type RevenuePlanItem = { terminal_id: string; amount: number | null };
+export type SanitaryCreate = { terminal_id: string; items: SanitaryItem[]; comment?: string };
+export type SanitaryQuery = { period: string; terminal_id?: string };
 export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
 
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
@@ -183,6 +216,25 @@ export function createKpiApi(kpi: any) {
           kpi.tg.bindings.get(q({ employee_ids: query.employee_ids?.join(","), user_ids: query.user_ids?.join(",") }))
         ),
       unbind: (id: string) => call<unknown>(kpi.tg.bindings({ id }).delete()),
+    },
+    branch: {
+      network: (period: string) => call<BranchNetwork>(kpi.branch.get({ query: { period } })),
+      detail: (terminalId: string, period: string) =>
+        call<BranchBreakdown>(kpi.branch({ terminal_id: terminalId }).get({ query: { period } })),
+      compute: (period: string) => call<BranchComputeResult>(kpi.branch.compute.post({ period })),
+      config: () => call<BranchConfig>(kpi["branch-indicators"].get()),
+      saveConfig: (b: BranchConfigBody) => call<BranchConfig>(kpi["branch-indicators"].put(b)),
+    },
+    revenuePlans: {
+      list: (period: string) => call<RevenuePlanRow[]>(kpi["revenue-plans"].get({ query: { period } })),
+      save: (period: string, items: RevenuePlanItem[]) => call<RevenuePlanRow[]>(kpi["revenue-plans"].put({ period, items })),
+      suggest: (period: string, growthPct: number) =>
+        call<RevenueSuggestRow[]>(kpi["revenue-plans"].suggest.get({ query: { period, growth_pct: String(growthPct) } })),
+    },
+    sanitary: {
+      list: (query: SanitaryQuery) => call<SanitaryCheckRow[]>(kpi["sanitary-checks"].get({ query: compact(query) })),
+      create: (b: SanitaryCreate) => call<SanitaryCheckRow>(kpi["sanitary-checks"].post(b)),
+      template: () => call<SanitaryTemplate>(kpi["sanitary-checks"].template.get()),
     },
     tiers: {
       get: () => call<Tier[]>(kpi["raise-tiers"].get()),

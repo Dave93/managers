@@ -17,6 +17,11 @@ const PLAN3_CODES = ["file_required", "bad_file_type", "file_too_large", "bad_fi
 
 const PLAN4_CODES = ["bad_target", "bot_not_configured", "too_many_ids", "bad_id"];
 
+// Все коды, которые отдают роуты и сервисы плана 5 (branch, branch-config, revenue-plans, sanitary, validate*).
+const PLAN5_CODES = ["weights_sum", "bad_thresholds", "bad_indicator_weight", "unknown_indicator", "bad_sanitary_items", "unknown_terminal",
+  "duplicate_terminal", "too_many_items", "bad_growth", "bad_items", "bad_checked_at", "comment_too_long", "future_period", "no_indicators"];
+const PLAN5_SERVER_CODES = [...PLAN5_CODES, "out_of_scope", "bad_amount", "bad_id", "bad_period", "unknown_setting", "bad_value", "period_closed", "not_found", "forbidden"];
+
 describe("тексты ошибок", () => {
   it("у каждого кода плана 1 и у запасных кодов есть русский текст", () => {
     for (const c of [...PLAN1_CODES, "unauthorized", "invalid_input", "server_error", "network"]) {
@@ -38,6 +43,17 @@ describe("тексты ошибок", () => {
       expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
     }
     expect(KPI_ERROR_TEXT.bot_not_configured).toBe("Бот KPI не настроен на сервере");
+  });
+  it("коды плана 5", () => {
+    for (const c of PLAN5_CODES) expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
+    for (const c of PLAN5_SERVER_CODES) expect(KPI_ERROR_TEXT[c]).toBeTruthy();
+    expect(KPI_ERROR_TEXT.no_indicators).toBe("Показатели балла не заведены: нужен запуск seed-cards");
+  });
+  it("подробности плана 5", () => {
+    expect(kpiErrorText(new KpiApiError(422, "weights_sum", { error: "weights_sum", sum: 99 }))).toBe("Сумма весов активных показателей должна быть 100 % (сейчас 99 %)");
+    expect(kpiErrorText(new KpiApiError(422, "weights_sum", { error: "weights_sum" }))).toBe("Сумма весов активных показателей должна быть 100 %");
+    expect(kpiErrorText(new KpiApiError(422, "bad_thresholds", { error: "bad_thresholds", code: "food_cost" }))).toBe("Порог, цель и максимум идут не по порядку (Себестоимость)");
+    expect(kpiErrorText(new KpiApiError(422, "bad_thresholds", { error: "bad_thresholds", code: "zzz" }))).toBe("Порог, цель и максимум идут не по порядку");
   });
   it("подробности плана 3", () => {
     expect(kpiErrorText(new KpiApiError(409, "external_id_taken", { error: "external_id_taken", employee_id: "e1", employee_name: "Повар Тест" })))

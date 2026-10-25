@@ -1,6 +1,6 @@
 // Права экранов KPI. Наборы повторяют права GET-роутов backend/src/modules/kpi.
 
-export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance";
+export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance" | "network" | "branch" | "revenue_plans" | "sanitary";
 
 export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   // kpi.approve: HR разбирает споры и правит оценки закрытого месяца (hr_adjusted) — нужна форма и журнал.
@@ -11,6 +11,10 @@ export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   raises: ["kpi.view", "kpi.approve"],
   settings: ["kpi.manage"],
   attendance: ["kpi.manage"],
+  network: ["kpi.view", "kpi.manage", "kpi.approve"],
+  branch: ["kpi.view", "kpi.manage", "kpi.approve"],
+  revenue_plans: ["kpi.manage"],
+  sanitary: ["kpi.evaluate", "kpi.manage"],
 };
 
 export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
@@ -21,6 +25,10 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   raises: "Повышения",
   settings: "Настройки KPI",
   attendance: "Загрузка Workly",
+  network: "Сеть",
+  branch: "Филиал",
+  revenue_plans: "План выручки",
+  sanitary: "Санитарная проверка",
 };
 
 export function canOpen(perms: readonly string[] | undefined, screen: KpiScreen): boolean {
