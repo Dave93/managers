@@ -16,6 +16,11 @@ export type ViolationDraft = {
   photos: File[];
 };
 
+/** Причина отмены нарушения: букв и цифр не меньше 3, как commentOk(reason, 3) в cancelViolation (backend violations.ts). */
+export function cancelReasonOk(reason: string): boolean {
+  return commentOk(reason, VIOLATION_COMMENT_MIN);
+}
+
 /** Тексты по порядку полей формы. */
 export function violationIssues(d: ViolationDraft, photoRequired: boolean): string[] {
   const out: string[] = [];

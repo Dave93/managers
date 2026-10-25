@@ -8,9 +8,10 @@ import { Textarea } from "@admin/components/ui/textarea";
 import { kpiApi, type ViolationRow } from "@admin/lib/kpi-api";
 import { kpiErrorText } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
+import { VIOLATION_COMMENT_MIN, cancelReasonOk } from "@admin/lib/kpi/violation-form";
 import { qk } from "../../_components/use-kpi";
 
-/** Отмена нарушения. Минимума длины у сервера нет: нужен хотя бы один непробельный символ. */
+/** Отмена нарушения. Причина — не меньше 3 букв или цифр: сервер проверяет её через commentOk(reason, 3). */
 export function CancelViolationDialog({ violation, onClose }: { violation: ViolationRow | null; onClose: () => void }) {
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
@@ -21,7 +22,7 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
     setTouched(false);
   }, [violation?.id]);
 
-  const ok = reason.trim().length > 0;
+  const ok = cancelReasonOk(reason);
 
   const cancel = useMutation({
     mutationFn: (v: ViolationRow) => kpiApi.violations.cancel(v.id, reason.trim()),
@@ -60,7 +61,9 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
             aria-label="Причина отмены"
             placeholder="Причина отмены"
           />
-          <p className={touched && !ok ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>Укажите причину отмены</p>
+          <p className={touched && !ok ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>
+            Не меньше {VIOLATION_COMMENT_MIN} букв или цифр
+          </p>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" disabled={cancel.isPending} onClick={onClose}>

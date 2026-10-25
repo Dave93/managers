@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@admin/components/ui/textarea";
 import { Link, useRouter } from "@admin/i18n/routing";
 import { kpiApi, postViolation } from "@admin/lib/kpi-api";
-import { kpiErrorText, outcomeKnown, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors, outcomeKnown, shouldRetry } from "@admin/lib/kpi/errors";
 import { employeeName } from "@admin/lib/kpi/filters";
 import { calendarPeriod } from "@admin/lib/kpi/periods";
 import {
@@ -24,6 +24,7 @@ import {
 } from "@admin/lib/kpi/violation-form";
 import { PhotoInput, revokePhoto, type PickedPhoto } from "../../_components/photo-input";
 import { ScreenGate } from "../../_components/screen-gate";
+import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiMe } from "../../_components/use-kpi";
 
 const NO_ITEM = "__none__";
@@ -40,18 +41,21 @@ export default function NewViolationPage() {
 function NewViolationScreen() {
   const router = useRouter();
   const qc = useQueryClient();
-  const me = useKpiMe();
+  // Пока заполняют форму, возврат на вкладку не перезапрашивает данные: сбой обновления не должен её трогать.
+  const me = useKpiMe({ refetchOnWindowFocus: false });
   const period = useMemo(() => calendarPeriod(new Date()), []);
 
   const employees = useQuery({
     queryKey: qk.employees({ period }),
     queryFn: () => kpiApi.employees.list({ period }),
     retry: shouldRetry,
+    refetchOnWindowFocus: false,
   });
   const cards = useQuery({
     queryKey: qk.cards(false),
     queryFn: () => kpiApi.cards.list(),
     retry: shouldRetry,
+    refetchOnWindowFocus: false,
   });
 
   const [terminalPick, setTerminalPick] = useState<string | null>(null);
@@ -110,15 +114,19 @@ function NewViolationScreen() {
     router.push("/kpi/violations");
   };
 
-  const loadError = employees.error ?? me.error;
+  // Ошибка закрывает форму, только пока данных нет. Карты не блокируют: без них можно записать «Без пункта».
+  const load = loadErrors(employees, me);
+  const stale = load.stale ?? loadErrors(cards).stale;
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 pb-20 sm:p-6">
       <h1 className="text-xl font-semibold">Зафиксировать нарушение</h1>
 
-      {loadError ? (
+      {load.blocking == null && stale != null && <StaleNote error={stale} />}
+
+      {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(loadError)}
+          {kpiErrorText(load.blocking)}
         </p>
       ) : employees.isPending || me.isPending ? (
         <p className="text-sm text-muted-foreground">Загрузка…</p>
@@ -198,6 +206,13 @@ function NewViolationScreen() {
                 ))}
               </SelectContent>
             </Select>
+            {cards.data === undefined && cards.error != null ? (
+              <p role="alert" className="text-xs text-destructive">
+                Пункты карты не загрузились: {kpiErrorText(cards.error)}. Можно записать без пункта
+              </p>
+            ) : (
+              row && cards.isPending && <p className="text-xs text-muted-foreground">Загрузка пунктов…</p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -242,7 +257,8 @@ function NewViolationScreen() {
           {unknown && (
             <div role="alert" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
               <p>Не знаем, дошло ли нарушение до сервера. Откройте журнал и проверьте, прежде чем записывать снова</p>
-              <Link href="/kpi/violations" className="font-medium underline underline-offset-4">
+              {/* Новая вкладка: форма с фото остаётся, если нарушение не дошло. */}
+              <Link href="/kpi/violations" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-4">
                 Открыть журнал
               </Link>
             </div>

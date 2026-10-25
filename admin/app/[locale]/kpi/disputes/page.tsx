@@ -12,6 +12,7 @@ import { DISPUTE_STATUS } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
+import { StaleNote } from "../_components/stale-note";
 import { qk } from "../_components/use-kpi";
 import { ResolveDialog } from "./_components/resolve-dialog";
 
@@ -51,7 +52,10 @@ function DisputesScreen() {
         <PeriodSelect value={period} onChange={setPeriod} options={options} allowAll className="w-44" />
       </div>
 
-      {list.error ? (
+      {/* Ошибка заменяет список, только пока данных нет; сбой фонового обновления — предупреждение над списком. */}
+      {list.error != null && list.data !== undefined && <StaleNote error={list.error} />}
+
+      {list.error != null && list.data === undefined ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {kpiErrorText(list.error)}
         </p>

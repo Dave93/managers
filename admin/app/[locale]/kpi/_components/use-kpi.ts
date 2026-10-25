@@ -53,12 +53,14 @@ export function useKpiPerms(): { ready: boolean; perms: string[]; access: KpiAcc
   return { ready: isFetched, perms, access: kpiAccess(perms) };
 }
 
-export function useKpiMe(): UseQueryResult<MeResponse, KpiApiError> {
+/** refetchOnWindowFocus: false — для экранов с формой, которую фоновое обновление не должно трогать. */
+export function useKpiMe(opts?: { refetchOnWindowFocus?: boolean }): UseQueryResult<MeResponse, KpiApiError> {
   return useQuery<MeResponse, KpiApiError>({
     queryKey: qk.me,
     queryFn: () => kpiApi.me(),
     staleTime: 60_000,
     retry: shouldRetry,
+    ...(opts?.refetchOnWindowFocus === false ? { refetchOnWindowFocus: false } : {}),
   });
 }
 

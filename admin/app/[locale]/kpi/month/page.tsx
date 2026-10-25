@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@admin/components/ui/textarea";
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type PeriodSummary } from "@admin/lib/kpi-api";
-import { KpiApiError, codeText, kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { KpiApiError, codeText, kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import { commentOk } from "@admin/lib/kpi/review-form";
@@ -26,6 +26,7 @@ import { PERIOD_STATUS } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
+import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
 
 export default function MonthPage() {
@@ -54,7 +55,8 @@ function MonthScreen() {
     retry: shouldRetry,
   });
 
-  const loadError = me.error ?? summary.error;
+  // Ошибка заменяет сводку, только пока данных нет; сбой фонового обновления — предупреждение над сводкой.
+  const load = loadErrors(me, summary);
   const data = summary.data;
 
   return (
@@ -64,9 +66,11 @@ function MonthScreen() {
         <PeriodSelect value={period} onChange={(v) => setPicked(v)} options={options} className="w-44" />
       </div>
 
-      {loadError ? (
+      {load.blocking == null && load.stale != null && <StaleNote error={load.stale} />}
+
+      {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(loadError)}
+          {kpiErrorText(load.blocking)}
         </p>
       ) : !data || !period ? (
         <p className="text-sm text-muted-foreground">Загрузка…</p>

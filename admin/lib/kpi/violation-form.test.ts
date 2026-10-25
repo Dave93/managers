@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import type { CardItem, EmployeeRow } from "@admin/lib/kpi-api";
 import {
-  KPI_MAX_PHOTOS, buildViolationFormData, createLatch, evaluableEmployees, evaluableTerminals, itemsForCard,
+  KPI_MAX_PHOTOS, buildViolationFormData, cancelReasonOk, createLatch, evaluableEmployees, evaluableTerminals, itemsForCard,
   violationIssues, type ViolationDraft,
 } from "./violation-form";
 
@@ -67,5 +67,12 @@ describe("createLatch", () => {
     expect(l.held()).toBe(true);
     l.release();
     expect(l.acquire()).toBe(true);
+  });
+});
+
+describe("cancelReasonOk", () => {
+  it("не меньше 3 букв или цифр, как на сервере", () => {
+    for (const bad of ["", "   ", "ок", "...", "о к", "!!!!!!"]) expect(cancelReasonOk(bad)).toBe(false);
+    for (const ok of ["ошибка", "  а б в  ", "123", "дубль"]) expect(cancelReasonOk(ok)).toBe(true);
   });
 });

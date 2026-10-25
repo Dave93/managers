@@ -10,6 +10,8 @@ import {
   SCORE_BUTTONS,
   issueText,
   parseScoreInput,
+  pickScore,
+  scoreTextChange,
   type DraftItem,
   type IssueCode,
 } from "@admin/lib/kpi/review-form";
@@ -33,26 +35,26 @@ export function ItemScoreRow({
   issue?: IssueCode;
 }) {
   const manual = item.source === "manual";
-  // Текст поля живёт отдельно: «5» по пути к «50» и «abc» не должны менять балл.
+  // Текст поля живёт отдельно: «5» по пути к «50» не должен сбрасывать набранное.
+  // Неверный текст хранится в черновике флагом invalid, чтобы форма не отправила последний верный балл.
   const [text, setText] = useState(scoreStr(value.score));
-  const [invalid, setInvalid] = useState(false);
+  const invalid = value.invalid === true;
 
+  // Балл сменили снаружи (новая форма с сервера) — показываем его. Пока текст неверный, его не трогаем.
   useEffect(() => {
+    if (invalid) return;
     setText((t) => (parseScoreInput(t) === value.score ? t : scoreStr(value.score)));
-    setInvalid(false);
-  }, [value.score]);
+  }, [value.score, invalid]);
 
-  const setScore = (score: number | null) => onChange({ ...value, score });
+  const setScore = (score: number | null) => {
+    setText(scoreStr(score));
+    onChange(pickScore(value, score));
+  };
 
   const onText = (t: string) => {
     setText(t);
-    const p = parseScoreInput(t);
-    if (p === "invalid") {
-      setInvalid(true);
-      return;
-    }
-    setInvalid(false);
-    if (p !== value.score) setScore(p);
+    const next = scoreTextChange(value, t);
+    if (next) onChange(next);
   };
 
   return (
@@ -93,7 +95,7 @@ export function ItemScoreRow({
           />
         </div>
       </div>
-      {invalid && <p className="text-xs text-destructive">Целое от 0 до 100</p>}
+      {invalid && issue !== "bad_score_text" && <p className="text-xs text-destructive">Целое от 0 до 100</p>}
 
       {!manual && (
         <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => setScore(null)}>

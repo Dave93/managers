@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { KPI_ERROR_TEXT, KpiApiError, codeText, kpiErrorText, outcomeKnown, shouldRetry, toKpiError } from "./errors";
+import { KPI_ERROR_TEXT, KpiApiError, codeText, kpiErrorText, loadErrors, outcomeKnown, shouldRetry, toKpiError } from "./errors";
 
 const PLAN1_CODES = [
   "forbidden", "bad_period", "unknown_setting", "bad_day", "bad_value", "dispute_before_review", "code_taken", "bad_weight",
@@ -44,4 +44,20 @@ describe("тексты ошибок", () => {
     expect(shouldRetry(1, new KpiApiError(502, "server_error", {}))).toBe(true);
     expect(shouldRetry(2, new KpiApiError(502, "server_error", {}))).toBe(false);
   });
+});
+
+describe("loadErrors", () => {
+  const e1 = new KpiApiError(500, "server_error", {});
+  const e2 = new KpiApiError(403, "forbidden", {});
+  it("без данных — блокирует, с данными — только предупреждение", () => {
+    expect(loadErrors({ error: e1, data: undefined })).toEqual({ blocking: e1, stale: null });
+    expect(loadErrors({ error: e1, data: [] })).toEqual({ blocking: null, stale: e1 });
+    expect(loadErrors({ error: null, data: undefined }, { error: null, data: [1] })).toEqual({ blocking: null, stale: null });
+  });
+  it("первая ошибка каждого вида", () => {
+    const r = loadErrors({ error: e1, data: { ok: 1 } }, { error: e2, data: undefined }, { error: e1, data: undefined });
+    expect(r.blocking).toBe(e2);
+    expect(r.stale).toBe(e1);
+  });
+  it("null в данных — это данные", () => expect(loadErrors({ error: e1, data: null })).toEqual({ blocking: null, stale: e1 }));
 });

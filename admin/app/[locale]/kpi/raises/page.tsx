@@ -6,12 +6,13 @@ import { Button } from "@admin/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { downloadRaisesCsv, kpiApi, type RaiseRow } from "@admin/lib/kpi-api";
-import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatPct, formatSum } from "@admin/lib/kpi/format";
 import { defaultQuarter, monthLabel, quarterLabel, quarterMonths, quarterOptions, raisesCsvFilename } from "@admin/lib/kpi/periods";
 import { RAISE_STATUS } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../_components/kpi-badge";
 import { ScreenGate } from "../_components/screen-gate";
+import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
 import { DecideDialog } from "./_components/decide-dialog";
 
@@ -75,6 +76,10 @@ function RaisesScreen() {
   };
 
   const months = quarterMonths(quarter);
+  // Ошибка заменяет таблицу, только пока данных нет; сбой фонового обновления — предупреждение над таблицей.
+  const meLoad = loadErrors(me);
+  const listLoad = loadErrors(list);
+  const stale = meLoad.stale ?? listLoad.stale;
 
   return (
     <div className="space-y-4 p-4 sm:p-6">
@@ -104,15 +109,17 @@ function RaisesScreen() {
         )}
       </div>
 
-      {me.error && (
+      {meLoad.blocking != null && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(me.error)}
+          {kpiErrorText(meLoad.blocking)}
         </p>
       )}
 
-      {list.error ? (
+      {listLoad.blocking == null && stale != null && <StaleNote error={stale} />}
+
+      {listLoad.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(list.error)}
+          {kpiErrorText(listLoad.blocking)}
         </p>
       ) : list.isPending ? (
         <p className="text-sm text-muted-foreground">Загрузка…</p>

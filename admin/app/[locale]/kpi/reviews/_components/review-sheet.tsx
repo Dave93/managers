@@ -27,6 +27,7 @@ import { ItemScoreRow } from "../../_components/item-score-row";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { OpenDisputeDialog } from "../../_components/open-dispute-dialog";
 import { PhotoThumbs } from "../../_components/photo-thumbs";
+import { StaleNote } from "../../_components/stale-note";
 import { qk } from "../../_components/use-kpi";
 import { ReviewHistory } from "./review-history";
 
@@ -233,7 +234,8 @@ function ReviewSheetBody({
 
         <TabsContent value="form" className="min-h-0 flex-1 flex-col data-[state=active]:flex">
           <div className="flex-1 space-y-4 overflow-y-auto p-4">
-            {form.error ? (
+            {/* Ошибка закрывает форму, только пока данных нет: сбой фонового обновления не стирает правки. */}
+            {form.error && !data ? (
               <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
                 {kpiErrorText(form.error)}
               </p>
@@ -241,6 +243,7 @@ function ReviewSheetBody({
               <p className="text-sm text-muted-foreground">Загрузка…</p>
             ) : (
               <>
+                {form.error && <StaleNote error={form.error} />}
                 {baseItems.map(renderItem)}
                 {extraItems.length > 0 && (
                   <>

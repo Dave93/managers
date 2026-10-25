@@ -16,6 +16,7 @@ import { OpenDisputeDialog } from "../_components/open-dispute-dialog";
 import { PeriodSelect } from "../_components/period-select";
 import { PhotoThumbs } from "../_components/photo-thumbs";
 import { ScreenGate } from "../_components/screen-gate";
+import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
 import { CancelViolationDialog } from "./_components/cancel-dialog";
 
@@ -69,8 +70,11 @@ function ViolationsScreen() {
   }, [rows, terminal, status, search]);
 
   const userId = me.data?.user_id;
+  // Оспоренное нарушение снимает только разбор спора (сервер ответит open_dispute).
   const canCancel = (v: ViolationRow) =>
-    v.status === "active" && (access.approve || (access.evaluate && userId !== undefined && v.recorded_by === userId));
+    v.status === "active" &&
+    !v.open_dispute &&
+    (access.approve || (access.evaluate && userId !== undefined && v.recorded_by === userId));
   const canDispute = (v: ViolationRow) => v.status === "active" && !v.open_dispute && (access.evaluate || access.approve);
 
   const cancelRow = cancelId ? rows.find((v) => v.id === cancelId) ?? null : null;
@@ -131,7 +135,10 @@ function ViolationsScreen() {
         </Select>
       </div>
 
-      {list.error ? (
+      {/* Ошибка заменяет список, только пока данных нет; сбой фонового обновления — предупреждение над списком. */}
+      {list.error != null && list.data !== undefined && <StaleNote error={list.error} />}
+
+      {list.error != null && list.data === undefined ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {kpiErrorText(list.error)}
         </p>

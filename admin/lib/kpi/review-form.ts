@@ -5,7 +5,8 @@ import type { KpiItemInput, ReviewFormItem } from "@admin/lib/kpi-api";
 export const SCORE_BUTTONS = [0, 25, 50, 75, 100] as const;
 
 export type FormItemLite = Pick<ReviewFormItem, "item_id" | "source" | "weight" | "score" | "note" | "suggestion">;
-export type DraftItem = { score: number | null; note: string };
+/** invalid — в поле балла неверный текст («150», «7.5»): score хранит последний верный балл, сохранять нельзя. */
+export type DraftItem = { score: number | null; note: string; invalid?: boolean };
 export type Draft = Record<string, DraftItem>;
 export type ReviewMode = "readonly" | "new" | "draft" | "change";
 
@@ -28,6 +29,19 @@ export function parseScoreInput(text: string): number | null | "invalid" {
   if (!/^\d{1,3}$/.test(t)) return "invalid";
   const n = Number(t);
   return n <= 100 ? n : "invalid";
+}
+
+/** Ввод в поле балла. Верное число — новый балл, неверный текст — флаг invalid при прежнем балле. null — менять нечего. */
+export function scoreTextChange(value: DraftItem, text: string): DraftItem | null {
+  const p = parseScoreInput(text);
+  if (p === "invalid") return value.invalid ? null : { ...value, invalid: true };
+  if (p === value.score && !value.invalid) return null;
+  return { ...value, score: p, invalid: false };
+}
+
+/** Кнопка балла, «Принять», «Нет данных»: балл ставится, неверный текст сбрасывается, даже если балл тот же. */
+export function pickScore(value: DraftItem, score: number | null): DraftItem {
+  return { ...value, score, invalid: false };
 }
 
 const itemDraft = (i: FormItemLite, draft: Draft): DraftItem => draft[i.item_id] ?? { score: i.score, note: i.note ?? "" };
@@ -63,7 +77,7 @@ export function changedItemIds(items: readonly FormItemLite[], draft: Draft): st
   return items.filter((i) => itemDraft(i, draft).score !== i.score).map((i) => i.item_id);
 }
 
-export type IssueCode = "score_required" | "note_required" | "comment_required" | "no_changes";
+export type IssueCode = "bad_score_text" | "score_required" | "note_required" | "comment_required" | "no_changes";
 export type FormIssue = { code: IssueCode; item_id?: string };
 
 export function reviewIssues(
@@ -76,7 +90,11 @@ export function reviewIssues(
   const out: FormIssue[] = [];
   for (const i of items) {
     const d = itemDraft(i, draft);
-    if (action !== "draft" && i.source === "manual" && d.score === null) {
+    // Неверный текст блокирует любое действие: иначе ушёл бы последний верный балл («150» → 15).
+    // Одна проблема на пункт: экран держит их в Map по item_id.
+    if (d.invalid) {
+      out.push({ code: "bad_score_text", item_id: i.item_id });
+    } else if (action !== "draft" && i.source === "manual" && d.score === null) {
       out.push({ code: "score_required", item_id: i.item_id });
     } else if (i.suggestion && d.score !== null && d.score !== i.suggestion.score && d.note.trim() === "") {
       out.push({ code: "note_required", item_id: i.item_id });
@@ -91,6 +109,8 @@ export function reviewIssues(
 
 export function issueText(i: FormIssue, commentMin: number): string {
   switch (i.code) {
+    case "bad_score_text":
+      return "Целое от 0 до 100";
     case "score_required":
       return "Поставьте балл: пункт обязателен";
     case "note_required":

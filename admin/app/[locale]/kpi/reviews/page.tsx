@@ -22,6 +22,7 @@ import { ROW_STATUS, rowStatus, type RowStatus } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
+import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
 import { ReviewSheet } from "./_components/review-sheet";
 
@@ -156,7 +157,10 @@ function ReviewsScreen() {
         </Select>
       </div>
 
-      {employees.error ? (
+      {/* Ошибка заменяет список, только пока данных нет; сбой фонового обновления — предупреждение над списком. */}
+      {employees.error != null && employees.data !== undefined && <StaleNote error={employees.error} />}
+
+      {employees.error != null && employees.data === undefined ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {kpiErrorText(employees.error)}
         </p>

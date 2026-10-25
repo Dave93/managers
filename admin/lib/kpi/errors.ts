@@ -110,3 +110,20 @@ export function shouldRetry(failureCount: number, e: unknown): boolean {
   if (e instanceof KpiApiError && e.status >= 400 && e.status < 500) return false;
   return failureCount < 2;
 }
+
+export type LoadResult = { error: unknown; data: unknown };
+
+/**
+ * Ошибка загрузки блокирует экран, только пока данных нет. Если данные уже есть, это сбой фонового
+ * обновления: экран остаётся, поверх — предупреждение. Берётся первая ошибка каждого вида.
+ */
+export function loadErrors(...qs: LoadResult[]): { blocking: unknown; stale: unknown } {
+  let blocking: unknown = null;
+  let stale: unknown = null;
+  for (const q of qs) {
+    if (q.error == null) continue;
+    if (q.data === undefined) blocking = blocking ?? q.error;
+    else stale = stale ?? q.error;
+  }
+  return { blocking, stale };
+}

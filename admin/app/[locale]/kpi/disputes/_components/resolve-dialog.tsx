@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from "@admin/components/ui/textarea";
 import { kpiApi, type DisputeRow, type ReviewForm } from "@admin/lib/kpi-api";
 import { resolveIssues, subjectLabel } from "@admin/lib/kpi/disputes";
-import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
+import { KpiApiError, kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import {
   changedItemIds,
@@ -20,6 +20,7 @@ import {
 } from "@admin/lib/kpi/review-form";
 import { ItemScoreRow } from "../../_components/item-score-row";
 import { PhotoThumbs } from "../../_components/photo-thumbs";
+import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiMe } from "../../_components/use-kpi";
 
 const FALLBACK_COMMENT_MIN = 5;
@@ -87,7 +88,14 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
       );
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => {
+      toast.error(kpiErrorText(e));
+      // 409 (спор уже разобран, месяц закрыт и т. п.): список споров и форма на экране устарели.
+      if (e instanceof KpiApiError && e.status === 409) {
+        void qc.invalidateQueries({ queryKey: qk.disputesAll });
+        void qc.invalidateQueries({ queryKey: qk.formAll });
+      }
+    },
   });
 
   const decide = (decision: "accepted" | "rejected") => {
@@ -120,6 +128,8 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
 
   const loading = isReview ? form.isPending && form.fetchStatus !== "idle" : violations.isPending && violations.fetchStatus !== "idle";
   const loadError = isReview ? form.error : violations.error;
+  // Ошибка закрывает разбор, только пока данных нет: сбой обновления (например, после 409) не стирает правки баллов.
+  const hasData = isReview ? form.data !== undefined : violations.data !== undefined;
   const busy = resolve.isPending;
 
   return (
@@ -140,7 +150,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
         <p role="alert" className="rounded-md border p-3 text-sm text-muted-foreground">
           Спор без сотрудника (балл филиала) разбирается в фазе 5
         </p>
-      ) : loadError ? (
+      ) : loadError != null && !hasData ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {kpiErrorText(loadError)}
         </p>
@@ -148,6 +158,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       ) : (
         <>
+          {loadError != null && <StaleNote error={loadError} />}
           {isReview && form.data && (
             <div className="space-y-3">
               {form.data.items.map((item) => {

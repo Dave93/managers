@@ -3,8 +3,9 @@
 export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings";
 
 export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
-  reviews: ["kpi.evaluate", "kpi.view"],
-  violations: ["kpi.evaluate", "kpi.view"],
+  // kpi.approve: HR разбирает споры и правит оценки закрытого месяца (hr_adjusted) — нужна форма и журнал.
+  reviews: ["kpi.evaluate", "kpi.view", "kpi.approve"],
+  violations: ["kpi.evaluate", "kpi.view", "kpi.approve"],
   disputes: ["kpi.evaluate", "kpi.view", "kpi.approve"],
   month: ["kpi.view", "kpi.approve", "kpi.manage"],
   raises: ["kpi.view", "kpi.approve"],

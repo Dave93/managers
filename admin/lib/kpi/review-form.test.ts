@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
-  SCORE_BUTTONS, changedItemIds, commentOk, draftFromItems, issueText, parseScoreInput, previewPct,
-  reviewIssues, reviewMode, toItemInputs, type FormItemLite,
+  SCORE_BUTTONS, changedItemIds, commentOk, draftFromItems, issueText, parseScoreInput, pickScore, previewPct,
+  reviewIssues, reviewMode, scoreTextChange, toItemInputs, type FormItemLite,
 } from "./review-form";
 
 const items: FormItemLite[] = [
@@ -84,4 +84,42 @@ describe("reviewIssues", () => {
   it("changedItemIds смотрит только баллы", () => {
     expect(changedItemIds(items, draft({ m2: { score: 75 }, m1: { score: 100, note: "новая заметка" } }))).toEqual(["m2"]);
   });
+});
+
+describe("неверный текст балла", () => {
+  it("scoreTextChange: «150» после «15» не отправит 15", () => {
+    const v0 = { score: null, note: "" };
+    const v1 = scoreTextChange(v0, "1")!;
+    const v2 = scoreTextChange(v1, "15")!;
+    const v3 = scoreTextChange(v2, "150")!;
+    expect(v3).toEqual({ score: 15, note: "", invalid: true });
+    // Флаг уже стоит: повторный неверный ввод ничего не меняет.
+    expect(scoreTextChange(v3, "1500")).toBeNull();
+    // Стёрли «0»: балл прежний, но флаг снимается.
+    expect(scoreTextChange(v3, "15")).toEqual({ score: 15, note: "", invalid: false });
+    expect(scoreTextChange({ score: 7, note: "" }, "7.5")).toEqual({ score: 7, note: "", invalid: true });
+    expect(scoreTextChange({ score: 50, note: "x" }, "50")).toBeNull();
+    expect(scoreTextChange({ score: 50, note: "x" }, "")).toEqual({ score: null, note: "x", invalid: false });
+  });
+  it("pickScore снимает флаг и при том же балле", () => {
+    expect(pickScore({ score: 50, note: "x", invalid: true }, 50)).toEqual({ score: 50, note: "x", invalid: false });
+    expect(pickScore({ score: 50, note: "", invalid: true }, null)).toEqual({ score: null, note: "", invalid: false });
+  });
+  it("bad_score_text блокирует черновик, отправку и изменение", () => {
+    const bad = { ...draftFromItems(items), m2: { score: 15, note: "", invalid: true } };
+    expect(reviewIssues(items, bad, "draft", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+    expect(reviewIssues(items, bad, "submit", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+    expect(reviewIssues(items, bad, "change", "опоздал 3 раза", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+  });
+  it("одна проблема на пункт: неверный текст важнее пустого балла и заметки", () => {
+    const bad = { ...draftFromItems(items), m1: { score: null, note: "", invalid: true }, a1: { score: 60, note: "", invalid: true } };
+    expect(reviewIssues(items, bad, "submit", "", 5)).toEqual([
+      { code: "bad_score_text", item_id: "m1" },
+      { code: "bad_score_text", item_id: "a1" },
+    ]);
+  });
+  it("invalid: false — обычные правила", () => {
+    expect(reviewIssues(items, { ...draftFromItems(items), m2: { score: 50, note: "", invalid: false } }, "submit", "", 5)).toEqual([]);
+  });
+  it("issueText", () => expect(issueText({ code: "bad_score_text", item_id: "m2" }, 5)).toBe("Целое от 0 до 100"));
 });
