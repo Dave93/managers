@@ -15,6 +15,7 @@ import {
 } from "@backend/modules/kpi/queue";
 import { botApi } from "@backend/modules/kpi/tg/bot-api";
 import { deliverOne, stuckReporter, stuckSendingCount, sweepPending } from "@backend/modules/kpi/worker/deliver";
+import { startScheduling } from "@backend/modules/kpi/worker/boot";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
 import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
 
@@ -91,12 +92,13 @@ worker.on("error", (e) => console.error("kpi worker error", e));
 worker.on("failed", (job, e) => console.error("kpi job failed", job?.name, job?.id, e?.message));
 console.log(`kpi worker started (queue ${kpiQueueName()}, token: ${api ? "есть" : "нет"})`);
 
-registerSchedulers()
-  .then(() => {
-    // Процесс мог быть остановлен в 10:00: догоняем сразу (до 10:00 daily() ничего не делает), повторы погасит dedupe.
-    return daily().catch((e) => console.error("kpi worker: ежедневная задача при старте не удалась", e));
-  })
-  .catch((e) => console.error("kpi worker: регистрация расписания не удалась", e));
+// Без расписаний процесс ничего не делает по времени: при провале регистрации выходим, PM2 перезапустит.
+void startScheduling({
+  register: registerSchedulers,
+  catchUp: daily,
+  log: (msg, e) => console.error(msg, e),
+  exit: (code) => process.exit(code),
+});
 
 let shuttingDown = false;
 async function shutdown(signal: string) {
