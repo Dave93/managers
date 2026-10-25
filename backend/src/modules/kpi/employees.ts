@@ -24,7 +24,7 @@ export async function listEmployeeRows(
   db: DbLike,
   actor: Actor,
   query: EmployeeQuery,
-  opts: { onlyWithReview?: boolean } = {}
+  opts: { onlyWithReview?: boolean; includeUncarded?: boolean } = {}
 ): Promise<EmployeeRow[]> {
   const period = parsePeriod(query.period);
   if (query.terminal_id && !UUID_RE.test(query.terminal_id)) throw new KpiError(422, "bad_id");
@@ -67,7 +67,8 @@ export async function listEmployeeRows(
     const rv = reviews.get(e.id);
     if (opts.onlyWithReview && !rv) continue;
     // Только с картой; плюс те, у кого за период уже есть оценка (даже неактивные или без карты).
-    if (e.card_id === null && !rv) continue;
+    // includeUncarded (только kpi.manage) добавляет активных без карты.
+    if (e.card_id === null && !rv && !opts.includeUncarded) continue;
     if (!e.active && !rv) continue;
     // Оценка без действующей карты видна и по карте из снимка оценки.
     const visible =

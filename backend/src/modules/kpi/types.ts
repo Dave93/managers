@@ -21,6 +21,13 @@ export interface ScopeRow {
   created_at: string;
 }
 
+// Строка выбора пользователя (назначение оценщиков).
+export interface KpiUserOption {
+  id: string;
+  name: string;
+  login: string;
+}
+
 export interface MeResponse {
   user_id: string;
   perms: KpiPerm[];
@@ -132,6 +139,8 @@ export interface ReviewForm {
   other_violations: ViolationRow[];
   can_edit: boolean;
   needs_comment: boolean;
+  // Есть открытый спор по этой оценке.
+  open_dispute: boolean;
   deadlines: Deadlines;
 }
 

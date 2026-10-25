@@ -48,4 +48,28 @@ describe("raisesCsv", () => {
     expect(csv).toContain(";мало оценок;;");
     expect(csv).toContain(";отклонено;;");
   });
+
+  it('комментарий "=HYPERLINK(1)" выгружается как "\'=HYPERLINK(1)"', () => {
+    const csv = raisesCsv([row({ comment: "=HYPERLINK(1)" })]);
+    expect(csv).toContain(";'=HYPERLINK(1)");
+    expect(csv).not.toContain(";=HYPERLINK(1)");
+  });
+
+  it("защита от формул: =, +, -, @, табуляция, \\r в строковых ячейках; числа и пустое не трогаем", () => {
+    for (const bad of ["=1+1", "+7", "-2", "@SUM(A1)", "\tx", "\rx"]) {
+      // Ячейка с \r берётся в кавычки целиком, остальные идут как есть.
+      const cell = bad.includes("\r") ? `"'${bad}"` : `'${bad}`;
+      for (const key of ["employee_name", "terminal_name", "card_title", "comment"] as const) {
+        const csv = raisesCsv([row({ [key]: bad })]);
+        expect(csv).toContain(cell);
+        expect(csv).not.toContain(`;${bad};`);
+        expect(csv.endsWith(`;${bad}\r\n`)).toBe(false);
+      }
+    }
+    // Суммы и проценты — числа, апостроф не получают.
+    const lines = raisesCsv([row({ status: "approved", approved_amount: 250000, comment: null })]).split("\r\n");
+    expect(lines[1]).toBe("Тест Повар;Филиал;Повар;92,00;;94,50;93,25;300000;утверждено;250000;");
+    // Безопасный текст остаётся как был.
+    expect(raisesCsv([row({ comment: "Хорошо" })])).toContain(";Хорошо\r\n");
+  });
 });

@@ -1,5 +1,5 @@
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_card_items, kpi_cards, kpi_review_events, kpi_review_items, kpi_reviews } from "backend/drizzle/schema";
+import { kpi_card_items, kpi_cards, kpi_disputes, kpi_review_events, kpi_review_items, kpi_reviews } from "backend/drizzle/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
@@ -263,6 +263,21 @@ async function buildForm(
     ? mayChange(actor, scopes, review!, closed)
     : !closed && mayDraft(actor, scopes, emp);
   const scoreNow = submitted ? pctNum(review!.score_pct) : pctOf(work);
+  let openDispute = false;
+  if (review) {
+    const d = await db
+      .select({ id: kpi_disputes.id })
+      .from(kpi_disputes)
+      .where(
+        and(
+          eq(kpi_disputes.subject_type, "review"),
+          eq(kpi_disputes.subject_id, review.id),
+          eq(kpi_disputes.status, "open")
+        )
+      )
+      .limit(1);
+    openDispute = d.length > 0;
+  }
 
   return {
     period,
@@ -290,6 +305,7 @@ async function buildForm(
     other_violations: violations.filter((v) => v.card_item_id === null || !itemIds.has(v.card_item_id)),
     can_edit: canEdit,
     needs_comment: submitted,
+    open_dispute: openDispute,
     deadlines: deadlinesOf(period, settings),
   };
 }
@@ -411,13 +427,15 @@ export async function submitReview(
 }
 
 // Изменение отправленной оценки внутри чужой транзакции: её зовёт и changeReview, и разбор спора.
+// rightsChecked: права вызывающий уже проверил (разбор спора), остаётся проверка закрытого месяца.
 export async function changeReviewTx(
   tx: DbLike,
   actor: Actor,
   reviewId: string,
   items: ItemInput[],
   comment: string,
-  kind?: "changed" | "hr_adjusted"
+  kind?: "changed" | "hr_adjusted",
+  opts: { rightsChecked?: boolean } = {}
 ): Promise<ReviewForm> {
   const review = await loadReview(tx, reviewId, true);
   const period = review.period;
@@ -425,9 +443,13 @@ export async function changeReviewTx(
   const scopes = await scopesOf(tx, actor);
   const closed = await isPeriodClosed(tx, period);
   // Закрытый месяц: оценщику отвечаем состоянием, а не отсутствием прав, если право было бы в открытом.
-  const couldOpen = mayChange(actor, scopes, review, false);
-  if (!couldOpen) throw new KpiError(403, "out_of_scope");
-  if (!mayChange(actor, scopes, review, closed)) throw new KpiError(409, "period_closed");
+  if (opts.rightsChecked) {
+    if (closed && !has(actor, "kpi.approve")) throw new KpiError(409, "period_closed");
+  } else {
+    const couldOpen = mayChange(actor, scopes, review, false);
+    if (!couldOpen) throw new KpiError(403, "out_of_scope");
+    if (!mayChange(actor, scopes, review, closed)) throw new KpiError(409, "period_closed");
+  }
 
   const settings = await loadSettings(tx);
   if (!commentOk(comment, settings.change_comment_min)) {

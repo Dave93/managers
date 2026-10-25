@@ -300,7 +300,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const r = await api(hr, "GET", "/api/kpi/users?search=test_kpi_");
       expect(r.status).toBe(200);
       expect(r.body.map((u: { login: string }) => u.login)).toEqual(["test_kpi_a"]);
-      expect(r.body[0]).toMatchObject({ first_name: "Тест", last_name: "Юзерa", name: "Тест Юзерa" });
+      expect(Object.keys(r.body[0]).sort()).toEqual(["id", "login", "name"]);
+      expect(r.body[0].name).toBe("Тест Юзерa");
       expect((await api(hr, "GET", "/api/kpi/users?search=юзерa")).body).toHaveLength(1);
       expect((await api(hr, "GET", "/api/kpi/users?search=%25")).body.length).toBeLessThanOrEqual(20);
       const ev = await withSession({ permissions: ["kpi.evaluate"] });

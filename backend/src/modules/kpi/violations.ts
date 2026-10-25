@@ -1,5 +1,6 @@
 // Журнал нарушений: запись с фото, отмена, список, файл фото.
 import fs from "node:fs";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { DrizzleDB } from "@backend/lib/db";
 import {
@@ -311,8 +312,12 @@ export async function photoFile(db: DbLike, actor: Actor, photoId: string): Prom
   const scopes = await loadScopes(db, actor.userId);
   const dir = await directoryMap(db, [v.employee_id]);
   if (!visible(actor, scopes, v, dir.get(v.employee_id))) throw new KpiError(404, "not_found");
-  if (!fs.existsSync(p.file_path)) throw new KpiError(404, "not_found");
-  return { path: p.file_path, mime: p.mime };
+  // Строка могла быть записана с путём вне каталога загрузок: такой файл не отдаём.
+  const base = path.resolve(uploadsBase());
+  const file = path.resolve(p.file_path);
+  if (!file.startsWith(base + path.sep)) throw new KpiError(404, "not_found");
+  if (!fs.existsSync(file)) throw new KpiError(404, "not_found");
+  return { path: file, mime: p.mime };
 }
 
 // Активные нарушения сотрудника за месяц, для формы оценки.

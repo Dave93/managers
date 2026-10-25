@@ -4,7 +4,7 @@ import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { terminalNames, userNames } from "../directory";
 import { KpiError, run } from "../errors";
-import type { ScopeRow } from "../types";
+import type { KpiUserOption, ScopeRow } from "../types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -95,7 +95,7 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
   .get(
     "/kpi/users",
     async ({ query, drizzle, set }) =>
-      run(set, async () => {
+      run(set, async (): Promise<KpiUserOption[]> => {
         const search = (query.search ?? "").trim();
         // ilike в базе с локалью C не сворачивает регистр кириллицы: ищем по вариантам регистра.
         const variants = [...new Set([search, search.toLowerCase(), search.toUpperCase(), search.charAt(0).toUpperCase() + search.slice(1).toLowerCase()])];
@@ -117,8 +117,9 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
           .orderBy(asc(users.last_name), asc(users.first_name), asc(users.login))
           .limit(20);
         return rows.map((r) => ({
-          ...r,
-          name: [r.first_name, r.last_name].filter(Boolean).join(" ") || r.login,
+          id: r.id,
+          name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.login,
+          login: r.login,
         }));
       }),
     { permission: "kpi.manage", query: t.Object({ search: t.Optional(t.String()) }) }

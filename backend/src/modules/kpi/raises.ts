@@ -44,6 +44,8 @@ export async function getTiers(db: DbLike): Promise<Tier[]> {
 // Замена шкалы целиком в одной транзакции.
 export async function saveTiers(db: DbLike, _actor: Actor, tiers: Tier[]): Promise<Tier[]> {
   return inTx(db, async (tx) => {
+    // Два сохранения шкалы подряд не должны перемешать строки.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext('kpi_raise_tiers'))`);
     const settings = await loadSettings(tx);
     const bad = validateTiers(tiers, settings.raise_cap);
     if (bad) throw new KpiError(422, bad);
@@ -182,9 +184,9 @@ export async function decideRaise(
     const suggested = Number(row.suggested_amount ?? 0);
     let amount: number;
     if (input.status === "rejected") amount = 0;
-    else if (input.amount === undefined || input.amount === null) amount = suggested;
     else {
-      amount = input.amount;
+      amount = input.amount === undefined || input.amount === null ? suggested : input.amount;
+      // Предложение тоже проверяем: потолок могли снизить после настройки шкалы.
       if (!Number.isInteger(amount) || amount < 0 || amount > settings.raise_cap) throw new KpiError(422, "bad_amount");
     }
     const redecided = row.status === "approved" || row.status === "rejected";
@@ -202,7 +204,7 @@ export async function decideRaise(
         status: row.status,
         approved_amount: numOrNull(row.approved_amount),
         decided_by: row.decided_by,
-        decided_at: row.decided_at,
+        decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
         comment: row.comment,
       });
     }
@@ -244,6 +246,8 @@ const cell = (v: string | number | null | undefined): string => {
   const s = v === null || v === undefined ? "" : String(v);
   return /[;"\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
+// Строка, которая начинается с символа формулы Excel, получает префикс ': ячейка остаётся текстом.
+const text = (v: string | null | undefined): string => cell(v && /^[=+\-@\t\r]/.test(v) ? "'" + v : v);
 const pct = (v: number | null | undefined): string => (v === null || v === undefined ? "" : v.toFixed(2).replace(".", ","));
 
 // Excel: BOM, разделитель «;», строки через CRLF.
@@ -253,20 +257,18 @@ export function raisesCsv(rows: RaiseRow[]): string {
   for (const r of rows) {
     lines.push(
       [
-        r.employee_name,
-        r.terminal_name,
-        r.card_title,
-        pct(r.months[0]?.score_pct),
-        pct(r.months[1]?.score_pct),
-        pct(r.months[2]?.score_pct),
-        pct(r.avg_pct),
-        r.suggested_amount,
-        STATUS_RU[r.status],
-        r.approved_amount,
-        r.comment,
-      ]
-        .map(cell)
-        .join(";")
+        text(r.employee_name),
+        text(r.terminal_name),
+        text(r.card_title),
+        cell(pct(r.months[0]?.score_pct)),
+        cell(pct(r.months[1]?.score_pct)),
+        cell(pct(r.months[2]?.score_pct)),
+        cell(pct(r.avg_pct)),
+        cell(r.suggested_amount),
+        cell(STATUS_RU[r.status]),
+        cell(r.approved_amount),
+        text(r.comment),
+      ].join(";")
     );
   }
   return "﻿" + lines.join("\r\n") + "\r\n";

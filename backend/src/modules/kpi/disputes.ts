@@ -1,6 +1,6 @@
 // Споры по оценкам и нарушениям: открытие, разбор, список.
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_disputes, kpi_review_events, kpi_reviews, kpi_violations } from "backend/drizzle/schema";
+import { kpi_disputes, kpi_periods, kpi_review_events, kpi_reviews, kpi_violations } from "backend/drizzle/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { has, loadScopes, parsePeriod, seesNetwork, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
@@ -166,6 +166,10 @@ export async function openDispute(
     if (now().getTime() > disputeDeadline(period, settings.dispute_deadline_day).getTime()) {
       throw new KpiError(409, "dispute_window_closed");
     }
+    // Строка месяца блокируется после предмета спора (порядок как у closePeriod: цикла нет):
+    // закрытие месяца не проскочит между проверкой и вставкой спора.
+    await tx.insert(kpi_periods).values({ period, status: "open" }).onConflictDoNothing({ target: kpi_periods.period });
+    await tx.select().from(kpi_periods).where(eq(kpi_periods.period, period)).for("update");
     if (await isPeriodClosed(tx, period)) throw new KpiError(409, "period_closed");
 
     const reason = input.reason.trim();
@@ -239,7 +243,7 @@ export async function resolveDispute(
       if (d.subject_type === "review") {
         if (!input.items || input.items.length === 0) throw new KpiError(422, "items_required");
         // Оценка меняется в этой же транзакции: либо всё сразу, либо ничего.
-        await changeReviewTx(tx, actor, d.subject_id, input.items, comment);
+        await changeReviewTx(tx, actor, d.subject_id, input.items, comment, undefined, { rightsChecked: true });
       } else if (d.subject_type === "violation") {
         await cancelViolationTx(tx, d.subject_id, comment, actor.userId);
       }

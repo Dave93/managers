@@ -2,7 +2,7 @@ import { ctx } from "@backend/context";
 import { employees, kpi_cards, kpi_employee_cards } from "backend/drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
-import { actorFrom, requireAny } from "../access";
+import { actorFrom, has, requireAny } from "../access";
 import { now } from "../clock";
 import { loadDirectory } from "../directory";
 import { listEmployeeRows, UUID_RE } from "../employees";
@@ -17,7 +17,9 @@ export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
       run(set, async (): Promise<EmployeeRow[]> => {
         const actor = await actorFrom({ user, role, terminals, cacheController });
         requireAny(actor, ["kpi.evaluate", "kpi.view", "kpi.manage", "kpi.approve"]);
-        return listEmployeeRows(drizzle, actor, query);
+        // Список без карт нужен HR для настройки; остальным параметр не меняет ответ.
+        const includeUncarded = has(actor, "kpi.manage") && (query.include_uncarded === "1" || query.include_uncarded === "true");
+        return listEmployeeRows(drizzle, actor, query, { includeUncarded });
       }),
     {
       userAuth: true,
@@ -27,6 +29,7 @@ export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
         card_id: t.Optional(t.String()),
         status: t.Optional(t.String()),
         search: t.Optional(t.String()),
+        include_uncarded: t.Optional(t.String()),
       }),
     }
   )

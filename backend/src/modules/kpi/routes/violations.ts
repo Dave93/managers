@@ -77,6 +77,8 @@ export const violationsRoutes = new Elysia({ name: "@api/kpi/violations" })
       });
       if ("error" in r) return r;
       set.headers["content-type"] = r.mime;
+      set.headers["x-content-type-options"] = "nosniff";
+      set.headers["cache-control"] = "private, max-age=3600";
       return Bun.file(r.path);
     },
     { userAuth: true, params: t.Object({ id: t.String() }) }
