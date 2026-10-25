@@ -4,6 +4,8 @@ import { and, asc, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { attendanceStats } from "./attendance";
 import type { AttendanceStats } from "./attendance-parse";
+import { branchSuggestions, type BranchAutoValue } from "./branch";
+import type { BranchSource } from "./branch-rules";
 import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, userNames, type DirEmployee } from "./directory";
 import { listEmployeeRows, UUID_RE, type EmployeeQuery } from "./employees";
@@ -30,8 +32,9 @@ import type { EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./typ
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
 
-type AutoValue = { source: "attendance" } & AttendanceStats;
+type AutoValue = ({ source: "attendance" } & AttendanceStats) | BranchAutoValue;
 type Suggestion = { score: number; basis: string; auto_value: AutoValue | null };
+const BRANCH_SOURCES: Record<BranchSource, true> = { sales_plan: true, food_cost: true, cooking_speed: true };
 type ReviewRow = typeof kpi_reviews.$inferSelect;
 // Рабочая строка пункта: снимок карты плюс оценка.
 type WorkItem = {
@@ -50,10 +53,10 @@ const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
   (db as DrizzleDB).transaction((tx) => fn(tx));
 
 // Предложения автопунктов. Отправленная оценка берёт их из снимка auto_value,
-// черновик и новая форма считают по живым данным Workly.
+// черновик и новая форма считают по живым данным: Workly и последняя версия балла филиала.
 async function loadSuggestions(
   db: DbLike,
-  target: { employee_id: string; period: Period; status: "draft" | "submitted" | null },
+  target: { employee_id: string; terminal_id: string; period: Period; status: "draft" | "submitted" | null },
   items: WorkItem[]
 ): Promise<Map<string, Suggestion>> {
   const out = new Map<string, Suggestion>();
@@ -73,6 +76,15 @@ async function loadSuggestions(
       for (const i of att) {
         out.set(i.item_id, { score: stats.score, basis: stats.basis, auto_value: { source: "attendance", ...stats } });
       }
+    }
+  }
+  const branch = items.filter((i) => i.source in BRANCH_SOURCES);
+  if (branch.length > 0) {
+    // Один запрос на форму, не на пункт
+    const found = await branchSuggestions(db, target.terminal_id, target.period);
+    for (const i of branch) {
+      const s = found.get(i.source as BranchSource);
+      if (s) out.set(i.item_id, s);
     }
   }
   return out;
@@ -194,7 +206,12 @@ async function syncDraft(tx: DbLike, review: ReviewRow, emp: DirEmployee, inputs
   }));
   const suggestions = await loadSuggestions(
     tx,
-    { employee_id: review.employee_id, period: review.period, status: review.status as "draft" | "submitted" },
+    {
+      employee_id: review.employee_id,
+      terminal_id: emp.terminal_id,
+      period: review.period,
+      status: review.status as "draft" | "submitted",
+    },
     base
   );
   // В снимок попадает предложение на момент сохранения (при отправке это и есть снимок отправки).
@@ -294,7 +311,7 @@ async function buildForm(
   );
   const suggestions = await loadSuggestions(
     db,
-    { employee_id: emp.id, period, status: (review?.status as "draft" | "submitted" | undefined) ?? null },
+    { employee_id: emp.id, terminal_id: emp.terminal_id, period, status: (review?.status as "draft" | "submitted" | undefined) ?? null },
     work
   );
   const violations = await violationsFor(db, emp.id, period);
@@ -446,7 +463,7 @@ export async function submitReview(
     const missing = missingManual(rows.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
     if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
     // syncDraft записал в auto_value предложение на момент отправки: проверяем по этому снимку.
-    checkNoDataNotes(rows, await loadSuggestions(tx, { employee_id: review.employee_id, period, status: "submitted" }, rows));
+    checkNoDataNotes(rows, await loadSuggestions(tx, { employee_id: review.employee_id, terminal_id: emp.terminal_id, period, status: "submitted" }, rows));
 
     const pct = pctOf(rows);
     const at = now().toISOString();
@@ -513,7 +530,7 @@ export async function changeReviewTx(
   // Предложения по снимку: живые данные Workly на отправленную оценку не влияют.
   const suggestions = await loadSuggestions(
     tx,
-    { employee_id: review.employee_id, period: review.period, status: "submitted" },
+    { employee_id: review.employee_id, terminal_id: review.terminal_id, period: review.period, status: "submitted" },
     before
   );
   const after = applyInputs(before, items, suggestions);

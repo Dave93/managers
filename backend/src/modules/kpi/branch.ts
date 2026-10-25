@@ -14,7 +14,15 @@ import {
   sumOver,
   terminalLinks,
 } from "./branch-facts";
-import { nextTier, scoreTerminal, terminalFacts, type TerminalInputs } from "./branch-rules";
+import {
+  BRANCH_SOURCE_INDICATOR,
+  branchSuggestion,
+  nextTier,
+  scoreTerminal,
+  terminalFacts,
+  type BranchSource,
+  type TerminalInputs,
+} from "./branch-rules";
 import { loadBranchSettings, loadIndicators } from "./branch-settings";
 import { now } from "./clock";
 import { terminalNames } from "./directory";
@@ -293,4 +301,54 @@ export async function branchBreakdown(db: DbLike, actor: Actor, terminalId: stri
     .sort((a, b) => (sortOf.get(a.code)?.sort ?? 999) - (sortOf.get(b.code)?.sort ?? 999));
   const score = Number(scoreRow.score);
   return { ...base, score, tier_pct: scoreRow.tier_pct, next_tier: nextTier(score), indicators, sanitary_checks };
+}
+
+// Снимок предложения в auto_value отправленной оценки
+export type BranchAutoValue = {
+  source: BranchSource;
+  indicator: BranchIndicatorCode;
+  terminal_id: string;
+  version: number;
+  fact: number;
+  points: number;
+  score: number;
+  basis: string;
+};
+
+// Предложения автопунктов формы оценки (решение 14): последняя версия по филиалу,
+// один запрос на форму. Показатель без данных или версии нет — предложения нет, к старым версиям не откатываемся.
+export async function branchSuggestions(
+  db: DbLike,
+  terminalId: string,
+  period: Period
+): Promise<Map<BranchSource, { score: number; basis: string; auto_value: BranchAutoValue }>> {
+  const out = new Map<BranchSource, { score: number; basis: string; auto_value: BranchAutoValue }>();
+  if (!UUID_RE.test(terminalId)) return out;
+  const version = await latestVersion(db, period);
+  if (version === null) return out;
+  const id = terminalId.toLowerCase();
+  const indicators = Object.values(BRANCH_SOURCE_INDICATOR);
+  const rows = await db
+    .select({ code: kpi_branch_results.indicator_code, fact: kpi_branch_results.fact, points: kpi_branch_results.points })
+    .from(kpi_branch_results)
+    .where(
+      and(
+        eq(kpi_branch_results.period, period),
+        eq(kpi_branch_results.version, version),
+        eq(kpi_branch_results.terminal_id, id),
+        inArray(kpi_branch_results.indicator_code, indicators),
+        eq(kpi_branch_results.data_status, "ok")
+      )
+    );
+  for (const source of Object.keys(BRANCH_SOURCE_INDICATOR) as BranchSource[]) {
+    const indicator = BRANCH_SOURCE_INDICATOR[source];
+    const r = rows.find((x) => x.code === indicator);
+    if (!r || r.fact === null || r.points === null) continue;
+    const fact = Number(r.fact);
+    const points = Number(r.points);
+    if (!Number.isFinite(fact) || !Number.isFinite(points)) continue;
+    const s = branchSuggestion(source, { fact, points });
+    out.set(source, { ...s, auto_value: { source, indicator, terminal_id: id, version, fact, points, ...s } });
+  }
+  return out;
 }
