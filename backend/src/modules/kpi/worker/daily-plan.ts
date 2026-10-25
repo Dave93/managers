@@ -1,6 +1,6 @@
 // Чистый план дня: кому и что отправить сегодня. Без базы и очереди, время приходит аргументом.
 import type { NotifyInput } from "../notify";
-import { addMonths, currentReviewPeriod, periodOf, reminderFrom, reviewDeadline, tashkentDay, type Period } from "../time";
+import { addMonths, currentReviewPeriod, periodOf, reminderFrom, reviewDeadline, submitOpensAt, tashkentDay, type Period } from "../time";
 import type { Lagging } from "../periods";
 
 export type DailyTargets = {
@@ -17,8 +17,10 @@ export function dailyTargets(at: Date, s: { review_deadline_day: number; reminde
   const t = at.getTime();
   const P = currentReviewPeriod(at, rd);
   const deadline = reviewDeadline(P, rd);
+  // Напоминать раньше, чем откроется приём оценок за период (с 20-го числа), нет смысла: оценить пока нельзя.
+  const from = Math.max(reminderFrom(P, rd, s.reminder_days_before).getTime(), submitOpensAt(P).getTime());
   const remind =
-    reminderFrom(P, rd, s.reminder_days_before).getTime() <= t && t <= deadline.getTime()
+    from <= t && t <= deadline.getTime()
       ? { period: P, deadline: deadline.toISOString() }
       : null;
   // Сводка уходит на следующий день после срока. Считаем через «вчера»: если срок выпал на последний день месяца,

@@ -25,6 +25,12 @@ describe("dailyTargets", () => {
     expect(dailyTargets(at("2026-11-06T10:00:00+05:00"), s0).remind).toBeNull();
     expect(dailyTargets(at("2026-11-07T10:00:00+05:00"), s0).remind).toEqual(OCT);
   });
+  it("напоминание не раньше открытия приёма оценок (20-е число месяца периода)", () => {
+    const s27 = { review_deadline_day: 7, reminder_days_before: 27 };
+    expect(dailyTargets(at("2025-10-12T10:00:00+05:00"), s27).remind).toBeNull();
+    expect(dailyTargets(at("2025-10-19T10:00:00+05:00"), s27).remind).toBeNull();
+    expect(dailyTargets(at("2025-10-20T10:00:00+05:00"), s27).remind).toEqual({ period: "2025-10-01", deadline: "2025-11-07T18:59:59.999Z" });
+  });
   it("срок 28-го: январь напоминает 28 февраля, сводка 1 марта", () => {
     const s28 = { review_deadline_day: 28, reminder_days_before: 7 };
     expect(dailyTargets(at("2027-02-28T10:00:00+05:00"), s28).remind).toEqual({ period: "2027-01-01", deadline: "2027-02-28T18:59:59.999Z" });
