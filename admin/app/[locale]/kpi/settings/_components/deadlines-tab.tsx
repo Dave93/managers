@@ -43,6 +43,7 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
     onSuccess: (saved) => {
       qc.setQueryData(qk.settings, saved);
       qc.invalidateQueries({ queryKey: qk.me });
+      qc.invalidateQueries({ queryKey: qk.employeesAll });
       toast.success("Настройки сохранены");
     },
     onError: (e) => setProblem(kpiErrorText(e)),
@@ -68,6 +69,7 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
 
   return (
     <form
+      noValidate
       onSubmit={(e) => {
         e.preventDefault();
         e.stopPropagation();

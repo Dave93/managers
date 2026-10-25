@@ -82,6 +82,12 @@ describe("сроки", () => {
     expect(settingsIssues({ ...DEFAULTS, review_deadline_day: 12 })).toEqual(["Срок споров не может быть раньше срока оценок"]);
     expect(settingsIssues({ ...DEFAULTS, raise_min_months: 1.5 })).toEqual(["Минимум оценённых месяцев в квартале: от 1 до 3"]);
   });
+  it("settingsIssues: стёртое поле (NaN) — ошибка", () => {
+    expect(settingsIssues({ ...DEFAULTS, reminder_days_before: NaN })).toEqual(["Напоминать оценщикам за, дней: от 0 до 27"]);
+  });
+  it("settingsPatch: переключённый bool попадает в патч", () => {
+    expect(settingsPatch(DEFAULTS, { ...DEFAULTS, violation_photo_required: true })).toEqual({ violation_photo_required: true });
+  });
   it("settingsPatch — только изменённое", () => {
     expect(settingsPatch(DEFAULTS, { ...DEFAULTS, change_comment_min: 10 })).toEqual({ change_comment_min: 10 });
     expect(settingsPatch(DEFAULTS, DEFAULTS)).toEqual({});

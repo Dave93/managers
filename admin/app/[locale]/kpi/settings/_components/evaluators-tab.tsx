@@ -39,12 +39,14 @@ export function EvaluatorsTab() {
 
   const remove = useMutation({
     mutationFn: (id: string) => kpiApi.evaluators.remove(id),
-    onSuccess: () => {
+    onSuccess: () => toast.success("Назначение убрано"),
+    onError: (e) => toast.error(kpiErrorText(e)),
+    // Инвалидация и при ошибке: после not_found устаревшая строка должна исчезнуть.
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.evaluators });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
-      toast.success("Назначение убрано");
+      qc.invalidateQueries({ queryKey: qk.me });
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
   });
 
   return (
@@ -147,6 +149,7 @@ function AssignForm() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.evaluators });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
+      qc.invalidateQueries({ queryKey: qk.me });
       toast.success("Оценщик назначен");
       setUser(null);
       setSearchText("");
