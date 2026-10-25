@@ -1,6 +1,7 @@
 import { ctx } from "@backend/context";
 import Elysia from "elysia";
 import { attendanceRoutes } from "./routes/attendance";
+import { botRoutes } from "./routes/bot";
 import { cardsRoutes } from "./routes/cards";
 import { disputesRoutes } from "./routes/disputes";
 import { employeesRoutes } from "./routes/employees";
@@ -27,6 +28,7 @@ const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(attendanceRoutes)
   .use(disputesRoutes)
   .use(raisesRoutes)
-  .use(telegramRoutes);
+  .use(telegramRoutes)
+  .use(botRoutes);
 
 export const kpiController = kpiControllerImpl as unknown as Elysia;

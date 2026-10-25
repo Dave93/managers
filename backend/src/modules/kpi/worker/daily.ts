@@ -3,7 +3,7 @@ import { permissions, roles, roles_permissions, users } from "backend/drizzle/sc
 import { and, eq, inArray } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { collectDeliveries, enqueue, scheduleDelivery, type NotifyInput } from "../notify";
-import { laggingEvaluators } from "../periods";
+import { isPeriodClosed, laggingEvaluators } from "../periods";
 import { loadSettings } from "../settings";
 import { dailyTargets, overdueNotifications, remindNotifications } from "./daily-plan";
 
@@ -40,12 +40,13 @@ export async function runDaily(
   const ids: string[] = [];
   await collectDeliveries(async () => {
     const rows: NotifyInput[] = [];
-    if (t.remind) {
+    // Закрытый месяц не напоминает и не требует сводки: оценки в нём уже не меняются.
+    if (t.remind && !(await isPeriodClosed(db, t.remind.period))) {
       const lagging = await laggingEvaluators(db, t.remind.period);
       const active = await activeUserIds(db, lagging.map((l) => l.user_id));
       rows.push(...remindNotifications(t.remind, t.today, lagging.filter((l) => active.has(l.user_id))));
     }
-    if (t.overdue) {
+    if (t.overdue && !(await isPeriodClosed(db, t.overdue.period))) {
       // Сводку HR читает целиком, включая заблокированных оценщиков.
       const lagging = await laggingEvaluators(db, t.overdue.period);
       if (lagging.length > 0) rows.push(...overdueNotifications(t.overdue.period, lagging, await approverUserIds(db)));

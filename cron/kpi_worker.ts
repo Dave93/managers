@@ -14,11 +14,9 @@ import {
   schedulerJobOptions,
 } from "@backend/modules/kpi/queue";
 import { botApi } from "@backend/modules/kpi/tg/bot-api";
-import { tashkentDay } from "@backend/modules/kpi/time";
-import { deliverOne, stuckSendingCount, sweepPending } from "@backend/modules/kpi/worker/deliver";
+import { deliverOne, stuckReporter, stuckSendingCount, sweepPending } from "@backend/modules/kpi/worker/deliver";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
-import { dailyDone, markDailyDone, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
-import { tashkentHour } from "@backend/modules/kpi/worker/daily-plan";
+import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
 
 const api = botApi();
 if (!api) console.warn("kpi worker: KPI_BOT_TOKEN не задан — уведомления получают статус skipped (no_token)");
@@ -52,26 +50,25 @@ async function deliver(job: Job, token?: string) {
   throw new Error(out.error);
 }
 
+const reportStuck = stuckReporter((n) =>
+  console.warn(`kpi worker: ${n} уведомлений в 'sending' дольше 15 минут — не сбрасываем (риск дубля), посмотрите глазами`)
+);
+
 async function sweep() {
   const res = await sweepPending(drizzleDb, queue, { olderThanSec: 60, limit: 200 });
   const stuck = await stuckSendingCount(drizzleDb, 15);
-  if (stuck > 0) {
-    console.warn(`kpi worker: ${stuck} уведомлений в 'sending' дольше 15 минут — не сбрасываем (риск дубля), посмотрите глазами`);
-  }
+  reportStuck(stuck);
+  // Упавший прогон в 10:00 повторяем в течение дня: отметка в Redis ставится только после успеха.
+  await daily().catch((e) => console.error("kpi worker: ежедневная задача из подметалки не удалась", e));
   return { ...res, stuckSending: stuck };
 }
 
 // Повторный запуск в тот же день безвреден (dedupe_key), но лишней работы не делаем: отметка в Redis ставится после успеха.
 async function daily() {
-  const at = new Date();
-  const day = tashkentDay(at);
   const redis = (await queue.client) as unknown as DailyRedis;
-  const prefix = process.env.PROJECT_PREFIX;
-  if (await dailyDone(redis, prefix, day)) return { day, skipped: "already_ran" };
-  const ids = await runDaily(drizzleDb, at);
-  await markDailyDone(redis, prefix, day);
-  console.log(`kpi worker: ежедневная задача ${day}: новых уведомлений ${ids.length}`);
-  return { day, created: ids.length };
+  const out = await dailyIfDue(redis, process.env.PROJECT_PREFIX, new Date(), (at) => runDaily(drizzleDb, at));
+  if ("created" in out) console.log(`kpi worker: ежедневная задача ${out.day}: новых уведомлений ${out.created}`);
+  return out;
 }
 
 const worker = new Worker(
@@ -96,10 +93,8 @@ console.log(`kpi worker started (queue ${kpiQueueName()}, token: ${api ? "ест
 
 registerSchedulers()
   .then(() => {
-    // Процесс мог быть остановлен в 10:00: догоняем сразу, повторы погасит dedupe.
-    if (tashkentHour(new Date()) >= 10) {
-      return daily().catch((e) => console.error("kpi worker: ежедневная задача при старте не удалась", e));
-    }
+    // Процесс мог быть остановлен в 10:00: догоняем сразу (до 10:00 daily() ничего не делает), повторы погасит dedupe.
+    return daily().catch((e) => console.error("kpi worker: ежедневная задача при старте не удалась", e));
   })
   .catch((e) => console.error("kpi worker: регистрация расписания не удалась", e));
 

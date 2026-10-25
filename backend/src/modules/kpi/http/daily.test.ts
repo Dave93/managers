@@ -11,8 +11,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles } = await import("../../../../tests/helpers/http");
   const { cleanupKpi, makeEmployee, makeScope, makeUser, setNow, setup } = await import("./fixtures");
-  const { kpi_notifications } = await import("backend/drizzle/schema");
+  const { kpi_notifications, kpi_periods } = await import("backend/drizzle/schema");
   const { runDaily } = await import("../worker/daily");
+  const { dailyIfDue } = await import("../worker/daily-guard");
+  const { stuckReporter } = await import("../worker/deliver");
   const { eq } = await import("drizzle-orm");
 
   describe("kpi: ежедневные напоминания и сводка", () => {
@@ -55,6 +57,61 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const all = await db.select().from(kpi_notifications);
       expect(all.some((r) => r.dedupe_key === `overdue:2025-10-01:${hrBlocked.id}`)).toBe(false);
       expect(all.some((r) => r.dedupe_key.startsWith("remind:") && r.dedupe_key.endsWith(":2025-11-08"))).toBe(false);
+    });
+
+    it("закрытый месяц: ни напоминания, ни сводки", async () => {
+      await db.insert(kpi_periods).values([{ period: "2025-10-01", status: "closed" }, { period: "2025-11-01", status: "closed" }]);
+      try {
+        expect(await runDaily(db, new Date("2025-11-06T10:00:00+05:00"))).toEqual([]);
+        expect(await runDaily(db, new Date("2025-12-08T10:00:00+05:00"))).toEqual([]);
+        const all = await db.select().from(kpi_notifications);
+        expect(all.some((r) => r.dedupe_key.endsWith(":2025-11-06"))).toBe(false);
+        expect(all.some((r) => r.dedupe_key.startsWith("overdue:2025-11-01:"))).toBe(false);
+      } finally {
+        await db.delete(kpi_periods);
+      }
+      // месяц снова открыт: тот же день теперь даёт напоминание
+      expect((await runDaily(db, new Date("2025-11-06T10:00:00+05:00"))).length).toBeGreaterThan(0);
+    });
+
+    function memRedis() {
+      const store = new Map<string, string>();
+      return {
+        store,
+        async get(k: string) { return store.get(k) ?? null; },
+        async set(k: string, v: string) { store.set(k, v); return "OK"; },
+      };
+    }
+
+    it("тик подметалки: до 10:00 ничего; упавший прогон повторяется, после успеха — тишина", async () => {
+      const r = memRedis();
+      let runs = 0;
+      let fail = true;
+      const run = async (at: Date) => {
+        runs++;
+        if (fail) throw new Error("db down");
+        return runDaily(db, at);
+      };
+      expect(await dailyIfDue(r, "p_", new Date("2025-11-09T09:58:00+05:00"), run)).toEqual({ day: "2025-11-09", skipped: "before_hour" });
+      expect(runs).toBe(0);
+      await expect(dailyIfDue(r, "p_", new Date("2025-11-09T10:00:00+05:00"), run)).rejects.toThrow("db down");
+      expect(r.store.size).toBe(0);
+      fail = false;
+      const out = await dailyIfDue(r, "p_", new Date("2025-11-09T10:02:00+05:00"), run);
+      expect(out).toMatchObject({ day: "2025-11-09" });
+      expect("created" in out).toBe(true);
+      expect(r.store.has("p_kpi_daily:2025-11-09")).toBe(true);
+      expect(await dailyIfDue(r, "p_", new Date("2025-11-09T10:04:00+05:00"), run)).toEqual({ day: "2025-11-09", skipped: "already_ran" });
+      expect(runs).toBe(2);
+      // позже в тот же день, но за другим числом отметка не действует
+      expect(await dailyIfDue(r, "p_", new Date("2025-11-10T15:00:00+05:00"), async () => [])).toEqual({ day: "2025-11-10", created: 0 });
+    });
+
+    it("зависшие в sending: предупреждение только при смене числа", () => {
+      const seen: number[] = [];
+      const report = stuckReporter((n) => seen.push(n));
+      for (const n of [0, 3, 3, 3, 5, 5, 0, 5]) report(n);
+      expect(seen).toEqual([3, 5, 5]);
     });
   });
 }

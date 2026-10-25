@@ -165,6 +165,15 @@ export async function stuckSendingCount(db: DbLike, olderThanMin: number): Promi
   return r?.n ?? 0;
 }
 
+// Предупреждение о зависших строках только при смене числа: подметалка тикает каждые 2 минуты, лог не должен повторяться.
+export function stuckReporter(warn: (n: number) => void): (n: number) => void {
+  let last = 0;
+  return (n) => {
+    if (n > 0 && n !== last) warn(n);
+    last = n;
+  };
+}
+
 // Строка, которую очередь уже пробовала столько раз, возвращается в pending по кругу: сдаёмся.
 export const MAX_ATTEMPTS = 20;
 

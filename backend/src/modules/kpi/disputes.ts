@@ -219,7 +219,8 @@ export async function openDispute(
       },
       dedupe_key: `dispute_opened:${row.id}`,
     });
-    return (await toRows(tx, actor, [row]))[0];
+    // Сотрудник из бота не пользователь: userId у него пустой, права и «можно разобрать» ему не считаем.
+    return (await toRows(tx, input.employee_actor ? null : actor, [row]))[0];
   });
 }
 
