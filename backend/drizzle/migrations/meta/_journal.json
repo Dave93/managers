@@ -253,6 +253,13 @@
       "when": 1792899337599,
       "tag": "0035_hanging_orders_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792899411885,
+      "tag": "0036_kpi_core",
+      "breakpoints": true
     }
   ]
 }
