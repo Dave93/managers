@@ -67,7 +67,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       ]);
       expect([r.score, r.tier_pct, r.next_tier]).toEqual([95.79, 100, { tier_pct: 120, points_needed: 9.2 }]);
       expect(r.indicators[0].details).toEqual({ revenue: 1030000, plan: 1000000 });
-      expect(r.indicators[1].details).toEqual({ revenue: 1030000, overspend: 6180 });
+      expect(r.indicators[1].details).toEqual({ revenue: 1030000, overspend: 6180, stores_total: 1, stores_reconciled: 1 });
       const net = (await api(await hr(), "GET", `/api/kpi/branch?period=${P}`)).body as BranchNetwork;
       expect(net.rows.find((x) => x.terminal_id === t.id)).toMatchObject({ score: 95.79, tier_pct: 100, cells: { food_cost: { fact: 0.6, points: 90, data_status: "ok" } } });
     });
@@ -147,6 +147,39 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await fc(surplus.id)).toMatchObject({ fact: 0, points: 120 });
       expect(await fc(noDoc.id)).toMatchObject({ data_status: "no_data", reason: "no_iiko_document" });
       expect(await fc(noRevenue.id)).toMatchObject({ data_status: "no_data", reason: "no_orders" });
+    });
+
+    it("себестоимость: принят каждый привязанный склад, склад без строки сверки — не принят", async () => {
+      const present = (id: string) => addAttendance(db, { terminal_id: id, day: "2025-06-02", on_time: 1, late: 0, absent: 0 });
+      const withTwoStores = async (second: "none" | "accepted") => {
+        const t = await makeTerminal(db);
+        await present(t.id);
+        const extra = randomUUID();
+        await db.insert(credentials).values({ key: extra, model: "terminals", type: "iiko_store_id", model_id: t.id });
+        await addOrder(db, { iiko_id: t.iiko_id!, day: "2025-06-02", sum: 100_000 });
+        await addReconciliation(db, { store_id: t.store_id!, period: P, status: "accepted", accepted_diff_bc: "-1000.00" });
+        if (second === "accepted") await addReconciliation(db, { store_id: extra, period: P, status: "accepted", accepted_diff_bc: "-500.00" });
+        return t;
+      };
+      const partial = await withTwoStores("none");
+      const both = await withTwoStores("accepted");
+      await compute(await hr());
+      const fc = async (id: string) => (await detail(await hr(), id)).body.indicators.find((i: any) => i.code === "food_cost");
+      expect(await fc(partial.id)).toMatchObject({ data_status: "no_data", reason: "not_accepted", details: { stores_total: 2, stores_reconciled: 1 } });
+      expect(await fc(both.id)).toMatchObject({ data_status: "ok", fact: 1.5, details: { overspend: 1500, stores_total: 2, stores_reconciled: 2 } });
+    });
+
+    it("общий ключ iiko: оба филиала в расчёте показывают полную выручку", async () => {
+      const shared = randomUUID();
+      const a = await makeTerminal(db, { iiko_id: shared });
+      const b = await makeTerminal(db, { iiko_id: shared });
+      for (const t of [a, b]) await db.insert(kpi_revenue_plans).values({ terminal_id: t.id, period: P, amount: "100000", updated_by: randomUUID() });
+      await addOrder(db, { iiko_id: shared, day: "2025-06-09", sum: 80_000 });
+      expect((await compute(await hr())).status).toBe(200);
+      for (const t of [a, b]) {
+        const r = (await detail(await hr(), t.id)).body as BranchBreakdown;
+        expect(r.indicators.find((i) => i.code === "sales")).toMatchObject({ fact: 80, details: { revenue: 80000, plan: 100000 } });
+      }
     });
 
     it("границы месяца в трёх базах времени", async () => {

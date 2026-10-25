@@ -426,9 +426,13 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   await db.delete(orders).where(eq(orders.restaurantGroup, BRANCH_MARK));
   await db.delete(productCookingTime).where(eq(productCookingTime.department, BRANCH_MARK));
   await db.delete(inventory_reconciliations).where(eq(inventory_reconciliations.iiko_document_comment, BRANCH_MARK));
-  await db
-    .delete(credentials)
-    .where(sql`${credentials.model} = 'terminals' AND ${credentials.model_id} IN (SELECT id::text FROM terminals WHERE name LIKE ${TERMINAL_PREFIX + "%"})`);
+  // model_id — text, регистр у него бывает любой. Заодно сироты: связки несуществующих филиалов (охранная проверка базы выше).
+  await db.delete(credentials).where(
+    sql`${credentials.model} = 'terminals' AND (
+      lower(${credentials.model_id}) IN (SELECT lower(id::text) FROM terminals WHERE name LIKE ${TERMINAL_PREFIX + "%"})
+      OR NOT EXISTS (SELECT 1 FROM terminals t WHERE lower(t.id::text) = lower(${credentials.model_id}))
+    )`
+  );
   await db.delete(terminals).where(like(terminals.name, TERMINAL_PREFIX + "%"));
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);

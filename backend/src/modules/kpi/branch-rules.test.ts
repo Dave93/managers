@@ -83,7 +83,7 @@ describe("факты филиала", () => {
     const r = B.terminalFacts(X);
     expect(Object.fromEntries(Object.entries(r).map(([k, v]) => [k, v.fact]))).toEqual({ sales: 103, food_cost: 0.6, service: 90, sanitary: 93, discipline: 94 });
     expect(r.sales.details).toEqual({ revenue: 1030000, plan: 1000000 });
-    expect(r.food_cost.details).toEqual({ revenue: 1030000, overspend: 6180 });
+    expect(r.food_cost.details).toEqual({ revenue: 1030000, overspend: 6180, stores_total: 1, stores_reconciled: 1 });
     expect(r.discipline.details).toEqual({ days: 50, on_time: 47, late: 3, absent: 0 });
   });
   it("причины «нет данных»", () => {
@@ -96,6 +96,10 @@ describe("факты филиала", () => {
     expect(f({ recons: [] }).food_cost.reason).toBe("no_reconciliation");
     expect(f({ recons: [{ status: "accepted", diff_bc: -100 }, { status: "ready", diff_bc: null }] }).food_cost.reason).toBe("not_accepted");
     expect(f({ recons: [{ status: "accepted", diff_bc: null }] }).food_cost.reason).toBe("no_iiko_document");
+    // два склада, сверка только у одного: склад без строки считается непринятым
+    const partial = f({ stores_total: 2, recons: [{ status: "accepted", diff_bc: -100 }] }).food_cost;
+    expect([partial.fact, partial.reason, partial.details]).toEqual([null, "not_accepted", { stores_total: 2, stores_reconciled: 1 }]);
+    expect(f({ stores_total: 2, recons: [{ status: "accepted", diff_bc: -100 }, { status: "accepted", diff_bc: -50 }] }).food_cost.details).toMatchObject({ stores_total: 2, stores_reconciled: 2, overspend: 150 });
     expect(f({ service: { ...X.service, orders: 0, on_time: 0 } }).service.reason).toBe("no_cooking_rows");
     expect(f({ sanitary: { checks: 0, avg: null } }).sanitary.reason).toBe("no_checks");
     expect(f({ attendance: { days: 0, on_time: 0, late: 0, absent: 0 } }).discipline.reason).toBe("no_attendance");

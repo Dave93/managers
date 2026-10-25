@@ -54,6 +54,8 @@ export type TerminalInputs = {
   revenue: number;
   plan: number | null;
   recons: { status: string; diff_bc: number | null }[];
+  // Сколько складов привязано к филиалу; нет в записи — столько, сколько строк сверок
+  stores_total?: number;
   service: { orders: number; on_time: number; hall_min: number; delivery_min: number };
   sanitary: { checks: number; avg: number | null };
   attendance: { days: number; on_time: number; late: number; absent: number };
@@ -72,15 +74,19 @@ export function terminalFacts(x: TerminalInputs): Record<BranchIndicatorCode, Fa
   else if (!(x.revenue > 0)) sales = noData("no_orders", salesDetails);
   else sales = value(pct2(x.revenue, x.plan), "no_plan", salesDetails);
 
-  // Перерасход сырья: чистая недостача по принятым сверкам к выручке
+  // Перерасход сырья: чистая недостача по принятым сверкам к выручке.
+  // Принята должна быть сверка каждого привязанного склада; склад без строки сверки считается непринятым.
   let food_cost: FactResult;
+  const storesTotal = Math.max(x.stores_total ?? x.recons.length, x.recons.length);
+  const storesReconciled = x.recons.filter((r) => r.status === "accepted").length;
+  const sd = { stores_total: storesTotal, stores_reconciled: storesReconciled };
   if (!x.has_store) food_cost = noData("no_store");
-  else if (x.recons.length === 0) food_cost = noData("no_reconciliation");
-  else if (x.recons.some((r) => r.status !== "accepted")) food_cost = noData("not_accepted");
-  else if (x.recons.some((r) => r.diff_bc === null)) food_cost = noData("no_iiko_document");
+  else if (x.recons.length === 0) food_cost = noData("no_reconciliation", sd);
+  else if (storesReconciled < storesTotal) food_cost = noData("not_accepted", sd);
+  else if (x.recons.some((r) => r.diff_bc === null)) food_cost = noData("no_iiko_document", sd);
   else {
     const sum = x.recons.reduce((a, r) => a + (r.diff_bc as number), 0);
-    const details = { revenue: x.revenue, overspend: Math.max(0, round2(-sum)) };
+    const details = { revenue: x.revenue, overspend: Math.max(0, round2(-sum)), ...sd };
     if (!x.has_iiko) food_cost = noData("no_iiko_link", details);
     else if (!(x.revenue > 0)) food_cost = noData("no_orders", details);
     else food_cost = value(pct2(details.overspend, x.revenue), "no_orders", details);

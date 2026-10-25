@@ -2,8 +2,8 @@
 // Версии не перезаписываются: расчёт только добавляет, чтение берёт последнюю.
 import type { DrizzleDB } from "@backend/lib/db";
 import { kpi_branch_results, kpi_branch_scores, terminals } from "backend/drizzle/schema";
-import { and, eq, sql } from "drizzle-orm";
-import { viewsTerminal, type Actor, type DbLike } from "./access";
+import { and, eq, inArray, sql } from "drizzle-orm";
+import { seesNetwork, viewsTerminal, type Actor, type DbLike } from "./access";
 import {
   attendanceByTerminal,
   plansByTerminal,
@@ -58,11 +58,12 @@ async function versionComputedAt(db: DbLike, period: Period, version: number): P
 export async function computeBranch(db: DrizzleDB, actor: Actor, period: Period): Promise<BranchComputeResult> {
   const nowTs = now();
   if (period > periodOf(nowTs)) throw new KpiError(422, "future_period");
-  const computedAt = nowTs.toISOString();
 
   return db.transaction(async (tx) => {
     // Первым: два одновременных расчёта идут по очереди и получают разные версии
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"kpi_branch:" + period}))`);
+    // Время расчёта берём после лока: у более поздней версии оно не меньше, чем у ранней
+    const computedAt = now().toISOString();
 
     const indicators = await loadIndicators(tx);
     if (!indicators.some((i) => i.active)) throw new KpiError(409, "no_indicators");
@@ -99,6 +100,7 @@ export async function computeBranch(db: DrizzleDB, actor: Actor, period: Period)
         has_store: l.stores.length > 0,
         revenue: sumOver(l.iiko, revenue),
         plan: plans.get(id) ?? null,
+        stores_total: l.stores.length,
         recons: l.stores.flatMap((s) => {
           const r = recons.get(s);
           return r ? [r] : [];
@@ -171,11 +173,15 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
   const version = await latestVersion(db, period);
   if (version === null) return { period, version: null, computed_at: null, indicators, rows: [] };
 
+  const computed_at = await versionComputedAt(db, period, version);
+  // Не вся сеть: читаем строки только видимых филиалов
+  const all = seesNetwork(actor);
+  const scope = all ? undefined : [...new Set(actor.terminals.filter((t) => UUID_RE.test(t)).map((t) => t.toLowerCase()))];
+  if (scope && scope.length === 0) return { period, version, computed_at, indicators, rows: [] };
   const scores = await db
     .select()
     .from(kpi_branch_scores)
-    .where(and(eq(kpi_branch_scores.period, period), eq(kpi_branch_scores.version, version)));
-  const computed_at = scores.length ? iso(scores[0].computed_at) : null;
+    .where(and(eq(kpi_branch_scores.period, period), eq(kpi_branch_scores.version, version), scope ? inArray(kpi_branch_scores.terminal_id, scope) : undefined));
   const visible = scores.filter((s) => viewsTerminal(actor, s.terminal_id));
   if (visible.length === 0) return { period, version, computed_at, indicators, rows: [] };
 
@@ -188,7 +194,13 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
       data_status: kpi_branch_results.data_status,
     })
     .from(kpi_branch_results)
-    .where(and(eq(kpi_branch_results.period, period), eq(kpi_branch_results.version, version)));
+    .where(
+      and(
+        eq(kpi_branch_results.period, period),
+        eq(kpi_branch_results.version, version),
+        scope ? inArray(kpi_branch_results.terminal_id, visible.map((s) => s.terminal_id)) : undefined
+      )
+    );
   const cells = new Map<string, Partial<Record<BranchIndicatorCode, BranchCell>>>();
   for (const r of results) {
     const m = cells.get(r.terminal_id) ?? {};
