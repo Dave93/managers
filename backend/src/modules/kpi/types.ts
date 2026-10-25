@@ -146,3 +146,33 @@ export interface ReviewEvent {
   comment: string | null;
   created_at: string;
 }
+
+export interface DisputeRow {
+  id: string;
+  subject_type: "review" | "violation";
+  subject_id: string;
+  employee_id: string | null;
+  employee_name: string | null;
+  terminal_name: string | null;
+  period: string;
+  opened_via: "admin" | "telegram";
+  reason: string;
+  status: "open" | "accepted" | "rejected";
+  resolution_comment: string | null;
+  resolved_by_name: string | null;
+  resolved_at: string | null;
+  created_at: string;
+  can_resolve: boolean;
+}
+
+export interface PeriodSummary {
+  period: string;
+  status: "open" | "closed";
+  closed_at: string | null;
+  closed_by_name: string | null;
+  deadlines: Deadlines;
+  counts: { employees: number; submitted: number; drafts: number; none: number; late: number; open_disputes: number };
+  lagging: { user_id: string; user_name: string; pending: number }[];
+  can_close: boolean;
+  close_blockers: string[];
+}

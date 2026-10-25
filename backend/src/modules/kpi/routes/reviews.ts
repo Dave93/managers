@@ -5,7 +5,7 @@ import { KpiError, run } from "../errors";
 import { changeReview, getForm, listReviews, reviewEvents, saveDraft, submitReview, type ItemInput } from "../reviews";
 
 // score принимаем любым типом: неверное значение — наш 422 bad_score, а не ошибка схемы.
-const itemsSchema = t.Array(
+export const itemsSchema = t.Array(
   t.Object({
     item_id: t.String(),
     score: t.Optional(t.Any()),

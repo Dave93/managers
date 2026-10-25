@@ -6,7 +6,7 @@ import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, userNames, type DirEmployee } from "./directory";
 import { listEmployeeRows, UUID_RE, type EmployeeQuery } from "./employees";
 import { KpiError } from "./errors";
-import { isPeriodClosed } from "./periods";
+import { deadlinesOf, isPeriodClosed } from "./periods";
 import {
   commentOk,
   diffScores,
@@ -20,9 +20,9 @@ import {
 } from "./rules";
 import { loadSettings } from "./settings";
 import { enqueue } from "./notify";
-import { disputeDeadline, reviewDeadline, submitOpensAt, type Period } from "./time";
+import { reviewDeadline, submitOpensAt, type Period } from "./time";
 import { violationsFor } from "./violations";
-import type { Deadlines, EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./types";
+import type { EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./types";
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
 
@@ -177,15 +177,6 @@ async function syncDraft(tx: DbLike, review: ReviewRow, emp: DirEmployee, inputs
 
 async function scopesOf(db: DbLike, actor: Actor): Promise<Scope[]> {
   return loadScopes(db, actor.userId);
-}
-
-function deadlinesOf(period: Period, s: { review_deadline_day: number; dispute_deadline_day: number }): Deadlines {
-  return {
-    period,
-    submit_opens_at: submitOpensAt(period).toISOString(),
-    review_deadline: reviewDeadline(period, s.review_deadline_day).toISOString(),
-    dispute_deadline: disputeDeadline(period, s.dispute_deadline_day).toISOString(),
-  };
 }
 
 // Может ли actor сохранять черновик за сотрудника сейчас (без учёта закрытия месяца).
@@ -419,6 +410,80 @@ export async function submitReview(
   });
 }
 
+// Изменение отправленной оценки внутри чужой транзакции: её зовёт и changeReview, и разбор спора.
+export async function changeReviewTx(
+  tx: DbLike,
+  actor: Actor,
+  reviewId: string,
+  items: ItemInput[],
+  comment: string,
+  kind?: "changed" | "hr_adjusted"
+): Promise<ReviewForm> {
+  const review = await loadReview(tx, reviewId, true);
+  const period = review.period;
+  if (review.status !== "submitted") throw new KpiError(409, "not_submitted");
+  const scopes = await scopesOf(tx, actor);
+  const closed = await isPeriodClosed(tx, period);
+  // Закрытый месяц: оценщику отвечаем состоянием, а не отсутствием прав, если право было бы в открытом.
+  const couldOpen = mayChange(actor, scopes, review, false);
+  if (!couldOpen) throw new KpiError(403, "out_of_scope");
+  if (!mayChange(actor, scopes, review, closed)) throw new KpiError(409, "period_closed");
+
+  const settings = await loadSettings(tx);
+  if (!commentOk(comment, settings.change_comment_min)) {
+    throw new KpiError(422, "comment_required", { min: settings.change_comment_min });
+  }
+
+  const before = await reviewRows(tx, review.id);
+  const suggestions = await loadSuggestions(tx, review, before);
+  const after = applyInputs(before, items, suggestions);
+
+  const oldScores = Object.fromEntries(before.map((i) => [i.item_id, i.score]));
+  const newScores = Object.fromEntries(after.map((i) => [i.item_id, i.score]));
+  const titles = new Map(before.map((i) => [i.item_id, i.title_ru]));
+  const changes = diffScores(oldScores, newScores).map((c) => ({ ...c, title_ru: titles.get(c.item_id) ?? "" }));
+  const noteChanged = after.filter((a, idx) => a.note !== before[idx].note);
+  if (changes.length === 0 && noteChanged.length === 0) throw new KpiError(422, "no_changes");
+
+  const missing = missingManual(after.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
+  if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
+
+  const oldPct = pctNum(review.score_pct);
+  const newPct = pctOf(after);
+  const version = review.version + 1;
+  const text = comment.trim();
+  for (const a of after) {
+    await tx
+      .update(kpi_review_items)
+      .set({ score: a.score, note: a.note })
+      .where(and(eq(kpi_review_items.review_id, review.id), eq(kpi_review_items.item_id, a.item_id)));
+  }
+  await tx
+    .update(kpi_reviews)
+    .set({ score_pct: pctStr(newPct), version, updated_at: now().toISOString() })
+    .where(eq(kpi_reviews.id, review.id));
+  await tx.insert(kpi_review_events).values({
+    review_id: review.id,
+    actor_kind: "user",
+    actor_user_id: actor.userId,
+    kind: kind ?? (closed ? "hr_adjusted" : "changed"),
+    changes,
+    old_score_pct: pctStr(oldPct),
+    new_score_pct: pctStr(newPct),
+    comment: text,
+  });
+  await enqueue(tx, {
+    recipient_kind: "employee",
+    employee_id: review.employee_id,
+    kind: "review_changed",
+    payload: { period, review_id: review.id, score_pct: newPct, version, changes, comment: text },
+    dedupe_key: `review_changed:${review.id}:${version}`,
+  });
+  const emp = await loadEmployee(tx, review.employee_id);
+  const fresh = await loadReview(tx, review.id);
+  return buildForm(tx, actor, scopes, emp, period, fresh);
+}
+
 export async function changeReview(
   db: DbLike,
   actor: Actor,
@@ -427,71 +492,7 @@ export async function changeReview(
   comment: string,
   kind?: "changed" | "hr_adjusted"
 ): Promise<ReviewForm> {
-  return inTx(db, async (tx) => {
-    const review = await loadReview(tx, reviewId, true);
-    const period = review.period;
-    if (review.status !== "submitted") throw new KpiError(409, "not_submitted");
-    const scopes = await scopesOf(tx, actor);
-    const closed = await isPeriodClosed(tx, period);
-    // Закрытый месяц: оценщику отвечаем состоянием, а не отсутствием прав, если право было бы в открытом.
-    const couldOpen = mayChange(actor, scopes, review, false);
-    if (!couldOpen) throw new KpiError(403, "out_of_scope");
-    if (!mayChange(actor, scopes, review, closed)) throw new KpiError(409, "period_closed");
-
-    const settings = await loadSettings(tx);
-    if (!commentOk(comment, settings.change_comment_min)) {
-      throw new KpiError(422, "comment_required", { min: settings.change_comment_min });
-    }
-
-    const before = await reviewRows(tx, review.id);
-    const suggestions = await loadSuggestions(tx, review, before);
-    const after = applyInputs(before, items, suggestions);
-
-    const oldScores = Object.fromEntries(before.map((i) => [i.item_id, i.score]));
-    const newScores = Object.fromEntries(after.map((i) => [i.item_id, i.score]));
-    const titles = new Map(before.map((i) => [i.item_id, i.title_ru]));
-    const changes = diffScores(oldScores, newScores).map((c) => ({ ...c, title_ru: titles.get(c.item_id) ?? "" }));
-    const noteChanged = after.filter((a, idx) => a.note !== before[idx].note);
-    if (changes.length === 0 && noteChanged.length === 0) throw new KpiError(422, "no_changes");
-
-    const missing = missingManual(after.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
-    if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
-
-    const oldPct = pctNum(review.score_pct);
-    const newPct = pctOf(after);
-    const version = review.version + 1;
-    const text = comment.trim();
-    for (const a of after) {
-      await tx
-        .update(kpi_review_items)
-        .set({ score: a.score, note: a.note })
-        .where(and(eq(kpi_review_items.review_id, review.id), eq(kpi_review_items.item_id, a.item_id)));
-    }
-    await tx
-      .update(kpi_reviews)
-      .set({ score_pct: pctStr(newPct), version, updated_at: now().toISOString() })
-      .where(eq(kpi_reviews.id, review.id));
-    await tx.insert(kpi_review_events).values({
-      review_id: review.id,
-      actor_kind: "user",
-      actor_user_id: actor.userId,
-      kind: kind ?? (closed ? "hr_adjusted" : "changed"),
-      changes,
-      old_score_pct: pctStr(oldPct),
-      new_score_pct: pctStr(newPct),
-      comment: text,
-    });
-    await enqueue(tx, {
-      recipient_kind: "employee",
-      employee_id: review.employee_id,
-      kind: "review_changed",
-      payload: { period, review_id: review.id, score_pct: newPct, version, changes, comment: text },
-      dedupe_key: `review_changed:${review.id}:${version}`,
-    });
-    const emp = await loadEmployee(tx, review.employee_id);
-    const fresh = await loadReview(tx, review.id);
-    return buildForm(tx, actor, scopes, emp, period, fresh);
-  });
+  return inTx(db, (tx) => changeReviewTx(tx, actor, reviewId, items, comment, kind));
 }
 
 export async function reviewEvents(db: DbLike, actor: Actor, reviewId: string): Promise<ReviewEvent[]> {
