@@ -1,5 +1,5 @@
 // Форма оценки: баллы, черновик, проверки перед запросом, предпросмотр процента.
-// Правила повторяют backend/src/modules/kpi (rules.ts: scorePct, noteRequired, commentOk, diffScores).
+// Правила повторяют backend/src/modules/kpi (rules.ts: scorePct, noteRequired, noDataNoteRequired, commentOk, diffScores).
 import type { KpiItemInput, ReviewFormItem } from "@admin/lib/kpi-api";
 
 export const SCORE_BUTTONS = [0, 25, 50, 75, 100] as const;
@@ -19,9 +19,18 @@ export function reviewMode(canEdit: boolean, status: "draft" | "submitted" | nul
   return status === "draft" ? "draft" : "change";
 }
 
-export function draftFromItems(items: readonly FormItemLite[]): Draft {
+/**
+ * Черновик из формы. В новой форме и черновике пустой автопункт с предложением получает балл предложения.
+ * Пустой балл с заметкой — осознанное «Нет данных», его не трогаем.
+ */
+export function draftFromItems(items: readonly FormItemLite[], mode: ReviewMode = "readonly"): Draft {
+  const prefill = mode === "new" || mode === "draft";
   const d: Draft = {};
-  for (const i of items) d[i.item_id] = { score: i.score, note: i.note ?? "" };
+  for (const i of items) {
+    const note = i.note ?? "";
+    const fill = prefill && i.source !== "manual" && i.score === null && i.suggestion !== null && note.trim() === "";
+    d[i.item_id] = { score: fill ? i.suggestion!.score : i.score, note };
+  }
   return d;
 }
 
@@ -101,6 +110,9 @@ export function reviewIssues(
       out.push({ code: "score_required", item_id: i.item_id });
     } else if (i.suggestion && d.score !== null && d.score !== i.suggestion.score && d.note.trim() === "") {
       out.push({ code: "note_required", item_id: i.item_id });
+    } else if (action !== "draft" && i.source !== "manual" && i.suggestion && d.score === null && d.note.trim() === "") {
+      // «Нет данных» при готовом предложении: черновик сохраняется, отправить без заметки нельзя (как на сервере).
+      out.push({ code: "note_required", item_id: i.item_id });
     }
   }
   if (action === "change") {
@@ -117,7 +129,7 @@ export function issueText(i: FormIssue, commentMin: number): string {
     case "score_required":
       return "Поставьте балл: пункт обязателен";
     case "note_required":
-      return "Балл отличается от предложения — напишите заметку";
+      return "Балл отличается от предложения или не поставлен — напишите заметку";
     case "comment_required":
       return `Комментарий к изменению — не меньше ${commentMin} символов без пробелов`;
     case "no_changes":

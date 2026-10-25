@@ -9,6 +9,8 @@ const items: FormItemLite[] = [
   { item_id: "m2", source: "manual", weight: 1, score: 50, note: null, suggestion: null },
   { item_id: "a1", source: "attendance", weight: 1, score: null, note: null, suggestion: { score: 80, basis: "Workly: 20 из 25 дней вовремя" } },
 ];
+// Отправленная оценка, где автопункт принял предложение
+const sent: FormItemLite[] = items.map((i) => (i.item_id === "a1" ? { ...i, score: 80 } : i));
 const draft = (over: Record<string, { score: number | null; note?: string }>) => {
   const d = draftFromItems(items);
   for (const [k, v] of Object.entries(over)) d[k] = { score: v.score, note: v.note ?? "" };
@@ -26,6 +28,23 @@ describe("баллы", () => {
   });
   it("draftFromItems берёт сохранённое", () => {
     expect(draftFromItems(items)).toEqual({ m1: { score: 100, note: "" }, m2: { score: 50, note: "" }, a1: { score: null, note: "" } });
+  });
+  it("draftFromItems: новая форма и черновик подставляют предложение в пустой автопункт", () => {
+    for (const mode of ["new", "draft"] as const) expect(draftFromItems(items, mode).a1).toEqual({ score: 80, note: "" });
+    for (const mode of ["readonly", "change"] as const) expect(draftFromItems(items, mode).a1).toEqual({ score: null, note: "" });
+    // Сохранённый балл, «Нет данных» с заметкой, пункт без предложения и ручной пункт не трогаем
+    const more: FormItemLite[] = [
+      { ...items[2], score: 60, note: "болел" },
+      { ...items[2], item_id: "a2", note: "терминал сломан" },
+      { ...items[2], item_id: "a3", suggestion: null },
+      { ...items[0], item_id: "m3", score: null, suggestion: { score: 90, basis: "—" } },
+    ];
+    expect(draftFromItems(more, "draft")).toEqual({
+      a1: { score: 60, note: "болел" },
+      a2: { score: null, note: "терминал сломан" },
+      a3: { score: null, note: "" },
+      m3: { score: null, note: "" },
+    });
   });
   it("toItemInputs: порядок формы, пустая заметка — null", () => {
     expect(toItemInputs(items, draft({ a1: { score: 60, note: "  болел  " }, m2: { score: 50, note: "   " } }))).toEqual([
@@ -64,9 +83,22 @@ describe("reviewIssues", () => {
   it("черновик можно сохранить неполным", () => {
     expect(reviewIssues(items, draft({ m2: { score: null } }), "draft", "", 5)).toEqual([]);
   });
-  it("отправка: пустой ручной пункт, автопункт без данных допустим", () => {
-    expect(reviewIssues(items, draft({ m2: { score: null } }), "submit", "", 5)).toEqual([{ code: "score_required", item_id: "m2" }]);
-    expect(reviewIssues(items, draftFromItems(items), "submit", "", 5)).toEqual([]);
+  it("отправка: пустой ручной пункт; автопункт без данных допустим, если предложения нет", () => {
+    expect(reviewIssues(sent, { ...draftFromItems(sent), m2: { score: null, note: "" } }, "submit", "", 5)).toEqual([
+      { code: "score_required", item_id: "m2" },
+    ]);
+    const bare = items.map((i) => ({ ...i, suggestion: null }));
+    expect(reviewIssues(bare, draftFromItems(bare), "submit", "", 5)).toEqual([]);
+  });
+  it("«Нет данных» при предложении: черновик можно, отправка и изменение — только с заметкой", () => {
+    const none = draftFromItems(items);
+    expect(reviewIssues(items, none, "draft", "", 5)).toEqual([]);
+    expect(reviewIssues(items, none, "submit", "", 5)).toEqual([{ code: "note_required", item_id: "a1" }]);
+    expect(reviewIssues(sent, { ...draftFromItems(sent), a1: { score: null, note: " " } }, "change", "нет данных Workly", 5)).toEqual([
+      { code: "note_required", item_id: "a1" },
+    ]);
+    expect(reviewIssues(items, draft({ a1: { score: null, note: "Workly не работал" } }), "submit", "", 5)).toEqual([]);
+    expect(issueText({ code: "note_required", item_id: "a1" }, 5)).toBe("Балл отличается от предложения или не поставлен — напишите заметку");
   });
   it("свой балл вместо предложения требует заметку", () => {
     expect(reviewIssues(items, draft({ a1: { score: 60 } }), "submit", "", 5)).toEqual([{ code: "note_required", item_id: "a1" }]);
@@ -75,11 +107,14 @@ describe("reviewIssues", () => {
     expect(reviewIssues(items, draft({ a1: { score: 80 } }), "submit", "", 5)).toEqual([]);
   });
   it("изменение отправленной", () => {
-    const changed = draft({ m2: { score: 75 } });
-    expect(reviewIssues(items, changed, "change", "  ок  ", 5)).toEqual([{ code: "comment_required" }]);
-    expect(reviewIssues(items, changed, "change", "опоздал 3 раза", 5)).toEqual([]);
-    expect(reviewIssues(items, draftFromItems(items), "change", "опоздал 3 раза", 5)).toEqual([{ code: "no_changes" }]);
-    expect(reviewIssues(items, draft({ m1: { score: null } }), "change", "опоздал 3 раза", 5)).toEqual([{ code: "score_required", item_id: "m1" }]);
+    const base = draftFromItems(sent);
+    const changed = { ...base, m2: { score: 75, note: "" } };
+    expect(reviewIssues(sent, changed, "change", "  ок  ", 5)).toEqual([{ code: "comment_required" }]);
+    expect(reviewIssues(sent, changed, "change", "опоздал 3 раза", 5)).toEqual([]);
+    expect(reviewIssues(sent, base, "change", "опоздал 3 раза", 5)).toEqual([{ code: "no_changes" }]);
+    expect(reviewIssues(sent, { ...base, m1: { score: null, note: "" } }, "change", "опоздал 3 раза", 5)).toEqual([
+      { code: "score_required", item_id: "m1" },
+    ]);
   });
   it("changedItemIds смотрит только баллы", () => {
     expect(changedItemIds(items, draft({ m2: { score: 75 }, m1: { score: 100, note: "новая заметка" } }))).toEqual(["m2"]);
@@ -111,10 +146,10 @@ describe("неверный текст балла", () => {
     expect(pickScore({ score: 50, note: "", invalid: true }, null)).toEqual({ score: null, note: "", invalid: false });
   });
   it("bad_score_text блокирует черновик, отправку и изменение", () => {
-    const bad = { ...draftFromItems(items), m2: { score: 15, note: "", invalid: true } };
-    expect(reviewIssues(items, bad, "draft", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
-    expect(reviewIssues(items, bad, "submit", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
-    expect(reviewIssues(items, bad, "change", "опоздал 3 раза", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+    const bad = { ...draftFromItems(sent), m2: { score: 15, note: "", invalid: true } };
+    expect(reviewIssues(sent, bad, "draft", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+    expect(reviewIssues(sent, bad, "submit", "", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
+    expect(reviewIssues(sent, bad, "change", "опоздал 3 раза", 5)).toEqual([{ code: "bad_score_text", item_id: "m2" }]);
   });
   it("одна проблема на пункт: неверный текст важнее пустого балла и заметки", () => {
     const bad = { ...draftFromItems(items), m1: { score: null, note: "", invalid: true }, a1: { score: 60, note: "", invalid: true } };
@@ -124,7 +159,7 @@ describe("неверный текст балла", () => {
     ]);
   });
   it("invalid: false — обычные правила", () => {
-    expect(reviewIssues(items, { ...draftFromItems(items), m2: { score: 50, note: "", invalid: false } }, "submit", "", 5)).toEqual([]);
+    expect(reviewIssues(sent, { ...draftFromItems(sent), m2: { score: 50, note: "", invalid: false } }, "submit", "", 5)).toEqual([]);
   });
   it("issueText", () => expect(issueText({ code: "bad_score_text", item_id: "m2" }, 5)).toBe("Целое от 0 до 100"));
 });

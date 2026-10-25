@@ -156,7 +156,7 @@ export function ItemScoreRow({
         disabled={disabled}
         onChange={(e) => onChange({ ...value, note: e.target.value })}
         aria-label={`Заметка: ${item.title_ru}`}
-        placeholder={item.suggestion ? "Заметка (обязательна, если балл отличается от предложения)" : "Заметка"}
+        placeholder={item.suggestion ? "Заметка (обязательна, если балл отличается от предложения или не поставлен)" : "Заметка"}
       />
 
       {issue && (

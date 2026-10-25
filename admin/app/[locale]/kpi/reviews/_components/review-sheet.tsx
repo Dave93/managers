@@ -98,9 +98,9 @@ function ReviewSheetBody({
   // Синхронная защёлка: state обновится только после рендера, а второй тап приходит раньше.
   const latch = useRef(false);
 
-  // Свежая форма пересобирает черновик, пока правок нет.
+  // Свежая форма пересобирает черновик, пока правок нет. Новая форма и черновик берут предложение в пустой автопункт.
   useEffect(() => {
-    if (data && !dirty) setDraft(draftFromItems(data.items));
+    if (data && !dirty) setDraft(draftFromItems(data.items, reviewMode(data.can_edit, data.review?.status ?? null)));
   }, [data, dirty]);
 
   const hasEdits = dirty || comment.trim() !== "";
