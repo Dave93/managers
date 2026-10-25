@@ -1,12 +1,15 @@
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_card_items, kpi_cards, kpi_raise_tiers } from "backend/drizzle/schema";
+import { kpi_branch_indicators, kpi_card_items, kpi_cards, kpi_raise_tiers } from "backend/drizzle/schema";
 import { sql } from "drizzle-orm";
 import type { DbLike } from "./access";
-import { SEED_CARDS, SEED_TIERS, type SeedCard } from "./seed-data";
+import { SEED_BRANCH_INDICATORS, SEED_CARDS, SEED_TIERS, type SeedCard } from "./seed-data";
 
 // Недостающие карты по code (с пунктами) и шкала, если она пуста. Существующее не трогаем.
 // Карта и её пункты — одна транзакция: карты без пунктов после сбоя не остаётся.
-export async function seedCards(db: DbLike, cards: SeedCard[] = SEED_CARDS): Promise<{ cards: number; tiers: number }> {
+export async function seedCards(
+  db: DbLike,
+  cards: SeedCard[] = SEED_CARDS
+): Promise<{ cards: number; tiers: number; indicators: number }> {
   let added = 0;
   for (const c of cards) {
     const inserted = await (db as DrizzleDB).transaction(async (tx) => {
@@ -52,7 +55,29 @@ export async function seedCards(db: DbLike, cards: SeedCard[] = SEED_CARDS): Pro
       .returning({ id: kpi_raise_tiers.id });
     tiers = ins.length;
   }
-  return { cards: added, tiers };
+  const indicators = await seedBranchIndicators(db);
+  return { cards: added, tiers, indicators };
+}
+
+// Недостающие показатели балла филиала по code; правки HR (вес, пороги, «активен») не трогаем.
+export async function seedBranchIndicators(db: DbLike): Promise<number> {
+  const ins = await db
+    .insert(kpi_branch_indicators)
+    .values(
+      SEED_BRANCH_INDICATORS.map((i) => ({
+        code: i.code,
+        title_ru: i.title_ru,
+        weight: i.weight,
+        floor: String(i.floor),
+        target: String(i.target),
+        max: String(i.max),
+        direction: i.direction,
+        sort: i.sort,
+      }))
+    )
+    .onConflictDoNothing({ target: kpi_branch_indicators.code })
+    .returning({ code: kpi_branch_indicators.code });
+  return ins.length;
 }
 
 // Запуск: cd backend && bun run src/modules/kpi/seed-cards.ts (база — из DATABASE_URL).
@@ -61,7 +86,7 @@ async function main() {
   const { drizzleDb } = await import("../../lib/db");
   try {
     const r = await seedCards(drizzleDb);
-    console.log(`kpi seed: cards ${r.cards}, tiers ${r.tiers}`);
+    console.log(`kpi seed: cards ${r.cards}, tiers ${r.tiers}, indicators ${r.indicators}`);
     process.exit(0);
   } catch (e) {
     console.error("kpi seed: ошибка", e);

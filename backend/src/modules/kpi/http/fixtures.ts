@@ -5,9 +5,14 @@ import { randomUUID } from "node:crypto";
 import { drizzleDb } from "backend/src/lib/db";
 import type { DrizzleDB } from "@backend/lib/db";
 import {
+  credentials,
   employees,
+  inventory_reconciliations,
   kpi_attendance,
   kpi_attendance_imports,
+  kpi_branch_indicators,
+  kpi_branch_results,
+  kpi_branch_scores,
   kpi_card_items,
   kpi_cards,
   kpi_disputes,
@@ -19,22 +24,29 @@ import {
   kpi_review_events,
   kpi_review_items,
   kpi_reviews,
+  kpi_revenue_plans,
+  kpi_sanitary_checks,
   kpi_settings,
   kpi_tg_bindings,
   kpi_tg_invites,
   kpi_violation_photos,
   kpi_violations,
+  orders,
   permissions,
+  productCookingTime,
   roles,
   roles_permissions,
   staff_roles,
+  terminals,
   users,
 } from "backend/drizzle/schema";
 import { eq, inArray, like, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
 import { kpiQueueName, getKpiQueue } from "../queue";
-import { seedCards } from "../seed-cards";
+import { SEED_BRANCH_INDICATORS } from "../seed-data";
+import { seedBranchIndicators, seedCards } from "../seed-cards";
+import { dayStart } from "../time";
 import type { BotApi, TgResult } from "../tg/bot-api";
 import type { OutMessage } from "../tg/messages";
 import type { AttendanceMapping } from "../types";
@@ -230,6 +242,167 @@ export function fakeBotApi(results: TgResult[] = []): {
   return { api, sent, answered };
 }
 
+// Метки строк в общих таблицах: cleanupKpi удаляет только их.
+const BRANCH_MARK = "kpi_test";
+const TERMINAL_PREFIX = "Тест Филиал ";
+
+// ---------- балл филиала ----------
+
+// Ключ credentials: undefined — случайный uuid, null — строки нет, строка — как есть (кривой ключ).
+function credKey(v: string | null | undefined): string | null {
+  return v === undefined ? randomUUID() : v;
+}
+
+// Филиал «Тест Филиал <hex>» со связками iiko (credentials) для расчёта фактов.
+export async function makeTerminal(
+  db: DrizzleDB,
+  o: { active?: boolean; iiko_id?: string | null; store_id?: string | null } = {}
+): Promise<{ id: string; name: string; iiko_id: string | null; store_id: string | null }> {
+  const name = TERMINAL_PREFIX + randomUUID().replace(/-/g, "").slice(0, 8);
+  const [row] = await db
+    .insert(terminals)
+    .values({ name, latitude: 0, longitude: 0, organization_id: randomUUID(), active: o.active ?? true })
+    .returning({ id: terminals.id });
+  const iiko_id = credKey(o.iiko_id);
+  const store_id = credKey(o.store_id);
+  const creds = [
+    ...(iiko_id === null ? [] : [{ type: "iiko_id", key: iiko_id }]),
+    ...(store_id === null ? [] : [{ type: "iiko_store_id", key: store_id }]),
+  ];
+  if (creds.length) await db.insert(credentials).values(creds.map((c) => ({ ...c, model: "terminals", model_id: row.id })));
+  return { id: row.id, name, iiko_id, store_id };
+}
+
+// Заказ в orders за день (местное время без зоны). service_type: по умолчанию COMMON, null пишется как null.
+export async function addOrder(
+  db: DrizzleDB,
+  o: { iiko_id: string; day: string; sum: number; service_type?: string | null }
+): Promise<string> {
+  const id = randomUUID();
+  await db.insert(orders).values({
+    id,
+    openDateTyped: `${o.day} 00:00:00`,
+    restaurantGroupId: o.iiko_id,
+    restaurantGroup: BRANCH_MARK,
+    dishDiscountSumInt: String(o.sum),
+    orderServiceType: o.service_type === undefined ? "COMMON" : o.service_type,
+  });
+  return id;
+}
+
+// По строке product_cooking_time на каждое ожидание (секунды). Группа в верхнем регистре: запрос сравнивает через lower().
+export async function addCooking(
+  db: DrizzleDB,
+  o: { iiko_id: string; order_id: string; day: string; waits: number[] }
+): Promise<void> {
+  if (!o.waits.length) return;
+  await db.insert(productCookingTime).values(
+    o.waits.map((w) => ({
+      uniqOrderId: o.order_id,
+      restorauntGroup: o.iiko_id.toUpperCase(),
+      department: BRANCH_MARK,
+      departmentId: BRANCH_MARK,
+      cookingPlace: "kitchen",
+      dishName: "Тест блюдо",
+      openTime: `${o.day} 00:00:00`,
+      openDateTyped: `${o.day} 00:00:00`,
+      dishAmountInt: 1,
+      guestWaitTimeAvg: w,
+    }))
+  );
+}
+
+// Сверка склада за месяц period; period сверки — последний день месяца.
+export async function addReconciliation(
+  db: DrizzleDB,
+  o: { store_id: string; period: string; status: string; accepted_diff_bc: string | null; live_diff_bc?: string | null }
+): Promise<void> {
+  const y = Number(o.period.slice(0, 4));
+  const m = Number(o.period.slice(5, 7));
+  const last = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  await db.insert(inventory_reconciliations).values({
+    store_id: o.store_id,
+    period: `${o.period.slice(0, 8)}${String(last).padStart(2, "0")}`,
+    status: o.status,
+    iiko_document_comment: BRANCH_MARK,
+    diff_bc_sum: o.live_diff_bc ?? o.accepted_diff_bc,
+    accepted_totals:
+      o.status === "accepted"
+        ? { lines_total: 1, mismatch_ab_count: 0, diff_ab_sum: null, diff_ac_sum: null, diff_bc_sum: o.accepted_diff_bc }
+        : null,
+  });
+}
+
+// Санитарная проверка напрямую: нужен процент, которого не собрать из 30 пунктов.
+export async function addSanitaryRow(db: DrizzleDB, o: { terminal_id: string; period: string; pct: number }): Promise<void> {
+  await db.insert(kpi_sanitary_checks).values({
+    terminal_id: o.terminal_id,
+    period: o.period,
+    checked_at: dayStart(o.period, 10).toISOString(),
+    inspector_user_id: randomUUID(),
+    items: [],
+    pct: String(o.pct),
+  });
+}
+
+// Посещаемость филиала за день: одна запись импорта и по строке на каждого сотрудника (uuid без записи в employees).
+export async function addAttendance(
+  db: DrizzleDB,
+  o: { terminal_id: string; day: string; on_time: number; late: number; absent: number }
+): Promise<void> {
+  const total = o.on_time + o.late + o.absent;
+  const [imp] = await db
+    .insert(kpi_attendance_imports)
+    .values({
+      period: `${o.day.slice(0, 7)}-01`,
+      file_name: BRANCH_MARK,
+      uploaded_by: randomUUID(),
+      mapping: {},
+      rows_total: total,
+      rows_matched: total,
+    })
+    .returning({ id: kpi_attendance_imports.id });
+  const rows = [
+    ...Array.from({ length: o.on_time }, () => ({ late_minutes: 0, absent: false })),
+    ...Array.from({ length: o.late }, () => ({ late_minutes: 10, absent: false })),
+    ...Array.from({ length: o.absent }, () => ({ late_minutes: 0, absent: true })),
+  ];
+  if (!rows.length) return;
+  await db.insert(kpi_attendance).values(
+    rows.map((r) => ({ ...r, employee_id: randomUUID(), day: o.day, terminal_id: o.terminal_id, import_id: imp.id }))
+  );
+}
+
+// Результат показателя и балл филиала той же версии (балл заводится один раз на версию).
+export async function addBranchResult(
+  db: DrizzleDB,
+  o: { period: string; terminal_id: string; version: number; code: string; fact: number | null; points: number | null }
+): Promise<void> {
+  const ind = SEED_BRANCH_INDICATORS.find((i) => i.code === o.code);
+  if (!ind) throw new Error(`addBranchResult: нет показателя ${o.code}`);
+  const computed_at = new Date().toISOString();
+  await db.insert(kpi_branch_results).values({
+    period: o.period,
+    terminal_id: o.terminal_id,
+    indicator_code: o.code,
+    version: o.version,
+    fact: o.fact === null ? null : String(o.fact),
+    points: o.points === null ? null : String(o.points),
+    weight: ind.weight,
+    floor: String(ind.floor),
+    target: String(ind.target),
+    max: String(ind.max),
+    direction: ind.direction,
+    data_status: o.fact === null ? "no_data" : "ok",
+    reason: o.fact === null ? "no_plan" : null,
+    computed_at,
+  });
+  await db
+    .insert(kpi_branch_scores)
+    .values({ period: o.period, terminal_id: o.terminal_id, version: o.version, score: "100", tier_pct: 100, computed_at })
+    .onConflictDoNothing();
+}
+
 // Порядок учитывает внешние ключи внутри модуля. kpi_settings чистим целиком,
 // чтобы после тестов снова действовали значения по умолчанию.
 export async function cleanupKpi(db: DrizzleDB): Promise<void> {
@@ -241,6 +414,20 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   if (kpiQueueName() === "kpi-notify" || getKpiQueue().name === "kpi-notify") {
     throw new Error("cleanupKpi: очередь теста не задана (KPI_NOTIFY_QUEUE), боевую не чистим");
   }
+  // Балл филиала: kpi_* целиком; общие таблицы iiko — только строки с метками фикстур.
+  await db.delete(kpi_branch_results);
+  await db.delete(kpi_branch_scores);
+  await db.delete(kpi_sanitary_checks);
+  await db.delete(kpi_revenue_plans);
+  await db.delete(kpi_branch_indicators);
+  await seedBranchIndicators(db);
+  await db.delete(orders).where(eq(orders.restaurantGroup, BRANCH_MARK));
+  await db.delete(productCookingTime).where(eq(productCookingTime.department, BRANCH_MARK));
+  await db.delete(inventory_reconciliations).where(eq(inventory_reconciliations.iiko_document_comment, BRANCH_MARK));
+  await db
+    .delete(credentials)
+    .where(sql`${credentials.model} = 'terminals' AND ${credentials.model_id} IN (SELECT id::text FROM terminals WHERE name LIKE ${TERMINAL_PREFIX + "%"})`);
+  await db.delete(terminals).where(like(terminals.name, TERMINAL_PREFIX + "%"));
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);

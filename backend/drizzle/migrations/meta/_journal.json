@@ -274,6 +274,13 @@
       "when": 1792922078535,
       "tag": "0038_kpi_telegram",
       "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792926678670,
+      "tag": "0039_kpi_branch",
+      "breakpoints": true
     }
   ]
 }

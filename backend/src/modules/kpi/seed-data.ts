@@ -152,3 +152,21 @@ export const SEED_TIERS: { min_pct: number; amount: number }[] = [
   { min_pct: 90, amount: 300000 },
   { min_pct: 85, amount: 150000 },
 ];
+
+// Показатели балла филиала (спека 7.7). Для lower_better порог floor — худшая граница (больше), max — лучшая.
+export const SEED_BRANCH_INDICATORS: {
+  code: string;
+  title_ru: string;
+  weight: number;
+  floor: number;
+  target: number;
+  max: number;
+  direction: "higher_better" | "lower_better";
+  sort: number;
+}[] = [
+  { code: "sales", title_ru: "Продажи к плану", weight: 30, floor: 90, target: 100, max: 115, direction: "higher_better", sort: 10 },
+  { code: "food_cost", title_ru: "Перерасход сырья", weight: 20, floor: 1.0, target: 0.5, max: 0.2, direction: "lower_better", sort: 20 },
+  { code: "service", title_ru: "Заказы в норматив", weight: 20, floor: 80, target: 92, max: 97, direction: "higher_better", sort: 30 },
+  { code: "sanitary", title_ru: "Санитарный чек-лист", weight: 15, floor: 80, target: 95, max: 100, direction: "higher_better", sort: 40 },
+  { code: "discipline", title_ru: "Смены без опозданий", weight: 15, floor: 85, target: 95, max: 99, direction: "higher_better", sort: 50 },
+];

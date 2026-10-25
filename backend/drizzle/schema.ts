@@ -3169,3 +3169,103 @@ export const kpi_tg_invites = pgTable(
     check("kpi_tg_invites_one_person", sql`(${t.employee_id} is null) <> (${t.user_id} is null)`),
   ]
 );
+
+// Показатели балла филиала (спека 7.7). code фиксирован, HR правит вес, пороги и «активен».
+// direction: higher_better | lower_better. Изменения действуют со следующего пересчёта.
+export const kpi_branch_indicators = pgTable("kpi_branch_indicators", {
+  code: varchar("code", { length: 32 }).primaryKey().notNull(),
+  title_ru: varchar("title_ru", { length: 100 }).notNull(),
+  weight: integer("weight").notNull(),
+  floor: numeric("floor", { precision: 10, scale: 2 }).notNull(),
+  target: numeric("target", { precision: 10, scale: 2 }).notNull(),
+  max: numeric("max", { precision: 10, scale: 2 }).notNull(),
+  direction: varchar("direction", { length: 16 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  sort: integer("sort").default(0).notNull(),
+  updated_by: uuid("updated_by"),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+// План выручки филиала на месяц, целые сум. Один план на пару (филиал, месяц).
+export const kpi_revenue_plans = pgTable(
+  "kpi_revenue_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+    updated_by: uuid("updated_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_revenue_plans_terminal_period_uq").on(t.terminal_id, t.period),
+    index("kpi_revenue_plans_period_idx").on(t.period),
+  ]
+);
+
+// Санитарная проверка филиала. items: [{title, ok}]; pct — доля «да»; period — месяц по Ташкенту.
+export const kpi_sanitary_checks = pgTable(
+  "kpi_sanitary_checks",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).notNull(),
+    inspector_user_id: uuid("inspector_user_id").notNull(),
+    items: jsonb("items").notNull(),
+    pct: numeric("pct", { precision: 5, scale: 2 }).notNull(),
+    comment: text("comment"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_sanitary_checks_period_terminal_idx").on(t.period, t.terminal_id)]
+);
+
+// Результат показателя филиала за месяц, версия — на запуск расчёта. Вес и пороги — снимок на момент расчёта.
+// data_status: ok | no_data; reason — почему нет данных; details — разбивка для экрана «Филиал».
+export const kpi_branch_results = pgTable(
+  "kpi_branch_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    indicator_code: varchar("indicator_code", { length: 32 }).notNull(),
+    version: integer("version").notNull(),
+    fact: numeric("fact", { precision: 14, scale: 2 }),
+    points: numeric("points", { precision: 6, scale: 2 }),
+    weight: integer("weight").notNull(),
+    weighted: numeric("weighted", { precision: 6, scale: 2 }),
+    floor: numeric("floor", { precision: 10, scale: 2 }).notNull(),
+    target: numeric("target", { precision: 10, scale: 2 }).notNull(),
+    max: numeric("max", { precision: 10, scale: 2 }).notNull(),
+    direction: varchar("direction", { length: 16 }).notNull(),
+    data_status: varchar("data_status", { length: 16 }).notNull(),
+    reason: varchar("reason", { length: 32 }),
+    details: jsonb("details").default(sql`'{}'::jsonb`).notNull(),
+    computed_at: timestamp("computed_at", { withTimezone: true, mode: "string" }).notNull(),
+    computed_by: uuid("computed_by"),
+  },
+  (t) => [
+    uniqueIndex("kpi_branch_results_uq").on(t.period, t.terminal_id, t.indicator_code, t.version),
+    index("kpi_branch_results_period_version_idx").on(t.period, t.version),
+  ]
+);
+
+// Итоговый балл филиала за месяц (версия как у результатов) и ступень в процентах.
+export const kpi_branch_scores = pgTable(
+  "kpi_branch_scores",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    version: integer("version").notNull(),
+    score: numeric("score", { precision: 6, scale: 2 }).notNull(),
+    tier_pct: integer("tier_pct").notNull(),
+    computed_at: timestamp("computed_at", { withTimezone: true, mode: "string" }).notNull(),
+    computed_by: uuid("computed_by"),
+  },
+  (t) => [
+    uniqueIndex("kpi_branch_scores_uq").on(t.period, t.terminal_id, t.version),
+    index("kpi_branch_scores_period_version_idx").on(t.period, t.version),
+  ]
+);
