@@ -6,6 +6,7 @@ import { now } from "./clock";
 import { userNames } from "./directory";
 import { listEmployeeRows } from "./employees";
 import { KpiError } from "./errors";
+import { iso } from "./iso";
 import { commentOk, scopeCovers } from "./rules";
 import { loadSettings } from "./settings";
 import { disputeDeadline, reviewDeadline, submitOpensAt, type Period } from "./time";
@@ -19,6 +20,19 @@ export async function isPeriodClosed(db: DbLike, period: Period): Promise<boolea
     .where(and(eq(kpi_periods.period, period), eq(kpi_periods.status, "closed")))
     .limit(1);
   return rows.length > 0;
+}
+
+// Для записи внутри транзакции: строка месяца под FOR SHARE до конца транзакции.
+// Закрытие и открытие берут её FOR UPDATE, поэтому ждут пишущих, а пишущие — их.
+// Порядок блокировок как у openDispute: сначала предмет записи, потом месяц.
+export async function lockPeriodShared(tx: DbLike, period: Period): Promise<boolean /* closed */> {
+  await tx.insert(kpi_periods).values({ period, status: "open" }).onConflictDoNothing({ target: kpi_periods.period });
+  const [row] = await tx
+    .select({ status: kpi_periods.status })
+    .from(kpi_periods)
+    .where(eq(kpi_periods.period, period))
+    .for("share");
+  return row?.status === "closed";
 }
 
 export function deadlinesOf(
@@ -121,7 +135,7 @@ export async function periodSummary(db: DbLike, actor: Actor, period: Period): P
   return {
     period,
     status: closed ? "closed" : "open",
-    closed_at: closed ? pRow.closed_at : null,
+    closed_at: closed ? iso(pRow.closed_at) : null,
     closed_by_name: closedByName,
     deadlines: deadlinesOf(period, settings),
     counts,

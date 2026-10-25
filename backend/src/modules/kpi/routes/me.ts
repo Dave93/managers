@@ -5,6 +5,7 @@ import Elysia from "elysia";
 import { actorFrom, requireAny } from "../access";
 import { now } from "../clock";
 import { run } from "../errors";
+import { iso } from "../iso";
 import { loadSettings } from "../settings";
 import { disputeDeadline, currentReviewPeriod, reviewDeadline, submitOpensAt } from "../time";
 import { KPI_PERMS, type Deadlines, type KpiPerm, type MeResponse, type ScopeRow } from "../types";
@@ -52,7 +53,7 @@ export const meRoutes = new Elysia({ name: "@api/kpi/me" })
           card_title: r.card_title,
           terminal_id: r.terminal_id,
           terminal_name: r.terminal_name,
-          created_at: r.created_at,
+          created_at: iso(r.created_at),
         }));
         return {
           user_id: actor.userId,

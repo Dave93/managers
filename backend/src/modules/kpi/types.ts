@@ -205,4 +205,7 @@ export interface RaiseRow {
   decided_at: string | null;
   comment: string | null;
   periods_closed: boolean;
+  // Отправленную оценку квартала меняли после расчёта: нерешённую строку решить нельзя
+  // (409 stale) до пересчёта; у решённой это только предупреждение.
+  stale: boolean;
 }

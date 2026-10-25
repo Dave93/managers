@@ -1,12 +1,13 @@
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_card_items, kpi_cards, kpi_disputes, kpi_review_events, kpi_review_items, kpi_reviews } from "backend/drizzle/schema";
+import { kpi_card_items, kpi_cards, kpi_review_events, kpi_review_items, kpi_reviews } from "backend/drizzle/schema";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, userNames, type DirEmployee } from "./directory";
 import { listEmployeeRows, UUID_RE, type EmployeeQuery } from "./employees";
 import { KpiError } from "./errors";
-import { deadlinesOf, isPeriodClosed } from "./periods";
+import { iso } from "./iso";
+import { deadlinesOf, isPeriodClosed, lockPeriodShared } from "./periods";
 import {
   commentOk,
   diffScores,
@@ -21,7 +22,7 @@ import {
 import { loadSettings } from "./settings";
 import { enqueue } from "./notify";
 import { reviewDeadline, submitOpensAt, type Period } from "./time";
-import { violationsFor } from "./violations";
+import { hasOpenDispute, violationsFor } from "./violations";
 import type { EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./types";
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
@@ -263,21 +264,7 @@ async function buildForm(
     ? mayChange(actor, scopes, review!, closed)
     : !closed && mayDraft(actor, scopes, emp);
   const scoreNow = submitted ? pctNum(review!.score_pct) : pctOf(work);
-  let openDispute = false;
-  if (review) {
-    const d = await db
-      .select({ id: kpi_disputes.id })
-      .from(kpi_disputes)
-      .where(
-        and(
-          eq(kpi_disputes.subject_type, "review"),
-          eq(kpi_disputes.subject_id, review.id),
-          eq(kpi_disputes.status, "open")
-        )
-      )
-      .limit(1);
-    openDispute = d.length > 0;
-  }
+  const openDispute = review ? await hasOpenDispute(db, "review", review.id) : false;
 
   return {
     period,
@@ -296,7 +283,7 @@ async function buildForm(
           status: review.status as "draft" | "submitted",
           score_pct: scoreNow,
           version: review.version,
-          submitted_at: review.submitted_at,
+          submitted_at: iso(review.submitted_at),
           evaluator_user_id: review.evaluator_user_id,
           late: review.submitted_at ? new Date(review.submitted_at).getTime() > deadline : now().getTime() > deadline,
         }
@@ -345,9 +332,9 @@ export async function saveDraft(
       throw new KpiError(403, "out_of_scope");
     }
     if (emp.card_id === null) throw new KpiError(422, "no_card");
-    if (await isPeriodClosed(tx, period)) throw new KpiError(409, "period_closed");
 
     // Гонку двух черновиков снимает on conflict; строку блокируем до конца транзакции.
+    // Месяц блокируем после оценки (общий порядок блокировок); в закрытом месяце вставка откатится.
     await tx
       .insert(kpi_reviews)
       .values({
@@ -364,6 +351,7 @@ export async function saveDraft(
       .from(kpi_reviews)
       .where(and(eq(kpi_reviews.period, period), eq(kpi_reviews.employee_id, emp.id)))
       .for("update");
+    if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
     if (locked.status === "submitted") throw new KpiError(409, "already_submitted");
 
     await syncDraft(tx, locked, emp, items);
@@ -388,13 +376,15 @@ export async function submitReview(
         ? { terminal_id: emp.terminal_id, card_id: emp.card_id }
         : { terminal_id: review.terminal_id, card_id: review.card_id };
     if (!canEvaluate(actor, scopes, target)) throw new KpiError(403, "out_of_scope");
-    if (await isPeriodClosed(tx, period)) throw new KpiError(409, "period_closed");
+    if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
     if (review.status === "submitted") throw new KpiError(409, "already_submitted");
     const opens = submitOpensAt(period);
     if (now().getTime() < opens.getTime()) throw new KpiError(409, "too_early", { opens_at: opens.toISOString() });
 
     // Перед отправкой строки приводятся к текущей карте, со вводом из тела, если он есть.
     const rows = await syncDraft(tx, review, emp, items ?? []);
+    // Карта без активных пунктов: оценивать нечего, пустую оценку не отправляем.
+    if (rows.length === 0) throw new KpiError(422, "no_items");
     const missing = missingManual(rows.map((i) => ({ item_id: i.item_id, weight: i.weight, source: i.source, score: i.score })));
     if (missing.length) throw new KpiError(422, "missing_items", { items: missing });
 
@@ -428,6 +418,7 @@ export async function submitReview(
 
 // Изменение отправленной оценки внутри чужой транзакции: её зовёт и changeReview, и разбор спора.
 // rightsChecked: права вызывающий уже проверил (разбор спора), остаётся проверка закрытого месяца.
+// Без него (прямая правка) оценку с открытым спором менять нельзя: её меняет только разбор спора.
 export async function changeReviewTx(
   tx: DbLike,
   actor: Actor,
@@ -441,7 +432,7 @@ export async function changeReviewTx(
   const period = review.period;
   if (review.status !== "submitted") throw new KpiError(409, "not_submitted");
   const scopes = await scopesOf(tx, actor);
-  const closed = await isPeriodClosed(tx, period);
+  const closed = await lockPeriodShared(tx, period);
   // Закрытый месяц: оценщику отвечаем состоянием, а не отсутствием прав, если право было бы в открытом.
   if (opts.rightsChecked) {
     if (closed && !has(actor, "kpi.approve")) throw new KpiError(409, "period_closed");
@@ -449,6 +440,8 @@ export async function changeReviewTx(
     const couldOpen = mayChange(actor, scopes, review, false);
     if (!couldOpen) throw new KpiError(403, "out_of_scope");
     if (!mayChange(actor, scopes, review, closed)) throw new KpiError(409, "period_closed");
+    // Строка оценки уже под FOR UPDATE, а openDispute блокирует её же: спор не появится до конца транзакции.
+    if (await hasOpenDispute(tx, "review", review.id)) throw new KpiError(409, "open_dispute");
   }
 
   const settings = await loadSettings(tx);
@@ -543,7 +536,7 @@ export async function reviewEvents(db: DbLike, actor: Actor, reviewId: string): 
     old_score_pct: pctNum(r.old_score_pct),
     new_score_pct: pctNum(r.new_score_pct),
     comment: r.comment,
-    created_at: r.created_at,
+    created_at: iso(r.created_at),
   }));
 }
 

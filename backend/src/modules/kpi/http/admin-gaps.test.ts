@@ -270,7 +270,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           set: { status: "closed" },
         });
       }
+      // Потолок ниже ступеней не ставится (cap_below_tiers), поэтому сначала шкала ниже нового потолка;
+      // предложение 300000 в строке осталось от прежнего расчёта.
+      const tiers = (await api(hr, "GET", "/api/kpi/raise-tiers")).body as { min_pct: number; amount: number }[];
       try {
+        expect((await api(hr, "PUT", "/api/kpi/raise-tiers", { tiers: [{ min_pct: 90, amount: 100000 }] })).status).toBe(200);
         expect((await api(hr, "PUT", "/api/kpi/settings", { raise_cap: 100000 })).status).toBe(200);
         const bad = await api(approver, "POST", `/api/kpi/raises/${row.id}/decide`, { status: "approved" });
         expect(bad.status).toBe(422);
@@ -282,6 +286,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(ok.status).toBe(200);
         expect(ok.body.approved_amount).toBe(300000);
       } finally {
+        // Сначала потолок, потом шкала: иначе прежние ступени не пройдут проверку потолка.
+        await api(hr, "PUT", "/api/kpi/settings", { raise_cap: 500000 });
+        expect((await api(hr, "PUT", "/api/kpi/raise-tiers", { tiers })).status).toBe(200);
         await db.delete(kpi_periods);
       }
     });

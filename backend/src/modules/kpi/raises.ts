@@ -5,14 +5,15 @@ import {
   kpi_raise_tiers,
   kpi_reviews,
 } from "backend/drizzle/schema";
-import { and, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import { has, seesNetwork, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { loadDirectory, terminalNames, userNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
+import { iso } from "./iso";
 import { enqueue } from "./notify";
-import { isPeriodClosed } from "./periods";
+import { isPeriodClosed, lockPeriodShared } from "./periods";
 import { commentOk, quarterRow, validateTiers, type Tier } from "./rules";
 import { loadSettings } from "./settings";
 import { isQuarterStart, quarterMonths, type Period } from "./time";
@@ -57,9 +58,31 @@ export async function saveTiers(db: DbLike, _actor: Actor, tiers: Tier[]): Promi
   });
 }
 
-// Строки решений в ответ API: имена, карта, признак «все три месяца закрыты».
+// Устаревший расчёт: отправленная оценка сотрудника за квартал изменена позже computed_at строки
+// (правка HR, разбор спора, новая отправка). Сравниваем в базе: timestamptz с микросекундами.
+async function staleIds(db: DbLike, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const rows = await db
+    .selectDistinct({ id: kpi_raise_decisions.id })
+    .from(kpi_raise_decisions)
+    .innerJoin(
+      kpi_reviews,
+      and(
+        eq(kpi_reviews.employee_id, kpi_raise_decisions.employee_id),
+        eq(kpi_reviews.status, "submitted"),
+        gte(kpi_reviews.period, kpi_raise_decisions.quarter_start),
+        sql`${kpi_reviews.period} < ${kpi_raise_decisions.quarter_start} + interval '3 months'`,
+        gt(kpi_reviews.updated_at, kpi_raise_decisions.computed_at)
+      )
+    )
+    .where(inArray(kpi_raise_decisions.id, ids));
+  return new Set(rows.map((r) => r.id));
+}
+
+// Строки решений в ответ API: имена, карта, признаки «все три месяца закрыты» и «расчёт устарел».
 async function toRaiseRows(db: DbLike, rows: DecisionRow[]): Promise<RaiseRow[]> {
   if (rows.length === 0) return [];
+  const stale = await staleIds(db, rows.map((r) => r.id));
   const dir = await loadDirectory(db, { employeeIds: rows.map((r) => r.employee_id), includeInactive: true });
   const emp = new Map(dir.map((d) => [d.id, d]));
   const tNames = await terminalNames(db, rows.flatMap((r) => (r.terminal_id ? [r.terminal_id] : [])));
@@ -94,9 +117,10 @@ async function toRaiseRows(db: DbLike, rows: DecisionRow[]): Promise<RaiseRow[]>
       status: r.status as RaiseRow["status"],
       approved_amount: numOrNull(r.approved_amount),
       decided_by_name: r.decided_by ? (uNames.get(r.decided_by) ?? null) : null,
-      decided_at: r.decided_at,
+      decided_at: iso(r.decided_at),
       comment: r.comment,
       periods_closed: all,
+      stale: stale.has(r.id),
     });
   }
   return out.sort((a, b) => a.employee_name.localeCompare(b.employee_name, "ru") || a.id.localeCompare(b.id));
@@ -119,8 +143,13 @@ export async function computeQuarter(db: DbLike, actor: Actor, quarter: Period):
   parseQuarter(quarter);
   const months = quarterMonths(quarter);
   await inTx(db, async (tx) => {
+    // Два пересчёта одного квартала не идут одновременно.
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"kpi_raise_compute:" + quarter}))`);
+    // Время расчёта берём до чтения оценок: правка, которую расчёт не увидел, будет позже computed_at.
+    const at = now().toISOString();
     const settings = await loadSettings(tx);
     const tiers = await getTiers(tx);
+    // FOR SHARE: незафиксированную правку оценки расчёт дождётся, а не прочтёт старый балл.
     const reviews = await tx
       .select({
         employee_id: kpi_reviews.employee_id,
@@ -130,11 +159,14 @@ export async function computeQuarter(db: DbLike, actor: Actor, quarter: Period):
         score_pct: kpi_reviews.score_pct,
       })
       .from(kpi_reviews)
-      .where(and(eq(kpi_reviews.status, "submitted"), inArray(kpi_reviews.period, months)));
+      .where(and(eq(kpi_reviews.status, "submitted"), inArray(kpi_reviews.period, months)))
+      .orderBy(kpi_reviews.employee_id, kpi_reviews.period)
+      .for("share");
     const byEmp = new Map<string, typeof reviews>();
     for (const r of reviews) byEmp.set(r.employee_id, [...(byEmp.get(r.employee_id) ?? []), r]);
-    const at = now().toISOString();
-    for (const [employee_id, list] of byEmp) {
+    // Порядок сотрудников постоянный: строки решений блокируются всегда в одной последовательности.
+    for (const employee_id of [...byEmp.keys()].sort()) {
+      const list = byEmp.get(employee_id)!;
       const scores = months.map((p) => {
         const r = list.find((x) => x.period === p);
         return { period: p, score_pct: r ? numOrNull(r.score_pct) : null };
@@ -177,19 +209,37 @@ export async function decideRaise(
   return inTx(db, async (tx) => {
     const [row] = await tx.select().from(kpi_raise_decisions).where(eq(kpi_raise_decisions.id, id)).for("update");
     if (!row) throw new KpiError(404, "not_found");
-    for (const p of quarterMonths(row.quarter_start)) {
-      if (!(await isPeriodClosed(tx, p))) throw new KpiError(409, "periods_open");
+    const months = quarterMonths(row.quarter_start);
+    // Порядок блокировок как у правки оценки: оценки квартала (FOR SHARE), затем месяцы.
+    // Правка HR не проскочит между проверкой stale и решением, а месяц не откроют посреди решения.
+    await tx
+      .select({ id: kpi_reviews.id })
+      .from(kpi_reviews)
+      .where(
+        and(
+          eq(kpi_reviews.employee_id, row.employee_id),
+          eq(kpi_reviews.status, "submitted"),
+          inArray(kpi_reviews.period, months)
+        )
+      )
+      .orderBy(kpi_reviews.period)
+      .for("share");
+    for (const p of months) {
+      if (!(await lockPeriodShared(tx, p))) throw new KpiError(409, "periods_open");
     }
+    const redecided = row.status === "approved" || row.status === "rejected";
+    // Нерешённую строку по устаревшему расчёту не решаем: сначала пересчёт. Решённую пересчёт
+    // не трогает (спека 7.6), поэтому её повторное решение не блокируем — stale виден в списке.
+    if (!redecided && (await staleIds(tx, [row.id])).size > 0) throw new KpiError(409, "stale");
     const settings = await loadSettings(tx);
     const suggested = Number(row.suggested_amount ?? 0);
     let amount: number;
     if (input.status === "rejected") amount = 0;
     else {
       amount = input.amount === undefined || input.amount === null ? suggested : input.amount;
-      // Предложение тоже проверяем: потолок могли снизить после настройки шкалы.
+      // Предложение тоже проверяем: шкалу и потолок могли снизить после расчёта.
       if (!Number.isInteger(amount) || amount < 0 || amount > settings.raise_cap) throw new KpiError(422, "bad_amount");
     }
-    const redecided = row.status === "approved" || row.status === "rejected";
     const needComment =
       row.status === "insufficient" ||
       (input.status === "approved" && amount !== suggested) ||
@@ -204,7 +254,7 @@ export async function decideRaise(
         status: row.status,
         approved_amount: numOrNull(row.approved_amount),
         decided_by: row.decided_by,
-        decided_at: row.decided_at === null ? null : new Date(row.decided_at).toISOString(),
+        decided_at: iso(row.decided_at),
         comment: row.comment,
       });
     }

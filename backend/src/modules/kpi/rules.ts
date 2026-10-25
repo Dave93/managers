@@ -29,10 +29,10 @@ export function isScore(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 100;
 }
 
-// Строка, не-пробельных символов не меньше min
+// Строка, букв и цифр не меньше min: пробелы, пунктуация и невидимые символы не считаются
 export function commentOk(c: unknown, min: number): boolean {
   if (typeof c !== "string") return false;
-  return [...c.replace(/\s/g, "")].length >= min;
+  return (c.match(/[\p{L}\p{N}]/gu) ?? []).length >= min;
 }
 
 export function violationHint(count: number, penalty: number): number {

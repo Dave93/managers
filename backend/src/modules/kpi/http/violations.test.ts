@@ -208,7 +208,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(past.body.period).toBe(P5);
       expect(new Date(past.body.occurred_at).toISOString()).toBe(new Date("2025-05-10T09:00:00+05:00").toISOString());
 
-      await db.insert(kpi_periods).values({ period: P5, status: "closed" });
+      // Строка месяца уже есть (её создаёт запись нарушения): закрываем upsert-ом.
+      await db.insert(kpi_periods).values({ period: P5, status: "closed" }).onConflictDoUpdate({ target: kpi_periods.period, set: { status: "closed" } });
       try {
         const before = uploadDirs();
         const closed = await postForm(ev, base, [PNG()]);
@@ -275,7 +276,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const e = await cook();
       const author = await evaluator(e.terminal_id);
       const v = (await postForm(author, { employee_id: e.id, comment: "Нарушение" })).body as ViolationRow;
-      await db.insert(kpi_periods).values({ period: P5, status: "closed" });
+      // Строка месяца уже есть (её создаёт запись нарушения): закрываем upsert-ом.
+      await db.insert(kpi_periods).values({ period: P5, status: "closed" }).onConflictDoUpdate({ target: kpi_periods.period, set: { status: "closed" } });
       try {
         const denied = await api(author, "POST", `/api/kpi/violations/${v.id}/cancel`, { reason: "Записал по ошибке" });
         expect(denied.status).toBe(403);

@@ -4,6 +4,7 @@ import { loadScopes, parsePeriod, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { canEvaluate, canSeeEmployee, loadDirectory } from "./directory";
 import { KpiError } from "./errors";
+import { iso } from "./iso";
 import { loadSettings } from "./settings";
 import { reviewDeadline } from "./time";
 import type { EmployeeRow } from "./types";
@@ -99,7 +100,7 @@ export async function listEmployeeRows(
             id: rv.id,
             status: rv.status as "draft" | "submitted",
             score_pct: rv.score_pct === null ? null : Number(rv.score_pct),
-            submitted_at: rv.submitted_at,
+            submitted_at: iso(rv.submitted_at),
             late: rv.submitted_at ? new Date(rv.submitted_at).getTime() > deadline : nowMs > deadline,
           }
         : null,

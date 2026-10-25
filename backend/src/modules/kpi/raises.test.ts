@@ -23,6 +23,7 @@ const row = (o: Partial<RaiseRow> = {}): RaiseRow => ({
   decided_at: null,
   comment: null,
   periods_closed: false,
+  stale: false,
   ...o,
 });
 

@@ -31,9 +31,9 @@ export function requireAny(actor: Actor, perms: string[]): void {
   if (!perms.some((p) => actor.perms.has(p))) throw new KpiError(403, "forbidden");
 }
 
-// Вся сеть: HR, согласующие и головной офис.
+// Вся сеть: HR и согласующие; головной офис — только вместе с kpi.view (раздел 8 спеки).
 export function seesNetwork(actor: Actor): boolean {
-  return has(actor, "kpi.manage") || has(actor, "kpi.approve") || actor.isHq;
+  return has(actor, "kpi.manage") || has(actor, "kpi.approve") || (actor.isHq && has(actor, "kpi.view"));
 }
 
 export function viewsTerminal(actor: Actor, terminalId: string): boolean {

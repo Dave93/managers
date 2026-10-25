@@ -1,4 +1,4 @@
-import { kpi_settings } from "backend/drizzle/schema";
+import { kpi_raise_tiers, kpi_settings } from "backend/drizzle/schema";
 import { sql } from "drizzle-orm";
 import type { DbLike } from "./access";
 import { KpiError } from "./errors";
@@ -21,6 +21,13 @@ export async function saveSettings(db: DbLike, patch: Partial<KpiSettings>, user
   const current = await loadSettings(db);
   const bad2 = validateSettingsPatch({ ...current, ...patch });
   if (bad2) throw new KpiError(422, bad2);
+  if (patch.raise_cap !== undefined) {
+    // Потолок не ниже суммы любой ступени (спека 6.7). Лок тот же, что у saveTiers: шкала и потолок
+    // не меняются одновременно. Вызывающий держит транзакцию (PUT /kpi/settings).
+    await db.execute(sql`select pg_advisory_xact_lock(hashtext('kpi_raise_tiers'))`);
+    const [{ max }] = await db.select({ max: sql<string | null>`max(${kpi_raise_tiers.amount})` }).from(kpi_raise_tiers);
+    if (max !== null && patch.raise_cap < Number(max)) throw new KpiError(422, "cap_below_tiers");
+  }
   for (const [key, value] of Object.entries(patch)) {
     await db
       .insert(kpi_settings)

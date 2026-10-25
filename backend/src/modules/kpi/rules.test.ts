@@ -26,6 +26,14 @@ describe("ввод", () => {
     expect(R.commentOk("ок да", 5)).toBe(false);
     expect(R.commentOk("опоздал 3 раза", 5)).toBe(true);
     expect(R.commentOk(undefined, 1)).toBe(false);
+    // Считаются только буквы и цифры.
+    expect(R.commentOk(".....", 3)).toBe(false);
+    expect(R.commentOk("!?-—…", 1)).toBe(false);
+    expect(R.commentOk("​​​​​", 3)).toBe(false); // zero-width space
+    expect(R.commentOk(" ⁠﻿‍", 1)).toBe(false);
+    expect(R.commentOk("а.б.в", 3)).toBe(true);
+    expect(R.commentOk("toʻgʻri", 7)).toBe(true); // ʻ (U+02BB) в узбекской латинице — буква
+    expect(R.commentOk("1 2", 2)).toBe(true);
   });
   it("violationHint", () => {
     expect(R.violationHint(0, 10)).toBe(100);

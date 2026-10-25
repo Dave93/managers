@@ -4,6 +4,7 @@ import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { terminalNames, userNames } from "../directory";
 import { KpiError, run } from "../errors";
+import { iso } from "../iso";
 import type { KpiUserOption, ScopeRow } from "../types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,7 +37,7 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
           card_title: r.card_id ? (cardTitle.get(r.card_id) ?? null) : null,
           terminal_id: r.terminal_id,
           terminal_name: r.terminal_id ? (tNames.get(r.terminal_id) ?? null) : null,
-          created_at: r.created_at,
+          created_at: iso(r.created_at),
         }));
       }),
     { permission: "kpi.manage" }
@@ -74,7 +75,8 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
             .values({ user_id: userId, card_id: cardId, terminal_id: terminalId, created_by: user!.id })
             .returning();
         });
-        return row;
+        // Строка как есть, время — в ISO, как во всех ответах.
+        return { ...row, created_at: iso(row.created_at) };
       }),
     { permission: "kpi.manage", body: t.Record(t.String(), t.Any()) }
   )

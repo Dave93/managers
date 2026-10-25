@@ -16,22 +16,39 @@ import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, terminalNames, userNames, type DirEmployee } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
+import { iso } from "./iso";
 import { enqueue } from "./notify";
-import { isPeriodClosed } from "./periods";
+import { isPeriodClosed, lockPeriodShared } from "./periods";
 import { commentOk, type Scope } from "./rules";
 import { loadSettings } from "./settings";
 import { checkPhoto, savePhoto, uploadsBase } from "./storage";
-import { periodOf, type Period } from "./time";
+import { addMonths, dayStart, periodOf, type Period } from "./time";
 import type { ViolationRow } from "./types";
 
 type VRow = typeof kpi_violations.$inferSelect;
 
 const FUTURE_SLACK_MS = 5 * 60 * 1000;
+// Дата и время с явным смещением: Z или ±hh:mm. Без смещения время читалось бы в поясе сервера.
+const OCCURRED_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,6})?)?(Z|[+-]\d{2}:\d{2})$/i;
 
 const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
   (db as DrizzleDB).transaction((tx) => fn(tx));
 
-const iso = (v: string): string => new Date(v).toISOString();
+// Есть ли открытый спор по оценке или нарушению.
+export async function hasOpenDispute(db: DbLike, subjectType: "review" | "violation", subjectId: string): Promise<boolean> {
+  const d = await db
+    .select({ id: kpi_disputes.id })
+    .from(kpi_disputes)
+    .where(
+      and(
+        eq(kpi_disputes.subject_type, subjectType),
+        eq(kpi_disputes.subject_id, subjectId),
+        eq(kpi_disputes.status, "open")
+      )
+    )
+    .limit(1);
+  return d.length > 0;
+}
 
 // Строки базы в ответ API: имена, фото и открытые споры одним пакетом запросов.
 async function toRows(db: DbLike, rows: VRow[]): Promise<ViolationRow[]> {
@@ -150,12 +167,22 @@ export async function createViolation(
   const current = now();
   let occurredAt = current;
   if (input.occurred_at !== undefined && input.occurred_at !== null && input.occurred_at !== "") {
+    if (typeof input.occurred_at !== "string" || !OCCURRED_RE.test(input.occurred_at)) {
+      throw new KpiError(422, "bad_occurred_at");
+    }
     occurredAt = new Date(input.occurred_at);
-    if (Number.isNaN(occurredAt.getTime()) || occurredAt.getTime() > current.getTime() + FUTURE_SLACK_MS) {
+    // Не в будущем (с запасом на часы) и не раньше первого числа прошлого месяца по Ташкенту.
+    const earliest = dayStart(addMonths(periodOf(current), -1), 1);
+    if (
+      Number.isNaN(occurredAt.getTime()) ||
+      occurredAt.getTime() > current.getTime() + FUTURE_SLACK_MS ||
+      occurredAt.getTime() < earliest.getTime()
+    ) {
       throw new KpiError(422, "bad_occurred_at");
     }
   }
   const period = periodOf(occurredAt);
+  // Ранняя проверка без блокировки: в закрытый месяц не пишем файлы. Решает проверка в транзакции.
   if (await isPeriodClosed(db, period)) throw new KpiError(409, "period_closed");
 
   const violationId = randomUUID();
@@ -165,8 +192,8 @@ export async function createViolation(
     for (const f of photos) saved.push(await savePhoto(f, violationId, (p) => attempted.push(p)));
 
     return await inTx(db, async (tx) => {
-      // Месяц могли закрыть, пока писались файлы.
-      if (await isPeriodClosed(tx, period)) throw new KpiError(409, "period_closed");
+      // Месяц могли закрыть, пока писались файлы; под FOR SHARE его не закроют до конца записи.
+      if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
       const [row] = await tx
         .insert(kpi_violations)
         .values({
@@ -220,11 +247,13 @@ export async function createViolation(
   }
 }
 
-// Отмена без проверки автора: её зовёт и спор, и cancelViolation. Блокирует строку.
+// Отмена без проверки автора и спора: её зовёт и разбор спора, и cancelViolation. Блокирует строку,
+// затем месяц (FOR SHARE): закрытие не пройдёт посреди отмены.
 export async function cancelViolationTx(tx: DbLike, id: string, reason: string, userId: string): Promise<ViolationRow> {
   if (!UUID_RE.test(id)) throw new KpiError(404, "not_found");
   const [v] = await tx.select().from(kpi_violations).where(eq(kpi_violations.id, id)).for("update");
   if (!v) throw new KpiError(404, "not_found");
+  await lockPeriodShared(tx, v.period);
   if (v.status === "cancelled") throw new KpiError(409, "already_cancelled");
   const [row] = await tx
     .update(kpi_violations)
@@ -245,8 +274,10 @@ export async function cancelViolation(db: DbLike, actor: Actor, id: string, reas
     const [v] = await tx.select().from(kpi_violations).where(eq(kpi_violations.id, id)).for("update");
     if (!v) throw new KpiError(404, "not_found");
     // Автор — пока месяц открыт; согласующий — всегда.
-    const author = v.recorded_by === actor.userId && !(await isPeriodClosed(tx, v.period));
+    const author = v.recorded_by === actor.userId && !(await lockPeriodShared(tx, v.period));
     if (!author && !has(actor, "kpi.approve")) throw new KpiError(403, "forbidden");
+    // Оспоренное нарушение снимает только разбор спора; openDispute блокирует ту же строку.
+    if (await hasOpenDispute(tx, "violation", v.id)) throw new KpiError(409, "open_dispute");
     if (!commentOk(reason, 3)) throw new KpiError(422, "comment_required");
     return cancelViolationTx(tx, id, reason, actor.userId);
   });

@@ -386,7 +386,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const ev = await evaluator(e.terminal_id);
       const id = (await draft(ev, P4, e.id, scores(FULL))).body.review.id as string;
       expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
-      await db.insert(kpi_periods).values({ period: P4, status: "closed" });
+      // Строка месяца уже есть (её создаёт отправка): закрываем upsert-ом.
+      await db.insert(kpi_periods).values({ period: P4, status: "closed" }).onConflictDoUpdate({ target: kpi_periods.period, set: { status: "closed" } });
 
       const f = (await form(ev, P4, e.id)).body as ReviewForm;
       expect(f.period_status).toBe("closed");

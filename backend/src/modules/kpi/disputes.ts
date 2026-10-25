@@ -1,14 +1,15 @@
 // Споры по оценкам и нарушениям: открытие, разбор, список.
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_disputes, kpi_periods, kpi_review_events, kpi_reviews, kpi_violations } from "backend/drizzle/schema";
+import { kpi_disputes, kpi_review_events, kpi_reviews, kpi_violations } from "backend/drizzle/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { has, loadScopes, parsePeriod, seesNetwork, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, terminalNames, userNames, type DirEmployee } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
+import { iso } from "./iso";
 import { enqueue } from "./notify";
-import { isPeriodClosed } from "./periods";
+import { lockPeriodShared } from "./periods";
 import { changeReviewTx, type ItemInput } from "./reviews";
 import { commentOk, type Scope } from "./rules";
 import { loadSettings } from "./settings";
@@ -23,8 +24,6 @@ type Subject = { terminal_id: string; card_id: string | null };
 
 const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
   (db as DrizzleDB).transaction((tx) => fn(tx));
-
-const iso = (v: string): string => new Date(v).toISOString();
 
 // Нарушение уникального индекса: код может лежать и в самой ошибке, и в cause.
 const isUniqueViolation = (e: any): boolean => e?.code === "23505" || e?.cause?.code === "23505";
@@ -100,7 +99,7 @@ async function toRows(db: DbLike, actor: Actor | null, rows: DRow[], l?: Loaded)
       status: r.status as "open" | "accepted" | "rejected",
       resolution_comment: r.resolution_comment,
       resolved_by_name: r.resolved_by ? (names.get(r.resolved_by) ?? null) : null,
-      resolved_at: r.resolved_at ? iso(r.resolved_at) : null,
+      resolved_at: iso(r.resolved_at),
       created_at: iso(r.created_at),
       can_resolve: actor !== null && r.status === "open" && canHandle(actor, scopes, r, loaded),
     };
@@ -166,11 +165,9 @@ export async function openDispute(
     if (now().getTime() > disputeDeadline(period, settings.dispute_deadline_day).getTime()) {
       throw new KpiError(409, "dispute_window_closed");
     }
-    // Строка месяца блокируется после предмета спора (порядок как у closePeriod: цикла нет):
+    // Строка месяца блокируется после предмета спора, как у всех пишущих (цикла нет):
     // закрытие месяца не проскочит между проверкой и вставкой спора.
-    await tx.insert(kpi_periods).values({ period, status: "open" }).onConflictDoNothing({ target: kpi_periods.period });
-    await tx.select().from(kpi_periods).where(eq(kpi_periods.period, period)).for("update");
-    if (await isPeriodClosed(tx, period)) throw new KpiError(409, "period_closed");
+    if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
 
     const reason = input.reason.trim();
     let row: DRow;

@@ -1,5 +1,6 @@
 // Общие фикстуры HTTP-тестов KPI. Импортировать только динамически и только
 // внутри ветки «есть тестовое окружение»: tests/helpers/http падает без него при импорте.
+import { expect } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { drizzleDb } from "backend/src/lib/db";
 import type { DrizzleDB } from "@backend/lib/db";
@@ -43,6 +44,29 @@ export async function setup(): Promise<{ db: DrizzleDB }> {
 export function setNow(iso: string | null): void {
   if (iso === null) delete process.env.KPI_FAKE_NOW;
   else process.env.KPI_FAKE_NOW = iso;
+}
+
+// Время в ответах — ISO 8601 UTC с миллисекундами. Обходит ответ целиком: каждое поле
+// *_at и *_deadline (не null) обязано быть в этом виде, а поля из required — встретиться хотя бы раз.
+const TS_KEY = /(_at|_deadline)$/;
+const ISO_UTC = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+export function expectIsoTimestamps(body: unknown, required: string[]): void {
+  const seen = new Set<string>();
+  const bad: string[] = [];
+  const walk = (v: unknown, path: string) => {
+    if (Array.isArray(v)) v.forEach((x, i) => walk(x, `${path}[${i}]`));
+    else if (v !== null && typeof v === "object") {
+      for (const [k, x] of Object.entries(v)) {
+        if (TS_KEY.test(k) && x !== null) {
+          seen.add(k);
+          if (typeof x !== "string" || !ISO_UTC.test(x)) bad.push(`${path}.${k}=${JSON.stringify(x)}`);
+        } else walk(x, `${path}.${k}`);
+      }
+    }
+  };
+  walk(body, "$");
+  expect(bad).toEqual([]);
+  for (const k of required) expect(seen.has(k) ? k : `нет поля ${k}`).toBe(k);
 }
 
 export async function api(s: Session | null, method: string, path: string, body?: unknown) {
