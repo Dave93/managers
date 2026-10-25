@@ -92,17 +92,22 @@ describe("неверный текст балла", () => {
     const v1 = scoreTextChange(v0, "1")!;
     const v2 = scoreTextChange(v1, "15")!;
     const v3 = scoreTextChange(v2, "150")!;
-    expect(v3).toEqual({ score: 15, note: "", invalid: true });
-    // Флаг уже стоит: повторный неверный ввод ничего не меняет.
-    expect(scoreTextChange(v3, "1500")).toBeNull();
-    // Стёрли «0»: балл прежний, но флаг снимается.
-    expect(scoreTextChange(v3, "15")).toEqual({ score: 15, note: "", invalid: false });
-    expect(scoreTextChange({ score: 7, note: "" }, "7.5")).toEqual({ score: 7, note: "", invalid: true });
+    expect(v3).toEqual({ score: 15, note: "", invalid: true, text: "150" });
+    // Тот же неверный текст — менять нечего; другой неверный — запоминаем, балл прежний.
+    expect(scoreTextChange(v3, "150")).toBeNull();
+    expect(scoreTextChange(v3, "1500")).toEqual({ score: 15, note: "", invalid: true, text: "1500" });
+    // Стёрли «0»: балл прежний, флаг и текст снимаются.
+    const back = scoreTextChange(v3, "15")!;
+    expect(back).toEqual({ score: 15, note: "", invalid: false });
+    expect("text" in back).toBe(false);
+    expect(scoreTextChange({ score: 7, note: "" }, "7.5")).toEqual({ score: 7, note: "", invalid: true, text: "7.5" });
     expect(scoreTextChange({ score: 50, note: "x" }, "50")).toBeNull();
     expect(scoreTextChange({ score: 50, note: "x" }, "")).toEqual({ score: null, note: "x", invalid: false });
   });
   it("pickScore снимает флаг и при том же балле", () => {
-    expect(pickScore({ score: 50, note: "x", invalid: true }, 50)).toEqual({ score: 50, note: "x", invalid: false });
+    const picked = pickScore({ score: 50, note: "x", invalid: true, text: "50x" }, 50);
+    expect(picked).toEqual({ score: 50, note: "x", invalid: false });
+    expect("text" in picked).toBe(false);
     expect(pickScore({ score: 50, note: "", invalid: true }, null)).toEqual({ score: null, note: "", invalid: false });
   });
   it("bad_score_text блокирует черновик, отправку и изменение", () => {

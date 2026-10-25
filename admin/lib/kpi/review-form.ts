@@ -5,8 +5,11 @@ import type { KpiItemInput, ReviewFormItem } from "@admin/lib/kpi-api";
 export const SCORE_BUTTONS = [0, 25, 50, 75, 100] as const;
 
 export type FormItemLite = Pick<ReviewFormItem, "item_id" | "source" | "weight" | "score" | "note" | "suggestion">;
-/** invalid — в поле балла неверный текст («150», «7.5»): score хранит последний верный балл, сохранять нельзя. */
-export type DraftItem = { score: number | null; note: string; invalid?: boolean };
+/**
+ * invalid — в поле балла неверный текст («150», «7.5»): score хранит последний верный балл, сохранять нельзя.
+ * text — этот неверный текст: строка пересоздаётся при смене вкладки и должна показать то же, что видел оценщик.
+ */
+export type DraftItem = { score: number | null; note: string; invalid?: boolean; text?: string };
 export type Draft = Record<string, DraftItem>;
 export type ReviewMode = "readonly" | "new" | "draft" | "change";
 
@@ -34,14 +37,14 @@ export function parseScoreInput(text: string): number | null | "invalid" {
 /** Ввод в поле балла. Верное число — новый балл, неверный текст — флаг invalid при прежнем балле. null — менять нечего. */
 export function scoreTextChange(value: DraftItem, text: string): DraftItem | null {
   const p = parseScoreInput(text);
-  if (p === "invalid") return value.invalid ? null : { ...value, invalid: true };
+  if (p === "invalid") return value.invalid && value.text === text ? null : { ...value, invalid: true, text };
   if (p === value.score && !value.invalid) return null;
-  return { ...value, score: p, invalid: false };
+  return pickScore(value, p);
 }
 
 /** Кнопка балла, «Принять», «Нет данных»: балл ставится, неверный текст сбрасывается, даже если балл тот же. */
 export function pickScore(value: DraftItem, score: number | null): DraftItem {
-  return { ...value, score, invalid: false };
+  return { score, note: value.note, invalid: false };
 }
 
 const itemDraft = (i: FormItemLite, draft: Draft): DraftItem => draft[i.item_id] ?? { score: i.score, note: i.note ?? "" };

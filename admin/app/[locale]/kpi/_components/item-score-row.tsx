@@ -37,7 +37,7 @@ export function ItemScoreRow({
   const manual = item.source === "manual";
   // Текст поля живёт отдельно: «5» по пути к «50» не должен сбрасывать набранное.
   // Неверный текст хранится в черновике флагом invalid, чтобы форма не отправила последний верный балл.
-  const [text, setText] = useState(scoreStr(value.score));
+  const [text, setText] = useState(() => (value.invalid ? value.text ?? "" : scoreStr(value.score)));
   const invalid = value.invalid === true;
 
   // Балл сменили снаружи (новая форма с сервера) — показываем его. Пока текст неверный, его не трогаем.
