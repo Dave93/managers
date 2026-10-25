@@ -23,12 +23,12 @@ import {
   headersAt,
   mappingIssues,
   previewBody,
+  replaceNotice,
   toMapping,
   type MappingDraft,
 } from "@admin/lib/kpi/attendance";
 import { KpiApiError, kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL } from "@admin/lib/kpi/filters";
-import { formatTashkent } from "@admin/lib/kpi/format";
 import { monthLabel } from "@admin/lib/kpi/periods";
 import { qk } from "../../_components/use-kpi";
 import { ImportResult } from "./import-result";
@@ -59,7 +59,7 @@ export function ImportWizard({ period }: { period: string }) {
     queryFn: () => kpiApi.attendance.imports(period),
     retry: shouldRetry,
   });
-  const existing = (imports.data ?? []).find((r) => r.status === "committed") ?? null;
+  const notice = replaceNotice({ data: imports.data, error: imports.error }, period);
 
   const sheet = useMemo(() => parsed?.sheets.find((s) => s.name === sheetName) ?? null, [parsed, sheetName]);
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
@@ -87,6 +87,8 @@ export function ImportWizard({ period }: { period: string }) {
     setSheetName(name);
     setHeaderRow(hr);
     setDraft(guessMapping(headersAt(sheetRows, hr)));
+    // Причины прошлой неудачи относятся к прежним листу и колонкам.
+    setFailed(null);
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -119,6 +121,7 @@ export function ImportWizard({ period }: { period: string }) {
   };
 
   const setField = (key: keyof MappingDraft, value: string) => {
+    setFailed(null);
     setDraft((d) => {
       const next = { ...d };
       if (value === ALL) delete next[key];
@@ -327,12 +330,7 @@ export function ImportWizard({ period }: { period: string }) {
         </ul>
       )}
 
-      {existing && (
-        <p className="text-sm text-amber-700">
-          За {monthLabel(period)} уже загружен «{existing.file_name}» {formatTashkent(existing.created_at)}. Новая
-          загрузка заменит его
-        </p>
-      )}
+      {notice && <p className="text-sm text-amber-700">{notice}</p>}
 
       <Button type="button" className="h-11" disabled={errors.length > 0 || committing} onClick={commit}>
         {committing ? "Загружаю…" : `Загрузить за ${monthLabel(period)}`}

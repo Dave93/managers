@@ -1,5 +1,13 @@
 // Загрузка Workly: подсказки по колонкам, проверки формы и подписи.
-import type { AttendanceField, AttendanceMapping, AttendanceSheetPreview, UnmatchedReason } from "@admin/lib/kpi-api";
+import type {
+  AttendanceField,
+  AttendanceImportRow,
+  AttendanceMapping,
+  AttendanceSheetPreview,
+  UnmatchedReason,
+} from "@admin/lib/kpi-api";
+import { formatTashkent } from "./format";
+import { monthLabel } from "./periods";
 import type { Tone } from "./status";
 
 /** Колонки выбраны по номеру (0 — A); у необязательных полей может не быть. */
@@ -77,7 +85,9 @@ export function mappingIssues(m: MappingDraft): { errors: string[]; warnings: st
   if (m.external_id === undefined) errors.push("Выберите колонку с табельным номером");
   if (m.date === undefined) errors.push("Выберите колонку с датой");
   if (m.late_minutes === undefined) warnings.push("Колонка опоздания не выбрана: опоздания будут считаться нулевыми");
-  if (m.absent === undefined) warnings.push("Колонка прогула не выбрана: прогулы не будут учтены");
+  if (m.absent === undefined) {
+    warnings.push("Колонка прогулов не выбрана: прогулы не попадут в расчёт, дни без отметок пропускаются");
+  }
   return { errors, warnings };
 }
 
@@ -116,7 +126,36 @@ export const UNMATCHED_REASON_TEXT: Record<UnmatchedReason, string> = {
   bad_time: "Время прихода или ухода не распознано",
   bad_late: "Опоздание — не целое число минут",
   duplicate_day: "Вторая строка за тот же день, учтена первая",
+  not_working_day: "Нерабочий день (выходной, отпуск, больничный)",
+  no_marks: "Нет отметок прихода и ухода",
 };
+
+/** Итоги по сопоставленным дням: по ним видно, учлись ли прогулы и опоздания. */
+export function importTotalsText(t: Pick<AttendanceImportRow, "days_present" | "days_late" | "days_absent">): string {
+  return `Дней: ${t.days_present}, с опозданием: ${t.days_late}, прогулов: ${t.days_absent}`;
+}
+
+export const HISTORY_CHECK_FAILED = "Не удалось проверить прошлые загрузки";
+
+/**
+ * Предупреждение перед загрузкой: действующий импорт месяца будет заменён целиком.
+ * Историю загрузить не удалось и данных нет — так и пишем, а не молчим.
+ */
+export function replaceNotice(
+  history: { data: readonly AttendanceImportRow[] | undefined; error: unknown },
+  period: string
+): string | null {
+  const existing = history.data?.find((r) => r.status === "committed");
+  if (existing) {
+    return (
+      `За ${monthLabel(period)} уже загружен «${existing.file_name}» ${formatTashkent(existing.created_at)}, ` +
+      `сопоставлено строк: ${existing.rows_matched}. Новая загрузка заменит его. ` +
+      "Сотрудники, которых нет в новом файле, потеряют данные за месяц"
+    );
+  }
+  if (history.error != null && history.data === undefined) return HISTORY_CHECK_FAILED;
+  return null;
+}
 
 export const IMPORT_STATUS: Record<"committed" | "replaced", { label: string; tone: Tone }> = {
   committed: { label: "Действует", tone: "green" },

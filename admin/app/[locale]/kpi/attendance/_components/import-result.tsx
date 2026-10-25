@@ -3,7 +3,7 @@ import React from "react";
 import { Link } from "@admin/i18n/routing";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import type { AttendanceImportRow } from "@admin/lib/kpi-api";
-import { UNMATCHED_REASON_TEXT } from "@admin/lib/kpi/attendance";
+import { UNMATCHED_REASON_TEXT, importTotalsText } from "@admin/lib/kpi/attendance";
 
 // Значение вкладки «Сотрудники» в settings/page.tsx.
 const EMPLOYEES_TAB = "employees";
@@ -15,6 +15,7 @@ export function ImportResult({ row }: { row: AttendanceImportRow }) {
       <p className="text-sm">
         Строк: {row.rows_total} · сопоставлено: {row.rows_matched} · не сопоставлено: {row.rows_unmatched}
       </p>
+      <p className="text-sm">{importTotalsText(row)}</p>
       {row.rows_unmatched > 0 && (
         <>
           <div className="max-h-80 overflow-auto rounded-md border">
