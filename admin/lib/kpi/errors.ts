@@ -113,7 +113,7 @@ export const KPI_ERROR_TEXT: Record<string, string> = {
   too_many_items: "Слишком много строк за раз (до 500)",
   bad_growth: "Рост — число от −50 до 200 %",
   bad_items: "Отметьте каждый пункт проверки",
-  bad_checked_at: "Время проверки в будущем",
+  bad_checked_at: "Неверное время проверки",
   comment_too_long: "Комментарий длиннее 1000 символов",
   future_period: "Этот месяц ещё не начался",
   no_indicators: "Показатели балла не заведены: нужен запуск seed-cards",

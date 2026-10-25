@@ -1,7 +1,7 @@
 import React from "react";
 import type { BranchIndicatorResult } from "@admin/lib/kpi-api";
 import { cn } from "@admin/lib/utils";
-import { NO_DATA_REASON_TEXT, cellTone, detailsText, formatFact, formatPoints, formatScore } from "@admin/lib/kpi/branch";
+import { NO_DATA_REASON_TEXT, cellTone, detailsText, formatFact, indicatorLine, noDataDetailsText } from "@admin/lib/kpi/branch";
 import type { Tone } from "@admin/lib/kpi/status";
 
 const BORDER: Record<Tone, string> = {
@@ -14,10 +14,14 @@ const BORDER: Record<Tone, string> = {
 
 const num = (n: number) => String(n).replace(".", ",");
 
-/** Карточка показателя балла филиала: факт, пороги, баллы и вклад или причина «нет данных». */
-export function IndicatorCard({ r }: { r: BranchIndicatorResult }) {
+/**
+ * Карточка показателя балла филиала: факт, пороги, баллы и вклад или причина «нет данных».
+ * all — все показатели версии филиала: при неполном покрытии весом карточка показывает фактический вес.
+ */
+export function IndicatorCard({ r, all }: { r: BranchIndicatorResult; all: readonly BranchIndicatorResult[] }) {
   const tone = cellTone({ points: r.points, data_status: r.data_status });
   const details = r.data_status === "ok" ? detailsText(r.code, r.details) : "";
+  const noDataDetails = r.data_status === "ok" ? "" : noDataDetailsText(r.code, r.reason, r.details);
   return (
     <div className={cn("space-y-1.5 rounded-lg border p-3", BORDER[tone])}>
       <div className="flex items-baseline justify-between gap-2">
@@ -30,14 +34,13 @@ export function IndicatorCard({ r }: { r: BranchIndicatorResult }) {
       </p>
       {r.data_status === "ok" ? (
         <>
-          <p className="text-sm">
-            {formatPoints(r.points)} балла · вес {r.weight}&nbsp;% → {formatScore(r.weighted)}
-          </p>
+          <p className="text-sm">{indicatorLine(r, all)}</p>
           {details !== "" && <p className="text-xs text-muted-foreground">{details}</p>}
         </>
       ) : (
         <p className="text-sm text-muted-foreground">
           Нет данных: {(r.reason && NO_DATA_REASON_TEXT[r.reason]) || "причина не указана"}
+          {noDataDetails !== "" && ` · ${noDataDetails}`}
         </p>
       )}
     </div>

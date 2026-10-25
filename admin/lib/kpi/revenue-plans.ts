@@ -19,23 +19,34 @@ export function planDraft(rows: readonly RevenuePlanRow[]): PlanDraft {
   return Object.fromEntries(rows.map((r) => [r.terminal_id, r.amount === null ? "" : String(r.amount)]));
 }
 
-/** Подсказка заполняет только филиалы, у которых есть выручка прошлого года; остальные не трогает. */
+/**
+ * Подсказка от прошлого года. "empty" («Заполнить») пишет только в пустые поля, заполненные оставляет (kept);
+ * "all" («Заменить все») переписывает каждое поле. Филиалы без выручки прошлого года не трогаются ни в каком режиме.
+ */
 export function applySuggestions(
   draft: PlanDraft,
   rows: readonly RevenueSuggestRow[],
-): { draft: PlanDraft; filled: number; missing: number } {
+  mode: "empty" | "all" = "empty",
+): { draft: PlanDraft; filled: number; missing: number; kept: number } {
   const next: PlanDraft = { ...draft };
   let filled = 0;
   let missing = 0;
+  let kept = 0;
   for (const r of rows) {
     if (!Object.hasOwn(draft, r.terminal_id)) continue;
-    if (r.suggested === null) missing++;
+    if (mode === "empty" && draft[r.terminal_id].trim() !== "") kept++;
+    else if (r.suggested === null) missing++;
     else {
       next[r.terminal_id] = String(r.suggested);
       filled++;
     }
   }
-  return { draft: next, filled, missing };
+  return { draft: next, filled, missing, kept };
+}
+
+export function suggestSummary(r: { filled: number; missing: number; kept: number }): string {
+  const s = `Заполнено: ${r.filled}. Без выручки прошлого года: ${r.missing}`;
+  return r.kept > 0 ? `${s}. Оставлено заполненных: ${r.kept}` : s;
 }
 
 /** Что отправить: только изменённые строки; пустое поле при прежнем плане удаляет план. */

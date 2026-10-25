@@ -2,21 +2,45 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { Link } from "@admin/i18n/routing";
-import { kpiApi, type BranchNetwork } from "@admin/lib/kpi-api";
-import { INDICATOR_LABEL, cellTone, formatFact, formatPoints, formatScore, networkAverage, tierCounts, tierTone } from "@admin/lib/kpi/branch";
+import { kpiApi, type BranchCell, type BranchNetwork } from "@admin/lib/kpi-api";
+import {
+  COMPUTE_CONFIRM_TEXT,
+  INDICATOR_LABEL,
+  cellTone,
+  coverageText,
+  defaultBranchPeriod,
+  formatFact,
+  formatPoints,
+  formatScore,
+  monthIncomplete,
+  networkAverage,
+  tierCounts,
+  tierTone,
+} from "@admin/lib/kpi/branch";
 import { kpiErrorText, loadErrors, outcomeKnown, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
-import { calendarPeriod, monthLabel, periodOptions } from "@admin/lib/kpi/periods";
+import { monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import type { Tone } from "@admin/lib/kpi/status";
 import { cn } from "@admin/lib/utils";
 import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
+import { PreliminaryNote } from "../_components/preliminary-note";
 import { ScreenGate } from "../_components/screen-gate";
 import { StaleNote } from "../_components/stale-note";
-import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
+import { qk, useKpiPerms } from "../_components/use-kpi";
 
 const CELL: Record<Tone, string> = {
   green: "bg-green-50 text-green-800",
@@ -45,9 +69,9 @@ export default function NetworkPage() {
 function NetworkScreen() {
   const now = useMemo(() => new Date(), []);
   const { access } = useKpiPerms();
-  const me = useKpiMe();
   const [picked, setPicked] = useState<string | null>(null);
-  const period = picked ?? me.data?.current_period ?? calendarPeriod(now);
+  // По умолчанию последний завершённый месяц: текущий ещё не прожит, балл по нему предварительный
+  const period = picked ?? defaultBranchPeriod(now);
   const options = useMemo(() => {
     const base = periodOptions(now, 12);
     return base.includes(period) ? base : [period, ...base];
@@ -88,6 +112,7 @@ function NetworkScreen() {
 
 function ComputeButton({ period }: { period: string }) {
   const qc = useQueryClient();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   // Защёлка: второй тап до ответа сервера не уходит запросом.
   const latch = useRef(false);
   const compute = useMutation({
@@ -112,10 +137,32 @@ function ComputeButton({ period }: { period: string }) {
     latch.current = true;
     compute.mutate(period);
   };
+  // Текущий месяц (на момент нажатия): сначала подтверждение, что результат будет предварительным
+  const onClick = () => {
+    if (latch.current) return;
+    if (monthIncomplete(period, new Date())) setConfirmOpen(true);
+    else run();
+  };
   return (
-    <Button type="button" className="h-11" disabled={compute.isPending} onClick={run}>
-      {compute.isPending ? "Считаем…" : "Пересчитать"}
-    </Button>
+    <>
+      <Button type="button" className="h-11" disabled={compute.isPending} onClick={onClick}>
+        {compute.isPending ? "Считаем…" : "Пересчитать"}
+      </Button>
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Пересчитать {monthLabel(period)}?</AlertDialogTitle>
+            <AlertDialogDescription>{COMPUTE_CONFIRM_TEXT}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-11">Отмена</AlertDialogCancel>
+            <AlertDialogAction className="h-11" onClick={run}>
+              Посчитать
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -131,6 +178,8 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
           ? "За этот месяц расчёта нет"
           : `Посчитано ${formatTashkent(data.computed_at)}, версия ${data.version}`}
       </p>
+
+      {data.version !== null && data.preliminary && <PreliminaryNote />}
 
       {rows.length === 0 ? (
         <p className="rounded-md border p-4 text-sm text-muted-foreground">
@@ -162,42 +211,48 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
                   <TableHead>Филиал</TableHead>
                   <TableHead className="text-right">Балл</TableHead>
                   <TableHead>Ступень</TableHead>
-                  {data.indicators.map((i) => (
-                    <TableHead key={i.code} className="text-right">
-                      {INDICATOR_LABEL[i.code]}
+                  {data.columns.map((code) => (
+                    <TableHead key={code} className="text-right">
+                      {INDICATOR_LABEL[code] ?? code}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((r) => (
-                  <TableRow key={r.terminal_id}>
-                    <TableCell>
-                      <Link
-                        href={`/kpi/branch/${r.terminal_id}?period=${period}`}
-                        className="inline-flex min-h-11 items-center underline-offset-2 hover:underline"
-                      >
-                        {r.terminal_name ?? "Филиал без названия"}
-                      </Link>
-                    </TableCell>
-                    <TableCell className="text-right font-medium">{formatScore(r.score)}</TableCell>
-                    <TableCell>
-                      <KpiBadge tone={tierTone(r.tier_pct)}>{r.tier_pct}&nbsp;%</KpiBadge>
-                    </TableCell>
-                    {data.indicators.map((i) => {
-                      const cell = r.cells[i.code];
-                      return (
-                        <TableCell
-                          key={i.code}
-                          title={cell && cell.points !== null ? `${formatPoints(cell.points)} балла` : undefined}
-                          className={cn("text-right whitespace-nowrap", CELL[cellTone(cell)])}
+                {rows.map((r) => {
+                  const coverage = coverageText(Object.values(r.cells).filter((c): c is BranchCell => c !== undefined));
+                  return (
+                    <TableRow key={r.terminal_id}>
+                      <TableCell>
+                        <Link
+                          href={`/kpi/branch/${r.terminal_id}?period=${period}`}
+                          className="inline-flex min-h-11 items-center underline-offset-2 hover:underline"
                         >
-                          {formatFact(cell?.fact ?? null)}
-                        </TableCell>
-                      );
-                    })}
-                  </TableRow>
-                ))}
+                          {r.terminal_name ?? "Филиал без названия"}
+                        </Link>
+                      </TableCell>
+                      <TableCell className="text-right whitespace-nowrap">
+                        <div className="font-medium">{formatScore(r.score)}</div>
+                        {coverage !== "" && <div className="text-xs text-muted-foreground">{coverage}</div>}
+                      </TableCell>
+                      <TableCell>
+                        <KpiBadge tone={tierTone(r.tier_pct)}>{r.tier_pct}&nbsp;%</KpiBadge>
+                      </TableCell>
+                      {data.columns.map((code) => {
+                        const cell = r.cells[code];
+                        return (
+                          <TableCell
+                            key={code}
+                            title={cell && cell.points !== null ? `${formatPoints(cell.points)} балла` : undefined}
+                            className={cn("text-right whitespace-nowrap", CELL[cellTone(cell)])}
+                          >
+                            {formatFact(cell?.fact ?? null)}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

@@ -5,16 +5,17 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type BranchBreakdown } from "@admin/lib/kpi-api";
 import { canOpen } from "@admin/lib/kpi/access";
-import { formatScore, nextTierText, tierTone } from "@admin/lib/kpi/branch";
+import { countedLater, coverageText, defaultBranchPeriod, formatScore, nextTierText, tierTone } from "@admin/lib/kpi/branch";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatPct, formatTashkent } from "@admin/lib/kpi/format";
-import { calendarPeriod, monthLabel, periodOptions } from "@admin/lib/kpi/periods";
+import { monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import { failedTitles } from "@admin/lib/kpi/sanitary";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { PeriodSelect } from "../../_components/period-select";
+import { PreliminaryNote } from "../../_components/preliminary-note";
 import { ScreenGate } from "../../_components/screen-gate";
 import { StaleNote } from "../../_components/stale-note";
-import { qk, useKpiMe, useKpiPerms } from "../../_components/use-kpi";
+import { qk, useKpiPerms } from "../../_components/use-kpi";
 import { IndicatorCard } from "./_components/indicator-card";
 
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
@@ -36,10 +37,10 @@ function BranchScreen() {
   const params = useSearchParams();
   const now = useMemo(() => new Date(), []);
   const { perms } = useKpiPerms();
-  const me = useKpiMe();
 
+  // Без месяца в адресе — последний завершённый, как на «Сети»
   const asked = params.get("period");
-  const period = asked && PERIOD_RE.test(asked) ? asked : (me.data?.current_period ?? calendarPeriod(now));
+  const period = asked && PERIOD_RE.test(asked) ? asked : defaultBranchPeriod(now);
   const options = useMemo(() => {
     const base = periodOptions(now, 12);
     return base.includes(period) ? base : [period, ...base];
@@ -84,6 +85,8 @@ function BranchScreen() {
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       ) : (
         <>
+          {data.version !== null && data.preliminary && <PreliminaryNote />}
+
           <div className="space-y-1">
             {data.version === null || data.score === null ? (
               <p className="text-sm text-muted-foreground">Балл за этот месяц не посчитан</p>
@@ -94,6 +97,9 @@ function BranchScreen() {
                   {data.tier_pct !== null && (
                     <KpiBadge tone={tierTone(data.tier_pct)}>{data.tier_pct}&nbsp;%</KpiBadge>
                   )}
+                  {coverageText(data.indicators) !== "" && (
+                    <span className="text-sm text-muted-foreground">{coverageText(data.indicators)}</span>
+                  )}
                 </div>
                 <p className="text-sm">{nextTierText(data.next_tier)}</p>
                 <p className="text-sm text-muted-foreground">Посчитано {formatTashkent(data.computed_at)}</p>
@@ -103,7 +109,7 @@ function BranchScreen() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             {data.indicators.map((r) => (
-              <IndicatorCard key={r.code} r={r} />
+              <IndicatorCard key={r.code} r={r} all={data.indicators} />
             ))}
           </div>
 
@@ -133,6 +139,7 @@ function BranchScreen() {
                         </span>
                         <span className="font-medium">{formatPct(c.pct)}</span>
                       </div>
+                      {countedLater(c, data.computed_at) && <KpiBadge tone="amber">войдёт в следующий пересчёт</KpiBadge>}
                       {failed.length > 0 && <p className="text-muted-foreground">Не выполнено: {failed.join(", ")}</p>}
                       {c.comment && <p>{c.comment}</p>}
                     </li>

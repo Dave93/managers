@@ -11,6 +11,7 @@ import type {
   NoDataReason,
 } from "@admin/lib/kpi-api";
 import { formatPct, formatSum, roundTo } from "./format";
+import { addMonths, calendarPeriod } from "./periods";
 import type { Tone } from "./status";
 
 const NBSP = " ";
@@ -120,6 +121,71 @@ export function detailsText(code: BranchIndicatorCode, d: Record<string, number 
       return v ? `Вовремя ${int(v[0])} из ${int(v[1])} · опозданий ${int(v[2])}, прогулов ${int(v[3])}` : "";
     }
   }
+}
+
+// --- Предварительная версия, покрытие весом, склады, проверки после расчёта ---
+
+export const PRELIMINARY_TEXT =
+  "Предварительно: месяц ещё не закончился, продажи к месячному плану занижены. Пересчитайте после окончания месяца";
+export const COMPUTE_CONFIRM_TEXT = "Месяц ещё не закончился — результат будет предварительным. Посчитать?";
+
+/** Месяц экранов балла по умолчанию — последний завершённый: у текущего продажи к месячному плану ещё не набраны. */
+export function defaultBranchPeriod(now: Date): string {
+  return addMonths(calendarPeriod(now), -1);
+}
+
+/** Месяц ещё идёт (или не начался): расчёт за него будет предварительным. */
+export function monthIncomplete(period: string, now: Date): boolean {
+  return period >= calendarPeriod(now);
+}
+
+type WeightRow = { weight: number; data_status: "ok" | "no_data" };
+
+const okWeight = (list: readonly WeightRow[]) => list.reduce((a, r) => (r.data_status === "ok" ? a + r.weight : a), 0);
+
+/** Доля веса показателей с данными среди всех строк версии филиала, % до 0,1; строк нет — null. */
+export function weightCoverage(list: readonly WeightRow[]): number | null {
+  const total = list.reduce((a, r) => a + r.weight, 0);
+  if (!(total > 0)) return null;
+  return roundTo((100 * okWeight(list)) / total, 1);
+}
+
+/** «по 85 % веса», когда балл посчитан не по всему весу; иначе пусто. */
+export function coverageText(list: readonly WeightRow[]): string {
+  const c = weightCoverage(list);
+  return c === null || c >= 100 ? "" : `по ${comma(String(c))}${NBSP}% веса`;
+}
+
+/** Вес показателя; при неполном покрытии — и фактическая доля в балле (вес ÷ вес с данными). */
+export function weightText(weight: number, list: readonly WeightRow[]): string {
+  const base = `вес ${int(weight)}${NBSP}%`;
+  const c = weightCoverage(list);
+  const ok = okWeight(list);
+  if (c === null || c >= 100 || !(ok > 0)) return base;
+  return `${base} → фактически ${comma(String(roundTo((100 * weight) / ok, 1)))}${NBSP}%`;
+}
+
+/** Строка карточки показателя с данными: баллы, вес и вклад в балл филиала. */
+export function indicatorLine(r: { points: number | null; weight: number; weighted: number | null }, list: readonly WeightRow[]): string {
+  return `${formatPoints(r.points)} балла · ${weightText(r.weight, list)} · вклад ${formatScore(r.weighted)}`;
+}
+
+// «из 1 склада», «из 2 складов», «из 21 склада», «из 11 складов»
+const storesWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "склада" : "складов");
+
+/** Подробность «нет данных»: у себестоимости без принятой сверки — сколько складов принято. */
+export function noDataDetailsText(code: BranchIndicatorCode, reason: NoDataReason | null, d: Record<string, number | null>): string {
+  if (code !== "food_cost" || (reason !== "not_accepted" && reason !== "no_reconciliation")) return "";
+  const total = d.stores_total;
+  const done = d.stores_reconciled;
+  if (typeof total !== "number" || typeof done !== "number" || !Number.isFinite(total) || !Number.isFinite(done)) return "";
+  return `принято ${int(done)} из ${int(total)} ${storesWord(total)}`;
+}
+
+/** Проверка заведена после расчёта версии: в балле её ещё нет. Решает created_at — checked_at бывает задним числом. */
+export function countedLater(c: { created_at: string }, computedAt: string | null): boolean {
+  if (computedAt === null) return false;
+  return new Date(c.created_at).getTime() > new Date(computedAt).getTime();
 }
 
 // --- Настройки показателей ---

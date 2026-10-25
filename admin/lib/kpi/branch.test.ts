@@ -75,3 +75,52 @@ describe("настройки балла", () => {
     expect(B.parseDecimal("x")).toBeNull();
   });
 });
+
+describe("предварительная версия, покрытие, склады, проверки (финальные исправления)", () => {
+  const NB = " ";
+  it("месяц по умолчанию — последний завершённый; текущий месяц — не завершён", () => {
+    const now = new Date("2026-10-25T10:00:00Z");
+    expect(B.defaultBranchPeriod(now)).toBe("2026-09-01");
+    // 31 октября 19:30 UTC — уже 1 ноября по Ташкенту
+    expect(B.defaultBranchPeriod(new Date("2026-10-31T19:30:00Z"))).toBe("2026-10-01");
+    expect(B.defaultBranchPeriod(new Date("2026-01-10T10:00:00Z"))).toBe("2025-12-01");
+    expect([B.monthIncomplete("2026-10-01", now), B.monthIncomplete("2026-09-01", now), B.monthIncomplete("2026-11-01", now)]).toEqual([true, false, true]);
+  });
+  it("тексты пометки и подтверждения", () => {
+    expect(B.PRELIMINARY_TEXT).toBe("Предварительно: месяц ещё не закончился, продажи к месячному плану занижены. Пересчитайте после окончания месяца");
+    expect(B.COMPUTE_CONFIRM_TEXT).toBe("Месяц ещё не закончился — результат будет предварительным. Посчитать?");
+  });
+  it("покрытие балла по весу и фактический вес", () => {
+    const full = [{ weight: 30, data_status: "ok" as const }, { weight: 70, data_status: "ok" as const }];
+    // санитарии нет: данные у 85 % веса
+    const part = [
+      { weight: 30, data_status: "ok" as const }, { weight: 20, data_status: "ok" as const }, { weight: 20, data_status: "ok" as const },
+      { weight: 15, data_status: "no_data" as const }, { weight: 15, data_status: "ok" as const },
+    ];
+    expect([B.weightCoverage(full), B.weightCoverage(part), B.weightCoverage([])]).toEqual([100, 85, null]);
+    expect(B.weightCoverage([{ weight: 1, data_status: "ok" }, { weight: 2, data_status: "no_data" }])).toBe(33.3);
+    expect([B.coverageText(full), B.coverageText([]), B.coverageText(part)]).toEqual(["", "", `по 85${NB}% веса`]);
+    expect(B.coverageText([{ weight: 1, data_status: "ok" }, { weight: 2, data_status: "no_data" }])).toBe(`по 33,3${NB}% веса`);
+    expect(B.weightText(30, full)).toBe(`вес 30${NB}%`);
+    expect(B.weightText(15, part)).toBe(`вес 15${NB}% → фактически 17,6${NB}%`);
+    expect(B.indicatorLine({ points: 95, weight: 15, weighted: 16.76 }, part)).toBe(`95,0 балла · вес 15${NB}% → фактически 17,6${NB}% · вклад 16,76`);
+    expect(B.indicatorLine({ points: 104, weight: 30, weighted: 31.2 }, full)).toBe(`104,0 балла · вес 30${NB}% · вклад 31,20`);
+  });
+  it("себестоимость без данных: принято N из M складов", () => {
+    expect(B.noDataDetailsText("food_cost", "not_accepted", { stores_total: 2, stores_reconciled: 1 })).toBe("принято 1 из 2 складов");
+    expect(B.noDataDetailsText("food_cost", "no_reconciliation", { stores_total: 1, stores_reconciled: 0 })).toBe("принято 0 из 1 склада");
+    expect(B.noDataDetailsText("food_cost", "not_accepted", { stores_total: 21, stores_reconciled: 3 })).toBe("принято 3 из 21 склада");
+    expect(B.noDataDetailsText("food_cost", "not_accepted", { stores_total: 11, stores_reconciled: 3 })).toBe("принято 3 из 11 складов");
+    expect(B.noDataDetailsText("food_cost", "no_store", {})).toBe("");
+    expect(B.noDataDetailsText("food_cost", "not_accepted", { stores_total: 2 })).toBe("");
+    expect(B.noDataDetailsText("sales", "not_accepted", { stores_total: 2, stores_reconciled: 1 })).toBe("");
+    expect(B.noDataDetailsText("food_cost", null, { stores_total: 2, stores_reconciled: 1 })).toBe("");
+  });
+  it("санитарная проверка после расчёта войдёт в следующий пересчёт", () => {
+    const at = "2026-10-20T10:00:00.000Z";
+    expect(B.countedLater({ created_at: "2026-10-20T10:00:00.001Z" }, at)).toBe(true);
+    expect(B.countedLater({ created_at: at }, at)).toBe(false);
+    expect(B.countedLater({ created_at: "2026-10-19T10:00:00.000Z" }, at)).toBe(false);
+    expect(B.countedLater({ created_at: "2026-10-21T10:00:00.000Z" }, null)).toBe(false);
+  });
+});

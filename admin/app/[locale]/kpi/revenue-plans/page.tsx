@@ -3,6 +3,16 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
@@ -11,7 +21,15 @@ import { kpiApi, type RevenuePlanRow, type RevenueSuggestRow } from "@admin/lib/
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatSum } from "@admin/lib/kpi/format";
 import { calendarPeriod, monthLabel } from "@admin/lib/kpi/periods";
-import { applySuggestions, parseGrowth, planChanges, planDraft, planPeriods, type PlanDraft } from "@admin/lib/kpi/revenue-plans";
+import {
+  applySuggestions,
+  parseGrowth,
+  planChanges,
+  planDraft,
+  planPeriods,
+  suggestSummary,
+  type PlanDraft,
+} from "@admin/lib/kpi/revenue-plans";
 import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
@@ -70,27 +88,37 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
   const [growthError, setGrowthError] = useState(false);
   const [base, setBase] = useState<Record<string, RevenueSuggestRow>>({});
   const [issues, setIssues] = useState<string[]>([]);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const saved = useMemo(() => planDraft(rows), [rows]);
   const baseLabel = Object.values(base)[0]?.base_period;
 
+  // mode: «Заполнить» пишет только в пустые поля, «Заменить все» — во все
   const suggest = useMutation({
-    mutationFn: (g: number) => kpiApi.revenuePlans.suggest(period, g),
-    onSuccess: (list) => {
-      const r = applySuggestions(draft, list);
+    mutationFn: (v: { g: number; mode: "empty" | "all" }) => kpiApi.revenuePlans.suggest(period, v.g),
+    onSuccess: (list, v) => {
+      const r = applySuggestions(draft, list, v.mode);
       setDraft(r.draft);
       setBase(Object.fromEntries(list.map((s) => [s.terminal_id, s])));
       setIssues([]);
-      toast.success(`Заполнено: ${r.filled}. Без выручки прошлого года: ${r.missing}`);
+      toast.success(suggestSummary(r));
     },
     onError: (e) => toast.error(kpiErrorText(e)),
   });
 
-  const runSuggest = () => {
+  const runSuggest = (mode: "empty" | "all") => {
     if (suggest.isPending) return;
     const g = parseGrowth(growth);
     setGrowthError(g === null);
     if (g === null) return;
-    suggest.mutate(g);
+    suggest.mutate({ g, mode });
+  };
+
+  // «Заменить все» стирает введённое руками: сначала подтверждение, рост проверяем до диалога
+  const askReplace = () => {
+    if (suggest.isPending) return;
+    const g = parseGrowth(growth);
+    setGrowthError(g === null);
+    if (g !== null) setReplaceOpen(true);
   };
 
   // Защёлка: второй тап до ответа сервера запросом не уходит.
@@ -143,8 +171,11 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
               setGrowthError(false);
             }}
           />
-          <Button type="button" variant="outline" className="h-11" disabled={suggest.isPending} onClick={runSuggest}>
-            {suggest.isPending ? "Считаем…" : "Заполнить от прошлого года"}
+          <Button type="button" variant="outline" className="h-11" disabled={suggest.isPending || busy} onClick={() => runSuggest("empty")}>
+            {suggest.isPending && suggest.variables?.mode === "empty" ? "Считаем…" : "Заполнить от прошлого года"}
+          </Button>
+          <Button type="button" variant="outline" className="h-11" disabled={suggest.isPending || busy} onClick={askReplace}>
+            {suggest.isPending && suggest.variables?.mode === "all" ? "Считаем…" : "Заменить все"}
           </Button>
         </div>
         {growthError && (
@@ -152,8 +183,29 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
             Рост — число от −50 до 200
           </p>
         )}
-        <p className="text-xs text-muted-foreground">Выручка того же месяца год назад, умноженная на рост. Результат округляется до 1 000 сум</p>
+        <p className="text-xs text-muted-foreground">
+          Выручка того же месяца год назад, умноженная на рост. Результат округляется до 1 000 сум. «Заполнить» трогает только пустые
+          поля, «Заменить все» — все, где есть выручка прошлого года
+        </p>
       </div>
+
+      <AlertDialog open={replaceOpen} onOpenChange={setReplaceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Заменить все планы?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Введённые суммы заменятся подсказкой от прошлого года. Филиалы без выручки прошлого года не изменятся. В базу попадёт
+              после «Сохранить»
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-11">Отмена</AlertDialogCancel>
+            <AlertDialogAction className="h-11" onClick={() => runSuggest("all")}>
+              Заменить все
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {rows.length === 0 ? (
         <p className="rounded-md border p-4 text-sm text-muted-foreground">Нет филиалов, для которых можно задать план</p>

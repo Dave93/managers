@@ -49,6 +49,8 @@ describe("тексты ошибок", () => {
     for (const c of PLAN5_SERVER_CODES) expect(KPI_ERROR_TEXT[c]).toBeTruthy();
     expect(KPI_ERROR_TEXT.out_of_scope).toBe("Нет доступа: не входит в ваши назначения");
     expect(KPI_ERROR_TEXT.no_indicators).toBe("Показатели балла не заведены: нужен запуск seed-cards");
+    expect(KPI_ERROR_TEXT.bad_checked_at).toBe("Неверное время проверки");
+    expect(KPI_ERROR_TEXT.period_closed).toBe("Месяц закрыт. Изменить может только HR");
   });
   it("подробности плана 5", () => {
     expect(kpiErrorText(new KpiApiError(422, "weights_sum", { error: "weights_sum", sum: 99 }))).toBe("Сумма весов активных показателей должна быть 100 % (сейчас 99 %)");
