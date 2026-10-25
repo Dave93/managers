@@ -6,6 +6,8 @@ import { drizzleDb } from "backend/src/lib/db";
 import type { DrizzleDB } from "@backend/lib/db";
 import {
   employees,
+  kpi_attendance,
+  kpi_attendance_imports,
   kpi_card_items,
   kpi_cards,
   kpi_disputes,
@@ -104,7 +106,7 @@ export async function ensureStaffRole(db: DrizzleDB, code: string): Promise<stri
 // Сотрудник с меткой «Тест …» в имени: cleanupKpi находит и удаляет по ней.
 export async function makeEmployee(
   db: DrizzleDB,
-  o: { terminal_id?: string; role_code?: string; is_trainee?: boolean; first_name?: string } = {}
+  o: { terminal_id?: string; role_code?: string; is_trainee?: boolean; first_name?: string; external_id?: string | null; active?: boolean } = {}
 ): Promise<{ id: string; terminal_id: string }> {
   const terminal_id = o.terminal_id ?? randomUUID();
   const staff_role_id = o.role_code ? await ensureStaffRole(db, o.role_code) : null;
@@ -116,7 +118,8 @@ export async function makeEmployee(
       terminal_id,
       staff_role_id,
       is_trainee: o.is_trainee ?? false,
-      active: true,
+      external_id: o.external_id ?? null,
+      active: o.active ?? true,
     })
     .returning({ id: employees.id });
   return { id: row.id, terminal_id };
@@ -141,6 +144,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   if (!process.env.DATABASE_URL?.endsWith("/managers_tickets_test")) {
     throw new Error("cleanupKpi: DATABASE_URL не указывает на managers_tickets_test");
   }
+  await db.delete(kpi_attendance);
+  await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);
   await db.delete(kpi_review_items);
   await db.delete(kpi_reviews);

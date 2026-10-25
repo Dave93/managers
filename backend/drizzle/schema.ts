@@ -3082,3 +3082,47 @@ export const kpi_notifications = pgTable(
     index("kpi_notifications_status_idx").on(t.status, t.created_at),
   ]
 );
+
+// Импорт посещаемости из Workly за месяц. status: committed | replaced.
+// mapping — { sheet, header_row, mapping }; unmatched — до 500 несопоставленных строк.
+export const kpi_attendance_imports = pgTable(
+  "kpi_attendance_imports",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    file_name: varchar("file_name", { length: 255 }).notNull(),
+    uploaded_by: uuid("uploaded_by").notNull(),
+    mapping: jsonb("mapping").notNull(),
+    rows_total: integer("rows_total").default(0).notNull(),
+    rows_matched: integer("rows_matched").default(0).notNull(),
+    rows_unmatched: integer("rows_unmatched").default(0).notNull(),
+    unmatched: jsonb("unmatched").default([]).notNull(),
+    status: varchar("status", { length: 16 }).default("committed").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_attendance_imports_period_idx").on(t.period, t.status)]
+);
+
+// День сотрудника из импорта. terminal_id — филиал сотрудника на момент импорта.
+export const kpi_attendance = pgTable(
+  "kpi_attendance",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    check_in: timestamp("check_in", { withTimezone: true, mode: "string" }),
+    check_out: timestamp("check_out", { withTimezone: true, mode: "string" }),
+    late_minutes: integer("late_minutes").default(0).notNull(),
+    absent: boolean("absent").default(false).notNull(),
+    import_id: uuid("import_id")
+      .notNull()
+      .references(() => kpi_attendance_imports.id),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_attendance_employee_day_uq").on(t.employee_id, t.day),
+    index("kpi_attendance_import_idx").on(t.import_id),
+    index("kpi_attendance_terminal_day_idx").on(t.terminal_id, t.day),
+  ]
+);

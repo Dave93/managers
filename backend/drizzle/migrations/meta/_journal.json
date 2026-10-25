@@ -260,6 +260,13 @@
       "when": 1792899411885,
       "tag": "0036_kpi_core",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792917763109,
+      "tag": "0037_kpi_attendance",
+      "breakpoints": true
     }
   ]
 }
