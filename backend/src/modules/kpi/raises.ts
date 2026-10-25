@@ -277,7 +277,7 @@ export async function decideRaise(
         recipient_kind: "employee",
         employee_id: row.employee_id,
         kind: "raise_approved",
-        payload: { quarter_start: row.quarter_start, amount, avg_pct: numOrNull(row.avg_pct) },
+        payload: { raise_id: id, quarter_start: row.quarter_start, amount, avg_pct: numOrNull(row.avg_pct) },
         dedupe_key: `raise_approved:${id}:${fresh.decided_at}`,
       });
     }

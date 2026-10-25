@@ -170,7 +170,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         .where(and(eq(kpi_notifications.kind, "raise_approved"), eq(kpi_notifications.employee_id, A.id)));
       expect(n).toHaveLength(1);
       expect(n[0].recipient_kind).toBe("employee");
-      expect(n[0].payload).toEqual({ quarter_start: Q, amount: 300000, avg_pct: 94 });
+      expect(n[0].payload).toEqual({ raise_id: row.id, quarter_start: Q, amount: 300000, avg_pct: 94 });
+      expect(n[0].payload).toMatchObject({ quarter_start: Q, amount: 300000 });
+      expect(typeof (n[0].payload as any).amount).toBe("number");
       expect(n[0].dedupe_key).toStartWith(`raise_approved:${row.id}:`);
     });
 

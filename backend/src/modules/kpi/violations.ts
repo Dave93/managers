@@ -144,12 +144,13 @@ export async function createViolation(
   if (settings.violation_photo_required && photos.length === 0) throw new KpiError(422, "photo_required");
 
   let itemTitle: string | null = null;
+  let itemTitleUz: string | null = null;
   const itemId = input.card_item_id ? input.card_item_id : null;
   if (itemId !== null) {
     const [item] =
       UUID_RE.test(itemId) && emp.card_id !== null
         ? await db
-            .select({ id: kpi_card_items.id, title_ru: kpi_card_items.title_ru })
+            .select({ id: kpi_card_items.id, title_ru: kpi_card_items.title_ru, title_uz: kpi_card_items.title_uz })
             .from(kpi_card_items)
             .where(
               and(
@@ -162,6 +163,7 @@ export async function createViolation(
         : [];
     if (!item) throw new KpiError(422, "unknown_item");
     itemTitle = item.title_ru;
+    itemTitleUz = item.title_uz;
   }
 
   const current = now();
@@ -224,7 +226,14 @@ export async function createViolation(
         recipient_kind: "employee",
         employee_id: emp.id,
         kind: "violation_recorded",
-        payload: { violation_id: violationId, period, item_title_ru: itemTitle, comment: row.comment },
+        payload: {
+          violation_id: violationId,
+          period,
+          item_title_ru: itemTitle,
+          item_title_uz: itemTitleUz,
+          occurred_at: iso(row.occurred_at),
+          comment: row.comment,
+        },
         dedupe_key: `violation_recorded:${violationId}`,
       });
       return (await toRows(tx, [row]))[0];

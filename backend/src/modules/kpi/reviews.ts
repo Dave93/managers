@@ -521,6 +521,7 @@ export async function changeReviewTx(
   const oldScores = Object.fromEntries(before.map((i) => [i.item_id, i.score]));
   const newScores = Object.fromEntries(after.map((i) => [i.item_id, i.score]));
   const titles = new Map(before.map((i) => [i.item_id, i.title_ru]));
+  const titlesUz = new Map(before.map((i) => [i.item_id, i.title_uz]));
   const changes = diffScores(oldScores, newScores).map((c) => ({ ...c, title_ru: titles.get(c.item_id) ?? "" }));
   const noteChanged = after.filter((a, idx) => a.note !== before[idx].note);
   if (changes.length === 0 && noteChanged.length === 0) throw new KpiError(422, "no_changes");
@@ -557,7 +558,15 @@ export async function changeReviewTx(
     recipient_kind: "employee",
     employee_id: review.employee_id,
     kind: "review_changed",
-    payload: { period, review_id: review.id, score_pct: newPct, version, changes, comment: text },
+    payload: {
+      period,
+      review_id: review.id,
+      score_pct: newPct,
+      version,
+      // title_uz только в уведомлении: событие оценки хранит changes как раньше.
+      changes: changes.map((c) => ({ ...c, title_uz: titlesUz.get(c.item_id) ?? "" })),
+      comment: text,
+    },
     dedupe_key: `review_changed:${review.id}:${version}`,
   });
   const emp = await loadEmployee(tx, review.employee_id);

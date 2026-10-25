@@ -132,6 +132,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(notes[0].recipient_kind).toBe("user");
       expect(notes[0].user_id).toBe(ev.userId);
       expect(notes[0].kind).toBe("dispute_opened");
+      expect(notes[0].payload).toMatchObject({
+        subject_type: "review",
+        subject_id: reviewId,
+        period: P,
+        reason: "Не согласен с баллом",
+      });
+      expect(typeof (notes[0].payload as any).employee_name).toBe("string");
+      expect((notes[0].payload as any).employee_name).toContain("Тест Повар");
 
       const again = await dispute(ev, "review", reviewId);
       expect(again.status).toBe(409);
@@ -238,7 +246,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         decision: "accepted",
         comment: "Пересмотрели оценку",
         period: P,
+        score_pct: 91.67,
       });
+      expect(typeof (notes[0].payload as any).score_pct).toBe("number");
 
       const closed = await resolve(ev, d.id, { decision: "rejected", comment: "Повторный разбор" });
       expect(closed.status).toBe(409);
@@ -269,7 +279,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const form = (await api(ev, "GET", `/api/kpi/reviews/form?period=${P}&employee_id=${e.id}`)).body as ReviewForm;
       expect(form.review!.version).toBe(1);
       expect((await events(ev, reviewId)).map((x) => x.kind)).toEqual(["submitted", "dispute_opened", "dispute_resolved"]);
-      expect((await note(`dispute_resolved:${d.id}`))[0].payload).toMatchObject({ decision: "rejected" });
+      expect((await note(`dispute_resolved:${d.id}`))[0].payload).toMatchObject({ decision: "rejected", comment: "Оценка верна" });
     });
 
     it("спор по нарушению: accepted — нарушение cancelled; по отменённому — 409 already_cancelled; rejected — остаётся", async () => {

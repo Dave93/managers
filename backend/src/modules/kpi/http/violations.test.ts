@@ -111,8 +111,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         violation_id: v.id,
         period: P5,
         item_title_ru: v.item_title_ru,
+        item_title_uz: expect.any(String),
+        occurred_at: v.occurred_at,
         comment: "Грязный фартук",
       });
+      expect(Object.keys(notes[0].payload as object)).toEqual(expect.arrayContaining(["item_title_uz", "occurred_at"]));
     });
 
     it("GIF — bad_photo_type, 4 фото — too_many_photos, 11 МБ — photo_too_large; на диск ничего не пишется", async () => {

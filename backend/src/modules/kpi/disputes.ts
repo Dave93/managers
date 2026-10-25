@@ -203,11 +203,20 @@ export async function openDispute(
         created_at: sql`clock_timestamp()`,
       });
     }
+    const [who] = await loadDirectory(tx, { employeeIds: [employee_id], includeInactive: true });
     await enqueue(tx, {
       recipient_kind: "user",
       user_id: notifyUser,
       kind: "dispute_opened",
-      payload: { dispute_id: row.id, subject_type, subject_id, employee_id, period, reason },
+      payload: {
+        dispute_id: row.id,
+        subject_type,
+        subject_id,
+        employee_id,
+        period,
+        employee_name: who ? `${who.first_name} ${who.last_name}`.trim() : "",
+        reason,
+      },
       dedupe_key: `dispute_opened:${row.id}`,
     });
     return (await toRows(tx, actor, [row]))[0];
@@ -235,12 +244,18 @@ export async function resolveDispute(
     }
     if (d.status !== "open") throw new KpiError(409, "dispute_closed");
     const comment = input.comment.trim();
+    let newScorePct: number | null = null;
 
     if (input.decision === "accepted") {
       if (d.subject_type === "review") {
         if (!input.items || input.items.length === 0) throw new KpiError(422, "items_required");
         // Оценка меняется в этой же транзакции: либо всё сразу, либо ничего.
         await changeReviewTx(tx, actor, d.subject_id, input.items, comment, undefined, { rightsChecked: true });
+        const [rv] = await tx
+          .select({ score_pct: kpi_reviews.score_pct })
+          .from(kpi_reviews)
+          .where(eq(kpi_reviews.id, d.subject_id));
+        newScorePct = rv?.score_pct == null ? null : Number(rv.score_pct);
       } else if (d.subject_type === "violation") {
         await cancelViolationTx(tx, d.subject_id, comment, actor.userId);
       }
@@ -281,6 +296,7 @@ export async function resolveDispute(
           decision: input.decision,
           comment,
           period: d.period,
+          ...(newScorePct === null ? {} : { score_pct: newScorePct }),
         },
         dedupe_key: `dispute_resolved:${d.id}`,
       });

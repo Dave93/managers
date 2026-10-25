@@ -189,6 +189,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((notes[0].payload as any).version).toBe(2);
       expect((notes[0].payload as any).comment).toBe("Ошибся при вводе");
       expect((notes[0].payload as any).changes).toHaveLength(1);
+      expect(typeof (notes[0].payload as any).changes[0].title_uz).toBe("string");
 
       // Чужой пункт, кривой балл и снятие ручного балла.
       expect((await api(ev, "PUT", `/api/kpi/reviews/${id}`, { items: [{ item_id: "00000000-0000-0000-0000-000000000000", score: 1 }], comment: "комментарий" })).body.error).toBe("unknown_item");
