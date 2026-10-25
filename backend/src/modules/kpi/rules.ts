@@ -4,7 +4,8 @@ export const ITEM_SOURCES: ItemSource[] = ["manual", "attendance", "cooking_spee
 
 export type ScoredItem = { item_id: string; weight: number; source: ItemSource; score: number | null };
 
-const round2 = (x: number) => Math.round(x * 100) / 100;
+// Половина вверх без плавающих хвостов (как roundTo в branch-rules.ts и в админке): 1.025 → 1.03, а не 1.02
+const round2 = (x: number) => Math.round(+(x * 100).toPrecision(12)) / 100;
 
 // Σ(score×weight)/Σweight по пунктам с оценкой; пустые выпадают
 export function scorePct(items: ScoredItem[]): number | null {

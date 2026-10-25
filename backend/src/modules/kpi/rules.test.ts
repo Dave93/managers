@@ -11,6 +11,11 @@ describe("scorePct", () => {
     expect(R.scorePct([it_("a", 100, 1), it_("b", 0, 2)])).toBe(33.33);
     expect(R.scorePct([it_("a", null)])).toBeNull();
   });
+  it("половина округляется вверх без плавающих хвостов", () => {
+    expect(R.scorePct([it_("a", 2, 1), it_("b", 1, 39)])).toBe(1.03); // 41/40 = 1.025
+    expect(R.scorePct([it_("a", 0, 1), it_("b", 19, 39)])).toBe(18.53); // 741/40 = 18.525
+    expect(R.quarterRow([1.02, 1.03, null], tiers, 2).avg_pct).toBe(1.03);
+  });
   it("missingManual видит только ручные", () => {
     expect(R.missingManual([it_("a", null), it_("b", null, 1, "attendance"), it_("c", 50)])).toEqual(["a"]);
   });
