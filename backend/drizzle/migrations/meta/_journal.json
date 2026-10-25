@@ -267,6 +267,13 @@
       "when": 1792917763109,
       "tag": "0037_kpi_attendance",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792922078535,
+      "tag": "0038_kpi_telegram",
+      "breakpoints": true
     }
   ]
 }

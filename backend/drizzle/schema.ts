@@ -3126,3 +3126,46 @@ export const kpi_attendance = pgTable(
     index("kpi_attendance_terminal_day_idx").on(t.terminal_id, t.day),
   ]
 );
+
+// Привязка Telegram-чата к сотруднику или оценщику (ровно одно из employee_id / user_id).
+export const kpi_tg_bindings = pgTable(
+  "kpi_tg_bindings",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    telegram_id: bigint("telegram_id", { mode: "number" }).notNull(),
+    employee_id: uuid("employee_id"),
+    user_id: uuid("user_id"),
+    lang: varchar("lang", { length: 2 }).default("ru").notNull(),
+    active: boolean("active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_tg_bindings_telegram_uq").on(t.telegram_id),
+    uniqueIndex("kpi_tg_bindings_employee_active_uq")
+      .on(t.employee_id)
+      .where(sql`${t.active} and ${t.employee_id} is not null`),
+    uniqueIndex("kpi_tg_bindings_user_active_uq")
+      .on(t.user_id)
+      .where(sql`${t.active} and ${t.user_id} is not null`),
+    check("kpi_tg_bindings_one_person", sql`(${t.employee_id} is null) <> (${t.user_id} is null)`),
+  ]
+);
+
+// Одноразовое приглашение в бота (токен в ссылке /start kpi_<token>).
+export const kpi_tg_invites = pgTable(
+  "kpi_tg_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    token: varchar("token", { length: 64 }).notNull(),
+    employee_id: uuid("employee_id"),
+    user_id: uuid("user_id"),
+    expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+    used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+    created_by: uuid("created_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_tg_invites_token_uq").on(t.token),
+    check("kpi_tg_invites_one_person", sql`(${t.employee_id} is null) <> (${t.user_id} is null)`),
+  ]
+);

@@ -20,11 +20,17 @@ import {
   kpi_review_items,
   kpi_reviews,
   kpi_settings,
+  kpi_tg_bindings,
+  kpi_tg_invites,
   kpi_violation_photos,
   kpi_violations,
+  permissions,
+  roles,
+  roles_permissions,
   staff_roles,
+  users,
 } from "backend/drizzle/schema";
-import { eq, like, sql } from "drizzle-orm";
+import { eq, inArray, like, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
 import { seedCards } from "../seed-cards";
@@ -139,6 +145,64 @@ export async function makeScope(
   });
 }
 
+// ---------- Telegram ----------
+
+// Тестовый telegram_id: далеко за пределами реальных id.
+export function newTelegramId(): number {
+  return 9_000_000_000 + Math.floor(Math.random() * 1e8);
+}
+
+// Пользователь test_kpi_<hex>. С perms создаётся роль test_kpi_<hex> с этими правами.
+// Права берутся из permissions по slug и должны уже лежать в тестовой базе.
+export async function makeUser(
+  db: DrizzleDB,
+  o: { perms?: string[]; status?: "active" | "blocked"; first_name?: string } = {}
+): Promise<{ id: string }> {
+  let role_id: string | null = null;
+  if (o.perms?.length) {
+    const found = await db.select({ id: permissions.id, slug: permissions.slug }).from(permissions).where(inArray(permissions.slug, o.perms));
+    const missing = o.perms.filter((p) => !found.some((f) => f.slug === p));
+    if (missing.length) throw new Error(`makeUser: нет прав ${missing.join(", ")}: запустите seed-permissions на managers_tickets_test`);
+    const [role] = await db
+      .insert(roles)
+      .values({ name: "test_kpi", code: "test_kpi_" + randomUUID().replace(/-/g, "").slice(0, 8) })
+      .returning({ id: roles.id });
+    role_id = role.id;
+    await db.insert(roles_permissions).values(found.map((f) => ({ role_id: role.id, permission_id: f.id })));
+  }
+  const [row] = await db
+    .insert(users)
+    .values({
+      login: "test_kpi_" + randomUUID().replace(/-/g, "").slice(0, 8),
+      password: "x",
+      status: o.status ?? "active",
+      first_name: o.first_name ?? "Тест",
+      last_name: "Оценщик",
+      role_id,
+    })
+    .returning({ id: users.id });
+  return { id: row.id };
+}
+
+// Привязка напрямую в таблицу, мимо приглашения.
+export async function bindTelegram(
+  db: DrizzleDB,
+  o: { employee_id?: string; user_id?: string; telegram_id?: number; lang?: "ru" | "uz"; active?: boolean }
+): Promise<{ id: string; telegram_id: number }> {
+  const telegram_id = o.telegram_id ?? newTelegramId();
+  const [row] = await db
+    .insert(kpi_tg_bindings)
+    .values({
+      telegram_id,
+      employee_id: o.employee_id ?? null,
+      user_id: o.user_id ?? null,
+      lang: o.lang ?? "ru",
+      active: o.active ?? true,
+    })
+    .returning({ id: kpi_tg_bindings.id });
+  return { id: row.id, telegram_id };
+}
+
 // Порядок учитывает внешние ключи внутри модуля. kpi_settings чистим целиком,
 // чтобы после тестов снова действовали значения по умолчанию.
 export async function cleanupKpi(db: DrizzleDB): Promise<void> {
@@ -159,6 +223,12 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   await db.delete(kpi_notifications);
   await db.delete(kpi_evaluator_scopes);
   await db.delete(kpi_employee_cards);
+  await db.delete(kpi_tg_invites);
+  await db.delete(kpi_tg_bindings);
+  // Тестовые пользователи и роли (makeUser). Подчёркивание в LIKE экранируем.
+  await db.delete(roles_permissions).where(sql`${roles_permissions.role_id} IN (SELECT id FROM roles WHERE code LIKE 'test\\_kpi\\_%')`);
+  await db.delete(users).where(sql`${users.login} LIKE 'test\\_kpi\\_%'`);
+  await db.delete(roles).where(sql`${roles.code} LIKE 'test\\_kpi\\_%'`);
   await db.delete(employees).where(like(employees.first_name, "Тест%"));
   await db.delete(kpi_settings);
   // Тестовые карты: code вида test_*, подчёркивание экранируем.
