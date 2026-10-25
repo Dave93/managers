@@ -5,7 +5,7 @@ import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { cn } from "@admin/lib/utils";
-import { kpiApi, type EmployeeRow } from "@admin/lib/kpi-api";
+import { kpiApi } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import {
   ALL,
@@ -23,6 +23,7 @@ import { KpiBadge } from "../_components/kpi-badge";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
+import { ReviewSheet } from "./_components/review-sheet";
 
 const STATUS_ORDER: RowStatus[] = ["none", "draft", "submitted", "disputed"];
 
@@ -40,8 +41,8 @@ function ReviewsScreen() {
   const { access } = useKpiPerms();
   const [picked, setPicked] = useState<string | null>(null);
   const [filter, setFilter] = useState<RowFilter>({ terminal_id: ALL, card_id: ALL, status: ALL, search: "" });
-  // Выбранная строка; боковую панель оценки подключает следующая задача.
-  const [selected, setSelected] = useState<EmployeeRow | null>(null);
+  // Храним id, а не строку: после сохранения список обновляется, и панель берёт свежую строку.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const currentPeriod = me.data?.current_period ?? calendarPeriod(now);
   const period = picked ?? currentPeriod;
@@ -58,12 +59,21 @@ function ReviewsScreen() {
   });
 
   const rows = useMemo(() => employees.data ?? [], [employees.data]);
+  // Пока на экране данные прошлого месяца (placeholder), панель не открываем: форма ушла бы в новый период с чужой строкой.
+  const placeholder = employees.isPlaceholderData;
+  const selected = useMemo(
+    () => (placeholder || selectedId === null ? null : rows.find((r) => r.id === selectedId) ?? null),
+    [placeholder, rows, selectedId]
+  );
   const terminals = useMemo(() => terminalOptions(rows), [rows]);
   const cards = useMemo(() => cardOptions(rows), [rows]);
   const counts = useMemo(() => statusCounts(rows), [rows]);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
 
   const set = (patch: Partial<RowFilter>) => setFilter((f) => ({ ...f, ...patch }));
+  const open = (id: string) => {
+    if (!placeholder) setSelectedId(id);
+  };
   const deadlines = me.data && period === me.data.current_period ? me.data.deadlines : null;
 
   return (
@@ -74,7 +84,9 @@ function ReviewsScreen() {
           value={period}
           onChange={(v) => {
             setPicked(v);
-            setSelected(null);
+            setSelectedId(null);
+            // Филиалы и карты берутся из строк месяца: выбранного в новом месяце может не быть.
+            setFilter((f) => ({ ...f, terminal_id: ALL, card_id: ALL }));
           }}
           options={options}
           className="w-44"
@@ -180,7 +192,6 @@ function ReviewsScreen() {
               <TableHead className="hidden sm:table-cell">Карта</TableHead>
               <TableHead>Статус</TableHead>
               <TableHead className="text-right">%</TableHead>
-              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -189,9 +200,17 @@ function ReviewsScreen() {
               return (
                 <TableRow
                   key={r.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
+                  tabIndex={0}
                   data-state={selected?.id === r.id ? "selected" : undefined}
-                  onClick={() => setSelected(r)}
+                  onClick={() => open(r.id)}
+                  onKeyDown={(e) => {
+                    if (e.target !== e.currentTarget) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      open(r.id);
+                    }
+                  }}
                 >
                   <TableCell>
                     <div className="font-medium">{employeeName(r)}</div>
@@ -200,16 +219,25 @@ function ReviewsScreen() {
                   <TableCell className="hidden sm:table-cell">{r.terminal_name ?? "Филиал без названия"}</TableCell>
                   <TableCell className="hidden sm:table-cell">{r.card?.title_ru ?? "—"}</TableCell>
                   <TableCell>
-                    <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
+                    <div className="flex flex-col items-start gap-1">
+                      <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
+                      {r.review?.late && <KpiBadge tone="amber">с опозданием</KpiBadge>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{formatPct(r.review?.score_pct ?? null)}</TableCell>
-                  <TableCell>{r.review?.late && <KpiBadge tone="amber">с опозданием</KpiBadge>}</TableCell>
                 </TableRow>
               );
             })}
           </TableBody>
         </Table>
       )}
+
+      <ReviewSheet
+        period={period}
+        row={selected}
+        commentMin={me.data?.settings.change_comment_min ?? 5}
+        onClose={() => setSelectedId(null)}
+      />
     </div>
   );
 }
