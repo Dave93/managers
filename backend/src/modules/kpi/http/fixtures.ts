@@ -276,12 +276,14 @@ export async function makeTerminal(
 // Заказ в orders за день (местное время без зоны). service_type: по умолчанию COMMON, null пишется как null.
 export async function addOrder(
   db: DrizzleDB,
-  o: { iiko_id: string; day: string; sum: number; service_type?: string | null }
+  o: { iiko_id: string; day: string; sum: number; service_type?: string | null; time?: string }
 ): Promise<string> {
   const id = randomUUID();
+  const at = `${o.day} ${o.time ?? "00:00:00"}`;
   await db.insert(orders).values({
     id,
-    openDateTyped: `${o.day} 00:00:00`,
+    openTime: at,
+    openDateTyped: at,
     restaurantGroupId: o.iiko_id,
     restaurantGroup: BRANCH_MARK,
     dishDiscountSumInt: String(o.sum),
