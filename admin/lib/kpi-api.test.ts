@@ -64,6 +64,10 @@ const cases: [string, (a: KpiApi) => Promise<unknown>, string, string, unknown][
   ["attendance.imports", (a) => a.attendance.imports("2025-09-01"), "GET", "/api/kpi/attendance/imports?period=2025-09-01", null],
   ["employees.setExternalId", (a) => a.employees.setExternalId("e1", "T-1"), "PUT", "/api/kpi/employees/e1/external-id", { external_id: "T-1" }],
   ["employees.setExternalId пусто", (a) => a.employees.setExternalId("e1", null), "PUT", "/api/kpi/employees/e1/external-id", { external_id: null }],
+  ["tg.invite сотруднику", (a) => a.tg.invite({ employee_id: "e1" }), "POST", "/api/kpi/invites", { employee_id: "e1" }],
+  ["tg.invite пользователю", (a) => a.tg.invite({ user_id: "u1" }), "POST", "/api/kpi/invites", { user_id: "u1" }],
+  ["tg.bindings без пустых списков", (a) => a.tg.bindings({ employee_ids: ["e1", "e2"], user_ids: [] }), "GET", "/api/kpi/tg/bindings?employee_ids=e1%2Ce2", null],
+  ["tg.unbind", (a) => a.tg.unbind("b1"), "DELETE", "/api/kpi/tg/bindings/b1", null],
   ["tiers.get", (a) => a.tiers.get(), "GET", "/api/kpi/raise-tiers", null],
   ["tiers.save", (a) => a.tiers.save([{ min_pct: 95, amount: 500000 }]), "PUT", "/api/kpi/raise-tiers", { tiers: [{ min_pct: 95, amount: 500000 }] }],
 ];

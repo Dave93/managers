@@ -17,6 +17,7 @@ import type {
   Card,
   DisputeRow,
   EmployeeRow,
+  KpiInvite,
   KpiUserOption,
   MeResponse,
   PeriodSummary,
@@ -25,6 +26,7 @@ import type {
   ReviewForm,
   ScopeRow,
   Tier,
+  TgBindingRow,
   ViolationRow,
 } from "@backend/modules/kpi/types";
 import type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
@@ -54,6 +56,7 @@ export type {
 } from "@backend/modules/kpi/types";
 export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 export type { KpiUserOption } from "@backend/modules/kpi/types";
+export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
 
 export type KpiItemInput = { item_id: string; score: number | null; note: string | null };
 export type RowStatusFilter = "none" | "draft" | "submitted" | "disputed";
@@ -76,6 +79,8 @@ export type ItemPatch = Partial<ItemCreate> & { active?: boolean };
 export type ScopeCreate = { user_id: string; card_id: string | null; terminal_id: string | null };
 export type ResolveBody = { decision: "accepted" | "rejected"; comment: string; items?: KpiItemInput[] };
 export type DecideBody = { status: "approved" | "rejected"; amount?: number; comment?: string };
+export type TgTarget = { employee_id: string } | { user_id: string };
+export type TgBindingsQuery = { employee_ids?: string[]; user_ids?: string[] };
 export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
 
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
@@ -170,6 +175,14 @@ export function createKpiApi(kpi: any) {
     attendance: {
       commit: (b: AttendanceCommitBody) => call<AttendanceImportRow>(kpi.attendance.commit.post(b)),
       imports: (period: string) => call<AttendanceImportRow[]>(kpi.attendance.imports.get({ query: { period } })),
+    },
+    tg: {
+      invite: (target: TgTarget) => call<KpiInvite>(kpi.invites.post(target)),
+      bindings: (query: TgBindingsQuery) =>
+        call<TgBindingRow[]>(
+          kpi.tg.bindings.get(q({ employee_ids: query.employee_ids?.join(","), user_ids: query.user_ids?.join(",") }))
+        ),
+      unbind: (id: string) => call<unknown>(kpi.tg.bindings({ id }).delete()),
     },
     tiers: {
       get: () => call<Tier[]>(kpi["raise-tiers"].get()),

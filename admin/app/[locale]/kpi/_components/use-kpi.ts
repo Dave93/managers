@@ -43,6 +43,9 @@ export const qk = {
   users: (search: string) => ["kpi_users", search] as const,
   attendanceImports: (period: string) => ["kpi_attendance_imports", period] as const,
   attendanceImportsAll: ["kpi_attendance_imports"] as const,
+  tgBindings: (kind: "employee" | "user", ids: string[]) => ["kpi", "tg_bindings", kind, ids.join(",")] as const,
+  /** Все привязки Telegram — сбрасывается по префиксу. */
+  tgBindingsAll: ["kpi", "tg_bindings"] as const,
 };
 
 /** Права текущего пользователя. Тот же ключ и queryFn, что у useMyPermissions: один кэш. */

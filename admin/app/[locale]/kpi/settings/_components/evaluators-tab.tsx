@@ -22,6 +22,8 @@ import { ALL } from "@admin/lib/kpi/filters";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { scopeLabel } from "@admin/lib/kpi/settings";
 import { qk, useKpiTerminals } from "../../_components/use-kpi";
+import { TgCell } from "./tg-cell";
+import { useTgBindings } from "./use-tg-bindings";
 
 const MIN_SEARCH = 2;
 const MAX_FOUND = 20;
@@ -36,6 +38,8 @@ export function EvaluatorsTab() {
     retry: shouldRetry,
   });
   const rows = useMemo(() => [...(list.data ?? [])].sort((a, b) => a.user_name.localeCompare(b.user_name, "ru")), [list.data]);
+
+  const tg = useTgBindings("user", rows.map((r) => r.user_id));
 
   const remove = useMutation({
     mutationFn: (id: string) => kpiApi.evaluators.remove(id),
@@ -73,6 +77,7 @@ export function EvaluatorsTab() {
                 <TableHead>Оценщик</TableHead>
                 <TableHead>Охват</TableHead>
                 <TableHead>Назначен</TableHead>
+                <TableHead>Telegram</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -82,6 +87,9 @@ export function EvaluatorsTab() {
                   <TableCell>{r.user_name}</TableCell>
                   <TableCell>{scopeLabel(r)}</TableCell>
                   <TableCell>{formatTashkent(r.created_at, false)}</TableCell>
+                  <TableCell>
+                    <TgCell target={{ user_id: r.user_id }} binding={tg.data?.get(r.user_id)} name={r.user_name} />
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" disabled={remove.isPending} onClick={() => setRemoveTarget(r)}>
                       Убрать

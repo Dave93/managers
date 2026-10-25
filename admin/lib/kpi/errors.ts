@@ -98,6 +98,9 @@ export const KPI_ERROR_TEXT: Record<string, string> = {
   nothing_matched: "Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц",
   external_id_taken: "Этот табельный номер уже у другого сотрудника",
   bad_external_id: "Табельный номер — строка до 100 символов",
+  bad_target: "Укажите сотрудника или пользователя",
+  bot_not_configured: "Бот KPI не настроен на сервере",
+  too_many_ids: "Слишком много записей в одном запросе",
 };
 
 export function codeText(code: string): string {

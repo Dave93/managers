@@ -21,6 +21,8 @@ import {
   type AssignValue,
 } from "@admin/lib/kpi/settings";
 import { qk, useKpiMe, useKpiTerminals } from "../../_components/use-kpi";
+import { TgCell } from "./tg-cell";
+import { useTgBindings } from "./use-tg-bindings";
 
 const MIN_SEARCH = 2;
 
@@ -59,6 +61,7 @@ export function EmployeesTab() {
     retry: shouldRetry,
   });
   const rows = list.data ?? [];
+  const tg = useTgBindings("employee", rows.map((r) => r.id));
 
   return (
     <div className="space-y-4">
@@ -112,6 +115,7 @@ export function EmployeesTab() {
                 <TableHead>Должность</TableHead>
                 <TableHead>Карта</TableHead>
                 <TableHead>Табельный номер</TableHead>
+                <TableHead>Telegram</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -129,6 +133,9 @@ export function EmployeesTab() {
                       onEdit={() => setEditingId(r.id)}
                       onClose={() => setEditingId((id) => (id === r.id ? null : id))}
                     />
+                  </TableCell>
+                  <TableCell>
+                    <TgCell target={{ employee_id: r.id }} binding={tg.data?.get(r.id)} name={employeeName(r)} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" onClick={() => setTarget(r)}>

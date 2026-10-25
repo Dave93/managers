@@ -15,6 +15,8 @@ const PLAN1_CODES = [
 const PLAN3_CODES = ["file_required", "bad_file_type", "file_too_large", "bad_file", "empty_file", "upload_expired", "bad_sheet",
   "bad_header_row", "bad_mapping", "nothing_matched", "external_id_taken", "bad_external_id", "sheet_too_large", "bad_status"];
 
+const PLAN4_CODES = ["bad_target", "bot_not_configured", "too_many_ids", "bad_id"];
+
 describe("тексты ошибок", () => {
   it("у каждого кода плана 1 и у запасных кодов есть русский текст", () => {
     for (const c of [...PLAN1_CODES, "unauthorized", "invalid_input", "server_error", "network"]) {
@@ -29,6 +31,13 @@ describe("тексты ошибок", () => {
       expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
     }
     expect(KPI_ERROR_TEXT.sheet_too_large).toBe("Лист слишком большой: не больше 50 000 строк и 100 колонок");
+  });
+  it("коды плана 4", () => {
+    for (const c of PLAN4_CODES) {
+      expect(KPI_ERROR_TEXT[c]).toBeTruthy();
+      expect(codeText(c)).toBe(KPI_ERROR_TEXT[c]);
+    }
+    expect(KPI_ERROR_TEXT.bot_not_configured).toBe("Бот KPI не настроен на сервере");
   });
   it("подробности плана 3", () => {
     expect(kpiErrorText(new KpiApiError(409, "external_id_taken", { error: "external_id_taken", employee_id: "e1", employee_name: "Повар Тест" })))
