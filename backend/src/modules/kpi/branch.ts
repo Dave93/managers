@@ -2,7 +2,7 @@
 // Версии не перезаписываются: расчёт только добавляет, чтение берёт последнюю.
 import type { DrizzleDB } from "@backend/lib/db";
 import { kpi_branch_results, kpi_branch_scores, terminals } from "backend/drizzle/schema";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { seesNetwork, viewsTerminal, type Actor, type DbLike } from "./access";
 import {
   attendanceByTerminal,
@@ -17,9 +17,11 @@ import {
 import {
   BRANCH_SOURCE_INDICATOR,
   branchSuggestion,
+  isPreliminary,
   nextTier,
   scoreTerminal,
   terminalFacts,
+  versionColumns,
   type BranchSource,
   type TerminalInputs,
 } from "./branch-rules";
@@ -29,6 +31,7 @@ import { terminalNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
+import { lockPeriodShared } from "./periods";
 import { checksFor } from "./sanitary";
 import { periodOf, type Period } from "./time";
 import type {
@@ -44,22 +47,21 @@ import type {
 
 const INSERT_CHUNK = 500;
 
-export async function latestVersion(db: DbLike, period: Period): Promise<number | null> {
+// Последняя версия месяца и время её расчёта (одно на все строки версии), одним запросом.
+// preliminary: версия посчитана до конца месяца.
+async function latestVersionInfo(
+  db: DbLike,
+  period: Period
+): Promise<{ version: number | null; computed_at: string | null; preliminary: boolean }> {
   const [r] = await db
-    .select({ v: sql<number | null>`max(${kpi_branch_scores.version})` })
+    .select({ v: kpi_branch_scores.version, at: kpi_branch_scores.computed_at })
     .from(kpi_branch_scores)
-    .where(eq(kpi_branch_scores.period, period));
-  return r?.v === null || r?.v === undefined ? null : Number(r.v);
-}
-
-// Время расчёта версии (одно на все строки версии)
-async function versionComputedAt(db: DbLike, period: Period, version: number): Promise<string | null> {
-  const [r] = await db
-    .select({ at: kpi_branch_scores.computed_at })
-    .from(kpi_branch_scores)
-    .where(and(eq(kpi_branch_scores.period, period), eq(kpi_branch_scores.version, version)))
+    .where(eq(kpi_branch_scores.period, period))
+    .orderBy(desc(kpi_branch_scores.version))
     .limit(1);
-  return r ? iso(r.at) : null;
+  if (!r) return { version: null, computed_at: null, preliminary: false };
+  const computed_at = iso(r.at);
+  return { version: Number(r.v), computed_at, preliminary: computed_at !== null && isPreliminary(period, computed_at) };
 }
 
 // Новая версия за месяц. Набор филиалов строится из данных (решение 7), не из terminals.
@@ -70,6 +72,9 @@ export async function computeBranch(db: DrizzleDB, actor: Actor, period: Period)
   return db.transaction(async (tx) => {
     // Первым: два одновременных расчёта идут по очереди и получают разные версии
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${"kpi_branch:" + period}))`);
+    // Закрытый месяц KPI заморожен и для балла филиала (R7). До любых проверок и раннего выхода:
+    // пустой закрытый месяц тоже 409, а закрытие ждёт конца расчёта
+    if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
     // Время расчёта берём после лока: у более поздней версии оно не меньше, чем у ранней
     const computedAt = now().toISOString();
 
@@ -176,22 +181,24 @@ export async function computeBranch(db: DrizzleDB, actor: Actor, period: Period)
 }
 
 // «Сеть»: последняя версия, филиалы, видимые актору. Балл по убыванию, затем имя.
+// Колонки — коды показателей из строк версии, а не текущие активные показатели.
 export async function branchNetwork(db: DbLike, actor: Actor, period: Period): Promise<BranchNetwork> {
-  const indicators = (await loadIndicators(db)).filter((i) => i.active);
-  const version = await latestVersion(db, period);
-  if (version === null) return { period, version: null, computed_at: null, indicators, rows: [] };
+  const current = await loadIndicators(db);
+  const indicators = current.filter((i) => i.active);
+  const { version, computed_at, preliminary } = await latestVersionInfo(db, period);
+  const empty: BranchNetwork = { period, version, computed_at, preliminary, indicators, columns: [], rows: [] };
+  if (version === null) return empty;
 
-  const computed_at = await versionComputedAt(db, period, version);
   // Не вся сеть: читаем строки только видимых филиалов
   const all = seesNetwork(actor);
   const scope = all ? undefined : [...new Set(actor.terminals.filter((t) => UUID_RE.test(t)).map((t) => t.toLowerCase()))];
-  if (scope && scope.length === 0) return { period, version, computed_at, indicators, rows: [] };
+  if (scope && scope.length === 0) return empty;
   const scores = await db
     .select()
     .from(kpi_branch_scores)
     .where(and(eq(kpi_branch_scores.period, period), eq(kpi_branch_scores.version, version), scope ? inArray(kpi_branch_scores.terminal_id, scope) : undefined));
   const visible = scores.filter((s) => viewsTerminal(actor, s.terminal_id));
-  if (visible.length === 0) return { period, version, computed_at, indicators, rows: [] };
+  if (visible.length === 0) return empty;
 
   const results = await db
     .select({
@@ -199,6 +206,7 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
       code: kpi_branch_results.indicator_code,
       fact: kpi_branch_results.fact,
       points: kpi_branch_results.points,
+      weight: kpi_branch_results.weight,
       data_status: kpi_branch_results.data_status,
     })
     .from(kpi_branch_results)
@@ -215,6 +223,7 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
     m[r.code as BranchIndicatorCode] = {
       fact: r.fact === null ? null : Number(r.fact),
       points: r.points === null ? null : Number(r.points),
+      weight: r.weight,
       data_status: r.data_status as BranchCell["data_status"],
     };
     cells.set(r.terminal_id, m);
@@ -229,7 +238,7 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
       cells: cells.get(s.terminal_id) ?? {},
     }))
     .sort((a, b) => b.score - a.score || (a.terminal_name ?? "").localeCompare(b.terminal_name ?? "", "ru"));
-  return { period, version, computed_at, indicators, rows };
+  return { ...empty, columns: versionColumns(results.map((r) => r.code), current), rows };
 }
 
 // «Филиал»: разбор по показателям последней версии
@@ -240,10 +249,9 @@ export async function branchBreakdown(db: DbLike, actor: Actor, terminalId: stri
 
   const current = await loadIndicators(db);
   const sortOf = new Map(current.map((i) => [i.code as string, i]));
-  const version = await latestVersion(db, period);
-  const computed_at = version === null ? null : await versionComputedAt(db, period, version);
+  const { version, computed_at, preliminary } = await latestVersionInfo(db, period);
   const [t] = await db.select({ name: terminals.name }).from(terminals).where(eq(terminals.id, id)).limit(1);
-  const base = { period, terminal_id: id, terminal_name: t?.name ?? null, version, computed_at };
+  const base = { period, terminal_id: id, terminal_name: t?.name ?? null, version, computed_at, preliminary };
   const sanitary_checks = await checksFor(db, id, period);
 
   const [scoreRow] =
@@ -317,6 +325,8 @@ export type BranchAutoValue = {
 
 // Предложения автопунктов формы оценки (решение 14): последняя версия по филиалу,
 // один запрос на форму. Показатель без данных или версии нет — предложения нет, к старым версиям не откатываемся.
+// Предварительная версия (посчитана до конца месяца) не предлагает ничего: продажи к месячному плану
+// занижены, и форма не должна получить 0 из неполного месяца.
 export async function branchSuggestions(
   db: DbLike,
   terminalId: string,
@@ -324,8 +334,8 @@ export async function branchSuggestions(
 ): Promise<Map<BranchSource, { score: number; basis: string; auto_value: BranchAutoValue }>> {
   const out = new Map<BranchSource, { score: number; basis: string; auto_value: BranchAutoValue }>();
   if (!UUID_RE.test(terminalId)) return out;
-  const version = await latestVersion(db, period);
-  if (version === null) return out;
+  const { version, preliminary } = await latestVersionInfo(db, period);
+  if (version === null || preliminary) return out;
   const id = terminalId.toLowerCase();
   const indicators = Object.values(BRANCH_SOURCE_INDICATOR);
   const rows = await db

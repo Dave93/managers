@@ -8,6 +8,7 @@ import { planSuggestion } from "./branch-rules";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
+import { lockPeriodShared } from "./periods";
 import { addMonths, type Period } from "./time";
 import type { RevenuePlanRow, RevenueSuggestRow } from "./types";
 
@@ -74,6 +75,8 @@ export async function savePlans(db: DrizzleDB, userId: string, body: Record<stri
   parsed.sort((a, b) => (a.terminal_id < b.terminal_id ? -1 : 1));
 
   return db.transaction(async (tx) => {
+    // Закрытый месяц KPI заморожен и для плана (R7); закрытие ждёт конца записи
+    if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
     if (parsed.length) {
       const known = new Set(
         (await tx.select({ id: terminals.id }).from(terminals).where(inArray(terminals.id, parsed.map((p) => p.terminal_id)))).map((r) => r.id)

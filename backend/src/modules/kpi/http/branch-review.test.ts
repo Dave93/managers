@@ -10,8 +10,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { addBranchResult, api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
-  const { kpi_review_items } = await import("backend/drizzle/schema");
+  const { addBranchResult, addCooking, addOrder, addReconciliation, api, cleanupKpi, makeEmployee, makeScope, makeTerminal, setNow, setup } = await import("./fixtures");
+  const { kpi_review_items, kpi_revenue_plans } = await import("backend/drizzle/schema");
+  const { randomUUID } = await import("node:crypto");
   const { and, eq } = await import("drizzle-orm");
   type Card = import("../types").Card;
   type Session = Awaited<ReturnType<typeof withSession>>;
@@ -108,6 +109,54 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const peer = await makeEmployee(db, { role_code: "manager", terminal_id: e.terminal_id, first_name: "Тест Менеджер" });
       expect(sug((await form(ev, peer.id)).body, "sales_plan")).toEqual({ score: 75, basis: "Филиал: продажи 95% плана → 75,0 балла" });
       setNow(null);
+    });
+
+    it("окончательная версия с 0 баллов (данные есть) — предложение 0, а не «нет данных»", async () => {
+      const { e, ev } = await manager();
+      await result(e.terminal_id, 9, "sales", 85, 0);
+      expect(sug((await form(ev, e.id)).body, "sales_plan")).toEqual({ score: 0, basis: "Филиал: продажи 85% плана → 0,0 балла" });
+    });
+
+    it("предварительная версия (посчитана внутри месяца) — пометка и без предложений; после конца месяца — есть", async () => {
+      const PP = "2024-11-01";
+      const t = await makeTerminal(db);
+      await db.insert(kpi_revenue_plans).values({ terminal_id: t.id, period: PP, amount: "1000000", updated_by: randomUUID() });
+      const order = await addOrder(db, { iiko_id: t.iiko_id!, day: "2024-11-10", sum: 1_030_000 });
+      await addCooking(db, { iiko_id: t.iiko_id!, order_id: order, day: "2024-11-10", waits: [400] });
+      await addReconciliation(db, { store_id: t.store_id!, period: PP, status: "accepted", accepted_diff_bc: "-6180.00" });
+      const e = await makeEmployee(db, { role_code: "manager", terminal_id: t.id, first_name: "Тест Менеджер" });
+      const cook = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+      const ev = await withSession({ permissions: ["kpi.evaluate"] });
+      await makeScope(db, ev.userId, { terminal_id: t.id });
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      // все три источника: продажи и себестоимость у менеджера, сервис у повара
+      const suggestions = async () => {
+        const m = (await api(ev, "GET", `/api/kpi/reviews/form?period=${PP}&employee_id=${e.id}`)).body;
+        const c = (await api(ev, "GET", `/api/kpi/reviews/form?period=${PP}&employee_id=${cook.id}`)).body;
+        return [sug(m, "sales_plan"), sug(m, "food_cost"), sug(c, "cooking_speed")];
+      };
+      const state = async () => [
+        (await api(hr, "GET", `/api/kpi/branch?period=${PP}`)).body.preliminary,
+        (await api(hr, "GET", `/api/kpi/branch/${t.id}?period=${PP}`)).body.preliminary,
+      ];
+      try {
+        // 23:59 последнего дня месяца — месяц ещё не закончился
+        setNow("2024-11-30T23:59:00+05:00");
+        expect((await api(hr, "POST", "/api/kpi/branch/compute", { period: PP })).body).toMatchObject({ version: 1 });
+        expect(await state()).toEqual([true, true]);
+        expect(await suggestions()).toEqual([null, null, null]);
+        // ровно 00:00 1-го числа по Ташкенту — версия окончательная
+        setNow("2024-12-01T00:00:00+05:00");
+        expect((await api(hr, "POST", "/api/kpi/branch/compute", { period: PP })).body).toMatchObject({ version: 2 });
+        expect(await state()).toEqual([false, false]);
+        expect(await suggestions()).toEqual([
+          { score: 100, basis: "Филиал: продажи 103% плана → 104,0 балла" },
+          { score: 90, basis: "Филиал: перерасход сырья 0,6% выручки → 90,0 балла" },
+          { score: 100, basis: "Филиал: заказов в норматив 100% → 120,0 балла" },
+        ]);
+      } finally {
+        setNow(null);
+      }
     });
   });
 }

@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { addOrder, api, cleanupKpi, makeTerminal, setup } = await import("./fixtures");
-  const { kpi_revenue_plans } = await import("backend/drizzle/schema");
+  const { kpi_periods, kpi_revenue_plans } = await import("backend/drizzle/schema");
   const { eq } = await import("drizzle-orm");
   type RevenuePlanRow = import("../types").RevenuePlanRow;
   type RevenueSuggestRow = import("../types").RevenueSuggestRow;
@@ -81,6 +81,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await save(hr, [{ terminal_id: a.id, amount: 1 }, { terminal_id: a.id, amount: 2 }])).body).toEqual({ error: "duplicate_terminal", terminal_id: a.id });
       expect((await save(hr, Array.from({ length: 501 }, () => ({ terminal_id: a.id, amount: 1 })))).body).toEqual({ error: "too_many_items" });
       expect((await api(hr, "PUT", "/api/kpi/revenue-plans", { period: "2026-10-15", items: [] })).body).toEqual({ error: "bad_period" });
+    });
+
+    it("закрытый месяц KPI — 409 period_closed, план не меняется", async () => {
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      const a = await makeTerminal(db);
+      const closed = "2026-09-01";
+      await db.insert(kpi_revenue_plans).values({ terminal_id: a.id, period: closed, amount: "500000", updated_by: hr.userId });
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, closed));
+      await db.insert(kpi_periods).values({ period: closed, status: "closed" });
+      for (const amount of [900_000, null]) {
+        const r = await api(hr, "PUT", "/api/kpi/revenue-plans", { period: closed, items: [{ terminal_id: a.id, amount }] });
+        expect([r.status, r.body]).toEqual([409, { error: "period_closed" }]);
+      }
+      const rows = await db.select({ amount: kpi_revenue_plans.amount }).from(kpi_revenue_plans).where(eq(kpi_revenue_plans.terminal_id, a.id));
+      expect(rows.map((x) => Number(x.amount))).toEqual([500000]);
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, closed));
+      expect((await api(hr, "PUT", "/api/kpi/revenue-plans", { period: closed, items: [{ terminal_id: a.id, amount: 900_000 }] })).status).toBe(200);
     });
 
     it("подсказка от прошлого года: тот же месяц, рост, округление до 1 000", async () => {

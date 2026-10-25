@@ -1,6 +1,6 @@
 // Правила балла филиала (спека 7.7). Чистый модуль: без БД и Redis.
 import type { Scope } from "./rules";
-import { addMonths, type Period } from "./time";
+import { addMonths, dayStart, type Period } from "./time";
 import type {
   BranchDirection,
   BranchIndicator,
@@ -144,6 +144,19 @@ export function scoreTerminal(
   if (!rows.some((r) => r.data_status === "ok")) return { rows, score: null, tier_pct: null };
   const score = total / 100;
   return { rows, score, tier_pct: tierFor(score) };
+}
+
+// Версия предварительная, если посчитана раньше 00:00 по Ташкенту 1-го числа следующего месяца:
+// месяц не прожит, продажи к месячному плану занижены
+export function isPreliminary(period: Period, computedAt: string | Date): boolean {
+  return new Date(computedAt).getTime() < dayStart(addMonths(period, 1), 1).getTime();
+}
+
+// Колонки «Сети»: коды из строк версии по текущему sort (включая неактивные), незнакомые коды в конце
+export function versionColumns(codes: Iterable<string>, indicators: readonly Pick<BranchIndicator, "code" | "sort">[]): BranchIndicatorCode[] {
+  const sortOf = new Map<string, number>(indicators.map((i) => [i.code, i.sort]));
+  const rank = (c: string) => sortOf.get(c) ?? Number.POSITIVE_INFINITY;
+  return ([...new Set(codes)] as BranchIndicatorCode[]).sort((a, b) => rank(a) - rank(b) || (a < b ? -1 : a > b ? 1 : 0));
 }
 
 // Ступени: 75 → 60 %, 90 → 100 %, 105 → 120 %

@@ -264,9 +264,10 @@ export interface SanitaryTemplate { items: string[] }
 export interface SanitaryCheckRow { id: string; terminal_id: string; terminal_name: string | null; period: string; checked_at: string; inspector_user_id: string; inspector_name: string | null; items: SanitaryItem[]; pct: number; comment: string | null; created_at: string }
 export interface RevenuePlanRow { terminal_id: string; terminal_name: string | null; amount: number | null; has_iiko: boolean; updated_at: string | null }
 export interface RevenueSuggestRow { terminal_id: string; base_period: string; base_revenue: number | null; suggested: number | null }
-export interface BranchCell { fact: number | null; points: number | null; data_status: "ok" | "no_data" }
+export interface BranchCell { fact: number | null; points: number | null; weight: number; data_status: "ok" | "no_data" }
 export interface BranchScoreRow { terminal_id: string; terminal_name: string | null; score: number; tier_pct: number; cells: Partial<Record<BranchIndicatorCode, BranchCell>> }
-export interface BranchNetwork { period: string; version: number | null; computed_at: string | null; indicators: BranchIndicator[]; rows: BranchScoreRow[] }
+// preliminary: версия посчитана до конца месяца. columns: коды показателей версии в порядке текущего sort
+export interface BranchNetwork { period: string; version: number | null; computed_at: string | null; preliminary: boolean; indicators: BranchIndicator[]; columns: BranchIndicatorCode[]; rows: BranchScoreRow[] }
 export interface BranchIndicatorResult { code: BranchIndicatorCode; title_ru: string; direction: BranchDirection; weight: number; floor: number; target: number; max: number; fact: number | null; points: number | null; weighted: number | null; data_status: "ok" | "no_data"; reason: NoDataReason | null; details: Record<string, number | null> }
-export interface BranchBreakdown { period: string; terminal_id: string; terminal_name: string | null; version: number | null; computed_at: string | null; score: number | null; tier_pct: number | null; next_tier: { tier_pct: number; points_needed: number } | null; indicators: BranchIndicatorResult[]; sanitary_checks: SanitaryCheckRow[] }
+export interface BranchBreakdown { period: string; terminal_id: string; terminal_name: string | null; version: number | null; computed_at: string | null; preliminary: boolean; score: number | null; tier_pct: number | null; next_tier: { tier_pct: number; points_needed: number } | null; indicators: BranchIndicatorResult[]; sanitary_checks: SanitaryCheckRow[] }
 export interface BranchComputeResult { period: string; version: number | null; terminals: number; computed_at: string }

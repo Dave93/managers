@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { addAttendance, addCooking, addOrder, addReconciliation, addSanitaryRow, api, cleanupKpi, makeTerminal, setNow, setup } = await import("./fixtures");
-  const { credentials, kpi_branch_scores, kpi_revenue_plans } = await import("backend/drizzle/schema");
+  const { credentials, kpi_branch_scores, kpi_periods, kpi_revenue_plans } = await import("backend/drizzle/schema");
   const { and, eq } = await import("drizzle-orm");
   const { SEED_BRANCH_INDICATORS } = await import("../seed-data");
   const { revenueByGroups, sumOver, terminalLinks } = await import("../branch-facts");
@@ -68,8 +68,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect([r.score, r.tier_pct, r.next_tier]).toEqual([95.79, 100, { tier_pct: 120, points_needed: 9.2 }]);
       expect(r.indicators[0].details).toEqual({ revenue: 1030000, plan: 1000000 });
       expect(r.indicators[1].details).toEqual({ revenue: 1030000, overspend: 6180, stores_total: 1, stores_reconciled: 1 });
+      // посчитано 15 июля за июнь — версия окончательная
+      expect(r.preliminary).toBe(false);
       const net = (await api(await hr(), "GET", `/api/kpi/branch?period=${P}`)).body as BranchNetwork;
-      expect(net.rows.find((x) => x.terminal_id === t.id)).toMatchObject({ score: 95.79, tier_pct: 100, cells: { food_cost: { fact: 0.6, points: 90, data_status: "ok" } } });
+      expect(net.preliminary).toBe(false);
+      expect(net.columns).toEqual(["sales", "food_cost", "service", "sanitary", "discipline"]);
+      expect(net.rows.find((x) => x.terminal_id === t.id)).toMatchObject({ score: 95.79, tier_pct: 100, cells: { food_cost: { fact: 0.6, points: 90, weight: 20, data_status: "ok" } } });
     });
 
     it("нет данных — не ноль: веса пересчитываются, пустой филиал в версию не попадает", async () => {
@@ -85,11 +89,25 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         ["sanitary", "no_data", "no_checks"], ["discipline", "ok", null],
       ]);
       expect([r.score, r.tier_pct]).toEqual([100, 100]);
+      expect(r.indicators[1].details).toEqual({ stores_total: 1, stores_reconciled: 0 });
       const net = (await api(await hr(), "GET", `/api/kpi/branch?period=${P}`)).body as BranchNetwork;
       expect(net.rows.map((x) => x.terminal_id)).not.toContain(empty.id);
+      // покрытие: в ячейках есть веса, данные только у дисциплины (15 из 100)
+      const cells = net.rows.find((x) => x.terminal_id === b.id)!.cells;
+      expect(net.columns.map((k) => [k, cells[k]!.weight, cells[k]!.data_status])).toEqual([
+        ["sales", 30, "no_data"], ["food_cost", 20, "no_data"], ["service", 20, "no_data"], ["sanitary", 15, "no_data"], ["discipline", 15, "ok"],
+      ]);
       const e = (await detail(await hr(), empty.id)).body as BranchBreakdown;
       expect(e.score).toBeNull();
       expect(e.indicators.every((i) => i.data_status === "no_data" && i.reason === "not_computed")).toBe(true);
+    });
+
+    it("себестоимость: склад без строки сверки — no_reconciliation, в деталях принято 0 из 1", async () => {
+      const t = await makeTerminal(db);
+      await addAttendance(db, { terminal_id: t.id, day: "2025-06-06", on_time: 1, late: 0, absent: 0 });
+      await compute(await hr());
+      const fc = (await detail(await hr(), t.id)).body.indicators.find((i: any) => i.code === "food_cost");
+      expect(fc).toMatchObject({ data_status: "no_data", reason: "no_reconciliation", details: { stores_total: 1, stores_reconciled: 0 } });
     });
 
     it("кривой ключ iiko в credentials — расчёт 200, продажи без данных", async () => {
@@ -229,9 +247,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const ind = SEED_BRANCH_INDICATORS.map((i) => ({ code: i.code, weight: i.code === "sales" ? 45 : i.code === "sanitary" ? 0 : i.weight, floor: i.floor, target: i.target, max: i.max, active: i.code !== "sanitary" }));
       expect((await api(s, "PUT", "/api/kpi/branch-indicators", { indicators: ind })).status).toBe(200);
       expect((await detail(s, t.id)).body.indicators[0].weight).toBe(30);   // посчитанная версия хранит старый вес
+      // колонки сети — из строк версии, а не из текущих активных показателей
+      expect(((await api(s, "GET", `/api/kpi/branch?period=${P}`)).body as BranchNetwork).columns).toEqual(["sales", "food_cost", "service", "sanitary", "discipline"]);
       await compute(s);
       const after = (await detail(s, t.id)).body as BranchBreakdown;
       expect(after.indicators.map((i) => i.code)).not.toContain("sanitary");
+      expect(((await api(s, "GET", `/api/kpi/branch?period=${P}`)).body as BranchNetwork).columns).toEqual(["sales", "food_cost", "service", "discipline"]);
       expect(after.indicators[0].weight).toBe(45);
       const versions = await db.selectDistinct({ v: kpi_branch_scores.version }).from(kpi_branch_scores).where(and(eq(kpi_branch_scores.period, P), eq(kpi_branch_scores.terminal_id, t.id)));
       expect(versions.length).toBeGreaterThanOrEqual(3);
@@ -253,6 +274,35 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await api(ev, "GET", `/api/kpi/branch?period=${P}`)).status).toBe(403);
       expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: "2025-08-01" })).body).toEqual({ error: "future_period" });
       expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: "2025-07-01" })).status).toBe(200);
+    });
+
+    it("текущий месяц — версия предварительная", async () => {
+      const t = await makeTerminal(db);
+      await addAttendance(db, { terminal_id: t.id, day: "2025-07-03", on_time: 1, late: 0, absent: 0 });
+      const s = await hr();
+      expect((await api(s, "POST", "/api/kpi/branch/compute", { period: "2025-07-01" })).status).toBe(200);
+      expect((await api(s, "GET", "/api/kpi/branch?period=2025-07-01")).body).toMatchObject({ preliminary: true });
+      expect((await api(s, "GET", `/api/kpi/branch/${t.id}?period=2025-07-01`)).body).toMatchObject({ preliminary: true });
+      // расчёта нет — и пометки нет
+      expect((await api(s, "GET", "/api/kpi/branch?period=2025-03-01")).body).toMatchObject({ version: null, preliminary: false });
+      expect((await api(s, "GET", `/api/kpi/branch/${t.id}?period=2025-03-01`)).body).toMatchObject({ version: null, preliminary: false });
+    });
+
+    it("закрытый месяц KPI — расчёт 409 period_closed и ничего не пишет", async () => {
+      const closed = "2025-04-01";
+      const t = await makeTerminal(db);
+      await addAttendance(db, { terminal_id: t.id, day: "2025-04-03", on_time: 1, late: 0, absent: 0 });
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, closed));
+      await db.insert(kpi_periods).values({ period: closed, status: "closed" });
+      expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: closed })).body).toEqual({ error: "period_closed" });
+      expect(await db.select().from(kpi_branch_scores).where(eq(kpi_branch_scores.period, closed))).toEqual([]);
+      // пустой закрытый месяц — тоже 409, а не «данных нет»
+      await db.insert(kpi_periods).values({ period: "2025-03-01", status: "closed" });
+      const empty = await api(await hr(), "POST", "/api/kpi/branch/compute", { period: "2025-03-01" });
+      expect([empty.status, empty.body]).toEqual([409, { error: "period_closed" }]);
+      // открытый снова — считается
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, closed));
+      expect((await api(await hr(), "POST", "/api/kpi/branch/compute", { period: closed })).body).toMatchObject({ version: 1, terminals: 1 });
     });
   });
 }

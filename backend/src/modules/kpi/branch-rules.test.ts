@@ -199,3 +199,23 @@ describe("округление и ввод (исправления)", () => {
     expect(B.terminalFacts(X).sanitary.fact).toBe(93.33);
   });
 });
+
+describe("предварительная версия и колонки сети (финальные исправления)", () => {
+  it("версия до 00:00 по Ташкенту 1-го следующего месяца — предварительная", () => {
+    // 2025-07-01 00:00 Ташкент = 2025-06-30T19:00:00Z
+    expect(B.isPreliminary("2025-06-01", "2025-06-30T18:59:59.999Z")).toBe(true);
+    expect(B.isPreliminary("2025-06-01", "2025-06-30T19:00:00.000Z")).toBe(false);
+    expect(B.isPreliminary("2025-06-01", new Date("2025-06-15T10:00:00+05:00"))).toBe(true);
+    expect(B.isPreliminary("2025-06-01", "2025-08-02T00:00:00.000Z")).toBe(false);
+    // декабрь: граница — 1 января следующего года
+    expect(B.isPreliminary("2025-12-01", "2025-12-31T18:59:59.999Z")).toBe(true);
+    expect(B.isPreliminary("2025-12-01", "2025-12-31T19:00:00.000Z")).toBe(false);
+  });
+  it("колонки сети: коды версии по текущему sort, незнакомые в конце", () => {
+    const off = SEED.map((i) => (i.code === "sanitary" ? { ...i, active: false } : i));
+    expect(B.versionColumns(["discipline", "sanitary", "sales", "sales"], off)).toEqual(["sales", "sanitary", "discipline"]);
+    // в базе код — varchar: незнакомый код (не из BRANCH_CODES) не теряется и идёт в конец
+    expect(B.versionColumns(["zeta", "service", "alpha"], SEED) as string[]).toEqual(["service", "alpha", "zeta"]);
+    expect(B.versionColumns([], SEED)).toEqual([]);
+  });
+});
