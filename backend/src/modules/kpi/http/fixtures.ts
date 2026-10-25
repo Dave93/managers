@@ -33,7 +33,10 @@ import {
 import { eq, inArray, like, sql } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
+import { kpiQueueName, getKpiQueue } from "../queue";
 import { seedCards } from "../seed-cards";
+import type { BotApi, TgResult } from "../tg/bot-api";
+import type { OutMessage } from "../tg/messages";
 import type { AttendanceMapping } from "../types";
 
 export type Session = Awaited<ReturnType<typeof withSession>>;
@@ -203,6 +206,28 @@ export async function bindTelegram(
   return { id: row.id, telegram_id };
 }
 
+// Подмена Bot API: send берёт ответы из results по очереди, потом — { ok: true, message_id: 42 }.
+export function fakeBotApi(results: TgResult[] = []): {
+  api: BotApi;
+  sent: { chatId: number; msg: OutMessage }[];
+  answered: string[];
+} {
+  const queue = [...results];
+  const sent: { chatId: number; msg: OutMessage }[] = [];
+  const answered: string[] = [];
+  const api: BotApi = {
+    async send(chatId, msg) {
+      sent.push({ chatId, msg });
+      return queue.shift() ?? { ok: true, message_id: 42 };
+    },
+    async answerCallback(callbackId) {
+      answered.push(callbackId);
+      return { ok: true, message_id: null };
+    },
+  };
+  return { api, sent, answered };
+}
+
 // Порядок учитывает внешние ключи внутри модуля. kpi_settings чистим целиком,
 // чтобы после тестов снова действовали значения по умолчанию.
 export async function cleanupKpi(db: DrizzleDB): Promise<void> {
@@ -210,6 +235,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   if (!process.env.DATABASE_URL?.endsWith("/managers_tickets_test")) {
     throw new Error("cleanupKpi: DATABASE_URL не указывает на managers_tickets_test");
   }
+  // Проверка раньше удалений: без имени тестовой очереди ничего не трогаем.
+  if (kpiQueueName() === "kpi-notify") throw new Error("cleanupKpi: очередь теста не задана (KPI_NOTIFY_QUEUE), боевую не чистим");
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);
@@ -235,6 +262,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   const testCards = sql`${kpi_cards.code} LIKE 'test\\_%'`;
   await db.delete(kpi_card_items).where(sql`${kpi_card_items.card_id} IN (SELECT id FROM kpi_cards WHERE code LIKE 'test\\_%')`);
   await db.delete(kpi_cards).where(testCards);
+  // Задачи, поставленные тестами. Боевую очередь не трогаем ни при каких условиях.
+  await getKpiQueue().obliterate({ force: true });
 }
 
 // ---------- импорт Workly ----------

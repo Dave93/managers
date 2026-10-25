@@ -1,3 +1,5 @@
+import { collectDeliveries } from "./notify";
+
 // Бизнес-ошибка модуля: сервисы бросают её, контроллер превращает в
 // HTTP-ответ { error: code, ...extra }. Всё остальное — настоящий 500.
 export class KpiError extends Error {
@@ -15,7 +17,7 @@ export async function run<T>(
   fn: () => Promise<T>
 ): Promise<T | { error: string; [k: string]: unknown }> {
   try {
-    return await fn();
+    return await collectDeliveries(fn);
   } catch (e) {
     if (e instanceof KpiError) {
       set.status = e.status;
