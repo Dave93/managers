@@ -167,3 +167,13 @@ export function validateSettingsPatch(patch: Record<string, unknown>): string | 
   }
   return null;
 }
+
+// Балл, отличный от предложения, требует заметки; без предложения заметка не нужна.
+export function noteRequired(
+  suggestion: { score: number } | null,
+  score: number | null,
+  note: string | null | undefined,
+): boolean {
+  if (!suggestion || score === null || score === suggestion.score) return false;
+  return (note ?? "").trim() === "";
+}

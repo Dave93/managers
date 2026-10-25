@@ -78,3 +78,70 @@ export interface EmployeeRow {
   open_dispute: boolean;
   can_evaluate: boolean;
 }
+
+export interface ViolationRow {
+  id: string;
+  terminal_id: string;
+  terminal_name: string | null;
+  employee_id: string;
+  employee_name: string;
+  card_item_id: string | null;
+  item_title_ru: string | null;
+  period: string;
+  occurred_at: string;
+  comment: string;
+  recorded_by: string;
+  recorded_by_name: string | null;
+  status: "active" | "cancelled";
+  cancel_reason: string | null;
+  photos: { id: string }[];
+  open_dispute: boolean;
+  created_at: string;
+}
+
+export interface ReviewFormItem {
+  item_id: string;
+  title_ru: string;
+  title_uz: string;
+  hint_ru: string | null;
+  weight: number;
+  source: ItemSource;
+  group_key: "base" | "extra";
+  score: number | null;
+  note: string | null;
+  suggestion: { score: number; basis: string } | null;
+  violations: ViolationRow[];
+}
+
+export interface ReviewForm {
+  period: string;
+  period_status: "open" | "closed";
+  employee: { id: string; first_name: string; last_name: string; terminal_id: string; terminal_name: string | null };
+  card: { id: string; code: string; title_ru: string };
+  review: {
+    id: string;
+    status: "draft" | "submitted";
+    score_pct: number | null;
+    version: number;
+    submitted_at: string | null;
+    evaluator_user_id: string;
+    late: boolean;
+  } | null;
+  items: ReviewFormItem[];
+  other_violations: ViolationRow[];
+  can_edit: boolean;
+  needs_comment: boolean;
+  deadlines: Deadlines;
+}
+
+export interface ReviewEvent {
+  id: string;
+  kind: string;
+  actor_kind: string;
+  actor_name: string | null;
+  changes: { item_id: string; title_ru: string; old: number | null; new: number | null }[];
+  old_score_pct: number | null;
+  new_score_pct: number | null;
+  comment: string | null;
+  created_at: string;
+}

@@ -118,3 +118,18 @@ describe("настройки", () => {
     expect(R.validateSettingsPatch({ review_deadline_day: 12, dispute_deadline_day: 10 })).toBe("dispute_before_review");
   });
 });
+
+describe("noteRequired", () => {
+  it("без предложения заметка не нужна", () => {
+    expect(R.noteRequired(null, 40, null)).toBe(false);
+  });
+  it("балл как у предложения или пустой — заметка не нужна", () => {
+    expect(R.noteRequired({ score: 80 }, 80, null)).toBe(false);
+    expect(R.noteRequired({ score: 80 }, null, null)).toBe(false);
+  });
+  it("другой балл без заметки — нужна; с заметкой, но из пробелов — тоже", () => {
+    expect(R.noteRequired({ score: 80 }, 60, undefined)).toBe(true);
+    expect(R.noteRequired({ score: 80 }, 60, "   ")).toBe(true);
+    expect(R.noteRequired({ score: 80 }, 60, "причина")).toBe(false);
+  });
+});
