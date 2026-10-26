@@ -75,8 +75,8 @@ function InviteBody({
             <QRCodeSVG value={invite.link} size={200} marginSize={4} level="M" />
           </div>
           <div className="flex gap-2">
-            <Input readOnly aria-label="Ссылка-приглашение" className="h-11" value={invite.link} onFocus={(e) => e.currentTarget.select()} />
-            <Button type="button" variant="outline" className="h-11" onClick={copy}>
+            <Input readOnly aria-label="Ссылка-приглашение" className="h-11 min-w-0 flex-1" value={invite.link} onFocus={(e) => e.currentTarget.select()} />
+            <Button type="button" variant="outline" className="h-11 shrink-0" onClick={copy}>
               Скопировать
             </Button>
           </div>
@@ -88,7 +88,8 @@ function InviteBody({
         </p>
       )}
 
-      <DialogFooter className="gap-2 sm:gap-2">
+      {/* Три кнопки не помещаются в sm:max-w-md в одну строку: переносим. */}
+      <DialogFooter className="gap-2 sm:flex-wrap sm:gap-2">
         {invite && (
           <Button type="button" variant="outline" className="h-11" onClick={() => qc.invalidateQueries({ queryKey: qk.tgBindingsAll })}>
             Обновить статус

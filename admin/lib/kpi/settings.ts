@@ -123,3 +123,14 @@ export function settingsPatch(before: KpiSettings, after: KpiSettings): Partial<
 export function scopeLabel(s: Pick<ScopeRow, "card_title" | "terminal_name">): string {
   return `${s.card_title ?? "Любая карта"} · ${s.terminal_name ?? "Любой филиал"}`;
 }
+
+/** Вес нового пункта: самый частый вес среди включённых пунктов карты (при равенстве — меньший), иначе 1.
+ *  Все пункты весят одинаково, и новый не должен перевешивать остальные. */
+export function defaultItemWeight(items: { weight: number; active: boolean }[]): number {
+  const counts = new Map<number, number>();
+  for (const i of items) if (i.active) counts.set(i.weight, (counts.get(i.weight) ?? 0) + 1);
+  let best = 1;
+  let bestN = 0;
+  for (const [w, n] of counts) if (n > bestN || (n === bestN && w < best)) [best, bestN] = [w, n];
+  return best;
+}

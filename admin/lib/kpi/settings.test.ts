@@ -7,6 +7,7 @@ import {
   assignValue,
   cardAssignLabel,
   cardCodeOk,
+  defaultItemWeight,
   externalIdIssue,
   externalIdValue,
   parseRoleCodes,
@@ -107,5 +108,18 @@ describe("сроки", () => {
   it("scopeLabel", () => {
     expect(scopeLabel({ card_title: null, terminal_name: null })).toBe("Любая карта · Любой филиал");
     expect(scopeLabel({ card_title: "Повар", terminal_name: "Тест Филиал 1" })).toBe("Повар · Тест Филиал 1");
+  });
+});
+
+describe("defaultItemWeight", () => {
+  it("пустая карта — 1", () => {
+    expect(defaultItemWeight([])).toBe(1);
+  });
+  it("берёт самый частый вес включённых пунктов", () => {
+    expect(defaultItemWeight([{ weight: 1, active: true }, { weight: 1, active: true }, { weight: 10, active: true }])).toBe(1);
+    expect(defaultItemWeight([{ weight: 5, active: true }, { weight: 5, active: true }, { weight: 1, active: false }, { weight: 1, active: false }, { weight: 1, active: false }])).toBe(5);
+  });
+  it("при равенстве — меньший вес", () => {
+    expect(defaultItemWeight([{ weight: 10, active: true }, { weight: 2, active: true }])).toBe(2);
   });
 });

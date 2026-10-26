@@ -43,13 +43,25 @@ function titleOk(s: string): boolean {
   return t !== "" && t.length <= TITLE_MAX;
 }
 
-export function ItemDialog({ cardId, item, open, onClose }: { cardId: string; item: CardItem | null; open: boolean; onClose: () => void }) {
+export function ItemDialog({
+  cardId,
+  item,
+  defaultWeight,
+  open,
+  onClose,
+}: {
+  cardId: string;
+  item: CardItem | null;
+  defaultWeight: number;
+  open: boolean;
+  onClose: () => void;
+}) {
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg">
         {open ? (
-          <ItemForm key={item?.id ?? `new-${cardId}`} cardId={cardId} item={item} onClose={onClose} onPending={setPending} />
+          <ItemForm key={item?.id ?? `new-${cardId}`} cardId={cardId} item={item} defaultWeight={defaultWeight} onClose={onClose} onPending={setPending} />
         ) : (
           <>
             <DialogTitle className="sr-only">Пункт карты</DialogTitle>
@@ -61,7 +73,19 @@ export function ItemDialog({ cardId, item, open, onClose }: { cardId: string; it
   );
 }
 
-function ItemForm({ cardId, item, onClose, onPending }: { cardId: string; item: CardItem | null; onClose: () => void; onPending: (p: boolean) => void }) {
+function ItemForm({
+  cardId,
+  item,
+  defaultWeight,
+  onClose,
+  onPending,
+}: {
+  cardId: string;
+  item: CardItem | null;
+  defaultWeight: number;
+  onClose: () => void;
+  onPending: (p: boolean) => void;
+}) {
   const qc = useQueryClient();
 
   const form = useForm({
@@ -71,7 +95,7 @@ function ItemForm({ cardId, item, onClose, onPending }: { cardId: string; item: 
       hint_ru: item?.hint_ru ?? "",
       hint_uz: item?.hint_uz ?? "",
       source: item?.source ?? "manual",
-      weight: item ? String(item.weight) : "10",
+      weight: String(item ? item.weight : defaultWeight),
       group_key: item?.group_key ?? "base",
       sort: item ? String(item.sort) : "",
       active: item?.active ?? true,
