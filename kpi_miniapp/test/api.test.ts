@@ -78,7 +78,7 @@ const stalled = () => new Response(new ReadableStream({ start() {} }), { status:
 
 it("тело зависло после заголовков: blob — null, данные — offline, вход — offline; в срок", async () => {
   const f = (async (url: string) => (url.endsWith("/auth") ? ok({ token: "t", roles: [], lang: "ru" }) : stalled())) as any;
-  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 100 });
+  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 100, blobTimeoutMs: 100 });
   const t0 = Date.now();
   expect(await a.blob("/violation-photos/1/file")).toBeNull();
   expect(await a.get("/home")).toEqual({ kind: "fail", status: "offline" });
@@ -97,6 +97,40 @@ it("тело пришло до срока — срок не мешает и не
   // Таймер снят: после срока ничего не падает и ответы те же.
   await new Promise((r) => setTimeout(r, 80));
   expect(await a.get("/home")).toEqual({ kind: "ok", data: { x: 1 } });
+});
+// Фото идёт медленно, но идёт (большой снимок по филиальному wifi): у файла свой срок, длиннее
+// срока данных; вход, и повторный внутри blob, — в обычный срок.
+const slowBody = (ms: number, type: string) =>
+  new Response(
+    new ReadableStream({
+      start(c) {
+        setTimeout(() => {
+          c.enqueue(new TextEncoder().encode("img"));
+          c.close();
+        }, ms);
+      },
+    }),
+    { status: 200, headers: { "content-type": type } },
+  );
+
+it("фото: свой срок файла (blobTimeoutMs), данные и вход — в обычный", async () => {
+  const f = (async (url: string) => (url.endsWith("/auth") ? ok({ token: "t", roles: [], lang: "ru" }) : slowBody(150, "image/png"))) as any;
+  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 50, blobTimeoutMs: 1000 });
+  const b = await a.blob("/violation-photos/1/file");
+  expect(b && (await b.text())).toBe("img");
+  // Те же 150 мс для JSON экрана — за сроком данных.
+  expect(await a.get("/home")).toEqual({ kind: "fail", status: "offline" });
+
+  // Без blobTimeoutMs срок файла — свой (60 с), а не срок данных.
+  const d = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 50 });
+  const b2 = await d.blob("/violation-photos/1/file");
+  expect(b2 && (await b2.text())).toBe("img");
+
+  // Вход внутри blob завис — срок входа, а не файла.
+  const stuckAuth = (async (url: string) => (url.endsWith("/auth") ? stalled() : slowBody(0, "image/png"))) as any;
+  const t0 = Date.now();
+  expect(await createApi({ fetch: stuckAuth, sdk: () => "ok", initData: () => "q", timeoutMs: 50, blobTimeoutMs: 5000 }).blob("/violation-photos/1/file")).toBeNull();
+  expect(Date.now() - t0).toBeLessThan(1000);
 });
 it("параллельные запросы без токена делают один вход", async () => {
   let auths = 0;

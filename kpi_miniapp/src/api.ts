@@ -23,6 +23,9 @@ export interface ApiDeps {
   sdk: () => "ok" | "sdk_failed" | "outside";
   initData: () => string;
   timeoutMs?: number; // по умолчанию 15000
+  // Срок файла (фото нарушения), по умолчанию 60000. Большой снимок по филиальному wifi идёт
+  // медленно, но идёт: 15 с данных обрезали бы его на середине. Вход — по-прежнему timeoutMs.
+  blobTimeoutMs?: number;
   // Тело каждого удачного входа, и тихого повторного тоже: по who кэш узнаёт, что за
   // этим Telegram теперь другой человек (привязку переназначили посреди работы).
   onAuth?: (body: TgAuthResponse) => void;
@@ -70,6 +73,7 @@ export function classifyAuthFailure(status: number, body: unknown): FailStatus {
 
 export function createApi(d: ApiDeps) {
   const timeoutMs = d.timeoutMs ?? 15_000;
+  const blobTimeoutMs = d.blobTimeoutMs ?? 60_000;
   // Токен только в памяти: он и есть сессия.
   let token: string | null = null;
   let pending: Promise<AuthOut> | null = null;
@@ -77,8 +81,8 @@ export function createApi(d: ApiDeps) {
   // Филиальный wifi не отказывает, а зависает: без таймаута приложение
   // осталось бы на скелетоне навсегда. Срок один на весь запрос — заголовки и тело:
   // таймер идёт, пока тело не дочитано (Sent.read) или не брошено (Sent.drop).
-  // null — сеть или таймаут до заголовков.
-  async function raw(path: string, init: RequestInit): Promise<Sent | null> {
+  // null — сеть или таймаут до заголовков. ms — срок этого запроса (у файла он свой).
+  async function raw(path: string, init: RequestInit, ms: number = timeoutMs): Promise<Sent | null> {
     const ctrl = new AbortController();
     let expire: () => void = () => undefined;
     // Отказ по сроку. Ловится сразу: если никто не ждёт гонку, необработанного отказа нет.
@@ -91,7 +95,7 @@ export function createApi(d: ApiDeps) {
     const timer = setTimeout(() => {
       expire();
       ctrl.abort();
-    }, timeoutMs);
+    }, ms);
     const done = (): void => clearTimeout(timer);
     let res: Response;
     try {
@@ -158,7 +162,7 @@ export function createApi(d: ApiDeps) {
    * восстанавливается. Второй 401 — expired (цикла нет). Повторный вход,
    * получивший 403/503/сеть, возвращает свой статус и запрос не повторяет.
    */
-  async function authed(path: string, init: RequestInit): Promise<{ sent: Sent } | { status: FailStatus }> {
+  async function authed(path: string, init: RequestInit, ms: number = timeoutMs): Promise<{ sent: Sent } | { status: FailStatus }> {
     if (!token) {
       const a = await auth();
       if (a.kind === "fail") return { status: a.status };
@@ -169,7 +173,8 @@ export function createApi(d: ApiDeps) {
       // молча потерял бы Authorization.
       const headers = new Headers(init.headers);
       headers.set("Authorization", `Bearer ${used}`);
-      const sent = await raw(path, { ...init, headers });
+      // Срок ms — только у самого запроса; повторный вход ниже идёт в срок входа.
+      const sent = await raw(path, { ...init, headers }, ms);
       if (!sent) return { status: "offline" };
       if (sent.res.status !== 401) return { sent };
       // Тело 401 не нужно: срок этого запроса снимаем.
@@ -219,7 +224,7 @@ export function createApi(d: ApiDeps) {
      * «Фото не загрузилось», хотя сервер отдаёт их с max-age.
      */
     async blob(path: string): Promise<Blob | null> {
-      const out = await authed(path, { method: "GET", cache: "no-store" });
+      const out = await authed(path, { method: "GET", cache: "no-store" }, blobTimeoutMs);
       if ("status" in out) return null;
       const { sent } = out;
       if (!sent.res.ok) {
@@ -227,7 +232,7 @@ export function createApi(d: ApiDeps) {
         return null;
       }
       try {
-        // Файл дочитывается в срок запроса: зависшее тело — заглушка, а не вечный брусок.
+        // Файл дочитывается в свой срок (blobTimeoutMs): зависшее тело — заглушка, а не вечный брусок.
         return await sent.read(sent.res.blob());
       } catch {
         return null;
