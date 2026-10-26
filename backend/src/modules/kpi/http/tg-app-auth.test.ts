@@ -19,6 +19,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { bindingOf } = await import("../tg/bindings");
   const { signInitData } = await import("../tg-app/init-data");
   const { principalOf } = await import("../tg-app/ctx");
+  const { tgAppRoutes } = await import("../routes/tg-app");
+  const { Elysia } = await import("elysia");
   const { eq } = await import("drizzle-orm");
 
   const nowSec = () => Math.floor(Date.now() / 1000);
@@ -58,6 +60,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       delete process.env.KPI_BOT_TOKEN;
       try { expect(await tgLogin(newTelegramId())).toEqual({ status: 503, body: { error: "not_configured" } }); }
       finally { process.env.KPI_BOT_TOKEN = TG_TEST_BOT_TOKEN; }
+    });
+
+    // Решение 21: тестовый токен из репозитория вне managers_test_ и managers_smoke_ — как незаданный.
+    // Отказ раньше любого обращения к Redis и базе, поэтому подмена префикса не трогает чужие ключи.
+    it("тестовый токен бота под боевым PROJECT_PREFIX — 503 not_configured даже с верной подписью", async () => {
+      const e = await makeEmployee(db);
+      const b = await bindTelegram(db, { employee_id: e.id });
+      expect((await tgLogin(b.telegram_id)).status).toBe(200); // без подмены префикса тот же вход проходит
+      const prevPrefix = process.env.PROJECT_PREFIX;
+      process.env.PROJECT_PREFIX = "managers_";
+      try {
+        expect(await tgLogin(b.telegram_id)).toEqual({ status: 503, body: { error: "not_configured" } });
+        // Пробел перед токеном в .env проверку не обходит.
+        process.env.KPI_BOT_TOKEN = " " + TG_TEST_BOT_TOKEN;
+        expect(await tgLogin(b.telegram_id, { token: " " + TG_TEST_BOT_TOKEN })).toEqual({ status: 503, body: { error: "not_configured" } });
+      } finally {
+        if (prevPrefix === undefined) delete process.env.PROJECT_PREFIX;
+        else process.env.PROJECT_PREFIX = prevPrefix;
+        process.env.KPI_BOT_TOKEN = TG_TEST_BOT_TOKEN;
+      }
     });
 
     it("подпись чужим токеном, устаревшая, мусор — 401 bad_init_data", async () => {
@@ -184,6 +206,20 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(res.status).toBe(200);
       // Роут, объявленный в app.ts после контроллера KPI: guard с утечкой выше tgAppRoutes отдал бы здесь 401.
       expect((await api(hr, "GET", "/api/users/my_permissions")).status).toBe(200);
+    });
+
+    // Не зависит от порядка .use() в app.ts и controller.ts: роут, объявленный после tgAppRoutes в чужом
+    // экземпляре, ловит и "global" у kpiTgCtx, и лишний .as(...) у самого tgAppRoutes.
+    it("канарейка: guard не выходит за пределы tgAppRoutes", async () => {
+      // Хост не короче "localhost": Elysia ищет начало пути с фиксированного смещения в URL.
+      const app = new Elysia().use(tgAppRoutes).get("/canary", () => "ok");
+      const res = await app.handle(new Request("http://localhost/canary"));
+      expect([res.status, await res.text()]).toEqual([200, "ok"]);
+      // Плагин действительно подключён: его собственный роут без токена закрыт.
+      const lang = await app.handle(
+        new Request("http://localhost/kpi/tg/lang", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ lang: "ru" }) })
+      );
+      expect(lang.status).toBe(401);
     });
 
     it("init_data и токен сессии не попадают в консоль", async () => {

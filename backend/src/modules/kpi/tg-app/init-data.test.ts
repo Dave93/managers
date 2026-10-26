@@ -16,3 +16,9 @@ it("tokenAllowed: тестовые токены только под managers_tes
   expect([tokenAllowed("7700000000:AAEexampleRealLookingToken_0123456789", "managers_"), tokenAllowed("123456:other", "managers_")])
     .toEqual([true, true]);
 });
+
+it("tokenAllowed: пробелы вокруг тестового токена не обходят проверку", () => {
+  for (const t of [" 123456:kpi-test-bot-token", "\t123456:kpi-smoke-dev-token\n", "  123456:kpi-x"]) {
+    expect([tokenAllowed(t, "managers_"), tokenAllowed(t, undefined), tokenAllowed(t, "managers_test_")]).toEqual([false, false, true]);
+  }
+});
