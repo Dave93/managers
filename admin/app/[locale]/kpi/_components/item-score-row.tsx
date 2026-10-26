@@ -158,6 +158,7 @@ export function ItemScoreRow({
         aria-label={`Заметка: ${item.title_ru}`}
         placeholder={item.suggestion ? "Заметка (обязательна, если балл отличается от предложения или не поставлен)" : "Заметка"}
       />
+      <p className="text-xs text-muted-foreground">Заметку увидит сотрудник</p>
 
       {issue && (
         <p role="alert" className="text-sm text-destructive">

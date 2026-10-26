@@ -81,6 +81,9 @@ function InviteBody({
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">{inviteHint(invite.expires_at)}</p>
+          {"employee_id" in target && (
+            <p className="text-xs text-muted-foreground">После привязки сотрудник откроет „Мой KPI“ кнопкой меню бота</p>
+          )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">

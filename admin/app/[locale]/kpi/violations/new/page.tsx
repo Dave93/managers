@@ -226,6 +226,7 @@ function NewViolationScreen() {
               placeholder="Что случилось"
             />
             <p className="text-xs text-muted-foreground">Не меньше {VIOLATION_COMMENT_MIN} символов</p>
+            <p className="text-xs text-muted-foreground">Комментарий увидит сотрудник</p>
           </div>
 
           <div className="space-y-1.5">

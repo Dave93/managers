@@ -319,6 +319,7 @@ function ReviewSheetBody({
                       placeholder="Комментарий к изменению"
                     />
                     <p className="text-xs text-muted-foreground">Не меньше {commentMin} символов без пробелов</p>
+                    <p className="text-xs text-muted-foreground">Причину изменения увидит сотрудник</p>
                     {commentIssue && (
                       <p role="alert" className="text-sm text-destructive">
                         {issueText(commentIssue, commentMin)}

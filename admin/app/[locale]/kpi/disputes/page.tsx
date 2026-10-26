@@ -100,6 +100,7 @@ function DisputeList({ rows, onResolve }: { rows: DisputeRow[]; onResolve: (d: D
               <span className="text-sm text-muted-foreground">{formatTashkent(d.created_at)}</span>
               <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
               {d.opened_via === "telegram" && <span className="text-xs text-muted-foreground">через Telegram</span>}
+              {d.opened_via === "miniapp" && <span className="text-xs text-muted-foreground">через мини-приложение</span>}
             </div>
             <div>
               <div className="font-medium">{d.employee_name ?? "Без сотрудника"}</div>
