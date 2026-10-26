@@ -323,10 +323,12 @@ async function seed(tx: DbLike): Promise<{ R: Period; personas: number }> {
   // оценки, поэтому k + |R| + |O| = 1 + 0 + 0 меньше raise_min_months. Работает при любом положении R
   // в квартале и не закрывает периоды (kpi_periods общие для всех персон). Будущий месяц с оценкой
   // бывает только на стенде (решение 17), как у 02. При raise_min_months = 1 нужен k = 0: тогда и R без балла.
+  // Заодно у её оценки R пункт 1 (Workly) без данных: «нет данных» во «Вся оценка» (у 01 все пункты с баллом).
   const e14 = await person(9100000014, "Смоук Без прибавки");
   const NO_DATA = ALL_100.map(() => null);
+  const S14 = [null, ...S96.slice(1)];
   for (const p of [Q, addMonths(Q, 1), addMonths(Q, 2)]) {
-    await review(e14, p, p === R && settings.raise_min_months >= 2 ? S96 : NO_DATA);
+    await review(e14, p, p === R && settings.raise_min_months >= 2 ? S14 : NO_DATA);
   }
 
   return { R, personas: personas.length };
