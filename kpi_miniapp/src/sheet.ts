@@ -110,6 +110,8 @@ export function openDisputeSheet(o: DisputeSheetOptions): void {
   const id = `sheet-${++seq}`;
   const draftKey = `${o.subject_type}:${o.subject_id}`;
   const opener = document.activeElement as HTMLElement | null;
+  // Экран, на котором открыта шторка: принятый спор перезагружает только его (см. ответ ниже).
+  const openedOn = location.hash;
   const busy = latch();
   let open = true;
   // Ответ сделал спор невозможным (уже открыт, срок прошёл…): закрытие перезагрузит экран.
@@ -143,8 +145,19 @@ export function openDisputeSheet(o: DisputeSheetOptions): void {
     void appApi()
       .send<TgDisputeCreated>("POST", "/disputes", { subject_type: o.subject_type, subject_id: o.subject_id, reason })
       .then((res) => {
-        // Шторку уже закрыл роутер (ушли с экрана): ответ никому не показываем.
-        if (!open) return;
+        // Шторку уже закрыл роутер, пока шёл запрос: ушли с экрана или экран перерисовался
+        // (перерисовка без скелетона, начатая до отправки, вернулась раньше ответа). Ответ в
+        // шторке показывать некому — без вибро и текста. Но принятый спор нужно довести: черновик
+        // больше не нужен, а тот же экран перезагрузить, иначе на нём осталась бы «Оспорить» со
+        // старыми данными и повторная отправка получила бы 409. Чужой экран не трогаем: onDone —
+        // перерисовка текущего экрана, а другой экран и так загрузил свежие данные.
+        if (!open) {
+          if (res.kind === "ok") {
+            drafts.delete(draftKey);
+            if (location.hash === openedOn) o.onDone();
+          }
+          return;
+        }
         if (res.kind === "ok") {
           haptic("success");
           drafts.delete(draftKey);
@@ -253,7 +266,8 @@ export function openDisputeSheet(o: DisputeSheetOptions): void {
     if (settled) o.onDone();
   }
 
-  // Уход с экрана: черновик сохраняем, экран не перезагружаем — его и так сменят.
+  // Уход с экрана или его перерисовка (роутер): черновик сохраняем, экран не перезагружаем — его
+  // и так сменят. Спор, уже ушедший на сервер, доводит ответ запроса (ветка !open выше).
   function silent(): void {
     if (!open) return;
     if (field.value.trim() !== "") drafts.set(draftKey, field.value);

@@ -242,8 +242,7 @@ function goHome(): void {
 
 /** Отказ посреди работы. Без сети и при сбое — «Повторить» и «назад»; остальное не восстановить. */
 function refuse(s: FailStatus): void {
-  // Шторка могла открыться, пока шла перерисовка: её «назад» не должен пережить отказ.
-  closeDisputeSheet();
+  // Шторку и просмотр фото уже закрыл present() — единственный, кто зовёт refuse().
   if (s === "offline" || s === "unknown") {
     mount(statusScreen(s, () => show(false)));
     return;
