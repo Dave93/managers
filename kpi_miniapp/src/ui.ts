@@ -44,7 +44,7 @@ const path = (d: string): Shape => ["path", { d }];
 const circle: Shape = ["circle", { cx: "12", cy: "12", r: "9.25" }];
 
 // Контурные 24×24, обводка 1,75: так рисуют Lucide (ISC) и системные значки Android.
-const ICONS: Record<FailStatus | "chevron", Shape[]> = {
+const ICONS: Record<FailStatus | "chevron" | "external", Shape[]> = {
   // «Обновите»: стрелки по кругу.
   sdk_failed: [path("M20 12a8 8 0 0 1-13.66 5.66L4 15.5"), path("M4 12a8 8 0 0 1 13.66-5.66L20 8.5"), path("M20 4v4.5h-4.5"), path("M4 20v-4.5h4.5")],
   // «Откройте из бота»: бумажный самолётик.
@@ -70,6 +70,8 @@ const ICONS: Record<FailStatus | "chevron", Shape[]> = {
   // «Что-то пошло не так»: восклицание в круге.
   unknown: [circle, path("M12 7.5v5"), path("M12 16.25h.01")],
   chevron: [path("M9.5 6l6 6-6 6")],
+  // Ссылка уходит из приложения (админка в браузере): стрелка из рамки.
+  external: [path("M14 4h6v6"), path("M20 4l-9 9"), path("M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10")],
 };
 
 function icon(name: keyof typeof ICONS, cls: string): SVGSVGElement {
@@ -97,6 +99,11 @@ function icon(name: keyof typeof ICONS, cls: string): SVGSVGElement {
 /** Шеврон «›» в конце строки-ссылки. */
 export function chevron(): SVGSVGElement {
   return icon("chevron", "chev");
+}
+
+/** Значок «откроется вне приложения» у ссылки в админку. */
+export function externalIcon(): SVGSVGElement {
+  return icon("external", "ext");
 }
 
 // ---------- монтирование ----------
@@ -188,13 +195,28 @@ export function skeleton(kind: "home" | "list"): HTMLElement {
     kind === "home"
       ? [
           h("div", { class: "sk-who" }, bone("sk-avatar"), h("span", { class: "sk-who-text" }, bone("sk-name"), bone("sk-sub")), bone("sk-lang")),
-          h("div", { class: "card" }, h("div", { class: "sk-head" }, bone("sk-label"), bone("sk-chip")), bone("sk-score"), bone("sk-note"), bone("sk-btn")),
+          h(
+            "div",
+            { class: "card" },
+            h("div", { class: "sk-head" }, bone("sk-label"), bone("sk-chip")),
+            bone("sk-score"),
+            bone("sk-line"),
+            h(
+              "div",
+              { class: "sk-lost" },
+              bone("sk-lost-title"),
+              h("div", { class: "sk-lost-row" }, bone("sk-text"), bone("sk-num")),
+              h("div", { class: "sk-lost-row" }, bone("sk-text sk-w2"), bone("sk-num")),
+            ),
+            bone("sk-btn"),
+          ),
           h(
             "div",
             { class: "card" },
             h("div", { class: "sk-head" }, bone("sk-label sk-w2"), bone("sk-chip")),
-            bone("sk-track"),
+            h("div", { class: "sk-scale" }, bone("sk-track"), h("div", { class: "sk-ticks" }, bone("sk-tick"), bone("sk-tick"), bone("sk-tick"))),
             h("div", { class: "sk-tiles" }, bone("sk-tile"), bone("sk-tile"), bone("sk-tile")),
+            h("div", { class: "sk-hint" }, bone("sk-line"), bone("sk-line")),
           ),
           h("div", { class: "card sk-rows" }, h("div", { class: "sk-rowline" }, bone("sk-text")), h("div", { class: "sk-rowline" }, bone("sk-text sk-w3"))),
         ]
@@ -233,8 +255,8 @@ export function showSlow(): void {
 
 // ---------- нет связи ----------
 
-// Последнее слово не остаётся одно на строке: «…22:40 —» / «нет связи», а не «… — нет» / «связи».
-const noWidow = (s: string): string => s.replace(/ (\S+)$/, " $1");
+// Последнее слово не остаётся одно на строке (и в строках главного экрана): «…22:40 —» / «нет связи», а не «… — нет» / «связи».
+export const noWidow = (s: string): string => s.replace(/ (\S+)$/, "\u00a0$1");
 
 /** «Обновлено в 14:02 — нет связи» над последним сохранённым ответом. retry — кнопка «Повторить». */
 export function staleBanner(at: number, retry?: () => void): HTMLElement {

@@ -32,6 +32,7 @@
   --well: rgba(0, 0, 0, 0.045);
   --bone: rgba(0, 0, 0, 0.075);
   --press: rgba(0, 0, 0, 0.06);
+  --rail: rgba(0, 0, 0, 0.1); /* незаполненная часть шкалы прибавки */
   --ok-bg: #e3f3e8;
   --ok-ink: #1b6b3f;
   --warn-bg: #fcefd9;
@@ -70,6 +71,7 @@
   --well: rgba(255, 255, 255, 0.07);
   --bone: rgba(255, 255, 255, 0.085);
   --press: rgba(255, 255, 255, 0.08);
+  --rail: rgba(255, 255, 255, 0.1); /* оттенок на ней — от 3:1 */
   --ok-bg: #173a26;
   --ok-ink: #7fd6a2;
   --warn-bg: #3a2a10;
@@ -92,6 +94,7 @@
     --well: rgba(255, 255, 255, 0.07);
     --bone: rgba(255, 255, 255, 0.085);
     --press: rgba(255, 255, 255, 0.08);
+    --rail: rgba(255, 255, 255, 0.1); /* оттенок на ней — от 3:1 */
     --ok-bg: #173a26;
     --ok-ink: #7fd6a2;
     --warn-bg: #3a2a10;
@@ -502,6 +505,364 @@ svg {
   }
 }
 
+/* ---------- главный экран ---------- */
+
+/* Шапка: кто это и язык. Без карточки, на фоне экрана; аватар — ступень тона. */
+.who {
+  display: flex;
+  align-items: center;
+  padding: 2px 4px;
+}
+.who-avatar {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--surface);
+  font-size: 15px;
+  line-height: 40px;
+  font-weight: 600;
+  text-align: center;
+}
+.who-text {
+  flex: 1;
+  min-width: 0;
+  margin-left: 12px;
+}
+.who-name {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.who-sub {
+  font-size: var(--fs-note);
+  line-height: 18px;
+  color: var(--muted);
+}
+
+/* RU/UZ: дорожка — поверхность, выбранный язык — чернилами, как главная кнопка.
+   Кнопка 48×44 (тач-цель), видимая пилюля внутри — 40×36. */
+.lang {
+  flex: none;
+  display: flex;
+  margin-left: 12px;
+  border-radius: var(--r-ctl);
+  background: var(--surface);
+}
+/* В карточке оценщика (только оценщик) дорожка — ступень тона на поверхности карточки. */
+.card .lang {
+  background: var(--well);
+}
+.lang-opt {
+  display: block;
+  width: 48px;
+  height: 44px;
+  margin: 0;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.lang-pill {
+  display: block;
+  height: 36px;
+  border-radius: var(--r-chip);
+  font-size: var(--fs-note);
+  line-height: 36px;
+  font-weight: 600;
+  color: var(--muted);
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.lang-opt:active .lang-pill {
+  background: var(--press);
+}
+.lang-opt.is-on {
+  cursor: default;
+}
+.lang-opt.is-on .lang-pill {
+  background: var(--ink);
+  color: var(--surface);
+}
+/* Запрос идёт: выбранный ещё прежний, нажатый мигает. */
+.lang-opt.is-busy .lang-pill {
+  background: var(--press);
+  color: var(--ink);
+  animation: sk-pulse 0.6s ease-in-out infinite alternate;
+}
+
+/* Заголовок карточки и пометка: пометка не сжимается и при нехватке места уходит
+   на следующую строку (длинное «Утверждено: +500 000 сум» на 360 px). */
+.card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-top: -4px;
+}
+.card-head > * {
+  margin-top: 4px;
+}
+/* Основа — ширина самого заголовка: не помещается вместе с пометкой — пометка уходит
+   вниз, а заголовок не ломается посередине («IV / квартал»). */
+.card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 8px;
+  font-size: var(--fs-body);
+  line-height: 24px;
+  font-weight: 600;
+}
+.card-line {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+/* Карточка с текстом сверху и строкой-ссылкой снизу (неоценённый месяц). */
+.card-split {
+  padding: 0;
+  overflow: hidden;
+}
+.card-body {
+  padding: var(--pad);
+}
+.card-body + .row .row-body {
+  border-top: 1px solid var(--line);
+}
+
+/* Оценщик. */
+.eval-top {
+  display: flex;
+  align-items: center;
+}
+.eval-top .eval-text {
+  flex: 1;
+  min-width: 0;
+  margin-right: 12px;
+}
+.eval-top .lang {
+  margin-left: 0;
+}
+.eval-text {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.eval-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+}
+.ext {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-left: 8px;
+}
+
+/* Месяц: балл — самое крупное число экрана, под ним строка про спор. */
+.month-score {
+  margin-top: 12px;
+}
+.month-score.is-empty {
+  color: var(--muted);
+}
+.month-dispute {
+  margin-top: 8px;
+}
+.lost,
+.lost-none {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.lost-title {
+  font-size: var(--fs-note);
+  line-height: 18px;
+  font-weight: 500;
+  color: var(--muted);
+}
+.lost-list {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.lost-item {
+  display: flex;
+  align-items: baseline;
+  padding: 8px 0;
+  font-size: 14px;
+  line-height: 20px;
+}
+.lost-item:last-child {
+  padding-bottom: 0;
+}
+.lost-item + .lost-item {
+  border-top: 1px solid var(--line);
+}
+.lost-name {
+  flex: 1;
+  min-width: 0;
+}
+.lost-score {
+  flex: none;
+  margin-left: 12px;
+  font-weight: 600;
+}
+.lost-none {
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.month-open {
+  margin-top: 16px;
+}
+
+/* Шкала прибавки. Ступени делят полосу поровну (trackPos); заливка до среднего и
+   точка — оттенок Telegram, подпись среднего — чернилами над точкой. */
+.scale {
+  position: relative;
+  margin-top: 16px;
+  padding-top: 26px;
+}
+.scale.is-empty {
+  padding-top: 8px;
+}
+.scale-me {
+  position: absolute;
+  top: 0;
+  font-size: var(--fs-note);
+  line-height: 18px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.scale-me.at-mid {
+  transform: translateX(-50%);
+}
+/* У краёв подпись прижата к краю точки, иначе половина ушла бы за карточку. */
+.scale-me.at-start {
+  margin-left: -9px;
+}
+.scale-me.at-end {
+  margin-left: 9px;
+  transform: translateX(-100%);
+}
+.scale-track {
+  position: relative;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--rail);
+}
+.scale-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: 4px;
+  background: var(--hue);
+}
+.scale-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--surface);
+}
+.scale-dot {
+  position: absolute;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border: 3px solid var(--surface);
+  border-radius: 50%;
+  background: var(--hue);
+}
+.scale-labels {
+  position: relative;
+  height: 34px;
+  margin-top: 8px;
+}
+.scale-label {
+  position: absolute;
+  top: 0;
+  font-size: var(--fs-label);
+  line-height: 16px;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+.scale-label b {
+  display: block;
+  font-size: var(--fs-note);
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* Три месяца квартала; отчётный — в рамке оттенка. */
+.months {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-gap: 8px;
+  gap: 8px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.mtile {
+  min-width: 0;
+  padding: 6px 4px 7px;
+  border: 2px solid transparent;
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  text-align: center;
+}
+.mtile.is-current {
+  border-color: var(--hue);
+}
+.mtile-label {
+  display: block;
+  font-size: var(--fs-label);
+  line-height: 16px;
+  color: var(--muted);
+}
+.mtile-value {
+  display: block;
+  margin-top: 2px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+/* Пометки состояния («не оценивался», «с 20.12») — мельче балла, в одну строку на 360 px. */
+.mtile-value.is-state {
+  font-size: var(--fs-label);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* Подсказка о прибавке: как «где потеряны баллы» — под чертой, обычным текстом. */
+.hint {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.hint-line {
+  font-size: 14px;
+  line-height: 20px;
+}
+.hint-line + .hint-line {
+  margin-top: 6px;
+}
+
+.nocard {
+  line-height: 22px;
+}
+
 /* ---------- скелетон ---------- */
 
 /* Окончательная раскладка, где вместо значений плоские бруски их настоящего размера.
@@ -548,8 +909,8 @@ svg {
 }
 .sk-lang {
   flex: none;
-  width: 88px;
-  height: 36px;
+  width: 96px;
+  height: 44px;
   margin-left: 12px;
   border-radius: var(--r-ctl);
 }
@@ -572,9 +933,44 @@ svg {
 }
 .sk-score {
   width: 132px;
-  height: 36px;
-  margin-top: 14px;
+  height: 40px;
+  margin-top: 12px;
   border-radius: var(--r-ctl);
+}
+/* Строка текста 20px на главном: брусок 12px посередине строки (спор, подсказка). */
+.sk-line {
+  width: 70%;
+  height: 12px;
+  margin: 12px 0 4px;
+}
+/* «Где потеряны баллы»: черта, подпись и две строки по 36px, как у настоящего списка. */
+.sk-lost,
+.sk-hint {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.sk-lost-title {
+  width: 40%;
+  height: 10px;
+  margin: 4px 0 6px;
+}
+.sk-lost-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 36px;
+}
+.sk-lost-row + .sk-lost-row {
+  border-top: 1px solid var(--line);
+}
+.sk-hint .sk-line {
+  width: 92%;
+  margin: 4px 0;
+}
+.sk-hint .sk-line + .sk-line {
+  width: 60%;
+  margin-top: 14px;
 }
 .sk-note {
   width: 70%;
@@ -586,19 +982,45 @@ svg {
   margin-top: 16px;
   border-radius: var(--r-ctl);
 }
+/* Шкала: место подписи среднего, полоса 8px и подписи ступеней под ней. */
+.sk-scale {
+  margin-top: 16px;
+  padding-top: 26px;
+}
 .sk-track {
-  height: 10px;
-  margin: 38px 0 36px;
-  border-radius: 5px;
+  height: 8px;
+  border-radius: 4px;
+}
+.sk-ticks {
+  position: relative;
+  height: 34px;
+  margin-top: 8px;
+}
+.sk-tick {
+  position: absolute;
+  top: 3px;
+  width: 44px;
+  height: 12px;
+  margin-left: -22px;
+}
+.sk-tick:nth-child(1) {
+  left: 25%;
+}
+.sk-tick:nth-child(2) {
+  left: 50%;
+}
+.sk-tick:nth-child(3) {
+  left: 75%;
 }
 .sk-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   grid-gap: 8px;
   gap: 8px;
+  margin-top: 16px;
 }
 .sk-tile {
-  height: 52px;
+  height: 57px;
   border-radius: var(--r-ctl);
 }
 .sk-rows {
@@ -648,8 +1070,12 @@ svg {
 
 @media (prefers-reduced-motion: reduce) {
   .sk,
-  .slow-dots i {
+  .slow-dots i,
+  .lang-opt.is-busy .lang-pill {
     animation: none;
+  }
+  .lang-pill {
+    transition: none;
   }
   .btn {
     transition: none;

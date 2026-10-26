@@ -10,8 +10,9 @@
 // #/review/… кладёт главный экран под него. Без роли employee доступен только
 // главный экран: остальные ответили бы 403 not_employee.
 //
-// navigate, back и rerender — объявления функций, не стрелки в const: экраны задач
-// 5–7 импортируют их отсюда, а main.ts импортирует экраны (круговой импорт).
+// navigate, back, rerender и useLang экраны берут не отсюда, а из ./nav: импорт входа
+// из экрана в `vite dev` выполняет main.ts дважды (подробно — в nav.ts). Экраны
+// импортируют только ./nav, никогда ./main; main.ts отдаёт туда функции (provideNav).
 import type { TgHome, TgLang, TgRole } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -20,11 +21,14 @@ import { devRequested } from "./dev/flag";
 import { DICT, lang, monthName, setLang, t } from "./i18n";
 import type { Loaded } from "./load";
 import { loadScreen } from "./load";
+import { provideNav } from "./nav";
 import type { Route } from "./route";
 import { hashOf, parseHash } from "./route";
+import { renderHome } from "./screens/home";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
-import { chevron, h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
+import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
+import { homeView } from "./view/home";
 
 // Константа сборки из vite.config.ts (решение 1): true только под `vite serve`.
 declare const __KPI_DEV__: boolean;
@@ -45,46 +49,17 @@ interface Screen {
   render(data: unknown): HTMLElement;
 }
 
-// Заглушки до задач 5–7: заголовок маршрута, на главном — строки-ссылки.
-function stub(title: string, ...rest: (Node | null)[]): HTMLElement {
-  return h("main", { class: "screen" }, h("h1", { class: "title" }, title), ...rest);
-}
-
-function linkRow(text: string, end: string | null, to: Route): HTMLElement {
-  return h(
-    "a",
-    {
-      class: "row",
-      href: hashOf(to),
-      onclick: (e: Event) => {
-        e.preventDefault();
-        navigate(to);
-      },
-    },
-    h("span", { class: "row-body" }, h("span", { class: "row-text" }, text), end === null ? null : h("span", { class: "row-end" }, end), chevron()),
-  );
-}
-
-function homeStub(d: TgHome): HTMLElement {
-  const e = d.employee;
-  const rows = e
-    ? h(
-        "nav",
-        { class: "card rows" },
-        linkRow(t("link_viol", { month: monthName(e.violations.period, "prep", lang()) }), String(e.violations.count), {
-          name: "violations",
-          period: e.violations.period,
-        }),
-        linkRow(t("link_history"), null, { name: "history" }),
-      )
-    : null;
-  return stub(t("app_title"), rows);
+// Заглушки до задач 6–7: заголовок маршрута.
+function stub(title: string): HTMLElement {
+  return h("main", { class: "screen" }, h("h1", { class: "title" }, title));
 }
 
 function screenOf(r: Route): Screen {
   switch (r.name) {
     case "home":
-      return { path: "/home", kind: "home", render: (d) => homeStub(d as TgHome) };
+      // Вид строится от lang(), а не от d.lang: копия из кэша после смены языка (PUT /lang
+      // прошёл, а перезагрузка упала без сети) рисуется уже на новом языке.
+      return { path: "/home", kind: "home", render: (d) => renderHome(homeView(d as TgHome, lang(), Date.now()), d as TgHome) };
     case "review":
       return { path: `/review?period=${r.period}`, kind: "list", render: () => stub(capFirst(monthName(r.period, "nom", lang()))) };
     case "violations":
@@ -100,7 +75,8 @@ function screenOf(r: Route): Screen {
 
 // ---------- язык и роли ----------
 
-function useLang(l: TgLang): void {
+/** Язык интерфейса: словарь и lang у <html>. Экраны зовут его через ./nav (переключатель RU/UZ). */
+export function useLang(l: TgLang): void {
   setLang(l);
   document.documentElement.setAttribute("lang", l);
 }
@@ -281,5 +257,8 @@ async function boot(): Promise<void> {
   window.addEventListener("hashchange", onHashChange);
   await start();
 }
+
+// Экраны ходят в роутер через мост ./nav — до старта, чтобы первый же экран мог им пользоваться.
+provideNav({ navigate, back, rerender, useLang });
 
 void boot();

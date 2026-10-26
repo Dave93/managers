@@ -96,6 +96,8 @@ const RU = {
   slow: "Связь плохая, ещё пробуем",
   btn_retry: "Повторить",
   btn_reload: "Обновить",
+  // Подпись переключателя языка для чтения с экрана (видны только RU/UZ).
+  lang_label: "Язык",
 } as const;
 
 export type Key = keyof typeof RU;
@@ -190,6 +192,7 @@ const UZ: Record<Key, string> = {
   slow: "Aloqa yomon, yana urinib koʻryapmiz",
   btn_retry: "Qayta urinish",
   btn_reload: "Yangilash",
+  lang_label: "Til",
 };
 
 export const DICT: Record<Lang, Record<Key, string>> = { ru: RU, uz: UZ };
