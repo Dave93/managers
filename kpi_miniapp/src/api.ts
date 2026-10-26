@@ -34,6 +34,21 @@ const BASE = "/api/kpi/tg";
 
 type AuthOut = { kind: "ok"; body: TgAuthResponse } | { kind: "fail"; status: FailStatus };
 
+/**
+ * Ответ, чей срок ещё идёт. Заголовки пришли, но тело может зависнуть (филиальный wifi отдаёт
+ * заголовки и замолкает): read() дочитывает тело в тот же срок, что был у запроса, и снимает
+ * таймер, когда чтение кончилось. Тело не читается (401 перед повтором, 5xx, не 2xx у файла) —
+ * drop() снимает таймер сразу.
+ */
+interface Sent {
+  res: Response;
+  read<T>(body: Promise<T>): Promise<T>; // по сроку — отказ с LATE
+  drop(): void;
+}
+
+// Причина отказа read(), когда срок вышел.
+const LATE = new Error("kpi-app: срок запроса вышел");
+
 function errorOf(body: unknown): string | null {
   const e = (body as { error?: unknown } | null)?.error;
   return typeof e === "string" ? e : null;
@@ -60,38 +75,69 @@ export function createApi(d: ApiDeps) {
   let pending: Promise<AuthOut> | null = null;
 
   // Филиальный wifi не отказывает, а зависает: без таймаута приложение
-  // осталось бы на скелетоне навсегда. null — сеть или таймаут.
-  async function raw(path: string, init: RequestInit): Promise<Response | null> {
+  // осталось бы на скелетоне навсегда. Срок один на весь запрос — заголовки и тело:
+  // таймер идёт, пока тело не дочитано (Sent.read) или не брошено (Sent.drop).
+  // null — сеть или таймаут до заголовков.
+  async function raw(path: string, init: RequestInit): Promise<Sent | null> {
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let expire: () => void = () => undefined;
+    // Отказ по сроку. Ловится сразу: если никто не ждёт гонку, необработанного отказа нет.
+    const late = new Promise<never>((_, reject) => {
+      expire = () => reject(LATE);
+    });
+    late.catch(() => undefined);
+    // Сначала отказ по сроку, потом обрыв: чтение тела, упавшее от обрыва, всё равно
+    // считается сроком, а не битым JSON.
+    const timer = setTimeout(() => {
+      expire();
+      ctrl.abort();
+    }, timeoutMs);
+    const done = (): void => clearTimeout(timer);
+    let res: Response;
     try {
-      return await d.fetch(BASE + path, { ...init, signal: ctrl.signal });
+      res = await Promise.race([d.fetch(BASE + path, { ...init, signal: ctrl.signal }), late]);
     } catch {
+      done();
       return null;
-    } finally {
-      clearTimeout(timer);
     }
+    return {
+      res,
+      async read<T>(body: Promise<T>): Promise<T> {
+        try {
+          return await Promise.race([body, late]);
+        } finally {
+          done();
+        }
+      },
+      drop: done,
+    };
   }
 
-  async function json(res: Response): Promise<unknown> {
+  /** Тело как JSON в срок запроса. late — срок вышел; body null — не JSON (502 от nginx — HTML). */
+  async function json(s: Sent): Promise<{ late: true } | { late: false; body: unknown }> {
     try {
-      return await res.json();
-    } catch {
-      // 502 от nginx — HTML; статус всё равно классифицирует отказ.
-      return null;
+      return { late: false, body: await s.read(s.res.json()) };
+    } catch (e) {
+      if (e === LATE) return { late: true };
+      // Статус всё равно классифицирует отказ.
+      return { late: false, body: null };
     }
   }
 
   async function doAuth(): Promise<AuthOut> {
     const s = d.sdk();
     if (s !== "ok") return { kind: "fail", status: s };
-    const res = await raw("/auth", {
+    const sent = await raw("/auth", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ init_data: d.initData() }),
     });
-    if (!res) return { kind: "fail", status: "offline" };
-    const body = await json(res);
+    if (!sent) return { kind: "fail", status: "offline" };
+    const j = await json(sent);
+    // Тело входа не дошло в срок — как сеть, которая не ответила.
+    if (j.late) return { kind: "fail", status: "offline" };
+    const { res } = sent;
+    const body = j.body;
     if (!res.ok) return { kind: "fail", status: classifyAuthFailure(res.status, body) };
     const b = body as Partial<TgAuthResponse> | null;
     if (!b || typeof b.token !== "string") return { kind: "fail", status: "unknown" };
@@ -112,7 +158,7 @@ export function createApi(d: ApiDeps) {
    * восстанавливается. Второй 401 — expired (цикла нет). Повторный вход,
    * получивший 403/503/сеть, возвращает свой статус и запрос не повторяет.
    */
-  async function authed(path: string, init: RequestInit): Promise<{ res: Response } | { status: FailStatus }> {
+  async function authed(path: string, init: RequestInit): Promise<{ sent: Sent } | { status: FailStatus }> {
     if (!token) {
       const a = await auth();
       if (a.kind === "fail") return { status: a.status };
@@ -123,9 +169,11 @@ export function createApi(d: ApiDeps) {
       // молча потерял бы Authorization.
       const headers = new Headers(init.headers);
       headers.set("Authorization", `Bearer ${used}`);
-      const res = await raw(path, { ...init, headers });
-      if (!res) return { status: "offline" };
-      if (res.status !== 401) return { res };
+      const sent = await raw(path, { ...init, headers });
+      if (!sent) return { status: "offline" };
+      if (sent.res.status !== 401) return { sent };
+      // Тело 401 не нужно: срок этого запроса снимаем.
+      sent.drop();
       // Сбрасываем токен, только если его не успел обновить параллельный запрос.
       if (token === used) token = null;
       if (attempt === 1) return { status: "expired" };
@@ -139,9 +187,16 @@ export function createApi(d: ApiDeps) {
   async function call<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
     const out = await authed(path, init);
     if ("status" in out) return { kind: "fail", status: out.status };
-    const { res } = out;
-    if (res.status >= 500) return { kind: "fail", status: "offline" };
-    const body = await json(res);
+    const { sent } = out;
+    const { res } = sent;
+    if (res.status >= 500) {
+      sent.drop();
+      return { kind: "fail", status: "offline" };
+    }
+    const j = await json(sent);
+    // Тело зависло после заголовков — как таймаут сети: кэш и пометка «нет связи» сработают так же.
+    if (j.late) return { kind: "fail", status: "offline" };
+    const body = j.body;
     if (res.ok) {
       // 2xx без JSON: не выдаём null за T.
       if (body === null) return { kind: "fail", status: "unknown" };
@@ -165,9 +220,15 @@ export function createApi(d: ApiDeps) {
      */
     async blob(path: string): Promise<Blob | null> {
       const out = await authed(path, { method: "GET", cache: "no-store" });
-      if ("status" in out || !out.res.ok) return null;
+      if ("status" in out) return null;
+      const { sent } = out;
+      if (!sent.res.ok) {
+        sent.drop();
+        return null;
+      }
       try {
-        return await out.res.blob();
+        // Файл дочитывается в срок запроса: зависшее тело — заглушка, а не вечный брусок.
+        return await sent.read(sent.res.blob());
       } catch {
         return null;
       }

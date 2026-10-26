@@ -73,6 +73,31 @@ it("blob: байты при 200, null при ошибке и сети; мимо 
   expect(await a.blob("/photo/2")).toBeNull();
   expect(await a.blob("/photo/3")).toBeNull();
 });
+// Заголовки пришли, а тело зависло (филиальный wifi): срок действует до конца чтения тела.
+const stalled = () => new Response(new ReadableStream({ start() {} }), { status: 200, headers: { "content-type": "application/json" } });
+
+it("тело зависло после заголовков: blob — null, данные — offline, вход — offline; в срок", async () => {
+  const f = (async (url: string) => (url.endsWith("/auth") ? ok({ token: "t", roles: [], lang: "ru" }) : stalled())) as any;
+  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 100 });
+  const t0 = Date.now();
+  expect(await a.blob("/violation-photos/1/file")).toBeNull();
+  expect(await a.get("/home")).toEqual({ kind: "fail", status: "offline" });
+  expect(await a.send("POST", "/disputes", { x: 1 })).toEqual({ kind: "fail", status: "offline" });
+  expect(Date.now() - t0).toBeLessThan(1500);
+
+  const stuckAuth = (async () => stalled()) as any;
+  expect(await createApi({ fetch: stuckAuth, sdk: () => "ok", initData: () => "q", timeoutMs: 100 }).auth()).toEqual({ kind: "fail", status: "offline" });
+});
+it("тело пришло до срока — срок не мешает и не срабатывает позже", async () => {
+  const f = (async (url: string) => (url.endsWith("/auth") ? ok({ token: "t", roles: [], lang: "ru" }) : ok({ x: 1 }))) as any;
+  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", timeoutMs: 50 });
+  expect(await a.get("/home")).toEqual({ kind: "ok", data: { x: 1 } });
+  const b = await a.blob("/violation-photos/1/file");
+  expect(b && (await b.text())).toBe('{"x":1}');
+  // Таймер снят: после срока ничего не падает и ответы те же.
+  await new Promise((r) => setTimeout(r, 80));
+  expect(await a.get("/home")).toEqual({ kind: "ok", data: { x: 1 } });
+});
 it("параллельные запросы без токена делают один вход", async () => {
   let auths = 0;
   const f = (async (url: string) => { if (url.endsWith("/auth")) { auths++; return ok({ token: "t", roles: [], lang: "ru" }); } return ok({ ok: 1 }); }) as any;

@@ -48,6 +48,7 @@ function failed(): HTMLElement {
 
 /** Превью фото: кнопка с картинкой (нажатие — на весь экран) или заглушка «Фото не загрузилось». */
 export async function photoThumb(id: string): Promise<HTMLElement> {
+  const my = gen;
   const url = await urlOf(id);
   // URL мог освободиться, пока ждали очереди: такой в <img> не ставим.
   if (url === null || !made.has(url)) return failed();
@@ -57,8 +58,15 @@ export async function photoThumb(id: string): Promise<HTMLElement> {
     { type: "button", class: "photo photo-btn", "aria-label": t("photo_open"), "aria-haspopup": "dialog", onclick: () => openPhoto(url) },
     img,
   );
-  // Файл пришёл, но не читается как картинка: вместо пустой рамки — та же заглушка.
+  // Файл пришёл, но не читается как картинка: вместо пустой рамки — та же заглушка. Битый URL
+  // не переиспользуется: он освобождается и забывается, следующая перерисовка запросит фото
+  // снова. Только в своём поколении: запоздавшая ошибка с прежнего экрана карту не трогает.
   img.addEventListener("error", () => {
+    if (my === gen && made.has(url)) {
+      made.delete(url);
+      URL.revokeObjectURL(url);
+      loads.delete(id);
+    }
     if (btn.parentNode) btn.parentNode.replaceChild(failed(), btn);
   });
   return btn;

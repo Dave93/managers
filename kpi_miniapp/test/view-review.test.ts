@@ -18,6 +18,9 @@ const item = (id: string, title_ru: string, score: number | null, o: Partial<TgR
   ...o,
 });
 
+// Шкала прибавки по возрастанию, как её отдаёт сервер.
+const TIERS = [{ min_pct: 85, amount: 150000 }, { min_pct: 90, amount: 300000 }, { min_pct: 95, amount: 500000 }];
+
 // Макет screens.html, экран 1: октябрь 90,33 %, девять пунктов — семь основных и два дополнительных.
 function ex(): TgReview {
   return {
@@ -40,6 +43,7 @@ function ex(): TgReview {
     changes: [{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 85, new_score_pct: 90.33, comment: "Пересчитали гигиену" }],
     dispute: { state: "can", deadline: "2026-11-10T18:59:59.999Z", opened_at: null, last_resolved: null },
     reason_min: 5,
+    tiers: TIERS,
   };
 }
 
@@ -156,6 +160,16 @@ it("узбекский: месяц, группы, название пункта 
   expect(vm.groups[1]!.items[1]!.title).toBe("Инициатива");
   expect(vm.changes[0]).toEqual({ line: `27-oktabr: 85,0${nb}% → 90,3${nb}%`, reason: "Sabab: Пересчитали гигиену" });
   expect(vm.dispute).toEqual({ can: true, label: "Eʼtiroz bildirish" });
+});
+
+it("порог ступени (решение 6): 89,96 при ступени 90 — «89,9» в заголовке и в изменениях, как на главном", () => {
+  const r = { ...ex(), score_pct: 89.96, changes: [{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 84.97, new_score_pct: 89.96, comment: null }] };
+  const vm = reviewView(r, "ru");
+  expect(vm.title).toBe(`Октябрь · 89,9${nb}%`);
+  expect(vm.changes[0]!.line).toBe(`27 октября: 84,9${nb}% → 89,9${nb}%`);
+  // Ответ без шкалы (старый backend, копия из кэша) — обычное округление, без падения.
+  const { tiers: _drop, ...noTiers } = r;
+  expect(reviewView(noTiers as typeof r, "ru").title).toBe(`Октябрь · 90,0${nb}%`);
 });
 
 it("disputeErrorText: коды сервера, неизвестное и null — общее", () => {

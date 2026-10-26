@@ -7,6 +7,9 @@ const nb = "\u00a0";
 const scored = (period: string, score_pct: number): TgMonth => ({ period, state: "scored", score_pct, opens_at: "2000-01-01T00:00:00.000Z" });
 const month = (period: string, state: TgMonth["state"], opens_at = "2000-01-01T00:00:00.000Z"): TgMonth => ({ period, state, score_pct: null, opens_at });
 
+// Шкала прибавки по возрастанию, как её отдаёт сервер.
+const TIERS = [{ min_pct: 85, amount: 150000 }, { min_pct: 90, amount: 300000 }, { min_pct: 95, amount: 500000 }];
+
 // Макет screens.html, экран 3: IV квартал идёт, III утверждён +500 000, II без прибавки.
 function ex(): TgHistory {
   return {
@@ -35,6 +38,7 @@ function ex(): TgHistory {
         result: { kind: "decided", amount: 0 },
       },
     ],
+    tiers: TIERS,
   };
 }
 
@@ -80,6 +84,7 @@ it("месяц ждёт оценки — «ещё не оценён»; ждём 
           result: { kind: "waiting_hr" },
         },
       ],
+      tiers: TIERS,
     },
     "ru",
   );
@@ -102,5 +107,25 @@ it("узбекский", () => {
 });
 
 it("пустая история", () => {
-  expect(historyView({ quarters: [] }, "ru")).toEqual({ quarters: [], empty: true });
+  expect(historyView({ quarters: [], tiers: TIERS }, "ru")).toEqual({ quarters: [], empty: true });
+});
+
+it("порог ступени (решение 6): 89,96 при ступени 90 — «89,9» в месяце и в среднем, как на главном", () => {
+  const h: TgHistory = {
+    quarters: [
+      {
+        quarter_start: "2026-07-01",
+        months: [scored("2026-07-01", 89.96), month("2026-08-01", "not_rated"), month("2026-09-01", "not_rated")],
+        avg_pct: 89.96,
+        result: { kind: "waiting_hr" },
+      },
+    ],
+    tiers: TIERS,
+  };
+  const q = historyView(h, "ru").quarters[0]!;
+  expect(q.months[0]!.value).toBe(`89,9${nb}%`);
+  expect(q.avg).toBe(`89,9${nb}%`);
+  // Ответ без шкалы (старый backend, копия из кэша) — обычное округление, без падения.
+  const { tiers: _drop, ...noTiers } = h;
+  expect(historyView(noTiers as TgHistory, "ru").quarters[0]!.avg).toBe(`90,0${nb}%`);
 });

@@ -3,13 +3,14 @@
 // Оценённый месяц ведёт на свою «Вся оценка».
 //
 // Слова итога — из спеки 4.4: «идёт», «Ждём решения HR», «Утверждено +N сум», «Без прибавки».
-// Порогов ступеней в истории нет, поэтому проценты — обычное округление pct1: защиты порога,
-// как на главном (решение 6), здесь не из чего построить.
+// Проценты — с защитой порога (решение 6), как на главном: шкала приходит в ответе (tiers), и
+// 89,96 при ступени 90 — «89,9», а не «90,0».
 import type { TgHistory, TgHistoryQuarter, TgMonth, TgQuarterResult } from "@backend/modules/kpi/tg-app/types";
 import { dayMonth, pct1, sum } from "../format";
 import { type Lang, monthName, quarterTitle, tIn } from "../i18n";
 import { hashOf } from "../route";
 import { capFirst } from "../util";
+import { tierMins } from "./review";
 
 const NBSP = "\u00a0";
 const DASH = "—";
@@ -33,10 +34,10 @@ function resultOf(r: TgQuarterResult, l: Lang): QuarterVM["result"] {
 }
 
 /** Значение месяца (решение 9): первый будущий — с какого числа оценят, следующие — «—». */
-function monthValue(m: TgMonth, firstUpcoming: boolean, l: Lang): string {
+function monthValue(m: TgMonth, firstUpcoming: boolean, mins: number[], l: Lang): string {
   switch (m.state) {
     case "scored":
-      return m.score_pct === null ? DASH : `${pct1(m.score_pct)}${NBSP}%`;
+      return m.score_pct === null ? DASH : `${pct1(m.score_pct, mins)}${NBSP}%`;
     case "pending":
       return tIn(l, "hist_pending");
     case "not_rated":
@@ -46,7 +47,7 @@ function monthValue(m: TgMonth, firstUpcoming: boolean, l: Lang): string {
   }
 }
 
-function quarterView(q: TgHistoryQuarter, l: Lang): QuarterVM {
+function quarterView(q: TgHistoryQuarter, mins: number[], l: Lang): QuarterVM {
   let seenUpcoming = false;
   return {
     title: quarterTitle(q.quarter_start, l, true),
@@ -56,14 +57,15 @@ function quarterView(q: TgHistoryQuarter, l: Lang): QuarterVM {
       if (m.state === "upcoming") seenUpcoming = true;
       return {
         label: capFirst(monthName(m.period, "nom", l)),
-        value: monthValue(m, first, l),
+        value: monthValue(m, first, mins, l),
         hash: m.state === "scored" ? hashOf({ name: "review", period: m.period }) : null,
       };
     }),
-    avg: q.avg_pct === null ? null : `${pct1(q.avg_pct)}${NBSP}%`,
+    avg: q.avg_pct === null ? null : `${pct1(q.avg_pct, mins)}${NBSP}%`,
   };
 }
 
 export function historyView(h: TgHistory, l: Lang): { quarters: QuarterVM[]; empty: boolean } {
-  return { quarters: h.quarters.map((q) => quarterView(q, l)), empty: h.quarters.length === 0 };
+  const mins = tierMins(h.tiers);
+  return { quarters: h.quarters.map((q) => quarterView(q, mins, l)), empty: h.quarters.length === 0 };
 }

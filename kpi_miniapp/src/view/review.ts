@@ -3,7 +3,7 @@
 // дополнительные пункты, внизу изменения после отправки и спор.
 //
 // disputeErrorText живёт здесь, а не в sheet.ts: тест не может импортировать модуль с DOM.
-import type { TgDisputeInfo, TgItemSource, TgReview, TgReviewItem } from "@backend/modules/kpi/tg-app/types";
+import type { TgDisputeInfo, TgItemSource, TgReview, TgReviewItem, TgTier } from "@backend/modules/kpi/tg-app/types";
 import { dayMonth, pct1 } from "../format";
 import { type Key, type Lang, monthName, t, tIn } from "../i18n";
 import { capFirst } from "../util";
@@ -37,8 +37,16 @@ const SOURCE_KEY: Record<TgItemSource, Key | null> = {
   food_cost: "src_branch",
 };
 
+/**
+ * Пороги ступеней для защиты процента (решение 6): 89,96 при ступени 90 — «89,9», как на главном.
+ * Ответ без tiers (backend до этой правки, копия из кэша) — обычное округление.
+ */
+export function tierMins(tiers: TgTier[] | undefined): number[] {
+  return Array.isArray(tiers) ? tiers.map((t) => t.min_pct) : [];
+}
+
 /** Процент изменения: «85,0 %», пустой — «—» без знака (pct1 с null не зовётся). */
-const pctOrDash = (n: number | null): string => (n === null ? DASH : `${pct1(n)}${NBSP}%`);
+const pctOrDash = (n: number | null, mins: number[]): string => (n === null ? DASH : `${pct1(n, mins)}${NBSP}%`);
 
 function itemView(i: TgReviewItem, l: Lang): ReviewItemVM {
   const key = SOURCE_KEY[i.source];
@@ -82,12 +90,14 @@ export function reviewView(r: TgReview, l: Lang): ReviewVM {
   if (extra.length) groups.push({ title: tIn(l, "grp_extra"), items: extra });
 
   const lr = r.dispute.last_resolved;
+  // Каждый процент экрана — с защитой порога: заголовок не скажет «90,0», когда главный говорит «89,9».
+  const mins = tierMins(r.tiers);
   return {
     // Без балла заголовок — только месяц: «Октябрь · —» ничего не добавляет.
-    title: r.score_pct === null ? month : `${month} · ${pct1(r.score_pct)}${NBSP}%`,
+    title: r.score_pct === null ? month : `${month} · ${pct1(r.score_pct, mins)}${NBSP}%`,
     groups,
     changes: r.changes.map((c) => ({
-      line: `${dayMonth(c.at, l)}: ${pctOrDash(c.old_score_pct)} → ${pctOrDash(c.new_score_pct)}`,
+      line: `${dayMonth(c.at, l)}: ${pctOrDash(c.old_score_pct, mins)} → ${pctOrDash(c.new_score_pct, mins)}`,
       reason: c.comment !== null && c.comment.trim() !== "" ? tIn(l, "change_reason", { text: c.comment }) : null,
     })),
     resolved: lr
