@@ -90,6 +90,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(hist.quarters.map((q: any) => [q.quarter_start, q.months.map((m: any) => m.state), q.avg_pct])).toEqual([
         ["2025-10-01", ["scored", "upcoming", "upcoming"], 91.43],
       ]);
+      // Шкала для защиты порога в истории: та же, что на карточке прибавки, по возрастанию (сохранена убывающей).
+      expect(hist.tiers).toEqual([{ min_pct: 85, amount: 150000 }, { min_pct: 90, amount: 300000 }, { min_pct: 95, amount: 500000 }]);
+      expect(hist.tiers).toEqual(h.employee.raise.tiers);
     });
 
     it("отчётный месяц не оценён: короткая карточка и прошлый месяц, нарушения только действующие", async () => {

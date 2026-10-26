@@ -4,10 +4,18 @@ import { kpi_disputes, kpi_periods, kpi_review_events, kpi_reviews } from "backe
 import { and, desc, eq, gte, inArray, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { iso } from "../iso";
+import { getTiers } from "../raises";
 import type { KpiSettings } from "../rules";
 import { disputeDeadline, type Period } from "../time";
 import { disputeStateOf, reviewStatusOf } from "./rules";
-import type { TgDisputeInfo, TgReviewStatus } from "./types";
+import type { TgDisputeInfo, TgReviewStatus, TgTier } from "./types";
+
+// Шкала прибавки для клиента: по возрастанию min_pct, только порог и сумма. Одна на карточку прибавки,
+// «Вся оценка» и историю: клиент по ней не даёт проценту «дотянуть» до порога округлением (решение 6 плана 7).
+export async function tgTiers(db: DbLike): Promise<TgTier[]> {
+  const tiers = await getTiers(db);
+  return [...tiers].sort((a, b) => a.min_pct - b.min_pct).map((t) => ({ min_pct: t.min_pct, amount: t.amount }));
+}
 
 export type SubmittedReview = { id: string; period: Period; score_pct: number | null; card_id: string };
 

@@ -11,7 +11,7 @@ import { iso } from "../iso";
 import { loadSettings } from "../settings";
 import { resolveUploadFile } from "../storage";
 import { disputeDeadline } from "../time";
-import { closedPeriods, disputeFacts, reviewDispute } from "./load";
+import { closedPeriods, disputeFacts, reviewDispute, tgTiers } from "./load";
 import { disputeStateOf } from "./rules";
 import type { TgDisputeCreated, TgItemSource, TgReview, TgReviewChange, TgReviewItem, TgViolation, TgViolations } from "./types";
 
@@ -96,6 +96,7 @@ export async function reviewFor(db: DbLike, employeeId: string, period: unknown,
     changes,
     dispute,
     reason_min: s.change_comment_min,
+    tiers: await tgTiers(db),
   };
 }
 

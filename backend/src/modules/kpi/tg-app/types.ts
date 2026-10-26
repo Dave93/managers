@@ -78,6 +78,7 @@ export interface TgReview {
   changes: TgReviewChange[];  // события changed и hr_adjusted по времени
   dispute: TgDisputeInfo;
   reason_min: number;         // change_comment_min
+  tiers: TgTier[];            // шкала прибавки по возрастанию min_pct (текущие настройки): защита порога в заголовке (решение 6 плана 7)
 }
 
 // GET /api/kpi/tg/violations?period=YYYY-MM-01
@@ -90,7 +91,8 @@ export interface TgViolations { period: string; items: TgViolation[]; reason_min
 // GET /api/kpi/tg/history
 export type TgQuarterResult = { kind: "running" } | { kind: "waiting_hr" } | { kind: "decided"; amount: number };
 export interface TgHistoryQuarter { quarter_start: string; months: TgMonth[]; avg_pct: number | null; result: TgQuarterResult }
-export interface TgHistory { quarters: TgHistoryQuarter[] } // новые сверху, не больше 4
+// tiers — шкала прибавки по возрастанию min_pct (текущие настройки): защита порога в баллах и средних (решение 6 плана 7).
+export interface TgHistory { quarters: TgHistoryQuarter[]; tiers: TgTier[] } // кварталы новые сверху, не больше 4
 
 // POST /api/kpi/tg/disputes
 export interface TgDisputeRequest { subject_type: "review" | "violation"; subject_id: string; reason: string }

@@ -41,6 +41,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       prevToken = process.env.KPI_BOT_TOKEN;
       process.env.KPI_BOT_TOKEN = TG_TEST_BOT_TOKEN;
       const hr = await withSession({ permissions: ["kpi.manage"] });
+      // Шкала явно и убывающей: ответ «Вся оценка» обязан отдать её по возрастанию.
+      const tiers = await api(hr, "PUT", "/api/kpi/raise-tiers", {
+        tiers: [{ min_pct: 95, amount: 500000 }, { min_pct: 90, amount: 300000 }, { min_pct: 85, amount: 150000 }],
+      });
+      expect(tiers.status).toBe(200);
       const cards = (await api(hr, "GET", "/api/kpi/cards")).body as { id: string; code: string; items: { id: string }[] }[];
       const cook = cards.find((c) => c.code === "cook")!;
       cookCardId = cook.id;
@@ -74,6 +79,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const token = await login(await bindTelegram(db, { employee_id: e.id }));
       const v = (await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-10-01")).body;
       expect([v.review_id, v.status, v.reason_min, v.dispute.state]).toEqual([r.id, "changed", 5, "can"]);
+      // Шкала для защиты порога в заголовке (решение 6 плана 7): по возрастанию min_pct.
+      expect(v.tiers).toEqual([{ min_pct: 85, amount: 150000 }, { min_pct: 90, amount: 300000 }, { min_pct: 95, amount: 500000 }]);
       expect(v.items.map((i: any) => i.group_key)).toEqual(["base", "base", "base", "base", "base", "base", "base", "extra", "extra"]);
       expect(v.items[0]).toMatchObject({ title_ru: "Приход и уход", source: "attendance", score: null });
       expect(v.items[2]).toMatchObject({ score: 75, note: "Форма была грязной 14 и 18 октября" });

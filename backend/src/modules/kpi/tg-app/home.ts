@@ -11,7 +11,7 @@ import { quarterRow, type KpiSettings } from "../rules";
 import { loadSettings } from "../settings";
 import { addMonths, currentReviewPeriod, quarterMonths, quarterStart, reviewDeadline, submitOpensAt, type Period } from "../time";
 import type { KpiTgPrincipal } from "./ctx";
-import { closedPeriods, reviewDispute, submittedReviews, type SubmittedReview } from "./load";
+import { closedPeriods, reviewDispute, submittedReviews, tgTiers, type SubmittedReview } from "./load";
 import { lostItems, monthState, quarterEnded, raiseHint, raiseQuarter } from "./rules";
 import type {
   TgEmployeeHome,
@@ -231,5 +231,5 @@ export async function historyFor(db: DbLike, employeeId: string, at: Date): Prom
   const R = currentReviewPeriod(at, s.review_deadline_day);
   const [dir] = await loadDirectory(db, { employeeIds: [employeeId], includeInactive: true });
   const f = await loadFacts(db, employeeId, s, R, at);
-  return { quarters: historyOf(f, (dir?.card_id ?? null) !== null) };
+  return { quarters: historyOf(f, (dir?.card_id ?? null) !== null), tiers: await tgTiers(db) };
 }
