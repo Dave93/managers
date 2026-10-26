@@ -64,6 +64,7 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
           <p className={touched && !ok ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>
             Не меньше {VIOLATION_COMMENT_MIN} букв или цифр
           </p>
+          <p className="text-xs text-muted-foreground">Причину отмены увидит сотрудник</p>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" disabled={cancel.isPending} onClick={onClose}>
