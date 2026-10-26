@@ -232,3 +232,19 @@ it("шкала: дробный порог с десятичной, средни�
   expect(raise.ticks.map((x) => [x.pct, x.amount, x.at])).toEqual([[`87,5${nb}%`, `150${nb}тыс`, 0.25], [`90${nb}%`, `300${nb}тыс`, 0.5], [`95${nb}%`, `1,5${nb}млн`, 0.75]]);
   expect(raise.marker!.label).toBe(`89,9${nb}%`);
 });
+
+// Отчётный месяц не оценён, а оценённого прошлого нет (руководитель, персона 12): сервер шлёт
+// строку нарушений за тот же отчётный месяц, что и короткая карточка. Две строки, ведущие на один
+// экран, — лишние: нижней нет, нарушения — в короткой карточке.
+it("короткая карточка и нижняя строка за один месяц — нижней строки нарушений нет", () => {
+  const d = withPending();
+  d.employee!.month = null;
+  d.employee!.violations = { period: "2026-11-01", count: 2 };
+  const vm = homeView(d, "ru", NOW);
+  expect(vm.pending!.hash).toBe("#/violations/2026-11");
+  expect(vm.links).toEqual([{ text: "История", count: null, hash: "#/history" }]);
+  d.employee!.has_history = false;
+  expect(homeView(d, "ru", NOW).links).toEqual([]);
+  // Месяцы разные (есть оценённый прошлый) — обе строки остаются.
+  expect(homeView(withPending(), "ru", NOW).links.map((x) => x.hash)).toEqual(["#/violations/2026-10", "#/history"]);
+});

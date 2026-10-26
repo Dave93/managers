@@ -175,13 +175,19 @@ export function homeView(d: TgHome, l: Lang, nowMs: number): HomeVM {
       }
     : null;
 
-  const links: HomeVM["links"] = [
-    {
-      text: tIn(l, "link_viol", { month: monthName(e.violations.period, "prep", l) }),
-      count: String(e.violations.count),
-      hash: routeHash("violations", e.violations.period),
-    },
-  ];
+  // Строка нарушений внизу — за главный оценённый месяц. Оценённого нет, и сервер шлёт её за
+  // отчётный — тот же экран, что у строки в короткой карточке: вторая такая строка лишняя.
+  const violHash = routeHash("violations", e.violations.period);
+  const links: HomeVM["links"] =
+    pending && pending.hash === violHash
+      ? []
+      : [
+          {
+            text: tIn(l, "link_viol", { month: monthName(e.violations.period, "prep", l) }),
+            count: String(e.violations.count),
+            hash: violHash,
+          },
+        ];
   if (e.has_history || m) links.push(history);
 
   // Решение 9: текущим подсвечивается отчётный месяц.
