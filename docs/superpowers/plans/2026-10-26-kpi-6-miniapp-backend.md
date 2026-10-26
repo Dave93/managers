@@ -48,17 +48,19 @@
 7. **Порядок веток подсказки:** решение HR → квартал кончился → `k = 0` → `k < min` → квартал идёт. Квартал кончился при `k < min`: «Ждём решения HR», предварительно 0.
 8. **«Держите уровень <месяц>»** относится ко всем оценённым месяцам квартала (`keep_periods`). При `min = 3` и `k = 2` это «октября и ноября».
 9. **Квартал карточки:** квартал отчётного месяца. Если в нём нет отправленной оценки, а в прошлом квартале есть отправленная оценка или решение HR, — прошлый квартал.
-10. **Главный месяц:** отчётный, если оценён. Иначе прошлый, если по нему есть отправленная оценка. Иначе карточки нет. Строка «Нарушения в <месяц>» берёт месяц главной карточки, без неё — отчётный. Считаются только действующие нарушения.
+10. **Главный месяц:** отчётный, если по нему есть отправленная оценка (балл может быть `null`, тогда карточка с прочерком). Иначе прошлый, если по нему есть отправленная оценка. Иначе карточки нет. Короткая карточка `pending` — только когда у отчётного месяца нет отправленной оценки. Строка «Нарушения в <месяц>» берёт месяц главной карточки, без неё — отчётный. Считаются только действующие нарушения.
 11. **История:** 4 квартала всего, квартал отчётного месяца и три прошлых. Квартал показывается, если в нём есть отправленная оценка или решение. Квартал отчётного месяца показывается всегда, когда у сотрудника есть карта.
 12. **Статус оценки:** открытый спор → `dispute_open`; иначе был разобранный спор → `dispute_resolved`; иначе есть событие `changed` или `hr_adjusted` → `changed`; иначе `ready`.
 13. **Состояние спора:** у нарушения `cancelled` → `open` → `period_closed` → `window_closed` → `can`. У оценки — то же без `cancelled`.
-14. **Черновик** в мини-приложении не существует: `GET review` и спор по черновику дают 404 `not_found`, а не 409 `not_submitted`.
-15. **Ссылка оценщика в админку** собирается из новой переменной `KPI_ADMIN_URL` (`http(s)://хост` без пути) плюс `/ru/kpi/reviews`. Не задана или кривая — `admin_url: null`, и клиент ссылку не рисует.
-16. **Кнопка меню.** У `setChatMenuButton` нет `language_code`. Поэтому `set-menu.ts` ставит всем кнопку по умолчанию «Мой KPI», а чатам с узбекской привязкой — свою «Mening KPI». Смена языка в боте переставляет кнопку чата (в обработчике вебхука, с ожиданием). Смена языка в мини-приложении — fire-and-forget, ответ не ждёт Telegram.
+14. **Черновик** в мини-приложении не существует: `GET review` и спор по черновику дают 404 `not_found`, а не 409 `not_submitted`. Это сознательно сужает «те же коды, что у `openDispute`» из раздела 7 спеки: 409 выдал бы, что черновик есть.
+15. **Ссылка оценщика в админку** собирается из новой переменной `KPI_ADMIN_URL` (`http(s)://хост` без пути; хвостовой `/` срезается) плюс `/ru/kpi/reviews`. Не задана или кривая — `admin_url: null`, и клиент ссылку не рисует.
+16. **Кнопка меню.** У `setChatMenuButton` нет `language_code`. Поэтому `set-menu.ts` ставит всем кнопку по умолчанию «Мой KPI», а чатам с узбекской привязкой — свою «Mening KPI». Смена языка в боте переставляет кнопку чата (в обработчике вебхука, с ожиданием). Смена языка в мини-приложении — fire-and-forget, ответ не ждёт Telegram. И там и там Telegram вызывается, только если язык действительно сменился: иначе повтор `PUT /lang` в цикле упирал бы бота в лимит Telegram (429) и задерживал все уведомления.
 17. **`KPI_MINIAPP_URL`** принимается только с `https://`; хвостовой `/` дописывается. Иначе переменная считается незаданной и кнопок «Открыть» нет: Telegram отвергает `web_app` не по https, и каждое уведомление стало бы `failed` навсегда.
 18. **Адреса экранов** в кнопках: `<url>#/review/YYYY-MM`, `#/violations/YYYY-MM`, `#/history`. API при этом принимает `period=YYYY-MM-01`.
 19. **Сессия:** токен `randomBytes(32).toString("hex")`, ключ `${PROJECT_PREFIX}kpi_tg_session:<token>`, TTL 43 200 с. Язык ответа берётся из привязки на каждом запросе.
 20. **Ничья в «Где потеряны баллы»** решается по `kpi_card_items.sort` пункта; пункт, которого в карте уже нет, идёт после остальных.
+21. **Тестовые токены бота не работают вне тестов.** Оба тестовых токена лежат в репозитории (`123456:kpi-test-bot-token` здесь, `123456:kpi-smoke-dev-token` в плане 7), и кто угодно с доступом к репозиторию подписал бы ими `initData`. Чистая функция `tokenAllowed(token, projectPrefix)` отвергает токен, начинающийся с `123456:kpi-`, если `PROJECT_PREFIX` не `managers_test_` и не `managers_smoke_`; тогда вход отвечает 503 `not_configured`. Образец — `now()` в `clock.ts` и `setTestBotApi` в `bot-api.ts`, они тоже смотрят на `PROJECT_PREFIX`. Функция живёт в `tg-app/init-data.ts` рядом с `signInitData`: там нет импортов базы, и юнит-тест не тянет за собой модули KPI.
+22. **Решение HR** в мини-приложении — только строка `kpi_raise_decisions` со статусом `approved` или `rejected`, и на главном экране, и в истории. Строки `proposed` и `insufficient` появляются у всех после «Рассчитать» и решением не считаются.
 
 ## Review Focus
 
@@ -67,6 +69,7 @@
 3. Сессия переживает привязку. Привязку сняли или сотрудника уволили через минуту после входа, а приложение работает ещё 12 часов. Следующий запрос должен дать 401 (или отрезать часть сотрудника у руководителя). Тест в задаче 3.
 4. Черновик утекает на экран. У черновика уже есть `score_pct`; он не должен попасть ни в главный экран, ни в подсказку, ни в историю, а `GET review` по нему — 404. Тест в задаче 4.
 5. Bearer-guard расползается на cookie-роуты. Подключённый не туда `.as("scoped")` потребует токен от `/api/kpi/tg/bindings` админки и от вебхука бота. Тест в задаче 3 проверяет оба.
+6. Прод с тестовым токеном. Сервер, поднятый с `.env` стенда или тестов, иначе принимал бы `initData`, подписанный токеном из репозитория, для любого `telegram_id`. `tokenAllowed` (решение 21) и его юнит-тест в задаче 3.
 
 ---
 
@@ -201,16 +204,16 @@ export interface TgDisputeCreated { id: string; subject_type: "review" | "violat
 | `backend/src/modules/kpi/tg/set-menu.ts` | Ручной скрипт: кнопка меню по умолчанию и узбекским чатам |
 | `backend/src/modules/kpi/tg/bot-api.ts` (правка) | `setMenuButton` |
 | `backend/src/modules/kpi/worker/deliver.ts` (правка) | `appUrl` в контекст сообщения |
-| `backend/src/modules/kpi/rules.ts` (правка) | `export` у `round2` |
+| `backend/src/modules/kpi/storage.ts` + `storage.test.ts`, `violations.ts` (правка) | `resolveUploadFile` — общая проверка пути фото для админки и мини-приложения |
 | `backend/src/modules/kpi/disputes.ts`, `types.ts` (правка) | `opened_via` `"miniapp"` |
 | `backend/src/modules/kpi/tg-app/types.ts` | Типы ответов (раздел выше), без импортов |
 | `backend/src/modules/kpi/tg-app/rules.ts` + `.test.ts` | Чистые правила: подсказка, состояния месяцев, квартал карточки, потерянные баллы, статусы |
-| `backend/src/modules/kpi/tg-app/init-data.ts` + `.test.ts` | `signInitData` |
+| `backend/src/modules/kpi/tg-app/init-data.ts` + `.test.ts` | `signInitData`, `tokenAllowed` |
 | `backend/src/modules/kpi/tg-app/auth.ts`, `ctx.ts` | Вход, сессия, guard |
 | `backend/src/modules/kpi/tg-app/load.ts` | Общие загрузки: отправленные оценки, споры, закрытые месяцы |
 | `backend/src/modules/kpi/tg-app/home.ts` | Главный экран, история |
 | `backend/src/modules/kpi/tg-app/review.ts` | Разбор оценки, нарушения, фото, спор |
-| `backend/src/modules/kpi/tg-app/dev-data.ts` | Запись оценок, нарушений, споров и решений мимо правил: только тесты и smoke-seed плана 7 |
+| `backend/src/modules/kpi/tg-app/dev-data.ts` | Запись оценок, нарушений, споров и решений мимо правил: только тесты и smoke-seed плана 7, вне `managers_test_` и `managers_smoke_` бросает ошибку |
 | `backend/src/modules/kpi/routes/tg-app.ts` | Роуты `/kpi/tg/*` мини-приложения |
 | `backend/src/modules/kpi/controller.ts` (правка) | `.use(tgAppRoutes)` последним |
 | `backend/src/modules/kpi/http/fixtures.ts` (правка) | `TG_TEST_BOT_TOKEN`, `tgLogin`, `tgApi`, `tgRaw`, `fakeBotApi().menus` |
@@ -254,13 +257,13 @@ uniqueIndex("kpi_tg_bindings_tg_user_uq").on(t.telegram_id).where(sql`${t.user_i
 Правила `redeemInvite` (остальное как в плане 4):
 - Гашение привязок того же человека на других `telegram_id` — без изменений.
 - Upsert по виду: `onConflictDoUpdate({ target: kpi_tg_bindings.telegram_id, targetWhere: sql\`employee_id is not null\` /* или user_id */, set: { employee_id /* или user_id */: id, active: true, created_at: sql\`now()\` } })`. Колонка другого вида не трогается.
-- При вставке `lang` = язык активной привязки другого вида этого `telegram_id`, если она есть (решение 4).
+- `lang` = язык активной привязки другого вида этого `telegram_id`, если она есть (решение 4), и при вставке, и при обновлении: в `set` upsert тогда входит и `lang`. Иначе переиспользованная старая строка того же вида сохраняла бы свой прежний язык, и две привязки одного Telegram расходились бы. Привязки другого вида нет — при обновлении язык строки не трогается.
 - `dual` = после погашения у `telegram_id` активны обе привязки и оба человека активны. Ветка `already` тоже считает `dual`.
 
-`start_ok_dual` (двуязычный, `lang` не влияет, `{name}` как в `start_ok`):
+`start_ok_dual` (двуязычный, `lang` не влияет, `{name}` как в `start_ok`; первая строка — как в разделе 8.1 спеки, с точкой):
 ```
-Готово! Теперь здесь и ваши оценки, и напоминания оценщика.
-Tayyor! Endi bu yerda baholaringiz ham, baholovchi eslatmalari ham keladi.
+Готово. Теперь здесь и ваши оценки, и напоминания оценщика.
+Tayyor. Endi bu yerda baholaringiz ham, baholovchi eslatmalari ham keladi.
 
 Вы подключены как <b>{name}</b>. Если это не вы — сообщите HR.
 Siz <b>{name}</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar bering.
@@ -275,7 +278,7 @@ Siz <b>{name}</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar ber
 - `/my`: `joinMy([...(pair.user ? [текст оценщика] : []), ...(pair.employee ? [текст сотрудника] : [])])`, сначала оценщик.
 - `help` и прочий текст — по `langOf`.
 
-- [ ] **Step 1: Схема в согласии до правки.** Run: `cd backend && bunx drizzle-kit generate --name probe`. Expected: `No schema changes, nothing to migrate`. Иначе остановиться и доложить.
+- [ ] **Step 1: Схема в согласии до правки.** Run: `cd backend && bunx drizzle-kit generate --name probe`. Expected: `No schema changes, nothing to migrate`. Иначе drizzle-kit уже записал `drizzle/migrations/*_probe.sql`, снимок и запись в `meta/_journal.json`: удалить все три, остановиться и доложить.
 
 - [ ] **Step 2: Написать тесты.** В `http/telegram.test.ts` тест «перепривязка: один telegram — один человек; второй телефон гасит первый» заменить на:
 
@@ -310,6 +313,16 @@ it("вторая привязка берёт язык первой; setLang и �
   expect(await hasAnyActiveBinding(db, b.telegram_id)).toBe(false);
 });
 
+it("переиспользованная строка того же вида тоже берёт язык другой привязки", async () => {
+  const [e1, e2] = [await makeEmployee(db), await makeEmployee(db)];
+  const u = await makeUser(db);
+  const old = await bindTelegram(db, { employee_id: e1.id, lang: "ru", active: false });   // прежняя строка сотрудника
+  await bindTelegram(db, { user_id: u.id, telegram_id: old.telegram_id, lang: "uz" });
+  await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, old.telegram_id);
+  const rows = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, old.telegram_id));
+  expect(rows.find((r) => r.id === old.id)).toMatchObject({ employee_id: e2.id, active: true, lang: "uz" });
+});
+
 it("индексы миграции 0040", async () => {
   const { rows } = await db.execute(sql`select indexname from pg_indexes where tablename = 'kpi_tg_bindings'`);
   const names = rows.map((x: any) => x.indexname);
@@ -327,7 +340,7 @@ it("две привязки: /start второй ссылки — «Теперь
   const b = await bindTelegram(db, { employee_id: employee.id });
   const inv = await createInvite(db, u.id, { user_id: u.id });
   await hook(say(b.telegram_id, `/start kpi_${inv.token}`));
-  expect(last().text.startsWith("Готово! Теперь здесь и ваши оценки, и напоминания оценщика.\n")).toBe(true);
+  expect(last().text.startsWith("Готово. Теперь здесь и ваши оценки, и напоминания оценщика.\n")).toBe(true);
   await hook(say(b.telegram_id, "/my"));
   const t = last().text;
   expect(t.indexOf("<b>Оценки за")).toBeLessThan(t.indexOf("<b>Ваши оценки</b>"));
@@ -347,7 +360,7 @@ it("две привязки: /start второй ссылки — «Теперь
   CREATE UNIQUE INDEX "kpi_tg_bindings_tg_employee_uq" ON "kpi_tg_bindings" USING btree ("telegram_id") WHERE "kpi_tg_bindings"."employee_id" is not null;
   CREATE UNIQUE INDEX "kpi_tg_bindings_tg_user_uq" ON "kpi_tg_bindings" USING btree ("telegram_id") WHERE "kpi_tg_bindings"."user_id" is not null;
   ```
-  (разделители `--> statement-breakpoint` — как сгенерировал drizzle-kit). Поле `when` новой записи `_journal.json` больше `1792926678670` (запись `0039`). Чужая таблица в файле — остановиться и доложить. Применить: `DATABASE_URL="$TEST_DATABASE_URL" bunx drizzle-kit migrate`, затем `bunx drizzle-kit generate --name probe` → `No schema changes`.
+  (разделители `--> statement-breakpoint` — как сгенерировал drizzle-kit). Поле `when` новой записи `_journal.json` больше `1792926678670` (запись `0039`). Чужая таблица в файле — остановиться и доложить. Применить: `DATABASE_URL="$TEST_DATABASE_URL" bunx drizzle-kit migrate`, затем `bunx drizzle-kit generate --name probe` → `No schema changes` (если записался `*_probe.sql` — как в шаге 1: удалить файл, снимок и запись журнала и доложить).
 
 - [ ] **Step 5: Реализовать** `bindings.ts`, `messages.ts` (`start_ok_dual`, `joinMy`) и `bot.ts` по правилам выше.
 
@@ -365,11 +378,11 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): две �
 ### Task 2: Чистые правила мини-приложения и подсказка о прибавке
 
 **Files:**
-- Modify: `backend/src/modules/kpi/rules.ts` (только `export` перед `const round2`)
 - Create: `backend/src/modules/kpi/tg-app/types.ts` (раздел «Типы ответов» дословно), `backend/src/modules/kpi/tg-app/rules.ts`, `backend/src/modules/kpi/tg-app/rules.test.ts`
+- `backend/src/modules/kpi/rules.ts` не трогать: средний берётся из `quarterRow` (там `round2`), `need` считается в целых сотых, отдельный `round2` здесь не нужен.
 
 **Interfaces:**
-- Consumes: `raiseFor`, `quarterRow`, `round2`, `Tier` из `../rules`; `addMonths`, `quarterStart`, `submitOpensAt`, `Period` из `../time`; типы `TgMonth`, `TgRaiseHint`, `TgNextTier`, `TgLostItem`, `TgReviewStatus`, `TgDisputeState` из `./types`.
+- Consumes: `raiseFor`, `quarterRow`, `Tier` из `../rules`; `addMonths`, `quarterStart`, `submitOpensAt`, `Period` из `../time`; типы `TgMonth`, `TgRaiseHint`, `TgNextTier`, `TgLostItem`, `TgReviewStatus`, `TgDisputeState` из `./types`.
 - Produces:
   ```ts
   export function needPct(thresholdPct: number, scored: number[], remaining: number): number; // вверх до 0,1
@@ -521,10 +534,10 @@ describe("месяцы и квартал", () => {
 
 describe("карточка месяца", () => {
   it("lostItems: ниже 100, по возрастанию, ничья по sort, до трёх", () => {
-    const it = (id: string, score: number | null, sort: number) => ({ item_id: id, title_ru: id, title_uz: id, score, sort });
-    expect(lostItems([it("a", 100, 10), it("b", 75, 60), it("c", null, 20), it("d", 75, 30), it("e", 90, 50), it("f", 95, 40)]).map((x) => x.item_id))
+    const row = (id: string, score: number | null, sort: number) => ({ item_id: id, title_ru: id, title_uz: id, score, sort });
+    expect(lostItems([row("a", 100, 10), row("b", 75, 60), row("c", null, 20), row("d", 75, 30), row("e", 90, 50), row("f", 95, 40)]).map((x) => x.item_id))
       .toEqual(["d", "b", "e"]);
-    expect(lostItems([it("a", 100, 10)])).toEqual([]);
+    expect(lostItems([row("a", 100, 10)])).toEqual([]);
   });
   it("reviewStatusOf и disputeStateOf — порядок веток", () => {
     expect(reviewStatusOf({ open: true, resolved: true, changed: true })).toBe("dispute_open");
@@ -543,12 +556,12 @@ describe("карточка месяца", () => {
   Ожидания выведены из алгоритма и примеров спеки. Расхождение в 97,4 / 86,7 / 101,7 / 87,5 — ошибка реализации, а не теста.
 
 - [ ] **Step 3: Run** `cd backend && bun test src/modules/kpi/tg-app` — Expected: FAIL (`Cannot find module './rules'`).
-- [ ] **Step 4: Реализовать** `tg-app/rules.ts`, `export const round2` в `kpi/rules.ts`.
-- [ ] **Step 5: Run** тот же тест и `bun test src/modules/kpi/rules.test.ts` — Expected: PASS. Типы backend — пусто.
+- [ ] **Step 4: Реализовать** `tg-app/rules.ts`.
+- [ ] **Step 5: Run** тот же тест — Expected: PASS. Типы backend — пусто.
 - [ ] **Step 6: Commit**
 
 ```bash
-git -C /Users/macbookpro/development/managers-kpi add backend/src/modules/kpi/rules.ts backend/src/modules/kpi/tg-app/types.ts backend/src/modules/kpi/tg-app/rules.ts backend/src/modules/kpi/tg-app/rules.test.ts
+git -C /Users/macbookpro/development/managers-kpi add backend/src/modules/kpi/tg-app/types.ts backend/src/modules/kpi/tg-app/rules.ts backend/src/modules/kpi/tg-app/rules.test.ts
 git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): типы мини-приложения и расчёт подсказки о прибавке"
 ```
 
@@ -566,6 +579,9 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): типы
   ```ts
   // tg-app/init-data.ts
   export function signInitData(botToken: string, o: { telegram_id: number; auth_date: number; first_name?: string }): string;
+  export const TEST_BOT_TOKEN_RE = /^123456:kpi-/;          // оба тестовых токена репозитория
+  export const TEST_PREFIXES = ["managers_test_", "managers_smoke_"];
+  export function tokenAllowed(token: string, projectPrefix: string | undefined): boolean; // false: тестовый токен вне TEST_PREFIXES
   // tg-app/ctx.ts
   export type KpiTgSession = { telegram_id: number; employee_id: string | null; user_id: string | null; lang: "ru" | "uz" };
   export type KpiTgPrincipal = KpiTgSession;                // после перепроверки; lang — из привязки
@@ -587,7 +603,8 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): типы
 
 Правила:
 - `signInitData`: поля `auth_date`, `query_id=AAAkpitest`, `user={"id":<tg>,"first_name":<имя ?? "Тест">}`; `hash` по алгоритму `verifyInitData` (секрет `HMAC_SHA256("WebAppData", token)`, строка проверки — поля по ключу через `\n`). Вывод — `URLSearchParams(...).toString()`.
-- `authenticate`, по порядку: нет `KPI_BOT_TOKEN` → 503 `not_configured`; `initData` не строка или `verifyInitData(..., nowSec)` не ok → 401 `bad_init_data`; `bindingOf` пуст → `hasAnyActiveBinding` ? 403 `inactive` : 403 `not_bound`; иначе сессия `{ telegram_id, employee_id: pair.employee?.employee_id ?? null, user_id: pair.user?.user_id ?? null, lang: langOf(pair) }` в Redis `SET key JSON EX 43200`; ответ `{ token, roles, lang }`, `roles` в порядке `["employee", "evaluator"]`.
+- `tokenAllowed(token, prefix)`: `!TEST_BOT_TOKEN_RE.test(token) || TEST_PREFIXES.includes(prefix ?? "")`. Без импортов базы и KPI-модулей: юнит-тест импортирует `init-data.ts` без окружения.
+- `authenticate`, по порядку: нет `KPI_BOT_TOKEN` → 503 `not_configured`; `!tokenAllowed(KPI_BOT_TOKEN, process.env.PROJECT_PREFIX)` → 503 `not_configured` (решение 21); `initData` не строка или `verifyInitData(..., nowSec)` не ok → 401 `bad_init_data`; `bindingOf` пуст → `hasAnyActiveBinding` ? 403 `inactive` : 403 `not_bound`; иначе сессия `{ telegram_id, employee_id: pair.employee?.employee_id ?? null, user_id: pair.user?.user_id ?? null, lang: langOf(pair) }` в Redis `SET key JSON EX 43200`; ответ `{ token, roles, lang }`, `roles` в порядке `["employee", "evaluator"]`.
 - Роут `POST /kpi/tg/auth`: тело `t.Object({ init_data: t.Optional(t.Any()) })`, `nowSec = Math.floor(Date.now() / 1000)`, ответ через `run`. Ничего не логирует.
 - `kpiTgCtx`: `.use(ctx).derive(...)`; токен из `authorization: Bearer <token>`; нет токена, нет ключа, мусор в Redis, сбой Redis → `status(401, { error: "unauthorized" })`. Затем `principalOf`: свежая `bindingOf`; `employee_id` остаётся, только если `pair.employee?.employee_id === s.employee_id`, `user_id` — если `pair.user?.user_id === s.user_id`; оба `null` → 401; `lang = langOf(pair)`.
 - Плагин `tgAppRoutes`: `POST /kpi/tg/auth` объявлен до `.use(kpiTgCtx)`, остальные после. В `controller.ts` — `.use(tgAppRoutes)` последней строкой цепочки.
@@ -598,14 +615,25 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): типы
 ```ts
 import { expect, it } from "bun:test";
 import { verifyInitData } from "@backend/modules/passport/tg-auth";
-import { signInitData } from "./init-data";
+import { signInitData, tokenAllowed } from "./init-data";
 
 it("signInitData проходит verifyInitData тем же токеном и не проходит чужим", () => {
   const s = signInitData("123:abc", { telegram_id: 9100000001, auth_date: 1_800_000_000 });
   expect(verifyInitData(s, "123:abc", 1_800_000_100)).toEqual({ ok: true, telegramId: 9100000001, firstName: "Тест", startParam: null });
   expect(verifyInitData(s, "123:other", 1_800_000_100)).toEqual({ ok: false, error: "bad_hash" });
 });
+
+it("tokenAllowed: тестовые токены только под managers_test_ и managers_smoke_", () => {
+  for (const t of ["123456:kpi-test-bot-token", "123456:kpi-smoke-dev-token"]) {
+    expect([tokenAllowed(t, "managers_test_"), tokenAllowed(t, "managers_smoke_")]).toEqual([true, true]);
+    expect([tokenAllowed(t, "managers_"), tokenAllowed(t, ""), tokenAllowed(t, undefined)]).toEqual([false, false, false]);
+  }
+  expect([tokenAllowed("7700000000:AAEexampleRealLookingToken_0123456789", "managers_"), tokenAllowed("123456:other", "managers_")])
+    .toEqual([true, true]);
+});
 ```
+
+  Префикс в HTTP-тестах ради этой проверки не менять: все файлы `test:http:kpi` идут в одном процессе и делят одно пространство Redis.
 
 - [ ] **Step 2: Написать `http/tg-app-auth.test.ts`** (guard и `setup` как в `bot.test.ts`; `beforeAll` — `cleanupKpi`, свой клиент `redis` (ioredis, как в `bot.test.ts`), `KPI_BOT_TOKEN = TG_TEST_BOT_TOKEN`; `beforeEach` — `f = fakeBotApi(); setTestBotApi(f.api)`; `afterAll` — вернуть токен, `setTestBotApi(null)`, `cleanupKpi`, `sweepTestRoles`, `redis.quit()`)
 
@@ -709,6 +737,7 @@ it("init_data и токен сессии не попадают в консоль
     const b = await bindTelegram(db, { employee_id: e.id });
     const init = signInitData(TG_TEST_BOT_TOKEN, { telegram_id: b.telegram_id, auth_date: nowSec() });
     const ok = await api(null, "POST", "/api/kpi/tg/auth", { init_data: init });
+    expect(ok.status).toBe(200);                                   // иначе фильтр ниже искал бы "undefined"
     await api(null, "POST", "/api/kpi/tg/auth", { init_data: init + "x" });
     const hash = new URLSearchParams(init).get("hash")!;
     expect(logs.filter((l) => l.includes(hash) || l.includes(ok.body.token))).toEqual([]);
@@ -746,10 +775,11 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): вход
   export async function closedPeriods(db: DbLike, periods: Period[]): Promise<Set<Period>>;
   export async function reviewDispute(db: DbLike, r: { id: string; period: Period }, at: Date, s: KpiSettings): Promise<{ dispute: TgDisputeInfo; status: TgReviewStatus }>;
   // tg-app/home.ts
-  export function adminReviewsUrl(): string | null;  // KPI_ADMIN_URL (^https?://хост, без хвостового /) + "/ru/kpi/reviews"
+  export function adminReviewsUrl(): string | null;  // KPI_ADMIN_URL (^https?://хост, хвостовой "/" срезается) + "/ru/kpi/reviews"
   export async function homeFor(db: DbLike, p: KpiTgPrincipal, at: Date): Promise<TgHome>;
   export async function historyFor(db: DbLike, employeeId: string, at: Date): Promise<TgHistory>;
-  // tg-app/dev-data.ts — только тесты и smoke-seed (план 7); роуты не импортируют
+  // tg-app/dev-data.ts — только тесты и smoke-seed (план 7); роуты не импортируют.
+  // Каждый seed* первым делом: PROJECT_PREFIX не managers_test_ и не managers_smoke_ → throw Error("dev-data: только managers_test_ и managers_smoke_")
   export const TINY_PNG: Uint8Array;  // PNG 1×1
   export async function seedReview(db: DbLike, o: {
     employee_id: string; terminal_id: string; card_id: string; evaluator_user_id: string; period: Period;
@@ -774,18 +804,18 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): вход
 
 Сборка `homeFor` (решения 9–11, «сейчас» = `at`):
 - `s = loadSettings`, `R = currentReviewPeriod(at, s.review_deadline_day)`.
-- `evaluator` при `p.user_id`: `{ period: R, pending: laggingEvaluators(db, R).find(user_id)?.pending ?? 0, review_deadline: reviewDeadline(R).toISOString(), admin_url: adminReviewsUrl() }`.
+- `evaluator` при `p.user_id`: `{ period: R, pending: laggingEvaluators(db, R).find(user_id)?.pending ?? 0, review_deadline: reviewDeadline(R, s.review_deadline_day).toISOString(), admin_url: adminReviewsUrl() }`.
 - `employee` при `p.employee_id`: имя, `terminal_name`, должность из `staff_roles.name_ru` / `name_uz` по `staff_role_id`, `has_card` по `loadDirectory(...).card_id`. Без карты `pending`, `month`, `raise` = `null`.
 - Отправленные оценки с `quarterStart(R) − 9 месяцев`; черновики не читаются вовсе.
-- `pending`: `R` не `scored` → `{ period: R, submit_opens_at, review_deadline, violations: действующие нарушения R }`.
-- `month`: `TgMonthCard` по главному месяцу; `lost` — `lostItems` по `kpi_review_items` с `sort` из `kpi_card_items`; `status` и `dispute` — `reviewDispute`.
+- `pending`: у `R` нет отправленной оценки → `{ period: R, submit_opens_at, review_deadline, violations: действующие нарушения R }`. Отправленная оценка `R` с `score_pct = null` даёт не `pending`, а карточку месяца (решение 10).
+- `month`: `TgMonthCard` по главному месяцу (решение 10); `lost` — `lostItems` по `kpi_review_items` с `sort` из `kpi_card_items`; `status` и `dispute` — `reviewDispute`.
 - `raise`: квартал `raiseQuarter(R, q => есть отправленная оценка в q или решение approved/rejected/proposed/insufficient по q)`; `tiers` по возрастанию; `months` — `monthState` по трём месяцам; `avg_pct` — `quarterRow(...).avg_pct`; `decision` — строка `kpi_raise_decisions` со статусом `approved` (`amount = Number(approved_amount)`) или `rejected` (`amount = 0`); `ended = quarterEnded(q, R)`.
 - `violations`: `{ period: month?.period ?? R, count }` — только `status = 'active'`.
 - `has_history`: `historyFor(...).quarters.length > 0`.
 
-`historyFor`: кварталы `q0 = quarterStart(R)`, `q0 − 3`, `− 6`, `− 9`; квартал есть, если в нём отправленная оценка или решение, `q0` — ещё и при наличии карты. `result`: решение → `decided`; `quarterEnded` → `waiting_hr`; иначе `running`.
+`historyFor`: кварталы `q0 = quarterStart(R)`, `q0 − 3`, `− 6`, `− 9`; квартал есть, если в нём отправленная оценка или строка `kpi_raise_decisions` любого статуса, `q0` — ещё и при наличии карты. `result`: строка со статусом `approved` (`amount = Number(approved_amount)`) или `rejected` (`amount = 0`) → `decided`; иначе, в том числе при `proposed` и `insufficient`, `quarterEnded` → `waiting_hr`; иначе `running` (решение 22).
 
-`dev-data.ts`: `seedReview` берёт активные пункты карты по `sort`, пишет снимки `title_ru`, `title_uz`, `weight`, `source`, `score_pct = scorePct(...)` строкой numeric, `submitted_at = now()` у отправленной; `change` ставит `version = 2` и событие `changed` (`old_score_pct`, `new_score_pct = score_pct`, `comment`, `actor_kind = "user"`, `actor_user_id = evaluator_user_id`). `seedViolation` берёт `item_title_ru` снимком из пункта `card_item_id` (без пункта — `null`), `comment` по умолчанию «Тест нарушение»; с `photo` пишет файл в `${uploadsBase()}/<violation_id>/<uuid>.png` и строку `kpi_violation_photos` (`image/png`). `seedDispute` для разобранного ставит `resolved_at = now()`. `seedDecision` заполняет `months`, `months_scored`, `avg_pct`, `suggested_amount` через `quarterRow`, `approved_amount` и `decided_at` для решённых.
+`dev-data.ts`: `seedReview` берёт активные пункты карты по `sort`, пишет снимки `title_ru`, `title_uz`, `weight`, `source`, `score_pct = scorePct(...)` строкой numeric, `submitted_at = now()` у отправленной; `change` ставит `version = 2` и событие `changed` (`old_score_pct`, `new_score_pct = score_pct`, `comment`, `actor_kind = "user"`, `actor_user_id = evaluator_user_id`). `seedViolation` берёт `item_title_ru` снимком из пункта `card_item_id` (без пункта — `null`), `comment` по умолчанию «Тест нарушение»; с `photo` пишет файл в `${uploadsBase()}/<violation_id>/<uuid>.png` и строку `kpi_violation_photos` (`image/png`). `seedDispute` для разобранного ставит `resolved_at = now()`. `seedDecision` заполняет `months` в том же виде, что пишет `computeQuarter`: `{ period, score_pct }[]` по `quarterMonths(quarter_start)` (`RaiseRow["months"]`, `types.ts:206`), иначе экран «Повышения» админки на стенде плана 7 ломается; `months_scored`, `avg_pct`, `suggested_amount` — через `quarterRow`; `approved_amount` и `decided_at` — для `approved` и `rejected`.
 
 - [ ] **Step 1: Написать `http/tg-app-home.test.ts`** (обвязка как в задаче 3 и абзац под кодом; у карты `cook` 7 пунктов, `sort` 10…70; `const login = async (b: { telegram_id: number }) => (await tgLogin(b.telegram_id)).body.token`)
 
@@ -818,6 +848,15 @@ it("отчётный месяц не оценён: короткая карточ
   const h = (await tgApi(await login(await bindTelegram(db, { employee_id: e.id })), "GET", "/api/kpi/tg/home")).body.employee;
   expect(h.pending).toEqual({ period: "2025-11-01", submit_opens_at: "2025-11-19T19:00:00.000Z", review_deadline: "2025-12-07T18:59:59.999Z", violations: 2 });
   expect([h.month.period, h.month.lost, h.violations]).toEqual(["2025-10-01", [], { period: "2025-10-01", count: 0 }]);
+});
+
+it("отчётный месяц отправлен без балла: карточка этого месяца с прочерком, короткой карточки нет", async () => {
+  setNow("2025-10-26T10:00:00+05:00");
+  const e = await makeEmployee(db, { role_code: "cook" });
+  await seedReview(db, { ...base(e), period: "2025-10-01", scores: [null, null, null, null, null, null, null] });
+  const h = (await tgApi(await login(await bindTelegram(db, { employee_id: e.id })), "GET", "/api/kpi/tg/home")).body.employee;
+  expect([h.pending, h.month.period, h.month.score_pct, h.month.lost]).toEqual([null, "2025-10-01", null, []]);
+  expect([h.raise.months[0].state, h.raise.hint]).toEqual(["not_rated", { kind: "none" }]);
 });
 
 it("новый квартал без оценок: карточка прошлого — ждём HR, потом решение; первая оценка переключает", async () => {
@@ -868,12 +907,13 @@ it("без карты: месяц и прибавка пусты, история
   expect([h.has_card, h.pending, h.month, h.raise, h.has_history]).toEqual([false, null, null, null, true]);
 });
 
-it("история: не больше 4 кварталов, пустые пропущены, итоги и состояния месяцев", async () => {
+it("история: не больше 4 кварталов, пустые пропущены, итоги и состояния месяцев; proposed — не решение", async () => {
   setNow("2026-01-12T10:00:00+05:00");
   const e = await makeEmployee(db, { role_code: "cook" });
   const all100 = [100, 100, 100, 100, 100, 100, 100];
   for (const period of ["2025-01-01", "2025-07-01", "2025-10-01", "2025-11-01"]) await seedReview(db, { ...base(e), period, scores: all100 });
   await seedDecision(db, { quarter_start: "2025-07-01", employee_id: e.id, months: [100, null, null], status: "rejected", comment: "HR-секрет" });
+  await seedDecision(db, { quarter_start: "2025-10-01", employee_id: e.id, months: [100, 100, null], status: "proposed" });   // «Рассчитать» — ещё не решение
   const hist = (await tgApi(await login(await bindTelegram(db, { employee_id: e.id })), "GET", "/api/kpi/tg/history")).body;
   expect(hist.quarters.map((q: any) => [q.quarter_start, q.result, q.avg_pct])).toEqual([
     ["2026-01-01", { kind: "running" }, null],
@@ -897,7 +937,7 @@ it("в ответах нет id оценщика и комментария HR", 
 });
 ```
 
-  Обвязка файла: `cookCardId`, `seniorCardId` и `cookItems` (id пунктов `cook` по `sort`) берутся в `beforeAll` из `GET /api/kpi/cards` сессией `kpi.manage`; `ev = await makeUser(db)` создаётся в `beforeAll`; `base(e, card = cookCardId)` = `{ employee_id: e.id, terminal_id: e.terminal_id, card_id: card, evaluator_user_id: ev.id }`. Шкала в `beforeAll` ставится явно: `PUT /api/kpi/raise-tiers` с `[{ min_pct: 95, amount: 500000 }, { min_pct: 90, amount: 300000 }, { min_pct: 85, amount: 150000 }]`, чтобы чужой тест со своей шкалой не менял ожиданий. Задача 5 использует ту же обвязку.
+  Обвязка файла: `cookCardId`, `seniorCardId` и `cookItems` (id пунктов `cook` по `sort`) берутся в `beforeAll` из `GET /api/kpi/cards` сессией `kpi.manage`; `ev = await makeUser(db)` создаётся в `beforeAll`; `base(e, card = cookCardId)` = `{ employee_id: e.id, terminal_id: e.terminal_id, card_id: card, evaluator_user_id: ev.id }`. Шкала в `beforeAll` ставится явно: `PUT /api/kpi/raise-tiers` с телом `{ tiers: [{ min_pct: 95, amount: 500000 }, { min_pct: 90, amount: 300000 }, { min_pct: 85, amount: 150000 }] }` (схема роута, `routes/raises.ts:30`), чтобы чужой тест со своей шкалой не менял ожиданий. Задача 5 использует ту же обвязку.
 
 - [ ] **Step 2: Run** `bun run test:http:kpi` — Expected: новые тесты FAIL (404 на `/api/kpi/tg/home`).
 - [ ] **Step 3: Реализовать** `load.ts`, `home.ts`, `dev-data.ts` и два роута.
@@ -915,12 +955,14 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): глав
 
 **Files:**
 - Create: `backend/src/modules/kpi/tg-app/review.ts`, `backend/src/modules/kpi/http/tg-app-review.test.ts`
-- Modify: `backend/src/modules/kpi/routes/tg-app.ts`, `backend/src/modules/kpi/disputes.ts`, `backend/src/modules/kpi/types.ts`, `backend/drizzle/schema.ts` (комментарий), `backend/src/modules/kpi/http/disputes.test.ts`
+- Modify: `backend/src/modules/kpi/routes/tg-app.ts`, `backend/src/modules/kpi/disputes.ts`, `backend/src/modules/kpi/types.ts`, `backend/drizzle/schema.ts` (комментарий), `backend/src/modules/kpi/http/disputes.test.ts`, `backend/src/modules/kpi/storage.ts`, `backend/src/modules/kpi/storage.test.ts`, `backend/src/modules/kpi/violations.ts` (`photoFile` через `resolveUploadFile`)
 
 **Interfaces:**
 - Consumes: `reviewDispute`, `disputeFacts`, `closedPeriods`, `seed*` (задача 4); `disputeStateOf` (задача 2); `requireEmployee`; `openDispute`; `parsePeriod`; `uploadsBase`; `UUID_RE`.
 - Produces:
   ```ts
+  // storage.ts — одна проверка пути фото для админки и мини-приложения
+  export function resolveUploadFile(filePath: string): string | null; // абсолютный путь внутри uploadsBase() и файл есть, иначе null
   // tg-app/review.ts
   export async function reviewFor(db: DbLike, employeeId: string, period: unknown, at: Date): Promise<TgReview>;
   export async function violationsOf(db: DbLike, employeeId: string, period: unknown, at: Date): Promise<TgViolations>;
@@ -936,9 +978,10 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): глав
 Правила:
 - `reviewFor`: `parsePeriod` → 422 `bad_period`; отправленная оценка этого сотрудника за период, иначе 404. `items` по `kpi_review_items` с `group_key` и `sort` из `kpi_card_items` (нет пункта в карте — `base`, в конец); `changes` — события `changed` и `hr_adjusted` по `created_at`; `reason_min = change_comment_min`.
 - `violationsOf`: свои нарушения периода, все статусы, по `occurred_at desc, id desc`; `item_title_uz` — из `kpi_card_items` по `card_item_id`; `photo_ids` по `created_at`.
-- `ownPhoto`: не uuid, нет фото, нарушение чужое, путь вне `uploadsBase()`, файла нет — 404 `not_found`.
+- `resolveUploadFile`: перенос проверки из `photoFile` (`violations.ts:356-360`) без изменения смысла — `path.resolve(uploadsBase())`, путь должен начинаться с `base + path.sep`, файл должен существовать. `photoFile` и `ownPhoto` зовут её и на `null` бросают 404 `not_found`; копии проверки в `review.ts` нет. В `storage.test.ts`: путь внутри каталога с файлом — абсолютный путь; `../` наружу, соседний каталог с тем же префиксом имени и отсутствующий файл — `null`.
+- `ownPhoto`: не uuid, нет фото, нарушение чужое, `resolveUploadFile` дал `null` — 404 `not_found`.
 - `disputeFromApp`: `subject_type` не `review`/`violation` → 422 `bad_subject_type`; `subject_id` не uuid → 404; запись не найдена, чужая или черновик → 404 `not_found`; иначе `openDispute(db, null, { subject_type, subject_id, reason, via: "miniapp", employee_actor: true })`. Ответ `{ id, subject_type, subject_id, created_at }`. `reason` не строка — передаётся как `""`, и `openDispute` отвечает 422 `comment_required`.
-- `openDispute`: `via` допускает `"miniapp"`; `bad_via` на прочее остаётся. Комментарий у `opened_via` в `schema.ts`: `// admin | telegram | miniapp`.
+- `openDispute`: `via` допускает `"miniapp"`; `bad_via` на прочее остаётся. Приведение `opened_via: r.opened_via as "admin" | "telegram"` в `toRows` (`disputes.ts:95`) расширить до `DisputeRow["opened_via"]`. Комментарий у `opened_via` в `schema.ts`: `// admin | telegram | miniapp`.
 
 - [ ] **Step 1: Написать `http/tg-app-review.test.ts`** (обвязка задачи 4; `setNow("2025-10-26T10:00:00+05:00")` в начале каждого теста; `senior_cook` — 9 пунктов, 2 из них `extra`)
 
@@ -1038,12 +1081,12 @@ it("спор: чужая запись и черновик — 404 без стр�
   В `http/disputes.test.ts`, тест «от имени сотрудника (Telegram)…», добавить: `openDispute(db, null, { ..., via: "miniapp", employee_actor: true })` по второй оценке даёт `opened_via === "miniapp"`, а `via: "web"` — `KpiError` `bad_via`.
 
 - [ ] **Step 2: Run** `bun run test:http:kpi` — Expected: новые тесты FAIL.
-- [ ] **Step 3: Реализовать** `review.ts`, четыре роута, `via: "miniapp"` в `disputes.ts` и `types.ts`, комментарий схемы.
-- [ ] **Step 4: Run** все тесты модуля — Expected: PASS. `bunx drizzle-kit generate --name probe` — `No schema changes`. Типы backend и админки — пусто.
+- [ ] **Step 3: Реализовать** `resolveUploadFile` и перевод на него `photoFile`, `review.ts`, четыре роута, `via: "miniapp"` в `disputes.ts` (с приведением в `toRows`) и `types.ts`, комментарий схемы.
+- [ ] **Step 4: Run** все тесты модуля, включая `bun test src/modules/kpi/storage.test.ts` и админский тест фото в `http/violations.test.ts` — Expected: PASS. `bunx drizzle-kit generate --name probe` — `No schema changes` (если записался `*_probe.sql` — удалить файл, снимок и запись журнала, доложить). Типы backend и админки — пусто.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/macbookpro/development/managers-kpi add backend/src/modules/kpi/tg-app/review.ts backend/src/modules/kpi/routes/tg-app.ts backend/src/modules/kpi/disputes.ts backend/src/modules/kpi/types.ts backend/drizzle/schema.ts backend/src/modules/kpi/http/tg-app-review.test.ts backend/src/modules/kpi/http/disputes.test.ts
+git -C /Users/macbookpro/development/managers-kpi add backend/src/modules/kpi/tg-app/review.ts backend/src/modules/kpi/routes/tg-app.ts backend/src/modules/kpi/disputes.ts backend/src/modules/kpi/types.ts backend/src/modules/kpi/storage.ts backend/src/modules/kpi/storage.test.ts backend/src/modules/kpi/violations.ts backend/drizzle/schema.ts backend/src/modules/kpi/http/tg-app-review.test.ts backend/src/modules/kpi/http/disputes.test.ts
 git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): разбор оценки, нарушения, фото и спор из мини-приложения"
 ```
 
@@ -1084,8 +1127,8 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): разб
 - `realBotApi.setMenuButton`: `POST setChatMenuButton` с `{ chat_id?, menu_button: { type: "web_app", text, web_app: { url } } }`, тот же таймаут и `redact`, что у `answerCallback`; `chatId = null` — без `chat_id` (кнопка по умолчанию).
 - `menuPlan`: первой — `{ chatId: null, text: "Мой KPI" }`, затем по одной на каждый `telegram_id` с `lang = "uz"` (без повторов, по возрастанию) — `"Mening KPI"`.
 - `syncMenuButton`: нет `miniAppUrl()`, `api` или `api.setMenuButton` — ничего; иначе `api.setMenuButton(chatId, MENU_TEXT[lang], url)`, неуспех — `console.error` без токена.
-- Бот, кнопка языка: после успешного `setLang` — `await syncMenuButton(api, u.chatId, a.lang)`. Мини-приложение, `PUT /kpi/tg/lang`: `void syncMenuButton(botApi(), tg.telegram_id, lang)` без ожидания.
-- `set-menu.ts` (запускается вручную, в плане не запускать): нет `KPI_BOT_TOKEN` → `kpi menu: KPI_BOT_TOKEN не задан`, код 1; нет `miniAppUrl()` → `kpi menu: KPI_MINIAPP_URL не задан или не https`, код 1. Иначе `menuPlan` по `select distinct telegram_id, lang from kpi_tg_bindings where active`, вызовы `setMenuButton` по очереди, итог `kpi menu: default ok|fail, uz chats <ok>/<all>`, `process.exit(0)`.
+- Только при смене языка (решение 16). Бот, кнопка языка: язык до нажатия — `langOf(await bindingOf(...))` перед `setLang`; после успешного `setLang`, если он отличается от `a.lang`, — `await syncMenuButton(api, u.chatId, a.lang)`. Мини-приложение, `PUT /kpi/tg/lang`: если `lang !== tg.lang` (язык принципала из привязки на входе запроса), — `void syncMenuButton(botApi(), tg.telegram_id, lang)` без ожидания; тот же язык — Telegram не вызывается.
+- `set-menu.ts` (запускается вручную, в плане не запускать): нет `KPI_BOT_TOKEN` → `kpi menu: KPI_BOT_TOKEN не задан`, код 1; нет `miniAppUrl()` → `kpi menu: KPI_MINIAPP_URL не задан или не https`, код 1. Иначе `menuPlan` по `select distinct telegram_id, lang from kpi_tg_bindings where active`, вызовы `setMenuButton` по очереди, итог `kpi menu: default ok|fail, uz chats <ok>/<all>`; код выхода 1, если кнопка по умолчанию не встала (`default fail`), иначе 0 (неудачи отдельных чатов только в итоговой строке).
 
 - [ ] **Step 1: Тесты.** `tg/menu.test.ts`:
 
@@ -1142,7 +1185,7 @@ it("без срока спора — одна «Открыть»; uz — «Ochis
 });
 ```
 
-  HTTP: в `http/bot.test.ts` — «/my при KPI_MINIAPP_URL — кнопка «Открыть Мой KPI»; lang:uz переставляет кнопку меню»: с `process.env.KPI_MINIAPP_URL = "https://x.test/kpi-app/"` (вернуть в `finally`) ответ `/my` имеет `reply_markup` `{ inline_keyboard: [[{ text: "Открыть Мой KPI", web_app: { url: "https://x.test/kpi-app/" } }]] }`, а после `press(tg, "lang:uz")` в `f.menus` есть `{ chatId: tg, text: "Mening KPI", url: "https://x.test/kpi-app/" }`; без переменной `f.menus` пуст и у `/my` нет `reply_markup`. В `http/delivery.test.ts`, тест «успех до срока споров…»: с той же переменной у отправленного сообщения вторая строка клавиатуры — `web_app` на `https://x.test/kpi-app/#/review/2025-10`. В `http/tg-app-auth.test.ts`, тест про язык: с переменной после `PUT /lang uz` в течение секунды в `f.menus` появляется `{ chatId: telegram_id, text: "Mening KPI" }`.
+  HTTP: в `http/bot.test.ts` — «/my при KPI_MINIAPP_URL — кнопка «Открыть Мой KPI»; lang:uz переставляет кнопку меню»: с `process.env.KPI_MINIAPP_URL = "https://x.test/kpi-app/"` (вернуть в `finally`) ответ `/my` имеет `reply_markup` `{ inline_keyboard: [[{ text: "Открыть Мой KPI", web_app: { url: "https://x.test/kpi-app/" } }]] }`, а после `press(tg, "lang:uz")` в `f.menus` есть `{ chatId: tg, text: "Mening KPI", url: "https://x.test/kpi-app/" }`; повторное `press(tg, "lang:uz")` новых записей в `f.menus` не добавляет; без переменной `f.menus` пуст и у `/my` нет `reply_markup`. В `http/delivery.test.ts`, тест «успех до срока споров…»: с той же переменной у отправленного сообщения вторая строка клавиатуры — `web_app` на `https://x.test/kpi-app/#/review/2025-10`. В `http/tg-app-auth.test.ts`, тест про язык: с переменной после `PUT /lang uz` в `f.menus` появляется `expect.objectContaining({ chatId: telegram_id, text: "Mening KPI", url: "https://x.test/kpi-app/" })` — ждать опросом не дольше 1 с с шагом 20 мс, вызов не ожидается роутом; второй `PUT /lang uz` после этого за те же 1 с новых записей не добавляет.
 
 - [ ] **Step 2: Run** юнит- и HTTP-тесты — Expected: новые FAIL.
 - [ ] **Step 3: Реализовать** `miniapp-url.ts`, `menu.ts`, `set-menu.ts`, правки `messages.ts`, `bot-api.ts`, `bot.ts`, `deliver.ts`, `routes/tg-app.ts`, `fakeBotApi().menus`.

@@ -17,35 +17,38 @@
 - Рабочая копия `/Users/macbookpro/development/managers-kpi`, ветка `feature/kpi`. Каталог `/Users/macbookpro/development/managers` не трогать. Git — через `git -C /Users/macbookpro/development/managers-kpi`.
 - Коммитить только свои файлы поимённо. `git add -A` и `git add .` запрещены. Никаких `git push`, ssh, docker, `pm2`, деплоя; nginx и BotFather только описываются в `kpi-deploy.md`.
 - Базу с именем `managers` не трогать. Автотесты backend — только на `managers_tickets_test` через `TEST_DATABASE_URL` (как в плане 6). База `managers_kpi_smoke` пишется только стендом задач 3 и 9 (миграции и `smoke-seed.ts`) и только после проверки имени (`case … *managers_kpi_smoke`).
-- Dev-backend стенда: `PROJECT_PREFIX=managers_smoke_`, `KPI_NOTIFY_QUEUE=kpi_notify_smoke`, поддельный `KPI_BOT_TOKEN=123456:kpi-smoke-dev-token`, без `KPI_MINIAPP_URL`. Воркер `kpi_worker` и `set-menu.ts` против стенда не запускать.
+- Dev-backend стенда: `NODE_ENV=development` (иначе `backend/src/index.ts` уходит в ветку кластера и поднимает два процесса на одном порту), `PROJECT_PREFIX=managers_smoke_`, `KPI_NOTIFY_QUEUE=kpi_notify_smoke`, поддельный `KPI_BOT_TOKEN=123456:kpi-smoke-dev-token`, без `KPI_MINIAPP_URL`. Воркер `kpi_worker` и `set-menu.ts` против стенда не запускать. Тестовый токен backend принимает только под префиксами `managers_test_` и `managers_smoke_` (`tokenAllowed`, план 6, решение 21).
 - Runtime — Bun: `bun install`, `bun test`, `bun --bun run build`.
 - Регистрация модуля: план не добавляет роутов backend. Роуты KPI монтируются только в `backend/src/modules/kpi/controller.ts` (контроллер `new Elysia({ name: "@api/kpi", prefix: "/api" })`, в `app.ts` как `as unknown as Elysia`). Понадобился новый роут — остановиться и доложить.
 - Комментарии в коде по-русски, как в окружающем коде.
 - **Скиллы дизайна.** Исполнитель каждой UI-задачи (4, 5, 6, 7 и правок задачи 9) до первой строки HTML, CSS или DOM-кода вызывает инструментом Skill сначала `design-taste-frontend`, потом `frontend-design` и следует им. Каркас раскладки закреплён макетами (порядок блоков и их содержимое), визуальное решение остаётся за исполнителем. Ограничения спеки, раздел 9: тач-цели не меньше 44 px, основной текст не меньше 14 px (подписи шкалы и вторичные пометки — не меньше 12 px), числа с `font-variant-numeric: tabular-nums`, короткие тексты, контраст AA в обеих темах, без горизонтальной прокрутки на 360 px.
 - Стек `kpi_miniapp`: без фреймворка и без runtime-зависимостей; devDependencies ровно `typescript ^5.9.3`, `vite ^7.1.14` (как у паспорта). `base: "/kpi-app/"`, `build.target: "es2018"`, `cssCodeSplit: false`, `assetsInlineLimit: 4096`, `sourcemap: false`. Пути API абсолютные: `/api/kpi/tg/...`. `passport_miniapp/` не трогать.
 - Типы ответов — только `import type { … } from "@backend/modules/kpi/tg-app/types";` одной строкой. Runtime-импортов из backend в `src/` нет: `grep -rn '@backend' kpi_miniapp/src | grep -v '^[^:]*:[0-9]*:import type .* from "@backend/'` печатает пусто.
-- В `bun test` нет DOM. Модули, которые импортируют тесты (всё, кроме `main.ts`, `ui.ts`, `screens/*`, `sheet.ts`, `photo.ts`, `dev/*`), обращаются к `window`, `document` и `localStorage` только внутри функций. Общие экземпляры ленивые: `appApi()` в `api.ts` и `appCache()` в `cache.ts` создаются при первом вызове.
+- В `bun test` нет DOM. Модули, которые импортируют тесты (всё, кроме `main.ts`, `ui.ts`, `screens/*`, `sheet.ts`, `photo.ts`, `dev/fake-telegram.ts`), обращаются к `window`, `document` и `localStorage` только внутри функций. Тесты не импортируют модули из этого списка; всё, что нужно тестам, живёт в чистых модулях (`disputeErrorText` — в `view/review.ts`, `devRequested`, `DEV_MARKER` и `THEMES` — в `dev/flag.ts`). Общие экземпляры ленивые: `appApi()` в `api.ts` и `appCache()` в `cache.ts` создаются при первом вызове.
+- Строки с сервера (имена, заметки, комментарии, причины, названия пунктов) попадают в DOM только текстом: `h()` превращает строковых детей в `createTextNode`. `innerHTML`, `outerHTML` и `insertAdjacentHTML` с данными сервера запрещены. Проверка: `grep -rn 'innerHTML\|outerHTML\|insertAdjacentHTML' kpi_miniapp/src` находит только статическую разметку в `ui.ts`, без подстановок.
+- Dev-режим включается только константой сборки `__KPI_DEV__` (решение 1), не `import.meta.env.DEV`: та становится `true` и в `vite build`, если в оболочке `NODE_ENV=development`. `dev/fake-telegram.ts` подключается только через `import()`, статических импортов его нет.
 - Токен сессии живёт только в памяти. `localStorage` — только кэш экранов с ключом по Telegram user id. Язык клиент не хранит: он приходит с сервера.
 - Узбекский — латиница, `oʻ`/`gʻ` с U+02BB, `eʼtiroz`/`maʼlumot` с U+02BC, без ASCII-апострофа (тест в задаче 2). Пробел внутри чисел и перед `%`, `сум`, `soʻm`, `тыс` — U+00A0.
 - Telegram: тема из `themeParams` в CSS-переменные, `BackButton` для «назад», `MainButton` для отправки спора, `HapticFeedback` на успехе и ошибке, `ready()` и `expand()` при старте.
 - Админка: строки по-русски прямо в коде; `cd admin && ./node_modules/.bin/tsc --noEmit -p . --incremental false 2>&1 | grep "error TS"` пусто (база 2026-10-26: 0, перемерить в задаче 8); линт своих файлов `ESLINT_USE_FLAT_CONFIG=false ./node_modules/.bin/eslint <файлы>` без `error` и `warning`.
-- Проверки `kpi_miniapp`: `cd kpi_miniapp && bun test` — PASS; `bun --bun run build` (это `tsc --noEmit && vite build`) — PASS; в `dist/assets/` ровно один `.js` и один `.css`; `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` пусто.
+- Проверки `kpi_miniapp`: `cd kpi_miniapp && bun test` — PASS; `bun --bun run build` (это `tsc --noEmit && vite build`) — PASS; в `dist/assets/` ровно один `.js` (с задачи 4 — ещё и ровно один `.css`; в задачах 1–3 CSS ещё нет); `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` пусто. Проверка маркера настоящая только потому, что `installFakeTelegram` записывает `DEV_MARKER` в DOM (решение 1): неиспользуемую константу сборка выбросила бы и без всякой защиты.
 - Скриншоты и прочие артефакты проверки — в scratchpad сессии исполнителя, не в репозиторий.
 
 ## Решения плана
 
-1. **Dev-режим — флаг, а не `dev.html`.** `main.ts`: `if (import.meta.env.DEV && devRequested(location.search))` динамически импортирует `./dev/fake-telegram` до старта. В сборке ветка мёртвая и выпадает; проверка — маркер `__KPI_DEV_FAKE_TELEGRAM__` в `dist`. Один HTML, и скелетон не расходится между двумя страницами.
+1. **Dev-режим — флаг, а не `dev.html`.** `vite.config.ts` задаёт `define: { __KPI_DEV__: JSON.stringify(command === "serve") }` (конфиг — функция от `{ command }`), так что ни один `vite build` его не включит, что бы ни стояло в `NODE_ENV`. `main.ts` статически импортирует только `devRequested` из `./dev/flag` (без DOM) и в начале `boot()` делает `if (__KPI_DEV__ && devRequested(location.search)) (await import("./dev/fake-telegram")).installFakeTelegram(location.search);`. В сборке ветка мёртвая, и `dev/fake-telegram.ts` в бандл не попадает. `installFakeTelegram` первым делом пишет `document.documentElement.dataset.devTelegram = DEV_MARKER`: поэтому маркер `__KPI_DEV_FAKE_TELEGRAM__` в `dist` значит, что подделка уехала в сборку, а его отсутствие что-то доказывает. Утёкшая подделка не обходит вход: подпись `initData` проверяет сервер. Один HTML, и скелетон не расходится между двумя страницами.
 2. **SDK с `telegram.org` через `defer`**, как в паспорте, и без `integrity`: Telegram отдаёт меняющийся файл по одному адресу, и закреплённый хеш сломал бы приложение при их обновлении. Спека (4.6) различает «SDK не загрузился» и «вне Telegram». Скелетон и подсказка «Связь плохая, ещё пробуем» — статическая разметка в `index.html`, подсказка проявляется CSS-задержкой 8 с (урок F1). До ответа сервера язык неизвестен, поэтому подсказка и экраны отказа двуязычные: строка RU, под ней строка UZ.
-3. **Два отказа старта:** нет `window.Telegram?.WebApp` → `sdk_failed`; объект есть, `initData` пуст → `outside`.
+3. **Два отказа старта:** нет `window.Telegram?.WebApp` → `sdk_failed`; объект есть, `initData` пуст → `outside`. Приложение, открытое из чужого бота, получает на входе 401 `bad_init_data`, как при устаревших данных, и показывает экран `expired` («…откройте его из бота снова»): сервер их не различает (спека, раздел 3).
 4. **Маршрут** берётся из хеша до первого `?` или `&`: Telegram дописывает к фрагменту свои `tgWebApp…`. `#tgWebAppData=…`, неизвестный путь и кривой месяц → главный экран.
 5. **«Назад»:** стек внутри приложения. `BackButton` виден, когда стек глубже главного или открыта шторка. Приложение, открытое ссылкой сразу на `#/review/…`, кладёт главный экран под него, и «назад» ведёт туда.
 6. **Проценты** — одна десятичная, запятая, округление половины вверх (`91,7`), как в макетах. Средний на карточке прибавки защищён от перехода ступени: если округление дотягивает до порога, которого точное значение не достигает, берётся округление вниз (`89,96` → `89,9`, а не `90,0` рядом с «150 000»). Баллы пунктов — целые.
 7. **Суммы:** группы через U+00A0 (`300 000`); подписи шкалы коротко: `150 тыс` / `150 ming`, от миллиона `1,5 млн` / `1,5 mln`.
 8. **Даты и время по Ташкенту** (+5 фиксированно): `10 ноября` / `10-noyabr`; в строке месяцев `с 20.12` / `20.12 dan`; пометка «нет связи» — `14:02`.
-9. **Месяцы в строке квартала и в истории:** первый `upcoming` показывает дату начала оценок, следующие — `—`; `pending` — «не оценён»; `not_rated` — «не оценивался». Текущим подсвечивается отчётный месяц: `employee.pending?.period ?? employee.month?.period`.
+9. **Месяцы в строке квартала и в истории:** первый `upcoming` показывает дату начала оценок, следующие — `—`; `pending` — «не оценён» в строке квартала и «ещё не оценён» в истории (спека, 4.4); `not_rated` — «не оценивался». Текущим подсвечивается отчётный месяц: `employee.pending?.period ?? employee.month?.period`.
 10. **Короткая карточка неоценённого месяца:** до `submit_opens_at` — «Оценку поставят с 20 ноября», после — «Оценку поставят до 7 декабря» (спека описывает только первый случай).
 11. **Подсказка о прибавке** пишет «сум» после каждой суммы (в макетах то с ним, то без).
-12. **Нет сети:** кэш по пути запроса; при сбое показывается последний ответ с пометкой времени; без кэша — экран «Нет связи» с «Повторить». Ответ 403 `not_bound`/`inactive` стирает кэш этого пользователя.
+12. **Нет сети:** кэш по пути запроса; при сбое показывается последний ответ с пометкой времени; без кэша — экран «Нет связи» с «Повторить». Ответ 403 `not_bound`/`inactive` стирает кэш этого пользователя — и на старте, и посреди работы, когда повторный вход после 401 получил 403 (привязку сняли или человека уволили, пока приложение открыто).
+18. **Только оценщик.** Если в `roles` нет `employee`, роутер отправляет любой маршрут, кроме главного, на главный экран: `/review`, `/violations` и `/history` ему ответили бы 403 `not_employee`.
 13. **Фото** тянутся `fetch` с токеном в blob-URL, URL освобождаются при уходе с экрана. В кэш не попадают: без сети на месте фото — «Фото не загрузилось».
 14. **Ссылка оценщика** открывается `Telegram.WebApp.openLink(admin_url)`; `admin_url = null` — ссылки нет.
 15. **MainButton спора** активна, только когда в причине не меньше `reason_min` букв или цифр (`/[\p{L}\p{N}]/gu`, как на сервере). На время отправки защёлка и `showProgress`. Успех — `notificationOccurred("success")`, шторка закрывается, экран перезагружается. Ошибка — `notificationOccurred("error")` и текст под полем.
@@ -75,6 +78,8 @@
 | `st_changed` | Изменена | Oʻzgartirildi |
 | `dsp_can` | Оспорить можно до {date}. | {date} gacha eʼtiroz bildirish mumkin. |
 | `dsp_open` | Вы оспорили оценку {date}. Ответ придёт в бот. | Siz {date} kuni eʼtiroz bildirdingiz. Javob botga keladi. |
+| `dsp_open_violation` | Вы оспорили нарушение {date}. Ответ придёт в бот. | Siz {date} kuni qoidabuzarlikka eʼtiroz bildirdingiz. Javob botga keladi. |
+| `dsp_cancelled` | Нарушение отменено, оспаривать нечего. | Qoidabuzarlik bekor qilingan, eʼtiroz kerak emas. |
 | `dsp_window_closed` | Срок спора прошёл. | Eʼtiroz muddati oʻtdi. |
 | `dsp_period_closed` | Месяц закрыт, оспорить нельзя. | Oy yopilgan, eʼtiroz bildirib boʻlmaydi. |
 | `dsp_accepted` | Спор принят | Eʼtiroz qabul qilindi |
@@ -109,8 +114,9 @@
 | `link_history` | История | Tarix |
 | `hist_running` | идёт | davom etmoqda |
 | `hist_waiting` | Ждём решения HR | HR qarori kutilmoqda |
-| `hist_approved` | +{sum} сум | +{sum} soʻm |
-| `hist_no_raise` | без прибавки | oshirishsiz |
+| `hist_approved` | Утверждено +{sum} сум | Tasdiqlandi +{sum} soʻm |
+| `hist_no_raise` | Без прибавки | Oshirishsiz |
+| `hist_pending` | ещё не оценён | hali baholanmagan |
 | `hist_avg` | Средний | Oʻrtacha |
 | `hist_empty` | Истории пока нет | Hozircha tarix yoʻq |
 | `hist_upcoming` | с {date} | {date}dan |
@@ -187,7 +193,8 @@
 | `kpi_miniapp/src/view/{home,review,violations,history}.ts` | View-модели экранов (чистые) |
 | `kpi_miniapp/src/ui.ts`, `src/style.css` | DOM-помощники, экраны отказа, скелетоны, тема |
 | `kpi_miniapp/src/screens/{home,review,violations,history}.ts`, `src/sheet.ts`, `src/photo.ts` | Отрисовка экранов, шторка спора, просмотр фото |
-| `kpi_miniapp/src/dev/fake-telegram.ts` | Поддельный `Telegram.WebApp` (только dev) |
+| `kpi_miniapp/src/dev/flag.ts` | `devRequested`, `DEV_MARKER`, `THEMES` — без DOM, единственное, что `main.ts` и тесты берут из `dev/` статически |
+| `kpi_miniapp/src/dev/fake-telegram.ts` | Поддельный `Telegram.WebApp` (только dev, только через `import()`) |
 | `kpi_miniapp/scripts/dev-url.ts` | Ссылка на персону стенда с подписанным `initData` |
 | `kpi_miniapp/test/*.test.ts` | Тесты чистых модулей |
 | `backend/src/modules/kpi/tg-app/smoke-seed.ts` | Персоны стенда на `managers_kpi_smoke` |
@@ -247,8 +254,8 @@
 
 Правила `createApi`:
 - `auth`: `sdk()` не `ok` → `fail` с этим статусом без запроса; иначе `POST /api/kpi/tg/auth { init_data }`. 200 — токен в замыкании. Иначе `classifyAuthFailure`: 503 → `not_configured`; 401 → `expired`; 403 `not_bound` → `not_bound`, 403 `inactive` → `inactive`; ≥ 500 → `offline`; прочее → `unknown`. Сеть или таймаут → `offline`.
-- `get`/`send`/`blob`: без токена сначала `auth`. Заголовок через `new Headers(...)`, как в паспорте. 401 → токен сброшен, один повторный `auth` и повтор запроса; второй 401 → `fail expired`. ≥ 500, сеть, таймаут → `fail offline`. Прочие не-2xx → `http` с `error` из тела. 2xx без JSON → `fail unknown`.
-- `vite.config.ts`: как у паспорта плюс `server: { port: 5174, proxy: { "/api": process.env.KPI_DEV_API ?? "http://localhost:3000" } }`. `@types/node` в проекте нет (у vite это необязательная зависимость), поэтому в начале файла `declare const process: { env: Record<string, string | undefined> };` — иначе `tsc` падает на «Cannot find name 'process'».
+- `get`/`send`/`blob`: без токена сначала `auth`. Заголовок через `new Headers(...)`, как в паспорте. 401 → токен сброшен, один повторный `auth` и повтор запроса; второй 401 → `fail expired`. Повторный `auth` не удался (403 `not_bound`/`inactive`, 503, сеть) → `fail` со статусом этого входа, запрос не повторяется (решение 12). ≥ 500, сеть, таймаут → `fail offline`. Прочие не-2xx → `http` с `error` из тела. 2xx без JSON → `fail unknown`.
+- `vite.config.ts`: как у паспорта, но конфиг — функция `defineConfig(({ command }) => ({ … }))`, плюс `define: { __KPI_DEV__: JSON.stringify(command === "serve") }` (решение 1) и `server: { port: 5174, proxy: { "/api": process.env.KPI_DEV_API ?? "http://localhost:6761" } }` (6761 — порт dev-backend в этом репозитории; стенд задачи 3 всегда задаёт `KPI_DEV_API=http://localhost:6799`). `@types/node` в проекте нет (у vite это необязательная зависимость), поэтому в начале файла `declare const process: { env: Record<string, string | undefined> };` — иначе `tsc` падает на «Cannot find name 'process'».
 - `tsconfig.json`: как у паспорта плюс `"paths": { "@backend/*": ["../backend/src/*"] }`; `include: ["src", "vite.config.ts"]` — тесты в `test/` в `tsc` не входят.
 - `package.json`: `name: "kpi-miniapp"`, скрипты `dev: "vite"`, `build: "tsc --noEmit && vite build"`, `preview: "vite preview"`, `test: "bun test"`.
 
@@ -290,6 +297,15 @@ it("401 на запросе: один повторный вход и повто�
   expect(calls.map((c) => [c.url, c.auth])).toEqual([["/api/kpi/tg/auth", null], ["/api/kpi/tg/home", "Bearer t1"], ["/api/kpi/tg/auth", null], ["/api/kpi/tg/home", "Bearer t2"]]);
   replies.push(ok({ error: "unauthorized" }, 401), ok({ token: "t3", roles: [], lang: "ru" }), ok({ error: "unauthorized" }, 401));
   expect(await a.get("/home")).toEqual({ kind: "fail", status: "expired" });
+});
+it("повторный вход после 401 получил 403 — fail с его статусом, запрос не повторяется", async () => {
+  for (const code of ["inactive", "not_bound"] as const) {
+    const calls: string[] = [];
+    const r = [ok({ token: "t1", roles: ["employee"], lang: "ru" }), ok({ error: "unauthorized" }, 401), ok({ error: code }, 403)];
+    const f = (async (url: string) => { calls.push(url); return r.shift()!; }) as any;
+    expect(await createApi({ fetch: f, sdk: () => "ok", initData: () => "q" }).get("/home")).toEqual({ kind: "fail", status: code });
+    expect(calls).toEqual(["/api/kpi/tg/auth", "/api/kpi/tg/home", "/api/kpi/tg/auth"]);
+  }
 });
 it("коды входа и сеть", () => {
   expect([classifyAuthFailure(503, { error: "not_configured" }), classifyAuthFailure(401, { error: "bad_init_data" }),
@@ -452,35 +468,39 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): те
 ### Task 3: Режим разработки и стенд на `managers_kpi_smoke`
 
 **Files:**
-- Create: `kpi_miniapp/src/dev/fake-telegram.ts`, `kpi_miniapp/scripts/dev-url.ts`, `kpi_miniapp/test/dev.test.ts`, `backend/src/modules/kpi/tg-app/smoke-seed.ts`
+- Create: `kpi_miniapp/src/dev/flag.ts`, `kpi_miniapp/src/dev/fake-telegram.ts`, `kpi_miniapp/scripts/dev-url.ts`, `kpi_miniapp/test/dev.test.ts`, `backend/src/modules/kpi/tg-app/smoke-seed.ts`
 - Modify: `kpi_miniapp/src/main.ts`
 
 **Interfaces:**
-- Consumes: `signInitData` (план 6, задача 3); `seedReview`, `seedViolation`, `seedDispute`, `seedDecision` (план 6, задача 4); `seedCards`, `loadSettings`, `currentReviewPeriod`, `quarterStart`, `addMonths`.
+- Consumes: `signInitData` (план 6, задача 3); `seedReview`, `seedViolation`, `seedDispute`, `seedDecision` (план 6, задача 4); `seedCards`, `loadSettings`, `currentReviewPeriod`, `quarterStart`, `addMonths`; `__KPI_DEV__` из `define` в `vite.config.ts` (задача 1).
 - Produces:
   ```ts
-  // src/dev/fake-telegram.ts
+  // src/dev/flag.ts — без DOM и без обращений к window на верхнем уровне; его импортируют main.ts и dev.test.ts
   export const DEV_MARKER = "__KPI_DEV_FAKE_TELEGRAM__";
   export const THEMES: Record<"light" | "dark", Record<string, string>>;
   export function devRequested(search: string): boolean;   // есть init=, sdk=fail или noinit=1
-  export function installFakeTelegram(search: string): void;
-  // scripts/dev-url.ts:  KPI_BOT_TOKEN=… bun scripts/dev-url.ts --tg <id> [--theme light|dark] [--route /review/2026-10] [--port 5174] | --all
+  // src/dev/fake-telegram.ts — только через import() из main.ts
+  export function installFakeTelegram(search: string): void; // первым делом document.documentElement.dataset.devTelegram = DEV_MARKER
+  // scripts/dev-url.ts:  KPI_BOT_TOKEN=123456:kpi-… bun scripts/dev-url.ts --tg <id> [--theme light|dark] [--route /review/2026-10] [--port 5174] | --all
   // smoke-seed.ts:       DATABASE_URL=…/managers_kpi_smoke … bun run src/modules/kpi/tg-app/smoke-seed.ts
   ```
 
 Поддельный WebApp (`installFakeTelegram`):
+- Первая строка — `document.documentElement.dataset.devTelegram = DEV_MARKER` (решение 1): без неё проверка `dist` на маркер ничего бы не ловила.
 - `?sdk=fail` — удаляет `window.Telegram`. `?noinit=1` — `initData = ""`. Иначе `initData` из `?init=`, `initDataUnsafe.user.id` из его поля `user`.
 - `colorScheme` и `themeParams` из `?theme=` (по умолчанию `light`):
   - `light`: `bg_color #ffffff`, `secondary_bg_color #f0f0f0`, `text_color #000000`, `hint_color #999999`, `link_color #2481cc`, `button_color #2481cc`, `button_text_color #ffffff`, `header_bg_color #ffffff`, `accent_text_color #2481cc`, `section_bg_color #ffffff`, `section_header_text_color #6d6d71`, `subtitle_text_color #999999`, `destructive_text_color #e53935`;
   - `dark`: `bg_color #212121`, `secondary_bg_color #0f0f0f`, `text_color #ffffff`, `hint_color #aaaaaa`, `link_color #8774e1`, `button_color #8774e1`, `button_text_color #ffffff`, `header_bg_color #212121`, `accent_text_color #8774e1`, `section_bg_color #212121`, `section_header_text_color #8774e1`, `subtitle_text_color #aaaaaa`, `destructive_text_color #ee686f`.
 - `BackButton` и `MainButton` рисуются настоящими DOM-кнопками: шапка 48 px сверху с «‹» (`data-dev="back"`, видна после `show()`), кнопка 56 px снизу (`data-dev="main"`, текст из `setText`, `disabled` по `enable/disable`, «…» при `showProgress`). `HapticFeedback.*` и `openLink` — `console.info("[dev] …")`.
-- `main.ts`: в начале `boot()` — `if (import.meta.env.DEV && devRequested(location.search)) (await import("./dev/fake-telegram")).installFakeTelegram(location.search);` (внутри `async function boot()`, не на верхнем уровне модуля).
+- `main.ts`: `import { devRequested } from "./dev/flag";` и `declare const __KPI_DEV__: boolean;`; в начале `boot()` — `if (__KPI_DEV__ && devRequested(location.search)) (await import("./dev/fake-telegram")).installFakeTelegram(location.search);` (внутри `async function boot()`, не на верхнем уровне модуля). Статического импорта `./dev/fake-telegram` нигде нет.
 
-`dev-url.ts`: без `KPI_BOT_TOKEN` — `dev-url: нужен KPI_BOT_TOKEN dev-backend`, код 1. Подпись `signInitData(token, { telegram_id, auth_date: now })` (импорт `../../backend/src/modules/kpi/tg-app/init-data`). Вывод: `http://localhost:<port>/kpi-app/?init=<encodeURIComponent>&theme=<theme>#<route или />`. `--all` — по строке на каждую персону таблицы ниже: `<tg>  <персона>  <url>`.
+`dev-url.ts`: без `KPI_BOT_TOKEN` — `dev-url: нужен KPI_BOT_TOKEN dev-backend`, код 1. Токен не начинается с `123456:kpi-` — `dev-url: только тестовый токен 123456:kpi-…, боевым не подписываю`, код 1, без подписи: иначе на сервере, где по `kpi-deploy.md` `backend/.env` загружен в оболочку, скрипт выдал бы рабочий вход за любой `telegram_id`. Подпись `signInitData(token, { telegram_id, auth_date: now })` (импорт `../../backend/src/modules/kpi/tg-app/init-data`). Вывод: `http://localhost:<port>/kpi-app/?init=<encodeURIComponent>&theme=<theme>#<route или />`. `--all` — по строке на каждую персону таблицы ниже: `<tg>  <персона>  <url>`.
 
 `smoke-seed.ts`:
 - `DATABASE_URL` не кончается на `/managers_kpi_smoke` → `smoke-seed: только managers_kpi_smoke`, код 1, до любого запроса.
 - Повторный запуск сначала удаляет прошлые данные стенда: сотрудников с `last_name LIKE 'Смоук %'` и все их `kpi_*`-строки, привязки с `telegram_id` от 9100000001 до 9100000099, пользователей `login LIKE 'test_kpi_smoke%'` с их назначениями, филиал «Тест Филиал Смоук».
+- `PROJECT_PREFIX` должен быть `managers_smoke_`: `seed*` плана 6 под другим префиксом бросают ошибку.
+- Роли `staff_roles` стенда — вставить, если их нет (по `code`): `cook` — «Повар» / «Oshpaz», `manager` — «Менеджер филиала» / «Filial menejeri», `hall_worker` — «Работник зала» / «Zal xodimi» (`group_key`, `sort`, `active` — как у `ensureStaffRole` в `http/fixtures.ts`). Без них у всех персон нет карты, а в шапке вместо должности код.
 - `seedCards(db)`; `R = currentReviewPeriod(new Date(), settings.review_deadline_day)`, `Q = quarterStart(R)`, `P = addMonths(Q, -3)`. Оценщик стенда — пользователь `test_kpi_smoke_eval` («Тест Смоук Оценщик») с назначением на филиал стенда.
 - Фото — PNG 640×480 из `pngSolid(w, h, rgb)` прямо в скрипте (заголовок PNG, `IHDR`, `IDAT` через `zlib.deflateSync`, CRC32 по таблице). `KPI_UPLOADS_DIR` — тот же, что у dev-backend.
 - Персоны (имя «Тест», фамилия в таблице, роль `cook`, если не сказано иное; привязка `lang: "ru"`):
@@ -512,7 +532,7 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): те
   DATABASE_URL="$SMOKE_URL" bunx drizzle-kit migrate
   DATABASE_URL="$SMOKE_URL" PROJECT_PREFIX=managers_smoke_ KPI_UPLOADS_DIR=/tmp/kpi_smoke_uploads bun run src/modules/kpi/tg-app/smoke-seed.ts
   # фоном (Bash run_in_background):
-  DATABASE_URL="$SMOKE_URL" PROJECT_PREFIX=managers_smoke_ PORT=6799 ENV=development KPI_BOT_TOKEN=123456:kpi-smoke-dev-token \
+  DATABASE_URL="$SMOKE_URL" NODE_ENV=development PROJECT_PREFIX=managers_smoke_ PORT=6799 ENV=development KPI_BOT_TOKEN=123456:kpi-smoke-dev-token \
     KPI_NOTIFY_QUEUE=kpi_notify_smoke KPI_UPLOADS_DIR=/tmp/kpi_smoke_uploads KPI_ADMIN_URL=http://localhost:6762 bun run src/index.ts
   # фоном:
   cd ../kpi_miniapp && KPI_DEV_API=http://localhost:6799 bun --bun run dev
@@ -521,14 +541,14 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): те
   ```
   В конце задачи оба фоновых процесса остановить.
 
-- [ ] **Step 1: Написать `test/dev.test.ts`**: `devRequested("?init=a")`, `"?sdk=fail"`, `"?noinit=1"` → `true`, `""` и `"?theme=dark"` → `false`; у `THEMES.light` и `THEMES.dark` одинаковые 13 ключей.
+- [ ] **Step 1: Написать `test/dev.test.ts`** (импорт только из `../src/dev/flag`): `devRequested("?init=a")`, `"?sdk=fail"`, `"?noinit=1"` → `true`, `""` и `"?theme=dark"` → `false`; у `THEMES.light` и `THEMES.dark` одинаковые 13 ключей; `DEV_MARKER === "__KPI_DEV_FAKE_TELEGRAM__"`.
 - [ ] **Step 2: Run** `bun test` — FAIL.
-- [ ] **Step 3: Реализовать** `fake-telegram.ts`, правку `main.ts`, `dev-url.ts`, `smoke-seed.ts`.
-- [ ] **Step 4: Проверки.** `bun test`, `bun --bun run build` — PASS; `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` — пусто. Типы backend (`grep modules/kpi`) — пусто. Поднять стенд; `curl -s -X POST localhost:5174/api/kpi/tg/auth -H 'content-type: application/json' -d "{\"init_data\":\"<init из ссылки 9100000001, раскодированный>\"}"` → 200 с `"roles":["employee"]`; с этим токеном `GET /api/kpi/tg/home` → `employee.month.period` равен `R` из вывода seed. Для 9100000010 — 403 `inactive`, для 9100000013 — 403 `not_bound`. Остановить процессы.
+- [ ] **Step 3: Реализовать** `flag.ts`, `fake-telegram.ts`, правку `main.ts`, `dev-url.ts`, `smoke-seed.ts`.
+- [ ] **Step 4: Проверки.** `bun test`, `bun --bun run build` — PASS; в `dist/assets/` один `.js`; `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` — пусто; `grep -rn 'dev/fake-telegram' kpi_miniapp/src | grep -v 'import("./dev/fake-telegram")'` — пусто. `NODE_ENV=development bun --bun run build` — снова один `.js` и маркера в `dist` нет (константа зависит от команды, не от `NODE_ENV`). `KPI_BOT_TOKEN=7700000000:not-a-test-token bun scripts/dev-url.ts --tg 9100000001` — код 1 и ни одной ссылки. Типы backend (`grep modules/kpi`) — пусто. Поднять стенд; `curl -s -X POST localhost:5174/api/kpi/tg/auth -H 'content-type: application/json' -d "{\"init_data\":\"<init из ссылки 9100000001, раскодированный>\"}"` → 200 с `"roles":["employee"]`; с этим токеном `GET /api/kpi/tg/home` → `employee.month.period` равен `R` из вывода seed. Для 9100000010 — 403 `inactive`, для 9100000013 — 403 `not_bound`. Остановить процессы.
 - [ ] **Step 5: Commit**
 
 ```bash
-git -C /Users/macbookpro/development/managers-kpi add kpi_miniapp/src/dev/fake-telegram.ts kpi_miniapp/scripts/dev-url.ts kpi_miniapp/test/dev.test.ts kpi_miniapp/src/main.ts backend/src/modules/kpi/tg-app/smoke-seed.ts
+git -C /Users/macbookpro/development/managers-kpi add kpi_miniapp/src/dev/flag.ts kpi_miniapp/src/dev/fake-telegram.ts kpi_miniapp/scripts/dev-url.ts kpi_miniapp/test/dev.test.ts kpi_miniapp/src/main.ts backend/src/modules/kpi/tg-app/smoke-seed.ts
 git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): поддельный Telegram для Chrome и персоны стенда managers_kpi_smoke"
 ```
 
@@ -549,9 +569,9 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): по
     | { kind: "fresh"; data: T } | { kind: "stale"; data: T; at: number }
     | { kind: "fail"; status: FailStatus } | { kind: "http"; code: number; error: string | null };
   export function resolveLoad<T>(r: ApiResult<T>, cached: { data: T; at: number } | null): Loaded<T>;
-  export async function loadScreen<T>(path: string, onSlow: () => void): Promise<Loaded<T>>; // appApi().get + appCache() + таймер 8 с
+  export async function loadScreen<T>(path: string, onSlow: () => void): Promise<Loaded<T>>; // appApi().get + appCache() + таймер 8 с; fail not_bound/inactive → appCache().clear()
   // src/ui.ts
-  export function h(tag: string, attrs?: Record<string, string | boolean | EventListener>, ...kids: (Node | string | null)[]): HTMLElement;
+  export function h(tag: string, attrs?: Record<string, string | boolean | EventListener>, ...kids: (Node | string | null)[]): HTMLElement; // строки-дети → createTextNode
   export function mount(view: Node): void;                     // в #app, снимает скелетон старта
   export function statusScreen(s: FailStatus, retry?: () => void): HTMLElement; // двуязычный, кнопка «Повторить»/«Qayta urinish» при offline/unknown
   export function skeleton(kind: "home" | "list"): HTMLElement;
@@ -565,6 +585,9 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): по
 
 Правила:
 - `resolveLoad`: `ok` → `fresh` (вызывающий сохраняет в кэш); `fail offline` с кэшем → `stale`; `fail` без кэша → `fail`; `http` → `http`.
+- `loadScreen`: результат `fail not_bound` или `fail inactive` (повторный вход посреди работы получил 403) — `appCache().clear()` до возврата, экран отказа без устаревших данных (решение 12).
+- `h()`: строковые дети — только `document.createTextNode`, значения атрибутов — только `setAttribute`; `innerHTML` в `ui.ts` допустим лишь для статической разметки без подстановок (Global Constraints).
+- Роутер: `roles` из ответа входа без `employee` — любой маршрут, кроме главного, заменяется на главный, и `location.hash` переписывается на `#/` (решение 18).
 - `index.html`: SDK `<script defer src="https://telegram.org/js/telegram-web-app.js">`; статический скелетон в `#boot`; подсказка `#slow-hint` с двумя строками (`slow` RU и UZ), проявляется CSS-анимацией с задержкой 8 с; `<div id="app"></div>`; `<script type="module" src="/src/main.ts">`. Без inline-скриптов.
 - Старт `main.ts`: dev-флаг (задача 3) → `sdkState()` не `ok` → `statusScreen` → `applyTheme()`, `ready()`, `expand()`, `onEvent("themeChanged", applyTheme)` → `appApi().auth()`. Отказ `offline` при кэше главного экрана — главный экран из кэша с `staleBanner`; `not_bound`/`inactive` — `appCache().clear()` и экран отказа; прочее — экран отказа. Успех — `setLang(body.lang)`, роутер по `parseHash(location.hash)`, `hashchange`.
 - Экран: `skeleton(...)` сразу, `loadScreen` с `onSlow` → строка `t("slow")` под скелетоном; `stale` → данные и `staleBanner` сверху.
@@ -617,7 +640,7 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): об
 - `evaluator.text`: `pending > 0` → `eval_pending` (`{employees}` через `ruPlural`; в UZ без склонения), иначе `eval_done`; `link = admin_url`.
 - `pending`: `title = pending_title` с месяцем в именительном (`capFirst`); `when = nowMs < submit_opens_at ? pending_from : pending_until` (даты `dayMonth`); `violations = pending_viol` (предложный); `hash = #/violations/<YYYY-MM>`.
 - `month`: `title` — месяц с заглавной; `chip` — `st_*`, тон `ok` для `ready`, `warn` для `dispute_open`, `wait` для прочих; `score = pct1(score_pct)` или `—`; `disputeLine` по `dispute.state`: `can` → `dsp_can` (`deadline`), `open` → `dsp_open` (`opened_at`), `window_closed`, `period_closed` → соответствующие ключи; `lost` — до трёх строк (заголовок на языке, балл целым); `lostNone = lost.length === 0`; `hash = #/review/<YYYY-MM>`.
-- `raise`: `title = raise_title` с `quarterTitle`; `badge = raiseBadge(hint)`; `ticks` по `tiers` (`pct1(min_pct)` без десятичной, если целое: `85 %`; `sumShort`; `at = k / (n + 1)`); `marker` при `avg_pct` — `label = pct1(avg_pct, tiers.map(t => t.min_pct)) + " %"`, `at = trackPos(...)`; `months` — три плитки: `scored` → `pct1`, первая `upcoming` → `m_upcoming`, следующие `upcoming` → `—`, `pending` → `m_pending`, `not_rated` → `m_not_rated`; `current` — отчётный месяц (решение 9); `lines = hintLines(hint)`.
+- `raise`: `title = raise_title` с `quarterTitle`; `badge = raiseBadge(hint)`; `ticks` по `tiers` (`pct1(min_pct)` без десятичной, если целое: `85 %`; `sumShort`; `at = k / (n + 1)`, где `k` — номер ступени с единицы по возрастанию `min_pct`: 85 / 90 / 95 → 0,25 / 0,5 / 0,75, ровно границы отрезков `trackPos`); `marker` при `avg_pct` — `label = pct1(avg_pct, tiers.map(t => t.min_pct)) + " %"`, `at = trackPos(...)`; `months` — три плитки: `scored` → `pct1`, первая `upcoming` → `m_upcoming`, следующие `upcoming` → `—`, `pending` → `m_pending`, `not_rated` → `m_not_rated`; `current` — отчётный месяц (решение 9); `lines = hintLines(hint)`.
 - `links`: `link_viol` (предложный, `count` числом) → `#/violations/…`; `link_history` → `#/history`, только при `has_history` или оценённом месяце.
 - `noCard = employee !== null && !employee.has_card`: вместо карточек `no_card` и ссылка «История», если `has_history`.
 - Нажатие RU/UZ: `PUT /lang`, затем `setLang` и `rerender()`.
@@ -631,7 +654,7 @@ expect(vm.header).toEqual({ initials: "ТП", name: "Тест Повар", sub: 
 expect(vm.month).toMatchObject({ title: "Октябрь", chip: { text: "Оценка готова", tone: "ok" }, score: "90,3",
   disputeLine: "Оспорить можно до 10 ноября.", lost: [{ title: "Гигиена сотрудника", score: "75" }, { title: "Соблюдение техкарты", score: "75" }], lostNone: false, hash: "#/review/2026-10" });
 expect(vm.raise!.title).toBe("Прибавка за IV квартал");
-expect(vm.raise!.ticks.map((x) => [x.pct, x.amount])).toEqual([[`85${nb}%`, `150${nb}тыс`], [`90${nb}%`, `300${nb}тыс`], [`95${nb}%`, `500${nb}тыс`]]);
+expect(vm.raise!.ticks.map((x) => [x.pct, x.amount, x.at])).toEqual([[`85${nb}%`, `150${nb}тыс`, 0.25], [`90${nb}%`, `300${nb}тыс`, 0.5], [`95${nb}%`, `500${nb}тыс`, 0.75]]);
 expect(vm.raise!.marker!.label).toBe(`90,3${nb}%`);
 expect(vm.raise!.marker!.at).toBeCloseTo(0.5165, 6);
 expect(vm.raise!.months).toEqual([{ label: "Октябрь", value: "90,3", current: true }, { label: "Ноябрь", value: "с 20.11", current: false }, { label: "Декабрь", value: "—", current: false }]);
@@ -674,20 +697,20 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): гл
     dispute: { can: true; label: string } | { can: false; line: string };
   }
   export function reviewView(r: TgReview, l: Lang): ReviewVM;
+  export function disputeErrorText(code: string | null, min: number): string; // err_* или err_generic; здесь, а не в sheet.ts: тест не импортирует DOM-модули
   // src/sheet.ts
-  export function openDisputeSheet(o: { subject_type: "review" | "violation"; subject_id: string; title: string; reasonMin: number; onDone(): void }): void;
-  export function disputeErrorText(code: string | null, min: number): string; // err_* или err_generic
+  export function openDisputeSheet(o: { subject_type: "review" | "violation"; subject_id: string; title: string; reasonMin: number; onDone(): void }): void; // текст ошибки — disputeErrorText из view/review.ts
   ```
 
 Правила:
 - Группы: «Основные пункты», затем «Дополнительные пункты», если такие есть. `bar = score / 100`, у `null` — `null` и `noData: true` (балл `—`, пояснение `no_data_hint`). `source`: `attendance` → `src_attendance`; `cooking_speed`, `sales_plan`, `food_cost` → `src_branch`; `manual` → `null`.
-- `changes`: `dayMonth(at)`, `pct1(old)` → `pct1(new)`, `reason = change_reason`.
+- `changes`: `dayMonth(at)`, `pct1(old)` → `pct1(new)`, `reason = change_reason`. `old_score_pct` или `new_score_pct` равен `null` — на его месте `—` без знака `%` (`pct1` с `null` не вызывается).
 - `resolved` из `dispute.last_resolved`: `dsp_accepted`/`dsp_rejected` и `comment`.
 - `dispute`: `can` → кнопка `btn_dispute`; иначе строка `dsp_open` / `dsp_window_closed` / `dsp_period_closed`.
 - Шторка: снизу, заголовок, `sheet_hint`, `textarea` с `sheet_placeholder`, счётчик `sheet_min`. `MainButton.setText(t("sheet_send"))`, `show()`; `enable()` только при `reasonCount(text) >= reasonMin`. Нажатие: `latch.take()`, `showProgress()`, `POST /disputes`; 200 → `haptic("success")`, `MainButton.hide()`, закрыть, `onDone()` (перезагрузка экрана); ошибка → `haptic("error")`, `disputeErrorText(error, min)` под полем, `hideProgress()`, `latch.release()`. `BackButton` при открытой шторке закрывает её. При закрытии снимаются все обработчики `MainButton`.
 
 - [ ] **Step 0: Вызвать Skill `design-taste-frontend`, затем Skill `frontend-design`.**
-- [ ] **Step 1: Написать `test/view-review.test.ts`**: фикстура с девятью пунктами (`attendance` без балла, `Гигиена сотрудника` 75 с заметкой, два `extra`), изменением `{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 85, new_score_pct: 90.33, comment: "Пересчитали гигиену" }`, `dispute.state = "can"`. Ожидания: `title` `Октябрь · 90,3 %` (с U+00A0 перед `%`); две группы с заголовками «Основные пункты», «Дополнительные пункты»; первый пункт `{ score: "—", bar: null, source: "по данным Workly", noData: true }`; `changes` `[{ line: "27 октября: 85,0 % → 90,3 %", reason: "Причина: Пересчитали гигиену" }]` (U+00A0 перед `%`); `dispute` `{ can: true, label: "Оспорить" }`; при `state: "open"` — `{ can: false, line: "Вы оспорили оценку … Ответ придёт в бот." }`; `last_resolved` `rejected` с комментарием → `resolved: { title: "Спор отклонён", comment: "Комментарий: …" }`. `disputeErrorText("comment_required", 5)` → «Слишком коротко: нужно не меньше 5 букв или цифр.», `disputeErrorText("weird", 5)` → «Не получилось. Попробуйте ещё раз.».
+- [ ] **Step 1: Написать `test/view-review.test.ts`**: фикстура с девятью пунктами (`attendance` без балла, `Гигиена сотрудника` 75 с заметкой, два `extra`), изменением `{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 85, new_score_pct: 90.33, comment: "Пересчитали гигиену" }`, `dispute.state = "can"`. Ожидания: `title` `Октябрь · 90,3 %` (с U+00A0 перед `%`); две группы с заголовками «Основные пункты», «Дополнительные пункты»; первый пункт `{ score: "—", bar: null, source: "по данным Workly", noData: true }`; `changes` `[{ line: "27 октября: 85,0 % → 90,3 %", reason: "Причина: Пересчитали гигиену" }]` (U+00A0 перед `%`); `dispute` `{ can: true, label: "Оспорить" }`; при `state: "open"` — `{ can: false, line: "Вы оспорили оценку … Ответ придёт в бот." }`; `last_resolved` `rejected` с комментарием → `resolved: { title: "Спор отклонён", comment: "Комментарий: …" }`; изменение с `old_score_pct: null` → строка `27 октября: — → 90,3 %`. `disputeErrorText` импортируется из `../src/view/review`: `disputeErrorText("comment_required", 5)` → «Слишком коротко: нужно не меньше 5 букв или цифр.», `disputeErrorText("weird", 5)` → «Не получилось. Попробуйте ещё раз.».
 - [ ] **Step 2: Run** `bun test` — FAIL.
 - [ ] **Step 3: Реализовать** `view/review.ts`, `screens/review.ts`, `sheet.ts`, маршрут в `main.ts`. `404` на экране — `err_not_found` и «назад».
 - [ ] **Step 4: Проверка в Chrome** на стенде: персона 01 → «Вся оценка» → «Оспорить» → кнопка `data-dev="main"` неактивна при «ок», активна после «18 числа был выходной»; отправка → шторка закрылась, на главном «Спор на рассмотрении»; повторный вход на экран — строки «Вы оспорили…», кнопки нет. Персона 05 — блок «Изменения» и «Спор отклонён». После проверки перезапустить `smoke-seed.ts`.
@@ -723,11 +746,11 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): ра
   ```
 
 Правила:
-- Нарушения: `item` — название на языке (`item_title_uz ?? item_title_ru` для UZ) или `viol_no_item`; `when` — `dayMonth` и `hhmm` по Ташкенту («14 октября, 19:40»); статус: `cancelled` → `viol_cancelled` (`muted`), открытый спор → `viol_dispute` (`warn`), иначе `viol_active`; `canDispute = dispute.state === "can"`; `line` — для `window_closed`/`period_closed` строка `dsp_*`. Внизу всегда `viol_note`. Пустой список — `viol_empty`.
-- История: `title = quarterTitle(q, l, true)`; `result`: `running` → `hist_running` (`wait`), `waiting_hr` → `hist_waiting` (`wait`), `decided` > 0 → `hist_approved` (`ok`), 0 → `hist_no_raise` (`muted`); месяцы: `scored` → `pct1 + " %"` и `hash` на «Вся оценка», первая `upcoming` → `hist_upcoming` с `dayMonth(opens_at)`, прочие `upcoming` → `—`, `pending` → `m_pending`, `not_rated` → `m_not_rated`; `avg` при `avg_pct` → `pct1 + " %"`. Пустая история — `hist_empty`.
+- Нарушения: `item` — название на языке (`item_title_uz ?? item_title_ru` для UZ) или `viol_no_item`; `when` — `dayMonth` и `hhmm` по Ташкенту («14 октября, 19:40»); статус: `cancelled` → `viol_cancelled` (`muted`), открытый спор → `viol_dispute` (`warn`), иначе `viol_active`; `canDispute = dispute.state === "can"`; `line` — у каждого нарушения без «Оспорить» (спека, раздел 4.5): `open` → `dsp_open_violation` с `dayMonth(opened_at)`, `cancelled` → `dsp_cancelled`, `window_closed` / `period_closed` → `dsp_window_closed` / `dsp_period_closed`; при `can` — `null`. `dsp_open` («оспорили оценку») у нарушений не используется. Внизу всегда `viol_note`. Пустой список — `viol_empty`.
+- История: `title = quarterTitle(q, l, true)`; `result`: `running` → `hist_running` (`wait`), `waiting_hr` → `hist_waiting` (`wait`), `decided` > 0 → `hist_approved` «Утверждено +N сум» (`ok`), 0 → `hist_no_raise` «Без прибавки» (`muted`) — слова раздела 4.4 спеки; месяцы: `scored` → `pct1 + " %"` и `hash` на «Вся оценка», первая `upcoming` → `hist_upcoming` с `dayMonth(opens_at)`, прочие `upcoming` → `—`, `pending` → `hist_pending` «ещё не оценён», `not_rated` → `m_not_rated`; `avg` при `avg_pct` → `pct1 + " %"`. Пустая история — `hist_empty`.
 
 - [ ] **Step 0: Вызвать Skill `design-taste-frontend`, затем Skill `frontend-design`.**
-- [ ] **Step 1: Тесты.** `test/view-violations.test.ts`: три нарушения как в `screens.html` (действующее с фото по «Чистоте филиала» `2026-10-14T14:40:00.000Z`, отменённое без пункта «записано по ошибке», со спором) → `items[0].when` `"14 октября, 19:40"`, `items[0].status` `{ text: "действует", tone: "active" }`, отменённое `{ text: "отменено", tone: "muted" }` и `cancelReason` «записано по ошибке», `item` «Без пункта карты», со спором — `{ text: "спор открыт", tone: "warn" }` и `canDispute: false`; `note` — `viol_note`. `test/view-history.test.ts`: три квартала как в `screens.html` (IV 2026 идёт: октябрь 90,3, ноябрь `upcoming`, декабрь `upcoming`; III 2026 `decided 500000`, июль 96, август 95, сентябрь 98, средний 96,33; II 2026 `decided 0`, средний 83,1) → заголовки «IV квартал 2026», …; итоги «идёт», `+500 000 сум`, «без прибавки» (U+00A0); месяцы IV: `90,3 %`, «с 20 ноября», «—»; `avg` III `96,3 %`; `hash` у оценённого месяца `#/review/2026-10`.
+- [ ] **Step 1: Тесты.** `test/view-violations.test.ts`: три нарушения как в `screens.html` (действующее с фото по «Чистоте филиала» `2026-10-14T14:40:00.000Z`, отменённое без пункта «записано по ошибке», со спором) → `items[0].when` `"14 октября, 19:40"`, `items[0].status` `{ text: "действует", tone: "active" }`, отменённое `{ text: "отменено", tone: "muted" }` и `cancelReason` «записано по ошибке», `item` «Без пункта карты», со спором — `{ text: "спор открыт", tone: "warn" }`, `canDispute: false` и `line` «Вы оспорили нарушение 20 октября. Ответ придёт в бот.» (спор открыт `2026-10-20T07:00:00.000Z`); у отменённого `line` «Нарушение отменено, оспаривать нечего.»; у действующего с `can` — `line: null`; `note` — `viol_note`. `test/view-history.test.ts`: три квартала как в `screens.html` (IV 2026 идёт: октябрь 90,3, ноябрь `upcoming`, декабрь `upcoming`; III 2026 `decided 500000`, июль 96, август 95, сентябрь 98, средний 96,33; II 2026 `decided 0`, средний 83,1) → заголовки «IV квартал 2026», …; итоги «идёт», `Утверждено +500 000 сум`, «Без прибавки» (U+00A0 внутри числа и перед «сум»); месяцы IV: `90,3 %`, «с 20 ноября», «—»; месяц `pending` в истории — «ещё не оценён»; `avg` III `96,3 %`; `hash` у оценённого месяца `#/review/2026-10`.
 - [ ] **Step 2: Run** `bun test` — FAIL.
 - [ ] **Step 3: Реализовать** модули, маршруты, «Оспорить» у нарушения через `openDisputeSheet({ subject_type: "violation", … })`.
 - [ ] **Step 4: Проверка в Chrome**: персона 01 — нарушения, превью фото, крупный просмотр и закрытие; персона 08 — история с итогами, тап по месяцу открывает «Вся оценка». После ухода с экрана нарушений в консоли нет ошибок.
@@ -759,7 +782,7 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): на
 
 Раздел `kpi-deploy.md` «## Мини-приложение «Мой KPI»» после «Фазы 5», подразделы:
 1. **Миграция** `0040_kpi_tg_dual` (индексы привязок): номер сверить с прод-`main`, SQL прочитать до `bunx drizzle-kit migrate`. Других миграций нет; `opened_via = 'miniapp'` пишется в существующий `varchar(16)`.
-2. **Сборка:** `cd /home/davr/managers/kpi_miniapp && /root/.bun/bin/bun install && /root/.bun/bin/bun --bun run build` (почему `--bun` — комментарий в `vite.config.ts` паспорта). Глазами: в `dist/index.html` пути начинаются с `/kpi-app/assets/`; `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` пусто. Сборке нужен соседний `backend/` (типы).
+2. **Сборка:** `cd /home/davr/managers/kpi_miniapp && /root/.bun/bin/bun install && /root/.bun/bin/bun --bun run build` (почему `--bun` — комментарий в `vite.config.ts` паспорта). Глазами: в `dist/index.html` пути начинаются с `/kpi-app/assets/`; в `dist/assets/` ровно один `.js` и один `.css`; `grep -rl __KPI_DEV_FAKE_TELEGRAM__ dist` пусто (маркер пишет поддельный Telegram, так что его отсутствие значит, что подделки в сборке нет). Сборке нужен соседний `backend/` (типы). `kpi_miniapp/scripts/dev-url.ts` на сервере не запускать: он подписывает только тестовыми токенами `123456:kpi-…` и на боевой ответит отказом.
 3. **nginx**, vhost `api.office.lesailes.uz`, внутри `server { … 443 … }` до `location /`, с бэкапом `<vhost>.bak.kpi_app_<YYYYMMDD-HHMMSS>`, `nginx -t`, `systemctl reload nginx`:
    ```
        # KPI MINIAPP START #
@@ -774,8 +797,8 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): на
    Тот же origin, что у API, обязателен (раздел 1 спеки паспорта C5): `base` в `vite.config.ts`, `location` и `KPI_MINIAPP_URL` совпадают буква в букву, со слэшем.
 4. **Переменные:** `backend/.env` — `KPI_MINIAPP_URL=https://api.office.lesailes.uz/kpi-app/`, `KPI_ADMIN_URL=<адрес админки без пути>`; `cron/.env` — тот же `KPI_MINIAPP_URL` (кнопки «Открыть» собирает воркер). `tail -c 1 .env` перед дописыванием. Только `https://`: иначе кнопок не будет.
 5. **Перезапуск:** `office_api` с пересборкой бинарника и `office_kpi_worker`, без `--update-env` (см. «Воркер office_kpi_worker»).
-6. **Кнопка меню:** `cd /home/davr/managers/backend && bun run src/modules/kpi/tg/set-menu.ts`; ожидаемый вывод `kpi menu: default ok, uz chats N/N`. Запускать после установки `KPI_MINIAPP_URL`; повторный запуск безопасен.
-7. **Проверка с телефона:** кнопка меню «Мой KPI» открывает приложение; светлая и тёмная тема Telegram; переключатель RU/UZ; уведомление об оценке — кнопка «Открыть» ведёт на «Вся оценка» этого месяца; `/my` — кнопка «Открыть Мой KPI»; руководитель по второй ссылке получает «Готово! Теперь здесь и ваши оценки, и напоминания оценщика.»; спор из приложения появляется в «Спорах» с пометкой «через мини-приложение».
+6. **Кнопка меню:** `cd /home/davr/managers/backend && bun run src/modules/kpi/tg/set-menu.ts`; ожидаемый вывод `kpi menu: default ok, uz chats N/N` и код 0; код 1 — кнопка по умолчанию не встала, разобраться до проверки с телефона. Запускать после установки `KPI_MINIAPP_URL`; повторный запуск безопасен.
+7. **Проверка с телефона:** кнопка меню «Мой KPI» открывает приложение; светлая и тёмная тема Telegram; переключатель RU/UZ; уведомление об оценке — кнопка «Открыть» ведёт на «Вся оценка» этого месяца; `/my` — кнопка «Открыть Мой KPI»; руководитель по второй ссылке получает «Готово. Теперь здесь и ваши оценки, и напоминания оценщика.»; спор из приложения появляется в «Спорах» с пометкой «через мини-приложение».
 
 - [ ] **Step 0: База типов админки.** Run: `cd admin && ./node_modules/.bin/tsc --noEmit -p . --incremental false 2>&1 | grep -c "error TS"` — записать число (ожидается `0`).
 - [ ] **Step 1: Правки админки.**
@@ -819,9 +842,9 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): подп
 | 14 | Вся оценка | 01, `#/review/R` | группы, «по данным Workly», заметка, «нет данных», «Оспорить» |
 | 15 | Шторка спора | 01, «Оспорить» | поле, «Не меньше 5 букв или цифр», MainButton неактивна до минимума |
 | 16 | Спор отправлен | 15 → отправить | шторка закрыта, «Спор на рассмотрении»; затем перезапустить seed |
-| 17 | Нарушения | 01, `#/violations/R` | новые сверху, превью фото, отменённое серым с причиной, пояснение внизу |
+| 17 | Нарушения | 01, `#/violations/R` | новые сверху, превью фото, отменённое серым с причиной и строкой «Нарушение отменено, оспаривать нечего.», пояснение внизу |
 | 18 | Фото крупно | 17 → тап по превью | фото на весь экран, закрытие тапом и «назад» |
-| 19 | История | 08, `#/history` | кварталы, «+500 000 сум», «без прибавки», средние |
+| 19 | История | 08, `#/history` | кварталы, «Утверждено +500 000 сум», «Без прибавки», средние |
 | 20 | Нет сети, кэш есть | 01: загрузить, затем `emulate` Offline и перейти на «История» и обратно | прежний главный экран и «Обновлено в … — нет связи» |
 | 21 | Нет сети, кэша нет | 06 в новой вкладке, `localStorage.clear()`, Offline | «Нет связи…» и «Повторить» |
 | 22 | Плохая связь | 01, блокировка `telegram.org` или задержка сети больше 8 с | скелетон и через 8 с «Связь плохая, ещё пробуем» |
@@ -829,6 +852,8 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi): подп
 | 24 | SDK не загрузился | `?sdk=fail` | «Не загрузился Telegram. Обновите или откройте позже» |
 
 Сочетания: каждое состояние — светлая RU, тёмная RU, светлая UZ (двуязычные 10, 11, 21–24 — только две темы). Тёмная UZ дополнительно для 1, 2, 13, 14, 15, 17, 19. Язык переключается кнопкой RU/UZ в приложении, тема — `&theme=`.
+
+Оценщик (11) после загрузки открывает `#/history` вручную — остаётся на главном экране, без ошибки 403 (решение 18).
 
 Проверка каждого снимка (`evaluate_script`):
 - `document.documentElement.scrollWidth <= 360`;
