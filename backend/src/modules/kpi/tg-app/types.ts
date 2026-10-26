@@ -14,7 +14,9 @@ export interface TgError { error: TgErrorCode; min?: number }
 
 // POST /api/kpi/tg/auth
 export interface TgAuthRequest { init_data: string }
-export interface TgAuthResponse { token: string; roles: TgRole[]; lang: TgLang }
+// who — отпечаток того, кто вошёл: первые 16 hex sha256 от "<employee_id|->:<user_id|->". Привязку того же
+// Telegram могут переназначить на другого сотрудника; клиент держит кэш экранов под who и при смене его стирает.
+export interface TgAuthResponse { token: string; roles: TgRole[]; lang: TgLang; who: string }
 
 // PUT /api/kpi/tg/lang
 export interface TgLangRequest { lang: TgLang }

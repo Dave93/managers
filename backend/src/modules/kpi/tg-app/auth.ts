@@ -1,6 +1,6 @@
 // Вход в мини-приложение по initData Telegram. Ни init_data, ни токены здесь не логируются
 // и не попадают в тексты ошибок.
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import type Redis from "ioredis";
 import { verifyInitData } from "@backend/modules/passport/tg-auth";
 import type { DbLike } from "../access";
@@ -39,5 +39,14 @@ export async function authenticate(db: DbLike, redis: Redis, initData: unknown, 
   const roles: TgRole[] = [];
   if (session.employee_id) roles.push("employee");
   if (session.user_id) roles.push("evaluator");
-  return { token, roles, lang: session.lang };
+  return { token, roles, lang: session.lang, who: whoOf(session.employee_id, session.user_id) };
+}
+
+/**
+ * Отпечаток того, кто стоит за этим Telegram. redeemInvite может переназначить привязку
+ * на другого сотрудника, и тогда кэш экранов прежнего на телефоне надо стереть: клиент
+ * сравнивает who с запомненным. Сами id наружу не уходят — только начало хеша.
+ */
+export function whoOf(employeeId: string | null, userId: string | null): string {
+  return createHash("sha256").update(`${employeeId ?? "-"}:${userId ?? "-"}`).digest("hex").slice(0, 16);
 }

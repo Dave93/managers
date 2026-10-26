@@ -16,7 +16,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     await import("./fixtures");
   const { employees, kpi_tg_bindings } = await import("backend/drizzle/schema");
   const { setTestBotApi } = await import("../tg/bot-api");
-  const { bindingOf } = await import("../tg/bindings");
+  const { bindingOf, createInvite, redeemInvite } = await import("../tg/bindings");
   const { signInitData } = await import("../tg-app/init-data");
   const { principalOf } = await import("../tg-app/ctx");
   const { tgAppRoutes } = await import("../routes/tg-app");
@@ -113,6 +113,25 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(JSON.parse((await redis.get(key))!)).toEqual({ telegram_id: b.telegram_id, employee_id: e.id, user_id: null, lang: "uz" });
       const ttl = await redis.ttl(key);
       expect(ttl > 43_000 && ttl <= 43_200).toBe(true);
+    });
+
+    // Мини-приложение держит кэш экранов под who: переназначенная на другого сотрудника привязка того же
+    // Telegram должна дать другой who, иначе новый человек увидел бы сохранённые экраны прежнего.
+    it("who: 16 hex; тот же человек — тот же who; после redeemInvite на другого сотрудника — другой", async () => {
+      const e = await makeEmployee(db);
+      const b = await bindTelegram(db, { employee_id: e.id });
+      const first = (await tgLogin(b.telegram_id)).body.who;
+      expect(first).toMatch(/^[0-9a-f]{16}$/);
+      expect((await tgLogin(b.telegram_id)).body.who).toBe(first);
+      const hr = await makeUser(db);
+      const e2 = await makeEmployee(db);
+      const inv = await createInvite(db, hr.id, { employee_id: e2.id });
+      expect((await redeemInvite(db, inv.token, b.telegram_id)).status).toBe("bound");
+      expect((await bindingOf(db, b.telegram_id)).employee?.employee_id).toBe(e2.id);
+      const second = (await tgLogin(b.telegram_id)).body.who;
+      expect(second).toMatch(/^[0-9a-f]{16}$/);
+      expect(second).not.toBe(first);
+      expect((await tgLogin(b.telegram_id)).body.who).toBe(second);
     });
 
     it("две привязки — обе роли; уволенный руководитель с живой привязкой оценщика — только evaluator", async () => {
