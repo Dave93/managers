@@ -53,11 +53,11 @@ function ex1(): TgHome {
   };
 }
 
-// Ноябрь — отчётный и ещё не оценён; главный оценённый — октябрь.
+// Ноябрь — отчётный и ещё не оценён; главный оценённый — октябрь. Строка нарушений, как
+// на сервере (home.ts: vPeriod = month?.period ?? R), остаётся за октябрём из ex1().
 function withPending(): TgHome {
   const d = ex1();
   d.employee!.pending = { period: "2026-11-01", submit_opens_at: "2026-11-19T19:00:00.000Z", review_deadline: "2026-12-07T18:59:59.999Z", violations: 2 };
-  d.employee!.violations = { period: "2026-11-01", count: 2 };
   return d;
 }
 
@@ -111,13 +111,31 @@ it("все пункты на максимуме — lostNone", () => {
   expect(homeView(d, "ru", NOW).month).toMatchObject({ lost: [], lostNone: true });
 });
 
-it("балла нет — прочерк; больше трёх потерь — первые три", () => {
+it("балла нет — прочерк и никакого «все на максимуме»", () => {
+  // Сервер без балла всегда шлёт lost: [] (lostItems отбрасывает пункты без балла), а
+  // «Все пункты на максимуме» по спеке 4.1 — только когда все пункты на 100.
   const d = ex1();
   d.employee!.month!.score_pct = null;
+  d.employee!.month!.lost = [];
+  expect(homeView(d, "ru", NOW).month).toMatchObject({ score: "—", lost: [], lostNone: false });
+});
+
+it("больше трёх потерь — первые три, баллы целыми", () => {
+  const d = ex1();
   d.employee!.month!.lost = [50, 60, 70, 80].map((s, i) => ({ item_id: `i${i}`, title_ru: `П${i}`, title_uz: `B${i}`, score: s + 0.4 }));
-  const m = homeView(d, "ru", NOW).month!;
-  expect(m.score).toBe("—");
-  expect(m.lost).toEqual([{ title: "П0", score: "50" }, { title: "П1", score: "60" }, { title: "П2", score: "70" }]);
+  expect(homeView(d, "ru", NOW).month!.lost).toEqual([{ title: "П0", score: "50" }, { title: "П1", score: "60" }, { title: "П2", score: "70" }]);
+});
+
+it("порог ступени: балл месяца и плитка не дотягивают до ступени, как и средний (решение 6)", () => {
+  const d = ex1();
+  d.employee!.month!.score_pct = 89.96;
+  d.employee!.raise!.months[0]!.score_pct = 89.96;
+  d.employee!.raise!.avg_pct = 89.96;
+  const vm = homeView(d, "ru", NOW);
+  expect([vm.month!.score, vm.raise!.months[0]!.value, vm.raise!.marker!.label]).toEqual(["89,9", "89,9", `89,9${nb}%`]);
+  // Без карты прибавки порогов нет — обычное округление.
+  d.employee!.raise = null;
+  expect(homeView(d, "ru", NOW).month!.score).toBe("90,0");
 });
 
 it("неоценённый отчётный месяц: до открытия оценок и после", () => {
@@ -127,6 +145,8 @@ it("неоценённый отчётный месяц: до открытия о
   expect(after.pending!.when).toBe("Оценку поставят до 7 декабря.");
   // Текущий в строке квартала — отчётный месяц (решение 9), а не оценённый октябрь.
   expect(after.raise!.months.map((m) => m.current)).toEqual([false, true, false]);
+  // Нижняя строка нарушений — за главный оценённый месяц, карточка — за отчётный.
+  expect(after.links[0]).toEqual({ text: "Нарушения в октябре", count: "1", hash: "#/violations/2026-10" });
 });
 
 it("оценщик: склонение, все оценены, ссылка", () => {
@@ -163,6 +183,9 @@ it("история без has_history — только при оценённом
 
 it("шапка: пустые части подписи выпадают", () => {
   const d = ex1();
+  // Узбекской должности нет — русская, как у названий пунктов.
+  d.employee!.position_uz = null;
+  expect(homeView(d, "uz", NOW).header!.sub).toBe("Повар · Тест Филиал 1");
   d.employee!.position_ru = null;
   expect(homeView(d, "ru", NOW).header!.sub).toBe("Тест Филиал 1");
   d.employee!.terminal_name = null;

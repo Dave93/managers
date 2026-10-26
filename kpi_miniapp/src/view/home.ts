@@ -69,7 +69,8 @@ function disputeLine(d: TgDisputeInfo, l: Lang): string {
 const routeHash = (name: "review" | "violations", period: string): string => hashOf({ name, period });
 
 function header(e: TgEmployeeHome, l: Lang): HomeVM["header"] {
-  const position = l === "ru" ? e.position_ru : e.position_uz;
+  // Узбекского названия должности нет — русское, как у названий пунктов.
+  const position = l === "ru" ? e.position_ru : e.position_uz || e.position_ru;
   const sub = [position, e.terminal_name].filter((x): x is string => !!x && x.trim() !== "").join(" · ");
   return { initials: initials(e.first_name, e.last_name), name: `${e.first_name} ${e.last_name}`.trim(), sub };
 }
@@ -77,11 +78,17 @@ function header(e: TgEmployeeHome, l: Lang): HomeVM["header"] {
 /** Порог шкалы: целый без десятичной («85 %»), дробный — с одной («87,5 %»). */
 const tickPct = (min: number): string => `${pct1(min).replace(/,0$/, "")}${NBSP}%`;
 
+/**
+ * Балл месяца с защитой порога (решение 6), как средний на шкале: 89,96 при ступени 90 —
+ * «89,9», а не «90,0» рядом с «150 000 сум». mins — пороги ступеней, без карты прибавки — [].
+ */
+const score = (pct: number | null, mins: number[]): string => (pct === null ? DASH : pct1(pct, mins));
+
 /** Значение плитки месяца в строке квартала (решение 9). */
-function monthValue(m: TgMonth, firstUpcoming: boolean, l: Lang): string {
+function monthValue(m: TgMonth, firstUpcoming: boolean, mins: number[], l: Lang): string {
   switch (m.state) {
     case "scored":
-      return m.score_pct === null ? DASH : pct1(m.score_pct);
+      return score(m.score_pct, mins);
     case "pending":
       return tIn(l, "m_pending");
     case "not_rated":
@@ -104,7 +111,7 @@ function raise(r: TgRaiseCard, current: string | null, l: Lang): HomeVM["raise"]
     months: r.months.map((m) => {
       const first = m.state === "upcoming" && !seenUpcoming;
       if (m.state === "upcoming") seenUpcoming = true;
-      return { label: capFirst(monthName(m.period, "nom", l)), value: monthValue(m, first, l), current: m.period === current };
+      return { label: capFirst(monthName(m.period, "nom", l)), value: monthValue(m, first, mins, l), current: m.period === current };
     }),
     lines: hintLines(r.hint, l),
   };
@@ -152,14 +159,18 @@ export function homeView(d: TgHome, l: Lang, nowMs: number): HomeVM {
     : null;
 
   const m = e.month;
+  // Пороги ступеней — для балла месяца, как для среднего (решение 6).
+  const mins = e.raise ? e.raise.tiers.map((x) => x.min_pct) : [];
   const month: HomeVM["month"] = m
     ? {
         title: capFirst(monthName(m.period, "nom", l)),
         chip: chipOf(m.status, l),
-        score: m.score_pct === null ? DASH : pct1(m.score_pct),
+        score: score(m.score_pct, mins),
         disputeLine: disputeLine(m.dispute, l),
         lost: m.lost.slice(0, 3).map((x) => ({ title: l === "ru" ? x.title_ru : x.title_uz || x.title_ru, score: String(Math.round(x.score)) })),
-        lostNone: m.lost.length === 0,
+        // «Все пункты на максимуме» — только при балле: без него сервер шлёт lost: [] всегда
+        // (пункты без балла в потери не попадают), и пустой список ничего не значит.
+        lostNone: m.score_pct !== null && m.lost.length === 0,
         hash: routeHash("review", m.period),
       }
     : null;

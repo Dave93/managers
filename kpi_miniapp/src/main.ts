@@ -10,9 +10,9 @@
 // #/review/… кладёт главный экран под него. Без роли employee доступен только
 // главный экран: остальные ответили бы 403 not_employee.
 //
-// navigate, back, rerender и useLang экраны берут не отсюда, а из ./nav: импорт входа
-// из экрана в `vite dev` выполняет main.ts дважды (подробно — в nav.ts). Экраны
-// импортируют только ./nav, никогда ./main; main.ts отдаёт туда функции (provideNav).
+// navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
+// куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
+// выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
 import type { TgHome, TgLang, TgRole } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -76,7 +76,7 @@ function screenOf(r: Route): Screen {
 // ---------- язык и роли ----------
 
 /** Язык интерфейса: словарь и lang у <html>. Экраны зовут его через ./nav (переключатель RU/UZ). */
-export function useLang(l: TgLang): void {
+function useLang(l: TgLang): void {
   setLang(l);
   document.documentElement.setAttribute("lang", l);
 }
@@ -106,7 +106,7 @@ function guard(r: Route): Route {
 }
 
 /** Вперёд: маршрут в стек и в location.hash. */
-export function navigate(r: Route): void {
+function navigate(r: Route): void {
   const to = guard(r);
   if (same(to, top().route)) return;
   top().y = window.pageYOffset;
@@ -117,14 +117,14 @@ export function navigate(r: Route): void {
 }
 
 /** Назад по стеку; с главного — остаться на главном. */
-export function back(): void {
+function back(): void {
   if (stack.length > 1) stack.pop();
   history.replaceState(null, "", hashOf(top().route));
   show(false);
 }
 
 /** Текущий экран заново, без скелетона: старые данные видны, пока идёт запрос. */
-export function rerender(): void {
+function rerender(): void {
   show(true);
 }
 

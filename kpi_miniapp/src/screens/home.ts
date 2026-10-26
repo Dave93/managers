@@ -72,7 +72,8 @@ function langSwitch(): HTMLElement {
         class: on ? "lang-opt is-on" : "lang-opt",
         lang: o.code,
         "aria-pressed": on ? "true" : "false",
-        "aria-label": o.name,
+        // Имя для чтения с экрана начинается с видимой надписи (WCAG 2.5.3): «RU — Русский».
+        "aria-label": `${o.label} — ${o.name}`,
         onclick: () => {
           if (on || !busy.take()) return;
           btn.className += " is-busy";
@@ -163,14 +164,17 @@ function pendingBlock(v: NonNullable<HomeVM["pending"]>): HTMLElement {
 
 function monthBlock(v: NonNullable<HomeVM["month"]>): HTMLElement {
   const dash = v.score === "—";
+  // Без балла нет ни потерь, ни «все на максимуме» (lostNone тогда false): блока нет.
   const lost = v.lostNone
     ? h("p", { class: "lost-none" }, t("lost_none"))
-    : h(
-        "div",
-        { class: "lost" },
-        h("h3", { class: "lost-title" }, t("lost_title")),
-        h("ul", { class: "lost-list" }, ...v.lost.map((x) => h("li", { class: "lost-item" }, h("span", { class: "lost-name" }, x.title), h("span", { class: "lost-score" }, x.score)))),
-      );
+    : v.lost.length
+      ? h(
+          "div",
+          { class: "lost" },
+          h("h3", { class: "lost-title" }, t("lost_title")),
+          h("ul", { class: "lost-list" }, ...v.lost.map((x) => h("li", { class: "lost-item" }, h("span", { class: "lost-name" }, x.title), h("span", { class: "lost-score" }, x.score)))),
+        )
+      : null;
   return h(
     "section",
     { class: "card month" },
@@ -190,11 +194,13 @@ const pc = (at: number): string => `${(at * 100).toFixed(2)}%`;
 
 function trackBlock(v: NonNullable<HomeVM["raise"]>): HTMLElement {
   const m = v.marker;
-  // Для чтения с экрана — одной фразой: средний и ступени с суммами.
-  const said = [m ? m.label : null, ...v.ticks.map((x) => `${x.pct} — ${x.amount}`)].filter((x): x is string => x !== null).join("; ");
+  // Для чтения с экрана — одной фразой: «Средний 91,4 %; 85 % — 150 тыс; …». Ни среднего, ни
+  // ступеней — сказать нечего: пустая полоса скрыта от чтения, а не картинка без имени.
+  const said = [m ? `${t("hist_avg")} ${m.label}` : null, ...v.ticks.map((x) => `${x.pct} — ${x.amount}`)].filter((x): x is string => x !== null).join("; ");
+  const a11y: Record<string, string> = said ? { role: "img", "aria-label": said } : { "aria-hidden": "true" };
   return h(
     "div",
-    { class: m ? "scale" : "scale is-empty", role: "img", "aria-label": said },
+    { class: m ? "scale" : "scale is-empty", ...a11y },
     m ? h("span", { class: `scale-me ${anchor(m.at)}`, style: `left:${pc(m.at)}` }, m.label) : null,
     h(
       "div",

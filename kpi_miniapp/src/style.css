@@ -666,7 +666,11 @@ svg {
 .month-score {
   margin-top: 12px;
 }
+/* Балла нет — серый прочерк меньше цифры (прочерк во весь рост читается как загрузка);
+   строка та же 40px, карточка не прыгает. */
 .month-score.is-empty {
+  font-size: 24px;
+  line-height: 40px;
   color: var(--muted);
 }
 .month-dispute {
