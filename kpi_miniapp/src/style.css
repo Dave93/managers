@@ -143,7 +143,8 @@ body {
 h1,
 h2,
 h3,
-p {
+p,
+ul {
   margin: 0;
   font-size: inherit;
   font-weight: inherit;
@@ -380,6 +381,10 @@ svg {
 .status-say {
   flex: 1;
   min-width: 0;
+}
+/* Слово с дефисом в строке отказа целиком на одной строке. */
+.nobr {
+  white-space: nowrap;
 }
 .status-retry {
   margin-top: 28px;
@@ -824,15 +829,17 @@ svg {
 .months {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-gap: 8px;
-  gap: 8px;
+  grid-gap: 6px;
+  gap: 6px;
   margin: 16px 0 0;
   padding: 0;
   list-style: none;
 }
+/* Поля по бокам 2 px: «baholanmagan» (85 px в SF по 12 px) и «не оценивался» (89 px) помещаются
+   в строку плитки шириной 89 px на 360 px. */
 .mtile {
   min-width: 0;
-  padding: 6px 4px 7px;
+  padding: 6px 2px 7px;
   border: 2px solid transparent;
   border-radius: var(--r-ctl);
   background: var(--well);
@@ -859,6 +866,10 @@ svg {
   font-size: var(--fs-label);
   font-weight: 500;
   color: var(--muted);
+  /* Слово не рвётся по буквам («baholanmaga» / «n»): в шрифте пошире оно на пиксель-другой
+     заходит в поле плитки, а не ломается. Перенос между словами остаётся. */
+  overflow-wrap: normal;
+  word-wrap: normal;
 }
 
 /* Подсказка о прибавке: как «где потеряны баллы» — под чертой, обычным текстом. */
@@ -1008,8 +1019,8 @@ svg {
 
 /* Строка нарушения: колонка превью фиксированной ширины, справа текст. Строки делят линии,
    как пункты «Вся оценка»; текст всех строк начинается с одного края. */
+/* Без своего margin: отступ под заголовком даёт .screen > * + *, как на других экранах. */
 .vio-list {
-  margin: 0;
   list-style: none;
 }
 .vio {
@@ -1089,8 +1100,17 @@ svg {
   flex: 1;
   min-width: 0;
 }
+/* Пометка статуса — всегда своей строкой под пунктом. В узкой колонке рядом с превью она
+   то помещалась справа от короткого названия, то падала под длинное, и строки списка
+   расходились; одно место для пометки читается ровнее. */
+.vio .card-head {
+  display: block;
+}
+.vio .card-head .chip {
+  margin-top: 6px;
+}
 .vio-when {
-  margin-top: 2px;
+  margin-top: 6px;
   font-size: 14px;
   line-height: 20px;
   color: var(--muted);
@@ -1492,8 +1512,8 @@ html.viewer-open body {
 .sk-tiles {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  grid-gap: 8px;
-  gap: 8px;
+  grid-gap: 6px;
+  gap: 6px;
   margin-top: 16px;
 }
 .sk-tile {

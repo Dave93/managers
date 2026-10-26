@@ -297,6 +297,9 @@ async function boot(): Promise<void> {
   if (__KPI_DEV__ && devRequested(location.search)) (await import("./dev/fake-telegram")).installFakeTelegram(location.search);
   const s = sdkState();
   if (s !== "ok") {
+    // «Вне Telegram» объект SDK есть: экран отказа — в теме Telegram, а не системы (иначе под
+    // светлой шапкой Telegram тёмный экран). Без SDK темы нет — остаётся системная.
+    if (s === "outside") applyTheme();
     // «Не загрузился Telegram» — «Обновить»: перезагрузка заново просит SDK у telegram.org.
     // «Вне Telegram» перезагрузка не лечит, кнопки там нет.
     mount(statusScreen(s, s === "sdk_failed" ? () => location.reload() : undefined));

@@ -191,6 +191,12 @@ const BADGE_CHIP = { prelim: "chip-wait", ok: "chip-ok", muted: "chip-muted" } a
 /** Подпись маркера не вылезает за карточку: у краёв шкалы она прижата к краю, а не по центру. */
 const anchor = (at: number): string => (at < 0.12 ? "at-start" : at > 0.88 ? "at-end" : "at-mid");
 const pc = (at: number): string => `${(at * 100).toFixed(2)}%`;
+/**
+ * Позиция точки среднего и её подписи: у краёв точка (18 px) остаётся в пределах дорожки,
+ * как бегунок, а не вылезает на 9 px за край колонки (100 % — край точки на краю дорожки, вровень
+ * с плитками месяцев). clamp() старый WebView не знает: тогда остаётся первое объявление.
+ */
+const dotLeft = (at: number): string => `left:${pc(at)};left:clamp(9px,${pc(at)},calc(100% - 9px))`;
 
 function trackBlock(v: NonNullable<HomeVM["raise"]>): HTMLElement {
   const m = v.marker;
@@ -201,13 +207,13 @@ function trackBlock(v: NonNullable<HomeVM["raise"]>): HTMLElement {
   return h(
     "div",
     { class: m ? "scale" : "scale is-empty", ...a11y },
-    m ? h("span", { class: `scale-me ${anchor(m.at)}`, style: `left:${pc(m.at)}` }, m.label) : null,
+    m ? h("span", { class: `scale-me ${anchor(m.at)}`, style: dotLeft(m.at) }, m.label) : null,
     h(
       "div",
       { class: "scale-track" },
       m ? h("span", { class: "scale-fill", style: `width:${pc(m.at)}` }) : null,
       ...v.ticks.map((x) => h("span", { class: "scale-tick", style: `left:${pc(x.at)}` })),
-      m ? h("span", { class: "scale-dot", style: `left:${pc(m.at)}` }) : null,
+      m ? h("span", { class: "scale-dot", style: dotLeft(m.at) }) : null,
     ),
     h(
       "div",
@@ -254,7 +260,7 @@ export function renderHome(vm: HomeVM, d: TgHome): HTMLElement {
     vm.pending ? pendingBlock(vm.pending) : null,
     vm.month ? monthBlock(vm.month) : null,
     vm.raise ? raiseBlock(vm.raise) : null,
-    vm.noCard ? h("p", { class: "card nocard" }, t("no_card")) : null,
+    vm.noCard ? h("p", { class: "card nocard" }, tie(t("no_card"))) : null,
     vm.links.length ? h("nav", { class: "card rows" }, ...vm.links.map((x) => linkRow(x.text, x.count, x.hash))) : null,
   );
 }

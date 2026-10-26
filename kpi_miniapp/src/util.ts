@@ -24,3 +24,13 @@ export function capFirst(s: string): string {
 export function reasonCount(s: string): number {
   return (s.match(/[\p{L}\p{N}]/gu) ?? []).length;
 }
+
+/**
+ * Последнее слово не остаётся одно на строке: пробел перед ним становится неразрывным
+ * («…22:40 —» / «нет связи», а не «… — нет» / «связи»). Слово — всё после последнего
+ * обычного пробела, вместе с U+00A0 внутри («95,0 %.», «500 000 сум.»): \S в JS U+00A0
+ * не берёт, поэтому такие концы прежде оставались без защиты.
+ */
+export function noWidow(s: string): string {
+  return s.replace(/ ([^ ]+)$/, "\u00a0$1");
+}

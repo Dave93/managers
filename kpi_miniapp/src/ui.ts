@@ -8,6 +8,7 @@ import type { FailStatus } from "./api";
 import { hhmm } from "./format";
 import { DICT, STATUS_TEXT, lang, t } from "./i18n";
 import { webApp } from "./telegram";
+import { noWidow } from "./util";
 
 type Attrs = Record<string, string | boolean | EventListener>;
 
@@ -132,12 +133,23 @@ export function showingSkeleton(kind: "home" | "list"): boolean {
 
 // ---------- отказы ----------
 
+/**
+ * Строка отказа крупным кеглем: слово с дефисом («ссылку-приглашение») не рвётся на дефисе —
+ * оно в span без переноса, а последнее слово не остаётся одно («…havolasini» / «soʻrang»).
+ */
+function statusSay(text: string): (Node | string)[] {
+  return noWidow(text)
+    .split(/(\S+-\S+)/)
+    .filter((x) => x !== "")
+    .map((x) => (/\S-\S/.test(x) ? h("span", { class: "nobr" }, x) : x));
+}
+
 function statusLine(l: "ru" | "uz", text: string): HTMLElement {
   return h(
     "span",
     { class: "status-line", lang: l },
     h("span", { class: "status-tag", "aria-hidden": "true" }, l.toUpperCase()),
-    h("span", { class: "status-say" }, text),
+    h("span", { class: "status-say" }, ...statusSay(text)),
   );
 }
 
@@ -255,8 +267,8 @@ export function showSlow(): void {
 
 // ---------- нет связи ----------
 
-// Последнее слово не остаётся одно на строке (и в строках главного экрана): «…22:40 —» / «нет связи», а не «… — нет» / «связи».
-export const noWidow = (s: string): string => s.replace(/ (\S+)$/, "\u00a0$1");
+// noWidow живёт в util.ts (чистый, с тестом); экраны берут его отсюда, как прежде.
+export { noWidow };
 
 /** «Обновлено в 14:02 — нет связи» над последним сохранённым ответом. retry — кнопка «Повторить». */
 export function staleBanner(at: number, retry?: () => void): HTMLElement {
