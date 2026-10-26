@@ -1,9 +1,11 @@
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
+import { now } from "../clock";
 import { KpiError, run } from "../errors";
 import { setLang } from "../tg/bindings";
 import { authenticate } from "../tg-app/auth";
-import { kpiTgCtx } from "../tg-app/ctx";
+import { kpiTgCtx, requireEmployee } from "../tg-app/ctx";
+import { historyFor, homeFor } from "../tg-app/home";
 import type { TgLangResponse } from "../tg-app/types";
 
 // Роуты мини-приложения «Мой KPI». Ничего здесь не логирует init_data и токены.
@@ -30,4 +32,7 @@ export const tgAppRoutes = new Elysia({ name: "@api/kpi/tg-app" })
         return { lang };
       }),
     { body: t.Object({ lang: t.Optional(t.Any()) }) }
-  );
+  )
+  .get("/kpi/tg/home", async ({ tg, drizzle, set }) => run(set, async () => homeFor(drizzle, tg, now())))
+  // requireEmployee внутри run: 403 not_employee уходит ответом, а не 500.
+  .get("/kpi/tg/history", async ({ tg, drizzle, set }) => run(set, async () => historyFor(drizzle, requireEmployee(tg), now())));
