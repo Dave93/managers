@@ -48,6 +48,7 @@ import { SEED_BRANCH_INDICATORS } from "../seed-data";
 import { seedBranchIndicators, seedCards } from "../seed-cards";
 import { dayStart } from "../time";
 import type { BotApi, TgResult } from "../tg/bot-api";
+import { signInitData } from "../tg-app/init-data";
 import type { OutMessage } from "../tg/messages";
 import type { AttendanceMapping } from "../types";
 
@@ -218,6 +219,43 @@ export async function bindTelegram(
     })
     .returning({ id: kpi_tg_bindings.id });
   return { id: row.id, telegram_id };
+}
+
+// ---------- мини-приложение ----------
+
+// Тестовый токен бота: принимается только под PROJECT_PREFIX managers_test_ и managers_smoke_ (tokenAllowed).
+export const TG_TEST_BOT_TOKEN = "123456:kpi-test-bot-token";
+
+// Вход в мини-приложение: initData подписывается токеном (по умолчанию тестовым), auth_date — сейчас.
+export async function tgLogin(
+  telegramId: number,
+  o: { token?: string; auth_date?: number } = {}
+): Promise<{ status: number; body: any }> {
+  const init_data = signInitData(o.token ?? TG_TEST_BOT_TOKEN, {
+    telegram_id: telegramId,
+    auth_date: o.auth_date ?? Math.floor(Date.now() / 1000),
+  });
+  return api(null, "POST", "/api/kpi/tg/auth", { init_data });
+}
+
+// Запрос мини-приложения с сессией в Authorization: Bearer; null — без заголовка.
+export async function tgApi(token: string | null, method: string, path: string, body?: unknown): Promise<{ status: number; body: any }> {
+  const headers: Record<string, string> = token ? { authorization: `Bearer ${token}` } : {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  const res = await callApi(path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = text;
+  }
+  return { status: res.status, body: json };
+}
+
+// GET без разбора тела: для файла фото.
+export async function tgRaw(token: string | null, path: string): Promise<Response> {
+  return callApi(path, { method: "GET", headers: token ? { authorization: `Bearer ${token}` } : {} });
 }
 
 // Подмена Bot API: send берёт ответы из results по очереди, потом — { ok: true, message_id: 42 }.

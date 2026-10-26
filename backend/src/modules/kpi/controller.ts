@@ -17,6 +17,7 @@ import { sanitaryRoutes } from "./routes/sanitary";
 import { settingsRoutes } from "./routes/settings";
 import { telegramRoutes } from "./routes/telegram";
 import { terminalsRoutes } from "./routes/terminals";
+import { tgAppRoutes } from "./routes/tg-app";
 import { violationsRoutes } from "./routes/violations";
 
 const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
@@ -39,6 +40,8 @@ const kpiControllerImpl = new Elysia({ name: "@api/kpi", prefix: "/api" })
   .use(branchConfigRoutes)
   .use(sanitaryRoutes)
   .use(revenuePlansRoutes)
-  .use(branchRoutes);
+  .use(branchRoutes)
+  // Мини-приложение — последним. Его Bearer-guard подключён внутри tgAppRoutes (.as("scoped")) и действует только там.
+  .use(tgAppRoutes);
 
 export const kpiController = kpiControllerImpl as unknown as Elysia;
