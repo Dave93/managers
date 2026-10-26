@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Мой KPI</title>
+  <!-- SDK через defer и без integrity: Telegram отдаёт меняющийся файл по
+       одному адресу, закреплённый хеш сломал бы приложение при их обновлении. -->
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>
