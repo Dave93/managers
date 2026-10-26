@@ -76,6 +76,27 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(f.sent).toHaveLength(1);
     });
 
+    it("успех до срока споров с KPI_MINIAPP_URL: второй строкой «Открыть» web_app", async () => {
+      setNow("2025-11-05T10:00:00+05:00");
+      const saved = process.env.KPI_MINIAPP_URL;
+      process.env.KPI_MINIAPP_URL = "https://x.test/kpi-app/";
+      try {
+        const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
+        const f = fakeBotApi();
+        expect(await go(await note({ employee_id: e.id }), f.api)).toEqual({ result: "sent" });
+        const kb = (f.sent[0].msg.reply_markup as any).inline_keyboard;
+        expect(kb[0][0].callback_data).toBe(`dispute:review:${RID}`);
+        expect(kb[1]).toEqual([{ text: "Открыть", web_app: { url: "https://x.test/kpi-app/#/review/2025-10" } }]);
+        // http:// не годится для Telegram: кнопки нет, сообщение уходит как раньше
+        process.env.KPI_MINIAPP_URL = "http://x.test/kpi-app/";
+        const g = fakeBotApi();
+        await go(await note({ employee_id: e.id }), g.api);
+        expect((g.sent[0].msg.reply_markup as any).inline_keyboard).toHaveLength(1);
+      } finally {
+        if (saved === undefined) delete process.env.KPI_MINIAPP_URL; else process.env.KPI_MINIAPP_URL = saved;
+      }
+    });
+
     it("после срока споров и в закрытом месяце кнопки нет", async () => {
       const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
       const f = fakeBotApi();

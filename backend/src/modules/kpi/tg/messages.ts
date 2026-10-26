@@ -1,9 +1,11 @@
 // Тексты Telegram: русский и узбекский (латиница), parse_mode HTML. Чистые функции.
 // Любой вставляемый текст проходит clip + escapeHtml; готовое сообщение не длиннее 4096.
 // В узбекском: oʻ/gʻ с U+02BB, тутуқ белгиси (eʼtiroz, maʼlumot) с U+02BC; ASCII-апострофа нет.
+import { appRoute } from "./miniapp-url";
+
 export type Lang = "ru" | "uz";
 export type OutMessage = { text: string; reply_markup?: object };
-export type MessageCtx = { lang: Lang; disputeUntil: string | null };
+export type MessageCtx = { lang: Lang; disputeUntil: string | null; appUrl?: string | null };
 
 export class UnknownKindError extends Error {}
 
@@ -136,6 +138,8 @@ const join = (lines: (string | null)[]): string => lines.filter((l): l is string
 // ---------- уведомления ----------
 
 type P = Record<string, unknown>;
+
+export const BTN_OPEN: Record<Lang, string> = { ru: "Открыть", uz: "Ochish" };
 
 const BTN_DISPUTE: Record<Lang, string> = { ru: "Оспорить", uz: "Eʼtiroz bildirish" };
 
@@ -360,6 +364,12 @@ export function buildMessage(kind: string, payload: Record<string, unknown>, ctx
     default:
       throw new UnknownKindError(kind);
   }
+  // «Открыть» всегда последней строкой, после «Оспорить». Без appUrl или без экрана для этого вида кнопки нет.
+  const route = ctx.appUrl ? appRoute(kind, p) : null;
+  if (ctx.appUrl && route !== null) {
+    const rows = (m.reply_markup as { inline_keyboard?: object[][] } | undefined)?.inline_keyboard ?? [];
+    m = { ...m, reply_markup: { inline_keyboard: [...rows, [{ text: BTN_OPEN[ctx.lang], web_app: { url: `${ctx.appUrl}#${route}` } }]] } };
+  }
   return { ...m, text: fitTelegram(m.text) };
 }
 
@@ -482,4 +492,9 @@ export function myUserText(lang: Lang, period: string, pending: number, deadline
 // /my на двух привязках: части через пустую строку, общий лимит Telegram.
 export function joinMy(parts: string[]): string {
   return fitTelegram(parts.join("\n\n"));
+}
+
+// Кнопка под ответом /my: открывает мини-приложение на главном экране.
+export function openAppMarkup(lang: Lang, url: string): object {
+  return { inline_keyboard: [[{ text: lang === "ru" ? "Открыть Мой KPI" : "«Mening KPI»ni ochish", web_app: { url } }]] };
 }

@@ -3,6 +3,8 @@ import Elysia, { t } from "elysia";
 import { now } from "../clock";
 import { KpiError, run } from "../errors";
 import { setLang } from "../tg/bindings";
+import { botApi } from "../tg/bot-api";
+import { syncMenuButton } from "../tg/menu";
 import { authenticate } from "../tg-app/auth";
 import { kpiTgCtx, requireEmployee } from "../tg-app/ctx";
 import { historyFor, homeFor } from "../tg-app/home";
@@ -28,8 +30,10 @@ export const tgAppRoutes = new Elysia({ name: "@api/kpi/tg-app" })
       run(set, async (): Promise<TgLangResponse> => {
         const lang = body.lang;
         if (lang !== "ru" && lang !== "uz") throw new KpiError(422, "bad_lang");
-        // Кнопку меню здесь не трогаем (задача 6). null — привязки сняли между guard и записью: сессии больше нет.
+        // null — привязки сняли между guard и записью: сессии больше нет.
         if (!(await setLang(drizzle, tg.telegram_id, lang))) throw new KpiError(401, "unauthorized");
+        // Кнопка меню только при смене языка и без ожидания: повтор PUT /lang не должен упирать бота в лимит Telegram.
+        if (lang !== tg.lang) void syncMenuButton(botApi(), tg.telegram_id, lang);
         return { lang };
       }),
     { body: t.Object({ lang: t.Optional(t.Any()) }) }

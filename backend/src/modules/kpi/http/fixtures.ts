@@ -263,10 +263,12 @@ export function fakeBotApi(results: TgResult[] = []): {
   api: BotApi;
   sent: { chatId: number; msg: OutMessage }[];
   answered: string[];
+  menus: { chatId: number | null; text: string; url: string }[];
 } {
   const queue = [...results];
   const sent: { chatId: number; msg: OutMessage }[] = [];
   const answered: string[] = [];
+  const menus: { chatId: number | null; text: string; url: string }[] = [];
   const api: BotApi = {
     async send(chatId, msg) {
       sent.push({ chatId, msg });
@@ -276,8 +278,12 @@ export function fakeBotApi(results: TgResult[] = []): {
       answered.push(callbackId);
       return { ok: true, message_id: null };
     },
+    async setMenuButton(chatId, text, url) {
+      menus.push({ chatId, text, url });
+      return { ok: true, message_id: null };
+    },
   };
-  return { api, sent, answered };
+  return { api, sent, answered, menus };
 }
 
 // Метки строк в общих таблицах: cleanupKpi удаляет только их.

@@ -16,7 +16,9 @@ import { loadSettings } from "../settings";
 import { currentReviewPeriod, disputeDeadline, periodOf, reviewDeadline } from "../time";
 import type { BotApi } from "./bot-api";
 import { bindingOf, langOf, redeemInvite, setLang } from "./bindings";
-import { LANG_KEYBOARD, botText, joinMy, myEmployeeText, myUserText, type BotTextKey, type Lang, type OutMessage } from "./messages";
+import { LANG_KEYBOARD, botText, joinMy, myEmployeeText, myUserText, openAppMarkup, type BotTextKey, type Lang, type OutMessage } from "./messages";
+import { syncMenuButton } from "./menu";
+import { miniAppUrl } from "./miniapp-url";
 import type { BotUpdate } from "./updates";
 
 export const DISPUTE_STATE_TTL = 900;
@@ -136,8 +138,12 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
     const a = u.action;
     if (a.kind === "unknown") return;
     if (a.kind === "lang") {
+      // Кнопку меню переставляем только при смене языка (решение 16): повторное нажатие не должно дёргать Telegram.
+      const before = langOf(await bindingOf(db, u.fromId));
       const p = await setLang(db, u.fromId, a.lang);
-      return p ? say(langOf(p), "lang_set") : say("ru", "not_bound");
+      if (!p) return say("ru", "not_bound");
+      if (before !== a.lang) await syncMenuButton(api, u.chatId, a.lang);
+      return say(langOf(p), "lang_set");
     }
     const pair = await bindingOf(db, u.fromId);
     const lang = langOf(pair);
@@ -166,7 +172,10 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
       ...(pair.user ? [await myUserSummary(db, lang, pair.user.user_id!)] : []),
       ...(pair.employee ? [await myEmployeeSummary(db, lang, pair.employee.employee_id!)] : []),
     ];
-    const res = await api.send(u.chatId, { text: joinMy(parts) });
+    const out: OutMessage = { text: joinMy(parts) };
+    const appUrl = miniAppUrl();
+    if (appUrl) out.reply_markup = openAppMarkup(lang, appUrl);
+    const res = await api.send(u.chatId, out);
     if (!res.ok) console.error(`kpi bot: sendMessage не удался (my): ${redact(res.error)}`);
     return;
   }

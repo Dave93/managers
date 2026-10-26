@@ -140,6 +140,35 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await bindingOf(db, b.telegram_id)).employee?.lang).toBe("uz");
     });
 
+    it("/my при KPI_MINIAPP_URL — кнопка «Открыть Мой KPI»; lang:uz переставляет кнопку меню", async () => {
+      const URL_ = "https://x.test/kpi-app/";
+      const saved = process.env.KPI_MINIAPP_URL;
+      try {
+        const e = await makeEmployee(db);
+        const b = await bindTelegram(db, { employee_id: e.id });
+        delete process.env.KPI_MINIAPP_URL;
+        await hook(say(b.telegram_id, "/my"));
+        expect(last().reply_markup).toBeUndefined();
+        await hook(press(b.telegram_id, "lang:ru"));
+        expect(f.menus).toEqual([]);
+        process.env.KPI_MINIAPP_URL = URL_;
+        await hook(say(b.telegram_id, "/my"));
+        expect(last().reply_markup).toEqual({ inline_keyboard: [[{ text: "Открыть Мой KPI", web_app: { url: URL_ } }]] });
+        await hook(press(b.telegram_id, "lang:uz"));
+        expect(f.menus).toEqual([{ chatId: b.telegram_id, text: "Mening KPI", url: URL_ }]);
+        await hook(press(b.telegram_id, "lang:uz"));
+        expect(f.menus).toHaveLength(1);
+        await hook(press(b.telegram_id, "lang:ru"));
+        expect(f.menus[1]).toEqual({ chatId: b.telegram_id, text: "Мой KPI", url: URL_ });
+        // без переменной язык меняется, а Telegram за кнопкой меню не зовётся
+        delete process.env.KPI_MINIAPP_URL;
+        await hook(press(b.telegram_id, "lang:uz"));
+        expect(f.menus).toHaveLength(2);
+      } finally {
+        if (saved === undefined) delete process.env.KPI_MINIAPP_URL; else process.env.KPI_MINIAPP_URL = saved;
+      }
+    });
+
     it("/my сотрудника: три последние оценки и нарушения текущего месяца", async () => {
       setNow("2025-11-05T10:00:00+05:00");
       const e = await makeEmployee(db, { role_code: "cook" });

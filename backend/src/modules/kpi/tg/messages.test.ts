@@ -177,3 +177,19 @@ describe("бот", () => {
     expect(M.myUserText("ru", "2025-10-01", 2, "2025-11-07T18:59:59.999Z")).toBe("<b>Оценки за октябрь 2025</b>\nЖдут вашей оценки: 2 сотрудника.\nСрок: 07.11.2025 23:59.");
   });
 });
+
+describe("кнопка «Открыть»", () => {
+  const APP = "https://x.test/kpi-app/";
+  it("review_submitted: «Оспорить» первой строкой, «Открыть» второй", () => {
+    expect(M.buildMessage("review_submitted", SUB, { ...ru(), appUrl: APP }).reply_markup).toEqual({ inline_keyboard: [
+      [{ text: "Оспорить", callback_data: `dispute:review:${R}` }],
+      [{ text: "Открыть", web_app: { url: `${APP}#/review/2025-10` } }],
+    ] });
+  });
+  it("без срока спора — одна «Открыть»; uz — «Ochish»; у оценщика кнопки нет; без appUrl — как раньше", () => {
+    expect(M.buildMessage("raise_approved", { raise_id: "x", quarter_start: "2025-10-01", amount: 1 }, { ...uz(null), appUrl: APP }).reply_markup)
+      .toEqual({ inline_keyboard: [[{ text: "Ochish", web_app: { url: `${APP}#/history` } }]] });
+    expect(M.buildMessage("remind_evaluate", { period: "2025-10-01", pending: 2, deadline: UNTIL }, { ...ru(), appUrl: APP }).reply_markup).toBeUndefined();
+    expect(M.buildMessage("review_submitted", SUB, ru(null)).reply_markup).toBeUndefined();
+  });
+});

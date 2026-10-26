@@ -10,6 +10,7 @@ import { loadSettings } from "../settings";
 import { disputeDeadline, isPeriod } from "../time";
 import type { BotApi } from "../tg/bot-api";
 import { deactivateByTelegramId, inTx, recipientOf } from "../tg/bindings";
+import { miniAppUrl } from "../tg/miniapp-url";
 import { DISPUTABLE_KINDS, UnknownKindError, buildMessage, type OutMessage } from "../tg/messages";
 
 export type DeliverOutcome =
@@ -109,7 +110,7 @@ export async function deliverOne(
 
   let msg: OutMessage;
   try {
-    msg = buildMessage(row.kind, row.payload as Record<string, unknown>, { lang: chat.lang, disputeUntil });
+    msg = buildMessage(row.kind, row.payload as Record<string, unknown>, { lang: chat.lang, disputeUntil, appUrl: miniAppUrl() });
   } catch (e) {
     const error = e instanceof UnknownKindError ? `unknown_kind:${row.kind}` : errText(e);
     await settle(db, id, "failed", { last_error: error });
