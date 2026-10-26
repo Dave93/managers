@@ -54,6 +54,12 @@ export function eventKindLabel(kind: string): string {
   return Object.prototype.hasOwnProperty.call(EVENT_KIND, kind) ? EVENT_KIND[kind] : kind;
 }
 
+/** Кто сделал запись в истории: пользователь по имени, сотрудник (спор из Telegram) или система. */
+export function eventActorLabel(e: { actor_kind: string; actor_name: string | null }): string {
+  if (e.actor_name) return e.actor_name;
+  return e.actor_kind === "employee" ? "Сотрудник (Telegram)" : "Система";
+}
+
 export const SOURCE_LABEL: Record<ItemSource, string> = {
   manual: "Вручную",
   attendance: "Приход и уход (Workly)",

@@ -49,7 +49,9 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   const commentMin = me.data?.settings.change_comment_min ?? FALLBACK_COMMENT_MIN;
   const [comment, setComment] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
-  const [touched, setTouched] = useState(false);
+  // Какое решение пробовали отправить: ошибки «принять» не показываем после «Отклонить».
+  const [tried, setTried] = useState<"accepted" | "rejected" | null>(null);
+  const touched = tried !== null;
 
   const employeeId = dispute.employee_id;
   const isReview = dispute.subject_type === "review";
@@ -104,7 +106,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
     const problems = resolveIssues(subject, decision, comment, decision === "accepted" ? changed : 0, commentMin);
     const blocked = problems.length > 0 || (isReview && decision === "accepted" && itemIssues.length > 0);
     if (blocked) {
-      setTouched(true);
+      setTried(decision);
       return;
     }
     if (isReview && decision === "accepted") {
@@ -120,7 +122,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   const commentProblems = touched
     ? resolveIssues(isReview ? "review" : "violation", "rejected", comment, 0, commentMin)
     : [];
-  const acceptProblems = touched
+  const acceptProblems = tried === "accepted"
     ? resolveIssues(isReview ? "review" : "violation", "accepted", comment, changed, commentMin).filter(
         (p) => !commentProblems.includes(p)
       )
@@ -162,7 +164,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
           {isReview && form.data && (
             <div className="space-y-3">
               {form.data.items.map((item) => {
-                const issue = touched ? itemIssues.find((i) => i.item_id === item.item_id)?.code : undefined;
+                const issue = tried === "accepted" ? itemIssues.find((i) => i.item_id === item.item_id)?.code : undefined;
                 return (
                   <ItemScoreRow
                     key={item.item_id}

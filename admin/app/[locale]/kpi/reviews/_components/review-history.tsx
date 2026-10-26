@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { kpiApi, type ReviewEvent } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry, type KpiApiError } from "@admin/lib/kpi/errors";
 import { formatPct, formatTashkent } from "@admin/lib/kpi/format";
-import { eventKindLabel } from "@admin/lib/kpi/status";
+import { eventActorLabel, eventKindLabel } from "@admin/lib/kpi/status";
 import { qk } from "../../_components/use-kpi";
 
 export function ReviewHistory({ reviewId }: { reviewId: string }) {
@@ -36,7 +36,7 @@ export function ReviewHistory({ reviewId }: { reviewId: string }) {
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">{eventKindLabel(e.kind)}</span>
             <span className="text-xs text-muted-foreground">
-              {formatTashkent(e.created_at)} · {e.actor_name ?? "Система"}
+              {formatTashkent(e.created_at)} · {eventActorLabel(e)}
             </span>
           </div>
           {e.old_score_pct !== e.new_score_pct && (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { ROW_STATUS, SOURCE_LABEL, eventKindLabel, rowStatus } from "./status";
+import { ROW_STATUS, SOURCE_LABEL, eventActorLabel, eventKindLabel, rowStatus } from "./status";
 
 const review = (status: "draft" | "submitted") => ({ id: "r", status, score_pct: null, submitted_at: null, late: false });
 
@@ -15,5 +15,13 @@ describe("status", () => {
     expect(Object.keys(SOURCE_LABEL).sort()).toEqual(["attendance", "cooking_speed", "food_cost", "manual", "sales_plan"]);
     expect(eventKindLabel("hr_adjusted")).toBe("Правка HR");
     expect(eventKindLabel("something_new")).toBe("something_new");
+  });
+});
+
+describe("eventActorLabel", () => {
+  it("имя пользователя, иначе сотрудник или система", () => {
+    expect(eventActorLabel({ actor_kind: "user", actor_name: "Оценщик Чиланзарский" })).toBe("Оценщик Чиланзарский");
+    expect(eventActorLabel({ actor_kind: "employee", actor_name: null })).toBe("Сотрудник (Telegram)");
+    expect(eventActorLabel({ actor_kind: "user", actor_name: null })).toBe("Система");
   });
 });
