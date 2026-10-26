@@ -151,3 +151,26 @@ it("onAuth: тело каждого удачного входа (и повтор
   expect(await denied.auth()).toEqual({ kind: "fail", status: "inactive" });
   expect(seen).toHaveLength(2);
 });
+// Нижняя граница WebView — Chrome 64, а AbortController в нём появился только в 66. Без него
+// запрос всё равно уходит, а срок держит гонка с отказом по сроку: висящий fetch просто не обрывается.
+it("без AbortController (Chrome 64–65): ответ приходит, зависший запрос — offline в срок", async () => {
+  const g = globalThis as { AbortController?: unknown };
+  const saved = g.AbortController;
+  g.AbortController = undefined;
+  try {
+    const signals: unknown[] = [];
+    const r = [ok({ token: "t", roles: ["employee"], lang: "ru" }), ok({ x: 1 })];
+    const f = (async (_u: string, i: RequestInit = {}) => { signals.push(i.signal); return r.shift()!; }) as any;
+    expect(await createApi({ fetch: f, sdk: () => "ok", initData: () => "q" }).get("/home")).toEqual({ kind: "ok", data: { x: 1 } });
+    expect(signals).toEqual([undefined, undefined]);
+    // fetch без signal не оборвать: он висит вечно, ответ даёт только срок.
+    const hang = (() => new Promise(() => undefined)) as any;
+    const t0 = Date.now();
+    expect(await createApi({ fetch: hang, sdk: () => "ok", initData: () => "q", timeoutMs: 30 }).get("/home")).toEqual({ kind: "fail", status: "offline" });
+    expect(Date.now() - t0).toBeLessThan(1000);
+    // Таймер срока срабатывает и без контроллера: обрыв пропускается, а не роняет обработчик.
+    await new Promise((res) => setTimeout(res, 50));
+  } finally {
+    g.AbortController = saved;
+  }
+});

@@ -83,7 +83,9 @@ export function createApi(d: ApiDeps) {
   // таймер идёт, пока тело не дочитано (Sent.read) или не брошено (Sent.drop).
   // null — сеть или таймаут до заголовков. ms — срок этого запроса (у файла он свой).
   async function raw(path: string, init: RequestInit, ms: number = timeoutMs): Promise<Sent | null> {
-    const ctrl = new AbortController();
+    // AbortController есть с Chrome 66, а нижняя граница WebView — Chrome 64. Без него запрос
+    // не обрывается, но срок всё равно держит гонка с late ниже: висящий fetch просто брошен.
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
     let expire: () => void = () => undefined;
     // Отказ по сроку. Ловится сразу: если никто не ждёт гонку, необработанного отказа нет.
     const late = new Promise<never>((_, reject) => {
@@ -94,12 +96,12 @@ export function createApi(d: ApiDeps) {
     // считается сроком, а не битым JSON.
     const timer = setTimeout(() => {
       expire();
-      ctrl.abort();
+      if (ctrl) ctrl.abort();
     }, ms);
     const done = (): void => clearTimeout(timer);
     let res: Response;
     try {
-      res = await Promise.race([d.fetch(BASE + path, { ...init, signal: ctrl.signal }), late]);
+      res = await Promise.race([d.fetch(BASE + path, { ...init, signal: ctrl ? ctrl.signal : undefined }), late]);
     } catch {
       done();
       return null;

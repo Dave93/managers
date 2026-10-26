@@ -33,6 +33,10 @@ export default defineConfig(({ command }) => ({
     // Сотрудники на Android среднего класса, WebView в Telegram старый.
     // es2018 даёт async/await без раздутого regenerator.
     target: "es2018",
+    // target не задаёт CSS нижней границы браузеров: без cssTarget esbuild сворачивает
+    // top/right/bottom/left в `inset`, а его нет до Chrome 87 и Safari 14.1. Граница та же,
+    // что у бандла: Chrome 64 и Safari 11.1 (kpi-deploy.md, «Требования к клиенту»).
+    cssTarget: ["chrome64", "safari11"],
     sourcemap: false,
     // Один CSS и один JS: меньше обращений по филиальному wifi, который рвётся.
     cssCodeSplit: false,
