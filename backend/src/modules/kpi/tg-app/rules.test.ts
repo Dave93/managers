@@ -7,8 +7,9 @@ const T = [{ min_pct: 95, amount: 500000 }, { min_pct: 90, amount: 300000 }, { m
 const m = (period: string, state: TgMonth["state"], score_pct: number | null = null): TgMonth => ({ period, state, score_pct, opens_at: "x" });
 const q4 = (a: TgMonth["state"], av: number | null, b: TgMonth["state"], bv: number | null, c: TgMonth["state"], cv: number | null = null) =>
   [m("2026-10-01", a, av), m("2026-11-01", b, bv), m("2026-12-01", c, cv)];
-const hint = (months: TgMonth[], o: { tiers?: typeof T; min?: number; ended?: boolean; decision?: { amount: number } | null } = {}) =>
-  raiseHint({ months, tiers: o.tiers ?? T, minMonths: o.min ?? 2, ended: o.ended ?? false, decision: o.decision ?? null });
+// open — прошлые месяцы без отправленной оценки, ещё не закрытые HR; по умолчанию 0 (все закрыты)
+const hint = (months: TgMonth[], o: { tiers?: typeof T; min?: number; ended?: boolean; decision?: { amount: number } | null; open?: number } = {}) =>
+  raiseHint({ months, tiers: o.tiers ?? T, minMonths: o.min ?? 2, ended: o.ended ?? false, decision: o.decision ?? null, openPast: o.open ?? 0 });
 
 describe("needPct", () => {
   it("примеры спеки и округление вверх без плавающего хвоста", () => {
@@ -52,12 +53,30 @@ describe("raiseHint", () => {
       kind: "too_few", amount: 0, next: { amount: 150000, reachable: true, need_pct: 87.5, periods: ["2026-11-01", "2026-12-01"] },
     });
   });
-  it("k + |R| < min в идущем квартале — impossible, при k + |R| = min — по-прежнему too_few", () => {
+  it("k + |R| < min в идущем квартале, прошлые месяцы закрыты — impossible, при k + |R| = min — по-прежнему too_few", () => {
     expect(hint(q4("not_rated", null, "not_rated", null, "scored", 90.3))).toEqual({ kind: "impossible", scored: 1, min_months: 2 });
     expect(hint(q4("not_rated", null, "scored", 90.3, "upcoming"), { min: 3 })).toEqual({ kind: "impossible", scored: 1, min_months: 3 });
     expect(hint(q4("not_rated", null, "not_rated", null, "upcoming"))).toEqual({ kind: "impossible", scored: 0, min_months: 2 });
     expect(hint(q4("not_rated", null, "scored", 90.3, "upcoming")).kind).toBe("too_few");
     expect(hint(q4("not_rated", null, "not_rated", null, "scored", 90.3), { ended: true })).toMatchObject({ kind: "waiting_hr" });
+  });
+  it("прошлый открытый неоценённый месяц не даёт impossible: оценку ещё пришлют с опозданием", () => {
+    // декабрь оценён, октябрь и ноябрь без оценки: k = 1, R пусто
+    const q = q4("not_rated", null, "not_rated", null, "scored", 90.3);
+    expect(hint(q, { open: 1 })).toEqual({ kind: "too_few", scored: 1, min_months: 2, keep_periods: ["2026-12-01"], amount: 300000, next: null });
+    expect(hint(q, { open: 2 })).toMatchObject({ kind: "too_few" });
+    // тот же месяц закрыт HR — прибавки не будет
+    expect(hint(q, { open: 0 })).toEqual({ kind: "impossible", scored: 1, min_months: 2 });
+    // min = 3: октябрь открыт — too_few, need по-прежнему только по R (99,7, а не 97,4)
+    const q3 = q4("not_rated", null, "scored", 90.3, "upcoming");
+    expect(hint(q3, { min: 3, open: 1 })).toMatchObject({
+      kind: "too_few", scored: 1, min_months: 3, next: { amount: 500000, reachable: true, need_pct: 99.7, periods: ["2026-12-01"] },
+    });
+    expect(hint(q3, { min: 3, open: 0 })).toEqual({ kind: "impossible", scored: 1, min_months: 3 });
+    // k = 0 при открытых прошлых — none; закрыты — impossible; квартал кончился — waiting_hr
+    const q0 = q4("not_rated", null, "not_rated", null, "pending");
+    expect([hint(q0, { open: 2 }), hint(q0, { open: 0 })]).toEqual([{ kind: "none" }, { kind: "impossible", scored: 0, min_months: 2 }]);
+    expect(hint(q, { open: 2, ended: true })).toEqual({ kind: "waiting_hr", amount: 0 });
   });
   it("k = 0 — none", () => expect(hint(q4("pending", null, "upcoming", null, "upcoming"))).toEqual({ kind: "none" }));
   it("верхняя ступень — строки «для» нет; |R| = 0 — нет ни «для», ни «сохранится»", () => {

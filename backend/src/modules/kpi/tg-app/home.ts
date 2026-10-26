@@ -11,7 +11,7 @@ import { quarterRow, type KpiSettings } from "../rules";
 import { loadSettings } from "../settings";
 import { addMonths, currentReviewPeriod, quarterMonths, quarterStart, reviewDeadline, submitOpensAt, type Period } from "../time";
 import type { KpiTgPrincipal } from "./ctx";
-import { reviewDispute, submittedReviews, type SubmittedReview } from "./load";
+import { closedPeriods, reviewDispute, submittedReviews, type SubmittedReview } from "./load";
 import { lostItems, monthState, quarterEnded, raiseHint, raiseQuarter } from "./rules";
 import type {
   TgEmployeeHome,
@@ -137,12 +137,16 @@ async function raiseCard(db: DbLike, f: Facts): Promise<TgRaiseCard> {
   const tiers = await getTiers(db);
   const q = raiseQuarter(f.R, (x) => quarterMonths(x).some((p) => f.reviews.has(p)) || f.decisions.has(x));
   const months = monthsOf(q, f);
+  // Прошлые месяцы квартала без отправленной оценки: пока HR их не закрыл, оценку могут прислать с опозданием.
+  const unrated = months.filter((m) => m.period < f.R && !f.reviews.has(m.period)).map((m) => m.period);
+  const closed = await closedPeriods(db, unrated);
   const hint = raiseHint({
     months,
     tiers,
     minMonths: f.s.raise_min_months,
     ended: quarterEnded(q, f.R),
     decision: hrDecision(f.decisions.get(q)),
+    openPast: unrated.filter((p) => !closed.has(p)).length,
   });
   return {
     quarter_start: q,

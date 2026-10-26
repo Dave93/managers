@@ -1,12 +1,21 @@
 // Адрес мини-приложения «Мой KPI» и маршруты экранов для кнопок «Открыть». Чистые функции, воркер их импортирует.
 // ES2021: без .at(), Object.hasOwn и прочего новее.
 
-// Telegram отвергает web_app не по https, и каждое уведомление стало бы failed навсегда:
-// поэтому http:// и адрес без схемы считаются незаданным, кнопок тогда просто нет.
+// Telegram отвергает кривой web_app, и каждое уведомление стало бы failed навсегда: поэтому адрес, который
+// не разбирается, не https, без хоста, с пробелом, запросом или фрагментом, считается незаданным, кнопок тогда нет.
+// ? и # ищем в самой строке: у "https://x.test/app?" search пустой. К адресу дописывается #/маршрут экрана.
+// Отдаётся разобранный адрес (href), а не сырая строка: в Telegram уходит только то, что прошло проверку.
 export function miniAppUrl(): string | null {
   const v = (process.env.KPI_MINIAPP_URL ?? "").trim();
-  if (!/^https:\/\/\S+$/.test(v)) return null;
-  return v.endsWith("/") ? v : `${v}/`;
+  if (/[\s?#]/.test(v)) return null;
+  let u: URL;
+  try {
+    u = new URL(v);
+  } catch {
+    return null;
+  }
+  if (u.protocol !== "https:" || u.hostname === "") return null;
+  return u.href.endsWith("/") ? u.href : `${u.href}/`;
 }
 
 const MONTH_RE = /^(\d{4}-\d{2})-01$/;

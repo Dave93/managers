@@ -40,19 +40,24 @@ export function quarterEnded(quarter: Period, reportPeriod: Period): boolean {
   return addMonths(quarter, 2) < reportPeriod;
 }
 
-// Подсказка о прибавке. Ветки по порядку: решение HR, квартал кончился, k + |R| < min (impossible), k = 0, k < min, квартал идёт.
+// Подсказка о прибавке. Ветки по порядку: решение HR, квартал кончился, k + |R| + |O| < min (impossible), k = 0, k < min, квартал идёт.
+// openPast (|O|): прошлые месяцы квартала без отправленной оценки, которые HR ещё не закрыл. Оценку за них
+// ещё могут прислать с опозданием (submitReview отказывает только по закрытому месяцу), а по months их не отличить
+// от отправленной оценки без балла: оба not_rated. Поэтому число приходит отдельно.
 export function raiseHint(i: {
   months: TgMonth[];
   tiers: Tier[];
   minMonths: number;
   ended: boolean;
   decision: { amount: number } | null;
+  openPast: number;
 }): TgRaiseHint {
-  const { months, tiers, minMonths, ended, decision } = i;
+  const { months, tiers, minMonths, ended, decision, openPast } = i;
   if (decision) return { kind: "decided", amount: decision.amount };
   const S = months.filter((m) => m.state === "scored");
   const scores = S.map((m) => m.score_pct as number);
-  // R: месяцы, которые ещё можно оценить; прошлые неоценённые (not_rated) сюда не входят
+  // R: отчётный и будущие месяцы без оценки. Прошлые неоценённые (not_rated) сюда не входят:
+  // need и «сохранится» считаются только по R (решение 6), опоздавшие месяцы учитывает лишь ветка impossible.
   const R = months.filter((m) => m.state === "pending" || m.state === "upcoming").map((m) => m.period);
   const row = quarterRow(
     months.map((m) => (m.state === "scored" ? m.score_pct : null)),
@@ -60,8 +65,8 @@ export function raiseHint(i: {
     minMonths,
   );
   if (ended) return { kind: "waiting_hr", amount: row.suggested_amount };
-  // Даже при 100 % в каждом оставшемся месяце оценённых будет меньше минимума: прибавки не будет
-  if (S.length + R.length < minMonths) return { kind: "impossible", scored: S.length, min_months: minMonths };
+  // Даже если оценят все оставшиеся месяцы и все открытые прошлые, оценённых будет меньше минимума: прибавки не будет
+  if (S.length + R.length + openPast < minMonths) return { kind: "impossible", scored: S.length, min_months: minMonths };
   if (S.length === 0) return { kind: "none" };
 
   const avg = row.avg_pct as number;

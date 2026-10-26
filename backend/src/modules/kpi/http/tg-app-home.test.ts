@@ -16,7 +16,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { setTestBotApi } = await import("../tg/bot-api");
   const { seedDecision, seedDispute, seedReview, seedViolation } = await import("../tg-app/dev-data");
   const { iso } = await import("../iso");
-  const { eq } = await import("drizzle-orm");
+  const { eq, inArray } = await import("drizzle-orm");
 
   const login = async (b: { telegram_id: number }) => (await tgLogin(b.telegram_id)).body.token as string;
 
@@ -127,6 +127,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await raise()).hint).toEqual({ kind: "decided", amount: 300000 });
       await seedReview(db, { ...base(e), period: "2026-01-01", scores: [100, 100, 100, 100, 100, 100, 100] });
       expect(await raise()).toMatchObject({ quarter_start: "2026-01-01", hint: { kind: "too_few" } });
+    });
+
+    // Прошлый месяц без оценки ещё можно оценить с опозданием, пока HR его не закрыл: «прибавки не будет» рано.
+    it("impossible только когда прошлые неоценённые месяцы закрыты", async () => {
+      setNow("2025-12-26T10:00:00+05:00");
+      const e = await makeEmployee(db, { role_code: "cook" });
+      await seedReview(db, { ...base(e), period: "2025-12-01", scores: [100, 100, 100, 100, 100, 100, 100] });
+      const token = await login(await bindTelegram(db, { employee_id: e.id }));
+      const raise = async () => (await tgApi(token, "GET", "/api/kpi/tg/home")).body.employee.raise;
+      const open = await raise();
+      expect([open.quarter_start, open.months.map((m: any) => m.state)]).toEqual(["2025-10-01", ["not_rated", "not_rated", "scored"]]);
+      expect(open.hint).toEqual({ kind: "too_few", scored: 1, min_months: 2, keep_periods: ["2025-12-01"], amount: 500000, next: null });
+      try {
+        await db.insert(kpi_periods).values({ period: "2025-11-01", status: "closed" });
+        expect((await raise()).hint.kind).toBe("too_few"); // октябрь ещё открыт
+        await db.insert(kpi_periods).values({ period: "2025-10-01", status: "closed" });
+        expect((await raise()).hint).toEqual({ kind: "impossible", scored: 1, min_months: 2 });
+      } finally {
+        await db.delete(kpi_periods).where(inArray(kpi_periods.period, ["2025-10-01", "2025-11-01"]));
+      }
     });
 
     it("руководитель с двумя привязками: карточка оценщика и своё; ссылка в админку из KPI_ADMIN_URL", async () => {

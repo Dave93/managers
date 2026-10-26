@@ -140,7 +140,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await bindingOf(db, b.telegram_id)).employee?.lang).toBe("uz");
     });
 
-    it("/my при KPI_MINIAPP_URL — кнопка «Открыть Мой KPI»; lang:uz переставляет кнопку меню", async () => {
+    it("/my при KPI_MINIAPP_URL — кнопка «Открыть Мой KPI»; lang:uz ставит свою кнопку меню, lang:ru возвращает кнопку по умолчанию", async () => {
       const URL_ = "https://x.test/kpi-app/";
       const saved = process.env.KPI_MINIAPP_URL;
       try {
@@ -155,11 +155,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         await hook(say(b.telegram_id, "/my"));
         expect(last().reply_markup).toEqual({ inline_keyboard: [[{ text: "Открыть Мой KPI", web_app: { url: URL_ } }]] });
         await hook(press(b.telegram_id, "lang:uz"));
-        expect(f.menus).toEqual([{ chatId: b.telegram_id, text: "Mening KPI", url: URL_ }]);
+        expect(f.menus).toEqual([{ chatId: b.telegram_id, button: { type: "web_app", text: "Mening KPI", web_app: { url: URL_ } } }]);
         await hook(press(b.telegram_id, "lang:uz"));
         expect(f.menus).toHaveLength(1);
         await hook(press(b.telegram_id, "lang:ru"));
-        expect(f.menus[1]).toEqual({ chatId: b.telegram_id, text: "Мой KPI", url: URL_ });
+        // русский чат не держит свою кнопку: следует за глобальной и не устареет при смене KPI_MINIAPP_URL
+        expect(f.menus[1]).toEqual({ chatId: b.telegram_id, button: { type: "default" } });
         // без переменной язык меняется, а Telegram за кнопкой меню не зовётся
         delete process.env.KPI_MINIAPP_URL;
         await hook(press(b.telegram_id, "lang:uz"));

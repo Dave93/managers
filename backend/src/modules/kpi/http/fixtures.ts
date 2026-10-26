@@ -47,7 +47,7 @@ import { kpiQueueName, getKpiQueue } from "../queue";
 import { SEED_BRANCH_INDICATORS } from "../seed-data";
 import { seedBranchIndicators, seedCards } from "../seed-cards";
 import { dayStart } from "../time";
-import type { BotApi, TgResult } from "../tg/bot-api";
+import type { BotApi, MenuButton, TgResult } from "../tg/bot-api";
 import { signInitData } from "../tg-app/init-data";
 import type { OutMessage } from "../tg/messages";
 import type { AttendanceMapping } from "../types";
@@ -263,12 +263,12 @@ export function fakeBotApi(results: TgResult[] = []): {
   api: BotApi;
   sent: { chatId: number; msg: OutMessage }[];
   answered: string[];
-  menus: { chatId: number | null; text: string; url: string }[];
+  menus: { chatId: number | null; button: MenuButton }[];
 } {
   const queue = [...results];
   const sent: { chatId: number; msg: OutMessage }[] = [];
   const answered: string[] = [];
-  const menus: { chatId: number | null; text: string; url: string }[] = [];
+  const menus: { chatId: number | null; button: MenuButton }[] = [];
   const api: BotApi = {
     async send(chatId, msg) {
       sent.push({ chatId, msg });
@@ -278,8 +278,8 @@ export function fakeBotApi(results: TgResult[] = []): {
       answered.push(callbackId);
       return { ok: true, message_id: null };
     },
-    async setMenuButton(chatId, text, url) {
-      menus.push({ chatId, text, url });
+    async setMenuButton(chatId, button) {
+      menus.push({ chatId, button });
       return { ok: true, message_id: null };
     },
   };

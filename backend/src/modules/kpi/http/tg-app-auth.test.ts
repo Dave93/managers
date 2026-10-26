@@ -195,7 +195,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await tgApi(token, "PUT", "/api/kpi/tg/lang", { lang: "en" })).body).toEqual({ error: "bad_lang" });
     });
 
-    it("язык uz переставляет кнопку меню без ожидания, повтор того же языка Telegram не зовёт", async () => {
+    it("язык uz ставит свою кнопку меню, ru — кнопку по умолчанию, без ожидания; повтор того же языка Telegram не зовёт", async () => {
       const URL_ = "https://x.test/kpi-app/";
       const saved = process.env.KPI_MINIAPP_URL;
       process.env.KPI_MINIAPP_URL = URL_;
@@ -207,10 +207,17 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect((await tgApi(token, "PUT", "/api/kpi/tg/lang", { lang: "uz" })).status).toBe(200);
         // вызов не ожидается роутом: ждём опросом
         for (let i = 0; i < 50 && f.menus.length === 0; i++) await new Promise((r) => setTimeout(r, 20));
-        expect(f.menus).toEqual([expect.objectContaining({ chatId: b.telegram_id, text: "Mening KPI", url: URL_ })]);
+        expect(f.menus).toEqual([{ chatId: b.telegram_id, button: { type: "web_app", text: "Mening KPI", web_app: { url: URL_ } } }]);
         expect((await tgApi(token, "PUT", "/api/kpi/tg/lang", { lang: "uz" })).status).toBe(200);
         await new Promise((r) => setTimeout(r, 1000));
         expect(f.menus).toHaveLength(1);
+        // обратно на ru: чат сбрасывается на кнопку по умолчанию (своя русская устарела бы при смене адреса)
+        expect((await tgApi(token, "PUT", "/api/kpi/tg/lang", { lang: "ru" })).status).toBe(200);
+        for (let i = 0; i < 50 && f.menus.length === 1; i++) await new Promise((r) => setTimeout(r, 20));
+        expect(f.menus).toEqual([
+          { chatId: b.telegram_id, button: { type: "web_app", text: "Mening KPI", web_app: { url: URL_ } } },
+          { chatId: b.telegram_id, button: { type: "default" } },
+        ]);
       } finally {
         if (saved === undefined) delete process.env.KPI_MINIAPP_URL; else process.env.KPI_MINIAPP_URL = saved;
       }

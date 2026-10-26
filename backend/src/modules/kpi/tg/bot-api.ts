@@ -4,11 +4,15 @@ import type { OutMessage } from "./messages";
 
 export type { TgResult };
 
+// MenuButton Telegram как есть: web_app — кнопка «Мой KPI», default — чат следует за кнопкой бота по умолчанию.
+export type MenuButton = { type: "default" } | { type: "web_app"; text: string; web_app: { url: string } };
+
 export interface BotApi {
   send(chatId: number, msg: OutMessage): Promise<TgResult>;
   answerCallback(callbackId: string, text?: string): Promise<TgResult>;
-  // Кнопка меню чата «Мой KPI»; chatId = null — кнопка по умолчанию для всех. Необязательный метод: подмены в тестах его не задают.
-  setMenuButton?(chatId: number | null, text: string, url: string): Promise<TgResult>;
+  // Кнопка меню: chatId = null — кнопка бота по умолчанию для всех, иначе — кнопка одного чата.
+  // Необязательный метод: подмены в тестах его не задают.
+  setMenuButton?(chatId: number | null, button: MenuButton): Promise<TgResult>;
 }
 
 export const BOT_API_TIMEOUT_MS = 10_000;
@@ -51,14 +55,14 @@ export function realBotApi(token: string, timeoutMs: number = BOT_API_TIMEOUT_MS
         return redact({ ok: false, permanent: false, error: (e as Error).message });
       }
     },
-    async setMenuButton(chatId, text, url) {
+    async setMenuButton(chatId, button) {
       try {
         const res = await fetch(`https://api.telegram.org/bot${token}/setChatMenuButton`, {
           method: "POST",
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             ...(chatId === null ? {} : { chat_id: chatId }),
-            menu_button: { type: "web_app", text, web_app: { url } },
+            menu_button: button,
           }),
           signal: AbortSignal.timeout(timeoutMs),
         });
