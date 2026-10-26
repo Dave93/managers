@@ -83,7 +83,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         tiers: [{ min_pct: 85, amount: 150000 }, { min_pct: 90, amount: 300000 }, { min_pct: 95, amount: 500000 }],
         hint: { kind: "too_few", scored: 1, amount: 300000, next: { amount: 500000, reachable: true, need_pct: 96.8, periods: ["2025-11-01", "2025-12-01"] } } });
       expect(h.employee.raise.months.map((m: any) => m.state)).toEqual(["scored", "upcoming", "upcoming"]);
-      expect((await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-11-01")).status).toBe(404);
+      // Тело проверяем: на неизвестный роут Elysia тоже ответил бы 404.
+      expect(await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-11-01")).toEqual({ status: 404, body: { error: "not_found" } });
       // Черновик ноября не попадает и в историю: иначе ноябрь был бы «scored».
       const hist = (await tgApi(token, "GET", "/api/kpi/tg/history")).body;
       expect(hist.quarters.map((q: any) => [q.quarter_start, q.months.map((m: any) => m.state), q.avg_pct])).toEqual([

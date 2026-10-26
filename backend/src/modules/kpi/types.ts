@@ -170,7 +170,7 @@ export interface DisputeRow {
   employee_name: string | null;
   terminal_name: string | null;
   period: string;
-  opened_via: "admin" | "telegram";
+  opened_via: "admin" | "telegram" | "miniapp";
   reason: string;
   status: "open" | "accepted" | "rejected";
   resolution_comment: string | null;

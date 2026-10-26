@@ -2994,7 +2994,7 @@ export const kpi_violation_photos = pgTable(
   (t) => [index("kpi_violation_photos_violation_idx").on(t.violation_id)]
 );
 
-// Споры. subject_type: review | violation | branch_result; opened_via: admin | telegram;
+// Споры. subject_type: review | violation | branch_result; opened_via: admin | telegram | miniapp;
 // status: open | accepted | rejected. Открытый спор по объекту может быть только один.
 export const kpi_disputes = pgTable(
   "kpi_disputes",

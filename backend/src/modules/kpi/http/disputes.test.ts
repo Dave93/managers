@@ -335,6 +335,22 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await expect(
         openDispute(db, null, { subject_type: "review", subject_id: reviewId, reason: "Ещё раз", employee_actor: true })
       ).rejects.toMatchObject({ status: 409, code: "dispute_exists" });
+
+      // Вторая оценка: из мини-приложения — opened_via miniapp; незнакомый канал — bad_via без строки.
+      const reviewId2 = await submitted(ev, (await cook(e.terminal_id)).id);
+      await expect(
+        openDispute(db, null, { subject_type: "review", subject_id: reviewId2, reason: "Мне поставили мало", via: "web" as any, employee_actor: true })
+      ).rejects.toMatchObject({ status: 422, code: "bad_via" });
+      const d2 = await openDispute(db, null, {
+        subject_type: "review",
+        subject_id: reviewId2,
+        reason: "Мне поставили мало",
+        via: "miniapp",
+        employee_actor: true,
+      });
+      expect(d2.opened_via).toBe("miniapp");
+      const [row2] = await db.select().from(kpi_disputes).where(eq(kpi_disputes.id, d2.id));
+      expect([row2.opened_via, row2.opened_by_user_id]).toEqual(["miniapp", null]);
     });
 
     it("список споров: фильтры status и period, видимость и can_resolve", async () => {

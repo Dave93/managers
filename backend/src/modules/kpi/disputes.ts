@@ -94,7 +94,7 @@ async function toRows(db: DbLike, actor: Actor | null, rows: DRow[], l?: Loaded)
       employee_name: emp ? `${emp.last_name} ${emp.first_name}`.trim() : null,
       terminal_name: snap ? (tNames.get(snap.terminal_id) ?? null) : null,
       period: r.period,
-      opened_via: r.opened_via as "admin" | "telegram",
+      opened_via: r.opened_via as DisputeRow["opened_via"],
       reason: r.reason,
       status: r.status as "open" | "accepted" | "rejected",
       resolution_comment: r.resolution_comment,
@@ -113,14 +113,14 @@ export async function openDispute(
     subject_type: "review" | "violation";
     subject_id: string;
     reason: string;
-    via?: "admin" | "telegram";
+    via?: "admin" | "telegram" | "miniapp";
     employee_actor?: boolean;
   }
 ): Promise<DisputeRow> {
   const { subject_type, subject_id } = input;
   if (subject_type !== "review" && subject_type !== "violation") throw new KpiError(422, "bad_subject_type");
   const via = input.via ?? "admin";
-  if (via !== "admin" && via !== "telegram") throw new KpiError(422, "bad_via");
+  if (via !== "admin" && via !== "telegram" && via !== "miniapp") throw new KpiError(422, "bad_via");
   if (typeof subject_id !== "string" || !UUID_RE.test(subject_id)) throw new KpiError(404, "not_found");
   // Без пользователя можно только от имени сотрудника.
   if (!input.employee_actor && !actor) throw new KpiError(401, "unauthorized");

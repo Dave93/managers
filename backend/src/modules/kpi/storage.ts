@@ -1,5 +1,6 @@
 // Фото нарушений на диске, по образцу tickets/storage.ts.
 import fs from "node:fs";
+import path from "node:path";
 import { randomUUID } from "node:crypto";
 
 export const MAX_PHOTOS = 3;
@@ -14,6 +15,17 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 export function uploadsBase(): string {
   return process.env.KPI_UPLOADS_DIR ?? "/home/davr/managers/uploads/kpi";
+}
+
+// Абсолютный путь файла фото, если он лежит внутри каталога загрузок и существует, иначе null.
+// Одна проверка для админки и мини-приложения: строка могла быть записана с путём вне каталога,
+// такой файл не отдаём. Соседний каталог с тем же началом имени («uploads_evil») — тоже вне.
+export function resolveUploadFile(filePath: string): string | null {
+  const base = path.resolve(uploadsBase());
+  const file = path.resolve(filePath);
+  if (!file.startsWith(base + path.sep)) return null;
+  if (!fs.existsSync(file)) return null;
+  return file;
 }
 
 // Код ошибки или null. index — порядковый номер файла в запросе (с нуля).
