@@ -5,6 +5,10 @@
 // У нарушения «Оспорить» — при тех же условиях, что у оценки (спека 4.5); без кнопки —
 // строка, почему нельзя. Спор нарушения пишется своими словами (dsp_open_violation), а не
 // «оспорили оценку».
+//
+// Решение по последнему разобранному спору (спека, раздел 6) — теми же словами, что во
+// «Вся оценка»: «Спор принят» или «Спор отклонён» и «Комментарий: …». На этот экран ведёт
+// уведомление dispute_resolved: без решения отклонённый спор выглядел бы как не бывший.
 import type { TgDisputeInfo, TgViolation, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import { dayMonth, hhmm } from "../format";
 import { type Lang, monthName, tIn } from "../i18n";
@@ -15,10 +19,11 @@ export interface ViolationVM {
   when: string; // «14 октября, 19:40» по Ташкенту
   comment: string; // комментарий записавшего как есть
   status: { text: string; tone: "active" | "muted" | "warn" };
-  cancelReason: string | null; // только у отменённого
+  cancelReason: string | null; // только у отменённого и не повтор комментария решения
   photoIds: string[];
   canDispute: boolean;
   line: string | null; // у каждого нарушения без «Оспорить»; при «можно» — null
+  resolved: { title: string; comment: string | null } | null; // последний разобранный спор
 }
 
 /** Пустая строка с сервера — то же, что её нет. */
@@ -54,16 +59,30 @@ function lineOf(d: TgDisputeInfo, l: Lang): string | null {
 }
 
 function itemView(v: TgViolation, l: Lang): ViolationVM {
+  const lr = v.dispute.last_resolved;
+  const lrComment = lr && filled(lr.comment) ? lr.comment : null;
+  // Принятый спор отменяет нарушение, и сервер пишет комментарий решения в причину отмены.
+  // Тот же текст дважды в узкой колонке не нужен: он остаётся в решении, где сказано, чьё оно.
+  // Отмена после отклонённого спора — своё действие со своей причиной: её не прячем.
+  const sameAsDecision = (r: string): boolean => lr !== null && lr.decision === "accepted" && lrComment !== null && r.trim() === lrComment.trim();
+  const cancelReason = v.status === "cancelled" && filled(v.cancel_reason) && !sameAsDecision(v.cancel_reason) ? v.cancel_reason : null;
   return {
     id: v.id,
     item: itemOf(v, l),
     when: `${dayMonth(v.occurred_at, l)}, ${hhmm(Date.parse(v.occurred_at))}`,
     comment: v.comment,
     status: statusOf(v, l),
-    cancelReason: v.status === "cancelled" && filled(v.cancel_reason) ? v.cancel_reason : null,
+    cancelReason,
     photoIds: v.photo_ids.slice(),
     canDispute: v.dispute.state === "can",
     line: lineOf(v.dispute, l),
+    // Ключи и пустой комментарий — как в reviewView (view/review.ts).
+    resolved: lr
+      ? {
+          title: tIn(l, lr.decision === "accepted" ? "dsp_accepted" : "dsp_rejected"),
+          comment: lrComment !== null ? tIn(l, "comment", { text: lrComment }) : null,
+        }
+      : null,
   };
 }
 

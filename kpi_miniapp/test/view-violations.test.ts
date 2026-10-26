@@ -72,6 +72,8 @@ it("макет: заголовок, время по Ташкенту, стату
     photoIds: ["p-1", "p-2"],
     canDispute: true,
     line: null,
+    // Спора не было — решения нет.
+    resolved: null,
   });
   expect(vm.items[1]).toMatchObject({
     item: "Без пункта карты",
@@ -125,6 +127,77 @@ it("узбекского названия нет — русское; пусты�
   );
   expect(vm.items.map((x) => x.item)).toEqual(["Чистота кухни", "Чистота кухни", "Kartadan tashqari", "Kartadan tashqari"]);
   expect(vm.items[3]!.cancelReason).toBeNull();
+});
+
+// Решение по спору (спека, раздел 6): уведомление dispute_resolved ведёт на этот экран, и
+// сотрудник должен увидеть решение и комментарий к нему, как во «Вся оценка».
+const resolvedAt = "2026-10-22T09:00:00.000Z";
+const one = (v: TgViolation, l: "ru" | "uz" = "ru") => violationsView({ period: "2026-10-01", reason_min: 5, items: [v] }, l).items[0]!;
+
+it("спор отклонён: нарушение действует, решение и комментарий в строке; «Оспорить» — как решил сервер", () => {
+  const lr = { decision: "rejected", comment: "Фото подтверждает нарушение", resolved_at: resolvedAt } as const;
+  expect(one(viol("v", { dispute: dispute({ last_resolved: lr }) }))).toMatchObject({
+    status: { text: "действует", tone: "active" },
+    canDispute: true,
+    line: null,
+    resolved: { title: "Спор отклонён", comment: "Комментарий: Фото подтверждает нарушение" },
+  });
+  expect(one(viol("v", { dispute: dispute({ state: "window_closed", last_resolved: lr }) }))).toMatchObject({
+    canDispute: false,
+    line: "Срок спора прошёл.",
+    resolved: { title: "Спор отклонён", comment: "Комментарий: Фото подтверждает нарушение" },
+  });
+});
+
+it("спор принят: нарушение отменено с комментарием решения — комментарий один раз, в решении", () => {
+  // Так пишет сервер: принятый спор отменяет нарушение, причина отмены — комментарий решения.
+  const accepted = viol("v", {
+    status: "cancelled",
+    cancel_reason: "Фото не с этого филиала",
+    dispute: dispute({ state: "cancelled", last_resolved: { decision: "accepted", comment: "Фото не с этого филиала", resolved_at: resolvedAt } }),
+  });
+  expect(one(accepted)).toMatchObject({
+    status: { text: "отменено", tone: "muted" },
+    // Причина та же, что комментарий решения: в строке даты её не повторяем.
+    cancelReason: null,
+    canDispute: false,
+    line: "Нарушение отменено, оспаривать нечего.",
+    resolved: { title: "Спор принят", comment: "Комментарий: Фото не с этого филиала" },
+  });
+  // Спор отклонили, а потом нарушение отменили по другой причине — видно и то, и другое.
+  const later = viol("v", {
+    status: "cancelled",
+    cancel_reason: "записано по ошибке",
+    dispute: dispute({ state: "cancelled", last_resolved: { decision: "rejected", comment: "Нарушение подтверждено", resolved_at: resolvedAt } }),
+  });
+  expect(one(later)).toMatchObject({
+    cancelReason: "записано по ошибке",
+    resolved: { title: "Спор отклонён", comment: "Комментарий: Нарушение подтверждено" },
+  });
+  // Причина отмены совпала с комментарием отклонения — это не принятый спор, причину не прячем.
+  const same = viol("v", {
+    status: "cancelled",
+    cancel_reason: "Нарушение подтверждено",
+    dispute: dispute({ state: "cancelled", last_resolved: { decision: "rejected", comment: "Нарушение подтверждено", resolved_at: resolvedAt } }),
+  });
+  expect(one(same).cancelReason).toBe("Нарушение подтверждено");
+});
+
+it("решение без комментария — только пометка; узбекский", () => {
+  for (const comment of [null, "  "]) {
+    expect(one(viol("v", { dispute: dispute({ last_resolved: { decision: "rejected", comment, resolved_at: resolvedAt } }) })).resolved).toEqual({
+      title: "Спор отклонён",
+      comment: null,
+    });
+  }
+  expect(one(viol("v", { dispute: dispute({ last_resolved: { decision: "rejected", comment: "Rasm tasdiqlaydi", resolved_at: resolvedAt } }) }), "uz").resolved).toEqual({
+    title: "Eʼtiroz rad etildi",
+    comment: "Izoh: Rasm tasdiqlaydi",
+  });
+  expect(one(viol("v", { status: "cancelled", dispute: dispute({ state: "cancelled", last_resolved: { decision: "accepted", comment: null, resolved_at: resolvedAt } }) }), "uz").resolved).toEqual({
+    title: "Eʼtiroz qabul qilindi",
+    comment: null,
+  });
 });
 
 it("пустой месяц: «Нарушений нет», пояснение всё равно внизу", () => {

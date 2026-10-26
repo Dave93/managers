@@ -1127,6 +1127,21 @@ svg {
 .is-cancelled .photo-img {
   filter: grayscale(1);
 }
+/* Решение по спору — как блок решения во «Вся оценка»: заголовок жирным, комментарий
+   чернилами (.resolved-comment). Без заливки: серая плашка над тихой «Оспорить» читалась
+   второй кнопкой. От комментария записавшего отделяет жирный заголовок и «Комментарий:».
+   Серым не становится и в строке отменённого. */
+.vio-resolved {
+  margin-top: 10px;
+}
+.vio-resolved-title {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.vio-resolved .resolved-comment {
+  margin-top: 2px;
+}
 .vio-line {
   margin-top: 8px;
   font-size: 14px;
