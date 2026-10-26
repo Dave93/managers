@@ -5,11 +5,13 @@ import { addMonths, quarterStart, submitOpensAt, type Period } from "../time";
 import type { TgDisputeState, TgLostItem, TgMonth, TgNextTier, TgRaiseHint, TgReviewStatus } from "./types";
 
 // Средний балл, который нужен за оставшиеся месяцы, чтобы набрать порог; вверх до 0,1.
-// Целые сотые: никакого плавающего хвоста перед округлением вверх.
+// Начисление даёт ступень при round2(avg) >= порог (половина вверх), в сотых это
+// sumH >= n*thrH - n/2. Всё в целых числах: удваиваем, чтобы n/2 осталось целым, плавающего хвоста нет.
 export function needPct(thresholdPct: number, scored: number[], remaining: number): number {
   const h = (x: number) => Math.round(x * 100);
-  const num = h(thresholdPct) * (scored.length + remaining) - scored.reduce((a, s) => a + h(s), 0);
-  return Math.ceil(num / (remaining * 10)) / 10;
+  const n = scored.length + remaining;
+  const num2 = 2 * (h(thresholdPct) * n - scored.reduce((a, s) => a + h(s), 0)) - n;
+  return Math.ceil(num2 / (remaining * 20)) / 10;
 }
 
 // Состояние месяца квартала: оценён, ждёт оценки, ещё не открыт, не будет оценён
@@ -38,7 +40,7 @@ export function quarterEnded(quarter: Period, reportPeriod: Period): boolean {
   return addMonths(quarter, 2) < reportPeriod;
 }
 
-// Подсказка о прибавке. Ветки по порядку: решение HR, квартал кончился, k = 0, k < min, квартал идёт.
+// Подсказка о прибавке. Ветки по порядку: решение HR, квартал кончился, k + |R| < min (impossible), k = 0, k < min, квартал идёт.
 export function raiseHint(i: {
   months: TgMonth[];
   tiers: Tier[];
@@ -58,6 +60,8 @@ export function raiseHint(i: {
     minMonths,
   );
   if (ended) return { kind: "waiting_hr", amount: row.suggested_amount };
+  // Даже при 100 % в каждом оставшемся месяце оценённых будет меньше минимума: прибавки не будет
+  if (S.length + R.length < minMonths) return { kind: "impossible", scored: S.length, min_months: minMonths };
   if (S.length === 0) return { kind: "none" };
 
   const avg = row.avg_pct as number;

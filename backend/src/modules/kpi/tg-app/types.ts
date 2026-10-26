@@ -40,6 +40,7 @@ export type TgRaiseHint =
   | { kind: "decided"; amount: number }       // 0 — «Без прибавки»
   | { kind: "waiting_hr"; amount: number }
   | { kind: "none" }
+  | { kind: "impossible"; scored: number; min_months: number } // k + |R| < min: прибавки в этом квартале не будет
   | { kind: "too_few"; scored: number; min_months: number; keep_periods: string[]; amount: number; next: TgNextTier | null }
   | { kind: "running"; amount: number; keep: { need_pct: number; periods: string[] } | null; next: TgNextTier | null };
 export interface TgRaiseCard { quarter_start: string; tiers: TgTier[]; avg_pct: number | null; months: TgMonth[]; hint: TgRaiseHint }

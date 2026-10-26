@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { TgMonth } from "./types";
+import { quarterRow } from "../rules";
 import { disputeStateOf, lostItems, monthState, needPct, quarterEnded, raiseHint, raiseQuarter, reviewStatusOf } from "./rules";
 
 const T = [{ min_pct: 95, amount: 500000 }, { min_pct: 90, amount: 300000 }, { min_pct: 85, amount: 150000 }];
@@ -17,6 +18,20 @@ describe("needPct", () => {
     expect(needPct(85, [80], 2)).toBe(87.5);
     expect(needPct(85, [80, 85.2], 1)).toBe(89.8);   // наивный Math.ceil по float даёт 89.9
     expect(needPct(95, [91.43], 2)).toBe(96.8);      // 967.85 → вверх
+  });
+  it("зеркалит round2 начисления: порог берётся с половиной сотой на месяц", () => {
+    // сырая формула давала 86,8; при 86,7 среднее 90,0 (round2 от 89,996…)
+    expect(needPct(90, [90.3, 92.99], 1)).toBe(86.7);
+    expect(quarterRow([90.3, 92.99, 86.7], T, 2).avg_pct).toBeGreaterThanOrEqual(90);
+    expect(quarterRow([90.3, 92.99, 86.6], T, 2).avg_pct).toBeLessThan(90);
+    // сырая формула давала «недостижимо», а 100 в оставшихся месяцах ступень берёт
+    expect(needPct(95, [92, 92.99], 1)).toBe(100);
+    expect(quarterRow([92, 92.99, 100], T, 2).avg_pct).toBeGreaterThanOrEqual(95);
+    expect(needPct(95, [84.99], 2)).toBe(100);
+    expect(quarterRow([84.99, 100, 100], T, 2).avg_pct).toBeGreaterThanOrEqual(95);
+  });
+  it("hint: 100 в оставшихся месяцах — достижимо, а не «уже не получится»", () => {
+    expect(hint(q4("scored", 92, "scored", 92.99, "upcoming"))).toMatchObject({ kind: "running", next: { amount: 500000, reachable: true, need_pct: 100 } });
   });
 });
 
@@ -36,6 +51,13 @@ describe("raiseHint", () => {
     expect(hint(q4("scored", 80, "upcoming", null, "upcoming"))).toMatchObject({
       kind: "too_few", amount: 0, next: { amount: 150000, reachable: true, need_pct: 87.5, periods: ["2026-11-01", "2026-12-01"] },
     });
+  });
+  it("k + |R| < min в идущем квартале — impossible, при k + |R| = min — по-прежнему too_few", () => {
+    expect(hint(q4("not_rated", null, "not_rated", null, "scored", 90.3))).toEqual({ kind: "impossible", scored: 1, min_months: 2 });
+    expect(hint(q4("not_rated", null, "scored", 90.3, "upcoming"), { min: 3 })).toEqual({ kind: "impossible", scored: 1, min_months: 3 });
+    expect(hint(q4("not_rated", null, "not_rated", null, "upcoming"))).toEqual({ kind: "impossible", scored: 0, min_months: 2 });
+    expect(hint(q4("not_rated", null, "scored", 90.3, "upcoming")).kind).toBe("too_few");
+    expect(hint(q4("not_rated", null, "not_rated", null, "scored", 90.3), { ended: true })).toMatchObject({ kind: "waiting_hr" });
   });
   it("k = 0 — none", () => expect(hint(q4("pending", null, "upcoming", null, "upcoming"))).toEqual({ kind: "none" }));
   it("верхняя ступень — строки «для» нет; |R| = 0 — нет ни «для», ни «сохранится»", () => {
