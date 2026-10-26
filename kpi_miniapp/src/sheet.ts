@@ -68,6 +68,11 @@ function viaMainButton(onSend: () => void): SendControl | null {
     mb.onClick(onSend);
     mb.show();
   } catch {
+    // Кнопка в шторке заменит MainButton: обработчик, если успел встать, снимаем, а то нажатие
+    // MainButton отправило бы спор мимо кнопки шторки. offClick и hide на таком клиенте тоже
+    // могут бросить — поэтому через safe.
+    safe(() => mb.offClick(onSend));
+    safe(() => mb.hide());
     return null;
   }
   return {
@@ -162,13 +167,27 @@ export function openDisputeSheet(o: DisputeSheetOptions): void {
           error.textContent = noWidow(disputeErrorText(res.error, typeof m === "number" ? m : o.reasonMin));
           if (res.error !== null && FINAL.indexOf(res.error) >= 0) settled = true;
         }
-        ctl.progress(false);
-        // hideProgress Telegram снова делает кнопку активной: состояние ставим сами.
-        ctl.active(!settled && reasonCount(field.value) >= o.reasonMin);
-        field.readOnly = false;
-        busy.release();
+        unlock();
+      })
+      .catch(() => {
+        // Отказ send (он сам не отклоняется, но мало ли) или исключение в обработке ответа:
+        // шторка не должна остаться с защёлкой и крутящейся кнопкой. Шторку уже закрыли —
+        // показывать некому.
+        if (!open) return;
+        haptic("error");
+        error.textContent = noWidow(disputeErrorText(null, o.reasonMin));
+        unlock();
       });
   };
+
+  // После ответа без успеха: прогресс снят, поле снова правится, защёлка отпущена.
+  function unlock(): void {
+    ctl.progress(false);
+    // hideProgress Telegram снова делает кнопку активной: состояние ставим сами.
+    ctl.active(!settled && reasonCount(field.value) >= o.reasonMin);
+    field.readOnly = false;
+    busy.release();
+  }
 
   const ctl = viaMainButton(onSend) ?? viaButton(onSend);
 

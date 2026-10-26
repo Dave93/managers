@@ -188,6 +188,11 @@ async function showAsync(keep: boolean): Promise<void> {
 }
 
 function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
+  // Перерисовка без скелетона (keep) оставляет старый экран видимым, пока идёт запрос: на нём
+  // можно успеть открыть шторку спора или фото. Новый экран их закрывает — иначе шторка от
+  // старых данных («Оспорить» уже сменилась строкой) отправила бы второй спор и получила 409.
+  closeDisputeSheet();
+  closePhoto();
   // Вместо экрана — отказ, «не найдено» или главный: фото прежнего экрана больше не нужны.
   if (res.kind !== "fresh" && res.kind !== "stale") revokeAll();
   if (res.kind === "fresh" || res.kind === "stale") {
