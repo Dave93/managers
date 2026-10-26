@@ -24,6 +24,7 @@ const PERSONAS: [number, string][] = [
   [9100000011, "оценщик test_kpi_smoke_eval"],
   [9100000012, "Смоук Руководитель + оценщик test_kpi_smoke_lead"],
   [9100000013, "без привязки"],
+  [9100000014, "Смоук Без прибавки"],
 ];
 
 const USAGE =

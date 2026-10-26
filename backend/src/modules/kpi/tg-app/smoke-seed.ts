@@ -223,7 +223,7 @@ async function seed(tx: DbLike): Promise<{ R: Period; personas: number }> {
   const review = (
     employee_id: string,
     period: Period,
-    scores: number[],
+    scores: (number | null)[], // null — «нет данных»
     extra: { notes?: (string | null)[]; change?: { old_score_pct: number; comment: string } } = {}
   ) => seedReview(tx, { employee_id, terminal_id, card_id: cook.id, evaluator_user_id: evalId, period, scores, ...extra });
   // Нарушение в R в 10:00 по Ташкенту заданного дня; день ещё не наступил — час назад (всё равно внутри R).
@@ -317,6 +317,17 @@ async function seed(tx: DbLike): Promise<{ R: Period; personas: number }> {
 
   // 13 — без привязки: строк нет вовсе.
   personas.push(9100000013);
+
+  // 14 — «В этом квартале прибавки не будет» (подсказка impossible). Отчётный месяц оценён, остальные
+  // месяцы его квартала — отправленные оценки без балла («нет данных»): они уже not_rated и не ждут
+  // оценки, поэтому k + |R| + |O| = 1 + 0 + 0 меньше raise_min_months. Работает при любом положении R
+  // в квартале и не закрывает периоды (kpi_periods общие для всех персон). Будущий месяц с оценкой
+  // бывает только на стенде (решение 17), как у 02. При raise_min_months = 1 нужен k = 0: тогда и R без балла.
+  const e14 = await person(9100000014, "Смоук Без прибавки");
+  const NO_DATA = ALL_100.map(() => null);
+  for (const p of [Q, addMonths(Q, 1), addMonths(Q, 2)]) {
+    await review(e14, p, p === R && settings.raise_min_months >= 2 ? S96 : NO_DATA);
+  }
 
   return { R, personas: personas.length };
 }
