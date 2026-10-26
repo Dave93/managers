@@ -39,7 +39,13 @@ export type TicketsNavT = (
   key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
 ) => string;
 
-export type NavLeaf = { title: string; href: string; permission?: NavPermission };
+// also — пути дочерних экранов вне href, на которых пункт тоже считается активным
+// (подсветка в меню и хлебные крошки), например /kpi/branch/<id> для «Сети».
+export type NavLeaf = { title: string; href: string; permission?: NavPermission; also?: string[] };
+
+export function leafPaths(it: NavLeaf): string[] {
+  return [it.href, ...(it.also ?? [])];
+}
 export type NavEntry =
   | {
       kind: "link";
@@ -140,7 +146,7 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
         { title: KPI_SCREEN_TITLE.month, href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
         { title: KPI_SCREEN_TITLE.raises, href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
         { title: KPI_SCREEN_TITLE.attendance, href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
-        { title: KPI_SCREEN_TITLE.network, href: p("/kpi/network"), permission: { any: KPI_SCREEN_PERMS.network } },
+        { title: KPI_SCREEN_TITLE.network, href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
         { title: KPI_SCREEN_TITLE.revenue_plans, href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
         { title: KPI_SCREEN_TITLE.sanitary, href: p("/kpi/sanitary/new"), permission: { any: KPI_SCREEN_PERMS.sanitary } },
         { title: KPI_SCREEN_TITLE.settings, href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },

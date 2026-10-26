@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Boxes, ClipboardCheck, ClipboardList, Gauge, ListChecks, Sheet, TriangleAlert } from "lucide-react";
+import { Boxes, CalendarCheck, ClipboardCheck, ClipboardList, Gauge, ListChecks, MessageSquareWarning, Sheet, TrendingUp, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
@@ -166,6 +166,36 @@ function MoreMenu() {
             >
               <TriangleAlert aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               Нарушения
+            </Link>
+          )}
+          {canOpen(perms, "disputes") && (
+            <Link
+              href="/kpi/disputes"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <MessageSquareWarning aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Споры
+            </Link>
+          )}
+          {canOpen(perms, "month") && (
+            <Link
+              href="/kpi/month"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <CalendarCheck aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Месяц
+            </Link>
+          )}
+          {canOpen(perms, "raises") && (
+            <Link
+              href="/kpi/raises"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <TrendingUp aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Повышения
             </Link>
           )}
           {canOpen(perms, "network") && (

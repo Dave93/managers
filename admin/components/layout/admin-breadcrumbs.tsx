@@ -8,7 +8,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@components/ui/breadcrumb";
-import { buildNav } from "./nav-config";
+import { buildNav, leafPaths } from "./nav-config";
 
 // Longest-prefix match of the current path against the nav config.
 export function AdminBreadcrumbs() {
@@ -30,10 +30,12 @@ export function AdminBreadcrumbs() {
       }
     } else {
       for (const it of e.items) {
-        if (match(it.href)) {
-          group = e.title;
-          page = it.title;
-          bestLen = it.href.length;
+        for (const href of leafPaths(it)) {
+          if (match(href)) {
+            group = e.title;
+            page = it.title;
+            bestLen = href.length;
+          }
         }
       }
     }
