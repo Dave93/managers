@@ -271,7 +271,13 @@ Vhost `api.office.lesailes.uz` (`/etc/nginx/sites-available/api.office.lesailes.
 nginx -T 2>/dev/null | grep -n -E '^# configuration file|add_header'
 ```
 
-Строки `# configuration file` показывают, из какого файла заголовок. Каждый `add_header` из `http {}` и из `server {}` этого vhost повторить внутри `location ^~ /kpi-app/` рядом с `Cache-Control`, с тем же `always`, если он там есть. Исключение — `X-Frame-Options` и `Content-Security-Policy` с `frame-ancestors`. Telegram Web (`web.telegram.org`) открывает мини-приложение во фрейме, и такой заголовок сломает его там. Если они в vhost есть, в блок их не копировать и записать это в передаче.
+Строки `# configuration file` показывают, из какого файла заголовок. Каждый `add_header` из `http {}` и из `server {}` этого vhost повторить внутри `location ^~ /kpi-app/` рядом с `Cache-Control`, с тем же `always`, если он там есть. Три заголовка в блок не копировать, даже если они есть в vhost:
+
+- `X-Frame-Options`: Telegram Web (`web.telegram.org`) открывает мини-приложение во фрейме, и с этим заголовком там будет пустое окно;
+- `Content-Security-Policy` в любом виде: политика API-хоста почти наверняка не пускает SDK с `telegram.org`, встроенные `style` (полоски баллов) и `blob:` (фото нарушений), и приложение не стартует или теряет часть экрана;
+- `Cross-Origin-Embedder-Policy`: при `require-corp` браузер грузит скрипт с чужого origin, только если тот отвечает заголовком `Cross-Origin-Resource-Policy`, и SDK с `telegram.org` может не загрузиться.
+
+Если какой-то из них в vhost есть, записать это в передаче.
 
 Приложение должно жить на том же origin, что и API: запросы идут относительными путями `/api/kpi/tg/...`, без CORS. Значения `base` в `kpi_miniapp/vite.config.ts`, `location` и `KPI_MINIAPP_URL` совпадают буква в букву, включая хвостовой слэш. Почему слэши в `location` и `alias` обязательны и как работает `try_files`, описано в `docs/superpowers/passport-1c-c5-deploy-spec.md` (блок про `location ^~ /passport-app/`). Откат nginx: вернуть бэкап и сделать `nginx -t` и `reload`.
 
