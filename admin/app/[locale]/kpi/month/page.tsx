@@ -75,13 +75,24 @@ function MonthScreen() {
       ) : !data || !period ? (
         <p className="text-sm text-muted-foreground">Загрузка…</p>
       ) : (
-        <SummaryView period={period} data={data} canApprove={access.approve} />
+        <SummaryView period={period} data={data} canApprove={access.approve} seesLagging={access.approve || access.manage} />
       )}
     </div>
   );
 }
 
-function SummaryView({ period, data, canApprove }: { period: string; data: PeriodSummary; canApprove: boolean }) {
+// seesLagging: отстающих сервер считает только для approve/manage; остальным пустой список не значит «все отправили».
+function SummaryView({
+  period,
+  data,
+  canApprove,
+  seesLagging,
+}: {
+  period: string;
+  data: PeriodSummary;
+  canApprove: boolean;
+  seesLagging: boolean;
+}) {
   const st = PERIOD_STATUS[data.status];
   const c = data.counts;
   const tiles: { label: string; value: number; href?: string }[] = [
@@ -133,38 +144,40 @@ function SummaryView({ period, data, canApprove }: { period: string; data: Perio
         })}
       </div>
 
-      <section className="space-y-2">
-        <h2 className="text-base font-medium">Кто не оценил</h2>
-        {data.unassigned > 0 && (
-          <p role="status" className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-            Без оценщика: {data.unassigned}. Этих сотрудников некому оценить — назначьте оценщика в настройках, вкладка «Оценщики».
-          </p>
-        )}
-        {data.lagging.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {data.unassigned > 0 ? "Назначенные оценщики отправили все оценки" : "Все оценщики отправили оценки"}
-          </p>
-        ) : (
-          <div className="overflow-x-auto rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Оценщик</TableHead>
-                  <TableHead className="text-right">Не отправлено</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {data.lagging.map((l) => (
-                  <TableRow key={l.user_id}>
-                    <TableCell>{l.user_name}</TableCell>
-                    <TableCell className="text-right">{l.pending}</TableCell>
+      {seesLagging && (
+        <section className="space-y-2">
+          <h2 className="text-base font-medium">Кто не оценил</h2>
+          {data.unassigned > 0 && (
+            <p role="status" className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+              Без оценщика: {data.unassigned}. Этих сотрудников некому оценить — назначьте оценщика в настройках, вкладка «Оценщики».
+            </p>
+          )}
+          {data.lagging.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {data.unassigned > 0 ? "Назначенные оценщики отправили все оценки" : "Все оценщики отправили оценки"}
+            </p>
+          ) : (
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Оценщик</TableHead>
+                    <TableHead className="text-right">Не отправлено</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        )}
-      </section>
+                </TableHeader>
+                <TableBody>
+                  {data.lagging.map((l) => (
+                    <TableRow key={l.user_id}>
+                      <TableCell>{l.user_name}</TableCell>
+                      <TableCell className="text-right">{l.pending}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </section>
+      )}
 
       {canApprove && <MonthActions key={period} period={period} data={data} />}
     </div>

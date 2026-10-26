@@ -47,7 +47,7 @@ describe("raisesCsv", () => {
     ]);
     expect(csv).toContain('утверждено;0;"Сказал ""ок""; ждём\nещё"');
     expect(csv).toContain(";мало оценок;;");
-    expect(csv).toContain(";отклонено;;");
+    expect(csv).toContain(";отказано;;");
   });
 
   it('комментарий "=HYPERLINK(1)" выгружается как "\'=HYPERLINK(1)"', () => {

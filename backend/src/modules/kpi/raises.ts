@@ -289,7 +289,7 @@ const STATUS_RU: Record<RaiseRow["status"], string> = {
   proposed: "предложено",
   insufficient: "мало оценок",
   approved: "утверждено",
-  rejected: "отклонено",
+  rejected: "отказано",
 };
 
 const cell = (v: string | number | null | undefined): string => {

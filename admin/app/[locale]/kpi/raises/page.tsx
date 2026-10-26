@@ -132,7 +132,8 @@ function RaisesScreen() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ФИО</TableHead>
+                {/* ФИО прилипает слева: при прокрутке широкой таблицы видно, чья строка. */}
+                <TableHead className="sticky left-0 z-10 bg-background">ФИО</TableHead>
                 <TableHead>Филиал</TableHead>
                 <TableHead>Карта</TableHead>
                 {months.map((m) => (
@@ -153,9 +154,9 @@ function RaisesScreen() {
                 const decided = r.status === "approved" || r.status === "rejected";
                 return (
                   <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.employee_name}</TableCell>
-                    <TableCell>{r.terminal_name ?? "—"}</TableCell>
-                    <TableCell>{r.card_title ?? "—"}</TableCell>
+                    <TableCell className="sticky left-0 z-10 bg-background font-medium">{r.employee_name}</TableCell>
+                    <TableCell className="min-w-32 whitespace-normal">{r.terminal_name ?? "—"}</TableCell>
+                    <TableCell className="min-w-32 whitespace-normal">{r.card_title ?? "—"}</TableCell>
                     {months.map((m) => (
                       <TableCell key={m} className="text-right">
                         {formatPct(r.months.find((x) => x.period === m)?.score_pct ?? null)}
