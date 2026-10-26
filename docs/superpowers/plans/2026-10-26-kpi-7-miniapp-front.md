@@ -96,6 +96,7 @@
 | `badge_approved` | Утверждено: +{sum} сум | Tasdiqlandi: +{sum} soʻm |
 | `badge_no_raise` | Без прибавки | Oshirishsiz |
 | `h_none` | Оценок в этом квартале ещё нет. | Bu chorakda hali baho yoʻq. |
+| `h_impossible` | В этом квартале прибавки не будет: оценено {k} мес., а нужно не меньше {min}. | Bu chorakda oshirish boʻlmaydi: {k} oy baholangan, kerak esa kamida {min} oy. |
 | `h_few_1` | Оценён {k} месяц из 3, а прибавку считают от {min}. | 3 oydan {k} tasi baholangan, oshirish esa kamida {min} oy boʻyicha hisoblanadi. |
 | `h_few_n` | Оценено {k} месяца из 3, а прибавку считают от {min}. | 3 oydan {k} tasi baholangan, oshirish esa kamida {min} oy boʻyicha hisoblanadi. |
 | `h_hold` | Держите уровень {months} — выйдет {sum} сум. | {months} darajasini saqlang — {sum} soʻm chiqadi. |
@@ -397,8 +398,8 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): ка
 Правила:
 - `pct1`: половина вверх до 0,1 через `toPrecision(12)`, как `round2` backend; если для какого-то `t` из `guard` выполнено `n < t` и результат `≥ t` — округление вниз. Всегда одна цифра после запятой.
 - `trackPos`: отрезок 0 — `[mins[0] − 10, mins[0])`, отрезок `k` (1…n−1) — `[mins[k−1], mins[k])`, отрезок `n` — `[mins[n−1], 100]`; позиция `(k + clamp01((avg − start) / (end − start))) / (n + 1)`.
-- `hintLines`: `decided` → `[]`; `none` → `[h_none]`; `waiting_hr` → `[h_wait]` или `[h_wait_zero]`; `too_few` → `[h_few_1 | h_few_n, amount > 0 ? h_hold (месяцы keep_periods, родительный) : h_hold_zero, ...next]`; `running` → `[amount > 0 ? h_now : h_now_zero, ...(keep ? [h_keep] : []), ...next]`; `next` reachable → `h_next` (месяцы в именительном), unreachable → `h_next_no`. Заглавную букву даёт `t()`.
-- `raiseBadge`: `decided` с суммой → `{ badge_approved, "ok" }`, `decided` 0 → `{ badge_no_raise, "muted" }`, прочее → `{ badge_prelim, "prelim" }`.
+- `hintLines`: `decided` → `[]`; `none` → `[h_none]`; `impossible` → `[h_impossible]` с `k = scored`, `min = min_months`: без суммы и без строк «для X» и «сохранится»; `waiting_hr` → `[h_wait]` или `[h_wait_zero]`; `too_few` → `[h_few_1 | h_few_n, amount > 0 ? h_hold (месяцы keep_periods, родительный) : h_hold_zero, ...next]`; `running` → `[amount > 0 ? h_now : h_now_zero, ...(keep ? [h_keep] : []), ...next]`; `next` reachable → `h_next` (месяцы в именительном), unreachable → `h_next_no`. Заглавную букву даёт `t()`.
+- `raiseBadge`: `decided` с суммой → `{ badge_approved, "ok" }`, `decided` 0 и `impossible` → `{ badge_no_raise, "muted" }` (у `impossible` суммы нет, «предварительно» было бы неправдой), прочее → `{ badge_prelim, "prelim" }`.
 
 - [ ] **Step 1: Тесты.** `test/hint.test.ts` (во всех тестах этого плана `const nb = "\u00a0"`):
 
@@ -427,6 +428,11 @@ it("прочие ветки", () => {
   expect(hintLines({ kind: "waiting_hr", amount: 0 }, "ru")).toEqual(["Ждём решения HR. Предварительно: без прибавки."]);
   expect(hintLines({ kind: "waiting_hr", amount: 150000 }, "uz")).toEqual([`HR qarorini kutyapmiz. Taxminan: 150${nb}000${nb}soʻm.`]);
   expect(hintLines({ kind: "decided", amount: 500000 }, "ru")).toEqual([]);
+  // impossible: одна строка, ни суммы, ни «для X», ни «сохранится»; плашка приглушённая, не «предварительно»
+  expect(hintLines({ kind: "impossible", scored: 1, min_months: 3 }, "ru")).toEqual(["В этом квартале прибавки не будет: оценено 1 мес., а нужно не меньше 3."]);
+  expect(hintLines({ kind: "impossible", scored: 0, min_months: 2 }, "uz")).toEqual(["Bu chorakda oshirish boʻlmaydi: 0 oy baholangan, kerak esa kamida 2 oy."]);
+  expect([raiseBadge({ kind: "impossible", scored: 1, min_months: 2 }, "ru"), raiseBadge({ kind: "impossible", scored: 1, min_months: 2 }, "uz")])
+    .toEqual([{ text: "Без прибавки", tone: "muted" }, { text: "Oshirishsiz", tone: "muted" }]);
   expect([raiseBadge({ kind: "decided", amount: 500000 }, "ru"), raiseBadge({ kind: "decided", amount: 0 }, "uz"), raiseBadge(EX1, "ru")])
     .toEqual([{ text: `Утверждено: +500${nb}000${nb}сум`, tone: "ok" }, { text: "Oshirishsiz", tone: "muted" }, { text: "предварительно", tone: "prelim" }]);
 });
@@ -797,7 +803,7 @@ git -C /Users/macbookpro/development/managers-kpi commit -m "feat(kpi-app): на
    Тот же origin, что у API, обязателен (раздел 1 спеки паспорта C5): `base` в `vite.config.ts`, `location` и `KPI_MINIAPP_URL` совпадают буква в букву, со слэшем.
 4. **Переменные:** `backend/.env` — `KPI_MINIAPP_URL=https://api.office.lesailes.uz/kpi-app/`, `KPI_ADMIN_URL=<адрес админки без пути>`; `cron/.env` — тот же `KPI_MINIAPP_URL` (кнопки «Открыть» собирает воркер). `tail -c 1 .env` перед дописыванием. Только `https://`: иначе кнопок не будет.
 5. **Перезапуск:** `office_api` с пересборкой бинарника и `office_kpi_worker`, без `--update-env` (см. «Воркер office_kpi_worker»).
-6. **Кнопка меню:** `cd /home/davr/managers/backend && bun run src/modules/kpi/tg/set-menu.ts`; ожидаемый вывод `kpi menu: default ok, uz chats N/N` и код 0; код 1 — кнопка по умолчанию не встала, разобраться до проверки с телефона. Запускать после установки `KPI_MINIAPP_URL`; повторный запуск безопасен.
+6. **Кнопка меню:** `cd /home/davr/managers/backend && bun run src/modules/kpi/tg/set-menu.ts`; ожидаемый вывод `kpi menu: default ok, uz chats N/N, ru chats M/M` и код 0 (русские чаты сбрасываются на кнопку по умолчанию). Каждая неудача печатается отдельной строкой с причиной, токена в ней нет. Код 1 — кнопка по умолчанию не встала, разобраться до проверки с телефона. Запускать после установки `KPI_MINIAPP_URL` и после каждой его смены; повторный запуск безопасен.
 7. **Проверка с телефона:** кнопка меню «Мой KPI» открывает приложение; светлая и тёмная тема Telegram; переключатель RU/UZ; уведомление об оценке — кнопка «Открыть» ведёт на «Вся оценка» этого месяца; `/my` — кнопка «Открыть Мой KPI»; руководитель по второй ссылке получает «Готово. Теперь здесь и ваши оценки, и напоминания оценщика.»; спор из приложения появляется в «Спорах» с пометкой «через мини-приложение».
 
 - [ ] **Step 0: База типов админки.** Run: `cd admin && ./node_modules/.bin/tsc --noEmit -p . --incremental false 2>&1 | grep -c "error TS"` — записать число (ожидается `0`).
