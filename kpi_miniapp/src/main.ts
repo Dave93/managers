@@ -234,11 +234,14 @@ async function start(): Promise<void> {
     return;
   }
   if (a.status === "offline") {
-    // Сети нет, но главный экран уже открывали: показываем его с пометкой времени.
+    // Сети нет, но главный экран уже открывали: показываем его с пометкой времени. Кэш —
+    // под последним запомненным who (входа не было); риск переназначенной привязки описан в appCache.
     const cached = appCache().load<TgHome>("/home");
     if (cached) {
       adoptHome(cached.data);
       stack = [{ route: HOME, y: 0 }];
+      // Ссылка могла вести на вложенный экран, а показан главный: хеш — вершина стека.
+      history.replaceState(null, "", hashOf(HOME));
       setBack(null);
       present({ kind: "stale", data: cached.data, at: cached.at }, screenOf(HOME), top());
       return;
@@ -263,7 +266,9 @@ async function boot(): Promise<void> {
   if (__KPI_DEV__ && devRequested(location.search)) (await import("./dev/fake-telegram")).installFakeTelegram(location.search);
   const s = sdkState();
   if (s !== "ok") {
-    mount(statusScreen(s));
+    // «Не загрузился Telegram» — «Обновить»: перезагрузка заново просит SDK у telegram.org.
+    // «Вне Telegram» перезагрузка не лечит, кнопки там нет.
+    mount(statusScreen(s, s === "sdk_failed" ? () => location.reload() : undefined));
     return;
   }
   const w = webApp();

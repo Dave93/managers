@@ -9,6 +9,7 @@
 //   остальные /api/kpi/tg/*: Authorization: Bearer <token>; 401, когда сессия
 //   в Redis истекла (12 ч).
 import type { TgAuthResponse } from "@backend/modules/kpi/tg-app/types";
+import { adoptWho } from "./cache";
 import { initData, sdkState } from "./telegram";
 
 export type FailStatus = "sdk_failed" | "outside" | "not_bound" | "inactive" | "not_configured" | "expired" | "offline" | "unknown";
@@ -22,6 +23,9 @@ export interface ApiDeps {
   sdk: () => "ok" | "sdk_failed" | "outside";
   initData: () => string;
   timeoutMs?: number; // по умолчанию 15000
+  // Тело каждого удачного входа, и тихого повторного тоже: по who кэш узнаёт, что за
+  // этим Telegram теперь другой человек (привязку переназначили посреди работы).
+  onAuth?: (body: TgAuthResponse) => void;
 }
 
 // Ведущий слэш обязателен: base у vite "/kpi-app/", относительный путь ушёл бы
@@ -92,6 +96,7 @@ export function createApi(d: ApiDeps) {
     const b = body as Partial<TgAuthResponse> | null;
     if (!b || typeof b.token !== "string") return { kind: "fail", status: "unknown" };
     token = b.token;
+    d.onAuth?.(b as TgAuthResponse);
     return { kind: "ok", body: b as TgAuthResponse };
   }
 
@@ -170,6 +175,13 @@ let shared: ReturnType<typeof createApi> | null = null;
 
 /** Общий клиент, лениво: window и SDK читаются при первом вызове. */
 export function appApi(): ReturnType<typeof createApi> {
-  if (!shared) shared = createApi({ fetch: window.fetch.bind(window), sdk: sdkState, initData });
+  if (!shared)
+    shared = createApi({
+      fetch: window.fetch.bind(window),
+      sdk: sdkState,
+      initData,
+      // Старый backend who не присылает: тогда кэш только в памяти, а не под чужим ключом.
+      onAuth: (b) => adoptWho(typeof b.who === "string" ? b.who : null),
+    });
   return shared;
 }

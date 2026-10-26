@@ -77,3 +77,15 @@ it("параллельные запросы без токена делают о�
   await Promise.all([a.get("/home"), a.get("/history")]);
   expect(auths).toBe(1);
 });
+it("onAuth: тело каждого удачного входа (и повторного после 401), но не отказа", async () => {
+  const seen: unknown[] = [];
+  const r = [ok({ token: "t1", roles: ["employee"], lang: "ru", who: "aaaa" }), ok({ error: "unauthorized" }, 401),
+    ok({ token: "t2", roles: ["employee"], lang: "uz", who: "bbbb" }), ok({ x: 1 })];
+  const f = (async () => r.shift()!) as any;
+  const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q", onAuth: (b) => seen.push(b) });
+  expect(await a.get("/home")).toEqual({ kind: "ok", data: { x: 1 } });
+  expect(seen).toEqual([{ token: "t1", roles: ["employee"], lang: "ru", who: "aaaa" }, { token: "t2", roles: ["employee"], lang: "uz", who: "bbbb" }]);
+  const denied = createApi({ fetch: (async () => ok({ error: "inactive" }, 403)) as any, sdk: () => "ok", initData: () => "q", onAuth: (b) => seen.push(b) });
+  expect(await denied.auth()).toEqual({ kind: "fail", status: "inactive" });
+  expect(seen).toHaveLength(2);
+});

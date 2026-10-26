@@ -95,6 +95,7 @@ const RU = {
   offline_stamp: "Обновлено в {time} — нет связи",
   slow: "Связь плохая, ещё пробуем",
   btn_retry: "Повторить",
+  btn_reload: "Обновить",
 } as const;
 
 export type Key = keyof typeof RU;
@@ -188,6 +189,7 @@ const UZ: Record<Key, string> = {
   offline_stamp: "{time} da yangilangan — aloqa yoʻq",
   slow: "Aloqa yomon, yana urinib koʻryapmiz",
   btn_retry: "Qayta urinish",
+  btn_reload: "Yangilash",
 };
 
 export const DICT: Record<Lang, Record<Key, string>> = { ru: RU, uz: UZ };

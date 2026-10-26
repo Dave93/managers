@@ -12,15 +12,19 @@ import { webApp } from "./telegram";
 type Attrs = Record<string, string | boolean | EventListener>;
 
 /**
- * Элемент с атрибутами и детьми. Ключ «onclick» и прочие «on…» с функцией —
- * обработчик события; true — пустой атрибут; false — атрибута нет.
+ * Элемент с атрибутами и детьми. Ключи «on…» — только функции-обработчики: строка там
+ * стала бы встроенным скриптом, поэтому h() её не принимает (как и функцию под другим
+ * ключом). true — пустой атрибут; false — атрибута нет.
  */
 export function h(tag: string, attrs?: Attrs, ...kids: (Node | string | null)[]): HTMLElement {
   const el = document.createElement(tag);
   if (attrs) {
     for (const k of Object.keys(attrs)) {
       const v = attrs[k];
-      if (typeof v === "function") el.addEventListener(k.slice(2), v);
+      if (v === false) continue;
+      const handler = /^on/i.test(k);
+      if (handler !== (typeof v === "function")) throw new TypeError(`h(${tag}): «${k}» — обработчик только функцией и только под ключом on…`);
+      if (typeof v === "function") el.addEventListener(k.slice(2).toLowerCase(), v);
       else if (v === true) el.setAttribute(k, "");
       else if (typeof v === "string") el.setAttribute(k, v);
     }
@@ -131,14 +135,16 @@ function statusLine(l: "ru" | "uz", text: string): HTMLElement {
 }
 
 /**
- * Экран отказа на двух языках (язык до ответа сервера неизвестен). Кнопка
- * «Повторить / Qayta urinish» — только при offline и unknown и только если передан retry.
+ * Экран отказа на двух языках (язык до ответа сервера неизвестен). Кнопка — только если
+ * передано действие: «Повторить / Qayta urinish» при offline и unknown, «Обновить /
+ * Yangilash» при sdk_failed (перезагрузка заново просит SDK у telegram.org).
  */
 export function statusScreen(s: FailStatus, retry?: () => void): HTMLElement {
   const text = STATUS_TEXT[s];
+  const label = s === "sdk_failed" ? "btn_reload" : s === "offline" || s === "unknown" ? "btn_retry" : null;
   let pressed = false;
   const button =
-    retry && (s === "offline" || s === "unknown")
+    retry && label
       ? h(
           "button",
           {
@@ -151,9 +157,9 @@ export function statusScreen(s: FailStatus, retry?: () => void): HTMLElement {
               retry();
             },
           },
-          h("span", { lang: "ru" }, DICT.ru.btn_retry),
+          h("span", { lang: "ru" }, DICT.ru[label]),
           h("span", { class: "sep", "aria-hidden": "true" }, " · "),
-          h("span", { lang: "uz" }, DICT.uz.btn_retry),
+          h("span", { lang: "uz" }, DICT.uz[label]),
         )
       : null;
   return h(

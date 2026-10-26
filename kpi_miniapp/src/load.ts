@@ -34,7 +34,8 @@ export function resolveLoad<T>(r: ApiResult<T>, cached: { data: T; at: number } 
 
 export interface LoadDeps<T> {
   get(path: string): Promise<ApiResult<T>>;
-  cache: ReturnType<typeof createCache>;
+  // Берётся после ответа: тихий повторный вход внутри get мог сменить who (кэш другого человека).
+  cache(): ReturnType<typeof createCache>;
   now(): number;
   slowMs?: number;
 }
@@ -44,14 +45,15 @@ export async function loadVia<T>(d: LoadDeps<T>, path: string, onSlow: () => voi
   const timer = setTimeout(onSlow, d.slowMs ?? SLOW_MS);
   try {
     const r = await d.get(path);
+    const cache = d.cache();
     // Повторный вход посреди работы получил 403: привязку сняли или человека
     // уволили, пока приложение открыто. Его экраны с телефона стираются (решение 12).
     if (r.kind === "fail" && (r.status === "not_bound" || r.status === "inactive")) {
-      d.cache.clear();
+      cache.clear();
       return { kind: "fail", status: r.status };
     }
-    const out = resolveLoad(r, r.kind === "fail" ? d.cache.load<T>(path) : null);
-    if (out.kind === "fresh") d.cache.save(path, out.data, d.now());
+    const out = resolveLoad(r, r.kind === "fail" ? cache.load<T>(path) : null);
+    if (out.kind === "fresh") cache.save(path, out.data, d.now());
     return out;
   } finally {
     clearTimeout(timer);
@@ -60,5 +62,5 @@ export async function loadVia<T>(d: LoadDeps<T>, path: string, onSlow: () => voi
 
 /** Данные экрана по пути API; onSlow — если ответа нет 8 с. */
 export function loadScreen<T>(path: string, onSlow: () => void): Promise<Loaded<T>> {
-  return loadVia<T>({ get: (p) => appApi().get<T>(p), cache: appCache(), now: () => Date.now() }, path, onSlow);
+  return loadVia<T>({ get: (p) => appApi().get<T>(p), cache: appCache, now: () => Date.now() }, path, onSlow);
 }
