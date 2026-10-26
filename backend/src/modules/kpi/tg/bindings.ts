@@ -1,9 +1,9 @@
-// Приглашения в бота и привязки Telegram. Один telegram_id — один человек,
-// у человека одна активная привязка.
+// Приглашения в бота и привязки Telegram. На один telegram_id — не больше одной привязки
+// сотрудника и одной привязки оценщика (пользователя); у человека одна активная привязка.
 import { randomBytes } from "node:crypto";
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, kpi_tg_bindings, kpi_tg_invites, users } from "backend/drizzle/schema";
-import { and, asc, eq, gt, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, isNotNull, isNull, ne, or, sql } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type { DbLike } from "../access";
 import { now } from "../clock";
@@ -130,8 +130,10 @@ async function personActive(tx: DbLike, p: Person): Promise<boolean> {
   return rows.length > 0;
 }
 
-export type RedeemResult = { status: "bound" | "already"; name: string } | { status: "invalid"; name: null };
-const INVALID: RedeemResult = { status: "invalid", name: null };
+export type RedeemResult =
+  | { status: "bound" | "already"; name: string; dual: boolean }
+  | { status: "invalid"; name: null; dual: false };
+const INVALID: RedeemResult = { status: "invalid", name: null, dual: false };
 
 // Имя человека для сообщения «вы подключены как …»: сотрудник — «Имя Фамилия», пользователь — имя или логин.
 async function personName(tx: DbLike, p: Person): Promise<string> {
@@ -164,7 +166,9 @@ export async function redeemInvite(db: DbLike, token: string, telegramId: number
           .from(kpi_tg_bindings)
           .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true), samePerson(kpi_tg_bindings, person)));
         // Привязка и «уже» только пока человек активен: бот ему всё равно не ответит (см. bindingOf).
-        return mine && (await personActive(tx, person)) ? { status: "already", name: await personName(tx, person) } : INVALID;
+        return mine && (await personActive(tx, person))
+          ? { status: "already", name: await personName(tx, person), dual: await isDual(tx, telegramId) }
+          : INVALID;
       }
       const at = now();
       if (new Date(iso(inv.expires_at)).getTime() <= at.getTime()) return INVALID;
@@ -175,16 +179,29 @@ export async function redeemInvite(db: DbLike, token: string, telegramId: number
         .update(kpi_tg_bindings)
         .set({ active: false })
         .where(and(samePerson(kpi_tg_bindings, person), eq(kpi_tg_bindings.active, true), ne(kpi_tg_bindings.telegram_id, telegramId)));
-      // Язык при конфликте не трогаем: человек мог выбрать его раньше. created_at обновляем: это новая привязка.
+      // Язык берём у активной привязки другого вида на этом же telegram_id: обе привязки одного Telegram говорят на одном языке.
+      // Без неё при обновлении язык строки не трогаем: человек мог выбрать его раньше. created_at обновляем: это новая привязка.
+      const otherKind = person.employee_id ? kpi_tg_bindings.user_id : kpi_tg_bindings.employee_id;
+      const [sibling] = await tx
+        .select({ lang: kpi_tg_bindings.lang })
+        .from(kpi_tg_bindings)
+        .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true), isNotNull(otherKind)));
+      const lang = sibling ? asLang(sibling.lang) : undefined;
       await tx
         .insert(kpi_tg_bindings)
-        .values({ telegram_id: telegramId, employee_id: person.employee_id, user_id: person.user_id, active: true })
+        .values({ telegram_id: telegramId, employee_id: person.employee_id, user_id: person.user_id, active: true, ...(lang ? { lang } : {}) })
         .onConflictDoUpdate({
           target: kpi_tg_bindings.telegram_id,
-          set: { employee_id: person.employee_id, user_id: person.user_id, active: true, created_at: sql`now()` },
+          targetWhere: person.employee_id ? sql`employee_id is not null` : sql`user_id is not null`,
+          set: {
+            ...(person.employee_id ? { employee_id: person.employee_id } : { user_id: person.user_id! }),
+            active: true,
+            created_at: sql`now()`,
+            ...(lang ? { lang } : {}),
+          },
         });
       await tx.update(kpi_tg_invites).set({ used_at: at.toISOString() }).where(eq(kpi_tg_invites.id, inv.id));
-      return { status: "bound", name: await personName(tx, person) };
+      return { status: "bound", name: await personName(tx, person), dual: await isDual(tx, telegramId) };
     });
   } catch (e) {
     // Гонка двух погашений для одного человека упирается в частичный уникальный индекс: проигравший получает «недействительна».
@@ -201,25 +218,50 @@ const toActive = (r: typeof kpi_tg_bindings.$inferSelect): ActiveBinding => ({
   lang: asLang(r.lang),
 });
 
+export type BindingPair = { employee: ActiveBinding | null; user: ActiveBinding | null };
+
+export const langOf = (p: BindingPair): "ru" | "uz" => p.employee?.lang ?? p.user?.lang ?? "ru";
+
 // Уволенный сотрудник или неактивный пользователь бота не использует: привязка остаётся в базе, но для бота её нет.
-export async function bindingOf(db: DbLike, telegramId: number): Promise<ActiveBinding | null> {
-  const [r] = await db
+export async function bindingOf(db: DbLike, telegramId: number): Promise<BindingPair> {
+  const rows = await db
     .select()
     .from(kpi_tg_bindings)
     .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true)));
-  if (!r) return null;
-  const person = { employee_id: r.employee_id, user_id: r.user_id } as Person;
-  return (await personActive(db, person)) ? toActive(r) : null;
+  const pair: BindingPair = { employee: null, user: null };
+  for (const r of rows) {
+    const person = { employee_id: r.employee_id, user_id: r.user_id } as Person;
+    if (!(await personActive(db, person))) continue;
+    if (r.employee_id) pair.employee = toActive(r);
+    else pair.user = toActive(r);
+  }
+  return pair;
 }
 
-export async function setLang(db: DbLike, telegramId: number, lang: "ru" | "uz"): Promise<ActiveBinding | null> {
-  if (!(await bindingOf(db, telegramId))) return null;
-  const [r] = await db
+const isDual = async (db: DbLike, telegramId: number): Promise<boolean> => {
+  const p = await bindingOf(db, telegramId);
+  return !!(p.employee && p.user);
+};
+
+// Есть ли у telegram_id хоть одна активная строка; уволенность человека не проверяется (в отличие от bindingOf).
+export async function hasAnyActiveBinding(db: DbLike, telegramId: number): Promise<boolean> {
+  const rows = await db
+    .select({ id: kpi_tg_bindings.id })
+    .from(kpi_tg_bindings)
+    .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true)))
+    .limit(1);
+  return rows.length > 0;
+}
+
+// Язык один на telegram_id: меняется у всех его активных привязок. null — привязок для бота нет.
+export async function setLang(db: DbLike, telegramId: number, lang: "ru" | "uz"): Promise<BindingPair | null> {
+  const before = await bindingOf(db, telegramId);
+  if (!before.employee && !before.user) return null;
+  await db
     .update(kpi_tg_bindings)
     .set({ lang })
-    .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true)))
-    .returning();
-  return r ? toActive(r) : null;
+    .where(and(eq(kpi_tg_bindings.telegram_id, telegramId), eq(kpi_tg_bindings.active, true)));
+  return bindingOf(db, telegramId);
 }
 
 // Telegram сообщил, что писать этому человеку нельзя (заблокировал бота или удалил аккаунт): привязка больше не нужна.

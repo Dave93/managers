@@ -156,6 +156,18 @@ describe("бот", () => {
     expect(evil).not.toContain("<i>");
     expect(M.botText("start_ok", "ru")).toContain("<b>—</b>");
   });
+  it("start_ok_dual двуязычный: язык не влияет, имя подставляется", () => {
+    const ru = M.botText("start_ok_dual", "ru", { name: "Тест" });
+    expect(M.botText("start_ok_dual", "uz", { name: "Тест" })).toBe(ru);
+    expect(ru).not.toMatch(/['`’]/);
+    expect(ru.startsWith("Готово. Теперь здесь и ваши оценки, и напоминания оценщика.\n")).toBe(true);
+    expect(ru).toContain("Вы подключены как <b>Тест</b>.");
+    expect(ru).toContain("Siz <b>Тест</b> sifatida ulandingiz.");
+  });
+  it("joinMy склеивает части пустой строкой", () => {
+    expect(M.joinMy(["a", "b"])).toBe("a\n\nb");
+    expect(M.joinMy(["a"])).toBe("a");
+  });
   it("/my сотрудника и оценщика", () => {
     expect(M.myEmployeeText("ru", [{ period: "2025-10-01", score_pct: 83.33 }, { period: "2025-09-01", score_pct: 90 }],
       [{ occurred_at: "2025-11-03T05:00:00.000Z", title_ru: "Чистота кухни", title_uz: "Oshxona tozaligi" }]))

@@ -13,7 +13,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, bindTelegram, cleanupKpi, makeEmployee, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
   const { kpi_tg_bindings } = await import("backend/drizzle/schema");
-  const { bindingOf, createInvite, recipientOf, redeemInvite, setLang } = await import("../tg/bindings");
+  const { bindingOf, createInvite, deactivateByTelegramId, hasAnyActiveBinding, recipientOf, redeemInvite, setLang } = await import("../tg/bindings");
   const { employees, kpi_tg_invites, users } = await import("backend/drizzle/schema");
   const { and, gt, isNull, sql } = await import("drizzle-orm");
   const { eq } = await import("drizzle-orm");
@@ -84,21 +84,51 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await redeemInvite(db, "not-a-token", t3)).status).toBe("invalid");
     });
 
-    it("перепривязка: один telegram — один человек; второй телефон гасит первый", async () => {
+    it("на один telegram — по одной привязке каждого вида; тот же вид заменяет, другой добавляет", async () => {
       setNow("2025-10-25T10:00:00+05:00");
       const [e1, e2] = [await makeEmployee(db), await makeEmployee(db)];
       const u = await makeUser(db);
       const [t1, t2] = [newTelegramId(), newTelegramId()];
-      await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e1.id })).token, t1);
-      await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, t1);
-      const byTg = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, t1));
-      expect(byTg.map((r) => [r.employee_id, r.user_id, r.active])).toEqual([[e2.id, null, true]]);
-      await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, t2);
-      const byEmp = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.employee_id, e2.id));
-      expect(byEmp.find((r) => r.telegram_id === t1)?.active).toBe(false);
-      expect(byEmp.find((r) => r.telegram_id === t2)?.active).toBe(true);
-      await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, t2);
-      expect(await bindingOf(db, t2)).toMatchObject({ employee_id: null, user_id: u.id });
+      const inv = async (t: { employee_id: string } | { user_id: string }) => (await createInvite(db, u.id, t)).token;
+      expect(await redeemInvite(db, await inv({ employee_id: e1.id }), t1)).toMatchObject({ status: "bound", dual: false });
+      await redeemInvite(db, await inv({ employee_id: e2.id }), t1);
+      const rows = async (t: number) => (await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, t)))
+        .map((r) => [r.employee_id, r.user_id, r.active]).sort();
+      expect(await rows(t1)).toEqual([[e2.id, null, true]]);
+      expect(await redeemInvite(db, await inv({ user_id: u.id }), t1)).toMatchObject({ status: "bound", dual: true });
+      expect(await bindingOf(db, t1)).toMatchObject({ employee: { employee_id: e2.id }, user: { user_id: u.id } });
+      await redeemInvite(db, await inv({ employee_id: e2.id }), t2);           // второй телефон сотрудника
+      expect(await bindingOf(db, t1)).toMatchObject({ employee: null, user: { user_id: u.id } });
+    });
+
+    it("вторая привязка берёт язык первой; setLang и отписка — обе", async () => {
+      const e = await makeEmployee(db);
+      const u = await makeUser(db);
+      const b = await bindTelegram(db, { employee_id: e.id, lang: "uz" });
+      await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, b.telegram_id);
+      expect((await bindingOf(db, b.telegram_id)).user?.lang).toBe("uz");
+      const p = await setLang(db, b.telegram_id, "ru");
+      expect([p?.employee?.lang, p?.user?.lang]).toEqual(["ru", "ru"]);
+      await deactivateByTelegramId(db, b.telegram_id);
+      expect(await bindingOf(db, b.telegram_id)).toEqual({ employee: null, user: null });
+      expect(await hasAnyActiveBinding(db, b.telegram_id)).toBe(false);
+    });
+
+    it("переиспользованная строка того же вида тоже берёт язык другой привязки", async () => {
+      const [e1, e2] = [await makeEmployee(db), await makeEmployee(db)];
+      const u = await makeUser(db);
+      const old = await bindTelegram(db, { employee_id: e1.id, lang: "ru", active: false });   // прежняя строка сотрудника
+      await bindTelegram(db, { user_id: u.id, telegram_id: old.telegram_id, lang: "uz" });
+      await redeemInvite(db, (await createInvite(db, u.id, { employee_id: e2.id })).token, old.telegram_id);
+      const rows = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.telegram_id, old.telegram_id));
+      expect(rows.find((r) => r.id === old.id)).toMatchObject({ employee_id: e2.id, active: true, lang: "uz" });
+    });
+
+    it("индексы миграции 0040", async () => {
+      const { rows } = await db.execute(sql`select indexname from pg_indexes where tablename = 'kpi_tg_bindings'`);
+      const names = rows.map((x: any) => x.indexname);
+      expect(names).toEqual(expect.arrayContaining(["kpi_tg_bindings_tg_employee_uq", "kpi_tg_bindings_tg_user_uq"]));
+      expect(names).not.toContain("kpi_tg_bindings_telegram_uq");
     });
 
     it("привязки: только активные, проверка id, отвязка", async () => {
@@ -142,7 +172,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await db.update(users).set({ status: "blocked" }).where(eq(users.id, target.id));
       expect((await redeemInvite(db, invE.token, t1)).status).toBe("invalid");
       expect((await redeemInvite(db, invU.token, t2)).status).toBe("invalid");
-      expect(await bindingOf(db, t1)).toBeNull();
+      expect(await bindingOf(db, t1)).toEqual({ employee: null, user: null });
       // Привязка была до увольнения: получателя нет.
       await bindTelegram(db, { employee_id: e.id });
       await bindTelegram(db, { user_id: target.id });
@@ -157,14 +187,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const [emp] = await db.select().from(employees).where(eq(employees.id, e.id));
       const t = newTelegramId();
       const inv = await createInvite(db, u.id, { employee_id: e.id });
-      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "bound", name: `Тест Повар ${emp.last_name}` });
-      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "already", name: `Тест Повар ${emp.last_name}` });
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "bound", dual: false, name: `Тест Повар ${emp.last_name}` });
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "already", dual: false, name: `Тест Повар ${emp.last_name}` });
       const t2 = newTelegramId();
-      expect(await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, t2)).toEqual({ status: "bound", name: "Тест Оценщик" });
-      expect(await redeemInvite(db, "not-a-token", t2)).toEqual({ status: "invalid", name: null });
+      expect(await redeemInvite(db, (await createInvite(db, u.id, { user_id: u.id })).token, t2)).toEqual({ status: "bound", dual: false, name: "Тест Оценщик" });
+      expect(await redeemInvite(db, "not-a-token", t2)).toEqual({ status: "invalid", dual: false, name: null });
       // Человека уволили после привязки: повтор той же ссылки уже не «уже подключены».
       await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
-      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "invalid", name: null });
+      expect(await redeemInvite(db, inv.token, t)).toEqual({ status: "invalid", dual: false, name: null });
     });
 
     it("bindingOf и setLang не отдают привязку уволенного сотрудника и заблокированного пользователя", async () => {
@@ -172,12 +202,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const u = await makeUser(db);
       const be = await bindTelegram(db, { employee_id: e.id });
       const bu = await bindTelegram(db, { user_id: u.id });
-      expect(await bindingOf(db, be.telegram_id)).toMatchObject({ employee_id: e.id });
-      expect(await bindingOf(db, bu.telegram_id)).toMatchObject({ user_id: u.id });
+      expect(await bindingOf(db, be.telegram_id)).toMatchObject({ employee: { employee_id: e.id } });
+      expect(await bindingOf(db, bu.telegram_id)).toMatchObject({ user: { user_id: u.id } });
       await db.update(employees).set({ active: false }).where(eq(employees.id, e.id));
       await db.update(users).set({ status: "blocked" }).where(eq(users.id, u.id));
-      expect(await bindingOf(db, be.telegram_id)).toBeNull();
-      expect(await bindingOf(db, bu.telegram_id)).toBeNull();
+      expect(await bindingOf(db, be.telegram_id)).toEqual({ employee: null, user: null });
+      expect(await bindingOf(db, bu.telegram_id)).toEqual({ employee: null, user: null });
       expect(await setLang(db, be.telegram_id, "uz")).toBeNull();
       expect(await setLang(db, bu.telegram_id, "uz")).toBeNull();
       const [row] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, be.id));

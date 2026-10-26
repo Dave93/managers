@@ -15,8 +15,8 @@ import { laggingEvaluators } from "../periods";
 import { loadSettings } from "../settings";
 import { currentReviewPeriod, disputeDeadline, periodOf, reviewDeadline } from "../time";
 import type { BotApi } from "./bot-api";
-import { bindingOf, redeemInvite, setLang, type ActiveBinding } from "./bindings";
-import { LANG_KEYBOARD, botText, myEmployeeText, myUserText, type BotTextKey, type Lang, type OutMessage } from "./messages";
+import { bindingOf, langOf, redeemInvite, setLang } from "./bindings";
+import { LANG_KEYBOARD, botText, joinMy, myEmployeeText, myUserText, type BotTextKey, type Lang, type OutMessage } from "./messages";
 import type { BotUpdate } from "./updates";
 
 export const DISPUTE_STATE_TTL = 900;
@@ -65,32 +65,34 @@ function parseState(raw: string | null): DisputeState | null {
   return null;
 }
 
-async function myText(db: DrizzleDB, b: ActiveBinding): Promise<string> {
+async function myEmployeeSummary(db: DrizzleDB, lang: Lang, employeeId: string): Promise<string> {
   const at = now();
-  if (b.employee_id) {
-    const reviews = await db
-      .select({ period: kpi_reviews.period, score_pct: kpi_reviews.score_pct })
-      .from(kpi_reviews)
-      .where(and(eq(kpi_reviews.employee_id, b.employee_id), eq(kpi_reviews.status, "submitted")))
-      .orderBy(desc(kpi_reviews.period))
-      .limit(3);
-    const viol = await db
-      .select({ occurred_at: kpi_violations.occurred_at, title_ru: kpi_violations.item_title_ru, title_uz: kpi_card_items.title_uz })
-      .from(kpi_violations)
-      .leftJoin(kpi_card_items, eq(kpi_card_items.id, kpi_violations.card_item_id))
-      .where(and(eq(kpi_violations.employee_id, b.employee_id), eq(kpi_violations.status, "active"), eq(kpi_violations.period, periodOf(at))))
-      .orderBy(asc(kpi_violations.occurred_at))
-      .limit(30);
-    return myEmployeeText(
-      b.lang,
-      reviews.map((r) => ({ period: r.period, score_pct: r.score_pct === null ? null : Number(r.score_pct) })),
-      viol.map((v) => ({ occurred_at: iso(v.occurred_at), title_ru: v.title_ru, title_uz: v.title_uz }))
-    );
-  }
+  const reviews = await db
+    .select({ period: kpi_reviews.period, score_pct: kpi_reviews.score_pct })
+    .from(kpi_reviews)
+    .where(and(eq(kpi_reviews.employee_id, employeeId), eq(kpi_reviews.status, "submitted")))
+    .orderBy(desc(kpi_reviews.period))
+    .limit(3);
+  const viol = await db
+    .select({ occurred_at: kpi_violations.occurred_at, title_ru: kpi_violations.item_title_ru, title_uz: kpi_card_items.title_uz })
+    .from(kpi_violations)
+    .leftJoin(kpi_card_items, eq(kpi_card_items.id, kpi_violations.card_item_id))
+    .where(and(eq(kpi_violations.employee_id, employeeId), eq(kpi_violations.status, "active"), eq(kpi_violations.period, periodOf(at))))
+    .orderBy(asc(kpi_violations.occurred_at))
+    .limit(30);
+  return myEmployeeText(
+    lang,
+    reviews.map((r) => ({ period: r.period, score_pct: r.score_pct === null ? null : Number(r.score_pct) })),
+    viol.map((v) => ({ occurred_at: iso(v.occurred_at), title_ru: v.title_ru, title_uz: v.title_uz }))
+  );
+}
+
+async function myUserSummary(db: DrizzleDB, lang: Lang, userId: string): Promise<string> {
+  const at = now();
   const s = await loadSettings(db);
   const period = currentReviewPeriod(at, s.review_deadline_day);
-  const row = (await laggingEvaluators(db, period)).find((l) => l.user_id === b.user_id);
-  return myUserText(b.lang, period, row?.pending ?? 0, reviewDeadline(period, s.review_deadline_day).toISOString());
+  const row = (await laggingEvaluators(db, period)).find((l) => l.user_id === userId);
+  return myUserText(lang, period, row?.pending ?? 0, reviewDeadline(period, s.review_deadline_day).toISOString());
 }
 
 // Код ошибки openDispute → ключ ответа. Неизвестное — общее сообщение.
@@ -119,12 +121,13 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
     if (u.token) {
       const r = await redeemInvite(db, u.token, u.fromId);
       if (r.status === "invalid") return say("ru", "start_bad");
-      return say("ru", "start_ok", { name: r.name, reply_markup: LANG_KEYBOARD });
+      return say("ru", r.dual ? "start_ok_dual" : "start_ok", { name: r.name, reply_markup: LANG_KEYBOARD });
     }
     if (u.hasPayload) return say("ru", "start_bad");
-    const b = await bindingOf(db, u.fromId);
-    if (b) setLangOf(b.lang);
-    return b ? say(b.lang, "already_bound") : say("ru", "not_bound");
+    const pair = await bindingOf(db, u.fromId);
+    const any = !!(pair.employee || pair.user);
+    if (any) setLangOf(langOf(pair));
+    return any ? say(langOf(pair), "already_bound") : say("ru", "not_bound");
   }
 
   if (u.type === "callback") {
@@ -133,41 +136,50 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
     const a = u.action;
     if (a.kind === "unknown") return;
     if (a.kind === "lang") {
-      const b = await setLang(db, u.fromId, a.lang);
-      return b ? say(b.lang, "lang_set") : say("ru", "not_bound");
+      const p = await setLang(db, u.fromId, a.lang);
+      return p ? say(langOf(p), "lang_set") : say("ru", "not_bound");
     }
-    const b = await bindingOf(db, u.fromId);
-    if (b) setLangOf(b.lang);
-    if (!b || !b.employee_id) return say(b?.lang ?? "ru", "not_bound");
+    const pair = await bindingOf(db, u.fromId);
+    const lang = langOf(pair);
+    if (pair.employee || pair.user) setLangOf(lang);
+    // Спорить может только сотрудник; у одной привязки оценщика кнопки «Оспорить» нет, а чужая нажатая — «не подключён».
+    if (!pair.employee) return say(lang, "not_bound");
+    const employeeId = pair.employee.employee_id!;
     const owner = await ownerOf(db, a.subject_type, a.subject_id);
-    if (!owner || owner.employee_id !== b.employee_id) return say(b.lang, "err_unavailable");
+    if (!owner || owner.employee_id !== employeeId) return say(lang, "err_unavailable");
     const settings = await loadSettings(db);
-    if (now().getTime() > disputeDeadline(owner.period, settings.dispute_deadline_day).getTime()) return say(b.lang, "err_window");
-    const state: DisputeState = { subject_type: a.subject_type, subject_id: a.subject_id, employee_id: b.employee_id };
+    if (now().getTime() > disputeDeadline(owner.period, settings.dispute_deadline_day).getTime()) return say(lang, "err_window");
+    const state: DisputeState = { subject_type: a.subject_type, subject_id: a.subject_id, employee_id: employeeId };
     await redis.set(stateKey, JSON.stringify(state), "EX", DISPUTE_STATE_TTL);
-    return say(b.lang, "ask_reason", { min: settings.change_comment_min, reply_markup: { force_reply: true } });
+    return say(lang, "ask_reason", { min: settings.change_comment_min, reply_markup: { force_reply: true } });
   }
 
-  const b = await bindingOf(db, u.fromId);
-  if (b) setLangOf(b.lang);
-  const lang: Lang = b?.lang ?? "ru";
+  const pair = await bindingOf(db, u.fromId);
+  const bound = !!(pair.employee || pair.user);
+  const lang: Lang = langOf(pair);
+  if (bound) setLangOf(lang);
 
   if (u.type === "my") {
-    if (!b) return say(lang, "not_bound");
-    const res = await api.send(u.chatId, { text: await myText(db, b) });
+    if (!bound) return say(lang, "not_bound");
+    // Сначала оценщик, потом сотрудник.
+    const parts = [
+      ...(pair.user ? [await myUserSummary(db, lang, pair.user.user_id!)] : []),
+      ...(pair.employee ? [await myEmployeeSummary(db, lang, pair.employee.employee_id!)] : []),
+    ];
+    const res = await api.send(u.chatId, { text: joinMy(parts) });
     if (!res.ok) console.error(`kpi bot: sendMessage не удался (my): ${redact(res.error)}`);
     return;
   }
-  if (u.type === "help") return say(lang, b ? "help" : "not_bound");
+  if (u.type === "help") return say(lang, bound ? "help" : "not_bound");
 
   // text
   const state = parseState(await redis.get(stateKey));
   if (!state) {
     // Состояния нет (истекло, спор уже открыт или в Redis мусор): как /help.
-    return say(lang, b ? "help" : "not_bound");
+    return say(lang, bound ? "help" : "not_bound");
   }
   const owner = await ownerOf(db, state.subject_type, state.subject_id);
-  if (!b || !b.employee_id || b.employee_id !== state.employee_id || !owner || owner.employee_id !== state.employee_id) {
+  if (!pair.employee || pair.employee.employee_id !== state.employee_id || !owner || owner.employee_id !== state.employee_id) {
     await redis.del(stateKey);
     return say(lang, "err_unavailable");
   }

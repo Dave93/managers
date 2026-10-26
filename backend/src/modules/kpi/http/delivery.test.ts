@@ -16,7 +16,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { users } = await import("backend/drizzle/schema");
   const { enqueue } = await import("../notify");
   const { deliverOne, pendingIds, stuckSendingCount, sweepPending } = await import("../worker/deliver");
-  const { eq, sql } = await import("drizzle-orm");
+  const { and, eq, sql } = await import("drizzle-orm");
   type BotApi = import("../tg/bot-api").BotApi;
 
   describe("kpi: доставка уведомления и подметалка", () => {
@@ -124,12 +124,18 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const e = await makeEmployee(db);
         const b = await bindTelegram(db, { employee_id: e.id });
         const other = await bindTelegram(db, { employee_id: (await makeEmployee(db)).id });
+        // На том же telegram_id висит и привязка оценщика: гасятся обе.
+        const evalBind = await bindTelegram(db, { user_id: (await makeUser(db)).id, telegram_id: b.telegram_id });
         const id = await note({ employee_id: e.id });
         expect(await go(id, fakeBotApi([{ ok: false, permanent: true, error }]).api)).toEqual({ result: "failed", error });
         const r = await row(id);
         expect([r.status, r.last_error]).toEqual(["failed", error]);
         const [bind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, b.id));
         expect(bind.active).toBe(false);
+        const [evalRow] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, evalBind.id));
+        expect(evalRow.active).toBe(false);
+        const live = await db.select().from(kpi_tg_bindings).where(and(eq(kpi_tg_bindings.telegram_id, b.telegram_id), eq(kpi_tg_bindings.active, true)));
+        expect(live).toHaveLength(0);
         const [otherBind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, other.id));
         expect(otherBind.active).toBe(true);
         const f = fakeBotApi();

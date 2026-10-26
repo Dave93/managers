@@ -137,7 +137,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await hook(press(b.telegram_id, "lang:uz"));
       expect(f.answered).toContain(`cb-${b.telegram_id}`);
       expect(last().text).toBe("Til: oʻzbekcha. /my buyrugʻi — qisqacha maʼlumot.");
-      expect((await bindingOf(db, b.telegram_id))?.lang).toBe("uz");
+      expect((await bindingOf(db, b.telegram_id)).employee?.lang).toBe("uz");
     });
 
     it("/my сотрудника: три последние оценки и нарушения текущего месяца", async () => {
@@ -180,6 +180,21 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const b = await bindTelegram(db, { user_id: ev.id });
       await hook(say(b.telegram_id, "/my"));
       expect(last().text).toBe("<b>Оценки за октябрь 2025</b>\nЖдут вашей оценки: 1 сотрудник.\nСрок: 07.11.2025 23:59.");
+    });
+
+    it("две привязки: /start второй ссылки — «Теперь здесь и…»; /my — сначала оценщик, потом сотрудник; спор работает", async () => {
+      const { reviewId, employee } = await submittedReview();          // 2025-10-25, окно спора открыто
+      const u = await makeUser(db);
+      const b = await bindTelegram(db, { employee_id: employee.id });
+      const inv = await createInvite(db, u.id, { user_id: u.id });
+      await hook(say(b.telegram_id, `/start kpi_${inv.token}`));
+      expect(last().text.startsWith("Готово. Теперь здесь и ваши оценки, и напоминания оценщика.\n")).toBe(true);
+      await hook(say(b.telegram_id, "/my"));
+      const t = last().text;
+      expect(t.indexOf("<b>Оценки за")).toBeLessThan(t.indexOf("<b>Ваши оценки</b>"));
+      expect(t).toContain("\n\n<b>Ваши оценки</b>");
+      await hook(press(b.telegram_id, `dispute:review:${reviewId}`));
+      expect(last().text).toBe("Напишите причину спора ответом на это сообщение, не короче 5 символов. Ждём 15 минут.");
     });
 
     it("спор из бота: кнопка → короткая причина → причина → спор opened_via telegram; повтор текста — подсказка", async () => {

@@ -367,6 +367,7 @@ export function buildMessage(kind: string, payload: Record<string, unknown>, ctx
 
 export type BotTextKey =
   | "start_ok"
+  | "start_ok_dual"
   | "start_bad"
   | "not_bound"
   | "already_bound"
@@ -386,6 +387,12 @@ const BOTH_START_OK =
   "Вы подключены как <b>{name}</b>. Если это не вы — сообщите HR.\n" +
   "Siz <b>{name}</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar bering.\n\n" +
   "Выберите язык / Tilni tanlang:";
+// Вторая привязка на тот же Telegram: сотрудник и оценщик в одном чате.
+const BOTH_START_OK_DUAL =
+  "Готово. Теперь здесь и ваши оценки, и напоминания оценщика.\nTayyor. Endi bu yerda baholaringiz ham, baholovchi eslatmalari ham keladi.\n\n" +
+  "Вы подключены как <b>{name}</b>. Если это не вы — сообщите HR.\n" +
+  "Siz <b>{name}</b> sifatida ulandingiz. Agar bu siz boʻlmasangiz, HRga xabar bering.\n\n" +
+  "Выберите язык / Tilni tanlang:";
 const BOTH_START_BAD =
   "Ссылка недействительна или устарела. Попросите новую у HR.\nHavola yaroqsiz yoki eskirgan. HR dan yangisini soʻrang.";
 const BOTH_NOT_BOUND =
@@ -393,6 +400,7 @@ const BOTH_NOT_BOUND =
 
 const BOT_TEXT: Record<BotTextKey, Record<Lang, string>> = {
   start_ok: { ru: BOTH_START_OK, uz: BOTH_START_OK },
+  start_ok_dual: { ru: BOTH_START_OK_DUAL, uz: BOTH_START_OK_DUAL },
   start_bad: { ru: BOTH_START_BAD, uz: BOTH_START_BAD },
   not_bound: { ru: BOTH_NOT_BOUND, uz: BOTH_NOT_BOUND },
   already_bound: {
@@ -469,4 +477,9 @@ export function myUserText(lang: Lang, period: string, pending: number, deadline
   return lang === "ru"
     ? `<b>Оценки за ${month}</b>\nВсе ваши сотрудники оценены.`
     : `<b>${month} baholari</b>\nBarcha xodimlaringiz baholangan.`;
+}
+
+// /my на двух привязках: части через пустую строку, общий лимит Telegram.
+export function joinMy(parts: string[]): string {
+  return fitTelegram(parts.join("\n\n"));
 }

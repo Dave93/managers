@@ -281,6 +281,13 @@
       "when": 1792926678670,
       "tag": "0039_kpi_branch",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793010443424,
+      "tag": "0040_kpi_tg_dual",
+      "breakpoints": true
     }
   ]
 }

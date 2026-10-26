@@ -3140,7 +3140,9 @@ export const kpi_tg_bindings = pgTable(
     created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
   },
   (t) => [
-    uniqueIndex("kpi_tg_bindings_telegram_uq").on(t.telegram_id),
+    // На один telegram_id — не больше одной строки каждого вида: сотрудник и оценщик.
+    uniqueIndex("kpi_tg_bindings_tg_employee_uq").on(t.telegram_id).where(sql`${t.employee_id} is not null`),
+    uniqueIndex("kpi_tg_bindings_tg_user_uq").on(t.telegram_id).where(sql`${t.user_id} is not null`),
     uniqueIndex("kpi_tg_bindings_employee_active_uq")
       .on(t.employee_id)
       .where(sql`${t.active} and ${t.employee_id} is not null`),
