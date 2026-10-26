@@ -42,6 +42,7 @@
   --notice-bg: #fdf3df;
   --notice-ink: #6e4600;
   --float-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  --scrim: rgba(0, 0, 0, 0.4); /* затемнение под шторкой */
 
   --font: -apple-system, BlinkMacSystemFont, Roboto, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
   --fs-label: 12px; /* подписи шкалы, метки */
@@ -81,6 +82,7 @@
   --notice-bg: #33290f;
   --notice-ink: #f2c66d;
   --float-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  --scrim: rgba(0, 0, 0, 0.6);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-scheme]) {
@@ -104,6 +106,7 @@
     --notice-bg: #33290f;
     --notice-ink: #f2c66d;
     --float-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+    --scrim: rgba(0, 0, 0, 0.6);
   }
 }
 
@@ -867,6 +870,257 @@ svg {
   line-height: 22px;
 }
 
+/* ---------- вся оценка ---------- */
+
+/* Пункт: название и источник слева, целый балл справа, под ними полоска. Полоска — главный
+   элемент данных экрана: заливка оттенком Telegram на дорожке --rail, как шкала прибавки;
+   недобранное до 100 остаётся пустой дорожкой. Заметка оценщика — в лунке под пунктом. */
+.item-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.item {
+  padding: 12px 0;
+}
+.item:last-child {
+  padding-bottom: 0;
+}
+.item + .item {
+  border-top: 1px solid var(--line);
+}
+.item-head {
+  display: flex;
+  align-items: flex-start;
+}
+.item-name {
+  flex: 1;
+  min-width: 0;
+}
+.item-title {
+  display: block;
+  line-height: 22px;
+}
+.item-src {
+  display: block;
+  font-size: var(--fs-note);
+  line-height: 18px;
+  color: var(--muted);
+}
+.item-score {
+  flex: none;
+  margin-left: 12px;
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+  text-align: right;
+}
+/* Балла нет — серый прочерк обычного веса: не ноль и не загрузка. */
+.item-score.is-empty {
+  font-weight: 400;
+  color: var(--muted);
+}
+.item-bar {
+  height: 4px;
+  margin-top: 8px;
+  border-radius: 2px;
+  background: var(--rail);
+  overflow: hidden;
+}
+.item-fill {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--hue);
+}
+.item-hint {
+  margin-top: 2px;
+  font-size: var(--fs-note);
+  line-height: 18px;
+  color: var(--muted);
+}
+.item-note {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+/* Изменения после отправки: строка «дата: было → стало» и причина под ней. */
+.change-list {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.change {
+  padding: 10px 0;
+}
+.change:last-child {
+  padding-bottom: 0;
+}
+.change + .change {
+  border-top: 1px solid var(--line);
+}
+.change-line {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+}
+.change-reason {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.resolved-comment {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 20px;
+}
+/* Вместо «Оспорить» — почему нельзя: на фоне экрана, по краю текста заголовка. */
+.dispute-line {
+  padding: 2px 4px 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.notfound {
+  line-height: 22px;
+}
+
+/* ---------- шторка спора ---------- */
+
+/* Шторка снизу над затемнением. Высота — видимая область мини-приложения: SDK Telegram
+   держит её в --tg-viewport-height (за вычетом своей нижней панели и с клавиатурой), без
+   SDK — весь экран. Шторка не выше области без 56 px сверху и прокручивается внутри, так что
+   поле и ошибка под ним видны и с поднятой клавиатурой. */
+html.sheet-open,
+html.sheet-open body {
+  overflow: hidden;
+}
+.sheet-veil {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  height: 100%;
+  height: var(--tg-viewport-height, 100%);
+  /* Клиент мог сжать WebView под клавиатуру, не прислав новую высоту: тогда в переменной
+     старые пиксели. Шторка всё равно не ниже настоящего окна. */
+  max-height: 100%;
+  background: var(--scrim);
+  animation: veil-in 0.16s ease-out;
+}
+.sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100% - 56px);
+  margin: 0 auto;
+  padding: 20px var(--pad) 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border-radius: var(--r-card) var(--r-card) 0 0;
+  background: var(--surface);
+  /* Единственное, что парит над экраном, кроме подсказки о плохой связи. */
+  box-shadow: var(--float-shadow);
+  animation: sheet-in 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.sheet-title {
+  font-size: 17px;
+  line-height: 24px;
+  font-weight: 600;
+}
+.sheet-hint {
+  margin-top: 4px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+/* 16 px: на меньшем шрифте iOS увеличивает страницу при фокусе в поле. */
+.sheet-field {
+  display: block;
+  width: 100%;
+  min-height: 112px;
+  margin: 16px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--rail);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 22px;
+  resize: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.sheet-field::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+.sheet-field[readonly] {
+  opacity: 0.7;
+}
+.sheet-meta {
+  display: flex;
+  align-items: baseline;
+  margin-top: 8px;
+  font-size: var(--fs-note);
+  line-height: 18px;
+  color: var(--muted);
+}
+.sheet-min {
+  flex: 1;
+  min-width: 0;
+}
+.sheet-count {
+  flex: none;
+  margin-left: 12px;
+}
+.sheet-count.is-ok {
+  color: var(--ok-ink);
+  font-weight: 600;
+}
+/* Ошибка под полем. Пустая не занимает места, но остаётся в дереве: role="alert" прочитает текст. */
+.sheet-error {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--warn-ink);
+}
+.sheet-error:empty {
+  margin-top: 0;
+}
+.sheet-send {
+  margin-top: 16px;
+}
+@keyframes sheet-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes veil-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ---------- скелетон ---------- */
 
 /* Окончательная раскладка, где вместо значений плоские бруски их настоящего размера.
@@ -1075,7 +1329,9 @@ svg {
 @media (prefers-reduced-motion: reduce) {
   .sk,
   .slow-dots i,
-  .lang-opt.is-busy .lang-pill {
+  .lang-opt.is-busy .lang-pill,
+  .sheet,
+  .sheet-veil {
     animation: none;
   }
   .lang-pill {

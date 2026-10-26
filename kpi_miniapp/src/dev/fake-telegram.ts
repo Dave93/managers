@@ -113,15 +113,21 @@ export function installFakeTelegram(search: string): void {
   let visible = false;
   let active = true;
   let progress = false;
-  let leaveActive = false;
   // Неактивная кнопка — настоящий disabled: клик по ней не доходит до обработчиков, как в Telegram.
   const paint = (): void => {
     main.textContent = progress ? "…" : text;
-    main.disabled = !active || (progress && !leaveActive);
-    main.style.opacity = main.disabled ? "0.55" : "1";
+    main.disabled = !active;
+    // Неактивная — сплошным серым, а не полупрозрачной: в Telegram под кнопкой страницы нет,
+    // и сквозь неё не должно просвечивать то, что под ней в Chrome.
+    main.style.background = main.disabled ? color("secondary_bg_color") : color("button_color");
+    main.style.color = main.disabled ? color("hint_color") : color("button_text_color");
     main.style.cursor = main.disabled ? "default" : "pointer";
     main.style.display = visible ? "block" : "none";
     mainSpacer.style.display = visible ? "block" : "none";
+    // В Telegram кнопка — вне страницы, и видимая область короче на её высоту. SDK держит её в
+    // --tg-viewport-height (вне Telegram — calc(100vh - нижняя панель)); здесь то же самое,
+    // иначе низ шторки уходил бы под поддельную кнопку.
+    document.documentElement.style.setProperty("--tg-viewport-height", visible ? "calc(100vh - 56px)" : "100vh");
   };
   main.style.cssText =
     `position:fixed;left:0;right:0;bottom:0;width:100%;height:56px;margin:0;padding:0 16px;border:0;border-radius:0;` +
@@ -150,13 +156,15 @@ export function installFakeTelegram(search: string): void {
       active = false;
       paint();
     },
+    // Как в SDK: прогресс гасит кнопку (если не leaveActive), а снятие прогресса снова её включает.
     showProgress(leave?: boolean): void {
       progress = true;
-      leaveActive = leave === true;
+      active = leave === true;
       paint();
     },
     hideProgress(): void {
       progress = false;
+      active = true;
       paint();
     },
     onClick(cb: Fn): void {

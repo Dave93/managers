@@ -290,10 +290,14 @@ export function staleBanner(at: number, retry?: () => void): HTMLElement {
 
 let backHandler: (() => void) | null = null;
 
-/** Telegram BackButton: виден с обработчиком, скрыт при null. Прежний обработчик снимается. */
-export function setBack(onBack: (() => void) | null): void {
+/**
+ * Telegram BackButton: виден с обработчиком, скрыт при null. Прежний обработчик снимается и
+ * возвращается: шторка ставит свой «назад» поверх экранного и при закрытии отдаёт его обратно.
+ */
+export function setBack(onBack: (() => void) | null): (() => void) | null {
+  const prev = backHandler;
   const bb = webApp()?.BackButton;
-  if (!bb) return;
+  if (!bb) return prev;
   try {
     if (backHandler) bb.offClick(backHandler);
     backHandler = onBack;
@@ -304,4 +308,5 @@ export function setBack(onBack: (() => void) | null): void {
   } catch {
     // Старый клиент без BackButton: назад ведёт системная кнопка Telegram.
   }
+  return prev;
 }

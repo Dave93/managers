@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { TgHome, TgLang, TgRole } from "@backend/modules/kpi/tg-app/types";
+import type { TgHome, TgLang, TgReview, TgRole } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
 import { appCache } from "./cache";
@@ -25,10 +25,13 @@ import { provideNav } from "./nav";
 import type { Route } from "./route";
 import { hashOf, parseHash } from "./route";
 import { renderHome } from "./screens/home";
+import { renderReview } from "./screens/review";
+import { closeDisputeSheet } from "./sheet";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
 import { homeView } from "./view/home";
+import { reviewView } from "./view/review";
 
 // Константа сборки из vite.config.ts (решение 1): true только под `vite serve`.
 declare const __KPI_DEV__: boolean;
@@ -47,9 +50,11 @@ interface Screen {
   path: string;
   kind: "home" | "list";
   render(data: unknown): HTMLElement;
+  // Заголовок экрана над «Запись не найдена» (404): человек видит, какой месяц не нашёлся.
+  title?: string;
 }
 
-// Заглушки до задач 6–7: заголовок маршрута.
+// Заглушки до задачи 7: заголовок маршрута.
 function stub(title: string): HTMLElement {
   return h("main", { class: "screen" }, h("h1", { class: "title" }, title));
 }
@@ -61,7 +66,13 @@ function screenOf(r: Route): Screen {
       // прошёл, а перезагрузка упала без сети) рисуется уже на новом языке.
       return { path: "/home", kind: "home", render: (d) => renderHome(homeView(d as TgHome, lang(), Date.now()), d as TgHome) };
     case "review":
-      return { path: `/review?period=${r.period}`, kind: "list", render: () => stub(capFirst(monthName(r.period, "nom", lang()))) };
+      // Как у главного: вид от lang(), а не от языка в ответе.
+      return {
+        path: `/review?period=${r.period}`,
+        kind: "list",
+        render: (d) => renderReview(reviewView(d as TgReview, lang()), d as TgReview),
+        title: capFirst(monthName(r.period, "nom", lang())),
+      };
     case "violations":
       return {
         path: `/violations?period=${r.period}`,
@@ -156,6 +167,9 @@ async function showAsync(keep: boolean): Promise<void> {
   const my = ++seq;
   const entry = top();
   const sc = screenOf(entry.route);
+  // Шторка спора живёт вне #app: уход с экрана и перерисовка закрывают её вместе с MainButton
+  // и её «назад» — до того, как роутер поставит свой.
+  closeDisputeSheet();
   setBack(stack.length > 1 ? back : null);
   // Скелетон старта уже на месте: второй не ставим, подсказка старта продолжает отсчёт.
   if (!keep && !showingSkeleton(sc.kind)) mount(skeleton(sc.kind));
@@ -179,16 +193,45 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
     window.scrollTo(0, entry.y);
     return;
   }
-  // 404 и прочие ответы с кодом разбирают экраны задач 6–7.
   if (res.kind === "http") {
+    // Роль сотрудника сняли, пока приложение открыто (решение 18 посреди работы): вместо
+    // «Повторить», который снова получит 403, — главный экран; он же поправит роли.
+    if (res.error === "not_employee") {
+      goHome();
+      return;
+    }
+    // Черновик, чужое и несуществующее неотличимы (план 6): «Запись не найдена», а назад
+    // ведёт BackButton — стек здесь всегда глубже главного.
+    if (res.code === 404) {
+      mount(notFound(sc));
+      return;
+    }
     mount(statusScreen("unknown", () => show(false)));
     return;
   }
   refuse(res.status);
 }
 
+function notFound(sc: Screen): HTMLElement {
+  return h(
+    "main",
+    { class: "screen" },
+    sc.title ? h("h1", { class: "title" }, sc.title) : null,
+    h("p", { class: "card notfound", role: "status" }, t("err_not_found")),
+  );
+}
+
+/** Стек — только главный, хеш «#/»; свежий главный экран принесёт роли заново. */
+function goHome(): void {
+  stack = [{ route: HOME, y: 0 }];
+  history.replaceState(null, "", hashOf(HOME));
+  show(false);
+}
+
 /** Отказ посреди работы. Без сети и при сбое — «Повторить» и «назад»; остальное не восстановить. */
 function refuse(s: FailStatus): void {
+  // Шторка могла открыться, пока шла перерисовка: её «назад» не должен пережить отказ.
+  closeDisputeSheet();
   if (s === "offline" || s === "unknown") {
     mount(statusScreen(s, () => show(false)));
     return;
