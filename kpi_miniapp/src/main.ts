@@ -105,8 +105,8 @@ function useLang(l: TgLang): void {
   document.documentElement.setAttribute("lang", l);
 }
 
-// Главный экран приносит язык и роли: после смены языка или в работе без сети
-// (старт из кэша) они берутся отсюда.
+// Свежий главный экран приносит язык и роли (после смены языка — уже новый); при
+// старте без сети их больше взять негде, кроме сохранённой копии.
 function adoptHome(d: TgHome): void {
   useLang(d.lang);
   roles = d.roles;
@@ -194,7 +194,9 @@ async function showAsync(keep: boolean): Promise<void> {
 
 function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
   if (res.kind === "fresh" || res.kind === "stale") {
-    if (entry.route.name === "home") adoptHome(res.data as TgHome);
+    // Только свежий ответ: старая копия вернула бы язык, который человек только что
+    // сменил (PUT /lang прошёл, а перезагрузка главного упала без сети).
+    if (res.kind === "fresh" && entry.route.name === "home") adoptHome(res.data as TgHome);
     const view = sc.render(res.data);
     if (res.kind === "stale") view.insertBefore(staleBanner(res.at, rerender), view.firstChild);
     mount(view);
@@ -235,6 +237,7 @@ async function start(): Promise<void> {
     // Сети нет, но главный экран уже открывали: показываем его с пометкой времени.
     const cached = appCache().load<TgHome>("/home");
     if (cached) {
+      adoptHome(cached.data);
       stack = [{ route: HOME, y: 0 }];
       setBack(null);
       present({ kind: "stale", data: cached.data, at: cached.at }, screenOf(HOME), top());
