@@ -82,6 +82,16 @@ export type Lagging = { user_id: string; user_name: string; pending: number };
 // Отстающие: у каждого оценщика с назначениями считаем покрытых сотрудников без отправленной оценки.
 // Без rows сеть грузится здесь; сводка периода передаёт уже загруженную.
 export async function laggingEvaluators(db: DbLike, period: Period, rows?: EmployeeRow[]): Promise<Lagging[]> {
+  return (await evaluatorCoverage(db, period, rows)).lagging;
+}
+
+// unassigned — сотрудники без отправленной оценки, которых не покрывает ни одно назначение:
+// их некому оценить, и в списке отстающих оценщиков они не видны.
+async function evaluatorCoverage(
+  db: DbLike,
+  period: Period,
+  rows?: EmployeeRow[]
+): Promise<{ lagging: Lagging[]; unassigned: number }> {
   const netRows = rows ?? (await listEmployeeRows(db, NETWORK_VIEW, { period }));
   const scopeRows = await db
     .select({
@@ -100,10 +110,14 @@ export async function laggingEvaluators(db: DbLike, period: Period, rows?: Emplo
     ).length;
     if (pending > 0) found.push({ user_id, pending });
   }
+  const unassigned = pendingRows.filter(
+    (r) => !scopeCovers(scopeRows, { terminal_id: r.terminal_id, card_id: r.card!.id })
+  ).length;
   const names = await userNames(db, found.map((f) => f.user_id));
-  return found
+  const lagging = found
     .map((f) => ({ ...f, user_name: names.get(f.user_id) ?? f.user_id }))
     .sort((a, b) => b.pending - a.pending || a.user_name.localeCompare(b.user_name, "ru") || a.user_id.localeCompare(b.user_id));
+  return { lagging, unassigned };
 }
 
 export async function periodSummary(db: DbLike, actor: Actor, period: Period): Promise<PeriodSummary> {
@@ -136,8 +150,9 @@ export async function periodSummary(db: DbLike, actor: Actor, period: Period): P
 
   // Отстающие: у каждого оценщика с назначениями считаем покрытых сотрудников без отправленной оценки.
   let lagging: PeriodSummary["lagging"] = [];
+  let unassigned = 0;
   if (has(actor, "kpi.approve") || has(actor, "kpi.manage")) {
-    lagging = await laggingEvaluators(db, period, netRows);
+    ({ lagging, unassigned } = await evaluatorCoverage(db, period, netRows));
   }
 
   const { blockers } = await blockersOf(db, period, settings.dispute_deadline_day);
@@ -149,6 +164,7 @@ export async function periodSummary(db: DbLike, actor: Actor, period: Period): P
     deadlines: deadlinesOf(period, settings),
     counts,
     lagging,
+    unassigned,
     can_close: blockers.length === 0,
     close_blockers: blockers,
   };

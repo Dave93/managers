@@ -188,6 +188,8 @@ export interface PeriodSummary {
   deadlines: Deadlines;
   counts: { employees: number; submitted: number; drafts: number; none: number; late: number; open_disputes: number };
   lagging: { user_id: string; user_name: string; pending: number }[];
+  // Без отправленной оценки и без оценщика; только для approve/manage, иначе 0.
+  unassigned: number;
   can_close: boolean;
   close_blockers: string[];
 }

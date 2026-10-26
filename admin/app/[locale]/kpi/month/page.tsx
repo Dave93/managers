@@ -135,8 +135,15 @@ function SummaryView({ period, data, canApprove }: { period: string; data: Perio
 
       <section className="space-y-2">
         <h2 className="text-base font-medium">Кто не оценил</h2>
+        {data.unassigned > 0 && (
+          <p role="status" className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+            Без оценщика: {data.unassigned}. Этих сотрудников некому оценить — назначьте оценщика в настройках, вкладка «Оценщики».
+          </p>
+        )}
         {data.lagging.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Все оценщики отправили оценки</p>
+          <p className="text-sm text-muted-foreground">
+            {data.unassigned > 0 ? "Назначенные оценщики отправили все оценки" : "Все оценщики отправили оценки"}
+          </p>
         ) : (
           <div className="overflow-x-auto rounded-md border">
             <Table>

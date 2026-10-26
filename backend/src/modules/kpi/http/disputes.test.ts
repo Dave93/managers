@@ -506,5 +506,18 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const nobody = await withSession({ permissions: ["kpi.evaluate"] });
       expect((await api(nobody, "GET", `/api/kpi/periods/${P}`)).status).toBe(403);
     });
+
+    it("сводка: unassigned — сотрудники без оценщика, видны только approve/manage", async () => {
+      await resetPeriod();
+      const hr = await withSession({ permissions: ["kpi.approve"] });
+      const unassigned = async (s: Session) => ((await api(s, "GET", `/api/kpi/periods/${P}`)).body as PeriodSummary).unassigned;
+      const before = await unassigned(hr);
+      const lone = await cook(); // новый филиал, назначений на него нет
+      expect(await unassigned(hr)).toBe(before + 1);
+      await evaluator(lone.terminal_id);
+      expect(await unassigned(hr)).toBe(before);
+      const viewer = await withSession({ permissions: ["kpi.view"], terminals: [lone.terminal_id] });
+      expect(await unassigned(viewer)).toBe(0);
+    });
   });
 }
