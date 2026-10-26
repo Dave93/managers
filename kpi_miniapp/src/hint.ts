@@ -3,9 +3,13 @@ import type { TgNextTier, TgRaiseHint } from "@backend/modules/kpi/tg-app/types"
 import { pct1, sum } from "./format";
 import { type Lang, monthsList, tIn } from "./i18n";
 
-/** Проверка исчерпывающего перебора: tsc падает, если в switch не хватает варианта TgRaiseHint. */
-function assertNever(x: never): never {
-  throw new Error(`Неизвестный вариант подсказки: ${JSON.stringify(x)}`);
+/**
+ * Исчерпывающий перебор проверяет tsc: не хватает варианта TgRaiseHint — сюда придёт не never.
+ * Во время работы сюда попадает только вид от сервера новее клиента (кэш WebView держит старый
+ * бандл): карточка прибавки тогда не падает, а рисуется без строк подсказки и «предварительно».
+ */
+function unknownHint(_x: never): void {
+  // ничего: решает вызывающий
 }
 
 /** Строка про следующую ступень; null — ступени нет. */
@@ -41,7 +45,8 @@ export function hintLines(h: TgRaiseHint, l: Lang): string[] {
         ...nextLines(h.next, l),
       ];
     default:
-      return assertNever(h);
+      unknownHint(h);
+      return [];
   }
 }
 
@@ -60,6 +65,7 @@ export function raiseBadge(h: TgRaiseHint, l: Lang): { text: string; tone: "prel
     case "running":
       return { text: tIn(l, "badge_prelim"), tone: "prelim" };
     default:
-      return assertNever(h);
+      unknownHint(h);
+      return { text: tIn(l, "badge_prelim"), tone: "prelim" };
   }
 }

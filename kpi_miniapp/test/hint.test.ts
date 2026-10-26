@@ -40,3 +40,13 @@ it("язык подсказки не зависит от глобального 
   // hintLines принимает язык явно: глобальный по умолчанию ru, а строки узбекские
   expect(hintLines({ kind: "none" }, "uz")).toEqual(["Bu chorakda hali baho yoʻq."]);
 });
+
+// Сервер новее клиента прислал вид подсказки, которого клиент не знает: карточка прибавки не
+// падает — без строк подсказки и с плашкой «предварительно».
+it("незнакомый вид подсказки — пусто и «предварительно», без исключения", () => {
+  const future = { kind: "future_kind", amount: 1 } as unknown as TgRaiseHint;
+  expect(hintLines(future, "ru")).toEqual([]);
+  expect(hintLines(future, "uz")).toEqual([]);
+  expect(raiseBadge(future, "ru")).toEqual({ text: "предварительно", tone: "prelim" });
+  expect(raiseBadge(future, "uz")).toEqual({ text: raiseBadge({ kind: "none" }, "uz").text, tone: "prelim" });
+});
