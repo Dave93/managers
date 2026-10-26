@@ -44,6 +44,7 @@ import { uploadsBase } from "../storage";
 import { addMonths, currentReviewPeriod, dayStart, quarterStart, type Period } from "../time";
 import { seedDecision, seedDispute, seedReview, seedViolation } from "./dev-data";
 
+const SMOKE_DB = "managers_kpi_smoke";
 const TG_FROM = 9100000001;
 const TG_TO = 9100000099;
 const BRANCH = "Тест Филиал Смоук";
@@ -339,6 +340,11 @@ async function main(): Promise<number> {
   const { drizzleDb, closePool } = await import("@backend/lib/db");
   try {
     const out = await drizzleDb.transaction(async (tx) => {
+      // Суффикс URL — не имя базы: …/managers?application_name=/managers_kpi_smoke и …/managers#/managers_kpi_smoke
+      // проходят проверку выше, а подключаются к managers. Поэтому имя спрашиваем у сервера — до первого удаления.
+      const res = await tx.execute(sql`select current_database() as db`);
+      const db = (res.rows as { db: string }[])[0]?.db;
+      if (db !== SMOKE_DB) throw new Error(`подключились к базе «${db}», а не к ${SMOKE_DB}; ничего не тронуто`);
       const old = await cleanup(tx);
       return { old, ...(await seed(tx)) };
     });
