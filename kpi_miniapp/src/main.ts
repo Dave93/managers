@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { TgHome, TgLang, TgReview, TgRole } from "@backend/modules/kpi/tg-app/types";
+import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
 import { appCache } from "./cache";
@@ -22,16 +22,21 @@ import { DICT, lang, monthName, setLang, t } from "./i18n";
 import type { Loaded } from "./load";
 import { loadScreen } from "./load";
 import { provideNav } from "./nav";
+import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
 import { hashOf, parseHash } from "./route";
+import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
+import { renderViolations } from "./screens/violations";
 import { closeDisputeSheet } from "./sheet";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
+import { historyView } from "./view/history";
 import { homeView } from "./view/home";
 import { reviewView } from "./view/review";
+import { violationsView } from "./view/violations";
 
 // Константа сборки из vite.config.ts (решение 1): true только под `vite serve`.
 declare const __KPI_DEV__: boolean;
@@ -54,11 +59,6 @@ interface Screen {
   title?: string;
 }
 
-// Заглушки до задачи 7: заголовок маршрута.
-function stub(title: string): HTMLElement {
-  return h("main", { class: "screen" }, h("h1", { class: "title" }, title));
-}
-
 function screenOf(r: Route): Screen {
   switch (r.name) {
     case "home":
@@ -77,10 +77,11 @@ function screenOf(r: Route): Screen {
       return {
         path: `/violations?period=${r.period}`,
         kind: "list",
-        render: () => stub(t("viol_title", { month: monthName(r.period, "nom", lang()) })),
+        render: (d) => renderViolations(violationsView(d as TgViolations, lang()), d as TgViolations),
+        title: t("viol_title", { month: monthName(r.period, "nom", lang()) }),
       };
     case "history":
-      return { path: "/history", kind: "list", render: () => stub(t("link_history")) };
+      return { path: "/history", kind: "list", render: (d) => renderHistory(historyView(d as TgHistory, lang())), title: t("link_history") };
   }
 }
 
@@ -170,6 +171,10 @@ async function showAsync(keep: boolean): Promise<void> {
   // Шторка спора живёт вне #app: уход с экрана и перерисовка закрывают её вместе с MainButton
   // и её «назад» — до того, как роутер поставит свой.
   closeDisputeSheet();
+  // Просмотр фото тоже ставит свой «назад»: закрыть его до роутера. Уход с экрана освобождает
+  // blob-URL фото (решение 13); перерисовка того же экрана их оставляет — превью не мигают.
+  closePhoto();
+  if (!keep) revokeAll();
   setBack(stack.length > 1 ? back : null);
   // Скелетон старта уже на месте: второй не ставим, подсказка старта продолжает отсчёт.
   if (!keep && !showingSkeleton(sc.kind)) mount(skeleton(sc.kind));
@@ -183,6 +188,8 @@ async function showAsync(keep: boolean): Promise<void> {
 }
 
 function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
+  // Вместо экрана — отказ, «не найдено» или главный: фото прежнего экрана больше не нужны.
+  if (res.kind !== "fresh" && res.kind !== "stale") revokeAll();
   if (res.kind === "fresh" || res.kind === "stale") {
     // Только свежий ответ: старая копия вернула бы язык, который человек только что
     // сменил (PUT /lang прошёл, а перезагрузка главного упала без сети).

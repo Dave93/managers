@@ -43,6 +43,9 @@
   --notice-ink: #6e4600;
   --float-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
   --scrim: rgba(0, 0, 0, 0.4); /* затемнение под шторкой */
+  /* Фон просмотра фото на весь экран — почти чёрный в обеих схемах, как просмотр медиа
+     в самом Telegram; тёмные блоки его не переопределяют. */
+  --viewer: rgba(0, 0, 0, 0.96);
 
   --font: -apple-system, BlinkMacSystemFont, Roboto, "Segoe UI", system-ui, "Helvetica Neue", Arial, sans-serif;
   --fs-label: 12px; /* подписи шкалы, метки */
@@ -240,6 +243,12 @@ svg {
 .chip-muted {
   background: var(--well);
   color: var(--muted);
+}
+/* Нейтральное состояние в силе («действует»): чернила на ступень темнее лунки. Рядом с серой
+   «отменено» читается твёрдым, а не выцветшим, и не спорит с янтарём «спор открыт». */
+.chip-ink {
+  background: var(--rail);
+  color: var(--ink);
 }
 
 /* ---------- кнопки и строки-ссылки ---------- */
@@ -990,6 +999,169 @@ svg {
   line-height: 22px;
 }
 
+/* ---------- нарушения ---------- */
+
+/* Строка нарушения: колонка превью фиксированной ширины, справа текст. Строки делят линии,
+   как пункты «Вся оценка»; текст всех строк начинается с одного края. */
+.vio-list {
+  margin: 0;
+  list-style: none;
+}
+.vio {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 0;
+}
+.vio:first-child {
+  padding-top: 0;
+}
+.vio:last-child {
+  padding-bottom: 0;
+}
+.vio + .vio {
+  border-top: 1px solid var(--line);
+}
+.vio-media {
+  flex: none;
+  width: 80px;
+  margin-right: 12px;
+}
+/* Превью — квадрат 80 px: и улика, которую видно без нажатия, и цель для пальца. В нём же
+   помещается «Фото не загрузилось» по 12 px («загрузилось» — 73 px в SF). */
+.photo {
+  display: block;
+  width: 80px;
+  height: 80px;
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  overflow: hidden;
+}
+.photo + .photo {
+  margin-top: 8px;
+}
+.photo-loading {
+  background: var(--bone);
+  animation: sk-pulse 1.1s ease-in-out infinite alternate;
+}
+.photo-btn {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: zoom-in;
+  transition: transform 0.12s ease;
+}
+.photo-btn:active {
+  transform: scale(0.96);
+}
+.photo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* Фото не загрузилось / фото нет: текст или прочерк по центру лунки. */
+.photo-failed,
+.photo-none {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  text-align: center;
+  color: var(--muted);
+}
+.photo-failed {
+  padding: 4px 2px;
+  font-size: var(--fs-label);
+  line-height: 15px;
+  /* Запас на шрифт шире SF: длинное слово переносится по слогам, а не обрезается. */
+  -webkit-hyphens: auto;
+  hyphens: auto;
+}
+.photo-none {
+  font-size: 20px;
+}
+.vio-body {
+  flex: 1;
+  min-width: 0;
+}
+.vio-when {
+  margin-top: 2px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+.vio-comment {
+  margin-top: 6px;
+  line-height: 22px;
+}
+/* Отменённое — серым цветом текста, а не прозрачностью: контраст остаётся AA. */
+.is-cancelled .vio-item,
+.is-cancelled .vio-comment {
+  color: var(--muted);
+}
+.is-cancelled .photo-img {
+  filter: grayscale(1);
+}
+.vio-line {
+  margin-top: 8px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+/* «Оспорить» в строке — тихая кнопка по ширине слова, цель 44 px. */
+.btn.vio-dispute {
+  display: inline-block;
+  width: auto;
+  min-height: 44px;
+  margin-top: 10px;
+  padding: 10px 16px;
+  line-height: 24px;
+}
+.vio-empty {
+  line-height: 22px;
+}
+.vio-note {
+  padding: 0 4px;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--muted);
+}
+
+/* ---------- история ---------- */
+
+/* Квартал — страница ведомости: месяцы строками, баллы по одному правому краю, средний —
+   итоговой строкой под чертой. */
+.quarter .row-body {
+  min-height: 48px;
+}
+.row.is-static {
+  cursor: default;
+}
+.row.is-static:active {
+  background: none;
+}
+.hist-score {
+  color: var(--ink);
+  font-weight: 600;
+}
+/* Место шеврона у строк без ссылки: значения всех строк кончаются на одной вертикали. */
+.chev-gap {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+}
+/* Итоговая черта ведомости над средним — темнее разделителей строк. */
+.quarter .hist-avg .row-body {
+  border-top: 1px solid var(--muted);
+}
+.hist-avg .row-text {
+  font-weight: 600;
+}
+.hist-empty {
+  line-height: 22px;
+}
+
 /* ---------- шторка спора ---------- */
 
 /* Шторка снизу над затемнением. Высота — видимая область мини-приложения: SDK Telegram
@@ -1119,6 +1291,48 @@ html.sheet-open body {
   to {
     opacity: 1;
   }
+}
+
+/* ---------- фото на весь экран ---------- */
+
+/* Поверх всего, вне #app. Нажатие в любом месте закрывает: весь экран — одна кнопка. */
+html.viewer-open,
+html.viewer-open body {
+  overflow: hidden;
+}
+.viewer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: 30;
+  height: 100%;
+  height: var(--tg-viewport-height, 100%);
+  max-height: 100%;
+  background: var(--viewer);
+  animation: veil-in 0.16s ease-out;
+}
+.viewer-hit {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 12px;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  border: 0;
+  background: none;
+  cursor: zoom-out;
+}
+.viewer-hit:focus {
+  outline-offset: -4px;
+}
+.viewer-img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
 }
 
 /* ---------- скелетон ---------- */
@@ -1331,8 +1545,16 @@ html.sheet-open body {
   .slow-dots i,
   .lang-opt.is-busy .lang-pill,
   .sheet,
-  .sheet-veil {
+  .sheet-veil,
+  .photo-loading,
+  .viewer {
     animation: none;
+  }
+  .photo-btn {
+    transition: none;
+  }
+  .photo-btn:active {
+    transform: none;
   }
   .lang-pill {
     transition: none;

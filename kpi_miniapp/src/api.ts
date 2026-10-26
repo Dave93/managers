@@ -158,9 +158,13 @@ export function createApi(d: ApiDeps) {
     send<T>(method: "POST" | "PUT", path: string, body: unknown): Promise<ApiResult<T>> {
       return call<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     },
-    /** Файл с токеном (для <img> заголовок не поставить). Любой сбой — null. */
+    /**
+     * Файл с токеном (для <img> заголовок не поставить). Любой сбой — null. Мимо HTTP-кэша
+     * браузера (решение 13): фото нарушений нигде не хранятся, и без сети на их месте —
+     * «Фото не загрузилось», хотя сервер отдаёт их с max-age.
+     */
     async blob(path: string): Promise<Blob | null> {
-      const out = await authed(path, { method: "GET" });
+      const out = await authed(path, { method: "GET", cache: "no-store" });
       if ("status" in out || !out.res.ok) return null;
       try {
         return await out.res.blob();

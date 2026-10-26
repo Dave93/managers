@@ -61,12 +61,15 @@ it("send: JSON-тело и Bearer; 5xx — offline; 2xx без JSON — unknown"
   expect(await a.get("/home")).toEqual({ kind: "fail", status: "offline" });
   expect(await a.get("/home")).toEqual({ kind: "fail", status: "unknown" });
 });
-it("blob: байты при 200, null при ошибке и сети", async () => {
+it("blob: байты при 200, null при ошибке и сети; мимо HTTP-кэша", async () => {
   const r: Array<Response | "throw"> = [ok({ token: "t", roles: [], lang: "ru" }), new Response("img", { status: 200 }), new Response("", { status: 404 }), "throw"];
-  const f = (async () => { const x = r.shift()!; if (x === "throw") throw new TypeError("net"); return x; }) as any;
+  const modes: (RequestCache | undefined)[] = [];
+  const f = (async (_url: string, init: RequestInit = {}) => { modes.push(init.cache); const x = r.shift()!; if (x === "throw") throw new TypeError("net"); return x; }) as any;
   const a = createApi({ fetch: f, sdk: () => "ok", initData: () => "q" });
   const b = await a.blob("/photo/1");
   expect(b && (await b.text())).toBe("img");
+  // Решение 13: фото не попадают ни в наш кэш, ни в HTTP-кэш браузера.
+  expect(modes[1]).toBe("no-store");
   expect(await a.blob("/photo/2")).toBeNull();
   expect(await a.blob("/photo/3")).toBeNull();
 });

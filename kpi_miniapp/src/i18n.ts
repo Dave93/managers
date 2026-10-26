@@ -98,6 +98,9 @@ const RU = {
   btn_reload: "Обновить",
   // Подпись переключателя языка для чтения с экрана (видны только RU/UZ).
   lang_label: "Язык",
+  // Имена для чтения с экрана: превью фото нарушения и закрытие просмотра на весь экран.
+  photo_open: "Фото нарушения",
+  photo_close: "Закрыть фото",
 } as const;
 
 export type Key = keyof typeof RU;
@@ -193,6 +196,8 @@ const UZ: Record<Key, string> = {
   btn_retry: "Qayta urinish",
   btn_reload: "Yangilash",
   lang_label: "Til",
+  photo_open: "Qoidabuzarlik rasmi",
+  photo_close: "Rasmni yopish",
 };
 
 export const DICT: Record<Lang, Record<Key, string>> = { ru: RU, uz: UZ };
