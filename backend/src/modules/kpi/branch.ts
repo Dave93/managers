@@ -34,7 +34,7 @@ import {
   type TerminalInputs,
 } from "./branch-rules";
 import { loadBranchSettings, loadIndicators } from "./branch-settings";
-import { now } from "./clock";
+import { dbNow, now } from "./clock";
 import { terminalNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
@@ -109,8 +109,10 @@ export async function computeBranch(db: DrizzleDB, actor: Actor, period: Period)
     // Закрытый месяц KPI заморожен и для балла филиала (R7). До любых проверок и раннего выхода:
     // пустой закрытый месяц тоже 409, а закрытие ждёт конца расчёта
     if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
-    // Время расчёта берём после лока: у более поздней версии оно не меньше, чем у ранней
-    const computedAt = now().toISOString();
+    // Время расчёта берём после лока и по часам базы: у более поздней версии оно не меньше, чем у ранней,
+    // а created_at проверок и планов (их ставит база) сравнивается с ним без расхождения часов.
+    // Проверка, заведённая до этой метки, дошла до чтения источников ниже и пометки не даёт.
+    const computedAt = (await dbNow(tx)).toISOString();
 
     const indicators = await loadIndicators(tx);
     if (!indicators.some((i) => i.active)) throw new KpiError(409, "no_indicators");

@@ -55,7 +55,12 @@ export function ImportResult({ row }: { row: AttendanceImportRow }) {
       {row.rows_skipped > 0 && (
         <div className="space-y-2">
           <h3 className="text-sm font-medium">Пропущено: сотрудник найден, строка не учтена</h3>
-          {row.skipped.length > 0 && <p className="text-sm text-muted-foreground">{skippedReasonsText(row.skipped)}</p>}
+          {row.skipped.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {row.skipped.length < row.rows_skipped ? `Причины в первых ${row.skipped.length} строках: ` : ""}
+              {skippedReasonsText(row.skipped)}
+            </p>
+          )}
           <RowsTable rows={row.skipped} total={row.rows_skipped} />
         </div>
       )}
