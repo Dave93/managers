@@ -1,8 +1,28 @@
 # KPI: заметки к деплою
 
-Деплой выполняет человек. Здесь собрано то, что нужно проверить и запустить, и в каком порядке. Команды с `pm2`, `ssh` и `curl` против боевых сервисов эта разработка не запускала.
+Здесь собрано то, что нужно проверить и запустить при деплое, и в каком порядке. Первый деплой прошёл 27 октября 2026 по этому документу, итог в разделе «Состояние прода».
 
 Каталог проекта на проде: `/home/davr/managers`. Спека: `docs/superpowers/specs/2026-10-25-kpi-design.md`, раздел 14.
+
+## Состояние прода (27 октября 2026)
+
+Ветка выложена PR #53 (`92d8337`). Сделано всё из этого документа, кроме проверки с телефона:
+
+- миграции `0035`–`0040`, права, карты, шкала повышений и показатели филиала;
+- права ролям: `admin` и `hr` получили все пять, `manager` получил `kpi_layout`, `kpi.evaluate` и `kpi.view`. Заведены роли без пользователей `kpi_evaluator` («Оценщик KPI») и `kpi_viewer` («Просмотр KPI»), обе с `manager_layout`;
+- `office_api` и `office_admin` пересобраны, `office_kpi_worker` запущен;
+- блок `/kpi-app/` в nginx, вебхук, кнопка меню и команда `/my`.
+
+Бот общий с паспортом стажёра: `@pasport_stajer_bot`, `KPI_BOT_TOKEN` равен `PASSPORT_BOT_TOKEN`. Паспорт берёт токен только для проверки подписи своего мини-приложения, а стажёры попадают в него по ссылкам `?startapp=`, то есть через главное мини-приложение бота из BotFather. Вебхук, команды и кнопку меню теперь ставит KPI. Прежняя кнопка меню «Открыть» вела в `/passport-app/`, её заменила «Мой KPI». Если паспорту понадобятся своя кнопка или свои сообщения, обработку придётся свести в один вебхук: у бота он может быть только один.
+
+До первого импорта Workly. У 377 сотрудников `external_id` уже заполнен ключами вида `xls:…` от разового импорта 14 июля 2026. Это не табельные номера Workly, поэтому импорт никого не сопоставит, пока HR не решит, куда вносить номера.
+
+Особенности этого сервера:
+
+- `backend/.env` нельзя загружать в оболочку (`. ./.env`): одно из значений записано без кавычек и выполняется как команда. Переменные брать по одной через `grep`; скрипты на bun читают `.env` сами.
+- Штатный `node` — 16-й, под ним `drizzle-kit` и сборка админки не работают. Нужен `PATH=/root/.nvm/versions/node/v20.20.2/bin:$PATH`.
+- После `pm2 restart office_api` бинарник прогревается больше двух минут (27 октября — 135 секунд), всё это время API отвечает 502.
+- Пробный запуск `app.new` на запасном порту порождает дочерние процессы. Если убить только родителя, дочерние продолжают слушать порт и работать с боевой базой. Гасить их по PID, сверив `PORT` в `/proc/<pid>/environ`. `CREDIT_SOCKET_PATH` для пробного запуска указывать в отдельный каталог с правами 0700: `/tmp` бинарник отвергает.
 
 ## Общее для всех фаз
 
@@ -17,7 +37,8 @@
 
 ```bash
 cd /home/davr/managers/backend
-bunx drizzle-kit migrate
+export DATABASE_URL=$(grep -E '^DATABASE_URL=' .env | cut -d= -f2- | tr -d "\"'")
+PATH=/root/.nvm/versions/node/v20.20.2/bin:$PATH ./node_modules/.bin/drizzle-kit migrate
 ```
 
 Миграции не идемпотентны (кроме `0035`). Перед запуском прочитать SQL новых файлов.
@@ -96,10 +117,12 @@ bun run src/modules/kpi/seed-cards.ts
 
 ### Вебхук
 
-Токен и секрет брать из окружения, в командах они не пишутся. Сначала загрузить `backend/.env` в текущую оболочку, иначе `$KPI_BOT_TOKEN` и `$KPI_WEBHOOK_SECRET` окажутся пустыми:
+Токен и секрет брать из `backend/.env` по одной переменной, в командах они не пишутся. Весь файл в оболочку не загружать (см. «Состояние прода»):
 
 ```bash
-cd /home/davr/managers/backend && set -a && . ./.env && set +a
+cd /home/davr/managers/backend
+KPI_BOT_TOKEN=$(grep -E '^KPI_BOT_TOKEN=' .env | cut -d= -f2-)
+KPI_WEBHOOK_SECRET=$(grep -E '^KPI_WEBHOOK_SECRET=' .env | cut -d= -f2-)
 curl -sS "https://api.telegram.org/bot$KPI_BOT_TOKEN/setWebhook" \
   -d "url=https://api.office.lesailes.uz/api/kpi/bot/webhook" \
   -d "secret_token=$KPI_WEBHOOK_SECRET" \
@@ -117,7 +140,7 @@ curl -sS "https://api.telegram.org/bot$KPI_BOT_TOKEN/getWebhookInfo"
 
 ```bash
 cd /home/davr/managers/cron
-pm2 start pm2.config.js --only office_kpi_worker
+PATH=/root/.bun/bin:$PATH pm2 start pm2.config.js --only office_kpi_worker
 pm2 save
 ```
 
@@ -221,7 +244,8 @@ group by 1;
 
 ```bash
 cd /home/davr/managers/backend
-bunx drizzle-kit migrate
+export DATABASE_URL=$(grep -E '^DATABASE_URL=' .env | cut -d= -f2- | tr -d "\"'")
+PATH=/root/.nvm/versions/node/v20.20.2/bin:$PATH ./node_modules/.bin/drizzle-kit migrate
 ```
 
 Откат. Код нельзя откатить без отката миграции: прежний код рассчитан на один уникальный индекс по `telegram_id`, и с двумя частичными индексами приглашения ломаются. Порядок. Пока шаги 2–3 меняют базу, а прежний код ещё не выложен, погашение приглашений падает с ошибкой Postgres 42P10: у нового кода нет индекса, на который он опирается. Поэтому перед шагом 2 остановить `office_api` (`pm2 stop office_api`) или заранее принять это окно.
@@ -318,9 +342,11 @@ nginx -T 2>/dev/null | grep -n -E '^# configuration file|add_header'
 Разовый ручной скрипт. Запускать после того, как `KPI_MINIAPP_URL` задан в `backend/.env`, и после каждой его смены:
 
 ```bash
-cd /home/davr/managers/backend && set -a && . ./.env && set +a
-bun run src/modules/kpi/tg/set-menu.ts
+cd /home/davr/managers/backend
+/root/.bun/bin/bun run src/modules/kpi/tg/set-menu.ts
 ```
+
+Скрипт сам читает `backend/.env`.
 
 Скрипт ставит кнопку по умолчанию «Мой KPI», своя кнопка для чатов, привязанных на узбекском, и сбрасывает русские чаты на кнопку по умолчанию. Ожидаемый вывод: `kpi menu: default ok, uz chats N/N, ru chats M/M` и код выхода 0. Каждая неудача печатается отдельной строкой с причиной, токен в ней заменён на `***`. Код 1 значит, что кнопка по умолчанию не встала: разобраться до проверки с телефона. Повторный запуск безопасен.
 
