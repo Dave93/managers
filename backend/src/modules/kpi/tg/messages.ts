@@ -434,8 +434,8 @@ const BOT_TEXT: Record<BotTextKey, Record<Lang, string>> = {
     uz: "Bu yozuv boʻyicha eʼtiroz allaqachon ochilgan.",
   },
   err_rejected: {
-    ru: "Спор по этому уже отклонён. Повторно оспорить нельзя.",
-    uz: "Bu boʻyicha eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.",
+    ru: "Спор уже отклонён. Повторно оспорить нельзя.",
+    uz: "Eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.",
   },
   err_short: {
     ru: "Причина слишком короткая: нужно не меньше {min} символов. Напишите ещё раз.",

@@ -176,6 +176,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         tgApi(tok, "POST", "/api/kpi/tg/disputes", { subject_type, subject_id, reason: "Всё равно не согласен" });
       expect(await post(token, "review", r.id)).toEqual({ status: 409, body: { error: "dispute_rejected" } });
       expect(await post(token, "violation", v.id)).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      // Короткая причина по отклонённой записи — тот же отказ, а не 422.
+      expect(await tgApi(token, "POST", "/api/kpi/tg/disputes", { subject_type: "review", subject_id: r.id, reason: "ок" }))
+        .toEqual({ status: 409, body: { error: "dispute_rejected" } });
       expect((await db.select().from(kpi_disputes)).length).toBe(before);
 
       // Принятый спор по оценке новый спор не запрещает (поведение прежнее).

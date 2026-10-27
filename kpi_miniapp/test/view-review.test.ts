@@ -192,7 +192,7 @@ it("disputeErrorText: коды сервера, неизвестное и null �
   expect(disputeErrorText("period_closed", 5)).toBe("Месяц закрыт.");
   expect(disputeErrorText("already_cancelled", 5)).toBe("Нарушение уже отменено.");
   expect(disputeErrorText("not_found", 5)).toBe("Запись не найдена.");
-  expect(disputeErrorText("dispute_rejected", 5)).toBe("Спор по этому уже отклонён. Повторно оспорить нельзя.");
+  expect(disputeErrorText("dispute_rejected", 5)).toBe("Спор уже отклонён. Повторно оспорить нельзя.");
   expect(disputeErrorText("weird", 5)).toBe("Не получилось. Попробуйте ещё раз.");
   expect(disputeErrorText(null, 5)).toBe("Не получилось. Попробуйте ещё раз.");
 });
@@ -200,6 +200,6 @@ it("disputeErrorText: коды сервера, неизвестное и null �
 it("disputeErrorText на языке интерфейса", () => {
   setLang("uz");
   expect(disputeErrorText("comment_required", 10)).toBe("Juda qisqa: kamida 10 ta harf yoki raqam kerak.");
-  expect(disputeErrorText("dispute_rejected", 10)).toBe("Bu boʻyicha eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.");
+  expect(disputeErrorText("dispute_rejected", 10)).toBe("Eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.");
   expect(disputeErrorText("weird", 10)).toBe("Xatolik. Yana urinib koʻring.");
 });

@@ -324,6 +324,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const again = await dispute(ev, "review", reviewId, "Всё равно не согласен");
       expect(again.status).toBe(409);
       expect(again.body).toEqual({ error: "dispute_rejected" });
+      // Отказ раньше проверки причины: короткая причина получает тот же отказ, а не 422.
+      expect(await dispute(ev, "review", reviewId, "  ")).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      await expect(
+        openDispute(db, null, { subject_type: "review", subject_id: reviewId, reason: "ок", via: "miniapp", employee_actor: true })
+      ).rejects.toMatchObject({ status: 409, code: "dispute_rejected" });
       for (const via of ["miniapp", "telegram"] as const) {
         await expect(
           openDispute(db, null, { subject_type: "review", subject_id: reviewId, reason: "Всё равно не согласен", via, employee_actor: true })
@@ -373,14 +378,24 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const again = await dispute(ev, "review", reviewId, "Новый балл тоже неверный");
       expect(again.status).toBe(200);
       expect((again.body as DisputeRow).status).toBe("open");
-      const d3 = await openDispute(db, null, { subject_type: "review", subject_id: (await submitted(ev, (await cook(e.terminal_id)).id)), reason: "Мне поставили мало", via: "miniapp", employee_actor: true });
+      // Второй принятый спор по той же оценке — и снова можно, теперь из мини-приложения.
+      const ok2 = await resolve(ev, (again.body as DisputeRow).id, {
+        decision: "accepted",
+        comment: "Пересмотрели ещё раз",
+        items: [{ item_id: cookItems[4], score: 100 }],
+      });
+      expect(ok2.status).toBe(200);
+      const d3 = await openDispute(db, null, { subject_type: "review", subject_id: reviewId, reason: "Мне поставили мало", via: "miniapp", employee_actor: true });
       expect(d3.status).toBe("open");
+      const rows = await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, reviewId));
+      expect(rows.map((r) => r.status).sort()).toEqual(["accepted", "accepted", "open"]);
     });
 
     // Гонка: отказ ещё не закоммичен, а второй спор уже идёт. Частичный unique покрывает только открытые,
-    // поэтому без общей блокировки предмета второй спор вставился бы сразу после коммита отказа.
+    // поэтому без общей блокировки предмета второй спор вставился бы сразу после коммита отказа
+    // (с закомментированным lockSubject в resolveDispute тест падает). Доказательство — итоговый 409.
     for (const kind of ["review", "violation"] as const) {
-      it(`гонка с отказом (${kind}): второй спор ждёт блокировку предмета и получает 409 dispute_rejected`, async () => {
+      it(`гонка с отказом (${kind}): второй спор, начатый до коммита отказа, получает 409 dispute_rejected`, async () => {
         await resetPeriod();
         setNow(NOW);
         const e = await cook();
@@ -399,19 +414,27 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           resolved();
           await gate; // отказ записан, но не закоммичен
         });
-        await resolvedP;
-        let settled = false;
-        const second = openDispute(db, null, { subject_type: kind, subject_id: subjectId, reason: "Ещё раз не согласен", via: "miniapp", employee_actor: true })
-          .then((x) => ({ ok: x as unknown }), (err) => ({ err }))
-          .finally(() => (settled = true));
-        await new Promise((r) => setTimeout(r, 300));
-        expect(settled).toBe(false);
-        release();
-        await rejectTx;
-        const out = (await second) as { ok?: unknown; err?: unknown };
-        expect(out.err).toMatchObject({ status: 409, code: "dispute_rejected" });
-        const rows = await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, subjectId));
-        expect(rows.map((r) => r.status)).toEqual(["rejected"]);
+        // Упавшая проверка не должна оставить транзакцию с блокировками открытой и повесить прогон.
+        try {
+          // Если разбор упал до resolved(), race отдаст его ошибку, а не повиснет.
+          await Promise.race([resolvedP, rejectTx]);
+          let settled = false;
+          const second = openDispute(db, null, { subject_type: kind, subject_id: subjectId, reason: "Ещё раз не согласен", via: "miniapp", employee_actor: true })
+            .then((x) => ({ ok: x as unknown }), (err) => ({ err }))
+            .finally(() => (settled = true));
+          await new Promise((r) => setTimeout(r, 300));
+          // Второй спор начат до коммита отказа и до него не завершается.
+          expect(settled).toBe(false);
+          release();
+          await rejectTx;
+          const out = (await second) as { ok?: unknown; err?: unknown };
+          expect(out.err).toMatchObject({ status: 409, code: "dispute_rejected" });
+          const rows = await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, subjectId));
+          expect(rows.map((r) => r.status)).toEqual(["rejected"]);
+        } finally {
+          release();
+          await rejectTx.catch(() => {});
+        }
       });
     }
 

@@ -63,7 +63,7 @@ export const KPI_ERROR_TEXT: Record<string, string> = {
   not_submitted: "Оспорить можно только отправленную оценку",
   dispute_window_closed: "Срок споров за этот месяц прошёл",
   dispute_exists: "По этой записи уже открыт спор",
-  dispute_rejected: "Спор по этому уже отклонён. Повторно оспорить нельзя",
+  dispute_rejected: "Спор уже отклонён. Повторно оспорить нельзя",
   dispute_closed: "Спор уже разобран",
   dispute_window_open: "Окно споров ещё не закончилось, закрыть месяц пока нельзя",
   open_disputes: "Есть неразобранные споры за месяц",

@@ -167,13 +167,14 @@ export async function openDispute(
       if (!mayHandle(actor!, scopes, emp, snapshot)) throw new KpiError(403, "out_of_scope");
     }
 
+    // Отдельный запрос после FOR UPDATE предмета: если разбор держал блокировку, здесь уже виден его отказ.
+    // Раньше проверки причины: после отказа переписывать причину бессмысленно (план 8).
+    if (await hasRejectedDispute(tx, subject_type, subject_id)) throw new KpiError(409, "dispute_rejected");
     const settings = await loadSettings(tx);
     if (!commentOk(input.reason, settings.change_comment_min)) {
       throw new KpiError(422, "comment_required", { min: settings.change_comment_min });
     }
     if (stateError) throw stateError;
-    // Отдельный запрос после FOR UPDATE предмета: если разбор держал блокировку, здесь уже виден его отказ.
-    if (await hasRejectedDispute(tx, subject_type, subject_id)) throw new KpiError(409, "dispute_rejected");
     if (now().getTime() > disputeDeadline(period, settings.dispute_deadline_day).getTime()) {
       throw new KpiError(409, "dispute_window_closed");
     }

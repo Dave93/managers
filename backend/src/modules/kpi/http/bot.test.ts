@@ -331,7 +331,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const { reviewId, employee } = await submittedReview();
       const b = await bindTelegram(db, { employee_id: employee.id });
       setNow("2025-11-05T10:00:00+05:00");
-      const REJECTED = "Спор по этому уже отклонён. Повторно оспорить нельзя.";
+      const REJECTED = "Спор уже отклонён. Повторно оспорить нельзя.";
       // Кнопку нажали до отказа, причину прислали после него.
       await hook(press(b.telegram_id, `dispute:review:${reviewId}`));
       expect(last().text).toContain("Напишите причину спора");
