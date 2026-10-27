@@ -194,13 +194,19 @@ function ReviewsScreen() {
               <TableHead>Сотрудник</TableHead>
               <TableHead className="hidden sm:table-cell">Филиал</TableHead>
               <TableHead className="hidden sm:table-cell">Карта</TableHead>
-              <TableHead>Статус</TableHead>
+              <TableHead className="hidden sm:table-cell">Статус</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {visible.map((r) => {
               const st = ROW_STATUS[rowStatus(r)];
+              const badges = (
+                <>
+                  <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
+                  {r.review?.late && <KpiBadge tone="amber">с опозданием</KpiBadge>}
+                </>
+              );
               return (
                 <TableRow
                   key={r.id}
@@ -216,19 +222,20 @@ function ReviewsScreen() {
                     }
                   }}
                 >
-                  <TableCell>
-                    <div className="font-medium">{employeeName(r)}</div>
-                    <div className="text-xs text-muted-foreground sm:hidden">{r.terminal_name ?? "Филиал без названия"}</div>
+                  {/* На телефоне строка компактная: филиал и статус под именем, видны только «Сотрудник» и «%». */}
+                  <TableCell className="whitespace-normal">
+                    <div className="break-words font-medium">{employeeName(r)}</div>
+                    <div className="break-words text-xs text-muted-foreground sm:hidden">{r.terminal_name ?? "Филиал без названия"}</div>
+                    <div className="mt-1 flex flex-wrap gap-1 sm:hidden">{badges}</div>
                   </TableCell>
                   <TableCell className="hidden sm:table-cell">{r.terminal_name ?? "Филиал без названия"}</TableCell>
                   <TableCell className="hidden sm:table-cell">{r.card?.title_ru ?? "—"}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col items-start gap-1">
-                      <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
-                      {r.review?.late && <KpiBadge tone="amber">с опозданием</KpiBadge>}
-                    </div>
+                  <TableCell className="hidden sm:table-cell">
+                    <div className="flex flex-col items-start gap-1">{badges}</div>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatPct(r.review?.score_pct ?? null)}</TableCell>
+                  <TableCell className="w-px text-right align-top tabular-nums sm:align-middle">
+                    {formatPct(r.review?.score_pct ?? null)}
+                  </TableCell>
                 </TableRow>
               );
             })}

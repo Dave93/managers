@@ -12,6 +12,7 @@ import {
   parseScoreInput,
   pickScore,
   scoreTextChange,
+  settleNote,
   type DraftItem,
   type IssueCode,
 } from "@admin/lib/kpi/review-form";
@@ -46,15 +47,16 @@ export function ItemScoreRow({
     setText((t) => (parseScoreInput(t) === value.score ? t : scoreStr(value.score)));
   }, [value.score, invalid]);
 
+  // Каждая смена балла проходит через settleNote: исправили на 100 — заметка о недочёте очищается (сравнение с сохранённым пунктом).
   const setScore = (score: number | null) => {
     setText(scoreStr(score));
-    onChange(pickScore(value, score));
+    onChange(settleNote(item, pickScore(value, score)));
   };
 
   const onText = (t: string) => {
     setText(t);
     const next = scoreTextChange(value, t);
-    if (next) onChange(next);
+    if (next) onChange(settleNote(item, next));
   };
 
   return (
@@ -154,10 +156,15 @@ export function ItemScoreRow({
         rows={2}
         value={value.note}
         disabled={disabled}
-        onChange={(e) => onChange({ ...value, note: e.target.value })}
+        onChange={(e) => onChange({ ...value, note: e.target.value, noteCleared: false })}
         aria-label={`Заметка: ${item.title_ru}`}
         placeholder={item.suggestion ? "Заметка (обязательна, если балл отличается от предложения или не поставлен)" : "Заметка"}
       />
+      {value.noteCleared && (
+        <p role="status" className="text-xs text-amber-700 dark:text-amber-400">
+          Заметка очищена: балл исправлен на 100
+        </p>
+      )}
       <p className="text-xs text-muted-foreground">Заметку увидит сотрудник</p>
 
       {issue && (

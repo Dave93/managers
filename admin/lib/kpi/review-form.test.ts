@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
-  SCORE_BUTTONS, changedItemIds, commentOk, draftFromItems, issueText, parseScoreInput, pickScore, previewPct,
-  reviewIssues, reviewMode, scoreTextChange, toItemInputs, type FormItemLite,
+  SCORE_BUTTONS, changedItemIds, clearsNote, commentOk, draftFromItems, issueText, parseScoreInput, pickScore, previewPct,
+  reviewIssues, reviewMode, scoreTextChange, settleNote, toItemInputs, type DraftItem, type FormItemLite,
 } from "./review-form";
 
 const items: FormItemLite[] = [
@@ -162,4 +162,85 @@ describe("неверный текст балла", () => {
     expect(reviewIssues(sent, { ...draftFromItems(sent), m2: { score: 50, note: "", invalid: false } }, "submit", "", 5)).toEqual([]);
   });
   it("issueText", () => expect(issueText({ code: "bad_score_text", item_id: "m2" }, 5)).toBe("Целое от 0 до 100"));
+});
+
+describe("заметка при исправлении на 100", () => {
+  const FARTUK = "Фартук грязный во время смены";
+
+  it("clearsNote: только подъём с сохранённого ниже 100 до 100 при нетронутой заметке", () => {
+    expect(clearsNote(75, 100, FARTUK, FARTUK)).toBe(true);
+    expect(clearsNote(0, 100, FARTUK, FARTUK)).toBe(true);
+    // Заметку уже правили — это новая заметка, её не трогаем.
+    expect(clearsNote(75, 100, FARTUK, "Фартук заменили")).toBe(false);
+    // Не до 100.
+    expect(clearsNote(50, 75, FARTUK, FARTUK)).toBe(false);
+    expect(clearsNote(50, null, FARTUK, FARTUK)).toBe(false);
+    // Пункт и раньше был 100.
+    expect(clearsNote(100, 100, FARTUK, FARTUK)).toBe(false);
+    // Без балла («Нет данных»): null < 100 в JS истинно, но это не «ниже 100».
+    expect(clearsNote(null, 100, "Нет данных Workly", "Нет данных Workly")).toBe(false);
+    // Очищать нечего.
+    expect(clearsNote(50, 100, "", "")).toBe(false);
+    expect(clearsNote(50, 100, "  ", "  ")).toBe(false);
+  });
+
+  it("settleNote: 75 → 100 очищает заметку и ставит пометку", () => {
+    const saved = { score: 75, note: FARTUK };
+    expect(settleNote(saved, pickScore({ score: 75, note: FARTUK }, 100))).toEqual({
+      score: 100,
+      note: "",
+      invalid: false,
+      noteCleared: true,
+    });
+  });
+
+  it("settleNote: изменённая заметка остаётся", () => {
+    const saved = { score: 75, note: FARTUK };
+    expect(settleNote(saved, pickScore({ score: 75, note: "Новая" }, 100))).toEqual({ score: 100, note: "Новая", invalid: false });
+  });
+
+  it("settleNote: пункт, который был 100, не трогается и после 100 → 50 → 100", () => {
+    const saved = { score: 100, note: "Молодец" };
+    const v1 = settleNote(saved, pickScore({ score: 100, note: "Молодец" }, 50));
+    const v2 = settleNote(saved, pickScore(v1, 100));
+    expect(v1).toEqual({ score: 50, note: "Молодец", invalid: false });
+    expect(v2).toEqual({ score: 100, note: "Молодец", invalid: false });
+  });
+
+  it("settleNote: сохранённый null не очищает", () => {
+    const saved = { score: null, note: "Нет данных Workly" };
+    expect(settleNote(saved, pickScore({ score: null, note: "Нет данных Workly" }, 100)).note).toBe("Нет данных Workly");
+  });
+
+  it("settleNote: ввод «1» → «10» → «100» очищает на 100, стёртый «0» возвращает заметку", () => {
+    const saved = { score: 50, note: FARTUK };
+    const step = (v: DraftItem, t: string) => settleNote(saved, scoreTextChange(v, t) ?? v);
+    const v1 = step({ score: 50, note: FARTUK }, "1");
+    const v2 = step(v1, "10");
+    const v3 = step(v2, "100");
+    expect(v1.note).toBe(FARTUK);
+    expect(v2.note).toBe(FARTUK);
+    expect(v3).toEqual({ score: 100, note: "", invalid: false, noteCleared: true });
+    // Неверный текст после 100 не возвращает заметку: балл всё ещё 100.
+    const bad = step(v3, "1000");
+    expect(bad).toEqual({ score: 100, note: "", invalid: true, text: "1000", noteCleared: true });
+    // Балл ушёл со 100, а новую заметку не писали — возвращаем прежнюю.
+    const back = step(bad, "10");
+    expect(back).toEqual({ score: 10, note: FARTUK, invalid: false });
+    // И снова 100 — снова очищаем.
+    expect(step(back, "100")).toEqual({ score: 100, note: "", invalid: false, noteCleared: true });
+  });
+
+  it("settleNote: написали новую заметку после очистки — уход со 100 её не заменяет", () => {
+    const saved = { score: 50, note: FARTUK };
+    const cleared = settleNote(saved, pickScore({ score: 50, note: FARTUK }, 100));
+    const typed: DraftItem = { ...cleared, note: "Исправлено по спору", noteCleared: false };
+    expect(settleNote(saved, pickScore(typed, 75))).toEqual({ score: 75, note: "Исправлено по спору", invalid: false });
+  });
+
+  it("pickScore сохраняет пометку очистки, toItemInputs отправляет пустую заметку как null", () => {
+    expect(pickScore({ score: 100, note: "", noteCleared: true }, 100)).toEqual({ score: 100, note: "", invalid: false, noteCleared: true });
+    const one: FormItemLite[] = [{ item_id: "m", source: "manual", weight: 1, score: 50, note: FARTUK, suggestion: null }];
+    expect(toItemInputs(one, { m: { score: 100, note: "", noteCleared: true } })).toEqual([{ item_id: "m", score: 100, note: null }]);
+  });
 });

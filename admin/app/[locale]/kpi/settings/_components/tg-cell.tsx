@@ -60,7 +60,7 @@ export function TgCell({
         </Button>
       )}
 
-      <InviteDialog target={target} name={name} open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <InviteDialog target={target} name={name} binding={binding} open={inviteOpen} onClose={() => setInviteOpen(false)} />
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>

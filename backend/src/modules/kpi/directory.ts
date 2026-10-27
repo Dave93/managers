@@ -1,6 +1,7 @@
 import { employees, kpi_cards, kpi_employee_cards, staff_roles, terminals, users } from "backend/drizzle/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { has, type Actor, type DbLike, viewsTerminal } from "./access";
+import { matchesName, searchWords } from "./name-search";
 import { effectiveCardId, scopeCovers, type CardLite, type Scope } from "./rules";
 
 export type DirEmployee = {
@@ -45,11 +46,9 @@ export async function loadDirectory(
     .leftJoin(staff_roles, eq(staff_roles.id, employees.staff_role_id))
     .leftJoin(terminals, eq(terminals.id, employees.terminal_id))
     .where(conds.length ? and(...conds) : undefined);
-  // Поиск в JS: ilike в базе с локалью C не сворачивает регистр кириллицы.
-  const needle = o.search?.trim().toLowerCase();
-  const found = needle
-    ? rows.filter((r) => r.first_name.toLowerCase().includes(needle) || r.last_name.toLowerCase().includes(needle))
-    : rows;
+  // Поиск в JS (см. name-search.ts): «Тест Повар» и «Повар Тест» находят одного человека.
+  const words = searchWords(o.search ?? "");
+  const found = words.length ? rows.filter((r) => matchesName(words, r)) : rows;
   if (found.length === 0) return [];
 
   const cards: CardLite[] = await db

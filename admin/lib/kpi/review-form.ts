@@ -9,8 +9,9 @@ export type FormItemLite = Pick<ReviewFormItem, "item_id" | "source" | "weight" 
 /**
  * invalid — в поле балла неверный текст («150», «7.5»): score хранит последний верный балл, сохранять нельзя.
  * text — этот неверный текст: строка пересоздаётся при смене вкладки и должна показать то же, что видел оценщик.
+ * noteCleared — заметку очистили, потому что балл исправили на 100 (settleNote); рядом с пунктом показывается подсказка.
  */
-export type DraftItem = { score: number | null; note: string; invalid?: boolean; text?: string };
+export type DraftItem = { score: number | null; note: string; invalid?: boolean; text?: string; noteCleared?: boolean };
 export type Draft = Record<string, DraftItem>;
 export type ReviewMode = "readonly" | "new" | "draft" | "change";
 
@@ -54,7 +55,29 @@ export function scoreTextChange(value: DraftItem, text: string): DraftItem | nul
 
 /** Кнопка балла, «Принять», «Нет данных»: балл ставится, неверный текст сбрасывается, даже если балл тот же. */
 export function pickScore(value: DraftItem, score: number | null): DraftItem {
-  return { score, note: value.note, invalid: false };
+  return { score, note: value.note, invalid: false, ...(value.noteCleared ? { noteCleared: true } : {}) };
+}
+
+/**
+ * Балл пункта подняли с сохранённого ниже 100 до 100, а заметку не меняли: заметка описывала недочёт и больше не верна.
+ * prev — сохранённые на сервере балл и заметка. Пункты, которые и так были 100 или без балла, не трогаем.
+ */
+export function clearsNote(prevScore: number | null, nextScore: number | null, prevNote: string, currentNote: string): boolean {
+  return prevScore !== null && prevScore < 100 && nextScore === 100 && prevNote.trim() !== "" && currentNote === prevNote;
+}
+
+/**
+ * Заметка после смены балла. saved — пункт, как он сохранён на сервере; next — черновик с новым баллом.
+ * Ушли со 100, а новую заметку не написали — возвращаем прежнюю: случайный клик по 100 её не теряет.
+ */
+export function settleNote(saved: { score: number | null; note: string | null }, next: DraftItem): DraftItem {
+  const prevNote = saved.note ?? "";
+  if (clearsNote(saved.score, next.score, prevNote, next.note)) return { ...next, note: "", noteCleared: true };
+  if (next.noteCleared && next.score !== 100) {
+    const { noteCleared: _, ...rest } = next;
+    return next.note === "" ? { ...rest, note: prevNote } : rest;
+  }
+  return next;
 }
 
 const itemDraft = (i: FormItemLite, draft: Draft): DraftItem => draft[i.item_id] ?? { score: i.score, note: i.note ?? "" };
