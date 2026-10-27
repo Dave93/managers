@@ -9,7 +9,7 @@ export type TgItemSource = "manual" | "attendance" | "cooking_speed" | "sales_pl
 export type TgErrorCode =
   | "not_configured" | "bad_init_data" | "not_bound" | "inactive" | "unauthorized"
   | "not_employee" | "bad_period" | "bad_lang" | "not_found" | "bad_subject_type"
-  | "comment_required" | "dispute_window_closed" | "dispute_exists" | "period_closed" | "already_cancelled";
+  | "comment_required" | "dispute_window_closed" | "dispute_exists" | "dispute_rejected" | "period_closed" | "already_cancelled";
 export interface TgError { error: TgErrorCode; min?: number }
 
 // POST /api/kpi/tg/auth
@@ -23,7 +23,8 @@ export interface TgLangRequest { lang: TgLang }
 export interface TgLangResponse { lang: TgLang }
 
 export type TgReviewStatus = "ready" | "dispute_open" | "dispute_resolved" | "changed";
-export type TgDisputeState = "can" | "open" | "window_closed" | "period_closed" | "cancelled";
+// rejected — по записи уже отклонили спор: повторный нельзя, даже если оценку потом изменили (план 8).
+export type TgDisputeState = "can" | "open" | "rejected" | "window_closed" | "period_closed" | "cancelled";
 export interface TgDisputeInfo {
   state: TgDisputeState;
   deadline: string;          // конец окна спора

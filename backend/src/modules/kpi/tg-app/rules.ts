@@ -124,16 +124,19 @@ export function reviewStatusOf(f: { open: boolean; resolved: boolean; changed: b
   return "ready";
 }
 
-// Порядок веток: отменено, открыт, период закрыт, окно спора вышло, иначе можно
+// Порядок веток: отменено, открыт, спор уже отклонён, период закрыт, окно спора вышло, иначе можно.
+// rejected — по записи есть отклонённый спор (любой, не только последний разобранный).
 export function disputeStateOf(f: {
   cancelled: boolean;
   open: boolean;
+  rejected: boolean;
   periodClosed: boolean;
   deadline: Date;
   at: Date;
 }): TgDisputeState {
   if (f.cancelled) return "cancelled";
   if (f.open) return "open";
+  if (f.rejected) return "rejected";
   if (f.periodClosed) return "period_closed";
   if (f.at.getTime() > f.deadline.getTime()) return "window_closed";
   return "can";

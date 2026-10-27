@@ -27,7 +27,7 @@ import {
 import { loadSettings } from "./settings";
 import { enqueue } from "./notify";
 import { reviewDeadline, submitOpensAt, type Period } from "./time";
-import { hasOpenDispute, violationsFor } from "./violations";
+import { hasOpenDispute, hasRejectedDispute, violationsFor } from "./violations";
 import type { EmployeeRow, ReviewEvent, ReviewForm, ReviewFormItem } from "./types";
 
 export type ItemInput = { item_id: string; score: number | null; note?: string | null };
@@ -340,6 +340,7 @@ async function buildForm(
     : !closed && mayDraft(actor, scopes, emp);
   const scoreNow = submitted ? pctNum(review!.score_pct) : pctOf(work);
   const openDispute = review ? await hasOpenDispute(db, "review", review.id) : false;
+  const disputeRejected = review ? await hasRejectedDispute(db, "review", review.id) : false;
 
   return {
     period,
@@ -368,6 +369,7 @@ async function buildForm(
     can_edit: canEdit,
     needs_comment: submitted,
     open_dispute: openDispute,
+    dispute_rejected: disputeRejected,
     deadlines: deadlinesOf(period, settings),
   };
 }

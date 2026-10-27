@@ -15,7 +15,7 @@ import { commentOk, type Scope } from "./rules";
 import { loadSettings } from "./settings";
 import { disputeDeadline } from "./time";
 import type { DisputeRow } from "./types";
-import { cancelViolationTx } from "./violations";
+import { cancelViolationTx, hasRejectedDispute } from "./violations";
 
 type DRow = typeof kpi_disputes.$inferSelect;
 type RRow = typeof kpi_reviews.$inferSelect;
@@ -70,6 +70,16 @@ function snapshotOf(d: DRow, l: Loaded): Subject | null {
     return v ? { terminal_id: v.terminal_id, card_id: l.emps.get(v.employee_id)?.card_id ?? null } : null;
   }
   return null;
+}
+
+// Блокировка строки предмета спора. Её берут и открытие, и разбор спора: проверка «уже отклонён»
+// при открытии и смена статуса при разборе не разминутся (частичный unique ловит только открытые споры).
+async function lockSubject(tx: DbLike, subjectType: string, subjectId: string): Promise<void> {
+  if (subjectType === "review") {
+    await tx.select({ id: kpi_reviews.id }).from(kpi_reviews).where(eq(kpi_reviews.id, subjectId)).for("update");
+  } else if (subjectType === "violation") {
+    await tx.select({ id: kpi_violations.id }).from(kpi_violations).where(eq(kpi_violations.id, subjectId)).for("update");
+  }
 }
 
 function canHandle(actor: Actor, scopes: Scope[], d: DRow, l: Loaded): boolean {
@@ -162,6 +172,8 @@ export async function openDispute(
       throw new KpiError(422, "comment_required", { min: settings.change_comment_min });
     }
     if (stateError) throw stateError;
+    // Отдельный запрос после FOR UPDATE предмета: если разбор держал блокировку, здесь уже виден его отказ.
+    if (await hasRejectedDispute(tx, subject_type, subject_id)) throw new KpiError(409, "dispute_rejected");
     if (now().getTime() > disputeDeadline(period, settings.dispute_deadline_day).getTime()) {
       throw new KpiError(409, "dispute_window_closed");
     }
@@ -235,6 +247,9 @@ export async function resolveDispute(
   return inTx(db, async (tx) => {
     const [d] = await tx.select().from(kpi_disputes).where(eq(kpi_disputes.id, id)).for("update");
     if (!d) throw new KpiError(404, "not_found");
+    // Предмет блокируем до смены статуса при любом решении, как openDispute: второй спор подождёт
+    // коммита и увидит отказ. Порядок: спор → предмет → месяц (changeReviewTx и cancelViolationTx берут те же).
+    await lockSubject(tx, d.subject_type, d.subject_id);
     const l = await loadSubjects(tx, [d]);
     const scopes = await loadScopes(tx, actor.userId);
     if (!canHandle(actor, scopes, d, l)) throw new KpiError(403, "out_of_scope");

@@ -57,6 +57,9 @@ function disputeLine(d: TgDisputeInfo, l: Lang): string {
       return tIn(l, "dsp_can", { date: dayMonth(d.deadline, l) });
     case "open":
       return d.opened_at ? tIn(l, "dsp_open", { date: dayMonth(d.opened_at, l) }) : "";
+    // Спор уже отклонили: «Оспорить можно до …» здесь не к месту (план 8).
+    case "rejected":
+      return tIn(l, "dsp_rejected_final");
     case "window_closed":
       return tIn(l, "dsp_window_closed");
     case "period_closed":

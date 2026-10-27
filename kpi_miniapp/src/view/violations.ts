@@ -3,7 +3,7 @@
 // пояснение, что нарушение само балл не снижает.
 //
 // У нарушения «Оспорить» — при тех же условиях, что у оценки (спека 4.5); без кнопки —
-// строка, почему нельзя. Спор нарушения пишется своими словами (dsp_open_violation), а не
+// строка, почему нельзя. После отклонённого спора — «Повторно оспорить нельзя.» (план 8). Спор нарушения пишется своими словами (dsp_open_violation), а не
 // «оспорили оценку».
 //
 // Решение по последнему разобранному спору (спека, раздел 6) — теми же словами, что во
@@ -51,6 +51,8 @@ function lineOf(d: TgDisputeInfo, l: Lang): string | null {
       return d.opened_at ? tIn(l, "dsp_open_violation", { date: dayMonth(d.opened_at, l) }) : tIn(l, "st_dispute_open");
     case "cancelled":
       return tIn(l, "dsp_cancelled");
+    case "rejected":
+      return tIn(l, "dsp_rejected_final");
     case "window_closed":
       return tIn(l, "dsp_window_closed");
     case "period_closed":

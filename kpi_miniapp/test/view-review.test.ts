@@ -120,6 +120,19 @@ it("срок прошёл, месяц закрыт", () => {
   expect(reviewView(r, "ru").dispute).toEqual({ can: false, line: "Месяц закрыт, оспорить нельзя." });
 });
 
+it("спор отклонён — «Повторно оспорить нельзя.», кнопки нет; решение остаётся", () => {
+  const r = ex();
+  r.dispute = {
+    state: "rejected",
+    deadline: "2026-11-10T18:59:59.999Z",
+    opened_at: null,
+    last_resolved: { decision: "rejected", comment: "Проверили журнал смен", resolved_at: "2026-10-28T07:00:00.000Z" },
+  };
+  expect(reviewView(r, "ru").dispute).toEqual({ can: false, line: "Повторно оспорить нельзя." });
+  expect(reviewView(r, "ru").resolved).toEqual({ title: "Спор отклонён", comment: "Комментарий: Проверили журнал смен" });
+  expect(reviewView(r, "uz").dispute).toEqual({ can: false, line: "Qayta eʼtiroz bildirib boʻlmaydi." });
+});
+
 it("спор разобран: решение и комментарий", () => {
   const r = ex();
   r.dispute = {
@@ -179,6 +192,7 @@ it("disputeErrorText: коды сервера, неизвестное и null �
   expect(disputeErrorText("period_closed", 5)).toBe("Месяц закрыт.");
   expect(disputeErrorText("already_cancelled", 5)).toBe("Нарушение уже отменено.");
   expect(disputeErrorText("not_found", 5)).toBe("Запись не найдена.");
+  expect(disputeErrorText("dispute_rejected", 5)).toBe("Спор по этому уже отклонён. Повторно оспорить нельзя.");
   expect(disputeErrorText("weird", 5)).toBe("Не получилось. Попробуйте ещё раз.");
   expect(disputeErrorText(null, 5)).toBe("Не получилось. Попробуйте ещё раз.");
 });
@@ -186,5 +200,6 @@ it("disputeErrorText: коды сервера, неизвестное и null �
 it("disputeErrorText на языке интерфейса", () => {
   setLang("uz");
   expect(disputeErrorText("comment_required", 10)).toBe("Juda qisqa: kamida 10 ta harf yoki raqam kerak.");
+  expect(disputeErrorText("dispute_rejected", 10)).toBe("Bu boʻyicha eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.");
   expect(disputeErrorText("weird", 10)).toBe("Xatolik. Yana urinib koʻring.");
 });

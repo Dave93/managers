@@ -30,7 +30,7 @@ export interface DisputeSheetOptions {
 
 // После этих ответов спорить дальше нечего: кнопка гаснет, а закрытие шторки перезагружает
 // экран, чтобы «Оспорить» сменилась строкой о споре или сроке.
-const FINAL = ["dispute_exists", "dispute_window_closed", "period_closed", "already_cancelled", "not_found"];
+const FINAL = ["dispute_exists", "dispute_rejected", "dispute_window_closed", "period_closed", "already_cancelled", "not_found"];
 
 // Черновик причины живёт до успешной отправки: случайно закрытая шторка возвращает текст.
 const drafts = new Map<string, string>();

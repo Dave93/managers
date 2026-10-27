@@ -327,11 +327,14 @@ function ReviewSheetBody({
                     )}
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                    {!data.open_dispute && !row.open_dispute && data.period_status === "open" && data.review && (
-                      <Button type="button" variant="link" className="h-11" onClick={() => setDisputeOpen(true)}>
-                        Оспорить от имени сотрудника
-                      </Button>
-                    )}
+                    {!data.open_dispute && !row.open_dispute && data.period_status === "open" && data.review &&
+                      (data.dispute_rejected ? (
+                        <p className="text-sm text-muted-foreground">Спор отклонён. Повторно оспорить нельзя</p>
+                      ) : (
+                        <Button type="button" variant="link" className="h-11" onClick={() => setDisputeOpen(true)}>
+                          Оспорить от имени сотрудника
+                        </Button>
+                      ))}
                     <Button
                       type="button"
                       className="h-11 w-full sm:w-auto"

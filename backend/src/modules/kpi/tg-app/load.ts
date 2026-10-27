@@ -32,13 +32,13 @@ export async function submittedReviews(db: DbLike, employeeId: string, from: Per
   return out;
 }
 
-type DisputeFact = { opened_at: string | null; last_resolved: TgDisputeInfo["last_resolved"] };
+type DisputeFact = { opened_at: string | null; last_resolved: TgDisputeInfo["last_resolved"]; rejected: boolean };
 
-// По каждому объекту: когда открыт текущий спор (если открыт) и последний разобранный спор.
-// Кто разбирал и кто открыл, наружу не идёт.
+// По каждому объекту: когда открыт текущий спор (если открыт), последний разобранный спор и был ли
+// хоть один отклонённый (тогда повторный спор нельзя, план 8). Кто разбирал и кто открыл, наружу не идёт.
 export async function disputeFacts(db: DbLike, type: "review" | "violation", ids: string[]): Promise<Map<string, DisputeFact>> {
   const out = new Map<string, DisputeFact>();
-  for (const id of ids) out.set(id, { opened_at: null, last_resolved: null });
+  for (const id of ids) out.set(id, { opened_at: null, last_resolved: null, rejected: false });
   if (ids.length === 0) return out;
   const rows = await db
     .select({
@@ -55,6 +55,7 @@ export async function disputeFacts(db: DbLike, type: "review" | "violation", ids
   for (const r of rows) {
     const f = out.get(r.subject_id);
     if (!f) continue;
+    if (r.status === "rejected") f.rejected = true;
     if (r.status === "open") f.opened_at = iso(r.created_at);
     else if ((r.status === "accepted" || r.status === "rejected") && f.last_resolved === null) {
       f.last_resolved = { decision: r.status, comment: r.resolution_comment, resolved_at: iso(r.resolved_at ?? r.created_at) };
@@ -89,7 +90,7 @@ export async function reviewDispute(
   const periodClosed = (await closedPeriods(db, [r.period])).has(r.period);
   const deadline = disputeDeadline(r.period, s.dispute_deadline_day);
   const open = facts.opened_at !== null;
-  const state = disputeStateOf({ cancelled: false, open, periodClosed, deadline, at });
+  const state = disputeStateOf({ cancelled: false, open, rejected: facts.rejected, periodClosed, deadline, at });
   return {
     dispute: {
       state,

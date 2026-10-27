@@ -105,6 +105,21 @@ it("срок спора прошёл, месяц закрыт, прочие ст
   expect(homeView(d, "ru", NOW).month).toMatchObject({ chip: { text: "Изменена", tone: "wait" }, disputeLine: "Месяц закрыт, оспорить нельзя." });
 });
 
+it("спор отклонён: «Оспорить можно до …» нет, вместо неё «Повторно оспорить нельзя.»", () => {
+  const d = ex1();
+  d.employee!.month!.status = "dispute_resolved";
+  d.employee!.month!.dispute = {
+    state: "rejected",
+    deadline: "2026-11-10T18:59:59.999Z",
+    opened_at: null,
+    last_resolved: { decision: "rejected", comment: null, resolved_at: "2026-10-28T07:00:00.000Z" },
+  };
+  const m = homeView(d, "ru", NOW).month!;
+  expect(m).toMatchObject({ chip: { text: "Спор разобран", tone: "wait" }, disputeLine: "Повторно оспорить нельзя." });
+  expect(m.disputeLine).not.toContain("Оспорить можно");
+  expect(homeView(d, "uz", NOW).month!.disputeLine).toBe("Qayta eʼtiroz bildirib boʻlmaydi.");
+});
+
 it("все пункты на максимуме — lostNone", () => {
   const d = ex1();
   d.employee!.month!.lost = [];

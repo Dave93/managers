@@ -15,12 +15,13 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { kpi_disputes, kpi_notifications, kpi_periods, kpi_review_events, kpi_violations } = await import(
     "backend/drizzle/schema"
   );
-  const { openDispute } = await import("../disputes");
+  const { openDispute, resolveDispute } = await import("../disputes");
   const { eq } = await import("drizzle-orm");
   type Card = import("../types").Card;
   type DisputeRow = import("../types").DisputeRow;
   type PeriodSummary = import("../types").PeriodSummary;
   type ReviewForm = import("../types").ReviewForm;
+  type ViolationRow = import("../types").ViolationRow;
   type Session = Awaited<ReturnType<typeof withSession>>;
 
   const P = "2025-06-01";
@@ -311,6 +312,108 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const [row2] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, v2.id));
       expect(row2.status).toBe("active");
     });
+
+    it("после отказа по оценке повторный спор — 409 dispute_rejected из админки, приложения и бота, и после правки оценки тоже", async () => {
+      await resetPeriod();
+      const e = await cook();
+      const ev = await evaluator(e.terminal_id);
+      const reviewId = await submitted(ev, e.id);
+      const d = (await dispute(ev, "review", reviewId)).body as DisputeRow;
+      expect((await resolve(ev, d.id, { decision: "rejected", comment: "Оценка верна" })).status).toBe(200);
+
+      const again = await dispute(ev, "review", reviewId, "Всё равно не согласен");
+      expect(again.status).toBe(409);
+      expect(again.body).toEqual({ error: "dispute_rejected" });
+      for (const via of ["miniapp", "telegram"] as const) {
+        await expect(
+          openDispute(db, null, { subject_type: "review", subject_id: reviewId, reason: "Всё равно не согласен", via, employee_actor: true })
+        ).rejects.toMatchObject({ status: 409, code: "dispute_rejected" });
+      }
+      const form = (await api(ev, "GET", `/api/kpi/reviews/form?period=${P}&employee_id=${e.id}`)).body as ReviewForm;
+      expect([form.open_dispute, form.dispute_rejected]).toEqual([false, true]);
+
+      // Оценку поменяли в окне спора: отказ всё равно держит.
+      const changed = await api(ev, "PUT", `/api/kpi/reviews/${reviewId}`, { items: [{ item_id: cookItems[3], score: 100 }], comment: "Пересмотрели сами" });
+      expect(changed.status).toBe(200);
+      expect(await dispute(ev, "review", reviewId, "Новый балл тоже неверный")).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      expect(await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, reviewId))).toHaveLength(1);
+    });
+
+    it("после отказа по нарушению повторный спор — 409 dispute_rejected; в списке нарушений dispute_rejected", async () => {
+      await resetPeriod();
+      setNow(NOW);
+      const e = await cook();
+      const ev = await evaluator(e.terminal_id);
+      const v = await makeViolation(ev, e);
+      const fresh = await makeViolation(ev, e);
+      const d = (await dispute(ev, "violation", v.id, "Нарушения не было")).body as DisputeRow;
+      expect((await resolve(ev, d.id, { decision: "rejected", comment: "Запись верна" })).status).toBe(200);
+
+      expect(await dispute(ev, "violation", v.id, "Всё равно не было")).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      await expect(
+        openDispute(db, null, { subject_type: "violation", subject_id: v.id, reason: "Всё равно не было", via: "miniapp", employee_actor: true })
+      ).rejects.toMatchObject({ status: 409, code: "dispute_rejected" });
+      const list = (await api(ev, "GET", `/api/kpi/violations?period=${P}`)).body as ViolationRow[];
+      const byId = new Map(list.map((x) => [x.id, x]));
+      expect([byId.get(v.id)!.open_dispute, byId.get(v.id)!.dispute_rejected]).toEqual([false, true]);
+      expect([byId.get(fresh.id)!.open_dispute, byId.get(fresh.id)!.dispute_rejected]).toEqual([false, false]);
+      expect(await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, v.id))).toHaveLength(1);
+    });
+
+    it("после принятого спора по оценке новый спор открывается, как раньше", async () => {
+      await resetPeriod();
+      const e = await cook();
+      const ev = await evaluator(e.terminal_id);
+      const reviewId = await submitted(ev, e.id);
+      const d = (await dispute(ev, "review", reviewId)).body as DisputeRow;
+      const ok = await resolve(ev, d.id, { decision: "accepted", comment: "Пересмотрели оценку", items: [{ item_id: cookItems[3], score: 100 }] });
+      expect(ok.status).toBe(200);
+      const form = (await api(ev, "GET", `/api/kpi/reviews/form?period=${P}&employee_id=${e.id}`)).body as ReviewForm;
+      expect(form.dispute_rejected).toBe(false);
+      const again = await dispute(ev, "review", reviewId, "Новый балл тоже неверный");
+      expect(again.status).toBe(200);
+      expect((again.body as DisputeRow).status).toBe("open");
+      const d3 = await openDispute(db, null, { subject_type: "review", subject_id: (await submitted(ev, (await cook(e.terminal_id)).id)), reason: "Мне поставили мало", via: "miniapp", employee_actor: true });
+      expect(d3.status).toBe("open");
+    });
+
+    // Гонка: отказ ещё не закоммичен, а второй спор уже идёт. Частичный unique покрывает только открытые,
+    // поэтому без общей блокировки предмета второй спор вставился бы сразу после коммита отказа.
+    for (const kind of ["review", "violation"] as const) {
+      it(`гонка с отказом (${kind}): второй спор ждёт блокировку предмета и получает 409 dispute_rejected`, async () => {
+        await resetPeriod();
+        setNow(NOW);
+        const e = await cook();
+        const ev = await evaluator(e.terminal_id);
+        const subjectId = kind === "review" ? await submitted(ev, e.id) : (await makeViolation(ev, e)).id;
+        const d = (await dispute(ev, kind, subjectId, "Не согласен с записью")).body as DisputeRow;
+        const hr = await withSession({ permissions: ["kpi.approve"] });
+        const actor = { userId: hr.userId, perms: new Set(["kpi.approve"]), isHq: true, terminals: [] as string[] };
+
+        let resolved!: () => void;
+        const resolvedP = new Promise<void>((r) => (resolved = r));
+        let release!: () => void;
+        const gate = new Promise<void>((r) => (release = r));
+        const rejectTx = db.transaction(async (tx) => {
+          await resolveDispute(tx, actor, d.id, { decision: "rejected", comment: "Запись верна" });
+          resolved();
+          await gate; // отказ записан, но не закоммичен
+        });
+        await resolvedP;
+        let settled = false;
+        const second = openDispute(db, null, { subject_type: kind, subject_id: subjectId, reason: "Ещё раз не согласен", via: "miniapp", employee_actor: true })
+          .then((x) => ({ ok: x as unknown }), (err) => ({ err }))
+          .finally(() => (settled = true));
+        await new Promise((r) => setTimeout(r, 300));
+        expect(settled).toBe(false);
+        release();
+        await rejectTx;
+        const out = (await second) as { ok?: unknown; err?: unknown };
+        expect(out.err).toMatchObject({ status: 409, code: "dispute_rejected" });
+        const rows = await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, subjectId));
+        expect(rows.map((r) => r.status)).toEqual(["rejected"]);
+      });
+    }
 
     it("от имени сотрудника (Telegram): права не проверяются, opened_by_user_id пуст, событие от employee", async () => {
       await resetPeriod();

@@ -152,6 +152,41 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect([home.status, home.dispute.state, home.dispute.opened_at]).toEqual(["dispute_open", "open", iso(d.created_at)]);
     });
 
+    it("после отказа: оценка и нарушение — state rejected, POST — 409 dispute_rejected без строки; после принятого — can и 200", async () => {
+      setNow("2025-10-26T10:00:00+05:00");
+      const e = await makeEmployee(db, { role_code: "cook" });
+      const r = await seedReview(db, { ...base(e), period: "2025-10-01", scores: [100, 100, 75, 100, 100, 100, 100] });
+      const v = await seedViolation(db, { employee_id: e.id, terminal_id: e.terminal_id, recorded_by: ev.id, period: "2025-10-01", occurred_at: "2025-10-14T07:00:00.000Z" });
+      const fresh = await seedViolation(db, { employee_id: e.id, terminal_id: e.terminal_id, recorded_by: ev.id, period: "2025-10-01", occurred_at: "2025-10-10T07:00:00.000Z" });
+      const seed = (emp: { id: string }, subject_type: "review" | "violation", subject_id: string, status: "accepted" | "rejected") =>
+        seedDispute(db, { subject_type, subject_id, employee_id: emp.id, period: "2025-10-01", status, resolution_comment: "Решение" });
+      await seed(e, "review", r.id, "rejected");
+      await seed(e, "violation", v.id, "rejected");
+      const token = await login(await bindTelegram(db, { employee_id: e.id }));
+
+      const review = (await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-10-01")).body;
+      expect([review.status, review.dispute.state, review.dispute.last_resolved.decision]).toEqual(["dispute_resolved", "rejected", "rejected"]);
+      const viols = (await tgApi(token, "GET", "/api/kpi/tg/violations?period=2025-10-01")).body;
+      expect(viols.items.map((x: any) => [x.id, x.dispute.state])).toEqual([[v.id, "rejected"], [fresh.id, "can"]]);
+      const home = (await tgApi(token, "GET", "/api/kpi/tg/home")).body.employee.month;
+      expect([home.status, home.dispute.state]).toEqual(["dispute_resolved", "rejected"]);
+
+      const before = (await db.select().from(kpi_disputes)).length;
+      const post = (tok: string, subject_type: string, subject_id: string) =>
+        tgApi(tok, "POST", "/api/kpi/tg/disputes", { subject_type, subject_id, reason: "Всё равно не согласен" });
+      expect(await post(token, "review", r.id)).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      expect(await post(token, "violation", v.id)).toEqual({ status: 409, body: { error: "dispute_rejected" } });
+      expect((await db.select().from(kpi_disputes)).length).toBe(before);
+
+      // Принятый спор по оценке новый спор не запрещает (поведение прежнее).
+      const e2 = await makeEmployee(db, { role_code: "cook" });
+      const r2 = await seedReview(db, { ...base(e2), period: "2025-10-01", scores: [100, 100, 75, 100, 100, 100, 100] });
+      await seed(e2, "review", r2.id, "accepted");
+      const t2 = await login(await bindTelegram(db, { employee_id: e2.id }));
+      expect((await tgApi(t2, "GET", "/api/kpi/tg/review?period=2025-10-01")).body.dispute.state).toBe("can");
+      expect((await post(t2, "review", r2.id)).status).toBe(200);
+    });
+
     it("спор: чужая запись и черновик — 404 без строки; коротко — 422; отменённое — 409; кривой тип — 422; после срока — 409", async () => {
       setNow("2025-10-26T10:00:00+05:00");
       const e = await makeEmployee(db, { role_code: "cook" });

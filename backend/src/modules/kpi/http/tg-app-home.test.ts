@@ -229,7 +229,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
       await seedDispute(db, { subject_type: "review", subject_id: r.id, employee_id: e.id, period: "2025-10-01", status: "rejected", resolution_comment: "Оценка верная" });
       h = await home();
-      expect([h.month.status, h.month.dispute.state, h.month.dispute.opened_at]).toEqual(["dispute_resolved", "can", null]);
+      // Спор отклонён: повторно оспорить нельзя (план 8), и «Оспорить можно до …» на главном не показывается.
+      expect([h.month.status, h.month.dispute.state, h.month.dispute.opened_at]).toEqual(["dispute_resolved", "rejected", null]);
       expect(h.month.dispute.last_resolved).toEqual({ decision: "rejected", comment: "Оценка верная", resolved_at: expect.any(String) });
       expectIsoTimestamps(h.month, ["resolved_at"]);
 

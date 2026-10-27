@@ -142,6 +142,8 @@ describe("бот", () => {
     for (const key of M.BOT_TEXT_KEYS) for (const l of ["ru", "uz"] as const) expect(M.botText(key, l, { min: 5 }).length).toBeGreaterThan(0);
     expect(M.botText("ask_reason", "ru", { min: 5 })).toBe("Напишите причину спора ответом на это сообщение, не короче 5 символов. Ждём 15 минут.");
     expect(M.botText("start_bad", "uz")).toBe(M.botText("start_bad", "ru"));
+    expect(M.botText("err_rejected", "ru")).toBe("Спор по этому уже отклонён. Повторно оспорить нельзя.");
+    expect(M.botText("err_rejected", "uz")).toBe("Bu boʻyicha eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.");
   });
   it("start_ok называет, к кому привязан чат; имя экранируется и не разворачивает «$&»", () => {
     expect(M.botText("start_ok", "ru", { name: "Тест Повар" })).toBe(

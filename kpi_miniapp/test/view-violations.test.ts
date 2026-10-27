@@ -100,6 +100,20 @@ it("строка у нарушения без «Оспорить»: срок п�
   expect(one({ state: "open", opened_at: null })).toMatchObject({ line: "Спор на рассмотрении", status: { tone: "warn" } });
 });
 
+it("спор отклонён: «Оспорить» нет, строка «Повторно оспорить нельзя.», решение остаётся", () => {
+  const rejected = viol("v", {
+    dispute: dispute({ state: "rejected", last_resolved: { decision: "rejected", comment: "Запись верна", resolved_at: "2026-10-28T07:00:00.000Z" } }),
+  });
+  const one = (l: "ru" | "uz") => violationsView({ period: "2026-10-01", reason_min: 5, items: [rejected] }, l).items[0]!;
+  expect(one("ru")).toMatchObject({
+    canDispute: false,
+    line: "Повторно оспорить нельзя.",
+    status: { text: "действует", tone: "active" },
+    resolved: { title: "Спор отклонён", comment: "Комментарий: Запись верна" },
+  });
+  expect(one("uz")).toMatchObject({ canDispute: false, line: "Qayta eʼtiroz bildirib boʻlmaydi." });
+});
+
 it("узбекский: название пункта, дата, статусы, строки", () => {
   const vm = violationsView(ex(), "uz");
   expect(vm.title).toBe("Qoidabuzarliklar · oktabr");

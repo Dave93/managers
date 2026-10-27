@@ -52,6 +52,9 @@ describe("тексты ошибок", () => {
     expect(KPI_ERROR_TEXT.bad_checked_at).toBe("Неверное время проверки");
     expect(KPI_ERROR_TEXT.period_closed).toBe("Месяц закрыт. Изменить может только HR");
   });
+  it("спор после отказа (план 8)", () => {
+    expect(kpiErrorText(new KpiApiError(409, "dispute_rejected", { error: "dispute_rejected" }))).toBe("Спор по этому уже отклонён. Повторно оспорить нельзя");
+  });
   it("подробности плана 5", () => {
     expect(kpiErrorText(new KpiApiError(422, "weights_sum", { error: "weights_sum", sum: 99 }))).toBe("Сумма весов активных показателей должна быть 100 % (сейчас 99 %)");
     expect(kpiErrorText(new KpiApiError(422, "weights_sum", { error: "weights_sum" }))).toBe("Сумма весов активных показателей должна быть 100 %");

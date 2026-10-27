@@ -109,6 +109,8 @@ export interface ViolationRow {
   cancel_reason: string | null;
   photos: { id: string }[];
   open_dispute: boolean;
+  // По нарушению уже отклонили спор: повторный нельзя (план 8).
+  dispute_rejected: boolean;
   created_at: string;
 }
 
@@ -147,6 +149,8 @@ export interface ReviewForm {
   needs_comment: boolean;
   // Есть открытый спор по этой оценке.
   open_dispute: boolean;
+  // По оценке уже отклонили спор: повторный нельзя (план 8).
+  dispute_rejected: boolean;
   deadlines: Deadlines;
 }
 

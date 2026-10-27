@@ -327,6 +327,28 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await redis.get(disputeStateKey(b.telegram_id))).toBeNull();
     });
 
+    it("после отказа: кнопка «Оспорить» сразу отвечает «Повторно оспорить нельзя», состояния нет; причина после отказа — тот же ответ", async () => {
+      const { reviewId, employee } = await submittedReview();
+      const b = await bindTelegram(db, { employee_id: employee.id });
+      setNow("2025-11-05T10:00:00+05:00");
+      const REJECTED = "Спор по этому уже отклонён. Повторно оспорить нельзя.";
+      // Кнопку нажали до отказа, причину прислали после него.
+      await hook(press(b.telegram_id, `dispute:review:${reviewId}`));
+      expect(last().text).toContain("Напишите причину спора");
+      await db.insert(kpi_disputes).values({
+        subject_type: "review", subject_id: reviewId, employee_id: employee.id, period: P10, opened_via: "admin",
+        reason: "Первый спор", status: "rejected", resolution_comment: "Оценка верна", resolved_at: new Date().toISOString(),
+      });
+      await hook(say(b.telegram_id, "Не согласен с баллом за чистоту"));
+      expect(last().text).toBe(REJECTED);
+      expect(await redis.get(disputeStateKey(b.telegram_id))).toBeNull();
+      // Старое сообщение с кнопкой: отказ сразу, причину не спрашиваем.
+      await hook(press(b.telegram_id, `dispute:review:${reviewId}`));
+      expect(last()).toEqual({ text: REJECTED });
+      expect(await redis.get(disputeStateKey(b.telegram_id))).toBeNull();
+      expect(await db.select().from(kpi_disputes).where(eq(kpi_disputes.subject_id, reviewId))).toHaveLength(1);
+    });
+
     it("группа — тишина; исключение в отправке — всё равно 200", async () => {
       const e = await makeEmployee(db);
       const b = await bindTelegram(db, { employee_id: e.id });

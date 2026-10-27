@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles } = await import("../../../../tests/helpers/http");
   const { bindTelegram, cleanupKpi, fakeBotApi, makeEmployee, makeUser, setNow, setup } = await import("./fixtures");
-  const { employees, kpi_notifications, kpi_periods, kpi_tg_bindings } = await import("backend/drizzle/schema");
+  const { employees, kpi_disputes, kpi_notifications, kpi_periods, kpi_tg_bindings } = await import("backend/drizzle/schema");
   const { users } = await import("backend/drizzle/schema");
   const { enqueue } = await import("../notify");
   const { deliverOne, pendingIds, stuckSendingCount, sweepPending } = await import("../worker/deliver");
@@ -241,6 +241,25 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       setNow("2025-11-11T10:00:00+05:00");
       await go(await note({ employee_id: e.id, kind: "violation_recorded", payload: { period: P10, violation_id: randomUUID(), type: "late", amount: 1000 } }), f.api);
       expect(f.sent[1].msg.reply_markup).toBeUndefined();
+    });
+
+    it("после отклонённого спора кнопки «Оспорить» нет (оценка и нарушение); после принятого — есть", async () => {
+      setNow("2025-11-05T10:00:00+05:00");
+      const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
+      const f = fakeBotApi();
+      const [rRej, vRej, rAcc] = [randomUUID(), randomUUID(), randomUUID()];
+      const seed = (subject_type: "review" | "violation", subject_id: string, status: "accepted" | "rejected") =>
+        db.insert(kpi_disputes).values({ subject_type, subject_id, employee_id: e.id, period: P10, opened_via: "admin",
+          reason: "Тест", status, resolution_comment: "Решение", resolved_at: new Date().toISOString() });
+      await seed("review", rRej, "rejected");
+      await seed("violation", vRej, "rejected");
+      await seed("review", rAcc, "accepted");
+      await go(await note({ employee_id: e.id, kind: "review_changed", payload: { period: P10, review_id: rRej, score_pct: 90, old_score_pct: 83.33 } }), f.api);
+      await go(await note({ employee_id: e.id, kind: "violation_recorded", payload: { period: P10, violation_id: vRej, item_title_ru: "Чистота" } }), f.api);
+      await go(await note({ employee_id: e.id, kind: "review_changed", payload: { period: P10, review_id: rAcc, score_pct: 90, old_score_pct: 83.33, by_dispute: true } }), f.api);
+      expect([f.sent[0].msg.reply_markup, f.sent[1].msg.reply_markup]).toEqual([undefined, undefined]);
+      expect(f.sent[0].msg.text).not.toContain("Оспорить");
+      expect((f.sent[2].msg.reply_markup as any).inline_keyboard[0][0].callback_data).toBe(`dispute:review:${rAcc}`);
     });
 
     it("неактивный сотрудник и заблокированный пользователь — skipped inactive_recipient", async () => {

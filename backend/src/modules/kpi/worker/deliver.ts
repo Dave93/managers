@@ -4,6 +4,7 @@ import { kpi_notifications } from "backend/drizzle/schema";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { now } from "../clock";
+import { UUID_RE } from "../employees";
 import { isPeriodClosed } from "../periods";
 import { KPI_DELIVER_JOB, deliverJobOptions } from "../queue";
 import { loadSettings } from "../settings";
@@ -12,6 +13,7 @@ import type { BotApi } from "../tg/bot-api";
 import { deactivateByTelegramId, inTx, recipientOf } from "../tg/bindings";
 import { miniAppUrl } from "../tg/miniapp-url";
 import { DISPUTABLE_KINDS, UnknownKindError, buildMessage, type OutMessage } from "../tg/messages";
+import { hasRejectedDispute } from "../violations";
 
 export type DeliverOutcome =
   | { result: "noop" }
@@ -61,15 +63,20 @@ async function temporary(
   return retryAfterMs === undefined ? { result: "retry", error } : { result: "retry", error, retryAfterMs };
 }
 
-// Кнопка и строка про срок споров только пока он не вышел и месяц не закрыт.
+// Кнопка и строка про срок споров только пока он не вышел, месяц не закрыт и спор по записи
+// ещё не отклоняли (после отказа повторный нельзя, план 8).
 async function disputeUntilOf(db: DbLike, row: Row): Promise<string | null> {
   if (!(DISPUTABLE_KINDS as readonly string[]).includes(row.kind)) return null;
-  const period = (row.payload as Record<string, unknown> | null)?.period;
+  const payload = row.payload as Record<string, unknown> | null;
+  const period = payload?.period;
   if (!isPeriod(period)) return null;
   const settings = await loadSettings(db);
   const deadline = disputeDeadline(period, settings.dispute_deadline_day);
   if (now().getTime() > deadline.getTime()) return null;
   if (await isPeriodClosed(db, period)) return null;
+  const type = row.kind === "violation_recorded" ? "violation" : "review";
+  const id = type === "violation" ? payload?.violation_id : payload?.review_id;
+  if (typeof id === "string" && UUID_RE.test(id) && (await hasRejectedDispute(db, type, id))) return null;
   return deadline.toISOString();
 }
 

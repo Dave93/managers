@@ -14,6 +14,7 @@ import { collectDeliveries } from "../notify";
 import { laggingEvaluators } from "../periods";
 import { loadSettings } from "../settings";
 import { currentReviewPeriod, disputeDeadline, periodOf, reviewDeadline } from "../time";
+import { hasRejectedDispute } from "../violations";
 import type { BotApi } from "./bot-api";
 import { bindingOf, langOf, redeemInvite, setLang } from "./bindings";
 import { LANG_KEYBOARD, botText, joinMy, myEmployeeText, myUserText, openAppMarkup, type BotTextKey, type Lang, type OutMessage } from "./messages";
@@ -102,6 +103,7 @@ const DISPUTE_ERRORS: Record<string, BotTextKey> = {
   comment_required: "err_short",
   dispute_window_closed: "err_window",
   dispute_exists: "err_exists",
+  dispute_rejected: "err_rejected",
   period_closed: "err_closed",
   not_submitted: "err_unavailable",
   already_cancelled: "err_unavailable",
@@ -153,6 +155,8 @@ async function handle(u: Exclude<BotUpdate, { type: "ignore" }>, { db, redis, ap
     const employeeId = pair.employee.employee_id!;
     const owner = await ownerOf(db, a.subject_type, a.subject_id);
     if (!owner || owner.employee_id !== employeeId) return say(lang, "err_unavailable");
+    // Кнопка из старого сообщения после отказа: причину не спрашиваем (план 8). openDispute всё равно проверит под блокировкой.
+    if (await hasRejectedDispute(db, a.subject_type, a.subject_id)) return say(lang, "err_rejected");
     const settings = await loadSettings(db);
     if (now().getTime() > disputeDeadline(owner.period, settings.dispute_deadline_day).getTime()) return say(lang, "err_window");
     const state: DisputeState = { subject_type: a.subject_type, subject_id: a.subject_id, employee_id: employeeId };

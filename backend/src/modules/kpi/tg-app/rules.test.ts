@@ -144,8 +144,20 @@ describe("карточка месяца", () => {
     expect(reviewStatusOf({ open: false, resolved: false, changed: false })).toBe("ready");
     const d = new Date("2026-11-10T18:59:59.999Z");
     const s = (o: Partial<Parameters<typeof disputeStateOf>[0]>) =>
-      disputeStateOf({ cancelled: false, open: false, periodClosed: false, deadline: d, at: new Date("2026-11-01T00:00:00Z"), ...o });
-    expect([s({ cancelled: true, open: true }), s({ open: true, periodClosed: true }), s({ periodClosed: true }), s({ at: new Date("2026-11-11T00:00:00Z") }), s({})])
-      .toEqual(["cancelled", "open", "period_closed", "window_closed", "can"]);
+      disputeStateOf({ cancelled: false, open: false, rejected: false, periodClosed: false, deadline: d, at: new Date("2026-11-01T00:00:00Z"), ...o });
+    const late = new Date("2026-11-11T00:00:00Z");
+    expect([
+      s({ cancelled: true, open: true, rejected: true }),
+      s({ open: true, rejected: true, periodClosed: true }),
+      s({ rejected: true, periodClosed: true, at: late }),
+      s({ periodClosed: true, at: late }),
+      s({ at: late }),
+      s({}),
+    ]).toEqual(["cancelled", "open", "rejected", "period_closed", "window_closed", "can"]);
+  });
+  it("disputeStateOf: после отклонённого спора — rejected и в открытом окне", () => {
+    const at = new Date("2026-11-01T00:00:00Z");
+    const deadline = new Date("2026-11-10T18:59:59.999Z");
+    expect(disputeStateOf({ cancelled: false, open: false, rejected: true, periodClosed: false, deadline, at })).toBe("rejected");
   });
 });

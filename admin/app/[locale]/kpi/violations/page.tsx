@@ -75,7 +75,9 @@ function ViolationsScreen() {
     v.status === "active" &&
     !v.open_dispute &&
     (access.approve || (access.evaluate && userId !== undefined && v.recorded_by === userId));
-  const canDispute = (v: ViolationRow) => v.status === "active" && !v.open_dispute && (access.evaluate || access.approve);
+  // После отклонённого спора повторный нельзя (сервер ответит dispute_rejected).
+  const canDispute = (v: ViolationRow) =>
+    v.status === "active" && !v.open_dispute && !v.dispute_rejected && (access.evaluate || access.approve);
 
   const cancelRow = cancelId ? rows.find((v) => v.id === cancelId) ?? null : null;
   const disputeRow = disputeId ? rows.find((v) => v.id === disputeId) ?? null : null;
@@ -167,6 +169,9 @@ function ViolationsScreen() {
                 <p className="whitespace-pre-wrap break-words text-sm">{v.comment}</p>
                 <PhotoThumbs photos={v.photos} size="md" />
                 <div className="text-xs text-muted-foreground">Записал: {v.recorded_by_name ?? "—"}</div>
+                {v.status === "active" && v.dispute_rejected && (
+                  <p className="text-sm text-muted-foreground">Спор отклонён. Повторно оспорить нельзя</p>
+                )}
                 {v.status === "cancelled" && v.cancel_reason && (
                   <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">Причина отмены: {v.cancel_reason}</p>
                 )}

@@ -136,9 +136,9 @@ export async function violationsOf(db: DbLike, employeeId: string, period: unkno
   const periodClosed = (await closedPeriods(db, [p])).has(p);
   const deadline = disputeDeadline(p, s.dispute_deadline_day);
   const items: TgViolation[] = rows.map((v) => {
-    const f = facts.get(v.id) ?? { opened_at: null, last_resolved: null };
+    const f = facts.get(v.id) ?? { opened_at: null, last_resolved: null, rejected: false };
     const cancelled = v.status === "cancelled";
-    const state = disputeStateOf({ cancelled, open: f.opened_at !== null, periodClosed, deadline, at });
+    const state = disputeStateOf({ cancelled, open: f.opened_at !== null, rejected: f.rejected, periodClosed, deadline, at });
     return {
       id: v.id,
       item_title_ru: v.item_title_ru,
@@ -194,7 +194,7 @@ async function ownSubject(db: DbLike, employeeId: string, type: "review" | "viol
 
 // Спор из мини-приложения. openDispute с employee_actor владельца записи не проверяет, поэтому
 // чужая запись и черновик отсекаются здесь, до вызова: 404 и ни одной строки в kpi_disputes.
-// Остальные ошибки (короткая причина, отменено, срок, месяц закрыт, повтор) — коды openDispute.
+// Остальные ошибки (короткая причина, отменено, уже отклонён, срок, месяц закрыт, повтор) — коды openDispute.
 export async function disputeFromApp(
   db: DbLike,
   employeeId: string,

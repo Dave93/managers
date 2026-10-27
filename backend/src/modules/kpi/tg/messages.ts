@@ -387,6 +387,7 @@ export type BotTextKey =
   | "dispute_ok"
   | "err_window"
   | "err_exists"
+  | "err_rejected"
   | "err_short"
   | "err_unavailable"
   | "err_closed"
@@ -431,6 +432,10 @@ const BOT_TEXT: Record<BotTextKey, Record<Lang, string>> = {
   err_exists: {
     ru: "Спор по этой записи уже открыт.",
     uz: "Bu yozuv boʻyicha eʼtiroz allaqachon ochilgan.",
+  },
+  err_rejected: {
+    ru: "Спор по этому уже отклонён. Повторно оспорить нельзя.",
+    uz: "Bu boʻyicha eʼtiroz allaqachon rad etilgan. Qayta eʼtiroz bildirib boʻlmaydi.",
   },
   err_short: {
     ru: "Причина слишком короткая: нужно не меньше {min} символов. Напишите ещё раз.",

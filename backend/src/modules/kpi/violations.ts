@@ -49,7 +49,23 @@ export async function hasOpenDispute(db: DbLike, subjectType: "review" | "violat
   return d.length > 0;
 }
 
-// Строки базы в ответ API: имена, фото и открытые споры одним пакетом запросов.
+// Был ли по записи отклонённый спор. После отказа новый спор по ней не открывается ни из какого канала (план 8).
+export async function hasRejectedDispute(db: DbLike, subjectType: "review" | "violation", subjectId: string): Promise<boolean> {
+  const d = await db
+    .select({ id: kpi_disputes.id })
+    .from(kpi_disputes)
+    .where(
+      and(
+        eq(kpi_disputes.subject_type, subjectType),
+        eq(kpi_disputes.subject_id, subjectId),
+        eq(kpi_disputes.status, "rejected")
+      )
+    )
+    .limit(1);
+  return d.length > 0;
+}
+
+// Строки базы в ответ API: имена, фото, открытые и отклонённые споры одним пакетом запросов.
 async function toRows(db: DbLike, rows: VRow[]): Promise<ViolationRow[]> {
   if (rows.length === 0) return [];
   const ids = rows.map((r) => r.id);
@@ -73,16 +89,17 @@ async function toRows(db: DbLike, rows: VRow[]): Promise<ViolationRow[]> {
     photos.set(p.violation_id, list);
   }
   const disputeRows = await db
-    .select({ subject_id: kpi_disputes.subject_id })
+    .select({ subject_id: kpi_disputes.subject_id, status: kpi_disputes.status })
     .from(kpi_disputes)
     .where(
       and(
         eq(kpi_disputes.subject_type, "violation"),
-        eq(kpi_disputes.status, "open"),
+        inArray(kpi_disputes.status, ["open", "rejected"]),
         inArray(kpi_disputes.subject_id, ids)
       )
     );
-  const disputed = new Set(disputeRows.map((d) => d.subject_id));
+  const disputed = new Set(disputeRows.filter((d) => d.status === "open").map((d) => d.subject_id));
+  const rejected = new Set(disputeRows.filter((d) => d.status === "rejected").map((d) => d.subject_id));
   return rows.map((r) => ({
     id: r.id,
     terminal_id: r.terminal_id,
@@ -100,6 +117,7 @@ async function toRows(db: DbLike, rows: VRow[]): Promise<ViolationRow[]> {
     cancel_reason: r.cancel_reason,
     photos: photos.get(r.id) ?? [],
     open_dispute: disputed.has(r.id),
+    dispute_rejected: rejected.has(r.id),
     created_at: iso(r.created_at),
   }));
 }

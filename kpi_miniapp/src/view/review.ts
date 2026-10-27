@@ -71,6 +71,8 @@ function disputeLine(d: TgDisputeInfo, l: Lang): string {
     case "open":
       // Сервер даёт дату всегда, когда спор открыт; без неё — просто статус.
       return d.opened_at ? tIn(l, "dsp_open", { date: dayMonth(d.opened_at, l) }) : tIn(l, "st_dispute_open");
+    case "rejected":
+      return tIn(l, "dsp_rejected_final");
     case "window_closed":
       return tIn(l, "dsp_window_closed");
     case "period_closed":
@@ -115,6 +117,7 @@ const ERROR_KEY: Record<string, Key> = {
   comment_required: "err_comment_required",
   dispute_window_closed: "err_dispute_window_closed",
   dispute_exists: "err_dispute_exists",
+  dispute_rejected: "err_dispute_rejected",
   period_closed: "err_period_closed",
   already_cancelled: "err_already_cancelled",
   not_found: "err_not_found",
