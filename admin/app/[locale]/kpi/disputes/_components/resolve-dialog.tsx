@@ -211,6 +211,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
                 {p}
               </p>
             ))}
+            <p className="text-xs text-muted-foreground">После отказа сотрудник не сможет оспорить эту запись повторно</p>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">

@@ -40,7 +40,7 @@ import {
   terminals,
   users,
 } from "backend/drizzle/schema";
-import { eq, inArray, like, sql } from "drizzle-orm";
+import { eq, inArray, like, sql, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
 import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
 import { kpiQueueName, getKpiQueue } from "../queue";
@@ -361,7 +361,15 @@ export async function addCooking(
 // Сверка склада за месяц period; period сверки — последний день месяца.
 export async function addReconciliation(
   db: DrizzleDB,
-  o: { store_id: string; period: string; status: string; accepted_diff_bc: string | null; live_diff_bc?: string | null }
+  o: {
+    store_id: string;
+    period: string;
+    status: string;
+    accepted_diff_bc: string | null;
+    live_diff_bc?: string | null;
+    // время решения (пометка «есть новые данные» читает его); по умолчанию не задано
+    reviewed_at?: SQL | string | null;
+  }
 ): Promise<void> {
   const y = Number(o.period.slice(0, 4));
   const m = Number(o.period.slice(5, 7));
@@ -371,6 +379,7 @@ export async function addReconciliation(
     period: `${o.period.slice(0, 8)}${String(last).padStart(2, "0")}`,
     status: o.status,
     iiko_document_comment: BRANCH_MARK,
+    reviewed_at: o.reviewed_at ?? null,
     diff_bc_sum: o.live_diff_bc ?? o.accepted_diff_bc,
     accepted_totals:
       o.status === "accepted"

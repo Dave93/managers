@@ -2,6 +2,7 @@
 // Версии не перезаписываются: расчёт только добавляет, чтение берёт последнюю.
 import type { DrizzleDB } from "@backend/lib/db";
 import {
+  inventory_reconciliations,
   kpi_attendance_imports,
   kpi_branch_results,
   kpi_branch_scores,
@@ -26,6 +27,7 @@ import {
   branchSuggestion,
   inputsNewerThanVersion,
   isPreliminary,
+  monthLastDay,
   nextTier,
   scoreTerminal,
   terminalFacts,
@@ -73,15 +75,18 @@ async function latestVersionInfo(
 }
 
 // Есть ли за месяц ввод новее последней версии (пометка «Есть новые данные»). Читаем то, что берёт расчёт
-// из наших таблиц: санитарные проверки, планы, импорт посещаемости. Продажи и сервис идут из iiko, их не смотрим.
-// terminalIds: проверки и планы только этих филиалов; импорт посещаемости один на месяц.
+// из наших таблиц: санитарные проверки, планы, импорт посещаемости, решения по сверкам склада (себестоимость).
+// Продажи и сервис идут из iiko, их не смотрим.
+// terminalIds: проверки, планы и сверки только этих филиалов; импорт посещаемости один на месяц.
+// Сверка: reviewed_at ставится при каждой смене статуса, в том числе при снятии «принято», а расчёт читает именно статус.
 async function inputsNewer(db: DbLike, period: Period, computedAt: string | null, terminalIds?: string[]): Promise<boolean> {
   if (computedAt === null) return false;
   const closed = await isPeriodClosed(db, period);
   if (closed) return false;
   const san = kpi_sanitary_checks;
   const plans = kpi_revenue_plans;
-  const [[s], [p], [a]] = await Promise.all([
+  const stores = [...(await terminalLinks(db, terminalIds)).values()].flatMap((l) => l.stores);
+  const [[s], [p], [a], [r]] = await Promise.all([
     db
       .select({ at: sql<string | null>`max(${san.created_at})` })
       .from(san)
@@ -94,8 +99,19 @@ async function inputsNewer(db: DbLike, period: Period, computedAt: string | null
       .select({ at: sql<string | null>`max(${kpi_attendance_imports.created_at})` })
       .from(kpi_attendance_imports)
       .where(eq(kpi_attendance_imports.period, period)),
+    stores.length === 0
+      ? Promise.resolve([{ at: null as string | null }])
+      : db
+          .select({ at: sql<string | null>`max(${inventory_reconciliations.reviewed_at})` })
+          .from(inventory_reconciliations)
+          .where(
+            and(
+              inArray(inventory_reconciliations.store_id, stores),
+              eq(inventory_reconciliations.period, monthLastDay(period))
+            )
+          ),
   ]);
-  return inputsNewerThanVersion({ closed, computedAt, inputTimes: [s?.at, p?.at, a?.at] });
+  return inputsNewerThanVersion({ closed, computedAt, inputTimes: [s?.at, p?.at, a?.at, r?.at] });
 }
 
 // Новая версия за месяц. Набор филиалов строится из данных (решение 7), не из terminals.

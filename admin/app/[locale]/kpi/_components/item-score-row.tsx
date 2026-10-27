@@ -162,7 +162,7 @@ export function ItemScoreRow({
         aria-label={`Заметка: ${item.title_ru}`}
         placeholder={item.suggestion ? "Заметка (обязательна, если балл отличается от предложения или не поставлен)" : "Заметка"}
       />
-      {staleNote && (
+      {staleNote && !invalid && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <p role="status" className="text-xs text-amber-700 dark:text-amber-400">
             Заметка написана к прежнему баллу — исправьте или удалите

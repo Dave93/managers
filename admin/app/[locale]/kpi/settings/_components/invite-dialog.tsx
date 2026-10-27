@@ -68,11 +68,12 @@ function InviteBody({
   const create = useMutation({
     mutationFn: () => kpiApi.tg.invite(target),
     gcTime: 0,
-    onMutate: () => onPending(true),
-    onSuccess: (r) => {
-      setInvite(r);
+    // Ключ берём до запроса: привязка, появившаяся, пока ссылка создаётся, не должна считаться уже виденной.
+    onMutate: () => {
+      onPending(true);
       setSeenKey(bindingKey(binding));
     },
+    onSuccess: (r) => setInvite(r),
     onError: (e) => toast.error(kpiErrorText(e)),
     onSettled: () => onPending(false),
   });
@@ -101,7 +102,7 @@ function InviteBody({
           <div>
             {bindingLabel(bound)}, с {formatTashkent(bound.created_at)}
           </div>
-          {"employee_id" in target && <div>Сотрудник откроет „Мой KPI“ кнопкой меню бота</div>}
+          {"employee_id" in target && <div>Сотрудник откроет «Мой KPI» кнопкой меню бота</div>}
         </div>
       ) : invite ? (
         <div className="space-y-3">
@@ -116,7 +117,7 @@ function InviteBody({
           </div>
           <p className="text-sm text-muted-foreground">{inviteHint(invite.expires_at)}</p>
           {"employee_id" in target && (
-            <p className="text-xs text-muted-foreground">После привязки сотрудник откроет „Мой KPI“ кнопкой меню бота</p>
+            <p className="text-xs text-muted-foreground">После привязки сотрудник откроет «Мой KPI» кнопкой меню бота</p>
           )}
         </div>
       ) : (

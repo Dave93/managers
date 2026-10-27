@@ -12,8 +12,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { addAttendance, addCooking, addOrder, addReconciliation, addSanitaryRow, api, cleanupKpi, makeTerminal, setNow, setup } = await import("./fixtures");
-  const { credentials, kpi_branch_scores, kpi_periods, kpi_revenue_plans } = await import("backend/drizzle/schema");
-  const { and, eq } = await import("drizzle-orm");
+  const { credentials, inventory_reconciliations, kpi_branch_scores, kpi_periods, kpi_revenue_plans } = await import("backend/drizzle/schema");
+  const { and, eq, sql } = await import("drizzle-orm");
   const { SEED_BRANCH_INDICATORS } = await import("../seed-data");
   const { revenueByGroups, sumOver, terminalLinks } = await import("../branch-facts");
   type BranchBreakdown = import("../types").BranchBreakdown;
@@ -325,6 +325,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
         // план тоже ввод
         await db.insert(kpi_revenue_plans).values({ terminal_id: t.id, period: Q, amount: "5", updated_by: randomUUID() });
+        expect(await flags()).toEqual([true, true]);
+
+        // сверка склада: решение после расчёта включает пометку, пересчёт снимает
+        expect((await api(s, "POST", "/api/kpi/branch/compute", { period: Q })).body).toMatchObject({ version: 3 });
+        expect(await flags()).toEqual([false, false]);
+        await addReconciliation(db, { store_id: t.store_id!, period: Q, status: "accepted", accepted_diff_bc: "-100.00", reviewed_at: sql`now()` });
+        expect(await flags()).toEqual([true, true]);
+        expect((await api(s, "POST", "/api/kpi/branch/compute", { period: Q })).body).toMatchObject({ version: 4 });
+        expect(await flags()).toEqual([false, false]);
+        // решение по сверке чужого склада в охват не входит
+        await addReconciliation(db, { store_id: other.store_id!, period: Q, status: "accepted", accepted_diff_bc: "-1.00", reviewed_at: sql`now()` });
+        expect(await flags()).toEqual([false, false]);
+        // снятие «принято» тоже решение: расчёт читает статус
+        await db
+          .update(inventory_reconciliations)
+          .set({ status: "in_review", reviewed_at: sql`now()` })
+          .where(and(eq(inventory_reconciliations.store_id, t.store_id!), eq(inventory_reconciliations.period, "2025-02-28")));
         expect(await flags()).toEqual([true, true]);
 
         // закрытый месяц заморожен: пометки нет
