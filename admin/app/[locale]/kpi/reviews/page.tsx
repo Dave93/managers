@@ -192,8 +192,8 @@ function ReviewsScreen() {
           <TableHeader>
             <TableRow>
               <TableHead>Сотрудник</TableHead>
-              <TableHead className="hidden sm:table-cell">Филиал</TableHead>
-              <TableHead className="hidden sm:table-cell">Карта</TableHead>
+              <TableHead className="hidden lg:table-cell">Филиал</TableHead>
+              <TableHead className="hidden lg:table-cell">Карта</TableHead>
               <TableHead className="hidden sm:table-cell">Статус</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
@@ -222,14 +222,15 @@ function ReviewsScreen() {
                     }
                   }}
                 >
-                  {/* На телефоне строка компактная: филиал и статус под именем, видны только «Сотрудник» и «%». */}
+                  {/* Узкий экран (и планшет с открытым меню): филиал, а на телефоне и статус — под именем; «%» видна всегда.
+                      Текстовые колонки переносятся, чтобы таблица не была шире карточки. */}
                   <TableCell className="whitespace-normal">
                     <div className="break-words font-medium">{employeeName(r)}</div>
-                    <div className="break-words text-xs text-muted-foreground sm:hidden">{r.terminal_name ?? "Филиал без названия"}</div>
+                    <div className="break-words text-xs text-muted-foreground lg:hidden">{r.terminal_name ?? "Филиал без названия"}</div>
                     <div className="mt-1 flex flex-wrap gap-1 sm:hidden">{badges}</div>
                   </TableCell>
-                  <TableCell className="hidden sm:table-cell">{r.terminal_name ?? "Филиал без названия"}</TableCell>
-                  <TableCell className="hidden sm:table-cell">{r.card?.title_ru ?? "—"}</TableCell>
+                  <TableCell className="hidden whitespace-normal lg:table-cell">{r.terminal_name ?? "Филиал без названия"}</TableCell>
+                  <TableCell className="hidden whitespace-normal lg:table-cell">{r.card?.title_ru ?? "—"}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <div className="flex flex-col items-start gap-1">{badges}</div>
                   </TableCell>
