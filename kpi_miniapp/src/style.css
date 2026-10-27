@@ -1306,6 +1306,9 @@ html.sheet-open body {
   flex: none;
   margin-left: 12px;
 }
+.sheet-count:empty {
+  display: none;
+}
 .sheet-count.is-ok {
   color: var(--ok-ink);
   font-weight: 600;

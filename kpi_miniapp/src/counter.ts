@@ -9,11 +9,11 @@ export interface ReasonCounter {
 }
 
 /**
- * Пока букв и цифр меньше минимума — «ещё N» (сколько осталось). Набран минимум — настоящая длина,
- * а с максимумом (если он есть) «длина / максимум». Прежний «5 / 5» показывал минимум, не длину.
+ * Пока букв и цифр меньше минимума — «ещё N» (сколько осталось). Набран минимум: без максимума
+ * счётчик пуст (считать больше нечего), с максимумом — «длина / максимум». Прежний «5 / 5» показывал минимум.
  */
 export function reasonCounter(reason: string, min: number, max: number | null, l: Lang): ReasonCounter {
   const n = reasonCount(reason);
   if (n < min) return { text: tIn(l, "sheet_left", { n: min - n }), ok: false };
-  return { text: max === null ? String(n) : `${n} / ${max}`, ok: true };
+  return { text: max === null ? "" : `${n} / ${max}`, ok: true };
 }

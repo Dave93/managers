@@ -10,16 +10,16 @@ it("короче минимума: сколько ещё нужно, а не «5
   expect(reasonCounter("ок!!", 5, null, "uz")).toEqual({ text: "yana 3 ta", ok: false });
 });
 
-it("минимум набран: настоящая длина, а не минимум", () => {
-  expect(reasonCounter("12345", 5, null, "ru")).toEqual({ text: "5", ok: true });
+it("минимум набран, максимума нет: счётчик пуст, не «5 / 5» и не длина", () => {
+  expect(reasonCounter("12345", 5, null, "ru")).toEqual({ text: "", ok: true });
   const sixty = "В".repeat(60);
-  expect(reasonCounter(sixty, 5, null, "ru")).toEqual({ text: "60", ok: true });
-  expect(reasonCounter(sixty, 5, null, "uz")).toEqual({ text: "60", ok: true });
+  expect(reasonCounter(sixty, 5, null, "ru")).toEqual({ text: "", ok: true });
+  expect(reasonCounter(sixty, 5, null, "uz")).toEqual({ text: "", ok: true });
 });
 
 it("считаются буквы и цифры, как у сервера: пробелы и знаки — нет", () => {
   expect(reasonCounter("  а б, в! 1 ", 5, null, "ru")).toEqual({ text: "ещё 1", ok: false });
-  expect(reasonCounter("абв гд — е", 5, null, "ru")).toEqual({ text: "6", ok: true });
+  expect(reasonCounter("абв гд — е", 5, 500, "ru")).toEqual({ text: "6 / 500", ok: true });
 });
 
 it("максимум, если он есть: «длина / максимум»", () => {
