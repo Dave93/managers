@@ -234,7 +234,7 @@ it("прибавка: квартал без оценок, не оценён, н�
   expect(vm.raise!.months.map((m) => m.value)).toEqual(["не оценивался", "не оценён", "с 20.09"]);
   expect(vm.raise!.lines).toEqual(["Оценок в этом квартале ещё нет."]);
   r.hint = { kind: "decided", amount: 500000 };
-  expect(homeView(d, "ru", NOW).raise).toMatchObject({ badge: { text: `Утверждено: +500${nb}000${nb}сум`, tone: "ok" }, lines: [] });
+  expect(homeView(d, "ru", NOW).raise).toMatchObject({ badge: { text: `Утверждено +500${nb}000${nb}сум`, tone: "ok" }, lines: [] });
 });
 
 it("шкала: дробный порог с десятичной, средний не переходит ступень", () => {

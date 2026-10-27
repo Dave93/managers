@@ -13,6 +13,7 @@
 // закрывает её из роутера (closeDisputeSheet), иначе осталась бы MainButton без экрана.
 import type { TgDisputeCreated } from "@backend/modules/kpi/tg-app/types";
 import { appApi } from "./api";
+import { reasonCounter } from "./counter";
 import { STATUS_TEXT, lang, t } from "./i18n";
 import { rerender } from "./nav";
 import { haptic, webApp } from "./telegram";
@@ -205,10 +206,10 @@ export function openDisputeSheet(o: DisputeSheetOptions): void {
   const ctl = viaMainButton(onSend) ?? viaButton(onSend);
 
   const sync = (): void => {
-    const n = reasonCount(field.value);
-    count.textContent = `${Math.min(n, o.reasonMin)} / ${o.reasonMin}`;
-    count.className = n >= o.reasonMin ? "sheet-count is-ok" : "sheet-count";
-    ctl.active(!settled && n >= o.reasonMin);
+    const c = reasonCounter(field.value, o.reasonMin, null, lang());
+    count.textContent = c.text;
+    count.className = c.ok ? "sheet-count is-ok" : "sheet-count";
+    ctl.active(!settled && c.ok);
   };
   field.addEventListener("input", () => {
     // Правка причины снимает прошлую ошибку, кроме окончательной.

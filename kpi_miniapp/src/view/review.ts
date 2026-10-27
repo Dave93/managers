@@ -3,7 +3,7 @@
 // дополнительные пункты, внизу изменения после отправки и спор.
 //
 // disputeErrorText живёт здесь, а не в sheet.ts: тест не может импортировать модуль с DOM.
-import type { TgDisputeInfo, TgItemSource, TgReview, TgReviewItem, TgTier } from "@backend/modules/kpi/tg-app/types";
+import type { TgDisputeInfo, TgItemSource, TgReview, TgReviewChangeItem, TgReviewItem, TgTier } from "@backend/modules/kpi/tg-app/types";
 import { dayMonth, pct1 } from "../format";
 import { type Key, type Lang, monthName, t, tIn } from "../i18n";
 import { capFirst } from "../util";
@@ -23,7 +23,8 @@ export interface ReviewItemVM {
 export interface ReviewVM {
   title: string; // «Октябрь · 90,3 %»
   groups: { title: string; items: ReviewItemVM[] }[];
-  changes: { line: string; reason: string | null }[]; // «12 октября: 85,0 % → 90,3 %»
+  // line — «12 октября: 85,0 % → 90,3 %»; items — «Гигиена сотрудника: 75 → 100» под итогом
+  changes: { line: string; items: string[]; reason: string | null }[];
   resolved: { title: string; comment: string | null } | null;
   dispute: { can: true; label: string } | { can: false; line: string };
 }
@@ -65,6 +66,21 @@ function itemView(i: TgReviewItem, l: Lang): ReviewItemVM {
   };
 }
 
+/** Балл пункта в изменении: целое («75») или «нет данных». */
+const scoreOrNoData = (n: number | null, l: Lang): string => (n === null ? tIn(l, "no_data") : String(Math.round(n)));
+
+/** Пункты правки. Ответ без items (backend до этой правки, копия из кэша) — пусто, останется итог. */
+function changeItemLines(items: TgReviewChangeItem[] | undefined, l: Lang): string[] {
+  return (items ?? []).map((i) =>
+    tIn(l, "change_item", {
+      // Узбекского названия нет — русское, как у списка пунктов.
+      title: l === "ru" ? i.title_ru : i.title_uz || i.title_ru,
+      old: scoreOrNoData(i.old, l),
+      new: scoreOrNoData(i.new, l),
+    }),
+  );
+}
+
 /** Строка про спор вместо кнопки. Отменённой оценка не бывает: такой строки нет. */
 function disputeLine(d: TgDisputeInfo, l: Lang): string {
   switch (d.state) {
@@ -100,6 +116,7 @@ export function reviewView(r: TgReview, l: Lang): ReviewVM {
     groups,
     changes: r.changes.map((c) => ({
       line: `${dayMonth(c.at, l)}: ${pctOrDash(c.old_score_pct, mins)} → ${pctOrDash(c.new_score_pct, mins)}`,
+      items: changeItemLines(c.items, l),
       reason: c.comment !== null && c.comment.trim() !== "" ? tIn(l, "change_reason", { text: c.comment }) : null,
     })),
     resolved: lr

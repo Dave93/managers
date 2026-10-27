@@ -13,10 +13,32 @@ import { resolveUploadFile } from "../storage";
 import { disputeDeadline } from "../time";
 import { closedPeriods, disputeFacts, reviewDispute, tgTiers } from "./load";
 import { disputeStateOf } from "./rules";
-import type { TgDisputeCreated, TgItemSource, TgReview, TgReviewChange, TgReviewItem, TgViolation, TgViolations } from "./types";
+import type { TgDisputeCreated, TgItemSource, TgReview, TgReviewChange, TgReviewChangeItem, TgReviewItem, TgViolation, TgViolations } from "./types";
 
 const notFound = (): KpiError => new KpiError(404, "not_found");
 const pct = (v: string | null): number | null => (v === null ? null : Number(v));
+
+// kpi_review_events.changes: [{item_id, old, new, title_ru}] (reviews.ts). Название — из снимка пункта в оценке,
+// как у списка пунктов; пункта в оценке нет — title_ru из события; и его нет — строки нет. Балл — число или null,
+// всё прочее (старая запись, мусор) строку отбрасывает: ответ из-за неё не ломается.
+const score = (v: unknown): number | null | undefined => (v === null ? null : typeof v === "number" && Number.isFinite(v) ? v : undefined);
+
+function changeItems(raw: unknown, titles: Map<string, { ru: string; uz: string }>): TgReviewChangeItem[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TgReviewChangeItem[] = [];
+  for (const c of raw as unknown[]) {
+    if (typeof c !== "object" || c === null) continue;
+    const { item_id, old, new: next, title_ru } = c as Record<string, unknown>;
+    const from = score(old);
+    const to = score(next);
+    if (from === undefined || to === undefined) continue;
+    const t = typeof item_id === "string" ? titles.get(item_id) : undefined;
+    const ru = t?.ru || (typeof title_ru === "string" ? title_ru : "");
+    if (ru === "") continue;
+    out.push({ title_ru: ru, title_uz: t?.uz || ru, old: from, new: to });
+  }
+  return out;
+}
 
 // Отправленная оценка сотрудника за месяц. Пункты: сначала base, потом extra, внутри по sort карты оценки;
 // пункта в карте уже нет — base, после остальных.
@@ -66,10 +88,12 @@ export async function reviewFor(db: DbLike, employeeId: string, period: unknown,
   }));
   keyed.sort((a, b) => a.group - b.group || a.sort - b.sort || a.item.item_id.localeCompare(b.item.item_id));
 
+  const titles = new Map(rows.map((i) => [i.item_id, { ru: i.title_ru, uz: i.title_uz }]));
   // Правки после отправки: старый и новый балл и причина; кто правил, не читаем.
   const events = await db
     .select({
       created_at: kpi_review_events.created_at,
+      changes: kpi_review_events.changes,
       old_score_pct: kpi_review_events.old_score_pct,
       new_score_pct: kpi_review_events.new_score_pct,
       comment: kpi_review_events.comment,
@@ -82,6 +106,7 @@ export async function reviewFor(db: DbLike, employeeId: string, period: unknown,
     old_score_pct: pct(e.old_score_pct),
     new_score_pct: pct(e.new_score_pct),
     comment: e.comment,
+    items: changeItems(e.changes, titles),
   }));
 
   const { dispute, status } = await reviewDispute(db, { id: r.id, period: r.period }, at, s);

@@ -54,7 +54,7 @@ export function raiseBadge(h: TgRaiseHint, l: Lang): { text: string; tone: "prel
   switch (h.kind) {
     case "decided":
       return h.amount > 0
-        ? { text: tIn(l, "badge_approved", { sum: sum(h.amount) }), tone: "ok" }
+        ? { text: tIn(l, "hist_approved", { sum: sum(h.amount) }), tone: "ok" }
         : { text: tIn(l, "badge_no_raise"), tone: "muted" };
     case "impossible":
       // Суммы нет, «предварительно» было бы неправдой.

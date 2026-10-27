@@ -54,7 +54,15 @@ function changesBlock(v: ReviewVM["changes"]): HTMLElement {
     h(
       "ul",
       { class: "change-list" },
-      ...v.map((c) => h("li", { class: "change" }, h("p", { class: "change-line" }, c.line), c.reason ? h("p", { class: "change-reason" }, c.reason) : null)),
+      ...v.map((c) =>
+        h(
+          "li",
+          { class: "change" },
+          h("p", { class: "change-line" }, c.line),
+          c.items.length ? h("ul", { class: "change-items" }, ...c.items.map((x) => h("li", { class: "change-item" }, x))) : null,
+          c.reason ? h("p", { class: "change-reason" }, c.reason) : null,
+        ),
+      ),
     ),
   );
 }

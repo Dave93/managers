@@ -74,7 +74,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const e = await makeEmployee(db, { role_code: "senior_cook" });
       const r = await seedReview(db, { ...base(e, seniorCardId), period: "2025-10-01",
         scores: [null, 100, 75, 100, 90, 100, 100, 80, 100], notes: [null, null, "Форма была грязной 14 и 18 октября"],
-        change: { old_score_pct: 85, comment: "Пересчитали гигиену" } });
+        change: { old_score_pct: 85, comment: "Пересчитали гигиену", items: [{ index: 2, old: 60, new: 75 }, { index: 0, old: 80, new: null }] } });
       await seedReview(db, { ...base(e, seniorCardId), period: "2025-09-01", scores: [100, 100, 100, 100, 100, 100, 100, 100, 100], status: "draft" });
       const token = await login(await bindTelegram(db, { employee_id: e.id }));
       const v = (await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-10-01")).body;
@@ -84,7 +84,19 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(v.items.map((i: any) => i.group_key)).toEqual(["base", "base", "base", "base", "base", "base", "base", "extra", "extra"]);
       expect(v.items[0]).toMatchObject({ title_ru: "Приход и уход", source: "attendance", score: null });
       expect(v.items[2]).toMatchObject({ score: 75, note: "Форма была грязной 14 и 18 октября" });
-      expect(v.changes).toEqual([{ at: expect.any(String), old_score_pct: 85, new_score_pct: r.score_pct, comment: "Пересчитали гигиену" }]);
+      // Пункты правки названы по карте: русское и узбекское название, балл до и после (null — «нет данных» на клиенте).
+      expect(v.changes).toEqual([
+        {
+          at: expect.any(String),
+          old_score_pct: 85,
+          new_score_pct: r.score_pct,
+          comment: "Пересчитали гигиену",
+          items: [
+            { title_ru: v.items[2].title_ru, title_uz: v.items[2].title_uz, old: 60, new: 75 },
+            { title_ru: "Приход и уход", title_uz: v.items[0].title_uz, old: 80, new: null },
+          ],
+        },
+      ]);
       expect(JSON.stringify(v)).not.toContain(ev.id);
       // Черновик неотличим от «нет оценки»: тело наше, а не 404 Elysia на незнакомый путь.
       expect(await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-09-01")).toEqual({ status: 404, body: { error: "not_found" } });
@@ -93,6 +105,31 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const other = await makeEmployee(db, { role_code: "cook" });
       const t2 = await login(await bindTelegram(db, { employee_id: other.id }));
       expect(await tgApi(t2, "GET", "/api/kpi/tg/review?period=2025-10-01")).toEqual({ status: 404, body: { error: "not_found" } });
+    });
+
+    it("изменения: пункты из событий changed и hr_adjusted; старые события без пунктов и чужие пункты не ломают ответ", async () => {
+      setNow("2025-10-26T10:00:00+05:00");
+      const e = await makeEmployee(db, { role_code: "cook" });
+      const r = await seedReview(db, { ...base(e), period: "2025-10-01", scores: [100, 100, 100, 100, 100, 100, 100] });
+      const ev2 = (kind: string, at: string, changes: unknown) =>
+        db.insert(kpi_review_events).values({ review_id: r.id, actor_kind: "user", kind, changes: changes as never, old_score_pct: "90.00", new_score_pct: "95.00", comment: null, created_at: at });
+      // Пункта нет в снимке оценки: берём название из самого события; без названия строку не показываем.
+      await ev2("changed", "2025-10-20T07:00:00.000Z", [{ item_id: r.item_ids[1], old: 50, new: 100, title_ru: "ignored" }]);
+      await ev2("hr_adjusted", "2025-10-21T07:00:00.000Z", [
+        { item_id: randomUUID(), old: 70, new: 90, title_ru: "Старый пункт" },
+        { item_id: randomUUID(), old: 1, new: 2 },
+        { item_id: r.item_ids[2], old: "x", new: 100 },
+        "мусор",
+      ]);
+      await ev2("changed", "2025-10-22T07:00:00.000Z", []);
+      await ev2("dispute_opened", "2025-10-23T07:00:00.000Z", [{ item_id: r.item_ids[3], old: 1, new: 2 }]);
+      const token = await login(await bindTelegram(db, { employee_id: e.id }));
+      const v = (await tgApi(token, "GET", "/api/kpi/tg/review?period=2025-10-01")).body;
+      expect(v.changes.map((c: any) => c.items)).toEqual([
+        [{ title_ru: v.items[1].title_ru, title_uz: v.items[1].title_uz, old: 50, new: 100 }],
+        [{ title_ru: "Старый пункт", title_uz: "Старый пункт", old: 70, new: 90 }],
+        [],
+      ]);
     });
 
     it("нарушения: только свои, новые сверху, отменённое с причиной, открытый спор, фото", async () => {

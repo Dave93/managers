@@ -40,7 +40,18 @@ function ex(): TgReview {
       item("i-8", "Помощь коллегам", 100, { group_key: "extra" }),
       item("i-9", "Инициатива", 50, { group_key: "extra", title_uz: "" }),
     ],
-    changes: [{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 85, new_score_pct: 90.33, comment: "Пересчитали гигиену" }],
+    changes: [
+      {
+        at: "2026-10-27T07:00:00.000Z",
+        old_score_pct: 85,
+        new_score_pct: 90.33,
+        comment: "Пересчитали гигиену",
+        items: [
+          { title_ru: "Гигиена сотрудника", title_uz: "Xodim gigiyenasi", old: 75, new: 100 },
+          { title_ru: "Приход и уход", title_uz: "", old: 80, new: null },
+        ],
+      },
+    ],
     dispute: { state: "can", deadline: "2026-11-10T18:59:59.999Z", opened_at: null, last_resolved: null },
     reason_min: 5,
     tiers: TIERS,
@@ -61,7 +72,14 @@ it("макет: заголовок, группы, пункты, изменени
     note: "Форма была грязной 14 и 18 октября",
     noData: false,
   });
-  expect(vm.changes).toEqual([{ line: `27 октября: 85,0${nb}% → 90,3${nb}%`, reason: "Причина: Пересчитали гигиену" }]);
+  // Под итогом — пункты, как в сообщении бота; null — «нет данных».
+  expect(vm.changes).toEqual([
+    {
+      line: `27 октября: 85,0${nb}% → 90,3${nb}%`,
+      items: ["Гигиена сотрудника: 75 → 100", "Приход и уход: 80 → нет данных"],
+      reason: "Причина: Пересчитали гигиену",
+    },
+  ]);
   expect(vm.resolved).toBeNull();
   expect(vm.dispute).toEqual({ can: true, label: "Оспорить" });
 });
@@ -150,12 +168,12 @@ it("спор разобран: решение и комментарий", () => 
 it("изменения: прочерк без «%» на месте пустого балла, без причины — null", () => {
   const r = ex();
   r.changes = [
-    { at: "2026-10-27T07:00:00.000Z", old_score_pct: null, new_score_pct: 90.33, comment: null },
-    { at: "2026-10-28T07:00:00.000Z", old_score_pct: 90.33, new_score_pct: null, comment: "Пункт убрали" },
+    { at: "2026-10-27T07:00:00.000Z", old_score_pct: null, new_score_pct: 90.33, comment: null, items: [] },
+    { at: "2026-10-28T07:00:00.000Z", old_score_pct: 90.33, new_score_pct: null, comment: "Пункт убрали", items: [] },
   ];
   expect(reviewView(r, "ru").changes).toEqual([
-    { line: `27 октября: — → 90,3${nb}%`, reason: null },
-    { line: `28 октября: 90,3${nb}% → —`, reason: "Причина: Пункт убрали" },
+    { line: `27 октября: — → 90,3${nb}%`, items: [], reason: null },
+    { line: `28 октября: 90,3${nb}% → —`, items: [], reason: "Причина: Пункт убрали" },
   ]);
 });
 
@@ -171,12 +189,24 @@ it("узбекский: месяц, группы, название пункта 
   expect(vm.groups.map((g) => g.title)).toEqual(["Asosiy bandlar", "Qoʻshimcha bandlar"]);
   expect(vm.groups[0]!.items[0]!.title).toBe("Kelish va ketish");
   expect(vm.groups[1]!.items[1]!.title).toBe("Инициатива");
-  expect(vm.changes[0]).toEqual({ line: `27-oktabr: 85,0${nb}% → 90,3${nb}%`, reason: "Sabab: Пересчитали гигиену" });
+  // Узбекского названия нет («») — русское, как у списка пунктов.
+  expect(vm.changes[0]).toEqual({
+    line: `27-oktabr: 85,0${nb}% → 90,3${nb}%`,
+    items: ["Xodim gigiyenasi: 75 → 100", "Приход и уход: 80 → maʼlumot yoʻq"],
+    reason: "Sabab: Пересчитали гигиену",
+  });
   expect(vm.dispute).toEqual({ can: true, label: "Eʼtiroz bildirish" });
 });
 
+it("изменения: ответ без пунктов (старый backend, копия из кэша) — только итог и причина, без падения", () => {
+  const r = ex();
+  const { items: _drop, ...old } = r.changes[0]!;
+  r.changes = [old as (typeof r.changes)[number]];
+  expect(reviewView(r, "ru").changes).toEqual([{ line: `27 октября: 85,0${nb}% → 90,3${nb}%`, items: [], reason: "Причина: Пересчитали гигиену" }]);
+});
+
 it("порог ступени (решение 6): 89,96 при ступени 90 — «89,9» в заголовке и в изменениях, как на главном", () => {
-  const r = { ...ex(), score_pct: 89.96, changes: [{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 84.97, new_score_pct: 89.96, comment: null }] };
+  const r = { ...ex(), score_pct: 89.96, changes: [{ at: "2026-10-27T07:00:00.000Z", old_score_pct: 84.97, new_score_pct: 89.96, comment: null, items: [] }] };
   const vm = reviewView(r, "ru");
   expect(vm.title).toBe(`Октябрь · 89,9${nb}%`);
   expect(vm.changes[0]!.line).toBe(`27 октября: 84,9${nb}% → 89,9${nb}%`);

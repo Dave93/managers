@@ -34,7 +34,10 @@ it("прочие ветки", () => {
   expect([raiseBadge({ kind: "impossible", scored: 1, min_months: 2 }, "ru"), raiseBadge({ kind: "impossible", scored: 1, min_months: 2 }, "uz")])
     .toEqual([{ text: "Без прибавки", tone: "muted" }, { text: "Oshirishsiz", tone: "muted" }]);
   expect([raiseBadge({ kind: "decided", amount: 500000 }, "ru"), raiseBadge({ kind: "decided", amount: 0 }, "uz"), raiseBadge(EX1, "ru")])
-    .toEqual([{ text: `Утверждено: +500${nb}000${nb}сум`, tone: "ok" }, { text: "Oshirishsiz", tone: "muted" }, { text: "предварительно", tone: "prelim" }]);
+    .toEqual([{ text: `Утверждено +500${nb}000${nb}сум`, tone: "ok" }, { text: "Oshirishsiz", tone: "muted" }, { text: "предварительно", tone: "prelim" }]);
+});
+it("«Утверждено» на главном и в «Истории» одной формой, на обоих языках", () => {
+  expect(raiseBadge({ kind: "decided", amount: 500000 }, "uz")).toEqual({ text: `Tasdiqlandi +500${nb}000${nb}soʻm`, tone: "ok" });
 });
 it("язык подсказки не зависит от глобального lang()", () => {
   // hintLines принимает язык явно: глобальный по умолчанию ru, а строки узбекские

@@ -52,7 +52,8 @@ export async function seedReview(
     scores: (number | null)[];
     notes?: (string | null)[];
     status?: "draft" | "submitted";
-    change?: { old_score_pct: number; comment: string };
+    // items — какие пункты (по номеру в карте) правка изменила: попадают в changes события, как у reviews.ts.
+    change?: { old_score_pct: number; comment: string; items?: { index: number; old: number | null; new: number | null }[] };
   }
 ): Promise<{ id: string; score_pct: number | null; item_ids: string[] }> {
   onlyTestPrefix();
@@ -97,7 +98,7 @@ export async function seedReview(
         actor_kind: "user",
         actor_user_id: o.evaluator_user_id,
         kind: "changed",
-        changes: [],
+        changes: (o.change.items ?? []).map((c) => ({ item_id: rows[c.index].item_id, old: c.old, new: c.new, title_ru: rows[c.index].title_ru })),
         old_score_pct: pctStr(o.change.old_score_pct),
         new_score_pct: pctStr(pct),
         comment: o.change.comment,

@@ -43,7 +43,7 @@ it("пробел U+00A0 перед сум, soʻm и % в шаблонах", () =
   expect(DICT.uz.h_now).toContain("{sum}\u00a0soʻm");
   expect(DICT.ru.h_keep).toContain("{pct}\u00a0%");
   expect(DICT.uz.h_next).toContain("{pct}\u00a0%");
-  expect(DICT.ru.badge_approved).toContain("{sum}\u00a0сум");
+  expect(DICT.ru.hist_approved).toContain("{sum}\u00a0сум");
 });
 it("t: подстановки и заглавная буква только у шаблона с «{» в начале", () => {
   setLang("uz");

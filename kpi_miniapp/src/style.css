@@ -608,7 +608,7 @@ svg {
 }
 
 /* Заголовок карточки и пометка: пометка не сжимается и при нехватке места уходит
-   на следующую строку (длинное «Утверждено: +500 000 сум» на 360 px). */
+   на следующую строку (длинное «Утверждено +500 000 сум» на 360 px). */
 .card-head {
   display: flex;
   flex-wrap: wrap;
@@ -987,6 +987,15 @@ svg {
   font-size: 14px;
   line-height: 20px;
   font-weight: 600;
+}
+.change-items {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.change-item {
+  font-size: 14px;
+  line-height: 20px;
 }
 .change-reason {
   margin-top: 2px;

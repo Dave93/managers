@@ -72,7 +72,9 @@ export interface TgHome { lang: TgLang; roles: TgRole[]; evaluator: TgEvaluatorC
 
 // GET /api/kpi/tg/review?period=YYYY-MM-01
 export interface TgReviewItem { item_id: string; title_ru: string; title_uz: string; group_key: "base" | "extra"; score: number | null; source: TgItemSource; note: string | null }
-export interface TgReviewChange { at: string; old_score_pct: number | null; new_score_pct: number | null; comment: string | null }
+// Пункт правки: название пункта карты и балл до и после; null — «нет данных». Названия — текстом, язык выбирает клиент.
+export interface TgReviewChangeItem { title_ru: string; title_uz: string; old: number | null; new: number | null }
+export interface TgReviewChange { at: string; old_score_pct: number | null; new_score_pct: number | null; comment: string | null; items: TgReviewChangeItem[] }
 export interface TgReview {
   period: string; review_id: string; score_pct: number | null; status: TgReviewStatus; submitted_at: string;
   items: TgReviewItem[];      // сначала base, потом extra; внутри по sort карты
