@@ -1,0 +1,313 @@
+// Клиентский слой KPI сотрудников.
+//
+// Роуты /api/kpi/* живут на kpiControllerImpl, экспортированном как
+// `as unknown as Elysia` (TS2589, см. backend/src/app.ts), поэтому Eden их типы
+// не выводит. Типы ответов берём из backend/src/modules/kpi/types.ts и rules.ts
+// (`import type` — в бандл ничего не попадает). Один `as any` на весь модуль.
+// Ошибки: тело `{ error: code }`; роуты за макросом permission отвечают
+// `{ message }` на 401/403, поэтому код для них берётся из статуса (см. kpi/errors.ts).
+
+import { apiClient } from "@admin/utils/eden";
+import { normalizeDates } from "@admin/lib/inventory/normalize";
+import { KpiApiError, toKpiError } from "@admin/lib/kpi/errors";
+import type {
+  AttendanceImportRow,
+  AttendanceMapping,
+  AttendanceParseResponse,
+  BranchBreakdown,
+  BranchComputeResult,
+  BranchConfig,
+  BranchIndicator,
+  BranchNetwork,
+  BranchSettings,
+  Card,
+  DisputeRow,
+  EmployeeRow,
+  KpiInvite,
+  KpiTerminal,
+  KpiUserOption,
+  MeResponse,
+  PeriodSummary,
+  RaiseRow,
+  RevenuePlanRow,
+  RevenueSuggestRow,
+  ReviewEvent,
+  ReviewForm,
+  SanitaryCheckRow,
+  SanitaryItem,
+  SanitaryTemplate,
+  ScopeRow,
+  Tier,
+  TgBindingRow,
+  ViolationRow,
+} from "@backend/modules/kpi/types";
+import type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
+
+export type {
+  AttendanceField,
+  AttendanceImportRow,
+  AttendanceMapping,
+  AttendanceParseResponse,
+  AttendanceSheetPreview,
+  BranchBreakdown,
+  BranchCell,
+  BranchComputeResult,
+  BranchConfig,
+  BranchDirection,
+  BranchIndicator,
+  BranchIndicatorCode,
+  BranchIndicatorResult,
+  BranchNetwork,
+  BranchScoreRow,
+  BranchSettings,
+  Card,
+  CardItem,
+  Deadlines,
+  DisputeRow,
+  EmployeeRow,
+  MeResponse,
+  PeriodSummary,
+  NoDataReason,
+  RaiseRow,
+  RevenuePlanRow,
+  RevenueSuggestRow,
+  ReviewEvent,
+  ReviewForm,
+  ReviewFormItem,
+  SanitaryCheckRow,
+  SanitaryItem,
+  ScopeRow,
+  Tier,
+  UnmatchedReason,
+  UnmatchedRow,
+  ViolationRow,
+} from "@backend/modules/kpi/types";
+export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
+export type { KpiTerminal, KpiUserOption } from "@backend/modules/kpi/types";
+export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
+export type { SanitaryTemplate } from "@backend/modules/kpi/types";
+
+export type KpiItemInput = { item_id: string; score: number | null; note: string | null };
+export type RowStatusFilter = "none" | "draft" | "submitted" | "disputed";
+export type EmployeesQuery = { period: string; terminal_id?: string; card_id?: string; status?: RowStatusFilter; search?: string; include_uncarded?: boolean };
+export type ViolationsQuery = { period?: string; terminal_id?: string; employee_id?: string; status?: "active" | "cancelled" };
+export type DisputesQuery = { status?: "open" | "accepted" | "rejected"; period?: string };
+export type CardCreate = { code: string; title_ru: string; title_uz: string; staff_role_codes: string[]; sort?: number };
+export type CardPatch = { title_ru?: string; title_uz?: string; staff_role_codes?: string[]; active?: boolean; sort?: number };
+export type ItemCreate = {
+  title_ru: string;
+  title_uz: string;
+  hint_ru?: string;
+  hint_uz?: string;
+  source: ItemSource;
+  weight: number;
+  group_key: "base" | "extra";
+  sort?: number;
+};
+export type ItemPatch = Partial<ItemCreate> & { active?: boolean };
+export type ScopeCreate = { user_id: string; card_id: string | null; terminal_id: string | null };
+export type ResolveBody = { decision: "accepted" | "rejected"; comment: string; items?: KpiItemInput[] };
+export type DecideBody = { status: "approved" | "rejected"; amount?: number; comment?: string };
+export type TgTarget = { employee_id: string } | { user_id: string };
+export type TgBindingsQuery = { employee_ids?: string[]; user_ids?: string[] };
+export type IndicatorInput = Pick<BranchIndicator, "code" | "weight" | "floor" | "target" | "max" | "active">;
+export type BranchConfigBody = { indicators?: IndicatorInput[]; settings?: Partial<BranchSettings> };
+export type RevenuePlanItem = { terminal_id: string; amount: number | null };
+export type SanitaryCreate = { terminal_id: string; items: SanitaryItem[]; comment?: string };
+export type SanitaryQuery = { period: string; terminal_id?: string };
+export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
+
+// Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
+// react-query посчитал бы 409/422 успехом.
+async function call<T>(p: Promise<any>): Promise<T> {
+  let res: any;
+  try {
+    res = await p;
+  } catch (e) {
+    // treaty не ловит отказ fetch: офлайн приходит сырым TypeError.
+    throw e instanceof KpiApiError ? e : new KpiApiError(0, "network", {});
+  }
+  if (res?.error) throw toKpiError(res.error.status ?? res.status ?? 0, res.error.value ?? res.error);
+  // Eden превращает строки дат в Date — возвращаем их строками (см. inventory/normalize.ts).
+  return normalizeDates(res?.data) as T;
+}
+
+/** Query без пустых значений: undefined, null, "" и false выбрасываются, true → "1". Порядок ключей сохраняется. */
+function compact(obj: Record<string, string | number | boolean | null | undefined>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null || v === "" || v === false) continue;
+    out[k] = v === true ? "1" : String(v);
+  }
+  return out;
+}
+
+/** `{ query }` для Eden; пустой query не передаётся. */
+function q(obj: Record<string, string | number | boolean | null | undefined>): { query: Record<string, string> } | undefined {
+  const query = compact(obj);
+  return Object.keys(query).length ? { query } : undefined;
+}
+
+export function createKpiApi(kpi: any) {
+  return {
+    me: () => call<MeResponse>(kpi.me.get()),
+    terminals: () => call<KpiTerminal[]>(kpi.terminals.get()),
+    settings: {
+      get: () => call<KpiSettings>(kpi.settings.get()),
+      save: (patch: Partial<KpiSettings>) => call<KpiSettings>(kpi.settings.put(patch)),
+    },
+    cards: {
+      list: (includeInactive?: boolean) => call<Card[]>(kpi.cards.get(q({ include_inactive: includeInactive }))),
+      create: (b: CardCreate) => call<unknown>(kpi.cards.post(b)),
+      update: (id: string, b: CardPatch) => call<unknown>(kpi.cards({ id }).put(b)),
+      addItem: (cardId: string, b: ItemCreate) => call<unknown>(kpi.cards({ id: cardId }).items.post(b)),
+      updateItem: (itemId: string, b: ItemPatch) => call<unknown>(kpi.items({ id: itemId }).put(b)),
+    },
+    evaluators: {
+      list: () => call<ScopeRow[]>(kpi.evaluators.get()),
+      create: (b: ScopeCreate) => call<unknown>(kpi.evaluators.post(b)),
+      remove: (id: string) => call<unknown>(kpi.evaluators({ id }).delete()),
+    },
+    users: (search: string) => call<KpiUserOption[]>(kpi.users.get({ query: { search } })),
+    employees: {
+      list: (query: EmployeesQuery) => call<EmployeeRow[]>(kpi.employees.get(q(query))),
+      setCard: (id: string, cardId: string | null | "auto", comment?: string) =>
+        call<unknown>(kpi.employees({ id }).card.put(comment && comment.trim() ? { card_id: cardId, comment } : { card_id: cardId })),
+      setExternalId: (id: string, externalId: string | null) =>
+        call<{ id: string; external_id: string | null }>(kpi.employees({ id })["external-id"].put({ external_id: externalId })),
+    },
+    reviews: {
+      form: (period: string, employeeId: string) =>
+        call<ReviewForm>(kpi.reviews.form.get({ query: { period, employee_id: employeeId } })),
+      saveDraft: (period: string, employeeId: string, items: KpiItemInput[]) =>
+        call<ReviewForm>(kpi.reviews.draft.put({ period, employee_id: employeeId, items })),
+      submit: (reviewId: string, items?: KpiItemInput[]) =>
+        call<ReviewForm>(kpi.reviews({ id: reviewId }).submit.post(items ? { items } : {})),
+      change: (reviewId: string, items: KpiItemInput[], comment: string) =>
+        call<ReviewForm>(kpi.reviews({ id: reviewId }).put({ items, comment })),
+      events: (reviewId: string) => call<ReviewEvent[]>(kpi.reviews({ id: reviewId }).events.get()),
+    },
+    violations: {
+      list: (query: ViolationsQuery) => call<ViolationRow[]>(kpi.violations.get(q(query))),
+      cancel: (id: string, reason: string) => call<ViolationRow>(kpi.violations({ id }).cancel.post({ reason })),
+    },
+    disputes: {
+      list: (query: DisputesQuery) => call<DisputeRow[]>(kpi.disputes.get(q(query))),
+      open: (b: { subject_type: "review" | "violation"; subject_id: string; reason: string }) =>
+        call<DisputeRow>(kpi.disputes.post(b)),
+      resolve: (id: string, b: ResolveBody) => call<DisputeRow>(kpi.disputes({ id }).resolve.post(b)),
+    },
+    periods: {
+      get: (p: string) => call<PeriodSummary>(kpi.periods({ period: p }).get()),
+      close: (p: string) => call<PeriodSummary>(kpi.periods({ period: p }).close.post({})),
+      reopen: (p: string, comment: string) => call<PeriodSummary>(kpi.periods({ period: p }).reopen.post({ comment })),
+    },
+    raises: {
+      list: (quarter: string) => call<RaiseRow[]>(kpi.raises.get({ query: { quarter } })),
+      compute: (quarter: string) => call<RaiseRow[]>(kpi.raises.compute.post({ quarter })),
+      decide: (id: string, b: DecideBody) => call<RaiseRow>(kpi.raises({ id }).decide.post(b)),
+    },
+    attendance: {
+      commit: (b: AttendanceCommitBody) => call<AttendanceImportRow>(kpi.attendance.commit.post(b)),
+      imports: (period: string) => call<AttendanceImportRow[]>(kpi.attendance.imports.get({ query: { period } })),
+    },
+    tg: {
+      invite: (target: TgTarget) => call<KpiInvite>(kpi.invites.post(target)),
+      bindings: (query: TgBindingsQuery) =>
+        call<TgBindingRow[]>(
+          kpi.tg.bindings.get(q({ employee_ids: query.employee_ids?.join(","), user_ids: query.user_ids?.join(",") }))
+        ),
+      unbind: (id: string) => call<unknown>(kpi.tg.bindings({ id }).delete()),
+    },
+    branch: {
+      network: (period: string) => call<BranchNetwork>(kpi.branch.get({ query: { period } })),
+      detail: (terminalId: string, period: string) =>
+        call<BranchBreakdown>(kpi.branch({ terminal_id: terminalId }).get({ query: { period } })),
+      compute: (period: string) => call<BranchComputeResult>(kpi.branch.compute.post({ period })),
+      config: () => call<BranchConfig>(kpi["branch-indicators"].get()),
+      saveConfig: (b: BranchConfigBody) => call<BranchConfig>(kpi["branch-indicators"].put(b)),
+    },
+    revenuePlans: {
+      list: (period: string) => call<RevenuePlanRow[]>(kpi["revenue-plans"].get({ query: { period } })),
+      save: (period: string, items: RevenuePlanItem[]) => call<RevenuePlanRow[]>(kpi["revenue-plans"].put({ period, items })),
+      suggest: (period: string, growthPct: number) =>
+        call<RevenueSuggestRow[]>(kpi["revenue-plans"].suggest.get({ query: { period, growth_pct: String(growthPct) } })),
+    },
+    sanitary: {
+      list: (query: SanitaryQuery) => call<SanitaryCheckRow[]>(kpi["sanitary-checks"].get({ query: compact(query) })),
+      create: (b: SanitaryCreate) => call<SanitaryCheckRow>(kpi["sanitary-checks"].post(b)),
+      template: () => call<SanitaryTemplate>(kpi["sanitary-checks"].template.get()),
+    },
+    tiers: {
+      get: () => call<Tier[]>(kpi["raise-tiers"].get()),
+      save: (tiers: Tier[]) => call<Tier[]>(kpi["raise-tiers"].put({ tiers })),
+    },
+  };
+}
+
+export type KpiApi = ReturnType<typeof createKpiApi>;
+
+export const kpiApi: KpiApi = createKpiApi((apiClient.api as any).kpi);
+
+export function photoUrl(photoId: string): string {
+  return `/api/kpi/violation-photos/${photoId}/file`;
+}
+
+const VIOLATION_TIMEOUT_MS = 120_000;
+const ATTENDANCE_TIMEOUT_MS = 120_000;
+
+async function readJson(res: Response): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Multipart идёт обычным fetch: Eden не умеет FormData с файлами надёжно, а код ошибки
+// здесь читается из body.error (у tickets — из body.message).
+async function postForm<T>(path: string, body: FormData, fetcher: typeof fetch, timeoutMs: number): Promise<T> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    let res: Response;
+    try {
+      res = await fetcher(path, { method: "POST", body, credentials: "include", signal: ctrl.signal });
+    } catch {
+      throw new KpiApiError(0, "network", {});
+    }
+    const json = await readJson(res);
+    if (ctrl.signal.aborted) throw new KpiApiError(0, "network", {});
+    if (!res.ok) throw toKpiError(res.status, json);
+    if (json === null) throw new KpiApiError(res.status, "server_error", {});
+    return json as T;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+export function postViolation(body: FormData, fetcher: typeof fetch = fetch): Promise<ViolationRow> {
+  return postForm<ViolationRow>("/api/kpi/violations", body, fetcher, VIOLATION_TIMEOUT_MS);
+}
+
+/** Загрузка файла Workly: сервер разбирает его и отдаёт токен и предпросмотр листов. */
+export function postAttendanceFile(file: File, fetcher: typeof fetch = fetch): Promise<AttendanceParseResponse> {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postForm<AttendanceParseResponse>("/api/kpi/attendance/parse", fd, fetcher, ATTENDANCE_TIMEOUT_MS);
+}
+
+export async function downloadRaisesCsv(quarter: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+  let res: Response;
+  try {
+    res = await fetcher(`/api/kpi/raises/export?quarter=${encodeURIComponent(quarter)}`, { method: "GET", credentials: "include" });
+  } catch {
+    throw new KpiApiError(0, "network", {});
+  }
+  if (!res.ok) throw toKpiError(res.status, await readJson(res));
+  try {
+    return await res.blob();
+  } catch {
+    throw new KpiApiError(0, "network", {});
+  }
+}

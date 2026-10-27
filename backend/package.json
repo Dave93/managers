@@ -4,6 +4,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "test:http": "PROJECT_PREFIX=managers_test_ DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/tickets/routes.test.ts",
+    "test:http:kpi": "PROJECT_PREFIX=managers_test_ KPI_UPLOADS_DIR=/tmp/kpi_test_uploads KPI_NOTIFY_QUEUE=kpi_notify_test KPI_BOT_USERNAME=kpi_test_bot KPI_WEBHOOK_SECRET=kpi_test_secret DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/kpi/http/",
     "test:http:inventory": "PROJECT_PREFIX=managers_test_ INVENTORY_BOOK_QUEUE=inventory_book_test DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/inventory/routes.test.ts",
     "test:http:book": "PROJECT_PREFIX=managers_test_ INVENTORY_RECONCILE_QUEUE=inventory_reconcile_test INVENTORY_BOOK_QUEUE=inventory_book_test DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/inventory/book/",
     "test:http:turnover": "PROJECT_PREFIX=managers_test_ INVENTORY_TURNOVER_QUEUE=inventory_turnover_test INVENTORY_RECONCILE_QUEUE=inventory_reconcile_test INVENTORY_BOOK_QUEUE=inventory_book_test DATABASE_URL=$TEST_DATABASE_URL bun test src/modules/inventory/turnover/",

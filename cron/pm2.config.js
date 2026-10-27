@@ -24,5 +24,12 @@ module.exports = {
       // (см. shutdown() в tickets_worker.ts), а не оборваться kill -9.
       kill_timeout: 10000,
     },
+    {
+      name: "office_kpi_worker",
+      script: "kpi_worker.ts",
+      interpreter: "bun",
+      // Как у office_tickets_worker: SIGTERM должен успеть дождаться вызова Telegram.
+      kill_timeout: 10000,
+    },
   ],
 };

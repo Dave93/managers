@@ -21,6 +21,7 @@ import {
   pgMaterializedView,
   date,
   check,
+  smallint,
 } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 
@@ -2797,4 +2798,476 @@ export const inventory_turnover_fetch = pgTable(
     data_through: date("data_through", { mode: "string" }).notNull(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.period, t.store_id] }) })
+);
+
+// ---------------------------------------------------------------------------
+// KPI (spec 2026-10-25, §6). Статусы — varchar, внешние ключи только внутри модуля;
+// на employees/users/terminals ссылаемся простым uuid.
+// ---------------------------------------------------------------------------
+
+// Карта должности.
+export const kpi_cards = pgTable(
+  "kpi_cards",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    code: varchar("code", { length: 40 }).notNull(),
+    title_ru: varchar("title_ru", { length: 300 }).notNull(),
+    title_uz: varchar("title_uz", { length: 300 }).notNull(),
+    // Для каких ролей (staff_roles.code) карта действует по умолчанию.
+    staff_role_codes: text("staff_role_codes").array().default(sql`'{}'::text[]`).notNull(),
+    active: boolean("active").default(true).notNull(),
+    sort: integer("sort").default(0).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("kpi_cards_code_uq").on(t.code)]
+);
+
+// Пункт карты. source: manual | attendance | cooking_speed | sales_plan | food_cost;
+// group_key: base | extra.
+export const kpi_card_items = pgTable(
+  "kpi_card_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    card_id: uuid("card_id")
+      .notNull()
+      .references(() => kpi_cards.id),
+    sort: integer("sort").default(0).notNull(),
+    title_ru: varchar("title_ru", { length: 300 }).notNull(),
+    title_uz: varchar("title_uz", { length: 300 }).notNull(),
+    hint_ru: text("hint_ru"),
+    hint_uz: text("hint_uz"),
+    source: varchar("source", { length: 20 }).default("manual").notNull(),
+    weight: integer("weight").default(1).notNull(),
+    group_key: varchar("group_key", { length: 20 }).default("base").notNull(),
+    active: boolean("active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_card_items_card_idx").on(t.card_id)]
+);
+
+// Карта, назначенная сотруднику вручную. card_id = null — «не оценивается».
+export const kpi_employee_cards = pgTable("kpi_employee_cards", {
+  employee_id: uuid("employee_id").primaryKey().notNull(),
+  card_id: uuid("card_id"),
+  set_by: uuid("set_by"),
+  set_at: timestamp("set_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  comment: text("comment"),
+});
+
+// Кому что можно оценивать: card_id / terminal_id = null — любая карта / любой филиал.
+// Уникальность (user_id, card_id, terminal_id) проверяет код.
+export const kpi_evaluator_scopes = pgTable(
+  "kpi_evaluator_scopes",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    user_id: uuid("user_id").notNull(),
+    card_id: uuid("card_id"),
+    terminal_id: uuid("terminal_id"),
+    created_by: uuid("created_by"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_evaluator_scopes_user_idx").on(t.user_id)]
+);
+
+// Месяц оценок. period — первое число месяца; status: open | closed.
+export const kpi_periods = pgTable("kpi_periods", {
+  period: date("period", { mode: "string" }).primaryKey().notNull(),
+  status: varchar("status", { length: 16 }).default("open").notNull(),
+  closed_by: uuid("closed_by"),
+  closed_at: timestamp("closed_at", { withTimezone: true, mode: "string" }),
+  reopen_comment: text("reopen_comment"),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+export const kpi_settings = pgTable("kpi_settings", {
+  key: varchar("key", { length: 64 }).primaryKey().notNull(),
+  value: jsonb("value").notNull(),
+  updated_by: uuid("updated_by"),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+// Оценка сотрудника за месяц. status: draft | submitted.
+export const kpi_reviews = pgTable(
+  "kpi_reviews",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    // Снимки на момент оценки.
+    terminal_id: uuid("terminal_id").notNull(),
+    card_id: uuid("card_id").notNull(),
+    evaluator_user_id: uuid("evaluator_user_id").notNull(),
+    status: varchar("status", { length: 16 }).default("draft").notNull(),
+    score_pct: numeric("score_pct", { precision: 5, scale: 2 }),
+    submitted_at: timestamp("submitted_at", { withTimezone: true, mode: "string" }),
+    version: integer("version").default(1).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_reviews_period_employee_uq").on(t.period, t.employee_id),
+    index("kpi_reviews_period_terminal_idx").on(t.period, t.terminal_id),
+  ]
+);
+
+// Пункты оценки со снимком пункта карты. score: 0..100.
+export const kpi_review_items = pgTable(
+  "kpi_review_items",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    review_id: uuid("review_id")
+      .notNull()
+      .references(() => kpi_reviews.id, { onDelete: "cascade" }),
+    item_id: uuid("item_id").notNull(),
+    title_ru: varchar("title_ru", { length: 300 }).notNull(),
+    title_uz: varchar("title_uz", { length: 300 }).notNull(),
+    weight: integer("weight").default(1).notNull(),
+    source: varchar("source", { length: 20 }).default("manual").notNull(),
+    score: smallint("score"),
+    auto_value: jsonb("auto_value"),
+    note: text("note"),
+  },
+  (t) => [uniqueIndex("kpi_review_items_review_item_uq").on(t.review_id, t.item_id)]
+);
+
+// История оценки, только добавление. actor_kind: user | employee | system;
+// kind: submitted | changed | dispute_opened | dispute_resolved | hr_adjusted;
+// changes: [{item_id, title_ru, old, new}].
+export const kpi_review_events = pgTable(
+  "kpi_review_events",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    review_id: uuid("review_id").notNull(),
+    actor_kind: varchar("actor_kind", { length: 16 }).notNull(),
+    actor_user_id: uuid("actor_user_id"),
+    kind: varchar("kind", { length: 24 }).notNull(),
+    changes: jsonb("changes").default(sql`'[]'::jsonb`).notNull(),
+    old_score_pct: numeric("old_score_pct", { precision: 5, scale: 2 }),
+    new_score_pct: numeric("new_score_pct", { precision: 5, scale: 2 }),
+    comment: text("comment"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_review_events_review_idx").on(t.review_id)]
+);
+
+// Журнал нарушений. status: active | cancelled.
+export const kpi_violations = pgTable(
+  "kpi_violations",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    card_item_id: uuid("card_item_id"),
+    // Снимок названия пункта.
+    item_title_ru: varchar("item_title_ru", { length: 300 }),
+    period: date("period", { mode: "string" }).notNull(),
+    occurred_at: timestamp("occurred_at", { withTimezone: true, mode: "string" }).notNull(),
+    comment: text("comment").notNull(),
+    recorded_by: uuid("recorded_by").notNull(),
+    status: varchar("status", { length: 16 }).default("active").notNull(),
+    cancelled_by: uuid("cancelled_by"),
+    cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "string" }),
+    cancel_reason: text("cancel_reason"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    index("kpi_violations_period_terminal_idx").on(t.period, t.terminal_id),
+    index("kpi_violations_employee_period_idx").on(t.employee_id, t.period),
+  ]
+);
+
+// Фото нарушения: JPEG/PNG, до 10 МБ, до 3 штук (проверяет код).
+export const kpi_violation_photos = pgTable(
+  "kpi_violation_photos",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    violation_id: uuid("violation_id")
+      .notNull()
+      .references(() => kpi_violations.id),
+    file_path: varchar("file_path", { length: 500 }).notNull(),
+    mime: varchar("mime", { length: 40 }).notNull(),
+    size_bytes: integer("size_bytes").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_violation_photos_violation_idx").on(t.violation_id)]
+);
+
+// Споры. subject_type: review | violation | branch_result; opened_via: admin | telegram | miniapp;
+// status: open | accepted | rejected. Открытый спор по объекту может быть только один.
+export const kpi_disputes = pgTable(
+  "kpi_disputes",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    subject_type: varchar("subject_type", { length: 20 }).notNull(),
+    subject_id: uuid("subject_id").notNull(),
+    employee_id: uuid("employee_id"),
+    period: date("period", { mode: "string" }).notNull(),
+    opened_via: varchar("opened_via", { length: 16 }).notNull(),
+    opened_by_user_id: uuid("opened_by_user_id"),
+    reason: text("reason").notNull(),
+    status: varchar("status", { length: 16 }).default("open").notNull(),
+    resolution_comment: text("resolution_comment"),
+    resolved_by: uuid("resolved_by"),
+    resolved_at: timestamp("resolved_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_disputes_open_uq").on(t.subject_type, t.subject_id).where(sql`status = 'open'`),
+    index("kpi_disputes_period_idx").on(t.period),
+  ]
+);
+
+// Шкала повышения: от какого среднего процента за квартал какая сумма.
+export const kpi_raise_tiers = pgTable(
+  "kpi_raise_tiers",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    min_pct: numeric("min_pct", { precision: 5, scale: 2 }).notNull(),
+    amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("kpi_raise_tiers_min_pct_uq").on(t.min_pct)]
+);
+
+// Решение о повышении за квартал. status: proposed | insufficient | approved | rejected;
+// months: [{period, score_pct|null}]; history — прошлые решения.
+export const kpi_raise_decisions = pgTable(
+  "kpi_raise_decisions",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    quarter_start: date("quarter_start", { mode: "string" }).notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    terminal_id: uuid("terminal_id"),
+    card_id: uuid("card_id"),
+    months: jsonb("months").notNull(),
+    months_scored: integer("months_scored").default(0).notNull(),
+    avg_pct: numeric("avg_pct", { precision: 5, scale: 2 }),
+    suggested_amount: numeric("suggested_amount", { precision: 18, scale: 2 }),
+    status: varchar("status", { length: 16 }).notNull(),
+    approved_amount: numeric("approved_amount", { precision: 18, scale: 2 }),
+    decided_by: uuid("decided_by"),
+    decided_at: timestamp("decided_at", { withTimezone: true, mode: "string" }),
+    comment: text("comment"),
+    history: jsonb("history").default(sql`'[]'::jsonb`).notNull(),
+    computed_at: timestamp("computed_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("kpi_raise_decisions_quarter_employee_uq").on(t.quarter_start, t.employee_id)]
+);
+
+// Исходящие сообщения. recipient_kind: employee | user; status: pending | sent | failed | skipped.
+// Пишутся в транзакции события, доставляет воркер.
+export const kpi_notifications = pgTable(
+  "kpi_notifications",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    recipient_kind: varchar("recipient_kind", { length: 16 }).notNull(),
+    employee_id: uuid("employee_id"),
+    user_id: uuid("user_id"),
+    kind: varchar("kind", { length: 40 }).notNull(),
+    payload: jsonb("payload").notNull(),
+    dedupe_key: varchar("dedupe_key", { length: 200 }).notNull(),
+    status: varchar("status", { length: 16 }).default("pending").notNull(),
+    attempts: integer("attempts").default(0).notNull(),
+    last_error: text("last_error"),
+    tg_message_id: varchar("tg_message_id", { length: 64 }),
+    sent_at: timestamp("sent_at", { withTimezone: true, mode: "string" }),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_notifications_dedupe_uq").on(t.dedupe_key),
+    index("kpi_notifications_status_idx").on(t.status, t.created_at),
+  ]
+);
+
+// Импорт посещаемости из Workly за месяц. status: committed | replaced.
+// mapping — { sheet, header_row, mapping }; unmatched — до 500 несопоставленных строк.
+export const kpi_attendance_imports = pgTable(
+  "kpi_attendance_imports",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    file_name: varchar("file_name", { length: 255 }).notNull(),
+    uploaded_by: uuid("uploaded_by").notNull(),
+    mapping: jsonb("mapping").notNull(),
+    rows_total: integer("rows_total").default(0).notNull(),
+    rows_matched: integer("rows_matched").default(0).notNull(),
+    rows_unmatched: integer("rows_unmatched").default(0).notNull(),
+    unmatched: jsonb("unmatched").default([]).notNull(),
+    status: varchar("status", { length: 16 }).default("committed").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_attendance_imports_period_idx").on(t.period, t.status)]
+);
+
+// День сотрудника из импорта. terminal_id — филиал сотрудника на момент импорта.
+export const kpi_attendance = pgTable(
+  "kpi_attendance",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    check_in: timestamp("check_in", { withTimezone: true, mode: "string" }),
+    check_out: timestamp("check_out", { withTimezone: true, mode: "string" }),
+    late_minutes: integer("late_minutes").default(0).notNull(),
+    absent: boolean("absent").default(false).notNull(),
+    import_id: uuid("import_id")
+      .notNull()
+      .references(() => kpi_attendance_imports.id),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_attendance_employee_day_uq").on(t.employee_id, t.day),
+    index("kpi_attendance_import_idx").on(t.import_id),
+    index("kpi_attendance_terminal_day_idx").on(t.terminal_id, t.day),
+  ]
+);
+
+// Привязка Telegram-чата к сотруднику или оценщику (ровно одно из employee_id / user_id).
+export const kpi_tg_bindings = pgTable(
+  "kpi_tg_bindings",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    telegram_id: bigint("telegram_id", { mode: "number" }).notNull(),
+    employee_id: uuid("employee_id"),
+    user_id: uuid("user_id"),
+    lang: varchar("lang", { length: 2 }).default("ru").notNull(),
+    active: boolean("active").default(true).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    // На один telegram_id — не больше одной строки каждого вида: сотрудник и оценщик.
+    uniqueIndex("kpi_tg_bindings_tg_employee_uq").on(t.telegram_id).where(sql`${t.employee_id} is not null`),
+    uniqueIndex("kpi_tg_bindings_tg_user_uq").on(t.telegram_id).where(sql`${t.user_id} is not null`),
+    uniqueIndex("kpi_tg_bindings_employee_active_uq")
+      .on(t.employee_id)
+      .where(sql`${t.active} and ${t.employee_id} is not null`),
+    uniqueIndex("kpi_tg_bindings_user_active_uq")
+      .on(t.user_id)
+      .where(sql`${t.active} and ${t.user_id} is not null`),
+    check("kpi_tg_bindings_one_person", sql`(${t.employee_id} is null) <> (${t.user_id} is null)`),
+  ]
+);
+
+// Одноразовое приглашение в бота (токен в ссылке /start kpi_<token>).
+export const kpi_tg_invites = pgTable(
+  "kpi_tg_invites",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    token: varchar("token", { length: 64 }).notNull(),
+    employee_id: uuid("employee_id"),
+    user_id: uuid("user_id"),
+    expires_at: timestamp("expires_at", { withTimezone: true, mode: "string" }).notNull(),
+    used_at: timestamp("used_at", { withTimezone: true, mode: "string" }),
+    created_by: uuid("created_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_tg_invites_token_uq").on(t.token),
+    check("kpi_tg_invites_one_person", sql`(${t.employee_id} is null) <> (${t.user_id} is null)`),
+  ]
+);
+
+// Показатели балла филиала (спека 7.7). code фиксирован, HR правит вес, пороги и «активен».
+// direction: higher_better | lower_better. Изменения действуют со следующего пересчёта.
+export const kpi_branch_indicators = pgTable("kpi_branch_indicators", {
+  code: varchar("code", { length: 32 }).primaryKey().notNull(),
+  title_ru: varchar("title_ru", { length: 100 }).notNull(),
+  weight: integer("weight").notNull(),
+  floor: numeric("floor", { precision: 10, scale: 2 }).notNull(),
+  target: numeric("target", { precision: 10, scale: 2 }).notNull(),
+  max: numeric("max", { precision: 10, scale: 2 }).notNull(),
+  direction: varchar("direction", { length: 16 }).notNull(),
+  active: boolean("active").default(true).notNull(),
+  sort: integer("sort").default(0).notNull(),
+  updated_by: uuid("updated_by"),
+  updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+});
+
+// План выручки филиала на месяц, целые сум. Один план на пару (филиал, месяц).
+export const kpi_revenue_plans = pgTable(
+  "kpi_revenue_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    amount: numeric("amount", { precision: 18, scale: 2 }).notNull(),
+    updated_by: uuid("updated_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("kpi_revenue_plans_terminal_period_uq").on(t.terminal_id, t.period),
+    index("kpi_revenue_plans_period_idx").on(t.period),
+  ]
+);
+
+// Санитарная проверка филиала. items: [{title, ok}]; pct — доля «да»; period — месяц по Ташкенту.
+export const kpi_sanitary_checks = pgTable(
+  "kpi_sanitary_checks",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    checked_at: timestamp("checked_at", { withTimezone: true, mode: "string" }).notNull(),
+    inspector_user_id: uuid("inspector_user_id").notNull(),
+    items: jsonb("items").notNull(),
+    pct: numeric("pct", { precision: 5, scale: 2 }).notNull(),
+    comment: text("comment"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [index("kpi_sanitary_checks_period_terminal_idx").on(t.period, t.terminal_id)]
+);
+
+// Результат показателя филиала за месяц, версия — на запуск расчёта. Вес и пороги — снимок на момент расчёта.
+// data_status: ok | no_data; reason — почему нет данных; details — разбивка для экрана «Филиал».
+export const kpi_branch_results = pgTable(
+  "kpi_branch_results",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    indicator_code: varchar("indicator_code", { length: 32 }).notNull(),
+    version: integer("version").notNull(),
+    fact: numeric("fact", { precision: 14, scale: 2 }),
+    points: numeric("points", { precision: 6, scale: 2 }),
+    weight: integer("weight").notNull(),
+    weighted: numeric("weighted", { precision: 6, scale: 2 }),
+    floor: numeric("floor", { precision: 10, scale: 2 }).notNull(),
+    target: numeric("target", { precision: 10, scale: 2 }).notNull(),
+    max: numeric("max", { precision: 10, scale: 2 }).notNull(),
+    direction: varchar("direction", { length: 16 }).notNull(),
+    data_status: varchar("data_status", { length: 16 }).notNull(),
+    reason: varchar("reason", { length: 32 }),
+    details: jsonb("details").default(sql`'{}'::jsonb`).notNull(),
+    computed_at: timestamp("computed_at", { withTimezone: true, mode: "string" }).notNull(),
+    computed_by: uuid("computed_by"),
+  },
+  (t) => [
+    uniqueIndex("kpi_branch_results_uq").on(t.period, t.terminal_id, t.indicator_code, t.version),
+    index("kpi_branch_results_period_version_idx").on(t.period, t.version),
+  ]
+);
+
+// Итоговый балл филиала за месяц (версия как у результатов) и ступень в процентах.
+export const kpi_branch_scores = pgTable(
+  "kpi_branch_scores",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    period: date("period", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    version: integer("version").notNull(),
+    score: numeric("score", { precision: 6, scale: 2 }).notNull(),
+    tier_pct: integer("tier_pct").notNull(),
+    computed_at: timestamp("computed_at", { withTimezone: true, mode: "string" }).notNull(),
+    computed_by: uuid("computed_by"),
+  },
+  (t) => [
+    uniqueIndex("kpi_branch_scores_uq").on(t.period, t.terminal_id, t.version),
+    index("kpi_branch_scores_period_version_idx").on(t.period, t.version),
+  ]
 );

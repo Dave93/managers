@@ -3,7 +3,9 @@ import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
+import { KPI_SCREEN_PERMS, KPI_SCREEN_TITLE } from "@admin/lib/kpi/access";
 import {
+  Award,
   Ban,
   Banknote,
   Baby,
@@ -27,8 +29,9 @@ import {
 
 // Один слаг или список: список означает «нужны все». Экран «К оплате» и планшет
 // филиала сами требуют по два права, и пункт меню, который ведёт на панель
-// отказа, хуже отсутствующего пункта.
-export type NavPermission = string | string[];
+// отказа, хуже отсутствующего пункта. `{ any: [...] }` — хватает любого из прав:
+// экраны KPI открываются оценщику или наблюдателю.
+export type NavPermission = string | string[] | { any: readonly string[] };
 
 // Переводчик раздела tickets.nav (useTranslations("tickets.nav")). Остальное меню
 // пока жёстко по-русски, поэтому buildNav принимает переводчик только для заявок.
@@ -36,7 +39,13 @@ export type TicketsNavT = (
   key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
 ) => string;
 
-export type NavLeaf = { title: string; href: string; permission?: NavPermission };
+// also — пути дочерних экранов вне href, на которых пункт тоже считается активным
+// (подсветка в меню и хлебные крошки), например /kpi/branch/<id> для «Сети».
+export type NavLeaf = { title: string; href: string; permission?: NavPermission; also?: string[] };
+
+export function leafPaths(it: NavLeaf): string[] {
+  return [it.href, ...(it.also ?? [])];
+}
 export type NavEntry =
   | {
       kind: "link";
@@ -125,6 +134,24 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
       ],
     },
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
+    {
+      kind: "group",
+      title: "KPI сотрудников",
+      icon: Award,
+      permission: "kpi_layout",
+      items: [
+        { title: KPI_SCREEN_TITLE.reviews, href: p("/kpi/reviews"), permission: { any: KPI_SCREEN_PERMS.reviews } },
+        { title: KPI_SCREEN_TITLE.violations, href: p("/kpi/violations"), permission: { any: KPI_SCREEN_PERMS.violations } },
+        { title: KPI_SCREEN_TITLE.disputes, href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
+        { title: KPI_SCREEN_TITLE.month, href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
+        { title: KPI_SCREEN_TITLE.raises, href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
+        { title: KPI_SCREEN_TITLE.attendance, href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
+        { title: KPI_SCREEN_TITLE.network, href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
+        { title: KPI_SCREEN_TITLE.revenue_plans, href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
+        { title: KPI_SCREEN_TITLE.sanitary, href: p("/kpi/sanitary/new"), permission: { any: KPI_SCREEN_PERMS.sanitary } },
+        { title: KPI_SCREEN_TITLE.settings, href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },
+      ],
+    },
     // Заявки. Право пункта берётся с самого экрана, а не с плана. Офисный
     // список читает GET /tickets, а он проверяет tickets.list; но сессия без
     // филиалов и без tickets.list_all получает там 200 с пустым списком, то есть
@@ -212,7 +239,12 @@ export function useFilteredNav(): NavEntry[] {
     const perms: string[] | undefined = (data as any)?.permissions;
     if (!perms) return [];
     const has = (p?: NavPermission) =>
-      !p || (Array.isArray(p) ? p.every((x) => perms.includes(x)) : perms.includes(p));
+      !p ||
+      (typeof p === "string"
+        ? perms.includes(p)
+        : Array.isArray(p)
+          ? p.every((x) => perms.includes(x))
+          : p.any.some((x) => perms.includes(x)));
     const out: NavEntry[] = [];
     for (const e of buildNav(locale, tTickets)) {
       if (e.kind === "link") {
