@@ -130,6 +130,18 @@ export const UNMATCHED_REASON_TEXT: Record<UnmatchedReason, string> = {
   no_marks: "Нет отметок прихода и ухода",
 };
 
+/** Строка итогов: «не сопоставлено» — только строки без найденного сотрудника, «пропущено» — строки найденных, не попавшие в учёт. */
+export function rowsCountText(r: Pick<AttendanceImportRow, "rows_total" | "rows_matched" | "rows_unmatched" | "rows_skipped">): string {
+  return `Строк: ${r.rows_total} · сопоставлено: ${r.rows_matched} · не сопоставлено: ${r.rows_unmatched} · пропущено: ${r.rows_skipped}`;
+}
+
+/** Причины пропуска по строкам: «Нерабочий день: 2, Нет отметок прихода и ухода: 1». */
+export function skippedReasonsText(rows: readonly { reason: UnmatchedReason }[]): string {
+  const n = new Map<UnmatchedReason, number>();
+  for (const r of rows) n.set(r.reason, (n.get(r.reason) ?? 0) + 1);
+  return [...n].map(([k, c]) => `${(UNMATCHED_REASON_TEXT[k] ?? k).replace(/ \(.*\)$/, "")}: ${c}`).join(", ");
+}
+
 /** Итоги по сопоставленным дням: по ним видно, учлись ли прогулы и опоздания. */
 export function importTotalsText(t: Pick<AttendanceImportRow, "days_present" | "days_late" | "days_absent">): string {
   return `Дней: ${t.days_present}, с опозданием: ${t.days_late}, прогулов: ${t.days_absent}`;

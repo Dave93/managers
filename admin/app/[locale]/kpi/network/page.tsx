@@ -1,5 +1,6 @@
 "use client";
-import React, { useMemo, useRef, useState } from "react";
+import React, { Suspense, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
@@ -26,6 +27,7 @@ import {
   formatPoints,
   formatScore,
   monthIncomplete,
+  newDataHint,
   networkAverage,
   tierCounts,
   tierTone,
@@ -36,11 +38,14 @@ import { monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import type { Tone } from "@admin/lib/kpi/status";
 import { cn } from "@admin/lib/utils";
 import { KpiBadge } from "../_components/kpi-badge";
+import { NewDataNote } from "../_components/new-data-note";
 import { PeriodSelect } from "../_components/period-select";
 import { PreliminaryNote } from "../_components/preliminary-note";
 import { ScreenGate } from "../_components/screen-gate";
 import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiPerms } from "../_components/use-kpi";
+
+const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 
 const CELL: Record<Tone, string> = {
   green: "bg-green-50 text-green-800",
@@ -61,7 +66,9 @@ const TILE: Record<Tone, string> = {
 export default function NetworkPage() {
   return (
     <ScreenGate screen="network">
-      <NetworkScreen />
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Загрузка…</p>}>
+        <NetworkScreen />
+      </Suspense>
     </ScreenGate>
   );
 }
@@ -69,9 +76,11 @@ export default function NetworkPage() {
 function NetworkScreen() {
   const now = useMemo(() => new Date(), []);
   const { access } = useKpiPerms();
+  const asked = useSearchParams().get("period");
   const [picked, setPicked] = useState<string | null>(null);
-  // По умолчанию последний завершённый месяц: текущий ещё не прожит, балл по нему предварительный
-  const period = picked ?? defaultBranchPeriod(now);
+  // Месяц из адреса (ссылка «К пересчёту» с экрана филиала), иначе последний завершённый:
+  // текущий ещё не прожит, балл по нему предварительный
+  const period = picked ?? (asked && PERIOD_RE.test(asked) ? asked : defaultBranchPeriod(now));
   const options = useMemo(() => {
     const base = periodOptions(now, 12);
     return base.includes(period) ? base : [period, ...base];
@@ -180,6 +189,11 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
       </p>
 
       {data.version !== null && data.preliminary && <PreliminaryNote />}
+
+      {(() => {
+        const hint = newDataHint(data, { canCompute, period, onNetwork: true });
+        return hint ? <NewDataNote text={hint.text} href={hint.href} /> : null;
+      })()}
 
       {rows.length === 0 ? (
         <p className="rounded-md border p-4 text-sm text-muted-foreground">

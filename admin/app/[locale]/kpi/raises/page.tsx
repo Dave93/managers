@@ -132,8 +132,9 @@ function RaisesScreen() {
           <Table>
             <TableHeader>
               <TableRow>
-                {/* ФИО прилипает слева: при прокрутке широкой таблицы видно, чья строка. */}
-                <TableHead className="sticky left-0 z-10 bg-background">ФИО</TableHead>
+                {/* ФИО прилипает слева, «Решение» справа: узкое окно прокручивает середину, а имя и кнопка остаются на месте.
+                    Фон непрозрачный (токен темы) и z-index выше соседних ячеек, ничего не просвечивает. */}
+                <TableHead className="sticky left-0 z-20 bg-background">ФИО</TableHead>
                 <TableHead>Филиал</TableHead>
                 <TableHead>Карта</TableHead>
                 {months.map((m) => (
@@ -145,7 +146,11 @@ function RaisesScreen() {
                 <TableHead className="text-right">Предложение</TableHead>
                 <TableHead>Статус</TableHead>
                 <TableHead>Решение</TableHead>
-                {access.approve && <TableHead />}
+                {access.approve && (
+                  <TableHead className="sticky right-0 z-20 bg-background">
+                    <span className="sr-only">Действия</span>
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -154,9 +159,9 @@ function RaisesScreen() {
                 const decided = r.status === "approved" || r.status === "rejected";
                 return (
                   <TableRow key={r.id}>
-                    <TableCell className="sticky left-0 z-10 bg-background font-medium">{r.employee_name}</TableCell>
-                    <TableCell className="min-w-32 whitespace-normal">{r.terminal_name ?? "—"}</TableCell>
-                    <TableCell className="min-w-32 whitespace-normal">{r.card_title ?? "—"}</TableCell>
+                    <TableCell className="sticky left-0 z-10 min-w-28 whitespace-normal bg-background font-medium">{r.employee_name}</TableCell>
+                    <TableCell className="min-w-28 whitespace-normal">{r.terminal_name ?? "—"}</TableCell>
+                    <TableCell className="min-w-28 whitespace-normal">{r.card_title ?? "—"}</TableCell>
                     {months.map((m) => (
                       <TableCell key={m} className="text-right">
                         {formatPct(r.months.find((x) => x.period === m)?.score_pct ?? null)}
@@ -170,7 +175,7 @@ function RaisesScreen() {
                         {r.stale && <KpiBadge tone="amber">устарело</KpiBadge>}
                       </div>
                     </TableCell>
-                    <TableCell className="min-w-48 text-sm">
+                    <TableCell className="min-w-40 text-sm">
                       {decided ? (
                         <div className="space-y-0.5">
                           <div>{r.status === "approved" ? formatSum(r.approved_amount) : "Отказано"}</div>
@@ -182,7 +187,7 @@ function RaisesScreen() {
                       )}
                     </TableCell>
                     {access.approve && (
-                      <TableCell>
+                      <TableCell className="sticky right-0 z-10 bg-background">
                         <Button type="button" variant="outline" className="h-11" disabled={cap === undefined} onClick={() => setDecideId(r.id)}>
                           Решение
                         </Button>

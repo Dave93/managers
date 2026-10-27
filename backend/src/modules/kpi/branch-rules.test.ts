@@ -219,3 +219,30 @@ describe("предварительная версия и колонки сети
     expect(B.versionColumns([], SEED)).toEqual([]);
   });
 });
+
+describe("данные новее расчёта", () => {
+  const AT = "2025-10-05T10:00:00.000Z";
+  const stale = (o: Partial<Parameters<typeof B.inputsNewerThanVersion>[0]> = {}) =>
+    B.inputsNewerThanVersion({ closed: false, computedAt: AT, inputTimes: [], ...o });
+  it("ввод позже расчёта — новее; раньше или ровно в момент расчёта — нет", () => {
+    expect(stale({ inputTimes: ["2025-10-05T10:00:00.001Z"] })).toBe(true);
+    expect(stale({ inputTimes: ["2025-10-05T10:00:00.000Z"] })).toBe(false);
+    expect(stale({ inputTimes: ["2025-10-05T09:59:59.999Z"] })).toBe(false);
+  });
+  it("достаточно одного позднего ввода; пустые значения не считаются", () => {
+    expect(stale({ inputTimes: ["2025-10-01T00:00:00Z", null, "2025-10-06T00:00:00Z"] })).toBe(true);
+    expect(stale({ inputTimes: [null, undefined] })).toBe(false);
+    expect(stale({ inputTimes: [] })).toBe(false);
+  });
+  it("расчёта нет — сравнивать не с чем, пометки нет", () => {
+    expect(stale({ computedAt: null, inputTimes: ["2025-10-06T00:00:00Z"] })).toBe(false);
+  });
+  it("закрытый месяц заморожен: пометки нет даже при новом вводе", () => {
+    expect(stale({ closed: true, inputTimes: ["2025-10-06T00:00:00Z"] })).toBe(false);
+  });
+  it("формат времени из базы с зоной и без долей секунды сравнивается как момент", () => {
+    expect(stale({ inputTimes: ["2025-10-05 15:00:01+05"] })).toBe(true);
+    expect(stale({ inputTimes: ["2025-10-05 15:00:00+05"] })).toBe(false);
+    expect(stale({ inputTimes: ["не дата"] })).toBe(false);
+  });
+});

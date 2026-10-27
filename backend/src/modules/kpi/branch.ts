@@ -1,7 +1,14 @@
 // Балл филиала за месяц (спека 7.7): расчёт новой версии, «Сеть» и разбор филиала.
 // Версии не перезаписываются: расчёт только добавляет, чтение берёт последнюю.
 import type { DrizzleDB } from "@backend/lib/db";
-import { kpi_branch_results, kpi_branch_scores, terminals } from "backend/drizzle/schema";
+import {
+  kpi_attendance_imports,
+  kpi_branch_results,
+  kpi_branch_scores,
+  kpi_revenue_plans,
+  kpi_sanitary_checks,
+  terminals,
+} from "backend/drizzle/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { seesNetwork, viewsTerminal, type Actor, type DbLike } from "./access";
 import {
@@ -17,6 +24,7 @@ import {
 import {
   BRANCH_SOURCE_INDICATOR,
   branchSuggestion,
+  inputsNewerThanVersion,
   isPreliminary,
   nextTier,
   scoreTerminal,
@@ -31,7 +39,7 @@ import { terminalNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
-import { lockPeriodShared } from "./periods";
+import { isPeriodClosed, lockPeriodShared } from "./periods";
 import { checksFor } from "./sanitary";
 import { periodOf, type Period } from "./time";
 import type {
@@ -62,6 +70,32 @@ async function latestVersionInfo(
   if (!r) return { version: null, computed_at: null, preliminary: false };
   const computed_at = iso(r.at);
   return { version: Number(r.v), computed_at, preliminary: computed_at !== null && isPreliminary(period, computed_at) };
+}
+
+// Есть ли за месяц ввод новее последней версии (пометка «Есть новые данные»). Читаем то, что берёт расчёт
+// из наших таблиц: санитарные проверки, планы, импорт посещаемости. Продажи и сервис идут из iiko, их не смотрим.
+// terminalIds: проверки и планы только этих филиалов; импорт посещаемости один на месяц.
+async function inputsNewer(db: DbLike, period: Period, computedAt: string | null, terminalIds?: string[]): Promise<boolean> {
+  if (computedAt === null) return false;
+  const closed = await isPeriodClosed(db, period);
+  if (closed) return false;
+  const san = kpi_sanitary_checks;
+  const plans = kpi_revenue_plans;
+  const [[s], [p], [a]] = await Promise.all([
+    db
+      .select({ at: sql<string | null>`max(${san.created_at})` })
+      .from(san)
+      .where(and(eq(san.period, period), terminalIds ? inArray(san.terminal_id, terminalIds) : undefined)),
+    db
+      .select({ at: sql<string | null>`max(${plans.updated_at})` })
+      .from(plans)
+      .where(and(eq(plans.period, period), terminalIds ? inArray(plans.terminal_id, terminalIds) : undefined)),
+    db
+      .select({ at: sql<string | null>`max(${kpi_attendance_imports.created_at})` })
+      .from(kpi_attendance_imports)
+      .where(eq(kpi_attendance_imports.period, period)),
+  ]);
+  return inputsNewerThanVersion({ closed, computedAt, inputTimes: [s?.at, p?.at, a?.at] });
 }
 
 // Новая версия за месяц. Набор филиалов строится из данных (решение 7), не из terminals.
@@ -186,19 +220,20 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
   const current = await loadIndicators(db);
   const indicators = current.filter((i) => i.active);
   const { version, computed_at, preliminary } = await latestVersionInfo(db, period);
-  const empty: BranchNetwork = { period, version, computed_at, preliminary, indicators, columns: [], rows: [] };
+  const empty: BranchNetwork = { period, version, computed_at, preliminary, inputs_newer: false, indicators, columns: [], rows: [] };
   if (version === null) return empty;
 
   // Не вся сеть: читаем строки только видимых филиалов
   const all = seesNetwork(actor);
   const scope = all ? undefined : [...new Set(actor.terminals.filter((t) => UUID_RE.test(t)).map((t) => t.toLowerCase()))];
   if (scope && scope.length === 0) return empty;
+  const inputs_newer = await inputsNewer(db, period, computed_at, scope);
   const scores = await db
     .select()
     .from(kpi_branch_scores)
     .where(and(eq(kpi_branch_scores.period, period), eq(kpi_branch_scores.version, version), scope ? inArray(kpi_branch_scores.terminal_id, scope) : undefined));
   const visible = scores.filter((s) => viewsTerminal(actor, s.terminal_id));
-  if (visible.length === 0) return empty;
+  if (visible.length === 0) return { ...empty, inputs_newer };
 
   const results = await db
     .select({
@@ -238,7 +273,7 @@ export async function branchNetwork(db: DbLike, actor: Actor, period: Period): P
       cells: cells.get(s.terminal_id) ?? {},
     }))
     .sort((a, b) => b.score - a.score || (a.terminal_name ?? "").localeCompare(b.terminal_name ?? "", "ru"));
-  return { ...empty, columns: versionColumns(results.map((r) => r.code), current), rows };
+  return { ...empty, inputs_newer, columns: versionColumns(results.map((r) => r.code), current), rows };
 }
 
 // «Филиал»: разбор по показателям последней версии
@@ -251,7 +286,8 @@ export async function branchBreakdown(db: DbLike, actor: Actor, terminalId: stri
   const sortOf = new Map(current.map((i) => [i.code as string, i]));
   const { version, computed_at, preliminary } = await latestVersionInfo(db, period);
   const [t] = await db.select({ name: terminals.name }).from(terminals).where(eq(terminals.id, id)).limit(1);
-  const base = { period, terminal_id: id, terminal_name: t?.name ?? null, version, computed_at, preliminary };
+  const inputs_newer = await inputsNewer(db, period, computed_at, [id]);
+  const base = { period, terminal_id: id, terminal_name: t?.name ?? null, version, computed_at, preliminary, inputs_newer };
   const sanitary_checks = await checksFor(db, id, period);
 
   const [scoreRow] =

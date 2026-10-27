@@ -369,6 +369,32 @@ export function matchRows(rows: ParsedRow[], employees: MatchEmployee[]): { days
   return { days, bad };
 }
 
+// Причины «сотрудник не найден»: только они попадают в «не сопоставлено».
+// Остальное (нерабочий день, нет отметок, дата вне месяца, дубль дня) строка найденного сотрудника, её пропустили.
+// Строки разбора (parseBad) сотрудника ещё не искали: ищем по табельному номеру здесь.
+export function splitBad(
+  parseBad: UnmatchedRow[],
+  matchBad: UnmatchedRow[],
+  employees: MatchEmployee[]
+): { unmatched: UnmatchedRow[]; skipped: UnmatchedRow[] } {
+  const count = new Map<string, number>();
+  for (const e of employees) {
+    const k = e.external_id?.trim();
+    if (k) count.set(k, (count.get(k) ?? 0) + 1);
+  }
+  const unmatched: UnmatchedRow[] = [];
+  const skipped: UnmatchedRow[] = [];
+  for (const b of matchBad) (b.reason === "duplicate_day" ? skipped : unmatched).push(b);
+  for (const b of parseBad) {
+    const n = b.external_id === null ? 0 : (count.get(b.external_id.trim()) ?? 0);
+    if (b.external_id === null) unmatched.push(b);
+    else if (n === 1) skipped.push(b);
+    else unmatched.push({ ...b, reason: n === 0 ? "unknown_external_id" : "ambiguous_external_id" });
+  }
+  const byRow = (a: UnmatchedRow, b: UnmatchedRow) => a.row - b.row;
+  return { unmatched: unmatched.sort(byRow), skipped: skipped.sort(byRow) };
+}
+
 // ---------- предложение ----------
 
 export type AttendanceStats = { days: number; ontime: number; late: number; absent: number; score: number; basis: string };

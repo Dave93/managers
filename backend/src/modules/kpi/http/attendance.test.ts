@@ -109,13 +109,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         ["", 45903, null, null, null, null], // 9
       ], P9);
       expect(r.status).toBe(200);
-      expect(r.body).toMatchObject({ period: P9, sheet: "Лист1", header_row: 1, mapping: ATT_MAP, rows_total: 8, rows_matched: 4, rows_unmatched: 4, status: "committed" });
+      expect(r.body).toMatchObject({ period: P9, sheet: "Лист1", header_row: 1, mapping: ATT_MAP, rows_total: 8, rows_matched: 4, rows_unmatched: 2, rows_skipped: 2, status: "committed" });
       expectIsoTimestamps(r.body, ["created_at"]);
+      // «не сопоставлено» — только строки без найденного сотрудника; остальное у найденного — «пропущено»
       expect(r.body.unmatched).toEqual([
         { row: 6, external_id: "T-нет-такого", reason: "unknown_external_id" },
+        { row: 9, external_id: null, reason: "no_external_id" },
+      ]);
+      expect(r.body.skipped).toEqual([
         { row: 7, external_id: xa, reason: "outside_period" },
         { row: 8, external_id: xa, reason: "duplicate_day" },
-        { row: 9, external_id: null, reason: "no_external_id" },
       ]);
       const rows = await db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, a.id)).orderBy(asc(kpi_attendance.day));
       expect(rows.map((x) => [x.day, x.late_minutes, x.absent])).toEqual([["2025-09-01", 0, false], ["2025-09-02", 15, false], ["2025-09-03", 0, false]]);
@@ -142,8 +145,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         [x, 45906, "утро", "--", "много", "Н"], // 7 прогул: время не читается
       ], P9);
       expect(r.status).toBe(200);
-      expect(r.body).toMatchObject({ rows_total: 6, rows_matched: 4, rows_unmatched: 2, days_present: 2, days_late: 1, days_absent: 2 });
-      expect(r.body.unmatched).toEqual([
+      expect(r.body).toMatchObject({ rows_total: 6, rows_matched: 4, rows_unmatched: 0, rows_skipped: 2, days_present: 2, days_late: 1, days_absent: 2 });
+      expect(r.body.unmatched).toEqual([]);
+      expect(r.body.skipped).toEqual([
         { row: 5, external_id: x, reason: "not_working_day" },
         { row: 6, external_id: x, reason: "no_marks" },
       ]);
@@ -155,7 +159,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         ["2025-09-06", true, 0, true, true],
       ]);
       const listed = (await imports(hr)).find((i: any) => i.id === r.body.id);
-      expect(listed).toMatchObject({ days_present: 2, days_late: 1, days_absent: 2 });
+      expect(listed).toMatchObject({ days_present: 2, days_late: 1, days_absent: 2, rows_unmatched: 0, rows_skipped: 2 });
+      expect(listed.skipped.map((u: any) => u.reason)).toEqual(["not_working_day", "no_marks"]);
+    });
+
+    it("нерабочий день: найденный сотрудник — «пропущено», неизвестный табельный — «не сопоставлено»", async () => {
+      const hr = await hrSession();
+      const x = ext();
+      await makeEmployee(db, { external_id: x });
+      const r = await importAttendance(hr, [
+        [x, 45901, "09:00", "18:00", 0, ""], // 2
+        [x, 45902, "-", "-", "-", "Выходной"], // 3 найден, нерабочий день
+        ["T-нет-такого", 45902, "-", "-", "-", "Выходной"], // 4 сотрудника нет
+      ], P9);
+      expect(r.status).toBe(200);
+      expect(r.body).toMatchObject({ rows_total: 3, rows_matched: 1, rows_unmatched: 1, rows_skipped: 1 });
+      expect(r.body.unmatched).toEqual([{ row: 4, external_id: "T-нет-такого", reason: "unknown_external_id" }]);
+      expect(r.body.skipped).toEqual([{ row: 3, external_id: x, reason: "not_working_day" }]);
     });
 
     it("объединённая колонка табельного номера: номер на каждой строке", async () => {
@@ -174,7 +194,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const up = await uploadAttendance(hr, new File([XLSX.write(wb, { type: "buffer", bookType: "xlsx" })], "merged.xlsx"));
       expect(up.status).toBe(200);
       const r = await commit(hr, { token: up.body.token, sheet: "Лист1", period: P9, header_row: 1, mapping: ATT_MAP });
-      expect(r.body).toMatchObject({ rows_matched: 3, rows_unmatched: 0, days_present: 3, days_late: 1, days_absent: 0 });
+      expect(r.body).toMatchObject({ rows_matched: 3, rows_unmatched: 0, rows_skipped: 0, days_present: 3, days_late: 1, days_absent: 0 });
       expect(await db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, e.id))).toHaveLength(3);
     });
 

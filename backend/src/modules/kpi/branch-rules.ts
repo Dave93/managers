@@ -152,6 +152,23 @@ export function isPreliminary(period: Period, computedAt: string | Date): boolea
   return new Date(computedAt).getTime() < dayStart(addMonths(period, 1), 1).getTime();
 }
 
+// Есть ввод, попавший в месяц после расчёта последней версии: в балле его ещё нет.
+// Закрытый месяц заморожен (пересчёт даёт 409), расчёта нет — сравнивать не с чем.
+export function inputsNewerThanVersion(o: {
+  closed: boolean;
+  computedAt: string | null;
+  inputTimes: readonly (string | null | undefined)[];
+}): boolean {
+  if (o.closed || o.computedAt === null) return false;
+  const at = new Date(o.computedAt).getTime();
+  if (Number.isNaN(at)) return false;
+  return o.inputTimes.some((t) => {
+    if (!t) return false;
+    const x = new Date(t).getTime();
+    return !Number.isNaN(x) && x > at;
+  });
+}
+
 // Колонки «Сети»: коды из строк версии по текущему sort (включая неактивные), незнакомые коды в конце
 export function versionColumns(codes: Iterable<string>, indicators: readonly Pick<BranchIndicator, "code" | "sort">[]): BranchIndicatorCode[] {
   const sortOf = new Map<string, number>(indicators.map((i) => [i.code, i.sort]));

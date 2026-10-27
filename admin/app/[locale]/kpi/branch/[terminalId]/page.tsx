@@ -5,12 +5,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type BranchBreakdown } from "@admin/lib/kpi-api";
 import { canOpen } from "@admin/lib/kpi/access";
-import { countedLater, coverageText, defaultBranchPeriod, formatScore, nextTierText, tierTone } from "@admin/lib/kpi/branch";
+import { countedLater, coverageText, defaultBranchPeriod, formatScore, newDataHint, nextTierText, tierTone } from "@admin/lib/kpi/branch";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatPct, formatTashkent } from "@admin/lib/kpi/format";
 import { monthLabel, periodOptions } from "@admin/lib/kpi/periods";
 import { failedTitles } from "@admin/lib/kpi/sanitary";
 import { KpiBadge } from "../../_components/kpi-badge";
+import { NewDataNote } from "../../_components/new-data-note";
 import { PeriodSelect } from "../../_components/period-select";
 import { PreliminaryNote } from "../../_components/preliminary-note";
 import { ScreenGate } from "../../_components/screen-gate";
@@ -36,7 +37,7 @@ function BranchScreen() {
   const pathname = usePathname();
   const params = useSearchParams();
   const now = useMemo(() => new Date(), []);
-  const { perms } = useKpiPerms();
+  const { perms, access } = useKpiPerms();
 
   // Без месяца в адресе — последний завершённый, как на «Сети»
   const asked = params.get("period");
@@ -86,6 +87,7 @@ function BranchScreen() {
       ) : (
         <>
           {data.version !== null && data.preliminary && <PreliminaryNote />}
+          <NewData data={data} period={period} canCompute={(access.manage || access.approve) && canOpen(perms, "network")} />
 
           <div className="space-y-1">
             {data.version === null || data.score === null ? (
@@ -152,4 +154,9 @@ function BranchScreen() {
       )}
     </div>
   );
+}
+
+function NewData({ data, period, canCompute }: { data: BranchBreakdown; period: string; canCompute: boolean }) {
+  const hint = newDataHint(data, { canCompute, period, onNetwork: false });
+  return hint ? <NewDataNote text={hint.text} href={hint.href} /> : null;
 }

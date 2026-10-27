@@ -9,6 +9,7 @@ import {
   fileKind,
   guessHeaderRow,
   matchRows,
+  splitBad,
   MAX_UPLOAD_BYTES,
   parseRows,
   previewOf,
@@ -63,7 +64,14 @@ export async function parseUpload(redis: Redis, userId: string, file: unknown): 
 type ImportDbRow = typeof kpi_attendance_imports.$inferSelect;
 
 // В mapping лежат и итоги по дням: отдельных колонок под них в таблице нет (миграция 0037 одна).
-type StoredMapping = { sheet: string; header_row: number; mapping: AttendanceMapping; totals?: AttendanceTotals };
+// Пропущенные строки найденных сотрудников там же: у прежних импортов их нет, они читаются как 0.
+type StoredMapping = {
+  sheet: string;
+  header_row: number;
+  mapping: AttendanceMapping;
+  totals?: AttendanceTotals;
+  skipped?: { count: number; rows: UnmatchedRow[] };
+};
 const NO_TOTALS: AttendanceTotals = { days_present: 0, days_late: 0, days_absent: 0 };
 
 function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImportRow {
@@ -85,6 +93,8 @@ function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImpo
     days_late: t.days_late,
     days_absent: t.days_absent,
     unmatched: r.unmatched as UnmatchedRow[],
+    rows_skipped: m.skipped?.count ?? 0,
+    skipped: m.skipped?.rows ?? [],
     status: r.status as AttendanceImportRow["status"],
     created_at: iso(r.created_at),
   };
@@ -142,11 +152,12 @@ export async function commitImport(
       .from(employees)
       .where(and(eq(employees.active, true), isNotNull(employees.external_id)));
     const matched = matchRows(parsed.rows, emps);
-    const unmatchedAll = [...parsed.bad, ...matched.bad].sort((a, b) => a.row - b.row);
+    // «Не сопоставлено» — строки без найденного сотрудника; остальные отказы у найденного — «пропущено»
+    const { unmatched: unmatchedAll, skipped: skippedAll } = splitBad(parsed.bad, matched.bad, emps);
     if (matched.days.length === 0) {
       throw new KpiError(422, "nothing_matched", {
         rows_total: parsed.total,
-        unmatched: unmatchedAll.slice(0, NOTHING_MATCHED_SHOWN),
+        unmatched: [...unmatchedAll, ...skippedAll].sort((a, b) => a.row - b.row).slice(0, NOTHING_MATCHED_SHOWN),
       });
     }
 
@@ -166,8 +177,14 @@ export async function commitImport(
         period,
         file_name: stored.file_name,
         uploaded_by: userId,
-        mapping: { sheet: grid.name, header_row: headerRow, mapping, totals: importTotals(matched.days) } satisfies StoredMapping,
-        rows_total: matched.days.length + unmatchedAll.length,
+        mapping: {
+          sheet: grid.name,
+          header_row: headerRow,
+          mapping,
+          totals: importTotals(matched.days),
+          skipped: { count: skippedAll.length, rows: skippedAll.slice(0, UNMATCHED_LIMIT) },
+        } satisfies StoredMapping,
+        rows_total: matched.days.length + unmatchedAll.length + skippedAll.length,
         rows_matched: matched.days.length,
         rows_unmatched: unmatchedAll.length,
         unmatched: unmatchedAll.slice(0, UNMATCHED_LIMIT),

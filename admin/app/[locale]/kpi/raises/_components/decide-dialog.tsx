@@ -118,12 +118,15 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
 
       {status === "approved" && (
         <div className="space-y-1">
+          <label htmlFor={`raise-amount-${row.id}`} className="block text-sm font-medium">
+            Сумма повышения, сум
+          </label>
           <Input
+            id={`raise-amount-${row.id}`}
             inputMode="numeric"
             value={amount}
             disabled={busy}
             onChange={(e) => setAmount(e.target.value)}
-            aria-label="Сумма повышения"
             className="h-11"
           />
           {issues.includes("bad_amount") && (

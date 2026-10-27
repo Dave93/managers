@@ -49,6 +49,7 @@ export function ImportsTable({ period }: { period: string }) {
                 <TableHead className="text-right">Строк</TableHead>
                 <TableHead className="text-right">Сопоставлено</TableHead>
                 <TableHead className="text-right">Не сопоставлено</TableHead>
+                <TableHead className="text-right">Пропущено</TableHead>
                 <TableHead>Статус</TableHead>
               </TableRow>
             </TableHeader>
@@ -73,6 +74,7 @@ export function ImportsTable({ period }: { period: string }) {
                   <TableCell className="text-right tabular-nums">{r.rows_total}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.rows_matched}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.rows_unmatched}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.rows_skipped}</TableCell>
                   <TableCell>
                     <KpiBadge tone={IMPORT_STATUS[r.status].tone}>{IMPORT_STATUS[r.status].label}</KpiBadge>
                   </TableCell>

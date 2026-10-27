@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import * as XLSX from "xlsx";
 import * as A from "./attendance-parse";
 import { KpiError } from "./errors";
+import type { UnmatchedRow } from "./types";
 
 const P = "2025-09-01";
 const M = { external_id: 0, date: 1, check_in: 2, check_out: 3, late_minutes: 4, absent: 5 };
@@ -321,6 +322,41 @@ describe("сопоставление", () => {
       { row: 5, external_id: "T-9", reason: "unknown_external_id" },
       { row: 6, external_id: "T-1", reason: "duplicate_day" },
     ]);
+  });
+});
+
+describe("не сопоставлено и пропущено", () => {
+  const emps: A.MatchEmployee[] = [
+    { id: "e1", terminal_id: "t1", external_id: "T-1" },
+    { id: "e2", terminal_id: "t1", external_id: "T-2" },
+    { id: "e3", terminal_id: "t2", external_id: "T-2" },
+  ];
+  const bad = (row: number, external_id: string | null, reason: UnmatchedRow["reason"]): UnmatchedRow => ({ row, external_id, reason });
+  it("«Нерабочий день» найденного сотрудника — пропуск, а не «не сопоставлено»", () => {
+    const r = A.splitBad([bad(5, "T-1", "not_working_day"), bad(6, "T-1", "no_marks"), bad(7, "T-1", "outside_period")], [bad(8, "T-1", "duplicate_day")], emps);
+    expect(r.unmatched).toEqual([]);
+    expect(r.skipped.map((x) => [x.row, x.reason])).toEqual([[5, "not_working_day"], [6, "no_marks"], [7, "outside_period"], [8, "duplicate_day"]]);
+  });
+  it("строки без найденного сотрудника остаются «не сопоставлено», причина про сотрудника", () => {
+    const r = A.splitBad(
+      [bad(2, null, "no_external_id"), bad(3, "T-9", "not_working_day"), bad(4, "T-2", "bad_date"), bad(5, " t-1 ", "bad_time")],
+      [bad(6, "T-9", "unknown_external_id"), bad(7, "T-2", "ambiguous_external_id")],
+      emps
+    );
+    expect(r.skipped).toEqual([]);
+    expect(r.unmatched).toEqual([
+      bad(2, null, "no_external_id"),
+      bad(3, "T-9", "unknown_external_id"),
+      bad(4, "T-2", "ambiguous_external_id"),
+      bad(5, " t-1 ", "unknown_external_id"),
+      bad(6, "T-9", "unknown_external_id"),
+      bad(7, "T-2", "ambiguous_external_id"),
+    ]);
+  });
+  it("смесь: оба списка по строкам Excel, счётчики не пересекаются", () => {
+    const r = A.splitBad([bad(9, "T-1", "not_working_day"), bad(3, "T-9", "bad_late")], [bad(4, "T-9", "unknown_external_id"), bad(2, "T-1", "duplicate_day")], emps);
+    expect(r.unmatched.map((x) => x.row)).toEqual([3, 4]);
+    expect(r.skipped.map((x) => x.row)).toEqual([2, 9]);
   });
 });
 

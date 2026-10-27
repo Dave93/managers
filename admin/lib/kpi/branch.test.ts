@@ -124,3 +124,25 @@ describe("предварительная версия, покрытие, скл�
     expect(B.countedLater({ created_at: "2026-10-21T10:00:00.000Z" }, null)).toBe(false);
   });
 });
+
+describe("пометка «есть новые данные»", () => {
+  const d = (inputs_newer: boolean, version: number | null = 3) => ({ inputs_newer, version });
+  it("текст из решения и ссылка на «Сеть» с месяцем", () => {
+    expect(B.NEW_DATA_TEXT).toBe("Есть новые данные — нажмите «Пересчитать»");
+    expect(B.newDataHint(d(true), { canCompute: true, period: "2026-10-01", onNetwork: false })).toEqual({
+      text: "Есть новые данные — нажмите «Пересчитать»",
+      href: "/kpi/network?period=2026-10-01",
+    });
+  });
+  it("на самой «Сети» ссылки нет, без права пересчёта нет кнопки и призыва нажимать", () => {
+    expect(B.newDataHint(d(true), { canCompute: true, period: "2026-10-01", onNetwork: true })?.href).toBeNull();
+    expect(B.newDataHint(d(true), { canCompute: false, period: "2026-10-01", onNetwork: false })).toEqual({
+      text: "Есть новые данные — балл обновится после пересчёта",
+      href: null,
+    });
+  });
+  it("нет новых данных или нет расчёта — пометки нет", () => {
+    expect(B.newDataHint(d(false), { canCompute: true, period: "2026-10-01", onNetwork: false })).toBeNull();
+    expect(B.newDataHint(d(true, null), { canCompute: true, period: "2026-10-01", onNetwork: false })).toBeNull();
+  });
+});

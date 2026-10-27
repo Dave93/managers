@@ -127,6 +127,21 @@ export function detailsText(code: BranchIndicatorCode, d: Record<string, number 
 
 export const PRELIMINARY_TEXT =
   "Предварительно: месяц ещё не закончился, продажи к месячному плану занижены. Пересчитайте после окончания месяца";
+/** Пометка «после расчёта появились проверки, планы или импорт посещаемости». Пересчёт HR запускает вручную. */
+export const NEW_DATA_TEXT = "Есть новые данные — нажмите «Пересчитать»";
+export const NEW_DATA_TEXT_READONLY = "Есть новые данные — балл обновится после пересчёта";
+export const NEW_DATA_LINK_TEXT = "К пересчёту";
+
+/** Пометка и ссылка на «Сеть», где живёт «Пересчитать»; без права пересчёта — пометка без кнопки. На самой «Сети» ссылки нет. */
+export function newDataHint(
+  data: { inputs_newer: boolean; version: number | null },
+  o: { canCompute: boolean; period: string; onNetwork: boolean }
+): { text: string; href: string | null } | null {
+  if (!data.inputs_newer || data.version === null) return null;
+  if (!o.canCompute) return { text: NEW_DATA_TEXT_READONLY, href: null };
+  return { text: NEW_DATA_TEXT, href: o.onNetwork ? null : `/kpi/network?period=${o.period}` };
+}
+
 export const COMPUTE_CONFIRM_TEXT = "Месяц ещё не закончился — результат будет предварительным. Посчитать?";
 
 /** Месяц экранов балла по умолчанию — последний завершённый: у текущего продажи к месячному плану ещё не набраны. */

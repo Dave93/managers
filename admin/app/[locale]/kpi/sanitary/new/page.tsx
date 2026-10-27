@@ -142,7 +142,7 @@ function SanitaryForm({
       setSending(false);
       return;
     }
-    toast.success(`Проверка сохранена: ${formatPct(row.pct)}`);
+    toast.success("Проверка сохранена", { description: `Выполнено ${formatPct(row.pct)}. Балл филиала обновится после пересчёта` });
     await Promise.all([qk.sanitaryAll, qk.branchAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
     if (canBranch) {
       // Месяц берём из строки: проверка от 2 ноября лежит в ноябре, а страница без месяца откроет текущий период KPI.

@@ -12,8 +12,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { addAttendance, addCooking, addOrder, addReconciliation, addSanitaryRow, api, cleanupKpi, makeTerminal, setNow, setup } = await import("./fixtures");
-  const { credentials, kpi_branch_scores, kpi_periods, kpi_revenue_plans } = await import("backend/drizzle/schema");
-  const { and, eq } = await import("drizzle-orm");
+  const { credentials, kpi_attendance_imports, kpi_branch_scores, kpi_periods, kpi_revenue_plans, kpi_sanitary_checks } = await import("backend/drizzle/schema");
+  const { and, eq, sql } = await import("drizzle-orm");
   const { SEED_BRANCH_INDICATORS } = await import("../seed-data");
   const { revenueByGroups, sumOver, terminalLinks } = await import("../branch-facts");
   type BranchBreakdown = import("../types").BranchBreakdown;
@@ -286,6 +286,56 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       // расчёта нет — и пометки нет
       expect((await api(s, "GET", "/api/kpi/branch?period=2025-03-01")).body).toMatchObject({ version: null, preliminary: false });
       expect((await api(s, "GET", `/api/kpi/branch/${t.id}?period=2025-03-01`)).body).toMatchObject({ version: null, preliminary: false });
+    });
+
+    it("пометка «есть новые данные»: проверка после расчёта включает её, закрытый месяц и расчёт без неё — нет", async () => {
+      const Q = "2025-02-01";
+      const t = await makeTerminal(db);
+      await addAttendance(db, { terminal_id: t.id, day: "2025-02-03", on_time: 1, late: 0, absent: 0 });
+      // created_at у строк ставит база (настоящее время), расчёт идёт по подменённым часам 2025-07-15:
+      // состарим ввод, чтобы он был раньше расчёта
+      await db.update(kpi_attendance_imports).set({ created_at: "2025-01-01T00:00:00Z" }).where(eq(kpi_attendance_imports.period, Q));
+      const s = await hr();
+      const scoped = await withSession({ permissions: ["kpi.view"], terminals: [t.id] });
+      const flags = async () => [
+        (await api(s, "GET", `/api/kpi/branch/${t.id}?period=${Q}`)).body.inputs_newer,
+        (await api(scoped, "GET", `/api/kpi/branch?period=${Q}`)).body.inputs_newer,
+      ];
+      // расчёта нет — пометки нет
+      expect(await flags()).toEqual([false, false]);
+      expect((await api(s, "POST", "/api/kpi/branch/compute", { period: Q })).body).toMatchObject({ version: 1 });
+      expect(await flags()).toEqual([false, false]);
+
+      // проверка заведена после расчёта
+      await addSanitaryRow(db, { terminal_id: t.id, period: Q, pct: 80 });
+      expect(await flags()).toEqual([true, true]);
+      // чужой филиал в охват не входит
+      const other = await makeTerminal(db);
+      const sc2 = await withSession({ permissions: ["kpi.view"], terminals: [other.id] });
+      await addSanitaryRow(db, { terminal_id: other.id, period: Q, pct: 80 });
+      await db.update(kpi_sanitary_checks).set({ created_at: "2025-01-01T00:00:00Z" }).where(eq(kpi_sanitary_checks.terminal_id, t.id));
+      expect(await flags()).toEqual([false, false]);
+      expect((await api(sc2, "GET", `/api/kpi/branch?period=${Q}`)).body.inputs_newer).toBe(true);
+
+      // пересчёт снимает пометку (расчёт позже ввода)
+      await db.update(kpi_sanitary_checks).set({ created_at: sql`now()` }).where(eq(kpi_sanitary_checks.terminal_id, t.id));
+      expect(await flags()).toEqual([true, true]);
+      setNow("2099-01-01T00:00:00Z");
+      expect((await api(s, "POST", "/api/kpi/branch/compute", { period: Q })).body).toMatchObject({ version: 2 });
+      setNow("2025-07-15T10:00:00+05:00");
+      expect(await flags()).toEqual([false, false]);
+
+      // план тоже ввод: изменили после расчёта (расчёт шёл по часам 2099 года)
+      await db
+        .insert(kpi_revenue_plans)
+        .values({ terminal_id: t.id, period: Q, amount: "5", updated_by: randomUUID(), updated_at: "2100-01-01T00:00:00Z" });
+      expect(await flags()).toEqual([true, true]);
+
+      // закрытый месяц заморожен: пометки нет
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, Q));
+      await db.insert(kpi_periods).values({ period: Q, status: "closed" });
+      expect(await flags()).toEqual([false, false]);
+      await db.delete(kpi_periods).where(eq(kpi_periods.period, Q));
     });
 
     it("закрытый месяц KPI — расчёт 409 period_closed и ничего не пишет", async () => {
