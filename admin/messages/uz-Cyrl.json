@@ -763,13 +763,16 @@
         "fetchedAt": "iiko ҳисоби юкланган {at}",
         "onlyMismatch": "Фақат A ≠ iiko",
         "iikoCol": "iiko (кун охиридаги ҳисоб)",
+        "excel": "Excel’га юклаб олиш",
         "col": {
           "store": "Омбор",
           "date": "Сана",
           "template": "Шаблон",
           "status": "Ҳолат",
           "mismatch": "A ≠ iiko",
-          "checked": "Текширилди"
+          "checked": "Текширилди",
+          "code": "Код",
+          "unit": "Бирл."
         },
         "title": "Кунлар бўйича солиштириш",
         "hidden": "саноқ ёпилгач очилади",
@@ -858,6 +861,7 @@
       },
       "inconsistent": "мос келмайди",
       "inconsistentCount": "мос келмайди: {n}",
+      "excel": "Excel’га юклаб олиш",
       "transferHint": "Кирим {in} · чиқим {out}",
       "total": "Жами",
       "empty": "Қолдиқ ва ҳаракат йўқ",

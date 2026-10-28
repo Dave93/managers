@@ -9,12 +9,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { inventoryApi } from "@admin/lib/inventory-api";
 import { diffClass, formatDateTime, formatDiff, formatQty } from "@admin/lib/inventory/money";
 import { formatDay } from "@admin/lib/inventory/periods";
+import { fileName, interimSheet } from "@admin/lib/inventory/excel";
+import { interimGroups, interimMismatch as mismatch } from "@admin/lib/inventory/reconcile";
 import { BookBreakdownView } from "@admin/app/[locale]/inventory/_components/book-compare";
+import { ExcelButton } from "@admin/app/[locale]/inventory/_components/excel-button";
 import { InterimRowRefresh, bookPending, usePollDelay } from "./interim-overview";
 import { WorkerWarning } from "./worker-warning";
 import type { InterimReconLine } from "@backend/modules/inventory/book/types";
-
-const mismatch = (l: InterimReconLine) => l.diff_qty !== null && Number(l.diff_qty) !== 0;
 
 export function InterimDetail({ id, readOnly = false, backHref = "/inventory/reconciliation" }: { id: string; readOnly?: boolean; backHref?: string }) {
   const t = useTranslations("inventory.reconcile");
@@ -42,20 +43,29 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
     onSuccess: () => void q.refetch(),
   });
 
-  const groups = useMemo(() => {
-    const by = new Map<string, InterimReconLine[]>();
-    for (const l of q.data?.lines ?? []) {
-      if (only && !mismatch(l)) continue;
-      by.set(l.group_name, [...(by.get(l.group_name) ?? []), l]);
-    }
-    return [...by.entries()];
-  }, [q.data, only]);
+  const groups = useMemo(() => interimGroups(q.data?.lines ?? [], only), [q.data, only]);
 
   if (!q.data) return <div>{q.error ? (q.error as Error).message : "…"}</div>;
   const d = q.data;
   const isChecked = (l: InterimReconLine) => pending[l.product_id] ?? l.checked;
   const checkedDiffs = d.lines.filter((l) => mismatch(l) && isChecked(l)).length;
   const monthStart = `${d.count_date.slice(0, 8)}01`;
+  // В Excel — с учётом «Только A ≠ iiko»; «проверено» — как на сервере, без неподтверждённых нажатий.
+  const excel = () => {
+    const fetched = d.book_fetched_at ? ti("fetchedAt", { at: formatDateTime(d.book_fetched_at, locale) }) : "";
+    const title = [d.store_name, formatDay(d.count_date), d.template_name, fetched, only ? ti("onlyMismatch") : ""].filter(Boolean).join(" · ");
+    const labels = {
+      sheet: ti("title"),
+      product: t("line.product"),
+      code: ti("col.code"),
+      unit: ti("col.unit"),
+      a: t("line.a"),
+      iiko: ti("iikoCol"),
+      diff: t("line.diff"),
+      checked: readOnly ? ti("checkedByOffice") : t("line.checked"),
+    };
+    return { name: fileName([ti("title"), d.store_name, d.count_date]), sheet: interimSheet(d, only, labels, title) };
+  };
   if (d.hidden) {
     return (
       <div className="space-y-4">
@@ -90,6 +100,7 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
         {d.mismatch_count > 0 && (
           <span className="text-sm text-muted-foreground">{t("checkedCount", { done: checkedDiffs, total: d.mismatch_count })}</span>
         )}
+        <ExcelButton label={ti("excel")} file={excel} />
       </div>
       <div className="overflow-x-auto">
         <Table>

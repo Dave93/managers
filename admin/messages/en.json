@@ -788,13 +788,16 @@
         "fetchedAt": "iiko book stock loaded {at}",
         "onlyMismatch": "Only A ≠ iiko",
         "iikoCol": "iiko (book qty at day end)",
+        "excel": "Download Excel",
         "col": {
           "store": "Store",
           "date": "Date",
           "template": "Template",
           "status": "Status",
           "mismatch": "A ≠ iiko",
-          "checked": "Checked"
+          "checked": "Checked",
+          "code": "Code",
+          "unit": "Unit"
         },
         "title": "Daily reconciliation",
         "hidden": "opens once the count is closed",
@@ -883,6 +886,7 @@
       },
       "inconsistent": "does not add up",
       "inconsistentCount": "does not add up: {n}",
+      "excel": "Download Excel",
       "transferHint": "In {in} · out {out}",
       "total": "Total",
       "empty": "No stock and no movement",
