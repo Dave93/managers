@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
@@ -56,6 +57,7 @@ export function ItemDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("kpi");
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !pending && onClose()}>
@@ -64,8 +66,8 @@ export function ItemDialog({
           <ItemForm key={item?.id ?? `new-${cardId}`} cardId={cardId} item={item} defaultWeight={defaultWeight} onClose={onClose} onPending={setPending} />
         ) : (
           <>
-            <DialogTitle className="sr-only">Пункт карты</DialogTitle>
-            <DialogDescription className="sr-only">Пункт карты</DialogDescription>
+            <DialogTitle className="sr-only">{t("settings.itemDialog.srTitle")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings.itemDialog.srTitle")}</DialogDescription>
           </>
         )}
       </DialogContent>
@@ -86,6 +88,7 @@ function ItemForm({
   onClose: () => void;
   onPending: (p: boolean) => void;
 }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
 
   const form = useForm({
@@ -127,10 +130,10 @@ function ItemForm({
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.cardsAll });
       qc.invalidateQueries({ queryKey: qk.formAll });
-      toast.success("Пункт сохранён");
+      toast.success(t("settings.itemDialog.saved"));
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
   });
 
   const busy = save.isPending;
@@ -147,7 +150,7 @@ function ItemForm({
           <Input id={`item-${name}`} className="h-11" value={field.state.value} disabled={busy} onChange={(e) => field.handleChange(e.target.value)} />
           {field.state.value.trim().length > TITLE_MAX && (
             <p role="alert" className="text-sm text-destructive">
-              Не больше {TITLE_MAX} символов
+              {t("settings.itemDialog.titleMax", { max: TITLE_MAX })}
             </p>
           )}
         </div>
@@ -176,28 +179,28 @@ function ItemForm({
       className="space-y-4"
     >
       <DialogHeader>
-        <DialogTitle>{item ? "Пункт карты" : "Новый пункт"}</DialogTitle>
-        <DialogDescription>Критерий, по которому оценщик ставит балл</DialogDescription>
+        <DialogTitle>{item ? t("settings.itemDialog.titleEdit") : t("settings.itemDialog.titleNew")}</DialogTitle>
+        <DialogDescription>{t("settings.itemDialog.description")}</DialogDescription>
       </DialogHeader>
 
-      {titleField("title_ru", "Название (рус.)")}
-      {titleField("title_uz", "Название (узб.)")}
-      {hintField("hint_ru", "Подсказка оценщику (рус.)")}
-      {hintField("hint_uz", "Подсказка оценщику (узб.)")}
+      {titleField("title_ru", t("settings.itemDialog.titleRu"))}
+      {titleField("title_uz", t("settings.itemDialog.titleUz"))}
+      {hintField("hint_ru", t("settings.itemDialog.hintRu"))}
+      {hintField("hint_uz", t("settings.itemDialog.hintUz"))}
 
       <form.Field name="source">
         {(field) => (
           <div className="space-y-1">
-            <Label>Источник</Label>
+            <Label>{t("settings.itemDialog.source")}</Label>
             <Select value={field.state.value} disabled={busy} onValueChange={(v) => field.handleChange(v as ItemSource)}>
-              <SelectTrigger className="h-11 w-full" aria-label="Источник">
+              <SelectTrigger className="h-11 w-full" aria-label={t("settings.itemDialog.source")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 {ITEM_SOURCE_OPTIONS.map((o) => (
                   <SelectItem key={o.value} value={o.value}>
-                    {o.label}
-                    {!o.ready && " — данных пока нет, оценивается вручную"}
+                    {t(o.labelKey)}
+                    {!o.ready && ` ${t("settings.itemDialog.sourceNoData")}`}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -210,7 +213,7 @@ function ItemForm({
         <form.Field name="weight">
           {(field) => (
             <div className="space-y-1">
-              <Label htmlFor="item-weight">Вес</Label>
+              <Label htmlFor="item-weight">{t("settings.itemDialog.weight")}</Label>
               <Input
                 id="item-weight"
                 type="number"
@@ -221,7 +224,7 @@ function ItemForm({
                 onChange={(e) => field.handleChange(e.target.value)}
               />
               <p className={weightOk(field.state.value) ? "text-sm text-muted-foreground" : "text-sm text-destructive"} role={weightOk(field.state.value) ? undefined : "alert"}>
-                Вес — целое от 1 до 100
+                {t("settings.itemDialog.weightHint")}
               </p>
             </div>
           )}
@@ -229,7 +232,7 @@ function ItemForm({
         <form.Field name="sort">
           {(field) => (
             <div className="space-y-1">
-              <Label htmlFor="item-sort">Порядок</Label>
+              <Label htmlFor="item-sort">{t("settings.itemDialog.sort")}</Label>
               <Input
                 id="item-sort"
                 type="number"
@@ -241,7 +244,7 @@ function ItemForm({
               />
               {!sortOk(field.state.value) && (
                 <p role="alert" className="text-sm text-destructive">
-                  Целое от 0 до 100000
+                  {t("settings.itemDialog.sortError")}
                 </p>
               )}
             </div>
@@ -252,14 +255,14 @@ function ItemForm({
       <form.Field name="group_key">
         {(field) => (
           <div className="space-y-1">
-            <Label>Группа</Label>
+            <Label>{t("settings.itemDialog.group")}</Label>
             <Select value={field.state.value} disabled={busy} onValueChange={(v) => field.handleChange(v as "base" | "extra")}>
-              <SelectTrigger className="h-11 w-full" aria-label="Группа">
+              <SelectTrigger className="h-11 w-full" aria-label={t("settings.itemDialog.group")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="base">Основной</SelectItem>
-                <SelectItem value="extra">Дополнительный</SelectItem>
+                <SelectItem value="base">{t("settings.itemDialog.groupBase")}</SelectItem>
+                <SelectItem value="extra">{t("settings.itemDialog.groupExtra")}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -271,14 +274,14 @@ function ItemForm({
           {(field) => (
             <label className="flex min-h-11 items-center gap-2 text-sm">
               <Switch checked={field.state.value} disabled={busy} onCheckedChange={field.handleChange} />
-              Пункт включён
+              {t("settings.itemDialog.enabled")}
             </label>
           )}
         </form.Field>
       )}
 
       <p className="rounded-md border bg-muted/40 p-3 text-sm text-muted-foreground">
-        Отправленные оценки хранят снимок пунктов. Правка действует на новые оценки и черновики
+        {t("settings.itemDialog.note")}
       </p>
 
       <form.Subscribe selector={(s) => s.values}>
@@ -287,10 +290,10 @@ function ItemForm({
           return (
             <DialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
-                Отмена
+                {t("settings.itemDialog.cancel")}
               </Button>
               <Button type="submit" className="h-11" disabled={busy || !ok}>
-                Сохранить
+                {t("settings.itemDialog.save")}
               </Button>
             </DialogFooter>
           );

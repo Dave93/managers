@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 import { useMemo, useEffect } from "react";
@@ -17,6 +18,7 @@ export default function ExternalPartnersForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -122,7 +124,7 @@ export default function ExternalPartnersForm({
       >
         <div className="space-y-2">
           <div>
-            <Label>Активность</Label>
+            <Label>{tc("active")}</Label>
           </div>
           <form.Field name="is_active">
             {(field) => {
@@ -139,7 +141,7 @@ export default function ExternalPartnersForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Название</Label>
+            <Label>{tc("name")}</Label>
           </div>
           <form.Field name="name">
             {(field) => {
@@ -185,7 +187,7 @@ export default function ExternalPartnersForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Пароль</Label>
+            <Label>{tc("password")}</Label>
           </div>
           <form.Field name="password">
             {(field) => {

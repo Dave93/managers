@@ -5,7 +5,8 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { CalendarIcon, Plus, Download, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { DataTable } from "./data-table";
-import { candidateColumns } from "./columns";
+import { useCandidateColumns } from "./columns";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
@@ -29,6 +30,8 @@ import { Badge } from "@admin/components/ui/badge";
 // };
 
 function CandidatesContent() {
+    const t = useTranslations("hrPages.candidates");
+    const candidateColumns = useCandidateColumns();
     const searchParams = useSearchParams();
     const vacancyId = searchParams.get('vacancyId') || '';
     const [vacancyInfo, setVacancyInfo] = useState<{
@@ -70,7 +73,7 @@ function CandidatesContent() {
     }, [vacancyId]);
 
     const handleSubmit = async () => {
-        toast.success("Список кандидатов обновлен");
+        toast.success(t("listUpdated"));
     };
 
     const [date, setDate] = useState(new Date("2024-04-04T00:00[UTC]"));
@@ -99,12 +102,12 @@ function CandidatesContent() {
     
     const exportToCSV = useCallback(async () => {
         // Сначала получаем данные
-        toast.loading("Загрузка данных...");
+        toast.loading(t("loadingData"));
         const { data: freshData } = await refetch();
         toast.dismiss();
         
         if (!freshData?.data || freshData.data.length === 0) {
-            toast.error("Нет данных для экспорта");
+            toast.error(t("noDataToExport"));
             return;
         }
         
@@ -140,10 +143,10 @@ function CandidatesContent() {
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             saveAs(blob, `candidates-${dayjs().format('YYYY-MM-DD')}.csv`);
             
-            toast.success("Экспорт выполнен успешно");
+            toast.success(t("exportSuccess"));
         } catch (error) {
             console.error("Error exporting to CSV:", error);
-            toast.error("Ошибка при экспорте");
+            toast.error(t("exportError"));
         }
     }, [refetch]);
     
@@ -152,7 +155,7 @@ function CandidatesContent() {
             <div className="flex justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Анкета
+                        {t("title")}
                     </h1>
                     {vacancyInfo && (
                         <div className="mt-2 flex items-center gap-2">
@@ -161,11 +164,11 @@ function CandidatesContent() {
                                 className="text-sm text-muted-foreground flex items-center hover:text-primary"
                             >
                                 <ArrowLeft className="h-4 w-4 mr-1" />
-                                Вернуться к вакансиям
+                                {t("backToVacancies")}
                             </Link>
                             <span className="text-sm text-muted-foreground">|</span>
                             <Badge variant="outline" className="text-sm">
-                                Вакансия: {vacancyInfo.applicationNum} - {vacancyInfo.position}
+                                {t("vacancyBadge", { number: vacancyInfo.applicationNum ?? "", position: vacancyInfo.position ?? "" })}
                             </Badge>
                         </div>
                     )}
@@ -178,7 +181,7 @@ function CandidatesContent() {
                         className="mr-2"
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        Экспорт в Excel
+                        {t("exportExcel")}
                     </Button>
                     <CanAccess permission="candidates.add">
                         <CandidateSheet />
@@ -194,8 +197,9 @@ function CandidatesContent() {
 }
 
 export default function CandidatesListPage() {
+    const t = useTranslations("hrPages.candidates");
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t("loading")}</div>}>
             <CandidatesContent />
         </Suspense>
     );

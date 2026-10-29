@@ -19,6 +19,7 @@ import {
 } from "@components/ui/table";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
 import { useQuery } from "@tanstack/react-query";
@@ -33,6 +34,7 @@ export function DataTable<TData, TValue>({
   columns,
   recordId,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("adminReports");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
@@ -219,15 +221,15 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Приход</div>
+        <div>{t("items.incomeTotal")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(incomeTotal)}</div>
       </div>
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Расход</div>
+        <div>{t("items.outcomeTotal")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(outcomeTotal)}</div>
       </div>
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Итого</div>
+        <div>{t("total")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(total)}</div>
       </div>
     </div>

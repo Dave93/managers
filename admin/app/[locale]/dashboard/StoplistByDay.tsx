@@ -3,6 +3,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, X } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 
 import {
   Card,
@@ -14,6 +15,7 @@ import { Input } from "@admin/components/ui/input";
 import { cn } from "@admin/lib/utils";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
+import { toIntlLocale } from "./intl-locale";
 
 // The stoplist endpoints live on a widened (non-Eden) controller, so this widget
 // talks to them with plain same-origin fetch — Next.js rewrites proxy /api/* to
@@ -45,14 +47,16 @@ const BRAND_LABEL: Record<string, string> = {
   chopar: "Chopar",
 };
 
-function fmtDuration(totalSeconds: number): string {
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+function fmtDuration(totalSeconds: number, td: Translate): string {
   const s = Math.max(0, Number(totalSeconds) || 0);
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
-  if (days > 0) return `${days} д ${hours} ч`;
-  if (hours > 0) return `${hours} ч ${minutes} мин`;
-  return `${minutes} мин`;
+  if (days > 0) return td("daysHours", { days, hours });
+  if (hours > 0) return td("hoursMinutes", { hours, minutes });
+  return td("minutes", { minutes });
 }
 
 function severityClass(totalSeconds: number): string {
@@ -64,12 +68,12 @@ function severityClass(totalSeconds: number): string {
 
 // "2026-08-25" -> "пн, 25 авг". Parsed as a plain calendar date: the backend
 // already bucketed by Tashkent day, so no further timezone shifting here.
-function fmtDayLabel(day: string): { weekday: string; date: string } {
+function fmtDayLabel(day: string, locale: string): { weekday: string; date: string } {
   const [y, m, d] = day.split("-").map(Number);
   const dt = new Date(Date.UTC(y, (m || 1) - 1, d || 1));
   return {
-    weekday: dt.toLocaleDateString("ru-RU", { weekday: "short", timeZone: "UTC" }),
-    date: dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "short", timeZone: "UTC" }),
+    weekday: dt.toLocaleDateString(toIntlLocale(locale), { weekday: "short", timeZone: "UTC" }),
+    date: dt.toLocaleDateString(toIntlLocale(locale), { day: "2-digit", month: "short", timeZone: "UTC" }),
   };
 }
 
@@ -77,6 +81,9 @@ const fmtTime = (iso: string) =>
   new Date(iso).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
 
 const StoplistByDay = () => {
+  const t = useTranslations("dashboardUi.stoplist");
+  const td = useTranslations("dashboardUi.duration");
+  const locale = useLocale();
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
   const terminals = terminalsFilter ? terminalsFilter.toString() : undefined;
@@ -147,14 +154,14 @@ const StoplistByDay = () => {
     <Card className="flex h-full flex-col">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <CardTitle>Стоп-лист по дням</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           <div className="text-xs text-muted-foreground">
-            {totalStops.toLocaleString("ru-RU")} постановок в стоп за период
+            {t("totalStops", { count: totalStops.toLocaleString("ru-RU") })}
             {" · "}
             {/* History collection started on 2026-08-13; earlier days only hold
                 the stops that were still open at the first sync. */}
-            <span title="История стоп-листа собирается с 13.08.2026; более ранние дни неполные">
-              полные данные с 13.08.2026
+            <span title={t("historyTitle")}>
+              {t("fullDataSince")}
             </span>
           </div>
         </div>
@@ -163,20 +170,20 @@ const StoplistByDay = () => {
         {/* Day column */}
         <div className="flex min-h-0 shrink-0 flex-row gap-2 overflow-x-auto md:w-56 md:flex-col md:overflow-y-auto md:overflow-x-hidden md:pr-1">
           {daysQuery.isLoading && (
-            <div className="py-6 text-center text-sm text-gray-400">Загрузка…</div>
+            <div className="py-6 text-center text-sm text-gray-400">{t("loading")}</div>
           )}
           {daysQuery.error && (
             <div className="py-6 text-center text-sm text-red-500">
-              Не удалось загрузить стоп-лист
+              {t("loadError")}
             </div>
           )}
           {!daysQuery.isLoading && !daysQuery.error && days.length === 0 && (
             <div className="py-6 text-center text-sm text-gray-400">
-              За период стопов не было
+              {t("noStopsForPeriod")}
             </div>
           )}
           {days.map((d) => {
-            const label = fmtDayLabel(d.day);
+            const label = fmtDayLabel(d.day, locale);
             const active = d.day === activeDay;
             return (
               <button
@@ -210,9 +217,9 @@ const StoplistByDay = () => {
                   />
                 </div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
-                  {d.products} позиций · {d.terminals} филиалов
+                  {t("productsTerminals", { products: d.products, terminals: d.terminals })}
                   {d.still_open > 0 && (
-                    <span className="text-red-500"> · {d.still_open} в стопе</span>
+                    <span className="text-red-500"> · {t("stillOpenCount", { count: d.still_open })}</span>
                   )}
                 </div>
               </button>
@@ -227,7 +234,7 @@ const StoplistByDay = () => {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Поиск по блюду или филиалу"
+              placeholder={t("searchPlaceholder")}
               className="h-8 pl-8 pr-8"
             />
             {search && (
@@ -244,25 +251,25 @@ const StoplistByDay = () => {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-background">
                 <tr className="border-b text-left text-xs text-muted-foreground">
-                  <th className="px-2 py-2 font-medium">Время</th>
-                  <th className="px-2 py-2 font-medium">Позиция</th>
-                  <th className="px-2 py-2 font-medium">Филиал</th>
-                  <th className="px-2 py-2 font-medium">Бренд</th>
-                  <th className="px-2 py-2 text-right font-medium">Простой</th>
+                  <th className="px-2 py-2 font-medium">{t("colTime")}</th>
+                  <th className="px-2 py-2 font-medium">{t("colItem")}</th>
+                  <th className="px-2 py-2 font-medium">{t("colBranch")}</th>
+                  <th className="px-2 py-2 font-medium">{t("colBrand")}</th>
+                  <th className="px-2 py-2 text-right font-medium">{t("colDowntime")}</th>
                 </tr>
               </thead>
               <tbody>
                 {itemsQuery.isLoading && (
                   <tr>
                     <td colSpan={5} className="px-2 py-6 text-center text-gray-400">
-                      Загрузка…
+                      {t("loading")}
                     </td>
                   </tr>
                 )}
                 {!itemsQuery.isLoading && filteredItems.length === 0 && (
                   <tr>
                     <td colSpan={5} className="px-2 py-6 text-center text-gray-400">
-                      {items.length === 0 ? "В этот день стопов не было" : "Ничего не найдено"}
+                      {items.length === 0 ? t("noStopsForDay") : t("nothingFound")}
                     </td>
                   </tr>
                 )}
@@ -298,9 +305,9 @@ const StoplistByDay = () => {
                         severityClass(i.seconds_stopped)
                       )}
                     >
-                      {fmtDuration(i.seconds_stopped)}
+                      {fmtDuration(i.seconds_stopped, td)}
                       {i.ended_at === null && (
-                        <span className="ml-1 text-[11px] text-red-500">· ещё в стопе</span>
+                        <span className="ml-1 text-[11px] text-red-500">· {t("stillStopped")}</span>
                       )}
                     </td>
                   </tr>

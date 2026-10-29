@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import {
@@ -24,15 +25,15 @@ export const CONTRACTORS_RIGHT = "tickets.contractors.manage";
 
 // Текст сбоя записи. У 403 и обрыва связи свои слова: «Не удалось выполнить
 // запрос» не говорит ни где чинить, ни сохранилось ли что-нибудь.
-export function mutationErrorText(error: unknown): string {
-  const status = (error as ApiError | null)?.status;
-  if (status === 403) {
-    return `Нет права ${CONTRACTORS_RIGHT}. Попросите администратора добавить его вашей роли.`;
-  }
-  if (status === undefined) {
-    return `Нет связи с сервером: ${apiMessage(error)}. Неизвестно, дошёл ли запрос; обновите список и проверьте.`;
-  }
-  return apiMessage(error);
+export function useMutationErrorText(): (error: unknown) => string {
+  const t = useTranslations("ticketsUi.contractors.mutation");
+  const tl = useTranslations("ticketsLib");
+  return (error) => {
+    const status = (error as ApiError | null)?.status;
+    if (status === 403) return t("forbidden", { right: CONTRACTORS_RIGHT });
+    if (status === undefined) return t("noConnection", { message: apiMessage(error, tl) });
+    return apiMessage(error, tl);
+  };
 }
 
 // Ключи из плана: фирмы одним списком, исполнители по фирме. Инвалидация идёт

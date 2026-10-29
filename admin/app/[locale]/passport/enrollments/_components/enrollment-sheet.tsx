@@ -11,6 +11,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { CalendarClock, Info, Loader2, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 
@@ -40,11 +41,11 @@ import {
 } from "@admin/lib/passport-api";
 
 import { EmployeePicker } from "./employee-picker";
-import { ENROLLMENT_STATUS_LABEL } from "./status";
 import {
   apiMessage,
-  fmtLongDate,
   qk,
+  useApiFallback,
+  useFmtLongDate,
   usePrograms,
   useTerminalNames,
   type EmployeeOption,
@@ -86,6 +87,8 @@ function ConflictPanel({
   onShowInList: (enrollmentId: string) => void;
   onOpenJournal: (enrollmentId: string) => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.sheet");
+  const tStatus = useTranslations("passport.enrollmentStatus");
   const inScope = !!conflict.enrollment_id;
 
   if (!inScope)
@@ -93,11 +96,7 @@ function ConflictPanel({
       <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-[12.5px] leading-snug text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
         <Info className="mt-0.5 size-4 shrink-0" />
         <span>
-          <b>У сотрудника уже есть открытая стажировка вне вашей зоны.</b>{" "}
-          Похоже, его перевели, а стажировку по прежнему месту не закрыли: она
-          вам не видна, ids сервер намеренно не отдал, и закрыть её отсюда
-          нельзя — обратитесь в HQ, чтобы её завершили или перенесли, и
-          повторите.
+          {t.rich("conflictOutOfScope", { b: (c) => <b>{c}</b> })}
           {/* The generic 409 carries prose and nothing else. It is shown
               verbatim rather than swallowed: this branch is the one where our
               own interpretation is a guess, so the server's own words have to
@@ -114,13 +113,12 @@ function ConflictPanel({
       <div className="flex items-start gap-2 text-[12.5px] leading-snug">
         <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
         <span>
-          <b>У этого сотрудника уже идёт стажировка.</b> Один стажёр — один
-          живой паспорт. Программа: «{programName(conflict.program_id)}»
-          {conflict.status
-            ? `, статус: ${ENROLLMENT_STATUS_LABEL[conflict.status].toLowerCase()}`
-            : ""}
-          . Чтобы начать новую, сначала завершите текущую; если человек просто
-          потерял QR — выдайте новый код, а не новую стажировку.
+          {t.rich("conflictInScope", {
+            b: (c) => <b>{c}</b>,
+            program: programName(conflict.program_id),
+            hasStatus: conflict.status ? "yes" : "no",
+            status: conflict.status ? tStatus(conflict.status).toLowerCase() : "",
+          })}
         </span>
       </div>
       <div className="flex flex-wrap gap-2 pl-6">
@@ -130,7 +128,7 @@ function ConflictPanel({
           variant="outline"
           onClick={() => onShowInList(conflict.enrollment_id!)}
         >
-          Показать её в списке
+          {t("showInList")}
         </Button>
         <Button
           type="button"
@@ -138,7 +136,7 @@ function ConflictPanel({
           variant="ghost"
           onClick={() => onOpenJournal(conflict.enrollment_id!)}
         >
-          Открыть журнал
+          {t("openJournal")}
         </Button>
       </div>
     </div>
@@ -156,6 +154,9 @@ function EnrollmentForm({
   onShowInList: (employeeId: string) => void;
   onOpenJournal: (enrollmentId: string) => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.sheet");
+  const fallback = useApiFallback();
+  const fmtLongDate = useFmtLongDate();
   const queryClient = useQueryClient();
   const terminalName = useTerminalNames();
   const programs = usePrograms();
@@ -200,7 +201,7 @@ function EnrollmentForm({
           e.conflict = c;
           throw e;
         }
-        throw new Error(apiMessage(error));
+        throw new Error(apiMessage(error, fallback));
       }
       return data as PassportEnrollmentCreated;
     },
@@ -209,7 +210,7 @@ function EnrollmentForm({
         (p) => p.id === created.enrollment.program_id
       );
       queryClient.invalidateQueries({ queryKey: qk.enrollmentsAll });
-      toast.success("Стажировка начата — распечатайте QR-инвайт");
+      toast.success(t("created"));
       onCreated({
         ...created,
         traineeName: [employee?.last_name, employee?.first_name]
@@ -228,14 +229,14 @@ function EnrollmentForm({
         setConflict(e.conflict as PassportEnrollmentConflict);
         return;
       }
-      toast.error(apiMessage(e));
+      toast.error(apiMessage(e, fallback));
     },
   });
 
   const programName = (id: string | undefined) => {
-    if (!id) return "неизвестна";
+    if (!id) return t("programUnknown");
     const hit = (programs.data?.data ?? []).find((p) => p.id === id);
-    return hit ? hit.title_ru : "недоступна для просмотра";
+    return hit ? hit.title_ru : t("programUnavailable");
   };
 
   const blocked = programsDenied;
@@ -253,16 +254,15 @@ function EnrollmentForm({
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
           <span>
-            Список программ недоступен — он отдаётся по праву{" "}
-            <code className="font-mono text-[11px]">passport.matrix.view</code>,
-            отдельному от права на стажировки. Без программы стажировку начать
-            нельзя: попросите администратора добавить это право вашей роли.
+            {t.rich("programsDenied", {
+              code: (c) => <code className="font-mono text-[11px]">{c}</code>,
+            })}
           </span>
         </div>
       )}
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Сотрудник</Label>
+        <Label className="text-[13px] font-medium">{t("employee")}</Label>
         <EmployeePicker
           value={employee}
           onChange={setEmployee}
@@ -270,8 +270,7 @@ function EnrollmentForm({
           disabled={blocked}
         />
         <p className="text-[11px] leading-snug text-muted-foreground">
-          Филиал стажировки берётся из карточки сотрудника — выбрать другой
-          нельзя.{" "}
+          {t("branchNote")}{" "}
           {employee && (
             <span className="text-foreground">
               {/* The employee registry (GET /attestation/employees) carries
@@ -283,15 +282,15 @@ function EnrollmentForm({
                   the employee card either way, and the operator cannot change
                   it here. */}
               {branchKnown
-                ? `Стажировка будет открыта в филиале «${branchLabel}».`
-                : "Стажировка будет открыта в филиале, указанном в карточке этого сотрудника."}
+                ? t("branchOpenedIn", { branch: branchLabel })
+                : t("branchFromCard")}
             </span>
           )}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Программа</Label>
+        <Label className="text-[13px] font-medium">{t("program")}</Label>
         <form.Field name="program_id">
           {(field: any) => (
             <Select
@@ -303,10 +302,10 @@ function EnrollmentForm({
                 <SelectValue
                   placeholder={
                     programs.isLoading
-                      ? "загрузка…"
+                      ? t("loading")
                       : programList.length
-                        ? "Выберите программу"
-                        : "Активных программ нет"
+                        ? t("pickProgram")
+                        : t("noActivePrograms")
                   }
                 />
               </SelectTrigger>
@@ -329,7 +328,7 @@ function EnrollmentForm({
 
       <div className="space-y-2">
         <Label className="text-[13px] font-medium">
-          Испытательный срок, дней
+          {t("probationDays")}
         </Label>
         <form.Field name="probation_days">
           {(field: any) => {
@@ -371,14 +370,14 @@ function EnrollmentForm({
                   <CalendarClock className="size-3.5" />
                   {valid ? (
                     <>
-                      Дедлайн испытательного:{" "}
+                      {t("deadlineLabel")}{" "}
                       <span className="font-medium text-foreground">
                         {fmtLongDate(Date.now() + n * 86400_000)}
                       </span>
                     </>
                   ) : (
                     <span className="text-destructive">
-                      Допустимо от 1 до 365 дней.
+                      {t("invalidDays")}
                     </span>
                   )}
                 </p>
@@ -404,8 +403,7 @@ function EnrollmentForm({
       )}
 
       <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-[11.5px] leading-snug text-muted-foreground">
-        Сразу после создания откроется страница QR-инвайта. Код одноразовый и
-        действует 7 дней — распечатайте и отдайте его стажёру в тот же день.
+        {t("qrNote")}
       </div>
 
       {/* Subscribes to the whole `values` object (the idiom the curriculum
@@ -427,7 +425,7 @@ function EnrollmentForm({
           return (
             <div className="flex justify-end gap-2 border-t pt-4">
               <Button type="button" variant="outline" onClick={onClose}>
-                Отмена
+                {t("cancel")}
               </Button>
               <Button
                 type="submit"
@@ -442,7 +440,7 @@ function EnrollmentForm({
                 {save.isPending && (
                   <Loader2 className="mr-1.5 size-4 animate-spin" />
                 )}
-                Начать и выдать QR
+                {t("submit")}
               </Button>
             </div>
           );
@@ -465,14 +463,15 @@ export function EnrollmentSheet({
   onShowInList: (employeeId: string) => void;
   onOpenJournal: (enrollmentId: string) => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.sheet");
+  const tTitle = useTranslations("passport.enrollments");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto px-6 pb-8 sm:max-w-xl">
         <SheetHeader className="px-0 pt-6">
-          <SheetTitle>Начать стажировку</SheetTitle>
+          <SheetTitle>{tTitle("newEnrollment")}</SheetTitle>
           <SheetDescription className="text-[12.5px] leading-snug">
-            Сотрудник получит свой паспорт стажёра в Telegram — темы, сроки и
-            отметки наставника.
+            {t("description")}
           </SheetDescription>
         </SheetHeader>
         {/* Unmounted when closed, so every open starts from a clean form and a

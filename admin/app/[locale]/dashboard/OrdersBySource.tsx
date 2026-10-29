@@ -6,30 +6,29 @@ import { apiClient } from "@admin/utils/eden";
 import { organizations } from "@admin/lib/organizations";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
+import { useTranslations } from "next-intl";
 import ChartCard from "./_tremor/ChartCard";
+import { compactWithUnits } from "./compact";
 
-const compact = (n: number) => {
-  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)} млрд`;
-  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)} млн`;
-  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(0)} тыс`;
-  return new Intl.NumberFormat("ru-RU").format(Math.round(n));
-};
 const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
 
 type SourceRow = { name: string; orderCount: number; totalRevenue: number };
 
-const fetchData = async (startDate: string, endDate: string, organization?: string, terminals?: string) => {
+const fetchData = async (errorMessage: string, startDate: string, endDate: string, organization?: string, terminals?: string) => {
   const query: { startDate: string; endDate: string; organization?: string; terminals?: string } = { startDate, endDate };
   if (organization) query.organization = organization;
   if (terminals) query.terminals = terminals;
   const { data, status } = await apiClient.api.charts["orders-by-source"].get({ query });
   if (status !== 200 || !data || !Array.isArray((data as any).data)) {
-    throw new Error("Ошибка загрузки");
+    throw new Error(errorMessage);
   }
   return (data as any).data as SourceRow[];
 };
 
 const OrdersBySource = () => {
+  const t = useTranslations("dashboardUi.ordersBySource");
+  const tCharts = useTranslations("charts");
+  const compact = (n: number) => compactWithUnits(n, tCharts, [2, 1, 0], fmt);
   const { dateRange } = useDateRangeState();
   const { startDate, endDate } = React.useMemo(() => {
     if (dateRange?.from && dateRange?.to) return { startDate: dateRange.from, endDate: dateRange.to };
@@ -41,7 +40,7 @@ const OrdersBySource = () => {
 
   const { data } = useSuspenseQuery({
     queryKey: ["orders-by-source", startDate, endDate, organization, terminals],
-    queryFn: () => fetchData(startDate.toISOString(), endDate.toISOString(), organization ?? undefined, terminals ? terminals.toString() : undefined),
+    queryFn: () => fetchData(t("loadError"), startDate.toISOString(), endDate.toISOString(), organization ?? undefined, terminals ? terminals.toString() : undefined),
   });
 
   const rows = React.useMemo(
@@ -55,14 +54,14 @@ const OrdersBySource = () => {
 
   return (
     <ChartCard
-      title="Заказы по источникам"
+      title={t("title")}
       organization={organization}
       orgOptions={organizations}
       onOrganizationChange={(id) => setOrganization(id || null)}
       bodyClassName="overflow-auto"
     >
       {rows.length === 0 ? (
-        <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
+        <div className="py-6 text-center text-sm text-muted-foreground">{t("noData")}</div>
       ) : (
         <div className="space-y-1">
           {rows.map((r, i) => (
@@ -76,7 +75,7 @@ const OrdersBySource = () => {
               </div>
               <div className="w-24 shrink-0 text-right">
                 <div className="text-xs font-semibold tabular-nums">{compact(r.totalRevenue)}</div>
-                <div className="text-[11px] text-muted-foreground tabular-nums">{fmt(r.orderCount)} зак.</div>
+                <div className="text-[11px] text-muted-foreground tabular-nums">{t("ordersShort", { count: fmt(r.orderCount) })}</div>
               </div>
             </div>
           ))}

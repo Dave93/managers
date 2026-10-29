@@ -16,7 +16,7 @@
 //     silently is not.
 
 import type { PassportTopic, PassportVerificationType } from "@admin/lib/passport-api";
-import { VERIFICATION_LABELS, publishTopics } from "./completeness";
+import { publishTopics, verificationLabel, type Tr } from "./completeness";
 
 export interface PublishIssue {
   /** 1-based position in the published topic list, or null for module-level. */
@@ -28,41 +28,41 @@ export interface PublishIssue {
   translated: boolean;
 }
 
-const PAIR_LABELS: Record<string, string> = {
-  title: "название",
-  step: "шаг",
-  key_point: "ключевой момент",
-  reason: "объяснение «почему так»",
+const PAIR_LABEL_KEYS: Record<string, string> = {
+  title: "publishErrors.pairTitle",
+  step: "publishErrors.pairStep",
+  key_point: "publishErrors.pairKeyPoint",
+  reason: "publishErrors.pairReason",
 };
 
-function translateReason(reason: string): string | null {
+function translateReason(t: Tr, reason: string): string | null {
   let m = reason.match(/^(title|step|key_point|reason) required in both languages$/);
-  if (m) return `не заполнено на обоих языках — ${PAIR_LABELS[m[1]]} (нужны RU и UZ)`;
+  if (m) return t("publishErrors.pairMissing", { pair: t(PAIR_LABEL_KEYS[m[1]]) });
 
   if (reason === "quiz_test_id required for quiz type")
-    return "не выбран тест для квиза";
+    return t("publishErrors.noQuiz");
 
   m = reason.match(/^verification_type "([a-z_]+)" cannot be published yet/);
   if (m) {
     const vt = m[1] as PassportVerificationType;
-    const label = VERIFICATION_LABELS[vt] ?? vt;
-    return `тип проверки «${label}» пока нельзя опубликовать — наставник не сможет её подписать (нет ни загрузки фото, ни второй подписи). Выберите «Квиз», «Наблюдение» или «Квиз + наблюдение»`;
+    const label = verificationLabel(t, vt);
+    return t("publishErrors.unsignable", { type: label });
   }
 
   if (reason === "observation_checklist items required")
-    return "чек-лист наблюдения пуст — добавьте хотя бы один пункт";
+    return t("publishErrors.checklistEmpty");
 
   if (reason === "observation_checklist questions must be an array")
-    return "в чек-листе наблюдения нет блока контрольных вопросов";
+    return t("publishErrors.checklistNoQuestions");
 
   return null;
 }
 
-function translateModuleReason(reason: string): string | null {
+function translateModuleReason(t: Tr, reason: string): string | null {
   if (reason === "title_ru/title_uz required")
-    return "название модуля нужно заполнить на обоих языках (RU и UZ)";
+    return t("publishErrors.moduleTitle");
   if (reason === "no topics")
-    return "в модуле нет ни одной активной темы";
+    return t("publishErrors.noTopics");
   return null;
 }
 
@@ -72,6 +72,7 @@ function translateModuleReason(reason: string): string | null {
  *               filtered/sorted here the same way the backend does.
  */
 export function translatePublishErrors(
+  t: Tr,
   raw: string[],
   topics: PassportTopic[]
 ): PublishIssue[] {
@@ -83,7 +84,7 @@ export function translatePublishErrors(
       const index = Number(topicMatch[1]);
       const topic = ordered[index - 1];
       const title = topic?.title_ru?.trim() || null;
-      const translated = translateReason(topicMatch[2]);
+      const translated = translateReason(t, topicMatch[2]);
       return {
         topicIndex: index,
         topicId: topic?.id ?? null,
@@ -95,7 +96,7 @@ export function translatePublishErrors(
 
     const moduleMatch = line.match(/^module: ([\s\S]+)$/);
     if (moduleMatch) {
-      const translated = translateModuleReason(moduleMatch[1]);
+      const translated = translateModuleReason(t, moduleMatch[1]);
       return {
         topicIndex: null,
         topicId: null,
@@ -117,9 +118,12 @@ export function translatePublishErrors(
 }
 
 /** «Тема 3 «Раскатка теста»» / «Модуль» — the label in front of the reason. */
-export function issueLabel(issue: PublishIssue): string {
-  if (issue.topicIndex === null) return "Модуль";
+export function issueLabel(t: Tr, issue: PublishIssue): string {
+  if (issue.topicIndex === null) return t("publishErrors.issueModule");
   return issue.topicTitle
-    ? `Тема ${issue.topicIndex} «${issue.topicTitle}»`
-    : `Тема ${issue.topicIndex}`;
+    ? t("publishErrors.issueTopicTitled", {
+        index: issue.topicIndex,
+        title: issue.topicTitle,
+      })
+    : t("publishErrors.issueTopic", { index: issue.topicIndex });
 }

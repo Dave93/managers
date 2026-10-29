@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 import { Skeleton } from "@admin/components/ui/skeleton";
@@ -9,13 +10,13 @@ import { MIN_ORDERS_FOR_AVG, networkAverage, toRankedRows } from "./kpi";
 import { cashierKpiErrorMessage, useCashierKpi } from "./useCashierKpi";
 import Footnote from "./Footnote";
 
-const fmtOrdersPerHour = (n: number) => `${n.toFixed(1)} зак/ч`;
-
 const CardSkeleton = () => <Skeleton className="min-h-0 w-full flex-1 rounded-lg" />;
 
 // The network figure lives in RankedBarCard's subtitle slot, under the
 // title, so the card top lines up with the other cards in the row.
 const CashierOrdersPerHour = () => {
+  const t = useTranslations("dashboardUi.cashierKpi");
+  const fmtOrdersPerHour = (n: number) => t("ordersPerHourValue", { value: n.toFixed(1) });
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
   const terminals = terminalsFilter ? terminalsFilter.toString() : undefined;
@@ -40,16 +41,16 @@ const CashierOrdersPerHour = () => {
   return (
     <div className="flex h-full flex-col gap-2">
       {query.isError ? (
-        <p className="text-sm text-red-600 dark:text-red-400">{cashierKpiErrorMessage(query.error)}</p>
+        <p className="text-sm text-red-600 dark:text-red-400">{cashierKpiErrorMessage(query.error, t)}</p>
       ) : query.isLoading ? (
         <CardSkeleton />
       ) : (
         <div className="min-h-0 flex-1">
           <RankedBarCard
-            title="Кассиры: заказы в час"
+            title={t("ordersPerHourTitle")}
             rows={rows}
             formatValue={fmtOrdersPerHour}
-            subtitle={`Заказы в час по сети: ${fmtOrdersPerHour(avg)} · только кассиры от ${MIN_ORDERS_FOR_AVG} заказов · часы смены делятся между кассирами по их доле заказов`}
+            subtitle={t("ordersPerHourSubtitle", { avg: fmtOrdersPerHour(avg), min: MIN_ORDERS_FOR_AVG })}
           />
         </div>
       )}

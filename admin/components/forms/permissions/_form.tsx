@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
   Form,
@@ -29,6 +30,7 @@ export default function PermissionsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
 
   // const form = useForm<z.infer<typeof PermissionsCreateInputSchema>>({
@@ -124,7 +126,7 @@ export default function PermissionsForm({
       >
         <div className="space-y-2">
           <div>
-            <Label>Активность</Label>
+            <Label>{tc("active")}</Label>
           </div>
           <form.Field name="active">
             {(field) => {
@@ -141,7 +143,7 @@ export default function PermissionsForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Код</Label>
+            <Label>{tc("code")}</Label>
           </div>
           <form.Field name="slug">
             {(field) => {
@@ -164,7 +166,7 @@ export default function PermissionsForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Описание</Label>
+            <Label>{tc("description")}</Label>
           </div>
           <form.Field name="description">
             {(field) => {

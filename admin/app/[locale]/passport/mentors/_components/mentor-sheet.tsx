@@ -34,6 +34,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -78,6 +79,7 @@ function UserPicker({
   onChange: (u: OfficeUser | null) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("passportUi.mentors");
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const q = useOfficeUsers(open);
@@ -111,15 +113,15 @@ function UserPicker({
           {value ? (
             <span className="flex min-w-0 flex-col">
               <span className="truncate text-[13px] font-medium">
-                {userLabel(value)}
+                {userLabel(value, t("noName"))}
               </span>
               <span className="truncate text-[11.5px] text-muted-foreground">
-                {value.login ?? "без логина"}
+                {value.login ?? t("noLogin")}
               </span>
             </span>
           ) : (
             <span className="text-[13px] text-muted-foreground">
-              Выберите сотрудника офиса
+              {t("pickUser")}
             </span>
           )}
           <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-50" />
@@ -135,7 +137,7 @@ function UserPicker({
             autoFocus
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Имя или логин"
+            placeholder={t("searchPlaceholder")}
             className="h-8 pl-7 text-[13px]"
           />
         </div>
@@ -143,18 +145,21 @@ function UserPicker({
           {denied ? (
             <p className="flex items-start gap-2 px-2 py-3 text-[12px] leading-snug text-muted-foreground">
               <ShieldAlert className="mt-0.5 size-3.5 shrink-0" />
-              Список сотрудников офиса отдаётся по праву{" "}
-              <code className="font-mono text-[11px]">users.list</code>, а у
-              вашей роли его нет. Попросите администратора добавить право или
-              привязать наставника за вас.
+              <span>
+                {t.rich("pickerDenied", {
+                  code: (c) => (
+                    <code className="font-mono text-[11px]">{c}</code>
+                  ),
+                })}
+              </span>
             </p>
           ) : q.isLoading ? (
             <p className="flex items-center gap-2 px-2 py-3 text-[12px] text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Загрузка…
+              <Loader2 className="size-3.5 animate-spin" /> {t("loading")}
             </p>
           ) : rows.length === 0 ? (
             <p className="px-2 py-3 text-[12px] text-muted-foreground">
-              Никого не нашлось.
+              {t("nobody")}
             </p>
           ) : (
             rows.map((u) => (
@@ -177,9 +182,11 @@ function UserPicker({
                   )}
                 />
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-[13px]">{userLabel(u)}</span>
+                  <span className="truncate text-[13px]">
+                    {userLabel(u, t("noName"))}
+                  </span>
                   <span className="truncate text-[11px] text-muted-foreground">
-                    {u.login ?? "без логина"}
+                    {u.login ?? t("noLogin")}
                   </span>
                 </span>
               </button>
@@ -197,31 +204,35 @@ interface Refusal {
   hint: string;
 }
 
-function describeRefusal(error: any): Refusal | null {
+function describeRefusal(
+  error: any,
+  t: ReturnType<typeof useTranslations<"passportUi.mentors">>
+): Refusal | null {
   const code = refusalCode(error);
   if (!code) return null;
   if (code === "user_not_found")
     return {
       code,
-      message: "Такого сотрудника офиса больше нет.",
-      hint: "Учётную запись удалили или она была выбрана из устаревшего списка. Закройте форму, откройте заново и выберите ещё раз.",
+      message: t("refusal.userNotFound.message"),
+      hint: t("refusal.userNotFound.hint"),
     };
   if (code === "telegram_bound_to_trainee")
     return {
       code,
-      message: "Этот Telegram принадлежит стажёру.",
-      hint: "Привязать его как наставника нельзя: аккаунт перестал бы быть стажёрским, стажёр потерял бы свой паспорт, а тот, у кого этот телефон в руках, получил бы право подписывать чужие темы. Проверьте, не продиктовал ли менеджер ID со своего рабочего телефона, на котором заходит стажёр.",
+      message: t("refusal.trainee.message"),
+      hint: t("refusal.trainee.hint"),
     };
   if (code === "telegram_bound_to_other_user")
     return {
       code,
-      message: "Этот Telegram уже привязан к другому сотруднику офиса.",
-      hint: "Один Telegram — один аккаунт. Снимите ту привязку в таблице и повторите.",
+      message: t("refusal.otherUser.message"),
+      hint: t("refusal.otherUser.hint"),
     };
   return null;
 }
 
 function MentorForm({ onClose }: { onClose: () => void }) {
+  const t = useTranslations("passportUi.mentors");
   const queryClient = useQueryClient();
   const [user, setUser] = useState<OfficeUser | null>(null);
   const [refusal, setRefusal] = useState<Refusal | null>(null);
@@ -236,19 +247,17 @@ function MentorForm({ onClose }: { onClose: () => void }) {
 
   const save = useMutation({
     mutationFn: async (v: { telegram_id: string; lang: "ru" | "uz" }) => {
-      if (!user) throw new Error("Выберите сотрудника офиса");
+      if (!user) throw new Error(t("pickUser"));
       const tg = Number(String(v.telegram_id).trim());
       if (!Number.isSafeInteger(tg) || tg <= 0)
-        throw new Error(
-          "Telegram ID — это целое положительное число, например 123456789"
-        );
+        throw new Error(t("telegramIdInvalid"));
       const { data, error } = await createMentor({
         user_id: user.id,
         telegram_id: tg,
         lang: v.lang,
       });
       if (error) {
-        const e = new Error(apiMessage(error)) as any;
+        const e = new Error(apiMessage(error, t("requestFailed"))) as any;
         e.value = (error as any)?.value;
         throw e;
       }
@@ -256,21 +265,17 @@ function MentorForm({ onClose }: { onClose: () => void }) {
     },
     onSuccess: (binding) => {
       toast.success(
-        binding.created
-          ? "Наставник привязан"
-          : "Telegram у этого сотрудника заменён"
+        binding.created ? t("bound") : t("replaced")
       );
       if (!binding.created && binding.banned)
-        toast.warning(
-          "Привязка была заблокирована и осталась заблокированной — повторная привязка не снимает блокировку."
-        );
+        toast.warning(t("stillBanned"));
       queryClient.invalidateQueries({ queryKey: qk.mentorsAll });
       onClose();
     },
     onError: (e: any) => {
-      const r = describeRefusal(e);
+      const r = describeRefusal(e, t);
       if (r) setRefusal(r);
-      else toast.error(apiMessage(e));
+      else toast.error(apiMessage(e, t("requestFailed")));
     },
   });
 
@@ -284,16 +289,15 @@ function MentorForm({ onClose }: { onClose: () => void }) {
       className="space-y-6 pb-4"
     >
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Сотрудник офиса</Label>
+        <Label className="text-[13px] font-medium">{t("colUser")}</Label>
         <UserPicker value={user} onChange={setUser} disabled={save.isPending} />
         <p className="text-[11px] text-muted-foreground">
-          Учётная запись этой админки — как правило, управляющий филиалом. Права
-          наставника в мини-аппе следуют за правами и филиалами этой учётки.
+          {t("userHint")}
         </p>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Telegram ID</Label>
+        <Label className="text-[13px] font-medium">{t("colTelegram")}</Label>
         <form.Field name="telegram_id">
           {(field: any) => (
             <Input
@@ -313,7 +317,7 @@ function MentorForm({ onClose }: { onClose: () => void }) {
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Язык мини-аппа</Label>
+        <Label className="text-[13px] font-medium">{t("miniappLang")}</Label>
         <form.Field name="lang">
           {(field: any) => (
             <Select
@@ -324,15 +328,14 @@ function MentorForm({ onClose }: { onClose: () => void }) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="ru">Русский</SelectItem>
-                <SelectItem value="uz">O‘zbekcha</SelectItem>
+                <SelectItem value="ru">{t("langRu")}</SelectItem>
+                <SelectItem value="uz">{t("langUz")}</SelectItem>
               </SelectContent>
             </Select>
           )}
         </form.Field>
         <p className="text-[11px] text-muted-foreground">
-          На каком языке наставник увидит темы и подтверждения. Менять можно
-          повторной привязкой того же Telegram.
+          {t("miniappLangHint")}
         </p>
       </div>
 
@@ -354,11 +357,11 @@ function MentorForm({ onClose }: { onClose: () => void }) {
           onClick={onClose}
           disabled={save.isPending}
         >
-          Отмена
+          {t("cancel")}
         </Button>
         <Button type="submit" disabled={save.isPending || !user}>
           {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-          Привязать
+          {t("bind")}
         </Button>
       </div>
     </form>
@@ -372,14 +375,14 @@ export function MentorSheet({
   open: boolean;
   onOpenChange: (v: boolean) => void;
 }) {
+  const t = useTranslations("passportUi.mentors");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto px-6 pb-8 sm:max-w-lg">
         <SheetHeader className="px-0 pt-6">
-          <SheetTitle>Привязать наставника</SheetTitle>
+          <SheetTitle>{t("sheetTitle")}</SheetTitle>
           <SheetDescription className="text-[12.5px] leading-snug">
-            Пока привязки нет, управляющий не откроет мини-апп паспорта вообще:
-            стажёр входит по QR-инвайту, а у наставника QR не бывает.
+            {t("sheetDescription")}
           </SheetDescription>
         </SheetHeader>
         {open && <MentorForm onClose={() => onOpenChange(false)} />}

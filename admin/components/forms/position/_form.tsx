@@ -10,6 +10,7 @@ import { positions } from "backend/drizzle/schema";
 import { Loader2 } from "lucide-react";
 import { Selection } from "@react-types/shared";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 
 type ApiData = {
@@ -48,6 +49,8 @@ export default function PositionsForm({
     setOpen: (open: boolean) => void;
     recordId?: string;
 }) {
+    const t = useTranslations("forms.position");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLFormElement>(null);
     const [changedTerminalId, setChangedTerminalId] = useState<Selection>(
         new Set([])
@@ -56,10 +59,10 @@ export default function PositionsForm({
     const [isLoading, setIsLoading] = useState(false);
     const [, forceUpdate] = useState({});
 
-    const onAddSuccess = (actionText: string) => {
+    const onAddSuccess = (actionText: "added" | "updated") => {
         queryClient.invalidateQueries({ queryKey: ['positions'] });
         queryClient.invalidateQueries({ queryKey: ['positions_cached'] });
-        toast.success(`Должность успешно ${actionText}`);
+        toast.success(t(actionText === "added" ? "added" : "updated"));
         setOpen(false);
     };
 
@@ -81,7 +84,7 @@ export default function PositionsForm({
                 data,
             });
         },
-        onSuccess: () => onAddSuccess('добавлена'),
+        onSuccess: () => onAddSuccess("added"),
         onError,
     });
 
@@ -103,7 +106,7 @@ export default function PositionsForm({
 
             });
         },
-        onSuccess: () => onAddSuccess("обновлена"),
+        onSuccess: () => onAddSuccess("updated"),
         onError,
     });
 
@@ -281,7 +284,7 @@ export default function PositionsForm({
         >
             <div>
                 <div>
-                    <Label>Название Должность</Label>
+                    <Label>{t("titleLabel")}</Label>
                 </div>
                 <form.Field name="title">
                     {(field) => {
@@ -304,7 +307,7 @@ export default function PositionsForm({
             </div>
             <div>
                 <div>
-                    <Label>Описание Должность</Label>
+                    <Label>{t("descriptionLabel")}</Label>
                 </div>
                 <form.Field name="description">
                     {(field) => {
@@ -327,7 +330,7 @@ export default function PositionsForm({
             </div>
             <div>
                 <div>
-                    <Label>Требование</Label>
+                    <Label>{t("requirements")}</Label>
                 </div>
                 <form.Field name="requirements">
                     {(field) => {
@@ -351,7 +354,7 @@ export default function PositionsForm({
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                     <div>
-                        <Label>Минимальная зарплата</Label>
+                        <Label>{t("salaryMin")}</Label>
                     </div>
                     <form.Field name="salaryMin">
                         {(field) => (
@@ -371,7 +374,7 @@ export default function PositionsForm({
 
                 <div className="space-y-2">
                     <div>
-                        <Label>Максимальная зарплата</Label>
+                        <Label>{t("salaryMax")}</Label>
                     </div>
                     <form.Field name="salaryMax">
                         {(field) => (
@@ -395,11 +398,11 @@ export default function PositionsForm({
                     onClick={() => setOpen(false)}
                     type="button"
                 >
-                    Отмена
+                    {tc("cancel")}
                 </Button>
                 <Button type="submit" disabled={isLoadingForm}>
                     {isLoadingForm && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {recordId ? 'Сохранить' : 'Создать'}
+                    {recordId ? tc("save") : tc("create")}
                 </Button>
             </div>
         </form>

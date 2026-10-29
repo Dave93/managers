@@ -28,6 +28,7 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
     Select,
     SelectContent,
@@ -35,12 +36,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@components/ui/select";
-import {
-    ChevronLeftIcon,
-    ChevronRightIcon,
-    DoubleArrowLeftIcon,
-    DoubleArrowRightIcon,
-} from "@radix-ui/react-icons";
 
 import { hangingOrders } from "@backend/../drizzle/schema";
 import { apiClient } from "@admin/utils/eden";
@@ -52,6 +47,7 @@ import { useIsMobile } from "@admin/utils/use-is-mobile";
 import { AutoMobileCards } from "@admin/components/mobile/AutoMobileCards";
 import { Input } from "@admin/components/ui/input";
 import { buildFiltersJson, OFFICE_STATUSES, type ColumnFilters } from "./filters";
+import { TablePager } from "@admin/components/ui/table-pager";
 
 /** Справочник значений для выпадающих фильтров. */
 export type Facets = {
@@ -93,6 +89,7 @@ export function DataTable<TValue>({
     onSelectedIdsChange,
     onTotalChange,
 }: DataTableProps<TValue>) {
+    const t = useTranslations("hangingOrders");
     const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         // Строки плотные — по умолчанию 50, чтобы реже листать.
@@ -157,7 +154,7 @@ export function DataTable<TValue>({
                 <SelectValue />
             </SelectTrigger>
             <SelectContent>
-                <SelectItem value="all">Все</SelectItem>
+                <SelectItem value="all">{t("table.all")}</SelectItem>
                 {options.map((o) => (
                     <SelectItem key={o} value={o}>
                         {label(o)}
@@ -170,10 +167,10 @@ export function DataTable<TValue>({
     const filterCell = (columnId: string) => {
         switch (columnId) {
             case "conception":
-                return textFilter("conception", "поиск");
+                return textFilter("conception", t("table.searchPlaceholder"));
             case "orderType":
                 return selectFilter("orderType", facets?.orderType ?? [], (v) =>
-                    v === "Доставка курьером" ? "Курьер" : v,
+                    v === "Доставка курьером" ? t("courierShort") : v,
                 );
             case "paymentType":
                 return selectFilter("paymentType", facets?.paymentType ?? [], (v) => v);
@@ -184,20 +181,20 @@ export function DataTable<TValue>({
                     OFFICE_STATUSES.filter((g) =>
                         g.values.some((v) => facets?.orderStatus?.includes(v)),
                     ).map((g) => g.key),
-                    (k) => OFFICE_STATUSES.find((g) => g.key === k)?.label ?? k,
+                    (k) => OFFICE_STATUSES.some((g) => g.key === k) ? t(`officeStatus.${k}`) : k,
                 );
             case "comments":
-                return textFilter("comments", "поиск");
+                return textFilter("comments", t("table.searchPlaceholder"));
             case "amount":
-                return textFilter("amountFrom", "от");
+                return textFilter("amountFrom", t("table.amountFrom"));
             case "phoneNumber":
-                return textFilter("phoneNumber", "поиск");
+                return textFilter("phoneNumber", t("table.searchPlaceholder"));
             case "receiptNumber":
-                return textFilter("receiptNumber", "№");
+                return textFilter("receiptNumber", t("table.receiptPlaceholder"));
             case "problem":
-                return textFilter("problem", "поиск");
+                return textFilter("problem", t("table.searchPlaceholder"));
             case "comment":
-                return textFilter("comment", "поиск");
+                return textFilter("comment", t("table.searchPlaceholder"));
             default:
                 return null;
         }
@@ -266,7 +263,7 @@ export function DataTable<TValue>({
             header: ({ table }) => (
                 <input
                     type="checkbox"
-                    aria-label="Выбрать висящие на странице"
+                    aria-label={t("table.selectPage")}
                     className="h-4 w-4 cursor-pointer accent-red-600"
                     checked={table.getIsAllPageRowsSelected()}
                     onChange={(e) => table.toggleAllPageRowsSelected(e.target.checked)}
@@ -276,7 +273,7 @@ export function DataTable<TValue>({
                 row.getCanSelect() ? (
                     <input
                         type="checkbox"
-                        aria-label="Выбрать заказ"
+                        aria-label={t("table.selectOrder")}
                         className="h-4 w-4 cursor-pointer accent-red-600"
                         checked={row.getIsSelected()}
                         onChange={row.getToggleSelectedHandler()}
@@ -284,7 +281,7 @@ export function DataTable<TValue>({
                 ) : null,
         };
         return [...columns, select];
-    }, [columns, selectable]);
+    }, [columns, selectable, t]);
 
     const table = useReactTable({
         data: data?.data ?? defaultData,
@@ -431,7 +428,7 @@ export function DataTable<TValue>({
                                                 fill="currentFill"
                                             />
                                         </svg>
-                                        <span className="sr-only">Loading...</span>
+                                        <span className="sr-only">{t("loading")}</span>
                                     </div>
                                 </TableCell>
                             </TableRow>
@@ -480,7 +477,7 @@ export function DataTable<TValue>({
                                     colSpan={columns.length}
                                     className="h-24 text-center"
                                 >
-                                    Нет данных для отображения
+                                    {t("table.noData")}
                                 </TableCell>
                             </TableRow>
                         )}
@@ -488,77 +485,14 @@ export function DataTable<TValue>({
                 </Table>
             </div>
             <div className="h-2" />
-            <div className="flex items-center justify-between px-2">
-                <div className="flex-1 text-sm text-muted-foreground">
-                    {data?.total && `Всего записей: ${data.total}`}
-                </div>
-                <div className="flex items-center space-x-6 lg:space-x-8">
-                    <div className="flex items-center space-x-2">
-                        <p className="text-sm font-medium">Строк на странице</p>
-                        <Select
-                            value={`${table.getState().pagination.pageSize}`}
-                            onValueChange={(value) => {
-                                table.setPageSize(Number(value));
-                            }}
-                        >
-                            <SelectTrigger className="h-8 w-[70px]">
-                                <SelectValue
-                                    placeholder={table.getState().pagination.pageSize}
-                                />
-                            </SelectTrigger>
-                            <SelectContent side="top">
-                                {[10, 20, 50, 100].map((pageSize) => (
-                                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                                        {pageSize}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                </div>
-                <div className="flex w-[100px] items-center justify-center text-sm font-medium">
-                    Страница {table.getState().pagination.pageIndex + 1} из{" "}
-                    {table.getPageCount()}
-                </div>
-                <div className="flex items-center space-x-2">
-                    <Button
-                        variant="outline"
-                        className="hidden h-8 w-8 p-0 lg:flex"
-                        onClick={() => table.setPageIndex(0)}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        <span className="sr-only">Go to first page</span>
-                        <DoubleArrowLeftIcon className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
-                    >
-                        <span className="sr-only">Go to previous page</span>
-                        <ChevronLeftIcon className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        <span className="sr-only">Go to next page</span>
-                        <ChevronRightIcon className="h-4 w-4" />
-                    </Button>
-                    <Button
-                        variant="outline"
-                        className="hidden h-8 w-8 p-0 lg:flex"
-                        onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-                        disabled={!table.getCanNextPage()}
-                    >
-                        <span className="sr-only">Go to last page</span>
-                        <DoubleArrowRightIcon className="h-4 w-4" />
-                    </Button>
-                </div>
-            </div>
+            <TablePager
+                pageIndex={pageIndex}
+                pageCount={table.getPageCount()}
+                pageSize={pageSize}
+                total={data?.total}
+                onPageChange={(i) => setPagination((p) => ({ ...p, pageIndex: i }))}
+                onPageSizeChange={(size) => table.setPageSize(size)}
+            />
         </div>
     );
 }

@@ -18,6 +18,7 @@
 //   нет данных — пунктирная рамка + отдельная группа в конце + текст причины.
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import {
   ChefHat,
   CircleQuestionMark,
@@ -32,6 +33,9 @@ import {
 
 import type { Brand, GroupKey, ShiftKey, SignalKey } from "./use-staff-board";
 
+/** Функция перевода из useTranslations("staffBoard"). */
+export type Tr = (key: string, values?: Record<string, string | number>) => string;
+
 // --------------------------------------------------------------------------
 // бренды
 //
@@ -41,12 +45,25 @@ import type { Brand, GroupKey, ShiftKey, SignalKey } from "./use-staff-board";
 // --------------------------------------------------------------------------
 export const BRAND: Record<
   Brand,
-  { label: string; color: string; shape: "circle" | "hex" }
+  { label: string | null; color: string; shape: "circle" | "hex" }
 > = {
   les: { label: "Les Ailes", color: "#fc004a", shape: "circle" },
   chopar: { label: "ChoparPizza", color: "#ffb02e", shape: "hex" },
-  other: { label: "Прочее", color: "#94a3b8", shape: "circle" },
+  other: { label: null, color: "#94a3b8", shape: "circle" },
 };
+
+/** Подпись бренда: названия брендов не переводятся, «Прочее» — да. */
+export function brandLabel(brand: Brand, t: Tr): string {
+  return BRAND[brand].label ?? t("brand.other");
+}
+
+export function groupLabel(k: GroupKey, t: Tr): string {
+  return t(`group.${k}`);
+}
+
+export function shiftLabel(k: ShiftKey, t: Tr): string {
+  return t(`shift.${k}`);
+}
 
 /** Правильный шестиугольник вершиной вверх, вписанный в радиус r. */
 function hexPath(r: number): string {
@@ -65,6 +82,7 @@ export function BrandMark({
   brand: Brand;
   size?: number;
 }) {
+  const t = useTranslations("staffBoard");
   const b = BRAND[brand];
   const r = size / 2;
   return (
@@ -74,7 +92,7 @@ export function BrandMark({
       viewBox={`${-r} ${-r} ${size} ${size}`}
       className="shrink-0"
       role="img"
-      aria-label={b.label}
+      aria-label={brandLabel(brand, t)}
     >
       {b.shape === "circle" ? (
         <circle r={r * 0.92} fill={b.color} />
@@ -98,7 +116,6 @@ export const GROUP_ORDER: GroupKey[] = [
 export const GROUP: Record<
   GroupKey,
   {
-    label: string;
     short: string;
     hint: string;
     icon: React.ComponentType<{ className?: string }>;
@@ -108,7 +125,6 @@ export const GROUP: Record<
   }
 > = {
   management: {
-    label: "Управление",
     short: "Упр",
     hint: "менеджер, стажёр-менеджер",
     icon: ShieldUser,
@@ -117,7 +133,6 @@ export const GROUP: Record<
     text: "text-violet-700 dark:text-violet-300",
   },
   kitchen: {
-    label: "Кухня",
     short: "Кух",
     hint: "повар, старший повар, универсал, работник кухни, салатчица, мойка",
     icon: ChefHat,
@@ -126,7 +141,6 @@ export const GROUP: Record<
     text: "text-emerald-700 dark:text-emerald-300",
   },
   front: {
-    label: "Фронт",
     short: "Фронт",
     hint: "кассир, работник зала, раздача",
     icon: UtensilsCrossed,
@@ -135,7 +149,6 @@ export const GROUP: Record<
     text: "text-sky-700 dark:text-sky-300",
   },
   other: {
-    label: "Прочее",
     short: "Проч",
     hint: "охрана, няня, всё, что не разобралось по должности",
     icon: Users,
@@ -155,26 +168,22 @@ export const SHIFT_ORDER: ShiftKey[] = ["day", "night", "unknown"];
 export const SHIFT: Record<
   ShiftKey,
   {
-    label: string;
     hint: string;
     icon: React.ComponentType<{ className?: string }>;
     text: string;
   }
 > = {
   day: {
-    label: "День",
     hint: "в должности явно указана дневная смена",
     icon: Sun,
     text: "text-amber-600 dark:text-amber-400",
   },
   night: {
-    label: "Ночь",
     hint: "в должности явно указана ночная смена",
     icon: Moon,
     text: "text-indigo-600 dark:text-indigo-300",
   },
   unknown: {
-    label: "Смена не указана",
     hint: "в строке должности смены нет — это пробел справочника, а не третья смена",
     icon: CircleQuestionMark,
     text: "text-muted-foreground",
@@ -204,33 +213,27 @@ export const SIGNAL_ORDER: SignalKey[] = [
 export const SIGNAL: Record<
   SignalKey,
   {
-    filterLabel: string;
     icon: React.ComponentType<{ className?: string }>;
     chip: string;
   }
 > = {
   no_manager: {
-    filterLabel: "Без менеджера",
     icon: UserRound,
     chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   no_senior_cook: {
-    filterLabel: "Без старшего повара",
     icon: ChefHat,
     chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   no_night: {
-    filterLabel: "Без ночной смены",
     icon: Moon,
     chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   trainee_heavy: {
-    filterLabel: "Стажёров больше трети",
     icon: Users,
     chip: "border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200",
   },
   no_pin: {
-    filterLabel: "PIN не задан",
     icon: KeyRound,
     chip: "border-slate-300 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300",
   },
@@ -250,6 +253,6 @@ export function plural(n: number, one: string, few: string, many: string) {
   return many;
 }
 
-export function peopleWord(n: number) {
-  return plural(n, "человек", "человека", "человек");
+export function peopleWord(n: number, t: Tr) {
+  return t("people", { count: n });
 }

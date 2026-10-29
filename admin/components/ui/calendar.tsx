@@ -3,9 +3,11 @@
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import * as React from "react";
 import { DayPicker } from "react-day-picker";
+import { useLocale } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { buttonVariants } from "@admin/components/ui/button";
+import { getDateFnsLocale } from "@admin/lib/date-locale";
 
 function Calendar({
   className,
@@ -14,6 +16,7 @@ function Calendar({
   components: userComponents,
   ...props
 }: React.ComponentProps<typeof DayPicker>) {
+  const appLocale = useLocale();
   const defaultClassNames = {
     months: "relative flex flex-col sm:flex-row gap-4",
     month: "w-full",
@@ -72,6 +75,7 @@ function Calendar({
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      locale={getDateFnsLocale(appLocale)}
       className={cn("w-fit", className)}
       classNames={mergedClassNames}
       components={mergedComponents}

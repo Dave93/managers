@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
@@ -9,9 +11,10 @@ import ReportsStatusFormSheet from "@admin/components/forms/reports_status/sheet
 import { reports_status } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const reportsStatusColumns: ColumnDef<
-  typeof reports_status.$inferSelect
->[] = [
+export function useReportsStatusColumns(): ColumnDef<typeof reports_status.$inferSelect>[] {
+  const t = useTranslations("systemPages.columns");
+  return useMemo<ColumnDef<typeof reports_status.$inferSelect>[]>(
+    () => [
     // {
     //   accessorKey: "active",
     //   header: "Активен",
@@ -27,15 +30,15 @@ export const reportsStatusColumns: ColumnDef<
     // },
     {
       accessorKey: "code",
-      header: "Код",
+      header: t("code"),
     },
     {
       accessorKey: "label",
-      header: "Названия статуса",
+      header: t("statusLabel"),
     },
     {
       accessorKey: "color",
-      header: "Цвет",
+      header: t("color"),
     },
     {
       id: "actions",
@@ -54,4 +57,7 @@ export const reportsStatusColumns: ColumnDef<
         );
       },
     },
-  ];
+      ],
+    [t]
+  );
+}

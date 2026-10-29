@@ -10,6 +10,7 @@
 // the label. The same amber shows up on the tree row (LangPips), so the
 // signal is recognisable in both places.
 
+import { useTranslations } from "next-intl";
 import { Input } from "@components/ui/input";
 import { Label } from "@components/ui/label";
 import { Textarea } from "@components/ui/textarea";
@@ -105,6 +106,7 @@ export function BilingualPair({
   placeholderRu?: string;
   placeholderUz?: string;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   return (
     <form.Subscribe
       selector={(s: any) => [
@@ -124,7 +126,7 @@ export function BilingualPair({
               <Label className="text-[13px] font-medium">{label}</Label>
               {half && !disabled && (
                 <span className="shrink-0 text-[11px] font-medium text-amber-600 dark:text-amber-400">
-                  нужен перевод {ruFilled ? "на UZ" : "на RU"}
+                  {ruFilled ? t("bilingual.needUz") : t("bilingual.needRu")}
                 </span>
               )}
             </div>

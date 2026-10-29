@@ -21,6 +21,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, Loader2, Lock, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -52,15 +53,14 @@ import {
 
 import { BilingualPair } from "./bilingual-field";
 import {
-  UNSIGNABLE_WARNING,
-  VERIFICATION_LABELS,
+  verificationLabel,
   hasObservation,
   hasQuiz,
   isUnsignable,
   topicBlockers,
 } from "./completeness";
 import {
-  apiMessage,
+  useApiMessage,
   moduleIsWritable,
   qk,
   useTestOptions,
@@ -95,6 +95,7 @@ function ChecklistEditor({
   onChange: (next: PassportObservationChecklistItem[]) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   const set = (i: number, lang: "ru" | "uz", v: string) => {
     const next = rows.slice();
     next[i] = { ...next[i], [lang]: v };
@@ -132,7 +133,7 @@ function ChecklistEditor({
               variant="ghost"
               size="icon"
               disabled={disabled}
-              aria-label="Удалить строку"
+              aria-label={t("topicSheet.deleteRow")}
               onClick={() => onChange(rows.filter((_, j) => j !== i))}
             >
               <Trash2 className="size-4" />
@@ -147,7 +148,7 @@ function ChecklistEditor({
           size="sm"
           onClick={() => onChange([...rows, { ru: "", uz: "" }])}
         >
-          <Plus className="mr-1 size-3.5" /> Добавить
+          <Plus className="mr-1 size-3.5" /> {t("topicSheet.add")}
         </Button>
       )}
     </div>
@@ -167,6 +168,8 @@ function TopicForm({
   frozen: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
+  const apiMessage = useApiMessage();
   const queryClient = useQueryClient();
   const tests = useTestOptions();
 
@@ -233,7 +236,7 @@ function TopicForm({
       return data as PassportTopic;
     },
     onSuccess: () => {
-      toast.success(topic ? "Тема сохранена" : "Тема добавлена");
+      toast.success(topic ? t("topicSheet.saved") : t("topicSheet.added"));
       queryClient.invalidateQueries({ queryKey: qk.topics(mod.id) });
       onClose();
     },
@@ -253,52 +256,51 @@ function TopicForm({
         <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
           <Lock className="mt-0.5 size-4 shrink-0" />
           <span>
-            Модуль опубликован — темы заморожены. Чтобы править содержание,
-            создайте новую версию модуля.
+            {t("topicSheet.frozen")}
           </span>
         </div>
       )}
 
       <BilingualPair
         form={form}
-        label="Название темы"
+        label={t("pairs.title")}
         nameRu="title_ru"
         nameUz="title_uz"
         disabled={frozen}
       />
       <BilingualPair
         form={form}
-        label="Шаг — что делаем"
+        label={t("pairs.step")}
         nameRu="step_ru"
         nameUz="step_uz"
         multiline
         rows={3}
         disabled={frozen}
-        hint="Действие целиком, как его выполняет сотрудник."
+        hint={t("topicSheet.stepHint")}
       />
       <BilingualPair
         form={form}
-        label="Ключевой момент — как именно"
+        label={t("pairs.keyPoint")}
         nameRu="key_point_ru"
         nameUz="key_point_uz"
         multiline
         rows={3}
         disabled={frozen}
-        hint="То, без чего шаг будет сделан неправильно."
+        hint={t("topicSheet.keyPointHint")}
       />
       <BilingualPair
         form={form}
-        label="Почему так"
+        label={t("pairs.reason")}
         nameRu="reason_ru"
         nameUz="reason_uz"
         multiline
         rows={3}
         disabled={frozen}
-        hint="Причина: качество, безопасность, скорость."
+        hint={t("topicSheet.reasonHint")}
       />
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Тип проверки</Label>
+        <Label className="text-[13px] font-medium">{t("topicSheet.verificationType")}</Label>
         <form.Field name="verification_type">
           {(field: any) => {
             const vt = field.state.value as PassportVerificationType;
@@ -321,8 +323,11 @@ function TopicForm({
                               "text-amber-700 dark:text-amber-400"
                           )}
                         >
-                          {VERIFICATION_LABELS[v]}
-                          {isUnsignable(v) && " — пока не поддерживается"}
+                          {isUnsignable(v)
+                            ? t("topicSheet.unsupportedOption", {
+                                label: verificationLabel(t, v),
+                              })
+                            : verificationLabel(t, v)}
                         </span>
                       </SelectItem>
                     ))}
@@ -331,7 +336,7 @@ function TopicForm({
                 {isUnsignable(vt) && (
                   <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] leading-snug text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
                     <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                    <span>{UNSIGNABLE_WARNING}</span>
+                    <span>{t("unsignableWarning")}</span>
                   </div>
                 )}
               </div>
@@ -345,7 +350,7 @@ function TopicForm({
           <div className="space-y-6">
             {hasQuiz(vt) && (
               <div className="space-y-2">
-                <Label className="text-[13px] font-medium">Тест для квиза</Label>
+                <Label className="text-[13px] font-medium">{t("topicSheet.quizTest")}</Label>
                 <form.Field name="quiz_test_id">
                   {(field: any) =>
                     tests.isError ? (
@@ -353,14 +358,13 @@ function TopicForm({
                         <Input
                           value={field.state.value ?? ""}
                           disabled={frozen}
-                          placeholder="UUID теста"
+                          placeholder={t("common.testUuid")}
                           onChange={(e) =>
                             field.handleChange(e.target.value || null)
                           }
                         />
                         <p className="text-[11px] text-muted-foreground">
-                          Список тестов недоступен (нет права «tests.list») —
-                          вставьте id теста вручную.
+                          {t("topicSheet.testsUnavailable")}
                         </p>
                       </div>
                     ) : (
@@ -372,13 +376,13 @@ function TopicForm({
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Не выбран" />
+                          <SelectValue placeholder={t("topicSheet.notSelected")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value={NO_TEST}>Не выбран</SelectItem>
-                          {(tests.data ?? []).map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.title}
+                          <SelectItem value={NO_TEST}>{t("topicSheet.notSelected")}</SelectItem>
+                          {(tests.data ?? []).map((test) => (
+                            <SelectItem key={test.id} value={test.id}>
+                              {test.title}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -387,7 +391,9 @@ function TopicForm({
                   }
                 </form.Field>
                 <p className="text-[11px] text-muted-foreground">
-                  Обязателен для всех типов, кроме «Наблюдение наставника».
+                  {t("topicSheet.quizRequired", {
+                    type: verificationLabel(t, "observation"),
+                  })}
                 </p>
               </div>
             )}
@@ -395,15 +401,15 @@ function TopicForm({
             {hasObservation(vt) && !isUnsignable(vt) && (
               <div className="space-y-5 rounded-md border border-border/70 p-3">
                 <ChecklistEditor
-                  title="Чек-лист наблюдения"
-                  hint="Что наставник отмечает галочками, наблюдая работу. Нужен хотя бы один пункт, иначе модуль не опубликуется."
+                  title={t("topicSheet.checklistTitle")}
+                  hint={t("topicSheet.checklistHint")}
                   rows={checklist.items}
                   disabled={frozen}
                   onChange={(items) => setChecklist((c) => ({ ...c, items }))}
                 />
                 <ChecklistEditor
-                  title="Контрольные вопросы"
-                  hint="Можно оставить пустыми, но сам блок обязателен — он сохраняется вместе с чек-листом."
+                  title={t("topicSheet.questionsTitle")}
+                  hint={t("topicSheet.questionsHint")}
                   rows={checklist.questions}
                   disabled={frozen}
                   onChange={(questions) =>
@@ -418,10 +424,9 @@ function TopicForm({
 
       <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
         <div>
-          <Label className="text-[13px] font-medium">Тема активна</Label>
+          <Label className="text-[13px] font-medium">{t("topicSheet.active")}</Label>
           <p className="text-[11px] text-muted-foreground">
-            Неактивная тема остаётся в модуле, но не входит ни в выдачу
-            стажёру, ни в проверку публикации.
+            {t("topicSheet.activeHint")}
           </p>
         </div>
         <form.Field name="active">
@@ -438,7 +443,7 @@ function TopicForm({
       <form.Subscribe selector={(s: any) => s.values}>
         {(values: any) => {
           const vt = values.verification_type as PassportVerificationType;
-          const blockers = topicBlockers({
+          const blockers = topicBlockers(t, {
             ...values,
             observation_checklist: hasObservation(vt)
               ? { items: checklist.items, questions: checklist.questions }
@@ -447,13 +452,13 @@ function TopicForm({
           if (!blockers.length)
             return (
               <p className="text-[12px] text-emerald-700 dark:text-emerald-400">
-                Тема заполнена — публикацию модуля она не блокирует.
+                {t("topicSheet.complete")}
               </p>
             );
           return (
             <div className="rounded-md border border-amber-200 bg-amber-50/60 px-3 py-2 dark:border-amber-900/60 dark:bg-amber-950/30">
               <p className="text-[12px] font-medium text-amber-900 dark:text-amber-200">
-                Что в этой теме заблокирует публикацию модуля:
+                {t("topicSheet.blocksPublication")}
               </p>
               <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] text-amber-900/90 dark:text-amber-200/90">
                 {blockers.map((b, i) => (
@@ -468,11 +473,11 @@ function TopicForm({
       {!frozen && (
         <div className="flex justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" onClick={onClose}>
-            Отмена
+            {t("common.cancel")}
           </Button>
           <Button type="submit" disabled={save.isPending}>
             {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-            {topic ? "Сохранить" : "Добавить тему"}
+            {topic ? t("common.save") : t("topicSheet.addTopic")}
           </Button>
         </div>
       )}
@@ -495,6 +500,7 @@ export function TopicSheet({
   nextSort: number;
   access: CurriculumAccess;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   // Frozen = published, or outside this editor's department, or no edit right.
   // moduleIsWritable() is the single place that rule lives.
   const frozen = useMemo(
@@ -506,10 +512,13 @@ export function TopicSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto px-6 pb-8 sm:max-w-3xl">
         <SheetHeader className="px-0 pt-6">
-          <SheetTitle>{topic ? "Тема" : "Новая тема"}</SheetTitle>
+          <SheetTitle>
+            {topic ? t("topicSheet.titleExisting") : t("topicSheet.titleNew")}
+          </SheetTitle>
           <SheetDescription>
-            {mod ? mod.title_ru || "Модуль без названия" : ""} — русский и
-            узбекская латиница заполняются парой.
+            {t("topicSheet.description", {
+              title: mod ? mod.title_ru || t("panel.noTitle") : "",
+            })}
           </SheetDescription>
         </SheetHeader>
         {open && mod && (

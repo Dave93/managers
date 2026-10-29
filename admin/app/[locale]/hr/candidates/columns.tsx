@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import DeleteAction from "./delete-action";
@@ -7,22 +9,24 @@ import { candidates } from "@backend/../drizzle/schema";
 import { CandidateSheet } from "@admin/components/forms/candidate/sheet";
 
 
-export const candidateColumns: ColumnDef<typeof candidates.$inferSelect>[] = [
+export function useCandidateColumns(): ColumnDef<typeof candidates.$inferSelect>[] {
+    const t = useTranslations("hrPages.candidates");
+    return useMemo<ColumnDef<typeof candidates.$inferSelect>[]>(() => [
     {
         accessorKey: "fullName",
-        header: "FIO",
+        header: t("columns.fullName"),
     },
     {
         accessorKey: "phoneNumber",
-        header: "номер телефона",
+        header: t("columns.phone"),
     },
     {
         accessorKey: "source",
-        header: "откуда узнали",
+        header: t("columns.source"),
     },
     {
         accessorKey: "vacancyId",
-        header: "вакансия",
+        header: t("columns.vacancy"),
     },
     {
         id: "actions",
@@ -44,4 +48,5 @@ export const candidateColumns: ColumnDef<typeof candidates.$inferSelect>[] = [
             );
         },
     },
-];
+    ], [t]);
+}

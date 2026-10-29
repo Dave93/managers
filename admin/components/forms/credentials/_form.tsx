@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useEffect } from "react";
@@ -23,6 +24,8 @@ export default function CredentialsAddForm({
   model: string;
   credentialId?: string;
 }) {
+  const t = useTranslations("forms.credentials");
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -121,7 +124,7 @@ export default function CredentialsAddForm({
       >
         <div className="space-y-2">
           <div>
-            <Label>Ключ</Label>
+            <Label>{t("key")}</Label>
           </div>
           <form.Field name="key">
             {(field) => {
@@ -144,7 +147,7 @@ export default function CredentialsAddForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Тип</Label>
+            <Label>{tc("type")}</Label>
           </div>
           <form.Field name="type">
             {(field) => {

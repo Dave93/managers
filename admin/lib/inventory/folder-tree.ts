@@ -11,10 +11,10 @@ export type FolderNode = {
 
 export const NO_GROUP_ID = "__none__";
 
-export function buildFolderTree(f: InventoryFolders): FolderNode[] {
+export function buildFolderTree(f: InventoryFolders, noGroupLabel = "Без группы"): FolderNode[] {
   const nodes = new Map<string, FolderNode>();
   for (const g of f.groups) nodes.set(g.id, { id: g.id, name: g.name, children: [], products: [], productIds: [] });
-  const noGroup: FolderNode = { id: NO_GROUP_ID, name: "Без группы", children: [], products: [], productIds: [] };
+  const noGroup: FolderNode = { id: NO_GROUP_ID, name: noGroupLabel, children: [], products: [], productIds: [] };
 
   for (const p of f.products) {
     const node = p.parent_id ? nodes.get(p.parent_id) : undefined;

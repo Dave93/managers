@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { useMemo, useEffect, useRef } from "react";
 import { Loader2 } from "lucide-react";
@@ -41,6 +42,8 @@ export default function UsersForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const t = useTranslations("forms.users");
+  const tc = useTranslations("forms.common");
   const formRef = useRef<HTMLFormElement | null>(null);
   const queryClient = useQueryClient();
   const [changedRoleId, setChangedRoleId] = useState<string | null>(null);
@@ -362,7 +365,7 @@ export default function UsersForm({
     >
       <div className="space-y-2">
         <div>
-          <Label>Статус</Label>
+          <Label>{tc("status")}</Label>
         </div>
         <form.Field name="status">
           {(field) => {
@@ -377,7 +380,7 @@ export default function UsersForm({
                   }}
                 >
                   <SelectTrigger className="w-full max-w-xs">
-                    <SelectValue placeholder="Выберите статус" />
+                    <SelectValue placeholder={t("statusPlaceholder")} />
                   </SelectTrigger>
                   <SelectContent>
                     {["active", "blocked", "inactive"].map((item) => (
@@ -394,7 +397,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Логин</Label>
+          <Label>{t("login")}</Label>
         </div>
         <form.Field name="login">
           {(field) => {
@@ -417,7 +420,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Пароль</Label>
+          <Label>{tc("password")}</Label>
         </div>
         <form.Field name="password">
           {(field) => {
@@ -440,7 +443,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Роль</Label>
+          <Label>{t("role")}</Label>
         </div>
         <form.Field name="role_id">
           {(field) => {
@@ -452,7 +455,7 @@ export default function UsersForm({
                 }}
               >
                 <SelectTrigger className="w-full max-w-xs">
-                  <SelectValue placeholder="Выберите роль" />
+                  <SelectValue placeholder={t("rolePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
                   {Array.isArray(rolesData) ? (
@@ -463,7 +466,7 @@ export default function UsersForm({
                     ))
                   ) : (
                     <SelectItem value="0">
-                      Загрузка...
+                      {tc("loading")}
                     </SelectItem>
                   )}
                 </SelectContent>
@@ -474,7 +477,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Организация</Label>
+          <Label>{t("organization")}</Label>
         </div>
         <form.Field name="organization_id">
           {(field) => {
@@ -486,10 +489,10 @@ export default function UsersForm({
                 }}
               >
                 <SelectTrigger className="w-full max-w-xs">
-                  <SelectValue placeholder="Выберите организацию" />
+                  <SelectValue placeholder={t("organizationPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Не указана</SelectItem>
+                  <SelectItem value="none">{t("notSpecified")}</SelectItem>
                   {Array.isArray(organizationsData) ? (
                     organizationsData?.map((item: any) => (
                       <SelectItem key={item.id} value={item.id}>
@@ -498,7 +501,7 @@ export default function UsersForm({
                     ))
                   ) : (
                     <SelectItem value="0">
-                      Загрузка...
+                      {tc("loading")}
                     </SelectItem>
                   )}
                 </SelectContent>
@@ -509,7 +512,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Филиалы</Label>
+          <Label>{t("terminals")}</Label>
         </div>
         <Popover>
           <PopoverTrigger asChild>
@@ -519,15 +522,15 @@ export default function UsersForm({
               className="w-full max-w-xs justify-between"
             >
               {changedTerminalId.length > 0
-                ? `${changedTerminalId.length} выбрано`
-                : "Выберите филиал"}
+                ? t("selectedCount", { count: String(changedTerminalId.length) })
+                : t("selectTerminal")}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-full max-w-xs p-0">
             <Command>
-              <CommandInput placeholder="Поиск филиала..." />
-              <CommandEmpty>Филиалы не найдены.</CommandEmpty>
+              <CommandInput placeholder={t("searchTerminal")} />
+              <CommandEmpty>{t("terminalsNotFound")}</CommandEmpty>
               <CommandList>
                 <CommandGroup>
                   <ScrollArea className="h-72">
@@ -578,7 +581,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Склады</Label>
+          <Label>{t("stores")}</Label>
         </div>
         <Popover>
           <PopoverTrigger asChild>
@@ -588,15 +591,15 @@ export default function UsersForm({
               className="w-full max-w-xs justify-between"
             >
               {changedStoreId.length > 0
-                ? `${changedStoreId.length} выбрано`
-                : "Выберите склады"}
+                ? t("selectedCount", { count: String(changedStoreId.length) })
+                : t("selectStores")}
               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-full max-w-xs p-0">
             <Command>
-              <CommandInput placeholder="Поиск склада..." />
-              <CommandEmpty>Склады не найдены.</CommandEmpty>
+              <CommandInput placeholder={t("searchStore")} />
+              <CommandEmpty>{t("storesNotFound")}</CommandEmpty>
               <CommandList>
                 <CommandGroup>
                   <ScrollArea className="h-72">
@@ -647,7 +650,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Имя</Label>
+          <Label>{t("firstName")}</Label>
         </div>
         <form.Field name="first_name">
           {(field) => {
@@ -670,7 +673,7 @@ export default function UsersForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Фамилия</Label>
+          <Label>{t("lastName")}</Label>
         </div>
         <form.Field name="last_name">
           {(field) => {

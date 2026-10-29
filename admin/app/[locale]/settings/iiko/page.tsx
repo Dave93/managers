@@ -7,10 +7,12 @@ import { apiClient } from "@admin/utils/eden";
 import { useForm } from "@tanstack/react-form";
 import { Loader2 } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 export default function Page() {
+  const t = useTranslations("settingsPage");
   const onAddSuccess = (actionText: string) => {
-    toast.success("Iiko settings saved");
+    toast.success(t("iikoSaved"));
   };
 
   const onError = (error: any) => {
@@ -68,7 +70,7 @@ export default function Page() {
         >
           <div className="space-y-2">
             <div>
-              <Label>Ссылка</Label>
+              <Label>{t("iiko.url")}</Label>
             </div>
             <form.Field name="api_url">
               {(field) => {
@@ -91,7 +93,7 @@ export default function Page() {
           </div>
           <div className="space-y-2">
             <div>
-              <Label>Логин</Label>
+              <Label>{t("iiko.login")}</Label>
             </div>
             <form.Field name="login">
               {(field) => {
@@ -114,7 +116,7 @@ export default function Page() {
           </div>
           <div className="space-y-2">
             <div>
-              <Label>Пароль</Label>
+              <Label>{t("iiko.password")}</Label>
             </div>
             <form.Field name="password">
               {(field) => {
@@ -139,7 +141,7 @@ export default function Page() {
             {createMutation.isPending && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Save
+            {t("save")}
           </Button>
         </form>
       </div>

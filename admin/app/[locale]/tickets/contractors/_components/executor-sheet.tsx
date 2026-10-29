@@ -19,6 +19,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Copy, KeyRound, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -48,8 +49,8 @@ import { parseTs } from "@admin/components/tickets/status";
 
 import {
   CONTRACTORS_RIGHT,
-  mutationErrorText,
   useExecutorActions,
+  useMutationErrorText,
   useIssueInvite,
   useSheetSession,
 } from "./use-contractors";
@@ -85,15 +86,9 @@ export function fmtTs(value: string | null | undefined): string | null {
 const CHIP = "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium leading-tight";
 
 export function BindingChip({ row }: { row: Pick<ExecutorRow, "tg_user_id" | "invite_used_at"> }) {
+  const t = useTranslations("ticketsUi.contractors.executorSheet");
   const b = bindingOf(row);
-  const label =
-    b === "bound"
-      ? "Привязан к боту"
-      : b === "bound_relink"
-        ? "Привязан, новая ссылка не открыта"
-        : b === "half"
-          ? "Привязка не завершена"
-          : "Не привязан";
+  const label = t(`chip.${b}`);
   const tone =
     b === "bound"
       ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200"
@@ -108,25 +103,24 @@ export function BindingStatus({
 }: {
   row: Pick<ExecutorRow, "tg_user_id" | "invite_used_at">;
 }) {
+  const t = useTranslations("ticketsUi.contractors.executorSheet");
   const b = bindingOf(row);
   const when = fmtTs(row.invite_used_at);
   return (
-    <section aria-label="Привязка к боту" className="space-y-1.5">
-      <h4 className="text-sm font-medium">Привязка к боту</h4>
+    <section aria-label={t("bindingTitle")} className="space-y-1.5">
+      <h4 className="text-sm font-medium">{t("bindingTitle")}</h4>
       <div className="space-y-1">
         <BindingChip row={row} />
         <p className="text-[12.5px] leading-snug text-muted-foreground">
           {b === "bound" &&
-            (when ? `Ссылка открыта ${when}.` : "Ссылка открыта, время не определено.")}
-          {b === "bound_relink" &&
-            "Аккаунт Telegram записан. После этого выдана новая ссылка, её ещё не открыли. Пока её не откроют, привязка остаётся за прежним аккаунтом."}
-          {b === "half" &&
-            `Код приглашения использован${when ? ` ${when}` : ""}, но аккаунт Telegram не записан. Заявки этому человеку не приходят. Выдайте ссылку заново.`}
-          {b === "none" && "Ссылка ещё не открыта, заявки в бот этому человеку не приходят."}
+            (when ? t("boundWhen", { when }) : t("boundNoTime"))}
+          {b === "bound_relink" && t("boundRelink")}
+          {b === "half" && (when ? t("halfWhen", { when }) : t("half"))}
+          {b === "none" && t("noneNote")}
         </p>
         {row.tg_user_id !== null && row.tg_user_id !== undefined && (
           <p className="font-mono text-[11px] text-muted-foreground">
-            Telegram ID: {row.tg_user_id}
+            {t("telegramId", { id: String(row.tg_user_id) })}
           </p>
         )}
       </div>
@@ -177,25 +171,25 @@ export async function copyToClipboard(text: string): Promise<Exclude<CopyState, 
 }
 
 function CopyNote({ copy }: { copy: CopyState }) {
+  const t = useTranslations("ticketsUi.contractors.executorSheet");
   if (copy === "ok") {
     return (
       <p className="flex items-center gap-1.5 text-[12px] text-emerald-700 dark:text-emerald-400">
-        <Check className="size-3.5" /> Ссылка скопирована в буфер обмена.
+        <Check className="size-3.5" /> {t("copied")}
       </p>
     );
   }
   if (copy === "failed") {
     return (
       <p className="text-[12px] leading-snug text-destructive">
-        Не удалось скопировать в буфер обмена. Выделите ссылку в поле выше и скопируйте вручную.
+        {t("copyFailed")}
       </p>
     );
   }
   if (copy === "unavailable") {
     return (
       <p className="text-[12px] leading-snug text-destructive">
-        Буфер обмена недоступен в этом соединении (нужен https). Выделите ссылку в поле выше и
-        скопируйте вручную.
+        {t("copyUnavailable")}
       </p>
     );
   }
@@ -215,6 +209,7 @@ export function InvitePanel({
   onIssue: () => void;
   onCopy: () => void;
 }) {
+  const t = useTranslations("ticketsUi.contractors.executorSheet");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const bound = row.tg_user_id !== null && row.tg_user_id !== undefined;
   const pending = view.phase === "pending";
@@ -226,8 +221,8 @@ export function InvitePanel({
   const press = () => (bound ? setConfirmOpen(true) : onIssue());
 
   return (
-    <section aria-label="Приглашение в бот" className="space-y-2.5">
-      <h4 className="text-sm font-medium">Приглашение в бот</h4>
+    <section aria-label={t("inviteTitle")} className="space-y-2.5">
+      <h4 className="text-sm font-medium">{t("inviteTitle")}</h4>
 
       <div
         role="note"
@@ -236,16 +231,13 @@ export function InvitePanel({
         <p className="flex items-start gap-2">
           <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
           <span>
-            Новая ссылка гасит предыдущую: если прежнюю уже отправили человеку и он её не открыл,
-            она перестанет работать. Каждая ссылка одноразовая.
-            {view.phase === "done" && " Ссылка на экране тоже погаснет."}
+            {t("inviteWarn")}
+            {view.phase === "done" && ` ${t("inviteWarnDone")}`}
           </span>
         </p>
         {bound && (
           <p className="pl-5">
-            {row.full_name} уже привязан к боту. Привязка не пропадёт сразу, но тот, кто откроет
-            новую ссылку, займёт его место: заявки пойдут на аккаунт Telegram, с которого её
-            открыли. Выдавайте её, только если человека нужно перепривязать.
+            {t("inviteBoundWarn", { name: row.full_name })}
           </p>
         )}
       </div>
@@ -258,19 +250,18 @@ export function InvitePanel({
         aria-busy={pending}
       >
         <KeyRound className="size-3.5" />
-        {pending ? "Выдаём ссылку…" : "Пригласить в бот"}
+        {pending ? t("issuing") : t("invite")}
       </Button>
       {blocked && (
         <p className="text-[12px] leading-snug text-muted-foreground">
-          Исполнитель выключен: бот не привяжет выключенного, и ссылка не сработает. Включите его и
-          сохраните, затем приглашайте.
+          {t("inviteBlocked")}
         </p>
       )}
 
       <div aria-live="polite" className="space-y-2">
         {view.phase === "done" && (
           <div className="space-y-2">
-            <Label htmlFor={linkId}>Ссылка-приглашение</Label>
+            <Label htmlFor={linkId}>{t("inviteLink")}</Label>
             <div className="flex gap-2">
               <Input
                 id={linkId}
@@ -281,34 +272,25 @@ export function InvitePanel({
               />
               <Button type="button" variant="outline" onClick={onCopy} className="shrink-0">
                 <Copy className="size-3.5" />
-                Скопировать
+                {t("copy")}
               </Button>
             </div>
             <CopyNote copy={copy} />
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Перешлите ссылку человеку вручную. Её видно только пока открыта эта панель: после
-              закрытия она не сохраняется, придётся выдавать новую.
+              {t("linkHint")}
             </p>
           </div>
         )}
         {view.phase === "error" && (
           <div role="alert" className="space-y-1">
             <p className="text-[13px] font-medium text-destructive">
-              {view.kind === "bot_missing"
-                ? "Бот не настроен, обратитесь к администратору"
-                : view.kind === "forbidden"
-                  ? "Нет доступа"
-                  : view.kind === "network"
-                    ? "Нет связи с сервером"
-                    : "Не удалось выдать ссылку"}
+              {t(`inviteError.${view.kind}.title`)}
             </p>
             <p className="break-words text-[12px] leading-snug text-muted-foreground">
-              {view.kind === "bot_missing" &&
-                "Сервер не знает имя бота для приглашений. Прежняя ссылка не затронута."}
+              {view.kind === "bot_missing" && t("inviteError.bot_missing.body")}
               {view.kind === "forbidden" &&
-                `Нужно право ${CONTRACTORS_RIGHT}. Попросите администратора добавить его вашей роли.`}
-              {view.kind === "network" &&
-                "Неизвестно, дошёл ли запрос. Если дошёл, прежняя ссылка уже не работает. Проверьте статус привязки выше и выдайте ссылку ещё раз."}
+                t("inviteError.forbidden.body", { right: CONTRACTORS_RIGHT })}
+              {view.kind === "network" && t("inviteError.network.body")}
               {view.kind === "other" && view.message}
             </p>
           </div>
@@ -318,21 +300,20 @@ export function InvitePanel({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Выдать новую ссылку для {row.full_name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmTitle", { name: row.full_name })}</AlertDialogTitle>
             <AlertDialogDescription>
-              Человек уже привязан к боту. Прежняя ссылка погаснет, а тот, кто откроет новую,
-              получит заявки вместо него. Продолжайте, только если его нужно перепривязать.
+              {t("confirmDesc")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Не сейчас</AlertDialogCancel>
+            <AlertDialogCancel>{t("notNow")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmOpen(false);
                 onIssue();
               }}
             >
-              Выдать ссылку
+              {t("issue")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -452,6 +433,9 @@ export function ExecutorBody({
   onClose: () => void;
   onLock: (locked: boolean) => void;
 }) {
+  const t = useTranslations("ticketsUi.contractors.executorSheet");
+  const tl = useTranslations("ticketsLib");
+  const mutationErrorText = useMutationErrorText();
   const ids = { name: useId(), phone: useId(), lang: useId(), active: useId() };
   const actions = useExecutorActions();
   const issue = useIssueInvite();
@@ -486,13 +470,13 @@ export function ExecutorBody({
     return (
       <>
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
-          <SheetTitle className="text-base">Исполнитель</SheetTitle>
-          <SheetDescription className="sr-only">Правка исполнителя</SheetDescription>
+          <SheetTitle className="text-base">{t("executor")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("editExecutor")}</SheetDescription>
         </SheetHeader>
         <div role="alert" className="flex items-start gap-3 px-5 py-6">
           <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-[12.5px] leading-snug text-muted-foreground">
-            Исполнитель не найден в загруженном списке. Закройте панель и обновите страницу.
+            {t("notFound")}
           </p>
         </div>
       </>
@@ -556,7 +540,7 @@ export function ExecutorBody({
       ? {
           phase: "error",
           kind: classifyInviteError(issue.error),
-          message: apiMessage(issue.error),
+          message: apiMessage(issue.error, tl),
         }
       : issue.isSuccess
         ? { phase: "done", link: issue.data.link }
@@ -582,21 +566,21 @@ export function ExecutorBody({
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
         <SheetTitle className="text-base">
-          {mode === "create" ? "Новый исполнитель" : initial.name || "Исполнитель"}
+          {mode === "create" ? t("newExecutor") : initial.name || t("executor")}
         </SheetTitle>
         <SheetDescription className="text-[12px]">
-          {contractor ? `Фирма «${contractor.name}»` : "Фирма не выбрана"}
+          {contractor ? t("firmOf", { name: contractor.name }) : t("noFirm")}
         </SheetDescription>
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-4">
         {noFirm && (
           <p role="alert" className="text-[12.5px] text-destructive">
-            Сначала выберите фирму.
+            {t("pickFirmFirst")}
           </p>
         )}
         <div className="space-y-1.5">
-          <Label htmlFor={ids.name}>Имя</Label>
+          <Label htmlFor={ids.name}>{t("name")}</Label>
           <Input
             id={ids.name}
             value={name}
@@ -611,11 +595,11 @@ export function ExecutorBody({
             disabled={pending}
           />
           {touched && nameMissing && (
-            <p className="text-[12px] text-destructive">Имя обязательно.</p>
+            <p className="text-[12px] text-destructive">{t("nameRequired")}</p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={ids.phone}>Телефон</Label>
+          <Label htmlFor={ids.phone}>{t("phone")}</Label>
           <Input
             id={ids.phone}
             value={phone}
@@ -627,21 +611,21 @@ export function ExecutorBody({
         </div>
         <div className="space-y-1.5">
           <span id={ids.lang} className="text-sm font-medium leading-none">
-            Язык сообщений бота
+            {t("botLang")}
           </span>
           <div>
             <LangToggle value={lang} onChange={setLang} disabled={pending} labelledBy={ids.lang} />
           </div>
           {row && row.lang !== "ru" && row.lang !== "uz" && (
             <p className="text-[12px] leading-snug text-amber-700 dark:text-amber-400">
-              В карточке записано «{row.lang}»: бот читает это как русский.
+              {t("langUnknown", { lang: row.lang })}
             </p>
           )}
         </div>
         {mode === "edit" && (
           <div className="space-y-1.5 rounded-md border px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
-              <Label htmlFor={ids.active}>Исполнитель активен</Label>
+              <Label htmlFor={ids.active}>{t("active")}</Label>
               <Switch
                 id={ids.active}
                 checked={active}
@@ -650,7 +634,7 @@ export function ExecutorBody({
               />
             </div>
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Выключенному заявки в бот не приходят, и привязать его по ссылке нельзя.
+              {t("activeHint")}
             </p>
           </div>
         )}
@@ -660,7 +644,7 @@ export function ExecutorBody({
           </p>
         ) : mode === "edit" && mutation.isSuccess && !dirty ? (
           <p role="status" className="text-[12.5px] text-emerald-700 dark:text-emerald-400">
-            Сохранено.
+            {t("saved")}
           </p>
         ) : null}
 
@@ -679,20 +663,20 @@ export function ExecutorBody({
         )}
         {mode === "create" && (
           <p className="text-[12px] leading-snug text-muted-foreground">
-            Приглашение в бот можно выдать после сохранения: откройте исполнителя из списка.
+            {t("inviteAfterSave")}
           </p>
         )}
       </div>
 
       <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t px-5 py-3">
         <Button type="button" variant="outline" onClick={onClose} disabled={issue.isPending}>
-          Отмена
+          {t("cancel")}
         </Button>
         <Button
           type="submit"
           disabled={pending || nameMissing || noFirm || (mode === "edit" && !dirty)}
         >
-          {pending ? "Сохраняем…" : mode === "create" ? "Создать" : "Сохранить"}
+          {pending ? t("saving") : mode === "create" ? t("create") : t("save")}
         </Button>
       </SheetFooter>
     </form>

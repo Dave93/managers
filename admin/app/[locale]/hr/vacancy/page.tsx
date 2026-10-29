@@ -1,7 +1,8 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { vacancyColumns } from "./columns";
+import { useVacancyColumns } from "./columns";
+import { useTranslations } from "next-intl";
 import VacancyFormSheet from "@components/forms/vacancy/sheet";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus, Users } from "lucide-react";
@@ -63,17 +64,19 @@ import { useQuery } from "@tanstack/react-query";
 // };
 
 export default function UsersListPage() {
+  const t = useTranslations("hrPages.vacancy");
+  const vacancyColumns = useVacancyColumns();
   return (
     <div className="space-y-4">
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Вакансии</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("title")}</h2>
         
         
           <div className="flex items-center space-x-2">
             <CanAccess permission="vacancy.add">
               <VacancyFormSheet trigger={
                 <Button>
-                  <Plus className="h-4 w-4" />Create
+                  <Plus className="h-4 w-4" />{t("create")}
                 </Button>
               } />
             </CanAccess>

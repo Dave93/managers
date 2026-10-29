@@ -7,6 +7,7 @@
 // the two deliberately do not import from each other's _components.
 
 import { useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import {
   listEnrollments,
@@ -28,11 +29,18 @@ export interface ApiError extends Error {
   value?: any;
 }
 
-export function apiMessage(error: any): string {
+/** `fallback` is the translated "request failed" text — see useApiFallback(). */
+export function apiMessage(error: any, fallback: string): string {
   const v = error?.value ?? error;
   if (typeof v?.message === "string") return v.message;
   if (typeof error?.message === "string") return error.message;
-  return "Не удалось выполнить запрос";
+  return fallback;
+}
+
+/** The translated fallback for apiMessage()/unwrap(). */
+export function useApiFallback(): string {
+  const t = useTranslations("passportUi.enrollments.api");
+  return t("requestFailed");
 }
 
 /**
@@ -41,11 +49,12 @@ export function apiMessage(error: any): string {
  * on reading them — the 409 conflict body, the 403 scope refusals.
  */
 export async function unwrap<T>(
-  call: Promise<{ data: T | null; error: any }>
+  call: Promise<{ data: T | null; error: any }>,
+  fallback: string
 ): Promise<T> {
   const { data, error } = await call;
   if (error) {
-    const e = new Error(apiMessage(error)) as ApiError;
+    const e = new Error(apiMessage(error, fallback)) as ApiError;
     e.status = error?.status;
     e.value = error?.value;
     throw e;
@@ -107,9 +116,10 @@ export function useEnrollmentsAccess(): EnrollmentsAccess {
  * in the create form rather than showing an empty <Select>.
  */
 export function usePrograms() {
+  const fallback = useApiFallback();
   return useQuery<PassportListResponse<PassportProgram>, ApiError>({
     queryKey: qk.programs,
-    queryFn: () => unwrap(listPrograms()),
+    queryFn: () => unwrap(listPrograms(), fallback),
     retry: false,
     staleTime: 5 * 60 * 1000,
   });
@@ -174,6 +184,7 @@ export interface EmployeeOption {
  * there is no useful fallback (a uuid box is not something HR can fill in).
  */
 export function useEmployeeSearch(search: string, enabled: boolean) {
+  const fallback = useApiFallback();
   return useQuery<EmployeeOption[], ApiError>({
     queryKey: qk.employees(search),
     queryFn: async () => {
@@ -186,7 +197,7 @@ export function useEmployeeSearch(search: string, enabled: boolean) {
         },
       });
       if (error) {
-        const e = new Error(apiMessage(error)) as ApiError;
+        const e = new Error(apiMessage(error, fallback)) as ApiError;
         e.status = (error as any)?.status;
         e.value = (error as any)?.value;
         throw e;
@@ -204,19 +215,24 @@ export function useEmployeeSearch(search: string, enabled: boolean) {
 // ---------------------------------------------------------------------------
 
 export function useEnrollments(query: PassportEnrollmentListQuery) {
+  const fallback = useApiFallback();
   return useQuery<PassportListResponse<PassportEnrollmentRow>, ApiError>({
     queryKey: qk.enrollments(query),
-    queryFn: () => unwrap(listEnrollments(query)),
+    queryFn: () => unwrap(listEnrollments(query), fallback),
     retry: false,
     placeholderData: (prev) => prev,
   });
 }
 
 export function useJournal(enrollmentId: string | null, limit: number) {
+  const fallback = useApiFallback();
   return useQuery<PassportJournalResponse, ApiError>({
     queryKey: qk.journal(enrollmentId ?? "none", limit),
     queryFn: () =>
-      unwrap(getJournal(enrollmentId as string, { limit: String(limit) })),
+      unwrap(
+        getJournal(enrollmentId as string, { limit: String(limit) }),
+        fallback
+      ),
     enabled: !!enrollmentId,
     retry: false,
     // NOT `(prev) => prev`. In TanStack v5 placeholderData is carried ACROSS
@@ -287,11 +303,32 @@ const DATE_FMT = new Intl.DateTimeFormat("ru-RU", {
   month: "2-digit",
   year: "numeric",
 });
-const LONG_FMT = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+const LONG_FMTS = new Map<string, Intl.DateTimeFormat>();
+const INTL_LOCALE: Record<string, string> = {
+  ru: "ru-RU",
+  en: "en-GB",
+  "uz-Latn": "uz-Latn-UZ",
+  "uz-Cyrl": "uz-Cyrl-UZ",
+};
+
+/** Long date ("9 августа 2026 г.") in the admin's UI locale; ru is the default. */
+function longFmt(locale: string): Intl.DateTimeFormat {
+  let f = LONG_FMTS.get(locale);
+  if (!f) {
+    const opts: Intl.DateTimeFormatOptions = {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    };
+    try {
+      f = new Intl.DateTimeFormat(INTL_LOCALE[locale] ?? "ru-RU", opts);
+    } catch {
+      f = new Intl.DateTimeFormat("ru-RU", opts);
+    }
+    LONG_FMTS.set(locale, f);
+  }
+  return f;
+}
 const TIME_FMT = new Intl.DateTimeFormat("ru-RU", {
   hour: "2-digit",
   minute: "2-digit",
@@ -302,9 +339,20 @@ export function fmtDate(value: string | null | undefined): string {
   return Number.isNaN(ms) ? "—" : DATE_FMT.format(ms);
 }
 
-export function fmtLongDate(value: string | number | null | undefined): string {
+export function fmtLongDate(
+  value: string | number | null | undefined,
+  locale: string = "ru"
+): string {
   const ms = typeof value === "number" ? value : parseTimestamp(value);
-  return Number.isNaN(ms) ? "—" : LONG_FMT.format(ms);
+  return Number.isNaN(ms) ? "—" : longFmt(locale).format(ms);
+}
+
+/** fmtLongDate bound to the current UI locale. */
+export function useFmtLongDate(): (
+  value: string | number | null | undefined
+) => string {
+  const locale = useLocale();
+  return (value) => fmtLongDate(value, locale);
 }
 
 export function fmtTime(value: string | null | undefined): string {
@@ -315,8 +363,19 @@ export function fmtTime(value: string | null | undefined): string {
 /** "Пётр Иванов" from the row's nullable join columns. */
 export function fullName(
   first: string | null | undefined,
-  last: string | null | undefined
+  last: string | null | undefined,
+  fallback: string
 ): string {
   const s = [last, first].filter(Boolean).join(" ").trim();
-  return s.length ? s : "Без имени";
+  return s.length ? s : fallback;
+}
+
+/** fullName with the translated "no name" fallback. */
+export function useFullName(): (
+  first: string | null | undefined,
+  last: string | null | undefined
+) => string {
+  const t = useTranslations("passportUi.enrollments.common");
+  const fallback = t("noName");
+  return (first, last) => fullName(first, last, fallback);
 }

@@ -18,17 +18,10 @@
 // deadline stopped mattering the moment it closed, and painting history red
 // trains people to ignore the colour.
 
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import type { PassportEnrollmentStatus } from "@admin/lib/passport-api";
 import type { DeadlineInfo } from "./use-enrollments";
-
-export const ENROLLMENT_STATUS_LABEL: Record<PassportEnrollmentStatus, string> =
-  {
-    active: "Идёт",
-    paused: "На паузе",
-    completed: "Завершена",
-    failed: "Не пройдена",
-  };
 
 const CHIP: Record<PassportEnrollmentStatus, string> = {
   active:
@@ -55,6 +48,7 @@ export function EnrollmentStatusChip({
   status: PassportEnrollmentStatus;
   className?: string;
 }) {
+  const t = useTranslations("passport.enrollmentStatus");
   return (
     <span
       className={cn(
@@ -64,7 +58,7 @@ export function EnrollmentStatusChip({
       )}
     >
       <span className={cn("size-1.5 rounded-full", DOT[status])} aria-hidden />
-      {ENROLLMENT_STATUS_LABEL[status]}
+      {t(status)}
     </span>
   );
 }
@@ -89,9 +83,10 @@ export function DeadlineCell({
   date: string;
   live: boolean;
 }) {
+  const t = useTranslations("passportUi.enrollments.status");
   if (!info)
     return (
-      <span className="text-[12px] text-muted-foreground">без дедлайна</span>
+      <span className="text-[12px] text-muted-foreground">{t("noDeadline")}</span>
     );
 
   if (!live)
@@ -110,10 +105,10 @@ export function DeadlineCell({
 
   const left =
     info.tone === "overdue"
-      ? `просрочено на ${plural(Math.abs(info.days), "день", "дня", "дней")}`
+      ? t("overdueBy", { count: Math.abs(info.days) })
       : info.days <= 0
-        ? "сегодня"
-        : `${plural(info.days, "день", "дня", "дней")}`;
+        ? t("today")
+        : t("daysLeft", { count: info.days });
 
   return (
     <span className="flex flex-col gap-0.5">
@@ -136,18 +131,4 @@ export function DeadlineCell({
       </span>
     </span>
   );
-}
-
-export function plural(
-  n: number,
-  one: string,
-  few: string,
-  many: string
-): string {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return `${n} ${many}`;
-  if (last > 1 && last < 5) return `${n} ${few}`;
-  if (last === 1) return `${n} ${one}`;
-  return `${n} ${many}`;
 }

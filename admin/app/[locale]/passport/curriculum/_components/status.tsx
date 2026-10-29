@@ -12,14 +12,10 @@
 // both amber states mean "a human still has to do something here", and the two
 // never appear on the same row (a published module has no unfilled pairs).
 
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import type { PassportModuleStatus } from "@admin/lib/passport-api";
 
-export const MODULE_STATUS_LABEL: Record<PassportModuleStatus, string> = {
-  draft: "Черновик",
-  review: "На проверке",
-  published: "Опубликован",
-};
 
 const DOT: Record<PassportModuleStatus, string> = {
   draft: "bg-slate-400 dark:bg-slate-500",
@@ -66,6 +62,7 @@ export function StatusChip({
   active?: boolean;
   className?: string;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   if (!active)
     return (
       <span
@@ -74,7 +71,7 @@ export function StatusChip({
           className
         )}
       >
-        Снят с обращения
+        {t("status.retired")}
       </span>
     );
   return (
@@ -85,7 +82,7 @@ export function StatusChip({
         className
       )}
     >
-      {MODULE_STATUS_LABEL[status]}
+      {t(`status.${status}`)}
     </span>
   );
 }
@@ -108,14 +105,15 @@ export function LangPips({
   uz: number;
   className?: string;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   if (ru === 0 && uz === 0) return null;
   const pip = (label: string, missing: number) => (
     <span
       key={label}
       title={
         missing
-          ? `${label}: не заполнено полей — ${missing}`
-          : `${label}: заполнено`
+          ? t("langPips.missing", { label, count: missing })
+          : t("langPips.filled", { label })
       }
       className={cn(
         "inline-flex h-[15px] items-center px-1 text-[9px] font-semibold leading-none tracking-wide",

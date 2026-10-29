@@ -9,12 +9,9 @@
 // seen two ways, and disagreeing about the default would read as one of them
 // being broken.
 //
-// Chrome goes through next-intl like the rest of the admin; the operational
-// prose (consequence dialogs, the bot-not-configured banner, the 409 panels)
-// stays Russian in place, exactly as in the curriculum builder: it is written
-// for HR and head office, and machine-translating "этот QR у стажёра на руках
-// станет мёртвым" into a locale nobody operates in would be worse than showing
-// the original.
+// All visible text goes through next-intl (passport.enrollments for the page
+// chrome, passportUi.enrollments for the rest of the screen). The printed
+// invite sheet itself is the exception: it is bilingual ru/uz by design.
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -44,7 +41,7 @@ import { BOT_ENV_VAR, botUsername } from "./_components/invite-link";
 import { isLive } from "./_components/status";
 import {
   deadlineInfo,
-  fullName,
+  useFullName,
   useEnrollmentsAccess,
   usePrograms,
   useTerminalNames,
@@ -83,6 +80,8 @@ function Metric({
 
 export default function EnrollmentsPage() {
   const t = useTranslations("passport.enrollments");
+  const tu = useTranslations("passportUi.enrollments");
+  const fullName = useFullName();
   const access = useEnrollmentsAccess();
   const terminalName = useTerminalNames();
   const terminals = useTerminals();
@@ -124,6 +123,7 @@ export default function EnrollmentsPage() {
   const columns = useMemo(
     () =>
       buildColumns({
+        t: tu,
         canManage: access.canManage,
         terminalName,
         onPrint: setInvite,
@@ -135,7 +135,8 @@ export default function EnrollmentsPage() {
       }),
     // terminalName closes over the terminals query; rebuilding on its data is
     // what makes branch names appear once that request lands.
-    [access.canManage, terminals.data]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [access.canManage, terminals.data, tu]
   );
 
   // Deadline counters describe the rows on screen, not the whole result set —
@@ -159,6 +160,8 @@ export default function EnrollmentsPage() {
     setInvite({
       inviteId: created.invite_id,
       expiresAt: created.invite_expires_at,
+      // Printed on the bilingual ru/uz invite sheet, so the fallback stays
+      // Russian rather than following the admin's UI language.
       traineeName: created.traineeName || "Стажёр",
       position: created.position,
       programRu: created.programRu,
@@ -186,18 +189,18 @@ export default function EnrollmentsPage() {
         <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <Info className="mt-0.5 size-4 shrink-0" />
           <span>
-            <b>Печать QR-инвайтов выключена.</b> В этой сборке админки не задана
-            переменная{" "}
-            <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
-              {BOT_ENV_VAR}
-            </code>{" "}
-            — имя Telegram-бота паспорта (
-            <code className="font-mono text-[11px]">pasport_stajer_bot</code>),
-            без которого ссылку для QR собрать не из чего. Стажировки создавать
-            можно, инвайты выпускаются, но
-            распечатать их не получится, пока переменную не зададут в{" "}
-            <code className="font-mono text-[11px]">admin/.env</code> и админку
-            не пересоберут.
+            {tu.rich("page.botOff", {
+              envVar: BOT_ENV_VAR,
+              b: (c) => <b>{c}</b>,
+              envcode: (c) => (
+                <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
+                  {c}
+                </code>
+              ),
+              code: (c) => (
+                <code className="font-mono text-[11px]">{c}</code>
+              ),
+            })}
           </span>
         </div>
       )}

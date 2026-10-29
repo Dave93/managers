@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import PassportLayout from "@admin/components/layout/passport-layout";
 import NoAccessNotice from "@admin/components/layout/no-access-notice";
@@ -15,6 +16,7 @@ export default function PassportSectionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("passportUi.layout");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -30,9 +32,9 @@ export default function PassportSectionLayout({
   // a broken page, and the reader has no way to learn that the fix is a grant.
   return (
     <NoAccessNotice
-      title="Раздел «Паспорт стажёра» недоступен"
+      title={t("noAccessTitle")}
       missing={["passport_layout"]}
-      explanation="Раздел существует и работает, но вашей роли не выдано право на него. Право на раздел выдаётся отдельно от прав на его экраны (программы обучения, стажировки, матрица, наставники)."
+      explanation={t("noAccessExplanation")}
     />
   );
 }

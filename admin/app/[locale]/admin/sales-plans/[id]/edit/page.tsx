@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@admin/components/ui/button";
@@ -16,6 +16,7 @@ type PlanItem = {
 };
 
 export default function EditSalesPlanPage() {
+  const t = useTranslations("salesPlans");
   const locale = useLocale();
   const router = useRouter();
   const params = useParams();
@@ -89,7 +90,7 @@ export default function EditSalesPlanPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales_plans"] });
-      toast.success("План обновлён");
+      toast.success(t("edit.updated"));
       router.push(`/${locale}/admin/sales-plans/list`);
     },
     onError: (e: Error) => {
@@ -97,21 +98,21 @@ export default function EditSalesPlanPage() {
     },
   });
 
-  if (isLoading) return <div className="py-12 text-center text-muted-foreground">Загрузка...</div>;
+  if (isLoading) return <div className="py-12 text-center text-muted-foreground">{t("loading")}</div>;
 
   const plan = planData as any;
 
   return (
     <div className="max-w-3xl">
       <h2 className="text-3xl font-bold tracking-tight pb-4">
-        Редактировать план — {plan?.terminal_name}
+        {t("edit.title", { terminal: plan?.terminal_name ?? "" })}
       </h2>
 
       <div className="space-y-6">
         <div>
-          <label className="text-sm font-medium mb-1 block">Добавить продукт</label>
+          <label className="text-sm font-medium mb-1 block">{t("form.addProduct")}</label>
           <Input
-            placeholder="Начните вводить название..."
+            placeholder={t("form.searchPlaceholder")}
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
           />
@@ -139,7 +140,7 @@ export default function EditSalesPlanPage() {
                   <Button variant="ghost" size="sm" onClick={() => removeProduct(item.product_id)}>✕</Button>
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-sm text-muted-foreground whitespace-nowrap">План/мес:</label>
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">{t("form.planShort")}</label>
                   <Input
                     type="number"
                     min={0}
@@ -158,9 +159,9 @@ export default function EditSalesPlanPage() {
             onClick={() => updateMutation.mutate()}
             disabled={items.length === 0 || updateMutation.isPending}
           >
-            {updateMutation.isPending ? "Сохранение..." : "Сохранить"}
+            {updateMutation.isPending ? t("form.saving") : t("form.save")}
           </Button>
-          <Button variant="outline" onClick={() => router.back()}>Отмена</Button>
+          <Button variant="outline" onClick={() => router.back()}>{t("form.cancel")}</Button>
         </div>
       </div>
     </div>

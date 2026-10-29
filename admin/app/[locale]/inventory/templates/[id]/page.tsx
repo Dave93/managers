@@ -79,6 +79,7 @@ export default function TemplateEditorPage() {
   const { id } = useParams<{ id: string }>();
   const t = useTranslations("inventory.templates");
   const tRoot = useTranslations("inventory");
+  const tUi = useTranslations("inventoryUi");
   const router = useRouter();
   const qc = useQueryClient();
 
@@ -98,7 +99,7 @@ export default function TemplateEditorPage() {
     setSelected(new Set(tpl.data.product_ids));
   }, [tpl.data]);
 
-  const tree = useMemo(() => (folders.data ? buildFolderTree(folders.data) : []), [folders.data]);
+  const tree = useMemo(() => (folders.data ? buildFolderTree(folders.data, tUi("noGroup")) : []), [folders.data, tUi]);
 
   const toggleMany = (ids: string[], on: boolean) =>
     setSelected((s) => {

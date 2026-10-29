@@ -14,10 +14,13 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Trash2 } from "lucide-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { toast } from "sonner";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
+    const t = useTranslations("hrPages.schedule");
+    const tc = useTranslations("forms.common");
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
@@ -26,7 +29,7 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["work_schedules"] });
-            toast.success("график работы успешно удалена");
+            toast.success(t("deleted"));
         },
         onError: (error: any) => {
             toast.error(error.message);
@@ -42,18 +45,18 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Это действие нельзя отменить. график будет удалена безвозвратно.
+                        {t("deleteConfirmDescription")}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => deleteMutation.mutate(recordId)}
                         className="bg-red-600 hover:bg-red-700"
                     >
-                        {deleteMutation.isPending ? "Удаление..." : "Удалить"}
+                        {deleteMutation.isPending ? t("deleting") : tc("delete")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

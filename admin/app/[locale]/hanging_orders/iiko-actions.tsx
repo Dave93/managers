@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/buttonOrigin";
@@ -48,8 +49,12 @@ type Record = {
 
 type Option = { id: string; name: string };
 
-const describe = (r: Record) =>
-    [r.conception, r.receiptNumber ? `чек ${r.receiptNumber}` : null, r.amount ? `${Number(r.amount).toLocaleString("ru-RU")} сум` : null]
+const describe = (t: (key: string, values?: { [name: string]: string | number }) => string, r: Record) =>
+    [
+        r.conception,
+        r.receiptNumber ? t("iikoActions.receipt", { number: r.receiptNumber }) : null,
+        r.amount ? t("columns.amountValue", { amount: Number(r.amount).toLocaleString("ru-RU") }) : null,
+    ]
         .filter(Boolean)
         .join(" · ");
 
@@ -58,6 +63,7 @@ const describe = (r: Record) =>
  * hanging_orders.iiko_actions (роль admin) — обёртка CanAccess в колонке.
  */
 export function IikoActions({ record }: { record: Record }) {
+    const t = useTranslations("hangingOrders");
     const queryClient = useQueryClient();
     const [cancelOpen, setCancelOpen] = useState(false);
     const [causeId, setCauseId] = useState("");
@@ -71,7 +77,7 @@ export function IikoActions({ record }: { record: Record }) {
         if (err?.message) {
             toast.error(err.message);
         } else if (body?.data?.state === "InProgress") {
-            toast.warning(body.message ?? "Касса ещё не подтвердила команду");
+            toast.warning(body.message ?? t("iikoActions.inProgress"));
         } else {
             toast.success(body?.data?.message ?? done);
         }
@@ -80,7 +86,7 @@ export function IikoActions({ record }: { record: Record }) {
 
     const close = useMutation({
         mutationFn: () => apiClient.api["hanging-orders"]({ id: record.id })["iiko-close"].post(),
-        onSuccess: (r) => report(r as any, "Заказ закрыт в iiko"),
+        onSuccess: (r) => report(r as any, t("iikoActions.closed")),
         onError: (e: Error) => toast.error(e.message),
     });
 
@@ -92,7 +98,7 @@ export function IikoActions({ record }: { record: Record }) {
             const { data, error } = await apiClient.api["hanging-orders"]["iiko-actions"].options.get({
                 query: { brand: record.brand as "chopar" | "les_ailes" },
             });
-            if (error) throw new Error((error.value as any)?.message ?? "Не удалось получить справочники iiko");
+            if (error) throw new Error((error.value as any)?.message ?? t("iikoOptionsError"));
             return (data as { data: { cancelCauses: Option[]; removalTypes: Option[] } }).data;
         },
     });
@@ -105,7 +111,7 @@ export function IikoActions({ record }: { record: Record }) {
                 ...(comment.trim() && { comment: comment.trim() }),
             }),
         onSuccess: (r) => {
-            report(r as any, "Заказ отменён в iiko");
+            report(r as any, t("iikoActions.cancelled"));
             setCancelOpen(false);
             setCauseId("");
             setRemovalId("");
@@ -120,7 +126,7 @@ export function IikoActions({ record }: { record: Record }) {
         <div className="flex items-center">
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" title="Закрыть заказ в iiko" disabled={busy} className="h-7 w-7 p-0">
+                    <Button variant="ghost" size="sm" title={t("iikoActions.closeTitle")} disabled={busy} className="h-7 w-7 p-0">
                         {close.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
@@ -130,23 +136,21 @@ export function IikoActions({ record }: { record: Record }) {
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                     <AlertDialogHeader>
-                        <AlertDialogTitle>Закрыть заказ в iiko?</AlertDialogTitle>
+                        <AlertDialogTitle>{t("iikoActions.closeConfirmTitle")}</AlertDialogTitle>
                         <AlertDialogDescription>
-                            {describe(record)}. Заказ будет отмечен доставленным и закрыт на кассе.
-                            Если в iikoServer он уже закрыт — кассе ничего не отправится, статус просто
-                            обновится здесь.
+                            {t("iikoActions.closeDescription", { order: describe(t, record) })}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Не закрывать</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => close.mutate()}>Закрыть</AlertDialogAction>
+                        <AlertDialogCancel>{t("iikoActions.keepOpen")}</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => close.mutate()}>{t("iikoActions.close")}</AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
 
             <Dialog open={cancelOpen} onOpenChange={setCancelOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="ghost" size="sm" title="Отменить заказ в iiko" disabled={busy} className="h-7 w-7 p-0">
+                    <Button variant="ghost" size="sm" title={t("iikoActions.cancelTitle")} disabled={busy} className="h-7 w-7 p-0">
                         {cancel.isPending ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                         ) : (
@@ -156,27 +160,25 @@ export function IikoActions({ record }: { record: Record }) {
                 </DialogTrigger>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Отменить заказ в iiko</DialogTitle>
+                        <DialogTitle>{t("iikoActions.cancelTitle")}</DialogTitle>
                         <DialogDescription>
-                            {describe(record)}. Если в iikoServer заказ уже закрыт и оплачен — отмена
-                            будет отклонена. iiko гарантирует отмену только заказов за последние 7 дней;
-                            старше — пока iikoCloud их хранит, иначе только вручную на кассе.
+                            {t("iikoActions.cancelDescription", { order: describe(t, record) })}
                         </DialogDescription>
                     </DialogHeader>
 
                     {options.isLoading ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" /> Загружаю справочники iiko…
+                            <Loader2 className="h-4 w-4 animate-spin" /> {t("iikoOptionsLoading")}
                         </div>
                     ) : options.error ? (
                         <p className="text-sm text-red-600">{(options.error as Error).message}</p>
                     ) : (
                         <div className="grid gap-4">
                             <div className="grid gap-2">
-                                <Label>Причина отмены</Label>
+                                <Label>{t("cancelCause")}</Label>
                                 <Select value={causeId} onValueChange={setCauseId}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Выберите причину" />
+                                        <SelectValue placeholder={t("cancelCausePlaceholder")} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {options.data?.cancelCauses.map((c) => (
@@ -188,10 +190,10 @@ export function IikoActions({ record }: { record: Record }) {
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Тип удаления</Label>
+                                <Label>{t("removalType")}</Label>
                                 <Select value={removalId} onValueChange={setRemovalId}>
                                     <SelectTrigger>
-                                        <SelectValue placeholder="Со списанием или без" />
+                                        <SelectValue placeholder={t("removalTypePlaceholder")} />
                                     </SelectTrigger>
                                     <SelectContent>
                                         {options.data?.removalTypes.map((t) => (
@@ -203,12 +205,12 @@ export function IikoActions({ record }: { record: Record }) {
                                 </Select>
                             </div>
                             <div className="grid gap-2">
-                                <Label>Комментарий</Label>
+                                <Label>{t("iikoActions.comment")}</Label>
                                 <Textarea
                                     value={comment}
                                     onChange={(e) => setComment(e.target.value)}
                                     maxLength={500}
-                                    placeholder="Необязательно"
+                                    placeholder={t("iikoActions.commentPlaceholder")}
                                 />
                             </div>
                         </div>
@@ -216,7 +218,7 @@ export function IikoActions({ record }: { record: Record }) {
 
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setCancelOpen(false)} disabled={cancel.isPending}>
-                            Не отменять
+                            {t("keepOrder")}
                         </Button>
                         <Button
                             variant="destructive"
@@ -224,7 +226,7 @@ export function IikoActions({ record }: { record: Record }) {
                             onClick={() => cancel.mutate()}
                         >
                             {cancel.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Отменить заказ
+                            {t("iikoActions.cancelOrder")}
                         </Button>
                     </DialogFooter>
                 </DialogContent>

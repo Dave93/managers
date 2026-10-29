@@ -27,6 +27,11 @@
 //  * Both languages get the SAME type size. The trainee reads exactly one of
 //    them, so neither can be the small print.
 //
+// LANGUAGE. The toolbar and warning banners above the sheet follow the admin's
+// UI language (passportUi.enrollments.print). The A5 sheet itself is NOT
+// translated: it is a printed ru/uz bilingual document handed to a trainee, so
+// its text is fixed regardless of the language the HR user's admin is in.
+//
 // PRINT ISOLATION. This renders through a portal straight onto <body>, so
 // `body > *:not(.passport-invite-print) { display: none }` hides the admin
 // sidebar, the section nav and the toasts — none of which this task owns and
@@ -38,6 +43,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Copy, Info, Printer, X } from "lucide-react";
 
 import { Button } from "@components/ui/buttonOrigin";
@@ -156,6 +162,7 @@ export function InvitePrintView({
   invite: InviteToPrint;
   onClose: () => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.print");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -171,12 +178,12 @@ export function InvitePrintView({
   const url = useMemo(() => inviteUrl(invite.inviteId), [invite.inviteId]);
   const expired = parseTimestamp(invite.expiresAt) < Date.now();
 
-  const copy = async (value: string, label: string) => {
+  const copy = async (value: string, copiedKey: "linkCopied" | "idCopied") => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} скопирован`);
+      toast.success(t(copiedKey));
     } catch {
-      toast.error("Браузер не дал скопировать — выделите текст вручную");
+      toast.error(t("copyFailed"));
     }
   };
 
@@ -190,23 +197,23 @@ export function InvitePrintView({
       <div className="invite-screen-only mx-auto mb-4 flex w-[148mm] max-w-full flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Button size="sm" onClick={() => window.print()} disabled={!url}>
-            <Printer className="mr-1.5 size-3.5" /> Печать
+            <Printer className="mr-1.5 size-3.5" /> {t("print")}
           </Button>
           <Button
             size="sm"
             variant="secondary"
             onClick={() =>
               url
-                ? copy(url, "Ссылка")
-                : copy(invite.inviteId, "Идентификатор инвайта")
+                ? copy(url, "linkCopied")
+                : copy(invite.inviteId, "idCopied")
             }
           >
             <Copy className="mr-1.5 size-3.5" />
-            {url ? "Скопировать ссылку" : "Скопировать invite_id"}
+            {url ? t("copyLink") : t("copyInviteId")}
           </Button>
         </div>
         <Button size="sm" variant="ghost" className="text-white" onClick={onClose}>
-          <X className="mr-1.5 size-3.5" /> Закрыть
+          <X className="mr-1.5 size-3.5" /> {t("close")}
         </Button>
       </div>
 
@@ -214,26 +221,25 @@ export function InvitePrintView({
         <div className="invite-screen-only mx-auto mb-4 flex w-[148mm] max-w-full items-start gap-2 rounded-md border border-red-300 bg-red-50 px-3 py-2.5 text-[12.5px] leading-snug text-red-900">
           <Info className="mt-0.5 size-4 shrink-0" />
           <span>
-            <b>Печать выключена: бот паспорта не настроен.</b> Ссылку для QR
-            собрать не из чего — в сборке админки не задана переменная{" "}
-            <code className="rounded bg-red-100 px-1 py-px font-mono text-[11px]">
-              {BOT_ENV_VAR}
-            </code>{" "}
-            — имя бота паспорта, сейчас это{" "}
-            <code className="font-mono text-[11px]">pasport_stajer_bot</code>.
-            Стажировка уже создана, инвайт выпущен — распечатать его можно будет
-            после того, как переменную зададут в{" "}
-            <code className="font-mono text-[11px]">admin/.env</code> и админку
-            пересоберут. Печатать QR «на всякий случай» нельзя: он не откроется
-            ни у кого.
+            {t.rich("botOff", {
+              envVar: BOT_ENV_VAR,
+              b: (c) => <b>{c}</b>,
+              envcode: (c) => (
+                <code className="rounded bg-red-100 px-1 py-px font-mono text-[11px]">
+                  {c}
+                </code>
+              ),
+              code: (c) => (
+                <code className="font-mono text-[11px]">{c}</code>
+              ),
+            })}
           </span>
         </div>
       )}
 
       {expired && (
         <div className="invite-screen-only mx-auto mb-4 w-[148mm] max-w-full rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900">
-          Срок действия этого кода уже истёк. Выпустите новый через «Выдать
-          новый QR».
+          {t("expired")}
         </div>
       )}
 

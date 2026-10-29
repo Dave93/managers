@@ -5,11 +5,13 @@
 
 import type { ColumnDef } from "@tanstack/react-table";
 import { ChevronDown, ChevronRight } from "lucide-react";
+import type { useTranslations } from "next-intl";
 
 import { parseTs } from "@admin/components/tickets/status";
 import type { TicketRow } from "@admin/lib/tickets-api";
 
 import { formatAmount } from "@admin/lib/tickets-money";
+import type { TicketsLibT } from "@admin/lib/tickets-i18n";
 
 export type SelectAllState = "none" | "some" | "all";
 
@@ -23,6 +25,10 @@ export type PaymentColumnsCtx = {
   onToggle: (id: string) => void;
   onToggleAll: () => void;
   onExpand: (id: string) => void;
+  // Переводчик словаря `ticketsUi.payments.columns`.
+  t: ReturnType<typeof useTranslations>;
+  // Переводчик словаря `ticketsLib` (суммы).
+  tl?: TicketsLibT;
 };
 
 const Dash = () => <span className="text-muted-foreground">—</span>;
@@ -74,7 +80,7 @@ export function buildPaymentColumns(ctx: PaymentColumnsCtx): ColumnDef<TicketRow
       id: "select",
       header: () => (
         <Check
-          label="Выбрать все заявки на странице"
+          label={ctx.t("selectAll")}
           checked={ctx.selectAll === "all"}
           indeterminate={ctx.selectAll === "some"}
           disabled={ctx.busy}
@@ -83,7 +89,7 @@ export function buildPaymentColumns(ctx: PaymentColumnsCtx): ColumnDef<TicketRow
       ),
       cell: ({ row }) => (
         <Check
-          label={`Выбрать заявку ${row.original.number}`}
+          label={ctx.t("selectOne", { number: row.original.number })}
           checked={ctx.selected.has(row.original.id)}
           disabled={ctx.busy}
           onChange={() => ctx.onToggle(row.original.id)}
@@ -92,42 +98,42 @@ export function buildPaymentColumns(ctx: PaymentColumnsCtx): ColumnDef<TicketRow
     },
     {
       id: "number",
-      header: "Номер",
+      header: ctx.t("number"),
       cell: ({ row }) => (
         <span className="font-mono text-[12.5px] font-medium tabular-nums">{row.original.number}</span>
       ),
     },
     {
       id: "terminal",
-      header: "Филиал",
+      header: ctx.t("terminal"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">{row.original.terminal_name ?? <Dash />}</span>
       ),
     },
     {
       id: "type",
-      header: "Тип",
+      header: ctx.t("type"),
       cell: ({ row }) => <span className="text-[12.5px]">{row.original.type_name ?? <Dash />}</span>,
     },
     {
       id: "firm",
-      header: "Фирма",
+      header: ctx.t("firm"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">{row.original.contractor_name ?? <Dash />}</span>
       ),
     },
     {
       id: "amount",
-      header: () => <span className="block text-right">Сумма</span>,
+      header: () => <span className="block text-right">{ctx.t("amount")}</span>,
       cell: ({ row }) => (
         <span className="block whitespace-nowrap text-right text-[12.5px] tabular-nums">
-          {formatAmount(row.original.work_total_amount)}
+          {formatAmount(row.original.work_total_amount, ctx.tl)}
         </span>
       ),
     },
     {
       id: "closed",
-      header: "Закрыта",
+      header: ctx.t("closed"),
       cell: ({ row }) => (
         <span className="whitespace-nowrap text-[12.5px] tabular-nums">
           {fmtClosed(row.original.closed_at)}
@@ -136,7 +142,7 @@ export function buildPaymentColumns(ctx: PaymentColumnsCtx): ColumnDef<TicketRow
     },
     {
       id: "expand",
-      header: () => <span className="sr-only">Акт и фото</span>,
+      header: () => <span className="sr-only">{ctx.t("actAndPhotos")}</span>,
       cell: ({ row }) => {
         const open = ctx.expanded.has(row.original.id);
         const Icon = open ? ChevronDown : ChevronRight;
@@ -145,12 +151,12 @@ export function buildPaymentColumns(ctx: PaymentColumnsCtx): ColumnDef<TicketRow
             type="button"
             aria-expanded={open}
             aria-controls={open ? `payment-detail-${row.original.id}` : undefined}
-            aria-label={`${open ? "Свернуть" : "Раскрыть"} акт и фото заявки ${row.original.number}`}
+            aria-label={ctx.t(open ? "collapseAria" : "expandAria", { number: row.original.number })}
             onClick={() => ctx.onExpand(row.original.id)}
             className="flex items-center gap-1 rounded px-1.5 py-1 text-[12px] text-muted-foreground outline-none hover:bg-muted hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             <Icon className="size-4" />
-            <span>{open ? "Свернуть" : "Акт и фото"}</span>
+            <span>{open ? ctx.t("collapse") : ctx.t("actAndPhotos")}</span>
           </button>
         );
       },

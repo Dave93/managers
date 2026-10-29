@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { DownloadIcon, Loader2, Trash2Icon } from "lucide-react";
 import { Input } from "@components/ui/input";
@@ -42,12 +43,7 @@ import {
   type CreditDocumentType,
 } from "@admin/lib/credit-api";
 
-const DOC_TYPE_LABELS: Record<CreditDocumentType, string> = {
-  contract: "Договор",
-  inn_cert: "ИНН",
-  guarantee_letter: "Гарантийное письмо",
-  other: "Другое",
-};
+const DOC_TYPES: CreditDocumentType[] = ["contract", "inn_cert", "guarantee_letter", "other"];
 
 // Mirrors the backend allowlist/cap in credit_admin/controller.ts
 // (UPLOAD_EXTS / MAX_UPLOAD_BYTES) so a doomed upload is rejected client-side
@@ -55,15 +51,12 @@ const DOC_TYPE_LABELS: Record<CreditDocumentType, string> = {
 const ACCEPT_EXTS = ".pdf,.jpg,.jpeg,.png,.webp,.docx";
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
 
-const ERROR_MESSAGES: Record<string, string> = {
-  too_large: "Файл слишком большой (макс. 20MB)",
-  bad_type: "Недопустимый тип файла",
-  bad_date: "Некорректная дата",
-  company_not_found: "Компания не найдена",
-  save_failed: "Не удалось сохранить документ",
-};
+// Error codes that have a translated message under `errors.<code>`.
+const KNOWN_ERRORS = ["too_large", "bad_type", "bad_date", "company_not_found", "save_failed"];
 
 export default function DocumentsTab({ companyId }: { companyId: string }) {
+  const t = useTranslations("systemPages.creditCompanies.documents");
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
   const canEdit = useCanAccess("credit.edit");
   const [file, setFile] = useState<File | null>(null);
@@ -102,7 +95,7 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
       return data;
     },
     onSuccess: () => {
-      toast.success("Документ загружен");
+      toast.success(t("uploaded"));
       setFile(null);
       setFileInputKey((k) => k + 1);
       setDocNumber("");
@@ -111,10 +104,12 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
     },
     onError: (err: any) => {
       if (err.message === "no_file") {
-        toast.error("Выберите файл");
+        toast.error(t("selectFile"));
         return;
       }
-      toast.error(ERROR_MESSAGES[err.message] ?? "Не удалось загрузить документ");
+      toast.error(
+        KNOWN_ERRORS.includes(err.message) ? t(`errors.${err.message}`) : t("uploadFailed")
+      );
     },
   });
 
@@ -125,10 +120,10 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
       return data;
     },
     onSuccess: () => {
-      toast.success("Документ удалён");
+      toast.success(t("deleted"));
       invalidate();
     },
-    onError: () => toast.error("Не удалось удалить документ"),
+    onError: () => toast.error(t("deleteFailed")),
   });
 
   return (
@@ -137,9 +132,9 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Тип</TableHead>
+              <TableHead>{tc("type")}</TableHead>
               <TableHead>№</TableHead>
-              <TableHead>Дата</TableHead>
+              <TableHead>{t("date")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -147,13 +142,13 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={4} className="h-16 text-center text-muted-foreground">
-                  Загрузка...
+                  {tc("loading")}
                 </TableCell>
               </TableRow>
             ) : documents.length ? (
               documents.map((doc) => (
                 <TableRow key={doc.id}>
-                  <TableCell>{DOC_TYPE_LABELS[doc.type]}</TableCell>
+                  <TableCell>{t(`types.${doc.type}`)}</TableCell>
                   <TableCell>{doc.doc_number ?? "—"}</TableCell>
                   <TableCell>
                     {doc.doc_date ? new Date(doc.doc_date).toLocaleDateString("ru-RU") : "—"}
@@ -165,7 +160,7 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
                         size="sm"
                         onClick={() => window.open(documentDownloadUrl(doc.id), "_blank")}
                       >
-                        <DownloadIcon className="h-4 w-4 mr-1" /> Скачать
+                        <DownloadIcon className="h-4 w-4 mr-1" /> {t("download")}
                       </Button>
                       {canEdit && (
                         <AlertDialog>
@@ -176,18 +171,18 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>Удалить документ?</AlertDialogTitle>
+                              <AlertDialogTitle>{t("deleteTitle")}</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Это действие нельзя отменить. Файл будет удалён навсегда.
+                                {t("deleteDescription")}
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                              <AlertDialogCancel>Отмена</AlertDialogCancel>
+                              <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                               <AlertDialogAction
                                 onClick={() => deleteMutation.mutate(doc.id)}
                                 disabled={deleteMutation.isPending}
                               >
-                                Удалить
+                                {tc("delete")}
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
@@ -200,7 +195,7 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
             ) : (
               <TableRow>
                 <TableCell colSpan={4} className="h-16 text-center text-muted-foreground">
-                  Нет документов
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -217,7 +212,7 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
           className="flex items-end gap-2 flex-wrap"
         >
           <div className="space-y-1">
-            <Label>Файл</Label>
+            <Label>{t("file")}</Label>
             <Input
               key={fileInputKey}
               type="file"
@@ -226,30 +221,31 @@ export default function DocumentsTab({ companyId }: { companyId: string }) {
             />
           </div>
           <div className="space-y-1">
-            <Label>Тип</Label>
+            <Label>{tc("type")}</Label>
             <Select value={type} onValueChange={(v) => setType(v as CreditDocumentType)}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="contract">Договор</SelectItem>
-                <SelectItem value="inn_cert">ИНН</SelectItem>
-                <SelectItem value="guarantee_letter">Гарантийное письмо</SelectItem>
-                <SelectItem value="other">Другое</SelectItem>
+                {DOC_TYPES.map((dt) => (
+                  <SelectItem key={dt} value={dt}>
+                    {t(`types.${dt}`)}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1">
-            <Label>№ документа</Label>
+            <Label>{t("docNumber")}</Label>
             <Input value={docNumber} onChange={(e) => setDocNumber(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label>Дата</Label>
+            <Label>{t("date")}</Label>
             <Input type="date" value={docDate} onChange={(e) => setDocDate(e.target.value)} />
           </div>
           <Button type="submit" disabled={uploadMutation.isPending || !file}>
             {uploadMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Загрузить
+            {t("upload")}
           </Button>
         </form>
       )}

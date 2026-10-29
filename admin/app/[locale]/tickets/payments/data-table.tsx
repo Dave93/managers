@@ -26,6 +26,7 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Inbox, RotateCw, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Table,
@@ -80,27 +81,30 @@ function ErrorPanel({
   retrying: boolean;
   onRetry: () => void;
 }) {
+  const t = useTranslations("ticketsUi.payments");
+  const tt = useTranslations("ticketsUi.table");
+  const tl = useTranslations("ticketsLib");
   const network = error.status === undefined;
   return (
     <div role="alert" className="flex items-start gap-3 px-5 py-6">
       <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="min-w-0 space-y-2.5">
         <p className="text-[14px] font-semibold leading-tight">
-          {network ? "Нет связи с сервером" : "Не удалось загрузить очередь"}
+          {network ? tt("noConnection") : t("loadFailed")}
         </p>
         <p className="max-w-xl break-words text-[12.5px] leading-snug text-muted-foreground">
           {network
-            ? "Запрос не дошёл до сервера. Проверьте соединение и повторите."
-            : apiMessage(error)}
+            ? tt("noConnectionBody")
+            : apiMessage(error, tl)}
         </p>
         {network && (
           <p className="break-words font-mono text-[11px] text-muted-foreground">
-            {apiMessage(error)}
+            {apiMessage(error, tl)}
           </p>
         )}
         <Button variant="outline" size="sm" onClick={onRetry} disabled={retrying}>
           <RotateCw className={retrying ? "size-3.5 animate-spin" : "size-3.5"} />
-          {retrying ? "Повторяем…" : "Повторить"}
+          {retrying ? tt("retrying") : tt("retry")}
         </Button>
       </div>
     </div>
@@ -118,6 +122,8 @@ export function DataTable({
   onPageSize,
   onRetry,
 }: DataTableProps) {
+  const t = useTranslations("ticketsUi.payments");
+  const tt = useTranslations("ticketsUi.table");
   // isPending, а не isLoading: запрос без данных и без ошибки, но не идущий
   // (ждём список прав, пауза), нельзя показывать как «Нет заявок к оплате».
   const { data, isPending: isLoading, isError, error, isFetching, dataUpdatedAt } = queue;
@@ -161,13 +167,13 @@ export function DataTable({
         >
           <TriangleAlert className="size-3.5 shrink-0" />
           <span>
-            {apiError?.status === 403 ? "Доступ к заявкам пропал." : "Не удалось обновить очередь."}{" "}
-            Показаны данные на{" "}
-            {new Date(dataUpdatedAt).toLocaleTimeString("ru-RU", {
-              hour: "2-digit",
-              minute: "2-digit",
+            {apiError?.status === 403 ? tt("staleForbidden") : t("staleFailed")}{" "}
+            {tt("staleShown", {
+              time: new Date(dataUpdatedAt).toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             })}
-            .
           </span>
           <Button
             variant="ghost"
@@ -176,7 +182,7 @@ export function DataTable({
             onClick={onRetry}
             disabled={isFetching}
           >
-            {isFetching ? "Повторяем…" : "Повторить"}
+            {isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       )}
@@ -230,10 +236,9 @@ export function DataTable({
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={colCount} className="h-40 text-center">
                   <Inbox className="mx-auto mb-2 size-5 text-muted-foreground" />
-                  <p className="text-[13px] font-medium">Нет заявок к оплате</p>
+                  <p className="text-[13px] font-medium">{t("emptyTitle")}</p>
                   <p className="mx-auto mt-1 max-w-md text-[12px] leading-snug text-muted-foreground">
-                    Здесь появляются закрытые заявки с актом, по которым ещё не принято решение
-                    об оплате.
+                    {t("emptyBody")}
                   </p>
                 </TableCell>
               </TableRow>
@@ -244,7 +249,7 @@ export function DataTable({
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-muted-foreground">Строк:</span>
+          <span className="text-[12px] text-muted-foreground">{tt("rows")}</span>
           <Select value={`${pageSize}`} onValueChange={(v) => onPageSize(Number(v))}>
             <SelectTrigger className="h-8 w-[72px]">
               <SelectValue placeholder={`${pageSize}`} />
@@ -258,17 +263,17 @@ export function DataTable({
             </SelectContent>
           </Select>
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            всего: {isLoading ? "…" : total}
+            {tt("total", { count: isLoading ? "…" : total })}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            стр. {pageIndex + 1} из {pageCount}
+            {tt("page", { page: pageIndex + 1, pages: pageCount })}
           </span>
           <Button
             variant="outline"
             className="hidden size-8 p-0 lg:flex"
-            aria-label="Первая страница"
+            aria-label={tt("firstPage")}
             onClick={() => onPageIndex(0)}
             disabled={pageIndex <= 0}
           >
@@ -277,7 +282,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="size-8 p-0"
-            aria-label="Предыдущая страница"
+            aria-label={tt("prevPage")}
             onClick={() => onPageIndex(pageIndex - 1)}
             disabled={pageIndex <= 0}
           >
@@ -286,7 +291,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="size-8 p-0"
-            aria-label="Следующая страница"
+            aria-label={tt("nextPage")}
             onClick={() => onPageIndex(pageIndex + 1)}
             disabled={pageIndex + 1 >= pageCount}
           >
@@ -295,7 +300,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="hidden size-8 p-0 lg:flex"
-            aria-label="Последняя страница"
+            aria-label={tt("lastPage")}
             onClick={() => onPageIndex(pageCount - 1)}
             disabled={pageIndex + 1 >= pageCount}
           >

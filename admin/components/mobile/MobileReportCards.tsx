@@ -2,6 +2,7 @@
 
 import React from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type CardField = { label: React.ReactNode; value: React.ReactNode };
 export type CardSpec = {
@@ -36,13 +37,14 @@ export function MobileReportCards<R>({
   canNext,
   page,
 }: Props<R>) {
+  const t = useTranslations("reportsUi.mobileCards");
   const [openIdx, setOpenIdx] = React.useState<number | null>(null);
 
   if (isLoading) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">Загрузка…</div>;
+    return <div className="py-8 text-center text-sm text-muted-foreground">{t("loading")}</div>;
   }
   if (!rows.length) {
-    return <div className="py-8 text-center text-sm text-muted-foreground">{empty ?? "Нет данных"}</div>;
+    return <div className="py-8 text-center text-sm text-muted-foreground">{empty ?? t("noData")}</div>;
   }
 
   return (
@@ -99,16 +101,16 @@ export function MobileReportCards<R>({
             disabled={!canPrev}
             onClick={onPrev}
           >
-            Назад
+            {t("back")}
           </button>
-          {page !== undefined && <span className="text-xs text-muted-foreground">Стр. {page + 1}</span>}
+          {page !== undefined && <span className="text-xs text-muted-foreground">{t("page", { page: page + 1 })}</span>}
           <button
             type="button"
             className="rounded-md border px-3 py-1.5 text-sm disabled:opacity-40"
             disabled={!canNext}
             onClick={onNext}
           >
-            Далее
+            {t("next")}
           </button>
         </div>
       )}

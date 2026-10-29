@@ -30,6 +30,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { Hourglass, RotateCw, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Skeleton } from "@components/ui/skeleton";
@@ -69,9 +70,9 @@ import {
   Notice,
   PaymentSection,
   Section,
-  actionError,
-  actorLabel,
   fmtTs,
+  useActionError,
+  useActorLabel,
   useSheetSession,
 } from "../../tickets/_components/ticket-sheet";
 
@@ -161,20 +162,10 @@ function usePanelActions() {
 // секции
 // ---------------------------------------------------------------------------
 
-const RESULT_TEXT: Record<Exclude<ResultColumn, "photos">, { title: string; hint?: string }> = {
-  not_submitted: {
-    title: "Исполнитель ещё не сдал работу",
-    hint: "Когда он сдаст работу, здесь появятся фото результата и кнопка «Принять работу».",
-  },
-  submitted_without_photos: {
-    title: "Исполнитель сдал работу без фото результата",
-    hint: "Принять работу без фото нельзя: верните её в работу и попросите приложить фото.",
-  },
-  none: { title: "Фото результата не приложены" },
-};
-
+// Тексты заглушки лежат в `branchTickets.panel.result.<kind>.title|hint`; hint есть не у всех.
 function ResultPlaceholder({ kind }: { kind: Exclude<ResultColumn, "photos"> }) {
-  const t = RESULT_TEXT[kind];
+  const t = useTranslations("branchTickets.panel");
+  const hint = t.has(`result.${kind}.hint`) ? t(`result.${kind}.hint`) : null;
   return (
     <div
       role="status"
@@ -182,8 +173,8 @@ function ResultPlaceholder({ kind }: { kind: Exclude<ResultColumn, "photos"> }) 
       className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-4 text-center"
     >
       <Hourglass className="size-6 text-muted-foreground" aria-hidden />
-      <p className="text-base font-medium">{t.title}</p>
-      {t.hint && <p className="max-w-xs text-sm leading-snug text-muted-foreground">{t.hint}</p>}
+      <p className="text-base font-medium">{t(`result.${kind}.title`)}</p>
+      {hint && <p className="max-w-xs text-sm leading-snug text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -203,11 +194,14 @@ function Thread({
   sending: boolean;
   error: unknown;
 }) {
+  const ts = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  const actorLabel = useActorLabel();
   const comments = card.comments ?? [];
   return (
-    <Section title="Переписка">
+    <Section title={ts("conversationTitle")}>
       {comments.length === 0 ? (
-        <Empty>Комментариев пока нет.</Empty>
+        <Empty>{ts("noComments")}</Empty>
       ) : (
         <ul className="space-y-2">
           {comments.map((c) => (
@@ -225,18 +219,18 @@ function Thread({
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Написать комментарий"
-          aria-label="Новый комментарий"
+          placeholder={ts("commentPlaceholder")}
+          aria-label={ts("commentAria")}
           rows={2}
           disabled={sending}
         />
         <div className="flex flex-wrap items-center gap-3">
           <Button className="h-11 px-5 text-base" onClick={onSend} disabled={sending || draft.trim() === ""}>
-            {sending ? "Отправляем…" : "Отправить"}
+            {sending ? ts("sending") : ts("send")}
           </Button>
           {error ? (
             <span role="alert" className="text-sm text-destructive">
-              {apiMessage(error)}
+              {apiMessage(error, tl)}
             </span>
           ) : null}
         </div>
@@ -260,6 +254,10 @@ function CardView({
   canClose: boolean;
   onClose: () => void;
 }) {
+  const t = useTranslations("branchTickets.panel");
+  const ts = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  const actionError = useActionError();
   const qc = useQueryClient();
   // Закрытие панели передаётся в mutate() только для приёмки и возврата:
   // отправка комментария панель оставляет.
@@ -293,9 +291,11 @@ function CardView({
     });
   };
 
-  const typeName = card.type?.name_ru ?? "Тип удалён";
-  const terminal = card.terminal_name ?? "Филиал не найден";
-  const executor = card.assigned_executor_id ? (card.executor_name ?? "Исполнитель удалён") : "не назначен";
+  const typeName = card.type?.name_ru ?? ts("typeDeleted");
+  const terminal = card.terminal_name ?? ts("branchNotFound");
+  const executor = card.assigned_executor_id
+    ? (card.executor_name ?? ts("executorDeleted"))
+    : ts("notAssigned");
   const problem = (card.attachments ?? []).filter((a) => a.phase === "problem");
   // Только снимки текущей сдачи: возврат в работу вложений не удаляет.
   const { result, column, accept } = acceptanceState(card);
@@ -319,16 +319,20 @@ function CardView({
               классом на SheetContent, закрывает эта кнопка (и Esc, и тап мимо). */}
           <SheetClose asChild>
             <Button variant="outline" className="h-11 shrink-0 px-5 text-base">
-              Закрыть
+              {t("close")}
             </Button>
           </SheetClose>
         </div>
         <p className="text-sm leading-snug text-muted-foreground">
-          Создана {fmtTs(card.created_at)}, автор: {card.author_name ?? "неизвестен"}. Исполнитель: {executor}.
-          {card.reopen_count > 0 ? ` Возвращалась в работу: ${card.reopen_count}.` : ""}{" "}
+          {ts("headerMeta", {
+            date: fmtTs(card.created_at),
+            author: card.author_name ?? ts("authorUnknown"),
+            executor,
+          })}
+          {card.reopen_count > 0 ? ` ${ts("reopenedCount", { count: card.reopen_count })}` : ""}{" "}
           {(card.status === "new" || card.status === "in_progress" || card.status === "done") && (
             <>
-              Висит:{" "}
+              {t("waiting")}{" "}
               <WaitingFor
                 status={card.status}
                 created_at={card.created_at}
@@ -346,25 +350,25 @@ function CardView({
 
         <div className="grid gap-6 lg:grid-cols-[minmax(13rem,0.8fr)_minmax(0,1.7fr)_minmax(13rem,0.8fr)]">
           <div className="space-y-3" data-column="was">
-            <h3 className="text-lg font-semibold">Было</h3>
-            <PhotoStrip title="Фото проблемы" items={problem} empty="Менеджер не приложил фото" />
+            <h3 className="text-lg font-semibold">{t("was")}</h3>
+            <PhotoStrip title={ts("photosProblem")} items={problem} empty={ts("photosProblemEmpty")} />
           </div>
 
           <div className="space-y-4" data-column="work">
-            <h3 className="text-lg font-semibold">Работы и итог</h3>
+            <h3 className="text-lg font-semibold">{t("workAndTotal")}</h3>
             <ActSection card={card} />
             <PaymentSection card={card} />
             {hasAmount && (
               <p className="text-sm leading-snug text-muted-foreground">
-                Сумму утверждает офис, здесь её изменить нельзя.
+                {t("amountNote")}
               </p>
             )}
           </div>
 
           <div className="space-y-3" data-column="became">
-            <h3 className="text-lg font-semibold">Стало</h3>
+            <h3 className="text-lg font-semibold">{t("became")}</h3>
             {column === "photos" ? (
-              <PhotoStrip title="Фото результата" items={result} empty="Фото результата не приложены" />
+              <PhotoStrip title={ts("photosResult")} items={result} empty={ts("resultEmpty.none")} />
             ) : (
               <ResultPlaceholder kind={column} />
             )}
@@ -393,8 +397,8 @@ function CardView({
               <Textarea
                 value={returnComment}
                 onChange={(e) => setReturnComment(e.target.value)}
-                placeholder="Что переделать (нужно, чтобы вернуть в работу)"
-                aria-label="Комментарий к возврату в работу"
+                placeholder={ts("returnPlaceholder")}
+                aria-label={ts("returnAria")}
                 rows={2}
                 disabled={busy}
               />
@@ -404,25 +408,27 @@ function CardView({
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
                     <Button className="h-12 px-6 text-base" disabled={busy}>
-                      {actions.close.isPending ? "Принимаем…" : "Принять работу"}
+                      {actions.close.isPending ? ts("accepting") : ts("accept")}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Принять работу по заявке {card.number}?</AlertDialogTitle>
+                      <AlertDialogTitle>{ts("acceptTitle", { number: card.number })}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Заявка закроется, исполнитель получит сообщение.
-                        {hasAmount ? ` Сумма ${formatAmount(card.work_total_amount)} уйдёт на утверждение офиса.` : ""}{" "}
-                        Отменить приёмку нельзя.
+                        {ts("acceptDesc1")}
+                        {hasAmount
+                          ? ` ${t("acceptDescAmount", { amount: formatAmount(card.work_total_amount, tl) })}`
+                          : ""}{" "}
+                        {ts("acceptDesc2")}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel className="h-11 px-5 text-base">Не принимать</AlertDialogCancel>
+                      <AlertDialogCancel className="h-11 px-5 text-base">{ts("acceptCancel")}</AlertDialogCancel>
                       <AlertDialogAction
                         className="h-11 px-5 text-base"
                         onClick={() => run((o) => actions.close.mutate(card.id, o))}
                       >
-                        Принять работу
+                        {ts("accept")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -436,7 +442,7 @@ function CardView({
                   run((o) => actions.reopen.mutate({ id: card.id, comment: returnComment.trim() }, o))
                 }
               >
-                {actions.reopen.isPending ? "Возвращаем…" : "Вернуть в работу"}
+                {actions.reopen.isPending ? ts("returning") : ts("returnToWork")}
               </Button>
             </div>
           </div>
@@ -444,19 +450,22 @@ function CardView({
 
         {card.status === "done" && !canClose && (
           <p className="text-sm text-muted-foreground">
-            Принять работу или вернуть её в работу может роль с правом{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">tickets.close</code>. У вашей роли его
-            нет: попросите администратора.
+            {ts.rich("noCloseRight", {
+              right: "tickets.close",
+              code: (chunks) => (
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{chunks}</code>
+              ),
+            })}
           </p>
         )}
 
         {(card.status === "new" || card.status === "in_progress") && (
-          <p className="text-sm text-muted-foreground">Принимать пока нечего: ждём, когда исполнитель сдаст работу.</p>
+          <p className="text-sm text-muted-foreground">{t("nothingToAccept")}</p>
         )}
 
         {(card.status === "closed" || card.status === "cancelled") && (
           <p className="text-sm text-muted-foreground">
-            {card.status === "closed" ? "Заявка закрыта" : "Заявка отменена"}, действий нет.
+            {card.status === "closed" ? ts("closedNoActions") : ts("cancelledNoActions")}
           </p>
         )}
 
@@ -482,6 +491,9 @@ function PanelBody({
   canClose: boolean;
   onClose: () => void;
 }) {
+  const ts = useTranslations("ticketsUi.sheet");
+  const tp = useTranslations("branchTickets.panel");
+  const tl = useTranslations("ticketsLib");
   const { data: card, isPending, isError, error, isFetching, refetch } = useTicketCard(ticketId);
 
   if (card) return <CardView card={card} open={open} canClose={canClose} onClose={onClose} />;
@@ -492,14 +504,14 @@ function PanelBody({
     <>
       <SheetHeader className="shrink-0 border-b px-5 py-4 text-left">
         <div className="flex items-center justify-between gap-3">
-          <SheetTitle className="text-lg">Заявка</SheetTitle>
+          <SheetTitle className="text-lg">{ts("ticket")}</SheetTitle>
           <SheetClose asChild>
             <Button variant="outline" className="h-11 shrink-0 px-5 text-base">
-              Закрыть
+              {tp("close")}
             </Button>
           </SheetClose>
         </div>
-        <SheetDescription className="sr-only">Карточка заявки</SheetDescription>
+        <SheetDescription className="sr-only">{ts("ticketCard")}</SheetDescription>
       </SheetHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" aria-busy={isPending}>
         {isPending ? (
@@ -512,30 +524,34 @@ function PanelBody({
         ) : isError && status === 404 ? (
           <Notice
             icon={<TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />}
-            title="Заявка не найдена"
+            title={ts("notFoundTitle")}
           >
             <p className="text-sm leading-snug text-muted-foreground">
-              Её могли удалить, либо она относится к филиалу, которого нет в вашем доступе.
+              {ts("notFoundBody")}
             </p>
           </Notice>
         ) : isError && status === 403 ? (
-          <Notice icon={<ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" />} title="Нет доступа к заявке">
+          <Notice icon={<ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" />} title={ts("forbiddenTitle")}>
             <p className="text-sm leading-snug text-muted-foreground">
-              Сервер ответил отказом (403). Для карточки нужно право{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">tickets.list</code>.
+              {ts.rich("forbiddenBody", {
+                right: "tickets.list",
+                code: (chunks) => (
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{chunks}</code>
+                ),
+              })}
             </p>
           </Notice>
         ) : (
           <Notice
             icon={<TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />}
-            title={status === undefined ? "Нет связи с сервером" : "Не удалось загрузить заявку"}
+            title={status === undefined ? ts("noConnection") : ts("loadFailed")}
           >
             <p className="break-words text-sm leading-snug text-muted-foreground">
-              {apiError ? apiMessage(apiError) : "Неизвестная ошибка"}
+              {apiError ? apiMessage(apiError, tl) : ts("unknownError")}
             </p>
             <Button variant="outline" className="h-11 px-5 text-base" onClick={() => refetch()} disabled={isFetching}>
               <RotateCw className={isFetching ? "size-4 animate-spin" : "size-4"} />
-              {isFetching ? "Повторяем…" : "Повторить"}
+              {isFetching ? ts("retrying") : ts("retry")}
             </Button>
           </Notice>
         )}

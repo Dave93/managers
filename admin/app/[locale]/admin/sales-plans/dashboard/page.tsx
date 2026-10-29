@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@admin/components/ui/button";
@@ -21,15 +22,25 @@ import {
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/ru";
+import "dayjs/locale/en";
+import "dayjs/locale/uz-latn";
+import "dayjs/locale/uz";
 import { useAuth } from "@admin/components/useAuth";
 
 dayjs.extend(relativeTime);
 dayjs.locale("ru");
 
-const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
+const MONTH_KEYS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+] as const;
+
+const DAYJS_LOCALES: Record<string, string> = {
+  ru: "ru",
+  en: "en",
+  "uz-Latn": "uz-latn",
+  "uz-Cyrl": "uz",
+};
 
 function getProgressColor(pct: number) {
   if (pct >= 70) return "text-green-600";
@@ -70,6 +81,9 @@ type TerminalDashboard = {
 };
 
 export default function SalesPlanDashboardPage() {
+  const t = useTranslations("salesPlans");
+  const locale = useLocale();
+  const dayjsLocale = DAYJS_LOCALES[locale] ?? "ru";
   const now = new Date();
   const [year, setYear] = useState(String(now.getFullYear()));
   const [month, setMonth] = useState(String(now.getMonth() + 1));
@@ -94,7 +108,7 @@ export default function SalesPlanDashboardPage() {
   return (
     <div>
       <div className="flex justify-between pb-4">
-        <h2 className="text-3xl font-bold tracking-tight">Дашборд — План продаж</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("dashboard.title")}</h2>
       </div>
 
       <div className="flex items-center gap-2 mb-6">
@@ -109,41 +123,43 @@ export default function SalesPlanDashboardPage() {
         <Select value={month} onValueChange={setMonth}>
           <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
           <SelectContent>
-            {MONTHS.map((name, i) => (
-              <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+            {MONTH_KEYS.map((key, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)}>{t(`months.${key}`)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Загрузка...</div>
+        <div className="flex items-center justify-center py-12 text-muted-foreground">{t("loading")}</div>
       ) : terminals.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Нет данных за этот период</div>
+        <div className="flex items-center justify-center py-12 text-muted-foreground">{t("dashboard.noData")}</div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {terminals.map((t) => (
+          {terminals.map((term) => (
             <button
-              key={t.terminal_id}
+              key={term.terminal_id}
               className="rounded-xl border bg-card p-4 shadow-sm text-left transition-colors hover:border-primary"
-              onClick={() => setSelectedTerminal(t)}
+              onClick={() => setSelectedTerminal(term)}
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="font-semibold text-sm">{t.terminal_name || "Terminal"}</span>
-                <span className={`text-xl font-bold ${getProgressColor(t.progress_pct)}`}>
-                  {t.progress_pct}%
+                <span className="font-semibold text-sm">{term.terminal_name || "Terminal"}</span>
+                <span className={`text-xl font-bold ${getProgressColor(term.progress_pct)}`}>
+                  {term.progress_pct}%
                 </span>
               </div>
-              <div className={`rounded-full h-2 ${getProgressTrack(t.progress_pct)}`}>
+              <div className={`rounded-full h-2 ${getProgressTrack(term.progress_pct)}`}>
                 <div
-                  className={`h-full rounded-full ${getProgressBg(t.progress_pct)}`}
-                  style={{ width: `${Math.min(t.progress_pct, 100)}%` }}
+                  className={`h-full rounded-full ${getProgressBg(term.progress_pct)}`}
+                  style={{ width: `${Math.min(term.progress_pct, 100)}%` }}
                 />
               </div>
               <div className="flex justify-between mt-2 text-xs text-muted-foreground">
-                <span>{t.items_count} продуктов</span>
+                <span>{t("productsCount", { count: term.items_count })}</span>
                 <span>
-                  {t.last_sync ? `Синхр: ${dayjs(t.last_sync).fromNow()}` : "Нет данных"}
+                  {term.last_sync
+                    ? t("dashboard.lastSync", { time: dayjs(term.last_sync).locale(dayjsLocale).fromNow() })
+                    : t("dashboard.noSync")}
                 </span>
               </div>
             </button>
@@ -158,7 +174,12 @@ export default function SalesPlanDashboardPage() {
               <DrawerHeader>
                 <DrawerTitle>{selectedTerminal.terminal_name}</DrawerTitle>
                 <DrawerDescription>
-                  {MONTHS[Number(month) - 1]} {year} — {selectedTerminal.items_count} продуктов, прогресс {selectedTerminal.progress_pct}%
+                  {t("dashboard.drawerDescription", {
+                    month: t(`months.${MONTH_KEYS[Number(month) - 1]}`),
+                    year,
+                    count: selectedTerminal.items_count,
+                    progress: selectedTerminal.progress_pct,
+                  })}
                 </DrawerDescription>
               </DrawerHeader>
               <div className="overflow-y-auto px-4 pb-6 space-y-3">
@@ -178,19 +199,19 @@ export default function SalesPlanDashboardPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">План/мес</span>
+                        <span className="text-muted-foreground">{t("dashboard.planMonth")}</span>
                         <span className="font-medium">{p.monthly_target}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">План/день</span>
+                        <span className="text-muted-foreground">{t("dashboard.planDay")}</span>
                         <span className="font-medium">{p.daily_target}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Сегодня</span>
+                        <span className="text-muted-foreground">{t("dashboard.today")}</span>
                         <span className="font-semibold">{p.sold_today}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">За месяц</span>
+                        <span className="text-muted-foreground">{t("dashboard.thisMonth")}</span>
                         <span className="font-medium">{p.sold_month}</span>
                       </div>
                     </div>

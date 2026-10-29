@@ -9,11 +9,13 @@ import { Loader2 } from "lucide-react";
 import { useEffect } from "react";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 export default function ConfigsPage() {
+  const t = useTranslations("settingsPage");
 
   const onAddSuccess = (actionText: string) => {
-    toast.success("Main settings saved");
+    toast.success(t("mainSaved"));
   };
 
   const onError = (error: any) => {
@@ -99,7 +101,7 @@ export default function ConfigsPage() {
     <CardContent>
       <div>
         <div className="flex justify-between">
-          <h2 className="text-3xl font-bold tracking-tight">Основные</h2>
+          <h2 className="text-3xl font-bold tracking-tight">{t("main")}</h2>
         </div>
         <div className="py-10">
           <form
@@ -112,7 +114,7 @@ export default function ConfigsPage() {
           >
             <div className="space-y-2">
               <div>
-                <Label>Время начала рабочего дня</Label>
+                <Label>{t("workStartTime")}</Label>
               </div>
               <form.Field name="workStartTime">
                 {(field) => {
@@ -135,7 +137,7 @@ export default function ConfigsPage() {
             </div>
             <div className="space-y-2">
               <div>
-                <Label>Время окончания рабочего дня</Label>
+                <Label>{t("workEndTime")}</Label>
               </div>
               <form.Field name="workEndTime">
                 {(field) => {
@@ -160,7 +162,7 @@ export default function ConfigsPage() {
               {createMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Save
+              {t("save")}
             </Button>
           </form>
         </div>

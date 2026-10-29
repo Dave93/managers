@@ -1,5 +1,6 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { cn } from "@admin/lib/utils";
@@ -19,15 +20,23 @@ export const STATUS_STYLES: Record<CreditCompanyRow["status"], string> = {
   pending_verification: "bg-amber-100 text-amber-700 border-amber-200",
 };
 
-export const STATUS_LABELS: Record<CreditCompanyRow["status"], string> = {
-  active: "Активна",
-  suspended: "Приостановлена",
-  pending_verification: "На проверке",
-};
+type TFn = ReturnType<typeof useTranslations>;
 
-export function formatSum(tiyins: number | null | undefined) {
+// `t` here is the "systemPages.creditCompanies" namespace translator.
+export function getStatusLabel(status: CreditCompanyRow["status"], t: TFn) {
+  return t(`status.${status}`);
+}
+
+export function formatSum(tiyins: number | null | undefined, unit: string) {
   const sum = (tiyins ?? 0) / 100;
-  return `${new Intl.NumberFormat("ru-RU").format(sum)} сум`;
+  return `${new Intl.NumberFormat("ru-RU").format(sum)} ${unit}`;
+}
+
+// Hook flavour of formatSum with the currency unit already bound.
+export function useFormatSum() {
+  const t = useTranslations("systemPages.creditCompanies");
+  const unit = t("sumUnit");
+  return (tiyins: number | null | undefined) => formatSum(tiyins, unit);
 }
 
 // Not called from within a cell renderer — cell functions are invoked once
@@ -35,20 +44,21 @@ export function formatSum(tiyins: number | null | undefined) {
 // which would call `useCanAccess` a variable number of times per render and
 // break the Rules of Hooks. The caller (the list page) calls the hook once
 // at the top level and passes the result in here instead.
-export function getCreditCompaniesColumns(canEdit: boolean): ColumnDef<CreditCompanyRow>[] {
+export function getCreditCompaniesColumns(canEdit: boolean, t: TFn): ColumnDef<CreditCompanyRow>[] {
+  const unit = t("sumUnit");
   const columns: ColumnDef<CreditCompanyRow>[] = [
   {
     accessorKey: "name",
-    header: "Название",
+    header: t("columns.name"),
   },
   {
     accessorKey: "inn",
-    header: "ИНН",
+    header: t("columns.inn"),
     cell: ({ row }) => row.original.inn ?? "—",
   },
   {
     accessorKey: "status",
-    header: "Статус",
+    header: t("columns.status"),
     cell: ({ row }) => {
       const record = row.original;
       return (
@@ -59,11 +69,11 @@ export function getCreditCompaniesColumns(canEdit: boolean): ColumnDef<CreditCom
               STATUS_STYLES[record.status]
             )}
           >
-            {STATUS_LABELS[record.status]}
+            {getStatusLabel(record.status, t)}
           </span>
           {record.overdue && (
             <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap bg-red-100 text-red-700 border-red-200">
-              Просрочка
+              {t("overdue")}
             </span>
           )}
         </div>
@@ -72,34 +82,34 @@ export function getCreditCompaniesColumns(canEdit: boolean): ColumnDef<CreditCom
   },
   {
     accessorKey: "posted",
-    header: "Долг",
-    cell: ({ row }) => formatSum(row.original.posted),
+    header: t("columns.debt"),
+    cell: ({ row }) => formatSum(row.original.posted, unit),
   },
   {
     accessorKey: "reserved",
-    header: "Резерв",
-    cell: ({ row }) => formatSum(row.original.reserved),
+    header: t("columns.reserve"),
+    cell: ({ row }) => formatSum(row.original.reserved, unit),
   },
   {
     id: "limits",
-    header: "Лимиты",
+    header: t("columns.limits"),
     cell: ({ row }) => {
       const record = row.original;
       return (
         <div className="text-xs text-muted-foreground space-y-0.5">
-          <div>Всего: {formatSum(record.limit_total)}</div>
-          <div>День: {formatSum(record.limit_daily)}</div>
-          <div>Месяц: {formatSum(record.limit_monthly)}</div>
+          <div>{t("columns.limitTotal", { value: formatSum(record.limit_total, unit) })}</div>
+          <div>{t("columns.limitDay", { value: formatSum(record.limit_daily, unit) })}</div>
+          <div>{t("columns.limitMonth", { value: formatSum(record.limit_monthly, unit) })}</div>
         </div>
       );
     },
   },
   {
     accessorKey: "verified_at",
-    header: "Верифицирована",
+    header: t("columns.verified"),
     cell: ({ row }) => {
       const verifiedAt = row.original.verified_at;
-      return verifiedAt ? new Date(verifiedAt).toLocaleDateString("ru-RU") : "нет";
+      return verifiedAt ? new Date(verifiedAt).toLocaleDateString("ru-RU") : t("none");
     },
   },
   ];
@@ -107,7 +117,7 @@ export function getCreditCompaniesColumns(canEdit: boolean): ColumnDef<CreditCom
   if (canEdit) {
     columns.push({
       id: "actions",
-      header: "Действия",
+      header: t("columns.actions"),
       cell: ({ row }) => {
         const record = row.original;
 

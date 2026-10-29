@@ -6,12 +6,9 @@ import { Label } from "@admin/components/ui/label";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { useEffect } from "react";
-const labels = {
-  cash: "Наличные",
-  uzcard: "Uzcard",
-  humo: "Humo",
-  uzum: "Uzum",
-};
+import { useTranslations } from "next-intl";
+
+const incomeKeys = ["cash", "uzcard", "humo", "uzum"];
 
 type EditableIncomesProps = {
   terminal_id: string;
@@ -29,9 +26,17 @@ export default function EditableIncomes({
     readonlyIncomes,
   } = useReportDataStore();
 
+  const t = useTranslations("reportsUi");
+  const labels = {
+    cash: t("cash"),
+    uzcard: "Uzcard",
+    humo: "Humo",
+    uzum: "Uzum",
+  };
+
   const incomesList = editableIncomes();
   const readonlyIncomesList = readonlyIncomes().filter((income: any) =>
-    Object.keys(labels).includes(income.key)
+    incomeKeys.includes(income.key)
   );
 
   const { data } = useSuspenseQuery({

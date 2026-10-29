@@ -14,6 +14,7 @@
 // the case it exists for is "no layout shell was granted".
 
 import { ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export default function NoAccessNotice({
   title,
@@ -26,6 +27,7 @@ export default function NoAccessNotice({
   missing: string[];
   explanation: string;
 }) {
+  const t = useTranslations("layoutUi.noAccess");
   return (
     <div className="flex min-h-[100dvh] items-center justify-center bg-background p-6">
       <div className="w-full max-w-xl rounded-lg border bg-card p-6 text-card-foreground shadow-sm">
@@ -41,8 +43,8 @@ export default function NoAccessNotice({
             <div className="space-y-1.5">
               <p className="text-sm font-medium">
                 {missing.length === 1
-                  ? "Не хватает права:"
-                  : "Не хватает одного из прав:"}
+                  ? t("missingOne")
+                  : t("missingAny")}
               </p>
               <ul className="space-y-1">
                 {missing.map((p) => (
@@ -56,10 +58,7 @@ export default function NoAccessNotice({
             </div>
 
             <p className="text-sm leading-snug">
-              Это не сбой системы и не поломка деплоя — страница загрузилась
-              нормально. Обратитесь к администратору office-админки (HR или
-              IT-отдел) и попросите добавить указанное право вашей роли. После
-              выдачи права страницу нужно просто перезагрузить.
+              {t("notOutage")}
             </p>
           </div>
         </div>

@@ -1,15 +1,18 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { terminalsColumns } from "./columns";
+import { useTerminalsColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { RefreshCw } from "lucide-react";
 import CanAccess from "@admin/components/can-access";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 export default function TerminalsListPage() {
+  const columns = useTerminalsColumns();
+  const t = useTranslations("organizationPages.terminals");
   const queryClient = useQueryClient();
 
   const syncMutation = useMutation({
@@ -17,7 +20,7 @@ export default function TerminalsListPage() {
       const { data, error } = await apiClient.api.terminals.sync_iiko.post();
       if (error) {
         throw new Error(
-          (error as any)?.value?.message ?? "Ошибка синхронизации с iiko"
+          (error as any)?.value?.message ?? t("syncError")
         );
       }
       return data;
@@ -27,15 +30,16 @@ export default function TerminalsListPage() {
       const errors = data?.errors ?? [];
       if (errors.length) {
         toast.warning(
-          `Синхронизация завершена. Добавлено: ${created}. Проблемы: ${errors.join(
-            "; "
-          )}`
+          t("syncDoneWithIssues", {
+            created: String(created),
+            issues: errors.join("; "),
+          })
         );
       } else {
         toast.success(
           created > 0
-            ? `Синхронизация завершена. Добавлено филиалов: ${created}`
-            : "Синхронизация завершена. Новых филиалов нет."
+            ? t("syncDoneCreated", { created: String(created) })
+            : t("syncDoneNone")
         );
       }
       queryClient.invalidateQueries({ queryKey: ["terminals"] });
@@ -43,7 +47,7 @@ export default function TerminalsListPage() {
       queryClient.invalidateQueries({ queryKey: ["terminals_cached"] });
     },
     onError: (e: any) => {
-      toast.error(e?.message ?? "Ошибка синхронизации с iiko");
+      toast.error(e?.message ?? t("syncError"));
     },
   });
 
@@ -62,12 +66,12 @@ export default function TerminalsListPage() {
                 syncMutation.isPending ? "animate-spin" : ""
               }`}
             />
-            {syncMutation.isPending ? "Синхронизация..." : "Синхронизация с iiko"}
+            {syncMutation.isPending ? t("syncing") : t("sync")}
           </Button>
         </CanAccess>
       </div>
       <div className="py-10">
-        <DataTable columns={terminalsColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

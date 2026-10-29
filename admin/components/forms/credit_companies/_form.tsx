@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 import { useMemo, useEffect } from "react";
@@ -53,10 +54,13 @@ export default function CreditCompaniesForm({
   recordId?: string;
   onSaved?: () => void;
 }) {
+  const t = useTranslations("forms.creditCompanies");
+  const tc = useTranslations("forms.common");
+  const ts = useTranslations("systemPages.creditCompanies.status");
   const queryClient = useQueryClient();
 
-  const onAddSuccess = (actionText: string) => {
-    toast.success(`Кредитная компания ${actionText}`);
+  const onAddSuccess = (action: "added" | "updated") => {
+    toast.success(t(action));
     queryClient.invalidateQueries({ queryKey: ["credit_companies"] });
     onSaved?.();
     setOpen(false);
@@ -90,7 +94,7 @@ export default function CreditCompaniesForm({
       if (error) throw new Error((error as any).value?.error ?? "unknown");
       return data;
     },
-    onSuccess: () => onAddSuccess("добавлена"),
+    onSuccess: () => onAddSuccess("added"),
     onError,
   });
 
@@ -109,7 +113,7 @@ export default function CreditCompaniesForm({
       if (error) throw new Error((error as any).value?.error ?? "unknown");
       return result;
     },
-    onSuccess: () => onAddSuccess("обновлена"),
+    onSuccess: () => onAddSuccess("updated"),
     onError,
   });
 
@@ -182,7 +186,7 @@ export default function CreditCompaniesForm({
       >
         <div className="space-y-2">
           <div>
-            <Label>Название</Label>
+            <Label>{tc("name")}</Label>
           </div>
           <form.Field name="name">
             {(field) => (
@@ -198,7 +202,7 @@ export default function CreditCompaniesForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>ИНН</Label>
+            <Label>{t("inn")}</Label>
           </div>
           <form.Field name="inn">
             {(field) => (
@@ -214,7 +218,7 @@ export default function CreditCompaniesForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Телефон (контактный)</Label>
+            <Label>{t("contactPhone")}</Label>
           </div>
           <form.Field name="phone">
             {(field) => (
@@ -230,7 +234,7 @@ export default function CreditCompaniesForm({
         </div>
         <div className="space-y-2">
           <div>
-            <Label>Статус</Label>
+            <Label>{tc("status")}</Label>
           </div>
           <form.Field name="status">
             {(field) => (
@@ -239,12 +243,12 @@ export default function CreditCompaniesForm({
                 onValueChange={(value) => field.handleChange(value as CreditCompanyStatus)}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Выберите статус" />
+                  <SelectValue placeholder={t("statusPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Активна</SelectItem>
-                  <SelectItem value="suspended">Приостановлена</SelectItem>
-                  <SelectItem value="pending_verification">На проверке</SelectItem>
+                  <SelectItem value="active">{ts("active")}</SelectItem>
+                  <SelectItem value="suspended">{ts("suspended")}</SelectItem>
+                  <SelectItem value="pending_verification">{ts("pending_verification")}</SelectItem>
                 </SelectContent>
               </Select>
             )}
@@ -253,7 +257,7 @@ export default function CreditCompaniesForm({
         <div className="grid grid-cols-3 gap-4">
           <div className="space-y-2">
             <div>
-              <Label>Лимит всего (сум)</Label>
+              <Label>{t("limitTotal")}</Label>
             </div>
             <form.Field name="limit_total">
               {(field) => (
@@ -272,7 +276,7 @@ export default function CreditCompaniesForm({
           </div>
           <div className="space-y-2">
             <div>
-              <Label>Лимит в день (сум)</Label>
+              <Label>{t("limitDaily")}</Label>
             </div>
             <form.Field name="limit_daily">
               {(field) => (
@@ -291,7 +295,7 @@ export default function CreditCompaniesForm({
           </div>
           <div className="space-y-2">
             <div>
-              <Label>Лимит в месяц (сум)</Label>
+              <Label>{t("limitMonthly")}</Label>
             </div>
             <form.Field name="limit_monthly">
               {(field) => (
@@ -315,7 +319,7 @@ export default function CreditCompaniesForm({
         {recordId && !alreadyVerified && (
           <div className="space-y-2">
             <div>
-              <Label>Подтвердить верификацию</Label>
+              <Label>{t("verify")}</Label>
             </div>
             <form.Field name="verified">
               {(field) => (
@@ -329,7 +333,7 @@ export default function CreditCompaniesForm({
         )}
         <Button type="submit" disabled={isLoading || (!!recordId && isRecordLoading)}>
           {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Сохранить
+          {tc("save")}
         </Button>
       </form>
     </div>

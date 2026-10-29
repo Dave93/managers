@@ -2,6 +2,7 @@
 import type { SanitaryCheckRow, SanitaryCreate, ScopeRow } from "@admin/lib/kpi-api";
 import type { Option } from "./filters";
 import { roundTo } from "./format";
+import { ruT, type KpiT } from "./i18n";
 
 const COMMENT_MAX = 1000;
 
@@ -26,13 +27,13 @@ export function draftPct(d: SanitaryDraft): number | null {
 }
 
 /** itemsCount — число пунктов текущего шаблона; ответов должно быть столько же (шаблон мог смениться). */
-export function sanitaryIssues(d: SanitaryDraft, itemsCount?: number): string[] {
+export function sanitaryIssues(d: SanitaryDraft, itemsCount?: number, t: KpiT = ruT): string[] {
   const out: string[] = [];
-  if (!d.terminal_id) out.push("Выберите филиал");
-  if (itemsCount !== undefined && d.answers.length !== itemsCount) out.push("Пункты проверки изменились: обновите страницу");
+  if (!d.terminal_id) out.push(t("lib.sanitary.chooseBranch"));
+  if (itemsCount !== undefined && d.answers.length !== itemsCount) out.push(t("lib.sanitary.itemsChanged"));
   const left = d.answers.filter((a) => a === null).length;
-  if (left > 0) out.push(`Отметьте все пункты: осталось ${left}`);
-  if (d.comment.trim().length > COMMENT_MAX) out.push("Комментарий — до 1000 символов");
+  if (left > 0) out.push(t("lib.sanitary.remaining", { count: left }));
+  if (d.comment.trim().length > COMMENT_MAX) out.push(t("lib.sanitary.commentLong"));
   return out;
 }
 

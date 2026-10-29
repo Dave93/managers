@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
@@ -15,7 +16,7 @@ import {
 } from "@admin/lib/kpi-api";
 import {
   MAPPING_FIELDS,
-  UNMATCHED_REASON_TEXT,
+  UNMATCHED_REASON_KEY,
   columnLabel,
   defaultSheet,
   fileIssue,
@@ -39,6 +40,10 @@ const UNMATCHED_SHOWN = 20;
 type Step = "idle" | "mapping" | "done";
 
 export function ImportWizard({ period }: { period: string }) {
+  const t = useTranslations("kpiScreens.attendance.wizard");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>("idle");
   const [parsed, setParsed] = useState<AttendanceParseResponse | null>(null);
@@ -59,7 +64,7 @@ export function ImportWizard({ period }: { period: string }) {
     queryFn: () => kpiApi.attendance.imports(period),
     retry: shouldRetry,
   });
-  const notice = replaceNotice({ data: imports.data, error: imports.error }, period);
+  const notice = replaceNotice({ data: imports.data, error: imports.error }, period, tk, locale);
 
   const sheet = useMemo(() => parsed?.sheets.find((s) => s.name === sheetName) ?? null, [parsed, sheetName]);
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
@@ -67,7 +72,7 @@ export function ImportWizard({ period }: { period: string }) {
   const headers = useMemo(() => headersAt(rows, headerRow), [rows, headerRow]);
   const width = Math.max(headers.length, ...rows.map((r) => r.length), 0);
   const body = useMemo(() => previewBody(rows, headerRow), [rows, headerRow]);
-  const { errors, warnings } = mappingIssues(draft);
+  const { errors, warnings } = mappingIssues(draft, tk);
 
   const reset = () => {
     setStep("idle");
@@ -94,7 +99,7 @@ export function ImportWizard({ period }: { period: string }) {
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || reading) return;
-    const issue = fileIssue(file);
+    const issue = fileIssue(file, tk);
     if (issue) {
       toast.error(issue);
       setFileKey((k) => k + 1);
@@ -104,7 +109,7 @@ export function ImportWizard({ period }: { period: string }) {
     try {
       const resp = await postAttendanceFile(file);
       if (resp.sheets.length === 0) {
-        toast.error("В файле нет листов с данными");
+        toast.error(t("noSheets"));
         setFileKey((k) => k + 1);
         return;
       }
@@ -113,7 +118,7 @@ export function ImportWizard({ period }: { period: string }) {
       openSheet(resp, defaultSheet(resp.sheets));
       setStep("mapping");
     } catch (err) {
-      toast.error(kpiErrorText(err));
+      toast.error(kpiErrorText(err, tk));
       setFileKey((k) => k + 1);
     } finally {
       setReading(false);
@@ -147,9 +152,9 @@ export function ImportWizard({ period }: { period: string }) {
       setStep("done");
       qc.invalidateQueries({ queryKey: qk.attendanceImportsAll });
       qc.invalidateQueries({ queryKey: qk.formAll });
-      toast.success(`Загружено строк: ${row.rows_matched}`);
+      toast.success(t("uploadedRows", { count: row.rows_matched }));
     } catch (err) {
-      toast.error(kpiErrorText(err));
+      toast.error(kpiErrorText(err, tk));
       if (err instanceof KpiApiError && err.code === "upload_expired") {
         reset();
       } else if (err instanceof KpiApiError && err.code === "nothing_matched") {
@@ -165,10 +170,10 @@ export function ImportWizard({ period }: { period: string }) {
   if (step === "done" && result) {
     return (
       <section className="space-y-3 rounded-md border p-4">
-        <h2 className="text-base font-medium">Загружено за {monthLabel(result.period)}</h2>
+        <h2 className="text-base font-medium">{t("uploadedFor", { month: monthLabel(result.period, locale) })}</h2>
         <ImportResult row={result} />
         <Button type="button" variant="outline" className="h-11" onClick={reset}>
-          Загрузить другой файл
+          {t("uploadAnother")}
         </Button>
       </section>
     );
@@ -177,17 +182,17 @@ export function ImportWizard({ period }: { period: string }) {
   if (step === "idle" || !parsed || !sheet) {
     return (
       <section className="space-y-2 rounded-md border p-4">
-        <h2 className="text-base font-medium">Новая загрузка</h2>
+        <h2 className="text-base font-medium">{t("newUpload")}</h2>
         <Input
           key={fileKey}
           type="file"
           accept=".xlsx,.xls,.csv"
-          aria-label="Файл Workly"
+          aria-label={t("fileAria")}
           className="h-11 pt-2"
           disabled={reading}
           onChange={onFile}
         />
-        {reading && <p className="text-sm text-muted-foreground">Читаю файл…</p>}
+        {reading && <p className="text-sm text-muted-foreground">{t("reading")}</p>}
       </section>
     );
   }
@@ -197,36 +202,36 @@ export function ImportWizard({ period }: { period: string }) {
   return (
     <section className="space-y-4 rounded-md border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-medium">Файл «{parsed.file_name}»</h2>
+        <h2 className="text-base font-medium">{t("fileHeading", { name: parsed.file_name })}</h2>
         <Button type="button" variant="outline" className="h-11" disabled={committing} onClick={reset}>
-          Отмена
+          {tc("cancel")}
         </Button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
-          <span>Лист</span>
+          <span>{t("sheet")}</span>
           <Select value={sheetName} disabled={committing} onValueChange={(name) => openSheet(parsed, name)}>
-            <SelectTrigger className="h-11 w-full" aria-label="Лист">
+            <SelectTrigger className="h-11 w-full" aria-label={t("sheet")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               {parsed.sheets.map((s) => (
                 <SelectItem key={s.name} value={s.name}>
-                  {s.name} · {s.total_rows} строк
+                  {t("sheetOption", { name: s.name, count: s.total_rows })}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </label>
         <label className="space-y-1 text-sm">
-          <span>Строка заголовков</span>
+          <span>{t("headerRow")}</span>
           <Select
             value={String(headerRow)}
             disabled={committing}
             onValueChange={(v) => openSheet(parsed, sheetName, Number(v))}
           >
-            <SelectTrigger className="h-11 w-full" aria-label="Строка заголовков">
+            <SelectTrigger className="h-11 w-full" aria-label={t("headerRow")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -244,22 +249,22 @@ export function ImportWizard({ period }: { period: string }) {
         {MAPPING_FIELDS.map((f) => (
           <label key={f.key} className="space-y-1 text-sm">
             <span>
-              {f.label}
-              {f.required && <span className="ml-1 text-xs text-muted-foreground">обязательно</span>}
+              {tk(f.labelKey)}
+              {f.required && <span className="ml-1 text-xs text-muted-foreground">{t("required")}</span>}
             </span>
             <Select
               value={draft[f.key] === undefined ? ALL : String(draft[f.key])}
               disabled={committing}
               onValueChange={(v) => setField(f.key, v)}
             >
-              <SelectTrigger className="h-11 w-full" aria-label={f.label}>
+              <SelectTrigger className="h-11 w-full" aria-label={tk(f.labelKey)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>— не выбрана —</SelectItem>
+                <SelectItem value={ALL}>{t("notSelected")}</SelectItem>
                 {Array.from({ length: width }, (_, i) => (
                   <SelectItem key={i} value={String(i)}>
-                    {columnLabel(i, headers[i] ?? "")}
+                    {columnLabel(i, headers[i] ?? "", tk)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -269,7 +274,7 @@ export function ImportWizard({ period }: { period: string }) {
       </div>
 
       <div className="space-y-1">
-        <p className="text-sm font-medium">Предпросмотр</p>
+        <p className="text-sm font-medium">{t("preview")}</p>
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
@@ -282,7 +287,7 @@ export function ImportWizard({ period }: { period: string }) {
                       <div className="mt-1 flex flex-wrap gap-1">
                         {fields.map((f) => (
                           <span key={f.key} className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-foreground">
-                            {f.label}
+                            {tk(f.labelKey)}
                           </span>
                         ))}
                       </div>
@@ -295,7 +300,7 @@ export function ImportWizard({ period }: { period: string }) {
               {body.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={Math.max(width, 1)} className="text-sm text-muted-foreground">
-                    После строки заголовков данных нет
+                    {t("noDataAfterHeader")}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -312,7 +317,7 @@ export function ImportWizard({ period }: { period: string }) {
             </TableBody>
           </Table>
         </div>
-        <p className="text-xs text-muted-foreground">Показаны первые строки листа</p>
+        <p className="text-xs text-muted-foreground">{t("previewNote")}</p>
       </div>
 
       {(errors.length > 0 || warnings.length > 0) && (
@@ -333,17 +338,20 @@ export function ImportWizard({ period }: { period: string }) {
       {notice && <p className="text-sm text-amber-700">{notice}</p>}
 
       <Button type="button" className="h-11" disabled={errors.length > 0 || committing} onClick={commit}>
-        {committing ? "Загружаю…" : `Загрузить за ${monthLabel(period)}`}
+        {committing ? t("uploading") : t("uploadFor", { month: monthLabel(period, locale) })}
       </Button>
 
       {failedRows.length > 0 && (
         <div className="space-y-1" role="alert">
-          <p className="text-sm text-destructive">Ни одна строка не сопоставилась. Первые причины:</p>
+          <p className="text-sm text-destructive">{t("nothingMatched")}</p>
           <ul className="space-y-0.5 text-sm">
             {failedRows.map((u, i) => (
               <li key={`${u.row}-${i}`}>
-                Строка {u.row}
-                {u.external_id ? ` (${u.external_id})` : ""}: {UNMATCHED_REASON_TEXT[u.reason] ?? u.reason}
+                {t("failedRow", {
+                  row: u.row,
+                  ext: u.external_id ? ` (${u.external_id})` : "",
+                  reason: Object.hasOwn(UNMATCHED_REASON_KEY, u.reason) ? tk(UNMATCHED_REASON_KEY[u.reason]) : u.reason,
+                })}
               </li>
             ))}
           </ul>

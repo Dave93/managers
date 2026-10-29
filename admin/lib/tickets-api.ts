@@ -13,6 +13,7 @@
 // backend/src/modules/tickets/controller.ts.
 
 import { apiClient } from "@admin/utils/eden";
+import { ruT, type TicketsLibT } from "@admin/lib/tickets-i18n";
 
 const api = apiClient.api as any;
 const ticketsApi = api.tickets;
@@ -197,7 +198,12 @@ export type ExecutorRow = {
 export interface ApiError extends Error {
   status?: number;
   value?: unknown;
+  // Ключ ticketsLib.api.*, если текст ошибки наш запасной (а не ответ
+  // сервера): apiMessage(error, t) переводит его при показе.
+  messageKey?: ApiMessageKey;
 }
+
+export type ApiMessageKey = "empty" | "validation" | "failed";
 
 // Eden возвращает провал как {data: null, error}, а TanStack Query ждёт
 // исключение. Статус и тело переносим, потому что экраны различают 403 и 409.
@@ -208,23 +214,38 @@ export function unwrap<T>(res: { data: T | null; error: any }): T {
     const e = new Error(apiMessage(res.error)) as ApiError;
     e.status = res.error.status;
     e.value = res.error.value;
+    e.messageKey = apiMessageKey(res.error) ?? undefined;
     throw e;
   }
   if (res.data === null || res.data === undefined) {
-    throw new Error("Пустой ответ сервера") as ApiError;
+    const e = new Error(ruT("api.empty")) as ApiError;
+    e.messageKey = "empty";
+    throw e;
   }
   return res.data;
 }
 
-export function apiMessage(error: any): string {
+// Какой из наших запасных текстов получит человек вместо ответа сервера
+// (null: текст пришёл с сервера и показывается как есть).
+export function apiMessageKey(error: any): ApiMessageKey | null {
+  if (typeof error?.messageKey === "string") return error.messageKey as ApiMessageKey;
+  const v = error?.value ?? error;
+  if (v?.type === "validation") return "validation";
+  if (typeof v?.message === "string") return null;
+  if (Array.isArray(v?.errors) && typeof v.errors[0] === "string") return null;
+  if (typeof error?.message === "string") return null;
+  return "failed";
+}
+
+export function apiMessage(error: any, t: TicketsLibT = ruT): string {
   const v = error?.value ?? error;
   // Ошибку валидации Elysia (422 до обработчика) отдаёт как JSON-строку в
   // message; человеку её показывать нельзя.
-  if (v?.type === "validation") return "Некорректные данные запроса";
+  const key = apiMessageKey(error);
+  if (key) return t(`api.${key}`);
   if (typeof v?.message === "string") return v.message;
   if (Array.isArray(v?.errors) && typeof v.errors[0] === "string") return v.errors[0];
-  if (typeof error?.message === "string") return error.message;
-  return "Не удалось выполнить запрос";
+  return error.message;
 }
 
 // В браузере админка ходит на свой же origin, а Next.js rewrites проксируют

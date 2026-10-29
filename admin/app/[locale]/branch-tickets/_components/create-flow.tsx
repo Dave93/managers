@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Loader2, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Textarea } from "@components/ui/textarea";
@@ -28,11 +29,6 @@ import { useCreateTicket } from "./use-branch-tickets";
 
 const NO_FIELDS: FieldDef[] = [];
 const NO_FIELDS_MSG: string[] = [];
-
-const PRIORITIES = [
-  { value: "normal", label: "Обычная" },
-  { value: "urgent", label: "Срочная" },
-] as const satisfies readonly { value: TicketPriority; label: string }[];
 
 // Две части экрана создания: плитки типов и форма выбранного типа. Данные
 // (типы, филиалы) приходят снаружи уже загруженными, поэтому сюда не попасть
@@ -72,6 +68,12 @@ export function CreateFlow({
     awaiting?: boolean;
   };
 }) {
+  const t = useTranslations("branchTickets.flow");
+  const tl = useTranslations("ticketsLib");
+  const priorities = [
+    { value: "normal", label: t("priorityNormal") },
+    { value: "urgent", label: t("priorityUrgent") },
+  ] as const satisfies readonly { value: TicketPriority; label: string }[];
   const [typeId, setTypeId] = useState<string | null>(initial?.typeId ?? null);
   const lastTypeId = useRef<string | null>(initial?.typeId ?? null);
   const [blockedId, setBlockedId] = useState<string | null>(initial?.blockedId ?? null);
@@ -113,7 +115,7 @@ export function CreateFlow({
   // на это время заменена отдельным действием с другой надписью.
   const awaiting = (create.awaitingCheck || Boolean(initial?.awaiting)) && !create.isPending && !done;
   const createdNumber = create.created?.number ?? initial?.created?.number ?? null;
-  const failure = create.error ? describeFailure(create.error) : null;
+  const failure = create.error ? describeFailure(create.error, tl) : null;
 
   const terminalId = pickBranch(branches, chosenBranch);
   const schema = formType?.fields_schema ?? NO_FIELDS;
@@ -124,7 +126,7 @@ export function CreateFlow({
         branchUnchosen: terminalId === null,
         photoCount: photos.length,
         photosProcessing: processing,
-      })
+      }, tl)
     : NO_FIELDS_MSG;
 
   useEffect(() => {
@@ -185,20 +187,20 @@ export function CreateFlow({
     return (
       <div className="space-y-4">
         <div>
-          <h2 className="text-xl font-semibold tracking-tight">Что случилось?</h2>
-          <p className="text-base text-muted-foreground">Выберите тип заявки.</p>
+          <h2 className="text-xl font-semibold tracking-tight">{t("whatHappened")}</h2>
+          <p className="text-base text-muted-foreground">{t("pickType")}</p>
         </div>
         {typeGone && (
           <div role="status" className="flex items-start gap-3 rounded-lg border border-amber-500/60 bg-amber-50 px-4 py-3 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100">
             <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
             <p className="text-base leading-snug">
-              Этот тип отключили, пока вы заполняли заявку. Выберите другой: фотографии останутся.
+              {t("typeGone")}
             </p>
           </div>
         )}
         {types.length === 0 ? (
           <p role="status" className="rounded-lg border border-dashed px-4 py-8 text-center text-base text-muted-foreground">
-            Типов заявок пока нет. Обратитесь к администратору: их заводят в разделе «Типы заявок».
+            {t("noTypes")}
           </p>
         ) : (
           <TypeTiles
@@ -219,19 +221,19 @@ export function CreateFlow({
 
   // -------- шаг 2: поля, приоритет, фото
   const label = pending
-    ? "Отправляем заявку…"
+    ? t("submitting")
     : done
-      ? "Заявка создана"
+      ? t("submitted")
       : processing > 0
-        ? "Обрабатываем фото…"
-        : "Создать заявку";
+        ? t("processingPhotos")
+        : t("submit");
   const locked = pending || done;
 
   return (
     <form onSubmit={submit} noValidate className="space-y-5" aria-busy={pending}>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" variant="outline" className="h-11 px-4 text-base" disabled={locked || processing > 0} onClick={() => setTypeId(null)}>
-          <ArrowLeft className="size-5" /> Другой тип
+          <ArrowLeft className="size-5" /> {t("anotherType")}
         </Button>
         <div className="flex items-center gap-2 text-lg font-semibold">
           <TypeIcon name={formType.icon} className="size-6" /> {formType.name_ru}
@@ -249,11 +251,11 @@ export function CreateFlow({
             disabled={locked}
           />
           <div className="space-y-2">
-            <p id="priority-label" className="text-base font-medium">Срочность</p>
+            <p id="priority-label" className="text-base font-medium">{t("priority")}</p>
             <PillGroup
               labelledBy="priority-label"
               value={priority}
-              options={PRIORITIES}
+              options={priorities}
               onChange={(v) => setPriority(v ?? "normal")}
               disabled={locked}
             />
@@ -263,9 +265,9 @@ export function CreateFlow({
         <div className="space-y-5">
           <div className="space-y-2">
             <p className="flex flex-wrap items-baseline gap-x-2 text-base font-medium">
-              <span>Фотографии проблемы</span>
+              <span>{t("photos")}</span>
               <span className="text-sm font-normal text-muted-foreground">
-                <span aria-hidden className="text-destructive">*</span> нужна хотя бы одна
+                <span aria-hidden className="text-destructive">*</span> {t("photosRequired")}
               </span>
             </p>
             <PhotoInput
@@ -292,15 +294,15 @@ export function CreateFlow({
 
           <div className="space-y-2">
             <label htmlFor="ticket-description" className="flex flex-wrap items-baseline gap-x-2 text-base font-medium">
-              <span>Комментарий</span>
-              <span className="text-sm font-normal text-muted-foreground">по желанию</span>
+              <span>{t("comment")}</span>
+              <span className="text-sm font-normal text-muted-foreground">{t("optional")}</span>
             </label>
             <Textarea
               id="ticket-description"
               value={description}
               maxLength={MAX_TEXT}
               rows={3}
-              placeholder="Что ещё нужно знать исполнителю"
+              placeholder={t("commentPlaceholder")}
               onChange={(e) => setDescription(e.target.value)}
               className="min-h-24 text-base md:text-base"
             />
@@ -312,9 +314,9 @@ export function CreateFlow({
         {done && (
           <div role="status" className="flex flex-wrap items-center gap-3 rounded-lg border border-emerald-600/50 bg-emerald-50 px-4 py-3 text-emerald-950 dark:bg-emerald-950/30 dark:text-emerald-100">
             <CheckCircle2 className="size-5 shrink-0" aria-hidden />
-            <p className="text-base font-medium">Заявка {createdNumber ?? ""} создана.</p>
+            <p className="text-base font-medium">{t("createdWithNumber", { number: createdNumber ?? "" })}</p>
             <Button type="button" variant="outline" className="h-11 px-4 text-base" onClick={onAnother}>
-              Создать ещё одну
+              {t("createAnother")}
             </Button>
           </div>
         )}
@@ -329,9 +331,9 @@ export function CreateFlow({
             {canOpenList && (
               <p className="text-base">
                 <Link href="/branch-tickets" target="_blank" rel="noopener" className="font-medium underline underline-offset-4">
-                  Открыть список заявок филиала в новой вкладке
+                  {t("openList")}
                 </Link>
-                <span className="text-muted-foreground"> (эта форма и фотографии останутся здесь)</span>
+                <span className="text-muted-foreground"> {t("openListNote")}</span>
               </p>
             )}
             <Button
@@ -341,7 +343,7 @@ export function CreateFlow({
               disabled={missing.length > 0}
               onClick={() => send(true)}
             >
-              Я проверил список, создать ещё раз
+              {t("recheckCreate")}
             </Button>
           </div>
         ) : (
@@ -358,7 +360,7 @@ export function CreateFlow({
         )}
         {missing.length > 0 && !locked && (
           <div className="text-sm text-muted-foreground">
-            <p className="font-medium">Чтобы создать заявку:</p>
+            <p className="font-medium">{t("toCreate")}</p>
             <ul className="mt-1 list-inside list-disc space-y-0.5">
               {missing.map((m) => (
                 <li key={m}>{m}</li>
@@ -368,7 +370,7 @@ export function CreateFlow({
         )}
         {pending && (
           <p className="text-sm text-muted-foreground" role="status">
-            Отправка фотографий может занять минуту. Не закрывайте экран и не нажимайте повторно.
+            {t("uploadHint")}
           </p>
         )}
       </div>

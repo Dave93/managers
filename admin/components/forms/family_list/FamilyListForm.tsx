@@ -7,6 +7,7 @@ import { Calendar, CalendarIcon, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@admin/lib/utils";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 // import { Calendar } from "@admin/components/ui/calendar";
 import { SelectValue } from "@admin/components/ui/select";
@@ -42,6 +43,8 @@ const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHand
 }
 
 export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListFormProps) {
+    const t = useTranslations("forms.familyList");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLDivElement>(null);
 
     const [familyListName, setFamilyListName] = useState("");
@@ -70,15 +73,15 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
 
             // Validate required fields
             const missingFields = [];
-            if (!familyListName) missingFields.push("ФИО родственника");
-            if (!familyListRelation) missingFields.push("Родственные отношения");
+            if (!familyListName) missingFields.push(t("fullName"));
+            if (!familyListRelation) missingFields.push(t("relation"));
 
             if (missingFields.length > 0) {
                 console.error('Validation failed: Missing required fields', {
                     familyListName,
                     familyListRelation
                 });
-                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
+                toast.error(t("fillFields", { fields: missingFields.join(", ") }));
                 return;
             }
 
@@ -90,7 +93,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     console.error('Validation failed: Invalid birth date', {
                         familyListBirthDate
                     });
-                    toast.error("Пожалуйста, введите корректную дату рождения");
+                    toast.error(t("invalidBirthDate"));
                     return;
                 }
                 formattedBirthDate = format(birthDate, "yyyy-MM-dd");
@@ -111,7 +114,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast.success("Родственник добавлен");
+            toast.success(t("added"));
 
             // Reset form
             setFamilyListName("");
@@ -133,7 +136,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     familyJob
                 }
             });
-            toast.error("Произошла ошибка при добавлении родственника");
+            toast.error(t("addError"));
         }
     };
 
@@ -148,12 +151,12 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
             }}
         >
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Записи о родственниках</h2>
+                <h2 className="text-xl font-semibold">{t("entriesTitle")}</h2>
             </div>
 
             {entries.length > 0 && (
                 <div className="p-3 rounded-md mb-4">
-                    <p className="font-medium text-green-700">Добавлено родственников: {entries.length}</p>
+                    <p className="font-medium text-green-700">{t("addedCount", { count: entries.length })}</p>
                     <ul className="list-disc pl-5 mt-2">
                         {entries.map((entry, index) => (
                             <li key={index} className="text-sm text-green-800 mb-1">
@@ -169,7 +172,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                                     }}
                                     className="ml-2 h-6 text-red-500 hover:text-red-700"
                                 >
-                                    <Trash2 className="h-3 w-3 mr-1" /> Удалить
+                                    <Trash2 className="h-3 w-3 mr-1" /> {tc("delete")}
                                 </Button>
                             </li>
                         ))}
@@ -178,31 +181,31 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
             )}
 
             <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-border">
-                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">Добавить нового родственника</h3>
+                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">{t("addNew")}</h3>
 
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        ФИО родственника <span className="text-red-500 ml-1">*</span>
+                        {t("fullName")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
                         value={familyListName}
                         onChange={(e) => setFamilyListName(e.target.value)}
-                        placeholder="Введите ФИО родственника"
+                        placeholder={t("enterFullName")}
                     />
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Родственные отношения <span className="text-red-500 ml-1">*</span>
+                        {t("relation")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
                         value={familyListRelation}
                         onChange={(e) => setFamilyListRelation(e.target.value)}
-                        placeholder="Например: мать, отец, брат, сестра"
+                        placeholder={t("relationPlaceholder")}
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Дата рождения</Label>
+                    <Label>{t("birthDate")}</Label>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
@@ -215,7 +218,7 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {familyListBirthDate ? format(new Date(familyListBirthDate), "PPP") : <span>Выберите дату</span>}
+                                {familyListBirthDate ? format(new Date(familyListBirthDate), "PPP") : <span>{t("pickDate")}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent container={formRef.current!} className="w-auto p-0">
@@ -268,35 +271,35 @@ export default function FamilyListForm({ entries, onAdd, onRemove }: FamilyListF
                     </Popover>
                 </div>
                 <div className="space-y-2">
-                    <Label>Телефон</Label>
+                    <Label>{tc("phone")}</Label>
                     <Input
                         value={familyListPhone}
                         onChange={(e) => setFamilyListPhone(e.target.value)}
-                        placeholder="Введите номер телефона"
+                        placeholder={t("enterPhone")}
                         type="tel"
                     />
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Адрес</Label>
+                    <Label>{t("address")}</Label>
                     <Input
                         value={familyListAddress}
                         onChange={(e) => setFamilyListAddress(e.target.value)}
-                        placeholder="Введите адрес проживания"
+                        placeholder={t("enterAddress")}
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label>Место работы</Label>
+                    <Label>{t("workPlace")}</Label>
                     <Input
                         value={familyJob}
                         onChange={(e) => setFamilyJob(e.target.value)}
-                        placeholder="Введите место работы"
+                        placeholder={t("enterWorkPlace")}
                     />
                 </div>
 
                 <div className="col-span-2 flex justify-end mt-4">
                     <Button onClick={handleAdd} type="button">
-                        Добавить родственника
+                        {t("addEntry")}
                     </Button>
                 </div>
             </div>

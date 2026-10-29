@@ -30,6 +30,7 @@ import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Plus, RotateCw, ShieldAlert, Store, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { Link, useRouter } from "@admin/i18n/routing";
@@ -64,8 +65,9 @@ const ACTIVE_LIMIT = 200;
 const FINISHED_LIMIT = 50;
 
 function Loading() {
+  const t = useTranslations("branchTickets.list");
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Загрузка">
+    <div className="space-y-3" aria-busy="true" aria-label={t("loading")}>
       <Skeleton className="h-8 w-64" />
       <div className="grid gap-3 md:grid-cols-2">
         <Skeleton className="h-28" />
@@ -78,18 +80,22 @@ function Loading() {
 }
 
 function NoListAccess({ missing, serverDenied }: { missing: string[]; serverDenied?: boolean }) {
+  const t = useTranslations("branchTickets.list");
   return (
     <div role="alert" className="rounded-lg border bg-card">
       <div className="flex items-start gap-3 px-5 py-6">
         <ShieldAlert className="mt-0.5 size-6 shrink-0 text-destructive" />
         <div className="min-w-0 space-y-2.5">
-          <p className="text-base font-semibold leading-tight">Нет доступа к заявкам филиала</p>
+          <p className="text-base font-semibold leading-tight">{t("noAccessTitle")}</p>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
-            {serverDenied ? "Сервер ответил отказом (403). " : ""}
-            Экрану нужны два права:{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{CREATE_RIGHT}</code> (планшет
-            филиала) и <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{LIST_RIGHT}</code>{" "}
-            (смотреть заявки своего филиала). У вашей роли не хватает:
+            {serverDenied ? `${t("serverDenied")} ` : ""}
+            {t.rich("noAccessBody", {
+              create: CREATE_RIGHT,
+              list: LIST_RIGHT,
+              code: (chunks) => (
+                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{chunks}</code>
+              ),
+            })}
           </p>
           <ul className="space-y-1">
             {missing.map((p) => (
@@ -99,7 +105,7 @@ function NoListAccess({ missing, serverDenied }: { missing: string[]; serverDeni
             ))}
           </ul>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
-            Попросите администратора добавить их роли, затем перезагрузите страницу.
+            {t("noAccessHint")}
           </p>
         </div>
       </div>
@@ -110,15 +116,15 @@ function NoListAccess({ missing, serverDenied }: { missing: string[]; serverDeni
 // Не то же, что UnassignedPanel экрана создания: тот объясняет, почему нельзя
 // СОЗДАТЬ заявку, а сюда приходят смотреть и принимать.
 function NoBranchPanel() {
+  const t = useTranslations("branchTickets.list");
   return (
     <div role="alert" className="rounded-lg border bg-card">
       <div className="flex items-start gap-3 px-5 py-6">
         <Store className="mt-0.5 size-6 shrink-0 text-muted-foreground" />
         <div className="min-w-0 space-y-2">
-          <p className="text-base font-semibold leading-tight">У вашей роли нет привязки к филиалу</p>
+          <p className="text-base font-semibold leading-tight">{t("noBranchTitle")}</p>
           <p className="max-w-xl text-sm leading-snug text-muted-foreground">
-            Заявки показываются по филиалу сотрудника, а за вашей ролью филиал не закреплён, поэтому показывать
-            нечего. Если вы менеджер, попросите администратора закрепить за вами филиал и войдите заново.
+            {t("noBranchBody")}
           </p>
         </div>
       </div>
@@ -152,14 +158,16 @@ type ListState = ReturnType<typeof useTicketList>;
 // Состояния списка различимы и ни одно не вечное: загрузка, отказ (403),
 // ошибка сети/сервера с «Повторить». Данные в кэше важнее ошибки обновления:
 // при сбое фонового запроса показанный список остаётся с короткой пометкой.
-function ListStatus({ q, what }: { q: ListState; what: string }) {
+function ListStatus({ q, what }: { q: ListState; what: "active" | "finished" }) {
+  const t = useTranslations("branchTickets.list");
+  const tl = useTranslations("ticketsLib");
   if (q.data) {
     return q.isError ? (
       <p role="alert" className="flex flex-wrap items-center gap-3 text-sm text-amber-700 dark:text-amber-400">
-        Не удалось обновить {what}: показаны прошлые данные.
+        {t(`updateFailed.${what}`)}
         <Button variant="outline" className="h-11 px-4 text-base" onClick={() => q.refetch()} disabled={q.isFetching}>
           <RotateCw className={q.isFetching ? "size-4 animate-spin" : "size-4"} />
-          Повторить
+          {t("retry")}
         </Button>
       </p>
     ) : null;
@@ -168,8 +176,8 @@ function ListStatus({ q, what }: { q: ListState; what: string }) {
   if ((q.error as ApiError | null)?.status === 403) return <NoListAccess missing={[LIST_RIGHT]} serverDenied />;
   return (
     <LoadFailedPanel
-      title={`Не удалось загрузить ${what}`}
-      detail={loadErrorText(q.error)}
+      title={t(`loadFailed.${what}`)}
+      detail={loadErrorText(q.error, tl)}
       onRetry={() => q.refetch()}
       retrying={q.isFetching}
     />
@@ -187,6 +195,7 @@ function CreatedBanner({
   listSettled: boolean;
   onDismiss: () => void;
 }) {
+  const t = useTranslations("branchTickets.list");
   const inList = rows?.find((r) => r.id === createdId);
   // Номер берётся из списка; карточка нужна, только когда список уже
   // перечитан, а заявки в нём нет (не туда ушла, закрыта, чужой филиал).
@@ -198,9 +207,7 @@ function CreatedBanner({
   const finishedStatus = card.data?.status === "closed" || card.data?.status === "cancelled";
   const hiddenNote =
     !inList && listSettled && card.data
-      ? finishedStatus
-        ? " Она уже закрыта или отменена: смотрите вкладку «Закрытые и отменённые»."
-        : " В списке её пока не видно: обновите страницу."
+      ? ` ${finishedStatus ? t("hiddenFinished") : t("hiddenNotVisible")}`
       : "";
 
   return (
@@ -217,15 +224,15 @@ function CreatedBanner({
       <CheckCircle2 className="size-5 shrink-0" aria-hidden />
       <p className="min-w-0 flex-1 text-base font-medium">
         {missing
-          ? "Заявка создана, но найти её среди заявок вашего филиала не удалось. Обновите страницу."
+          ? t("createdMissing")
           : number
-            ? `Заявка ${number} создана.`
-            : "Заявка создана."}
+            ? t("createdWithNumber", { number })
+            : t("created")}
         {hiddenNote}
       </p>
       <Button variant="outline" className="h-11 px-4 text-base" onClick={onDismiss}>
         <X className="size-4" aria-hidden />
-        Скрыть
+        {t("dismiss")}
       </Button>
     </div>
   );
@@ -242,6 +249,7 @@ function FinishedList({
   types: TicketTypeRow[] | undefined;
   onOpen: (id: string) => void;
 }) {
+  const t = useTranslations("branchTickets.list");
   const q = useMemo(
     () => ({ limit: FINISHED_LIMIT, offset: 0, filters: branchFilters(FINISHED_STATUSES, branchIds) }),
     [branchIds]
@@ -250,10 +258,10 @@ function FinishedList({
   const rows = list.data?.data ?? [];
   return (
     <div className="space-y-4">
-      <ListStatus q={list} what="закрытые заявки" />
+      <ListStatus q={list} what="finished" />
       {list.data && rows.length === 0 && (
         <p className="rounded-lg border border-dashed px-4 py-8 text-center text-base text-muted-foreground">
-          Закрытых и отменённых заявок пока нет.
+          {t("finishedEmpty")}
         </p>
       )}
       {rows.length > 0 && (
@@ -273,7 +281,7 @@ function FinishedList({
       )}
       {list.data && list.data.total > rows.length && (
         <p className="text-sm text-muted-foreground">
-          Показаны последние {rows.length} из {list.data.total}.
+          {t("finishedShown", { shown: rows.length, total: list.data.total })}
         </p>
       )}
     </div>
@@ -281,6 +289,8 @@ function FinishedList({
 }
 
 function BranchTicketsPage() {
+  const t = useTranslations("branchTickets.list");
+  const tl = useTranslations("ticketsLib");
   // Тот же ключ, что у CanAccess и layout: один запрос на всё приложение.
   const perms = useQuery({
     queryKey: ["my_permissions"],
@@ -342,18 +352,18 @@ function BranchTicketsPage() {
   const header = (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Заявки филиала</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-base text-muted-foreground">
           {branches.data && branches.data.length > 0
             ? branches.data.map((b) => b.name).join(", ")
-            : "Что сломалось, кто взял и что ждёт вашего решения."}
+            : t("subtitle")}
         </p>
       </div>
       {!unassigned && missing.length === 0 && (
         <Button asChild className="h-12 px-6 text-base">
           <Link href="/branch-tickets/new">
             <Plus className="size-5" aria-hidden />
-            Новая заявка
+            {t("newTicket")}
           </Link>
         </Button>
       )}
@@ -372,11 +382,11 @@ function BranchTicketsPage() {
     // Данные в кэше важнее ошибки обновления, поэтому ветка ошибки идёт после.
     body = (
       <LoadFailedPanel
-        title="Не удалось определить ваш филиал"
+        title={t("branchUnknownTitle")}
         detail={
           branches.error?.status === 403
-            ? "Сервер отказал в доступе к данным сессии (403). Войдите заново; если не помогло, обратитесь к администратору."
-            : loadErrorText(branches.error)
+            ? t("branchUnknownForbidden")
+            : loadErrorText(branches.error, tl)
         }
         onRetry={() => branches.refetch()}
         retrying={branches.isFetching}
@@ -399,11 +409,11 @@ function BranchTicketsPage() {
           />
         )}
 
-        <div role="tablist" aria-label="Заявки" className="flex flex-wrap gap-2">
+        <div role="tablist" aria-label={t("tabsAria")} className="flex flex-wrap gap-2">
           {(
             [
-              ["active", active.data ? `Активные (${activeCount})` : "Активные"],
-              ["finished", "Закрытые и отменённые"],
+              ["active", active.data ? t("tabActiveCount", { count: activeCount }) : t("tabActive")],
+              ["finished", t("tabFinished")],
             ] as const
           ).map(([key, label]) => (
             <button
@@ -424,20 +434,20 @@ function BranchTicketsPage() {
 
         {view === "active" ? (
           <div className="space-y-6">
-            <ListStatus q={active} what="заявки" />
+            <ListStatus q={active} what="active" />
             {active.data && activeCount === 0 && (
               <div className="space-y-3 rounded-lg border border-dashed px-4 py-10 text-center">
-                <p className="text-base text-muted-foreground">Активных заявок нет: всё закрыто или ещё ничего не создано.</p>
+                <p className="text-base text-muted-foreground">{t("activeEmpty")}</p>
                 <Button asChild variant="outline" className="h-12 px-6 text-base">
-                  <Link href="/branch-tickets/new">Создать заявку</Link>
+                  <Link href="/branch-tickets/new">{t("createTicket")}</Link>
                 </Button>
               </div>
             )}
             {(
               [
-                ["Ждут вашего подтверждения", groups.awaiting],
-                ["В работе", groups.inProgress],
-                ["Новые", groups.fresh],
+                [t("groupAwaiting"), groups.awaiting],
+                [t("groupInProgress"), groups.inProgress],
+                [t("groupFresh"), groups.fresh],
               ] as const
             ).map(([title, list]) => (
               <Group
@@ -459,7 +469,7 @@ function BranchTicketsPage() {
             ))}
             {active.data && active.data.total > (rows?.length ?? 0) && (
               <p className="text-sm text-muted-foreground">
-                Показаны {rows?.length} из {active.data.total} активных заявок.
+                {t("activeShown", { shown: rows?.length ?? 0, total: active.data.total })}
               </p>
             )}
           </div>

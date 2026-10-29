@@ -6,8 +6,11 @@ import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@admin/components/useAuth";
+import { useLocale, useTranslations } from "next-intl";
 
 export default function Home() {
+  const t = useTranslations("layoutUi");
+  const locale = useLocale();
   const roleCode = useGetRole();
   const pathname = usePathname();
   const { user, loading } = useAuth();
@@ -16,9 +19,9 @@ export default function Home() {
     console.log("Home page auth state:", { user, loading, pathname });
     if (!user && !loading && !pathname.includes('/login')) {
       console.log("Redirecting to login from home page");
-      return redirect('/login');
+      return redirect(`/${locale}/login`);
     }
-  }, [user, loading, pathname]);
+  }, [user, loading, pathname, locale]);
   return (
     <>
       {["manager"].includes(roleCode!) && (
@@ -26,7 +29,7 @@ export default function Home() {
       )}
       {roleCode !== "manager" && (
         <main className="flex min-h-screen flex-col items-center justify-between p-24">
-          this is the home page
+          {t("homePlaceholder")}
         </main>
       )}
     </>

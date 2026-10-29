@@ -1,4 +1,6 @@
 // Форматирование по Asia/Tashkent и русской локали. Пробелы в числах и перед знаком — U+00A0.
+import { ruT, type KpiT } from "./i18n";
+
 // Строки собираем вручную, без Intl: результат не зависит от ICU и зоны браузера.
 
 const TASHKENT_OFFSET_MS = 5 * 60 * 60 * 1000;
@@ -31,10 +33,10 @@ export function formatPct(n: number | null): string {
   return `${String(roundTo(n, 2)).replace(".", ",")}${NBSP}%`;
 }
 
-export function formatSum(n: number | null): string {
+export function formatSum(n: number | null, t: KpiT = ruT): string {
   if (n === null || !Number.isFinite(n)) return "—";
   const r = Math.round(n);
-  return `${r < 0 ? "-" : ""}${group(String(Math.abs(r)))}${NBSP}сум`;
+  return `${r < 0 ? "-" : ""}${group(String(Math.abs(r)))}${NBSP}${t("lib.format.currency")}`;
 }
 
 export function parseAmount(s: string): number | null {

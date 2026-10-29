@@ -7,6 +7,7 @@
 // это сумма, которую утвердит POST /tickets/payment/approve.
 
 import { RotateCw, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Skeleton } from "@components/ui/skeleton";
@@ -25,6 +26,9 @@ function fmtQty(value: string): string {
 }
 
 export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan: number }) {
+  const t = useTranslations("ticketsUi.payments.detail");
+  const tt = useTranslations("ticketsUi.table");
+  const tl = useTranslations("ticketsLib");
   const card = useTicketCard(ticket.id);
   const error = card.error as ApiError | null;
 
@@ -44,14 +48,14 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
         <TriangleAlert className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 space-y-2">
           <p className="text-[13px] font-medium">
-            {denied ? "Нет доступа к карточке заявки" : "Не удалось загрузить акт и фото"}
+            {denied ? t("forbiddenTitle") : t("loadFailed")}
           </p>
           <p className="max-w-xl break-words text-[12.5px] leading-snug text-muted-foreground">
             {denied
-              ? "Сервер ответил отказом (403). Карточка открывается правом tickets.list."
+              ? t("forbiddenBody", { right: "tickets.list" })
               : error?.status === undefined
-                ? "Запрос не дошёл до сервера. Проверьте соединение и повторите."
-                : apiMessage(error)}
+                ? tt("noConnectionBody")
+                : apiMessage(error, tl)}
           </p>
           <Button
             variant="outline"
@@ -60,7 +64,7 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
             disabled={card.isFetching}
           >
             <RotateCw className={card.isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
-            {card.isFetching ? "Повторяем…" : "Повторить"}
+            {card.isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       </div>
@@ -80,34 +84,33 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
     // строке списка рядом с кнопкой «Утвердить».
     let problem: string | null = null;
     if (items.length === 0) {
-      problem = `В акте нет позиций, а итог указан: ${formatAmount(c.work_total_amount)}. Проверьте заявку, прежде чем утверждать.`;
+      problem = t("problemNoItems", { amount: formatAmount(c.work_total_amount, tl) });
     } else if (itemsSum === null) {
-      problem =
-        "Сумму одной из позиций не удалось прочитать, сверить с итогом акта нельзя. Проверьте заявку, прежде чем утверждать.";
+      problem = t("problemItemUnreadable");
     } else if (totalMinor === null) {
-      problem = "Итог акта не удалось прочитать. Проверьте заявку, прежде чем утверждать.";
+      problem = t("problemTotalUnreadable");
     } else if (itemsSum !== totalMinor) {
-      problem = "Сумма позиций не совпадает с итогом акта. Проверьте заявку, прежде чем утверждать.";
+      problem = t("problemMismatch");
     }
     body = (
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="min-w-0 space-y-2">
-          <h4 className="text-sm font-medium">Акт выполненных работ</h4>
+          <h4 className="text-sm font-medium">{t("actTitle")}</h4>
           <p className="text-[12px] leading-snug text-muted-foreground">
-            Исполнитель: {c.executor_name ?? "не назначен"}
-            {ticket.contractor_name ? `, фирма: ${ticket.contractor_name}` : ""}
+            {t("executor", { name: c.executor_name ?? t("notAssigned") })}
+            {ticket.contractor_name ? `, ${t("firm", { name: ticket.contractor_name })}` : ""}
           </p>
           {items.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Акт не заполнен</p>
+            <p className="text-sm text-muted-foreground">{t("actEmpty")}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border bg-background">
               <table className="w-full text-sm">
                 <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="w-8 px-3 py-1.5 font-medium">№</th>
-                    <th className="px-3 py-1.5 font-medium">Работа</th>
-                    <th className="px-3 py-1.5 text-right font-medium">Кол-во</th>
-                    <th className="px-3 py-1.5 text-right font-medium">Сумма</th>
+                    <th className="px-3 py-1.5 font-medium">{t("actWork")}</th>
+                    <th className="px-3 py-1.5 text-right font-medium">{t("actQty")}</th>
+                    <th className="px-3 py-1.5 text-right font-medium">{t("actAmount")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
@@ -122,7 +125,7 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
                         {w.unit ? ` ${w.unit}` : ""}
                       </td>
                       <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
-                        {formatAmount(w.amount)}
+                        {formatAmount(w.amount, tl)}
                       </td>
                     </tr>
                   ))}
@@ -130,10 +133,10 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
                 <tfoot className="border-t bg-muted/20 font-medium">
                   <tr>
                     <td colSpan={3} className="px-3 py-1.5 text-right">
-                      Итого
+                      {t("actTotal")}
                     </td>
                     <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
-                      {formatAmount(c.work_total_amount)}
+                      {formatAmount(c.work_total_amount, tl)}
                     </td>
                   </tr>
                 </tfoot>
@@ -147,9 +150,9 @@ export function PaymentDetail({ ticket, colSpan }: { ticket: TicketRow; colSpan:
           )}
         </section>
         <PhotoStrip
-          title="Фото результата"
+          title={t("photosResult")}
           items={result}
-          empty="Исполнитель не приложил фото результата"
+          empty={t("photosEmpty")}
         />
       </div>
     );

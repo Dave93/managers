@@ -3,19 +3,22 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { UserNav } from "./user-nav";
 
+import LanguageSwitcher from "@admin/components/ui/language-switcher";
 export default function SalesPlanLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const t = useTranslations("layoutUi.salesPlan");
 
   const navItems = [
     {
       href: "/admin/sales-plans/dashboard",
-      label: "Дашборд",
+      label: t("dashboard"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -35,7 +38,7 @@ export default function SalesPlanLayout({
     },
     {
       href: "/admin/sales-plans/list",
-      label: "Планы",
+      label: t("plans"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -55,7 +58,7 @@ export default function SalesPlanLayout({
     },
     {
       href: "/report_olap",
-      label: "Акт Реализации",
+      label: t("salesAct"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -75,7 +78,7 @@ export default function SalesPlanLayout({
     },
     {
       href: "/admin/sales-plans/create",
-      label: "Создать",
+      label: t("create"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -101,8 +104,11 @@ export default function SalesPlanLayout({
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
-          <span className="text-lg font-semibold">План продаж</span>
-          <UserNav />
+          <span className="text-lg font-semibold">{t("title")}</span>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <UserNav />
+          </div>
         </div>
       </header>
 

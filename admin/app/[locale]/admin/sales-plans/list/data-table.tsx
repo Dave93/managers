@@ -3,7 +3,7 @@
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { MoreVertical } from "lucide-react";
 import {
   DropdownMenu,
@@ -37,10 +37,10 @@ type SalesPlan = {
   created_at: string;
 };
 
-const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
+const MONTH_KEYS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+] as const;
 
 function getProgressColor(pct: number) {
   if (pct >= 70) return "text-green-600";
@@ -62,6 +62,8 @@ function getProgressTrack(pct: number) {
 
 export function DataTable() {
   const locale = useLocale();
+  const t = useTranslations("salesPlans");
+  const monthName = (m: number) => t(`months.${MONTH_KEYS[m - 1]}`);
   const [pageIndex, setPageIndex] = useState(0);
   const pageSize = 20;
   const now = new Date();
@@ -109,7 +111,7 @@ export function DataTable() {
   const openSingleCopy = (plan: SalesPlan) => {
     setCopySourceIds([plan.id]);
     setCopySourceLabel(
-      `${plan.terminal_name || plan.terminal_id.substring(0, 8)} · ${MONTHS[plan.month - 1]} ${plan.year}`
+      `${plan.terminal_name || plan.terminal_id.substring(0, 8)} · ${monthName(plan.month)} ${plan.year}`
     );
     setCopySourceYear(plan.year);
     setCopySourceMonth(plan.month);
@@ -138,7 +140,7 @@ export function DataTable() {
           }}
         >
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Год" />
+            <SelectValue placeholder={t("create.year")} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="2025">2025</SelectItem>
@@ -157,11 +159,11 @@ export function DataTable() {
           }}
         >
           <SelectTrigger className="flex-1">
-            <SelectValue placeholder="Месяц" />
+            <SelectValue placeholder={t("create.month")} />
           </SelectTrigger>
           <SelectContent>
-            {MONTHS.map((name, i) => (
-              <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+            {MONTH_KEYS.map((key, i) => (
+              <SelectItem key={i + 1} value={String(i + 1)}>{t(`months.${key}`)}</SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -176,14 +178,14 @@ export function DataTable() {
             setSelectMode((v) => !v);
           }}
         >
-          {selectMode ? "Отмена" : "Выбрать"}
+          {selectMode ? t("form.cancel") : t("list.select")}
         </Button>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Загрузка...</div>
+        <div className="flex items-center justify-center py-12 text-muted-foreground">{t("loading")}</div>
       ) : plans.length === 0 ? (
-        <div className="flex items-center justify-center py-12 text-muted-foreground">Нет планов</div>
+        <div className="flex items-center justify-center py-12 text-muted-foreground">{t("list.empty")}</div>
       ) : (
         <div className="space-y-3">
           {plans.map((plan) => {
@@ -215,7 +217,7 @@ export function DataTable() {
                         onChange={() => toggleSelected(plan.id)}
                         onClick={(e) => e.stopPropagation()}
                         className="size-4 accent-primary"
-                        aria-label={`Выбрать ${plan.terminal_name || plan.terminal_id}`}
+                        aria-label={t("list.selectAria", { name: plan.terminal_name || plan.terminal_id })}
                       />
                     )}
                     <span className="font-semibold">
@@ -229,7 +231,7 @@ export function DataTable() {
                     {!selectMode && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <button className="p-1 rounded hover:bg-muted" aria-label="Действия">
+                          <button className="p-1 rounded hover:bg-muted" aria-label={t("list.actions")}>
                             <MoreVertical className="size-4 text-muted-foreground" />
                           </button>
                         </DropdownMenuTrigger>
@@ -237,10 +239,10 @@ export function DataTable() {
                           <DropdownMenuItem
                             onSelect={() => router.push(`/${locale}/admin/sales-plans/${plan.id}/edit`)}
                           >
-                            Редактировать
+                            {t("list.edit")}
                           </DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => openSingleCopy(plan)}>
-                            Копировать
+                            {t("list.copy")}
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -256,12 +258,12 @@ export function DataTable() {
                 </div>
 
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>{MONTHS[plan.month - 1]} {plan.year}</span>
-                  <span>{plan.items_count} продуктов</span>
+                  <span>{monthName(plan.month)} {plan.year}</span>
+                  <span>{t("productsCount", { count: plan.items_count })}</span>
                 </div>
 
                 <div className="text-xs text-muted-foreground">
-                  Создан: {dayjs(plan.created_at).format("DD.MM.YYYY")}
+                  {t("list.createdAt", { date: dayjs(plan.created_at).format("DD.MM.YYYY") })}
                 </div>
               </div>
             );
@@ -272,18 +274,22 @@ export function DataTable() {
       {total > 0 && (
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-muted-foreground">
-            {pageIndex * pageSize + 1}–{Math.min((pageIndex + 1) * pageSize, total)} из {total}
+            {t("list.pageRange", {
+              from: pageIndex * pageSize + 1,
+              to: Math.min((pageIndex + 1) * pageSize, total),
+              total,
+            })}
           </span>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setPageIndex((p) => p - 1)} disabled={!canPrev}>Назад</Button>
-            <Button variant="outline" size="sm" onClick={() => setPageIndex((p) => p + 1)} disabled={!canNext}>Вперёд</Button>
+            <Button variant="outline" size="sm" onClick={() => setPageIndex((p) => p - 1)} disabled={!canPrev}>{t("list.prev")}</Button>
+            <Button variant="outline" size="sm" onClick={() => setPageIndex((p) => p + 1)} disabled={!canNext}>{t("list.next")}</Button>
           </div>
         </div>
       )}
 
       {selectMode && selectedIds.size > 0 && (
         <div className="sticky bottom-20 z-40 flex items-center justify-between gap-3 rounded-xl border bg-card/95 backdrop-blur p-3 shadow-lg">
-          <span className="text-sm font-medium">Выбрано: {selectedIds.size}</span>
+          <span className="text-sm font-medium">{t("list.selected", { count: selectedIds.size })}</span>
           <Button
             onClick={() => {
               setCopySourceIds([...selectedIds]);
@@ -293,7 +299,7 @@ export function DataTable() {
               setCopyDialogOpen(true);
             }}
           >
-            Копировать
+            {t("list.copy")}
           </Button>
         </div>
       )}
@@ -304,7 +310,11 @@ export function DataTable() {
         sourcePlanIds={copySourceIds}
         sourceLabel={
           copySourceIds.length > 1
-            ? `${copySourceIds.length} планов · ${MONTHS[copySourceMonth - 1]} ${copySourceYear}`
+            ? t("list.multiLabel", {
+                count: copySourceIds.length,
+                month: monthName(copySourceMonth),
+                year: copySourceYear,
+              })
             : copySourceLabel
         }
         sourceYear={copySourceYear}

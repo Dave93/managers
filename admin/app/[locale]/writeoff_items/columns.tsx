@@ -5,34 +5,34 @@ import dayjs from "dayjs";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { Badge } from "@admin/components/ui/badge";
 
-export const reportsColumns: ColumnDef<Stoplist>[] = [
+export const getReportsColumns = (t: (key: string) => string): ColumnDef<Stoplist>[] => [
   {
     accessorKey: "productName",
-    header: "Продукт",
+    header: t("stoplistColumns.product"),
   },
   {
     accessorKey: "categoryName",
-    header: "Категория",
+    header: t("stoplistColumns.category"),
   },
   {
     accessorKey: "terminalName",
-    header: "Терминал",
+    header: t("stoplistColumns.terminal"),
   },
   {
     accessorKey: "status",
-    header: "Статус",
+    header: t("stoplistColumns.status"),
     cell: ({ row }) => {
       const record = row.original;
       return record.status == "stop" ? (
-        <Badge variant="destructive">На стопе</Badge>
+        <Badge variant="destructive">{t("stoplistColumns.onStop")}</Badge>
       ) : (
-        <Badge variant="default">Доступен</Badge>
+        <Badge variant="default">{t("stoplistColumns.available")}</Badge>
       );
     },
   },
   {
     accessorKey: "dateAdd",
-    header: "Дата добавления",
+    header: t("stoplistColumns.dateAdded"),
     cell: ({ row }) => {
       const record = row.original;
       return <span>{dayjs(record.dateAdd).format("DD.MM.YYYY HH:mm")}</span>;
@@ -40,21 +40,21 @@ export const reportsColumns: ColumnDef<Stoplist>[] = [
   },
   {
     accessorKey: "dateRemoved",
-    header: "Дата удаления",
+    header: t("stoplistColumns.dateRemoved"),
     cell: ({ row }) => {
       const record = row.original;
       return (
         <span>
           {record.dateRemoved
             ? dayjs(record.dateRemoved).format("DD.MM.YYYY HH:mm")
-            : "Не удален"}
+            : t("stoplistColumns.notRemoved")}
         </span>
       );
     },
   },
   {
     accessorKey: "difference",
-    header: "Разница",
+    header: t("stoplistColumns.difference"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -69,6 +69,6 @@ export const reportsColumns: ColumnDef<Stoplist>[] = [
   },
   {
     accessorKey: "reason",
-    header: "Причина",
+    header: t("stoplistColumns.reason"),
   },
 ];

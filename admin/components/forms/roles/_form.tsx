@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 import { useMemo, useEffect } from "react";
@@ -19,6 +20,7 @@ export default function RolesForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -109,7 +111,7 @@ export default function RolesForm({
     >
       <div className="space-y-2">
         <div>
-          <Label>Активность</Label>
+          <Label>{tc("active")}</Label>
         </div>
         <form.Field name="active">
           {(field) => {
@@ -126,7 +128,7 @@ export default function RolesForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Название</Label>
+          <Label>{tc("name")}</Label>
         </div>
         <form.Field name="name">
           {(field) => {
@@ -149,7 +151,7 @@ export default function RolesForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Код</Label>
+          <Label>{tc("code")}</Label>
         </div>
         <form.Field name="code">
           {(field) => {

@@ -2,6 +2,7 @@
 
 import type { TgBindingRow } from "@admin/lib/kpi-api";
 import { formatTashkent } from "@admin/lib/kpi/format";
+import { ruT, type KpiT } from "@admin/lib/kpi/i18n";
 
 /** Сервер принимает до 200 id в одном запросе; берём по 100 с запасом. */
 const CHUNK = 100;
@@ -24,10 +25,10 @@ export function indexBindings(rows: readonly TgBindingRow[]): { employee: Map<st
   return { employee, user };
 }
 
-export function bindingLabel(b: TgBindingRow | undefined): string {
-  return b ? `Привязан · ${b.lang === "uz" ? "UZ" : "RU"}` : "Не привязан";
+export function bindingLabel(b: TgBindingRow | undefined, t: KpiT = ruT): string {
+  return b ? t("lib.telegram.bound", { lang: b.lang === "uz" ? "UZ" : "RU" }) : t("lib.telegram.unbound");
 }
 
-export function inviteHint(expiresAt: string): string {
-  return `Ссылка одноразовая, действует до ${formatTashkent(expiresAt)}. Новая ссылка отменяет прежнюю.`;
+export function inviteHint(expiresAt: string, t: KpiT = ruT): string {
+  return t("lib.telegram.invite", { date: formatTashkent(expiresAt) });
 }

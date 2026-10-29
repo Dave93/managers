@@ -1,6 +1,7 @@
 // Споры: разделение на открытые и закрытые, проверка разбора, подпись предмета.
 import type { DisputeRow } from "@admin/lib/kpi-api";
 import { monthLabel } from "@admin/lib/kpi/periods";
+import { ruT, type KpiT } from "@admin/lib/kpi/i18n";
 import { commentOk } from "@admin/lib/kpi/review-form";
 
 const ms = (iso: string | null) => (iso ? new Date(iso).getTime() : 0);
@@ -23,19 +24,20 @@ export function resolveIssues(
   decision: "accepted" | "rejected",
   comment: string,
   changedCount: number,
-  commentMin = 1
+  commentMin = 1,
+  t: KpiT = ruT
 ): string[] {
   const out: string[] = [];
   if (!commentOk(comment, Math.max(1, commentMin))) {
-    out.push(commentMin > 1 ? `Комментарий к решению — не меньше ${commentMin} символов без пробелов` : "Нужен комментарий к решению");
+    out.push(commentMin > 1 ? t("lib.disputes.commentMin", { min: commentMin }) : t("lib.disputes.commentRequired"));
   }
   if (subject === "review" && decision === "accepted" && changedCount === 0) {
-    out.push("Принятый спор по оценке должен менять баллы: поставьте новые");
+    out.push(t("lib.disputes.acceptedNeedsChange"));
   }
   return out;
 }
 
-export function subjectLabel(d: Pick<DisputeRow, "subject_type" | "period">): string {
-  const m = monthLabel(d.period);
-  return d.subject_type === "review" ? `Оценка за ${m}` : `Нарушение, ${m}`;
+export function subjectLabel(d: Pick<DisputeRow, "subject_type" | "period">, t: KpiT = ruT, locale = "ru"): string {
+  const month = monthLabel(d.period, locale);
+  return d.subject_type === "review" ? t("lib.disputes.subjectReview", { month }) : t("lib.disputes.subjectViolation", { month });
 }

@@ -1,5 +1,6 @@
 "use client";
 import { Settings } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Label } from "@admin/components/ui/label";
@@ -7,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/po
 import { useCashShiftSettings } from "@admin/store/states/cash_shift_settings";
 
 export default function SettingsPopover() {
+  const t = useTranslations("dashboardUi.cashShifts.settings");
   const s = useCashShiftSettings();
   const numberField = (
     id: string,
@@ -35,17 +37,17 @@ export default function SettingsPopover() {
         <Button
           variant="ghost"
           size="icon"
-          aria-label="Настройки порогов"
+          aria-label={t("ariaLabel")}
           className="text-muted-foreground hover:text-foreground"
         >
           <Settings className="h-4 w-4" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 space-y-3">
-        <p className="text-sm font-semibold">Пороги нарушений</p>
+        <p className="text-sm font-semibold">{t("title")}</p>
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="cs-late-open" className="font-normal leading-snug">
-            Позднее открытие после
+            {t("lateOpenAfter")}
           </Label>
           <Input
             id="cs-late-open"
@@ -57,7 +59,7 @@ export default function SettingsPopover() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="cs-late-close" className="font-normal leading-snug">
-            Позднее закрытие после (след. день)
+            {t("lateCloseAfter")}
           </Label>
           <Input
             id="cs-late-close"
@@ -69,21 +71,21 @@ export default function SettingsPopover() {
         </div>
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="cs-max-hours" className="font-normal leading-snug">
-            Смена дольше, ч
+            {t("shiftLongerHours")}
           </Label>
           {numberField("cs-max-hours", s.maxDurationHours, (v) => s.update({ maxDurationHours: v }), 1, 48)}
         </div>
         <div className="flex items-center justify-between gap-3">
           <Label htmlFor="cs-hide-short" className="font-normal leading-snug">
-            Скрывать смены короче, мин
+            {t("hideShorterMin")}
           </Label>
           {numberField("cs-hide-short", s.hideShorterThanMin, (v) => s.update({ hideShorterThanMin: v }), 0, 120)}
         </div>
         <p className="text-xs leading-relaxed text-muted-foreground">
-          «Не закрыта» отмечается всегда для прошедших дней. Настройки хранятся в этом браузере.
+          {t("note")}
         </p>
         <Button variant="outline" size="sm" onClick={s.reset} className="w-full">
-          Сбросить
+          {t("reset")}
         </Button>
       </PopoverContent>
     </Popover>

@@ -10,6 +10,7 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { MapPinOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import type { Branch, NetworkTotals } from "./use-network-map";
@@ -19,6 +20,8 @@ import {
   GROUP,
   GROUP_ORDER,
   MODES,
+  groupLabel,
+  shiftLabel,
   MapMode,
   SHIFT,
   SHIFT_ORDER,
@@ -66,12 +69,13 @@ export function SummaryStrip({
   n: NetworkTotals;
   branches: Branch[];
 }) {
+  const t = useTranslations("networkMap");
   const byBrand = Object.fromEntries(n.by_brand.map((b) => [b.brand, b]));
   const offMap = n.branches_total - n.branches_on_map;
   return (
     <div className="flex flex-wrap items-stretch gap-x-1 gap-y-2 rounded-lg border border-slate-800 bg-slate-900/40 py-1.5">
       <Metric
-        label="Филиалов"
+        label={t("summary.branches")}
         value={n.branches_total}
         sub={
           <span className="inline-flex items-center gap-2">
@@ -87,23 +91,23 @@ export function SummaryStrip({
         }
       />
       <Metric
-        label="На карте"
+        label={t("summary.onMap")}
         value={n.branches_on_map}
-        sub={offMap > 0 ? `${offMap} без координат` : "координаты у всех"}
+        sub={offMap > 0 ? t("summary.offMapCount", { count: offMap }) : t("summary.coordsAll")}
       />
       <Metric
-        label="Сотрудников"
+        label={t("summary.staff")}
         value={n.staff_total}
-        sub={`${byBrand.les?.staff ?? 0} / ${byBrand.chopar?.staff ?? 0} по брендам`}
+        sub={t("summary.byBrand", { les: byBrand.les?.staff ?? 0, chopar: byBrand.chopar?.staff ?? 0 })}
       />
       <Metric
-        label="Стажёров"
+        label={t("summary.trainees")}
         value={n.trainees_total}
-        sub={`${pct(n.trainees_total, n.staff_total)} штата`}
+        sub={t("summary.ofStaff", { pct: pct(n.trainees_total, n.staff_total) })}
         tone="text-amber-200"
       />
       <Metric
-        label="День / ночь"
+        label={t("summary.dayNight")}
         value={
           <span>
             {n.shifts.day}
@@ -113,14 +117,14 @@ export function SummaryStrip({
         }
         sub={
           n.shifts.unknown > 0
-            ? `${n.shifts.unknown} без указания смены`
-            : "смена указана у всех"
+            ? t("summary.unknownShift", { count: n.shifts.unknown })
+            : t("summary.shiftAll")
         }
       />
       <Metric
-        label="Состав не заведён"
+        label={t("summary.noStaffData")}
         value={n.branches_without_staff_data}
-        sub={`из ${n.branches_total} филиалов`}
+        sub={t("summary.ofBranches", { total: n.branches_total })}
         tone="text-amber-300"
         border
       />
@@ -135,12 +139,12 @@ export function ModeSwitch({
   mode: MapMode;
   onChange: (m: MapMode) => void;
 }) {
-  const current = MODES.find((m) => m.value === mode)!;
+  const t = useTranslations("networkMap");
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
       <div
         role="tablist"
-        aria-label="Режим просмотра карты"
+        aria-label={t("summary.modeAria")}
         className="inline-flex rounded-md border border-slate-800 bg-slate-900/70 p-0.5"
       >
         {MODES.map((m) => {
@@ -165,21 +169,21 @@ export function ModeSwitch({
                   transition={{ duration: 0.22, ease: EASE_OUT }}
                 />
               )}
-              <span className="relative">{m.label}</span>
+              <span className="relative">{t(`mode.${m.value}.label`)}</span>
             </button>
           );
         })}
       </div>
       <AnimatePresence mode="wait" initial={false}>
         <motion.p
-          key={current.value}
+          key={mode}
           initial={{ opacity: 0, y: 3 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -3 }}
           transition={{ duration: 0.16, ease: EASE_OUT }}
           className="text-[12px] text-slate-400"
         >
-          {current.question}
+          {t(`mode.${mode}.question`)}
         </motion.p>
       </AnimatePresence>
     </div>
@@ -200,27 +204,27 @@ function Swatch({ color, label, dotted }: { color: string; label: string; dotted
 }
 
 export function Legend({ mode }: { mode: MapMode }) {
-  const current = MODES.find((m) => m.value === mode)!;
+  const t = useTranslations("networkMap");
   const swatches =
     mode === "shifts"
-      ? SHIFT_ORDER.map((k) => ({ key: k, color: SHIFT[k].color, label: SHIFT[k].label }))
+      ? SHIFT_ORDER.map((k) => ({ key: k, color: SHIFT[k].color, label: shiftLabel(k, t) }))
       : mode === "trainees"
       ? [
-          { key: "t", color: TRAINEE_COLOR, label: "стажёры" },
-          { key: "r", color: EXPERIENCED_COLOR, label: "остальные" },
+          { key: "t", color: TRAINEE_COLOR, label: t("legend.trainees") },
+          { key: "r", color: EXPERIENCED_COLOR, label: t("legend.rest") },
         ]
       : mode === "data"
       ? [
-          { key: "y", color: "#e2e8f0", label: "состав заведён" },
-          { key: "n", color: NO_DATA_COLOR, label: "данных нет", dotted: true },
+          { key: "y", color: "#e2e8f0", label: t("dataFilled") },
+          { key: "n", color: NO_DATA_COLOR, label: t("legend.noData"), dotted: true },
         ]
-      : GROUP_ORDER.map((k) => ({ key: k, color: GROUP[k].color, label: GROUP[k].label }));
+      : GROUP_ORDER.map((k) => ({ key: k, color: GROUP[k].color, label: groupLabel(k, t) }));
 
   return (
     <div className="rounded-lg border border-slate-800 bg-slate-900/40 px-3 py-2">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Кольцо
+          {t("legend.ring")}
         </span>
         <AnimatePresence mode="wait" initial={false}>
           <motion.span
@@ -238,19 +242,19 @@ export function Legend({ mode }: { mode: MapMode }) {
         </AnimatePresence>
         <span className="h-3.5 w-px bg-slate-800" aria-hidden />
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-          Ядро
+          {t("legend.core")}
         </span>
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-slate-300">
           <svg width="13" height="13" viewBox="-11 -11 22 22" aria-hidden>
             <circle r="9" fill={BRAND.les.color} />
           </svg>
-          круг — Les Ailes
+          {t("legend.circleLes")}
         </span>
         <span className="inline-flex items-center gap-1.5 whitespace-nowrap text-[11px] text-slate-300">
           <svg width="13" height="13" viewBox="-11 -11 22 22" aria-hidden>
             <path d="M0,-9L7.79,-4.5L7.79,4.5L0,9L-7.79,4.5L-7.79,-4.5Z" fill={BRAND.chopar.color} />
           </svg>
-          шестиугольник — ChoparPizza
+          {t("legend.hexChopar")}
         </span>
       </div>
       <AnimatePresence mode="wait" initial={false}>
@@ -262,7 +266,7 @@ export function Legend({ mode }: { mode: MapMode }) {
           transition={{ duration: 0.15, ease: EASE_OUT }}
           className="mt-1.5 text-[11px] leading-snug text-slate-400"
         >
-          {current.legend}
+          {t(`mode.${mode}.legend`)}
         </motion.p>
       </AnimatePresence>
     </div>
@@ -284,6 +288,7 @@ export function OffMapStrip({
   onHover: (id: string | null) => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useTranslations("networkMap");
   if (branches.length === 0) return null;
   const staff = branches.reduce((s, b) => s + b.staff.total, 0);
   return (
@@ -296,11 +301,10 @@ export function OffMapStrip({
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-0.5">
         <h2 className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-300">
           <MapPinOff className="size-3.5 text-slate-500" aria-hidden />
-          Не на карте · {branches.length}
+          {t("offMap.title", { count: branches.length })}
         </h2>
         <p className="text-[11px] text-slate-500">
-          координаты филиала не заведены, поэтому узла на карте нет — но люди
-          есть: {staff} в этой полосе
+          {t("offMap.text", { staff })}
         </p>
       </div>
       <div className="mt-1.5 flex gap-1 overflow-x-auto pb-1">

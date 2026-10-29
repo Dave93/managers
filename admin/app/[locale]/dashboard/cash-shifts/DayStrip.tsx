@@ -1,7 +1,8 @@
 "use client";
 import { AlertTriangle } from "lucide-react";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
-import { fmtDay, plural } from "./format";
+import { fmtDay } from "./format";
 
 export type DaySummary = { day: string; shifts: number; flagged: number };
 
@@ -14,8 +15,10 @@ export default function DayStrip({
   active: string | null;
   onSelect: (day: string) => void;
 }) {
+  const t = useTranslations("dashboardUi.cashShifts");
+  const locale = useLocale();
   if (days.length === 0) {
-    return <p className="text-sm text-muted-foreground">Смен за период нет.</p>;
+    return <p className="text-sm text-muted-foreground">{t("noShiftsForPeriod")}</p>;
   }
   return (
     <div className="flex shrink-0 gap-2 overflow-x-auto pb-1">
@@ -30,8 +33,8 @@ export default function DayStrip({
             d.day === active ? "border-primary bg-primary/10" : "hover:bg-muted"
           )}
         >
-          <div className="text-xs text-muted-foreground">{fmtDay(d.day)}</div>
-          <div className="mt-0.5 text-sm font-semibold tabular-nums">{d.shifts} {plural(d.shifts, "смена", "смены", "смен")}</div>
+          <div className="text-xs text-muted-foreground">{fmtDay(d.day, locale)}</div>
+          <div className="mt-0.5 text-sm font-semibold tabular-nums">{t("shiftsCount", { n: d.shifts })}</div>
           <div
             className={cn(
               "mt-0.5 flex items-center gap-1 text-xs tabular-nums",
@@ -39,7 +42,7 @@ export default function DayStrip({
             )}
           >
             {d.flagged > 0 && <AlertTriangle className="h-3 w-3 shrink-0" aria-hidden />}
-            {d.flagged > 0 ? `${d.flagged} наруш.` : "без нарушений"}
+            {d.flagged > 0 ? t("violationsShort", { count: d.flagged }) : t("noViolations")}
           </div>
         </button>
       ))}

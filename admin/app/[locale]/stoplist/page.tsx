@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
+import { useTranslations } from "next-intl";
 import {
   Tabs,
   TabsContent,
@@ -33,14 +34,16 @@ type ManagerStoplist = {
   iiko_id: string | null;
 };
 
-function fmtDuration(totalSeconds: number): string {
+type T = (key: string, values?: Record<string, string | number>) => string;
+
+function fmtDuration(t: T, totalSeconds: number): string {
   const s = Math.max(0, Number(totalSeconds) || 0);
   const days = Math.floor(s / 86400);
   const hours = Math.floor((s % 86400) / 3600);
   const minutes = Math.floor((s % 3600) / 60);
-  if (days > 0) return `${days} д ${hours} ч`;
-  if (hours > 0) return `${hours} ч ${minutes} мин`;
-  return `${minutes} мин`;
+  if (days > 0) return t("duration.daysHours", { days, hours });
+  if (hours > 0) return t("duration.hoursMinutes", { hours, minutes });
+  return t("duration.minutes", { minutes });
 }
 
 function severityClass(totalSeconds: number): string {
@@ -50,13 +53,15 @@ function severityClass(totalSeconds: number): string {
   return "text-gray-700 dark:text-gray-300";
 }
 
+// Подпись — stoplistPage.manager.periodDays с {count} = value.
 const PERIODS = [
-  { value: "7", label: "7 дней" },
-  { value: "30", label: "30 дней" },
-  { value: "90", label: "90 дней" },
+  { value: "7" },
+  { value: "30" },
+  { value: "90" },
 ];
 
 function TerminalStoplist({ terminalId }: { terminalId: string }) {
+  const t = useTranslations("stoplistPage");
   const [days, setDays] = useState("30");
   const { data, isLoading, error } = useQuery<ManagerStoplist>({
     queryKey: ["stoplist_manager", terminalId, days],
@@ -80,12 +85,12 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
 
   if (isLoading)
     return (
-      <div className="py-10 text-center text-gray-400">Загрузка стоп-листа…</div>
+      <div className="py-10 text-center text-gray-400">{t("manager.loadingStoplist")}</div>
     );
   if (error)
     return (
       <div className="py-10 text-center text-red-500">
-        Не удалось загрузить данные стоп-листа
+        {t("manager.loadError")}
       </div>
     );
   if (!data) return null;
@@ -96,28 +101,28 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
       <div className="grid grid-cols-3 gap-2 pt-3">
         <div className="rounded-xl border p-3 text-center">
           <div className="text-2xl font-bold">{data.current.length}</div>
-          <div className="text-xs text-gray-500">в стопе сейчас</div>
+          <div className="text-xs text-gray-500">{t("tiles.openNow")}</div>
         </div>
         <div className="rounded-xl border p-3 text-center">
           <div className="text-2xl font-bold">
             {data.current.filter((r) => Number(r.seconds_stopped) >= 86400).length}
           </div>
-          <div className="text-xs text-gray-500">дольше суток</div>
+          <div className="text-xs text-gray-500">{t("tiles.overDay")}</div>
         </div>
         <div className="rounded-xl border p-3 text-center">
           <div className="text-2xl font-bold">{totalHours}</div>
-          <div className="text-xs text-gray-500">часов простоя за период</div>
+          <div className="text-xs text-gray-500">{t("tiles.hoursInPeriod")}</div>
         </div>
       </div>
 
       {/* Current stops */}
       <div>
         <div className="text-xl font-bold border-b-2 pb-1 flex items-center justify-between">
-          <span>Сейчас в стопе</span>
+          <span>{t("manager.currentHeading")}</span>
         </div>
         {data.current.length === 0 ? (
           <div className="py-6 text-center text-green-600">
-            🎉 Стоп-лист пуст — всё в продаже
+            {t("manager.empty")}
           </div>
         ) : (
           <div className="divide-y">
@@ -129,16 +134,18 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
                 <div className="min-w-0">
                   <div className="truncate">{r.product_name ?? `#${r.product_id}`}</div>
                   <div className="text-xs text-gray-400">
-                    с {new Date(r.started_at).toLocaleString("ru-RU", {
-                      day: "2-digit",
-                      month: "2-digit",
-                      hour: "2-digit",
-                      minute: "2-digit",
+                    {t("manager.since", {
+                      date: new Date(r.started_at).toLocaleString("ru-RU", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }),
                     })}
                   </div>
                 </div>
                 <div className={`shrink-0 text-sm ${severityClass(r.seconds_stopped)}`}>
-                  {fmtDuration(r.seconds_stopped)}
+                  {fmtDuration(t, r.seconds_stopped)}
                 </div>
               </div>
             ))}
@@ -149,7 +156,7 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
       {/* Chronic products */}
       <div>
         <div className="flex items-center justify-between border-b-2 pb-1">
-          <div className="text-xl font-bold">Проблемные продукты</div>
+          <div className="text-xl font-bold">{t("manager.chronicHeading")}</div>
           <div className="flex gap-1">
             {PERIODS.map((p) => (
               <button
@@ -161,14 +168,14 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
                     : "text-gray-500"
                 }`}
               >
-                {p.label}
+                {t("manager.periodDays", { count: p.value })}
               </button>
             ))}
           </div>
         </div>
         {data.chronic.length === 0 ? (
           <div className="py-6 text-center text-gray-400">
-            За период стопов не было
+            {t("noStopsInPeriod")}
           </div>
         ) : (
           <div className="divide-y">
@@ -182,10 +189,10 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
                 </div>
                 <div className="shrink-0 text-right">
                   <div className={`text-sm ${severityClass(r.seconds_stopped)}`}>
-                    {fmtDuration(r.seconds_stopped)}
+                    {fmtDuration(t, r.seconds_stopped)}
                   </div>
                   <div className="text-xs text-gray-400">
-                    {r.times_stopped}× за период
+                    {t("manager.timesInPeriod", { count: r.times_stopped })}
                   </div>
                 </div>
               </div>
@@ -198,7 +205,7 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
       {data.daily.length > 0 && (
         <div>
           <div className="text-xl font-bold border-b-2 pb-1">
-            Постановки в стоп по дням
+            {t("manager.dailyHeading")}
           </div>
           <div className="flex items-end gap-1 h-24 pt-3 overflow-x-auto">
             {data.daily.map((d) => {
@@ -207,7 +214,7 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
                 <div
                   key={d.day}
                   className="flex flex-col items-center gap-1 min-w-[26px]"
-                  title={`${d.day}: ${d.stops} стопов, ${d.releases} снятий`}
+                  title={t("manager.dayTitle", { day: d.day, stops: d.stops, releases: d.releases })}
                 >
                   <div className="text-[10px] text-gray-500">{d.stops || ""}</div>
                   <div
@@ -228,6 +235,7 @@ function TerminalStoplist({ terminalId }: { terminalId: string }) {
 }
 
 export default function StoplistPage() {
+  const t = useTranslations("stoplistPage");
   const [{ data: terminalsList, isLoading }] = useQueries({
     queries: [
       {
@@ -247,12 +255,12 @@ export default function StoplistPage() {
 
   return (
     <div className="container">
-      <div className="font-bold text-2xl text-center py-4">Стоп-лист</div>
+      <div className="font-bold text-2xl text-center py-4">{t("title")}</div>
       {isLoading ? (
-        <div className="py-10 text-center text-gray-400">Загрузка…</div>
+        <div className="py-10 text-center text-gray-400">{t("loading")}</div>
       ) : terminals.length === 0 ? (
         <div className="py-10 text-center text-gray-400">
-          За вами не закреплён ни один филиал
+          {t("manager.noTerminals")}
         </div>
       ) : (
         <Tabs defaultValue={terminals[0].terminal_id} className="w-full">

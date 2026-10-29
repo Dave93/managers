@@ -14,6 +14,7 @@
 import * as React from "react";
 import { motion } from "framer-motion";
 import { KeyRound, RotateCcw, Search, UserSearch } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@components/ui/input";
 import { Switch } from "@components/ui/switch";
@@ -36,11 +37,11 @@ import type {
 import {
   BRAND,
   BrandMark,
-  SHIFT,
   SHIFT_ORDER,
   SIGNAL,
   SIGNAL_ORDER,
   pct,
+  shiftLabel,
 } from "./vocabulary";
 
 export interface BoardFilters {
@@ -117,13 +118,14 @@ function Metric({
 }
 
 export function SummaryStrip({ n }: { n: NetworkTotals }) {
+  const t = useTranslations("staffBoard");
   const byBrand = Object.fromEntries(n.by_brand.map((b) => [b.brand, b]));
   const allPinsMissing = n.staff_total > 0 && n.pin_set_total === 0;
   return (
     <div className="min-w-0 space-y-2">
       <div className="grid min-w-0 grid-cols-2 gap-1 rounded-lg border bg-card p-1.5 sm:grid-cols-3 lg:grid-cols-6">
         <Metric
-          label="Филиалов"
+          label={t("summary.branches")}
           value={n.branches_total}
           sub={
             <span className="inline-flex items-center gap-2">
@@ -139,29 +141,29 @@ export function SummaryStrip({ n }: { n: NetworkTotals }) {
           }
         />
         <Metric
-          label="Состав заведён"
+          label={t("summary.staffFilled")}
           value={n.branches_with_staff_data}
-          sub={`из ${n.branches_total} филиалов`}
+          sub={t("summary.ofBranches", { total: n.branches_total })}
         />
         <Metric
-          label="Данные не заведены"
+          label={t("summary.noData")}
           value={n.branches_without_staff_data}
-          sub="ни одной строки в справочнике"
+          sub={t("summary.noDataSub")}
           tone="text-amber-700 dark:text-amber-300"
           warn
         />
         <Metric
-          label="Сотрудников"
+          label={t("summary.staff")}
           value={n.staff_total}
-          sub={`${byBrand.les?.staff ?? 0} / ${byBrand.chopar?.staff ?? 0} по брендам`}
+          sub={t("summary.byBrand", { les: byBrand.les?.staff ?? 0, chopar: byBrand.chopar?.staff ?? 0 })}
         />
         <Metric
-          label="Стажёров"
+          label={t("summary.trainees")}
           value={n.trainees_total}
-          sub={`${pct(n.trainees_total, n.staff_total)} штата`}
+          sub={t("summary.ofStaff", { pct: pct(n.trainees_total, n.staff_total) })}
         />
         <Metric
-          label="День / ночь"
+          label={t("summary.dayNight")}
           value={
             <span>
               {n.shifts.day}
@@ -171,8 +173,8 @@ export function SummaryStrip({ n }: { n: NetworkTotals }) {
           }
           sub={
             n.shifts.unknown > 0
-              ? `${n.shifts.unknown} без указания смены`
-              : "смена указана у всех"
+              ? t("summary.unknownShift", { count: n.shifts.unknown })
+              : t("summary.shiftAll")
           }
         />
       </div>
@@ -181,13 +183,15 @@ export function SummaryStrip({ n }: { n: NetworkTotals }) {
         <KeyRound className="mt-px size-3 shrink-0" aria-hidden />
         {allPinsMissing ? (
           <span>
-            PIN не задан ни у кого из {n.staff_total} сотрудников — войти в киоск
-            аттестации по PIN сейчас нельзя ни на одном филиале.
+            {t("summary.pinNone", { total: n.staff_total })}
           </span>
         ) : (
           <span>
-            PIN задан у {n.pin_set_total} из {n.staff_total} сотрудников;
-            остальные {n.pin_missing_total} в киоск аттестации не войдут.
+            {t("summary.pinSome", {
+              set: n.pin_set_total,
+              total: n.staff_total,
+              missing: n.pin_missing_total,
+            })}
           </span>
         )}
       </p>
@@ -206,6 +210,7 @@ function SignalChip({
   active: boolean;
   onToggle: () => void;
 }) {
+  const t = useTranslations("staffBoard");
   const meta = SIGNAL[k];
   const Icon = meta.icon;
   const disabled = count === 0;
@@ -226,9 +231,9 @@ function SignalChip({
       )}
     >
       <Icon className="size-3.5" aria-hidden />
-      {meta.filterLabel}
+      {t(`signal.${k}`)}
       <span className="tabular-nums">{count}</span>
-      {active && <span className="sr-only">— фильтр включён</span>}
+      {active && <span className="sr-only">{t("filters.signalOn")}</span>}
     </button>
   );
 }
@@ -244,6 +249,7 @@ export function FilterBar({
   onChange: (f: BoardFilters) => void;
   shownBranches: number;
 }) {
+  const t = useTranslations("staffBoard");
   const set = (patch: Partial<BoardFilters>) =>
     onChange({ ...value, ...patch });
   const toggleSignal = (k: SignalKey) =>
@@ -259,7 +265,7 @@ export function FilterBar({
     <div className="min-w-0 space-y-2 rounded-lg border bg-card p-2">
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Сигналы
+          {t("filters.signals")}
         </span>
         {SIGNAL_ORDER.map((k) => (
           <SignalChip
@@ -278,7 +284,7 @@ export function FilterBar({
             className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
             id="staff-board-brand-label"
           >
-            Бренд
+            {t("filters.brand")}
           </span>
           <div
             role="group"
@@ -286,7 +292,7 @@ export function FilterBar({
             className="inline-flex rounded-md border p-0.5"
           >
             {([
-              { v: "" as const, label: "Все" },
+              { v: "" as const, label: t("filters.all") },
               { v: "les" as const, label: BRAND.les.label },
               { v: "chopar" as const, label: BRAND.chopar.label },
             ]).map((b) => {
@@ -325,7 +331,7 @@ export function FilterBar({
             htmlFor="staff-board-branch-q"
             className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            Филиал
+            {t("filters.branch")}
           </Label>
           <div className="relative">
             <Search
@@ -336,7 +342,7 @@ export function FilterBar({
               id="staff-board-branch-q"
               value={value.branchQuery}
               onChange={(e) => set({ branchQuery: e.target.value })}
-              placeholder="название или адрес"
+              placeholder={t("filters.branchPlaceholder")}
               className="h-8 w-[190px] pl-7 text-[12px]"
             />
           </div>
@@ -347,7 +353,7 @@ export function FilterBar({
             htmlFor="staff-board-person-q"
             className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            Сотрудник
+            {t("filters.employee")}
           </Label>
           <div className="relative">
             <UserSearch
@@ -358,7 +364,7 @@ export function FilterBar({
               id="staff-board-person-q"
               value={value.employeeQuery}
               onChange={(e) => set({ employeeQuery: e.target.value })}
-              placeholder="имя, фамилия или должность"
+              placeholder={t("filters.employeePlaceholder")}
               className="h-8 w-[210px] pl-7 text-[12px]"
             />
           </div>
@@ -369,7 +375,7 @@ export function FilterBar({
             htmlFor="staff-board-shift"
             className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
           >
-            Смена
+            {t("filters.shift")}
           </Label>
           <Select
             value={value.shift || "all"}
@@ -381,10 +387,10 @@ export function FilterBar({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все смены</SelectItem>
+              <SelectItem value="all">{t("filters.allShifts")}</SelectItem>
               {SHIFT_ORDER.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {SHIFT[s].label}
+                  {shiftLabel(s, t)}
                   <span className="ml-1 tabular-nums text-muted-foreground">
                     {n.shifts[s]}
                   </span>
@@ -401,7 +407,7 @@ export function FilterBar({
             onCheckedChange={(c) => set({ onlyProblems: c })}
           />
           <Label htmlFor="staff-board-problems" className="text-[12px] font-normal">
-            Только с проблемами
+            {t("filters.onlyProblems")}
             <span className="ml-1 tabular-nums text-muted-foreground">
               {n.signals.branches_with_warnings}
             </span>
@@ -415,7 +421,7 @@ export function FilterBar({
             onCheckedChange={(c) => set({ onlyNoData: c })}
           />
           <Label htmlFor="staff-board-nodata" className="text-[12px] font-normal">
-            Только без данных
+            {t("filters.onlyNoData")}
             <span className="ml-1 tabular-nums text-muted-foreground">
               {n.branches_without_staff_data}
             </span>
@@ -429,7 +435,7 @@ export function FilterBar({
             className="mb-1 inline-flex items-center gap-1 rounded border px-2 py-1 text-[11.5px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <RotateCcw className="size-3" aria-hidden />
-            Сбросить
+            {t("filters.reset")}
           </button>
         )}
 
@@ -437,7 +443,7 @@ export function FilterBar({
           className="mb-1 ml-auto text-[11.5px] text-muted-foreground"
           aria-live="polite"
         >
-          Показано {shownBranches} из {n.branches_total} филиалов
+          {t("filters.shown", { shown: shownBranches, total: n.branches_total })}
         </span>
       </div>
     </div>

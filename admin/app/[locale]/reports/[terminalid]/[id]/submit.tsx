@@ -17,6 +17,7 @@ import { useReportDataStore } from "@admin/store/states/report_data";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useCallback, useMemo, useState } from "react";
 
 type SubmitProps = {
@@ -24,6 +25,7 @@ type SubmitProps = {
   id: string;
 };
 export default function ReportSubmit({ terminalId, id }: SubmitProps) {
+  const t = useTranslations("reportsUi.submit");
   const {
     balance,
     editableExpenses,
@@ -53,7 +55,7 @@ export default function ReportSubmit({ terminalId, id }: SubmitProps) {
   });
 
   const onSuccessReport = () => {
-    toast.success("Отчёт успешно отправлен");
+    toast.success(t("success"));
     router.push("/");
   };
 
@@ -173,22 +175,22 @@ export default function ReportSubmit({ terminalId, id }: SubmitProps) {
               ></path>
             </svg>
           )}
-          <span>Отправить на проверку</span>
+          <span>{t("sendForReview")}</span>
         </Button>
       </CardFooter>
       <AlertDialog open={minusDialogOpen} onOpenChange={setMinusDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-red-500 uppercase font-bold">
-              Вы уверены, что хотите отправить отчёт?
+              {t("confirmTitle")}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-xl">
-              У Вас на кассе не хватает{" "}
+              {t("shortageText")}{" "}
               {Intl.NumberFormat("ru-RU").format(balanceValue)}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Нет</AlertDialogCancel>
+            <AlertDialogCancel>{t("no")}</AlertDialogCancel>
             <AlertDialogAction
               asChild
               className="bg-destructive text-white uppercase"
@@ -214,7 +216,7 @@ export default function ReportSubmit({ terminalId, id }: SubmitProps) {
                   });
                 }}
               >
-                Да, уверен
+                {t("yesSure")}
               </Button>
             </AlertDialogAction>
           </AlertDialogFooter>

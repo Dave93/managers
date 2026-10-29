@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -30,6 +31,7 @@ const MIN_SEARCH = 2;
 const MAX_FOUND = 20;
 
 export function EvaluatorsTab() {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [removeTarget, setRemoveTarget] = useState<ScopeRow | null>(null);
 
@@ -45,8 +47,8 @@ export function EvaluatorsTab() {
 
   const remove = useMutation({
     mutationFn: (id: string) => kpiApi.evaluators.remove(id),
-    onSuccess: () => toast.success("Назначение убрано"),
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onSuccess: () => toast.success(t("settings.evaluators.removed")),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
     // Инвалидация и при ошибке: после not_found устаревшая строка должна исчезнуть.
     onSettled: () => {
       qc.invalidateQueries({ queryKey: qk.evaluators });
@@ -58,24 +60,24 @@ export function EvaluatorsTab() {
   return (
     <div className="space-y-4">
       <p className="rounded-md border p-3 text-sm text-muted-foreground">
-        Назначение работает, только если у роли пользователя есть право kpi.evaluate. Право выдаётся в «Ролях»
+        {t("settings.evaluators.hint")}
       </p>
 
       <AssignForm />
 
       {list.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(list.error)}
+          {kpiErrorText(list.error, t)}
         </p>
       ) : list.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{t("settings.evaluators.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Оценщиков пока нет</p>
+        <p className="text-sm text-muted-foreground">{t("settings.evaluators.empty")}</p>
       ) : (
         <div className="space-y-2">
           {tgLoad.blocking != null && (
             <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-              {kpiErrorText(tgLoad.blocking)}
+              {kpiErrorText(tgLoad.blocking, t)}
             </p>
           )}
           {tgLoad.stale != null && <StaleNote error={tgLoad.stale} />}
@@ -83,10 +85,10 @@ export function EvaluatorsTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Оценщик</TableHead>
-                <TableHead>Охват</TableHead>
-                <TableHead>Назначен</TableHead>
-                <TableHead>Telegram</TableHead>
+                <TableHead>{t("settings.evaluators.colEvaluator")}</TableHead>
+                <TableHead>{t("settings.evaluators.colScope")}</TableHead>
+                <TableHead>{t("settings.evaluators.colAssigned")}</TableHead>
+                <TableHead>{t("settings.evaluators.colTelegram")}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -94,14 +96,14 @@ export function EvaluatorsTab() {
               {rows.map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.user_name}</TableCell>
-                  <TableCell>{scopeLabel(r)}</TableCell>
+                  <TableCell>{scopeLabel(r, t)}</TableCell>
                   <TableCell>{formatTashkent(r.created_at, false)}</TableCell>
                   <TableCell>
                     <TgCell target={{ user_id: r.user_id }} {...tg.lookup(r.user_id)} name={r.user_name} />
                   </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" disabled={remove.isPending} onClick={() => setRemoveTarget(r)}>
-                      Убрать
+                      {t("settings.evaluators.remove")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -115,14 +117,14 @@ export function EvaluatorsTab() {
       <AlertDialog open={removeTarget !== null} onOpenChange={(o) => !o && setRemoveTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Убрать назначение?</AlertDialogTitle>
+            <AlertDialogTitle>{t("settings.evaluators.removeTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {removeTarget ? `${removeTarget.user_name}: ${scopeLabel(removeTarget)}` : ""}
+              {removeTarget ? `${removeTarget.user_name}: ${scopeLabel(removeTarget, t)}` : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => removeTarget && remove.mutate(removeTarget.id)}>Убрать</AlertDialogAction>
+            <AlertDialogCancel>{t("settings.evaluators.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => removeTarget && remove.mutate(removeTarget.id)}>{t("settings.evaluators.remove")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -131,6 +133,7 @@ export function EvaluatorsTab() {
 }
 
 function AssignForm() {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const terminals = useKpiTerminals();
   const [searchText, setSearchText] = useState("");
@@ -140,8 +143,8 @@ function AssignForm() {
   const [terminal, setTerminal] = useState(ALL);
 
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchText.trim()), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSearch(searchText.trim()), 300);
+    return () => clearTimeout(timer);
   }, [searchText]);
 
   const searching = user === null && search.length >= MIN_SEARCH;
@@ -168,20 +171,20 @@ function AssignForm() {
       qc.invalidateQueries({ queryKey: qk.evaluators });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
       qc.invalidateQueries({ queryKey: qk.me });
-      toast.success("Оценщик назначен");
+      toast.success(t("settings.evaluators.assigned"));
       setUser(null);
       setSearchText("");
       setSearch("");
       setCard(ALL);
       setTerminal(ALL);
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
   });
   const busy = create.isPending;
 
   return (
     <section className="space-y-3 rounded-md border p-4">
-      <h2 className="text-base font-semibold">Назначить оценщика</h2>
+      <h2 className="text-base font-semibold">{t("settings.evaluators.assignTitle")}</h2>
 
       {user ? (
         <div className="flex items-center gap-2">
@@ -189,7 +192,7 @@ function AssignForm() {
             {user.name} ({user.login})
             <button
               type="button"
-              aria-label="Убрать выбор пользователя"
+              aria-label={t("settings.evaluators.clearUserAria")}
               className="px-1 text-muted-foreground hover:text-foreground"
               disabled={busy}
               onClick={() => setUser(null)}
@@ -201,20 +204,20 @@ function AssignForm() {
       ) : (
         <div className="space-y-2">
           <Input
-            aria-label="Поиск пользователя"
-            placeholder="Имя или логин пользователя (от 2 символов)"
+            aria-label={t("settings.evaluators.searchAria")}
+            placeholder={t("settings.evaluators.searchPlaceholder")}
             className="h-11 w-full sm:w-96"
             value={searchText}
             onChange={(e) => setSearchText(e.target.value)}
           />
           {found.error ? (
             <p role="alert" className="text-sm text-destructive">
-              {kpiErrorText(found.error)}
+              {kpiErrorText(found.error, t)}
             </p>
           ) : searching && found.isPending ? (
-            <p className="text-sm text-muted-foreground">Поиск…</p>
+            <p className="text-sm text-muted-foreground">{t("settings.evaluators.searching")}</p>
           ) : searching && (found.data ?? []).length === 0 ? (
-            <p className="text-sm text-muted-foreground">Никого не нашли</p>
+            <p className="text-sm text-muted-foreground">{t("settings.evaluators.notFound")}</p>
           ) : searching ? (
             <div className="flex flex-wrap gap-2">
               {(found.data ?? []).slice(0, MAX_FOUND).map((u) => (
@@ -229,11 +232,11 @@ function AssignForm() {
 
       <div className="flex flex-wrap items-center gap-2">
         <Select value={card} disabled={busy} onValueChange={setCard}>
-          <SelectTrigger className="h-11 w-full sm:w-60" aria-label="Карта">
+          <SelectTrigger className="h-11 w-full sm:w-60" aria-label={t("settings.evaluators.cardAria")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Любая карта</SelectItem>
+            <SelectItem value={ALL}>{t("settings.evaluators.anyCard")}</SelectItem>
             {(cards.data ?? []).map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.title_ru}
@@ -242,20 +245,20 @@ function AssignForm() {
           </SelectContent>
         </Select>
         <Select value={terminal} disabled={busy} onValueChange={setTerminal}>
-          <SelectTrigger className="h-11 w-full sm:w-60" aria-label="Филиал">
+          <SelectTrigger className="h-11 w-full sm:w-60" aria-label={t("settings.evaluators.terminalAria")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Любой филиал</SelectItem>
-            {(terminals.data ?? []).map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
+            <SelectItem value={ALL}>{t("settings.evaluators.anyTerminal")}</SelectItem>
+            {(terminals.data ?? []).map((term) => (
+              <SelectItem key={term.id} value={term.id}>
+                {term.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Button type="button" className="h-11" disabled={busy || user === null} onClick={() => !busy && create.mutate()}>
-          Назначить
+          {t("settings.evaluators.assign")}
         </Button>
       </div>
     </section>

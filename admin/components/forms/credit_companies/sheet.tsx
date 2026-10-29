@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Sheet,
   SheetContent,
@@ -21,6 +22,7 @@ export default function CreditCompaniesFormSheet({
   // refresh their own query too, without this component knowing about them.
   onSaved?: () => void;
 }) {
+  const t = useTranslations("forms.creditCompanies");
   const [open, setOpen] = useState<boolean>(false);
 
   const beforeOpen = async (open: boolean) => {
@@ -36,7 +38,7 @@ export default function CreditCompaniesFormSheet({
       <SheetTrigger asChild>{children}</SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <SheetTitle>{recordId ? "Редактировать" : "Добавить"} кредитную компанию</SheetTitle>
+          <SheetTitle>{recordId ? t("titleEdit") : t("titleAdd")}</SheetTitle>
         </SheetHeader>
         <CreditCompaniesForm setOpen={setOpen} recordId={recordId} onSaved={onSaved} />
       </SheetContent>

@@ -77,12 +77,9 @@ function Metric({
 }
 
 export default function CurriculumPage() {
-  // Page chrome goes through next-intl like the rest of the admin. The
-  // operational prose inside the editors (consequence dialogs, publish
-  // blockers, the translated 422 list) stays Russian in place: the brief asks
-  // for those "по-русски", they are written for HR and head office, and
-  // machine-translating a "this will be visible to every trainee" warning into
-  // a locale nobody operates in would be worse than showing the original.
+  // Page chrome goes through next-intl like the rest of the admin; the editor
+  // components (consequence dialogs, publish blockers, the translated 422
+  // list) use the `passportUi.curriculum` namespace.
   const t = useTranslations("passport.curriculum");
   const access = useCurriculumAccess();
 

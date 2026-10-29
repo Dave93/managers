@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import NoAccessNotice from "@admin/components/layout/no-access-notice";
 
@@ -13,6 +14,7 @@ export default function StaffRolesSectionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("systemPages.staffRolesNoAccess");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -25,9 +27,9 @@ export default function StaffRolesSectionLayout({
   if (!perms.includes("employees.list"))
     return (
       <NoAccessNotice
-        title="Справочник ролей недоступен"
+        title={t("title")}
         missing={["employees.list"]}
-        explanation="Раздел существует и работает, но вашей роли не выдано право на него. Справочник ролей общий со справочником сотрудников: из него берутся должности в форме сотрудника. Попросите администратора office выдать право вашей роли."
+        explanation={t("explanation")}
       />
     );
   return <>{children}</>;

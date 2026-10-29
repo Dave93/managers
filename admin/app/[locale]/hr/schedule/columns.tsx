@@ -5,23 +5,32 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import DeleteAction from "./delete-action";
 import { work_schedules } from "@backend/../drizzle/schema";
 import { WorkScheduleFormSheet } from "@admin/components/forms/schedule/sheet";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 
-export const sheduleColumns: ColumnDef<typeof work_schedules.$inferSelect>[] = [
+type TFn = ReturnType<typeof useTranslations>;
+
+export const useSheduleColumns = (): ColumnDef<typeof work_schedules.$inferSelect>[] => {
+    const t = useTranslations("hrPages.schedule");
+    return useMemo(() => getSheduleColumns(t), [t]);
+};
+
+export const getSheduleColumns = (t: TFn): ColumnDef<typeof work_schedules.$inferSelect>[] => [
     {
         accessorKey: "name",
-        header: "Название",
+        header: t("columns.name"),
     },
     {
         accessorKey: "active",
-        header: "статус",
+        header: t("columns.status"),
     },
     {
         accessorKey: "days",
-        header: "Требования",
+        header: t("columns.days"),
     },
     {
         accessorKey: "start_time",
-        header: "Nachalo"
+        header: t("columns.startTime")
     },
     {
         id: "actions",

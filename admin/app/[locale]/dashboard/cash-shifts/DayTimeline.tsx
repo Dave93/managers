@@ -1,10 +1,11 @@
 "use client";
 import React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import type { ShiftFlag } from "./flags";
 import { barGeometry, timelineAxis } from "./timeline";
-import { FLAG_LABEL, STATUS_LABEL, fmtDateTime, fmtDay, fmtDuration, fmtMoney, fmtTime } from "./format";
+import { KNOWN_STATUSES, fmtDateTime, fmtDay, fmtDuration, fmtTime, useFmtMoney } from "./format";
 import type { CashShiftFull } from "./types";
 
 type Flagged = CashShiftFull & { flags: ShiftFlag[] };
@@ -12,11 +13,11 @@ type Row = { key: string; label: string; unmapped: boolean; sub: string | null; 
 
 // Retired registers (e.g. old Ekopark 67/79) carry neither a terminal nor an
 // iiko group, only their own register name.
-const locationLabel = (s: Flagged) =>
-  s.terminal_name ?? s.iiko_group_name ?? s.cash_register_name ?? "Без названия";
+const locationLabel = (s: Flagged, noName: string) =>
+  s.terminal_name ?? s.iiko_group_name ?? s.cash_register_name ?? noName;
 
 // One row per register; the location label is printed only on its first row.
-function buildRows(shifts: Flagged[]): Row[] {
+function buildRows(shifts: Flagged[], noName: string, noRegisterName: string): Row[] {
   const byLocation = new Map<string, Flagged[]>();
   for (const s of shifts) {
     const loc = s.terminal_id ?? `group:${s.iiko_group_id ?? s.id}`;
@@ -24,7 +25,7 @@ function buildRows(shifts: Flagged[]): Row[] {
   }
   const rows: Row[] = [];
   for (const [loc, list] of byLocation) {
-    const label = locationLabel(list[0]);
+    const label = locationLabel(list[0], noName);
     const unmapped = !list[0].terminal_id;
     const registers = [...new Set(list.map((s) => s.cash_reg_number))].sort((a, b) => a - b);
     registers.forEach((reg, i) => {
@@ -33,7 +34,7 @@ function buildRows(shifts: Flagged[]): Row[] {
         key: `${loc}|${reg}`,
         label: i === 0 ? label : "",
         unmapped: i === 0 && unmapped,
-        sub: registers.length > 1 ? `№ ${reg} · ${own[0].cash_register_name ?? "без имени"}` : null,
+        sub: registers.length > 1 ? `№ ${reg} · ${own[0].cash_register_name ?? noRegisterName}` : null,
         shifts: own,
       });
     });
@@ -65,18 +66,19 @@ function LegendSwatch({ className, style }: { className?: string; style?: React.
 }
 
 function Legend() {
+  const t = useTranslations("dashboardUi.cashShifts");
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
-        <LegendSwatch className={BAR_NORMAL} />в норме
+        <LegendSwatch className={BAR_NORMAL} />{t("legendNormal")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <LegendSwatch className={BAR_FLAGGED} />
-        нарушение
+        {t("legendViolation")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <LegendSwatch className={BAR_UNCLOSED} style={{ backgroundImage: STRIPES }} />
-        не закрыта
+        {t("legendUnclosed")}
       </span>
     </div>
   );
@@ -85,15 +87,18 @@ function Legend() {
 const DIFF_STATUSES = new Set(["ACCEPTED", "HASWARNINGS"]);
 
 function ShiftDetails({ s }: { s: Flagged }) {
+  const t = useTranslations("dashboardUi.cashShifts");
+  const td = useTranslations("dashboardUi.duration");
+  const fmtMoney = useFmtMoney();
   return (
     <div className="space-y-3 text-sm">
       <div>
         <div className="font-semibold leading-snug">
-          {locationLabel(s)} · № {s.cash_reg_number} · {s.cash_register_name ?? "без имени"}
+          {locationLabel(s, t("noName"))} · № {s.cash_reg_number} · {s.cash_register_name ?? t("noRegisterName")}
         </div>
         <div className="mt-1 tabular-nums text-muted-foreground">
-          {fmtDateTime(s.open_at)} → {s.close_at ? fmtDateTime(s.close_at) : "открыта"} ·{" "}
-          {fmtDuration(s.open_at, s.close_at)}
+          {fmtDateTime(s.open_at)} → {s.close_at ? fmtDateTime(s.close_at) : t("statusOpen")} ·{" "}
+          {fmtDuration(s.open_at, s.close_at, td)}
         </div>
       </div>
       {s.flags.length > 0 && (
@@ -108,39 +113,39 @@ function ShiftDetails({ s }: { s: Flagged }) {
                   : "bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
               )}
             >
-              {FLAG_LABEL[f]}
+              {t(`flag.${f}`)}
             </span>
           ))}
         </div>
       )}
       <div className="text-xs text-muted-foreground">
-        Смена № {s.session_number} · {STATUS_LABEL[s.status] ?? s.status} · открыл:{" "}
+        {t("shiftNo", { number: s.session_number })} · {KNOWN_STATUSES.has(s.status) ? t(`status.${s.status}`) : s.status} · {t("openedBy")}{" "}
         {s.responsible_user_name ?? "—"}
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 tabular-nums">
-        <span className="text-muted-foreground">Заказы</span>
+        <span className="text-muted-foreground">{t("orders")}</span>
         <span className="text-right font-medium">{fmtMoney(s.pay_orders)}</span>
-        <span className="text-muted-foreground">Наличные</span>
+        <span className="text-muted-foreground">{t("cash")}</span>
         <span className="text-right">{fmtMoney(s.sales_cash)}</span>
-        <span className="text-muted-foreground">Карта</span>
+        <span className="text-muted-foreground">{t("card")}</span>
         <span className="text-right">{fmtMoney(s.sales_card)}</span>
-        <span className="text-muted-foreground">Расхождение</span>
+        <span className="text-muted-foreground">{t("discrepancy")}</span>
         {/* iiko counts the cash only when a shift is accepted; before that
             cash_diff is just minus the cash sales, not a shortage. */}
         {DIFF_STATUSES.has(s.status) ? (
           <span className="text-right">{fmtMoney(s.cash_diff)}</span>
         ) : (
-          <span className="text-right text-muted-foreground">— (смена не принята)</span>
+          <span className="text-right text-muted-foreground">{t("shiftNotAccepted")}</span>
         )}
       </div>
       {s.cashiers.length > 0 && (
         <div className="border-t pt-2">
-          <div className="mb-1 text-xs text-muted-foreground">Кассиры</div>
+          <div className="mb-1 text-xs text-muted-foreground">{t("cashiers")}</div>
           {s.cashiers.map((c) => (
             <div key={c.cashier_id} className="flex justify-between gap-3 tabular-nums">
               <span className="truncate">{c.cashier_name}</span>
               <span className="shrink-0 text-muted-foreground">
-                {c.orders_count} зак. · {fmtMoney(c.revenue)}
+                {t("ordersShort", { count: c.orders_count })} · {fmtMoney(c.revenue)}
               </span>
             </div>
           ))}
@@ -151,37 +156,41 @@ function ShiftDetails({ s }: { s: Flagged }) {
 }
 
 export default function DayTimeline({ day, shifts }: { day: string; shifts: Flagged[] }) {
+  const t = useTranslations("dashboardUi.cashShifts");
+  const locale = useLocale();
   // Frozen at mount: the widget is historical, open bars need an end, not a clock.
   const [nowMs] = React.useState(() => Date.now());
   const axis = React.useMemo(() => timelineAxis(shifts, day, nowMs), [shifts, day, nowMs]);
-  const rows = React.useMemo(() => buildRows(shifts), [shifts]);
+  const noName = t("noName");
+  const noRegisterName = t("noRegisterName");
+  const rows = React.useMemo(() => buildRows(shifts, noName, noRegisterName), [shifts, noName, noRegisterName]);
   const span = axis.endMs - axis.startMs;
-  const pct = (t: number) => `${((t - axis.startMs) / span) * 100}%`;
+  const pct = (tick: number) => `${((tick - axis.startMs) / span) * 100}%`;
 
   if (shifts.length === 0) {
-    return <p className="flex min-h-[200px] items-center text-sm text-muted-foreground">В этот день смен нет.</p>;
+    return <p className="flex min-h-[200px] items-center text-sm text-muted-foreground">{t("noShiftsForDay")}</p>;
   }
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">
-          {fmtDay(day)} <span className="font-normal text-muted-foreground">· касс: {rows.length}</span>
+          {fmtDay(day, locale)} <span className="font-normal text-muted-foreground">· {t("registersCount", { count: rows.length })}</span>
         </span>
         <Legend />
       </div>
       <div className="max-h-[480px] overflow-auto rounded-md border">
         <div className="relative min-w-[720px]">
           <div className="sticky top-0 z-10 flex h-7 items-center border-b bg-card text-xs text-muted-foreground">
-            <div className="sticky left-0 z-10 w-32 shrink-0 bg-card px-3 sm:w-56">Филиал / касса</div>
+            <div className="sticky left-0 z-10 w-32 shrink-0 bg-card px-3 sm:w-56">{t("branchRegister")}</div>
             <div className="relative mr-6 h-full flex-1">
-              {axis.ticks.map((t) => (
+              {axis.ticks.map((tick) => (
                 <span
-                  key={t}
+                  key={tick}
                   className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 tabular-nums"
-                  style={{ left: pct(t) }}
+                  style={{ left: pct(tick) }}
                 >
-                  {fmtTime(new Date(t).toISOString())}
+                  {fmtTime(new Date(tick).toISOString())}
                 </span>
               ))}
             </div>
@@ -189,8 +198,8 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
           <div className="relative">
             {/* Hour grid behind the bars. */}
             <div aria-hidden className="pointer-events-none absolute inset-y-0 left-32 right-6 sm:left-56">
-              {axis.ticks.map((t) => (
-                <div key={t} className="absolute inset-y-0 border-l border-border/70" style={{ left: pct(t) }} />
+              {axis.ticks.map((tick) => (
+                <div key={tick} className="absolute inset-y-0 border-l border-border/70" style={{ left: pct(tick) }} />
               ))}
             </div>
             {rows.map((r, i) => (
@@ -208,7 +217,7 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
                     <div className="flex items-center gap-1.5 text-sm">
                       <span className="truncate">{r.label}</span>
                       {r.unmapped && (
-                        <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">не привязан</span>
+                        <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">{t("unmapped")}</span>
                       )}
                     </div>
                   )}
@@ -217,14 +226,14 @@ export default function DayTimeline({ day, shifts }: { day: string; shifts: Flag
                 <div className="relative mr-6 h-5 flex-1">
                   {r.shifts.map((s) => {
                     const g = barGeometry(s, axis, nowMs);
-                    const range = `${fmtTime(s.open_at)}–${s.close_at ? fmtTime(s.close_at) : "открыта"}`;
+                    const range = `${fmtTime(s.open_at)}–${s.close_at ? fmtTime(s.close_at) : t("statusOpen")}`;
                     return (
                       <Popover key={s.id}>
                         <PopoverTrigger asChild>
                           <button
                             type="button"
-                            aria-label={`Смена ${range}`}
-                            title={s.flags.length > 0 ? `${range}: ${s.flags.map((f) => FLAG_LABEL[f]).join(", ")}` : range}
+                            aria-label={t("shiftRange", { range })}
+                            title={s.flags.length > 0 ? `${range}: ${s.flags.map((f) => t(`flag.${f}`)).join(", ")}` : range}
                             className={cn(
                               "absolute top-0 h-5 rounded-[3px] border-l-2 ring-2 ring-card transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                               barClass(s.flags)

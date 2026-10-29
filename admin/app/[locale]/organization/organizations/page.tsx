@@ -1,13 +1,14 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { organizationsColumns } from "./columns";
+import { useOrganizationsColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import OrganizationsFormSheet from "@admin/components/forms/organizations/sheet";
 import CanAccess from "@admin/components/can-access";
 
 export default function OrganizationsListPage() {
+  const columns = useOrganizationsColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -25,7 +26,7 @@ export default function OrganizationsListPage() {
         </div>
       </div>
       <div className="py-10">
-        <DataTable columns={organizationsColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

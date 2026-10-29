@@ -2,9 +2,10 @@
 
 import { useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
-import { apiMessage, listTypes, type ApiError, type TicketRecord, type TicketTypeRow } from "@admin/lib/tickets-api";
+import { apiMessage, apiMessageKey, listTypes, type ApiError, type TicketRecord, type TicketTypeRow } from "@admin/lib/tickets-api";
 import {
   branchesFromSession,
   buildCreateFormData,
@@ -36,6 +37,7 @@ export const branchKeys = {
 // /terminals/my_terminals для этого не годится: при пустом снимке он отдаёт все
 // филиалы. Права users_terminals.list соединению всё ещё нужно, только для имён.
 export function useMyBranches(enabled: boolean) {
+  const t = useTranslations("ticketsLib");
   return useQuery<Branch[], ApiError>({
     queryKey: branchKeys.branches,
     queryFn: async () => {
@@ -50,8 +52,8 @@ export function useMyBranches(enabled: boolean) {
         throw e;
       }
       const ids = terminalIdsFromMe(me?.data);
-      if (!ids) throw new Error("Сервер не вернул филиалы сессии") as ApiError;
-      return branchesFromSession(ids, names?.error ? null : (names?.data?.data ?? names?.data));
+      if (!ids) throw Object.assign(new Error(t("load.branchesMissing")), { local: true }) as ApiError;
+      return branchesFromSession(ids, names?.error ? null : (names?.data?.data ?? names?.data), t);
     },
     enabled,
     ...FAIL_FAST,
@@ -105,6 +107,7 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
   }
   if (!res.ok) {
     const e = new Error(apiMessage({ value: payload })) as ApiError & { errors?: unknown };
+    e.messageKey = apiMessageKey({ value: payload }) ?? undefined;
     e.status = res.status;
     e.value = payload;
     e.errors = payload?.errors;
@@ -133,6 +136,7 @@ export async function postTicket(body: FormData): Promise<TicketRecord & { numbe
 // только отдельным действием, `submit(..., { afterCheck: true })`, которое
 // экран подписывает иначе («Я проверил список, создать ещё раз»).
 export function useCreateTicket() {
+  const t = useTranslations("ticketsLib");
   const qc = useQueryClient();
   const latch = useRef(false);
   // «Ждём проверки списка» как ref: повтор погашает его синхронно, и второе
@@ -140,7 +144,7 @@ export function useCreateTicket() {
   // замыкания рендера для этого устарело бы.
   const awaitRef = useRef(false);
   const m = useMutation({
-    mutationFn: async (input: CreateInput) => postTicket(buildCreateFormData(input)),
+    mutationFn: async (input: CreateInput) => postTicket(buildCreateFormData(input, t)),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["tickets"] });
     },

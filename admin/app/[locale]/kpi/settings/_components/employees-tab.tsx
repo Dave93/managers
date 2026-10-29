@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
@@ -28,6 +29,7 @@ import { useTgBindings } from "./use-tg-bindings";
 const MIN_SEARCH = 2;
 
 export function EmployeesTab() {
+  const t = useTranslations("kpi");
   const me = useKpiMe();
   const terminals = useKpiTerminals();
   const [searchText, setSearchText] = useState("");
@@ -38,8 +40,8 @@ export function EmployeesTab() {
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchText.trim()), 300);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setSearch(searchText.trim()), 300);
+    return () => clearTimeout(timer);
   }, [searchText]);
 
   const period = me.data?.current_period;
@@ -68,25 +70,25 @@ export function EmployeesTab() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Табельный номер нужен для загрузки Workly: строки файла сопоставляются с сотрудниками по нему
+        {t("settings.employees.hint")}
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <Input
-          aria-label="Поиск сотрудника"
-          placeholder="Фамилия или имя"
+          aria-label={t("settings.employees.searchAria")}
+          placeholder={t("settings.employees.searchPlaceholder")}
           className="h-11 w-full sm:w-64"
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
         />
         <Select value={terminal} onValueChange={setTerminal}>
-          <SelectTrigger className="h-11 w-full sm:w-60" aria-label="Филиал">
-            <SelectValue placeholder="Филиал" />
+          <SelectTrigger className="h-11 w-full sm:w-60" aria-label={t("settings.employees.terminalAria")}>
+            <SelectValue placeholder={t("settings.employees.terminalPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Все филиалы</SelectItem>
-            {(terminals.data ?? []).map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
+            <SelectItem value={ALL}>{t("settings.employees.allTerminals")}</SelectItem>
+            {(terminals.data ?? []).map((term) => (
+              <SelectItem key={term.id} value={term.id}>
+                {term.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -95,23 +97,23 @@ export function EmployeesTab() {
 
       {me.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(me.error)}
+          {kpiErrorText(me.error, t)}
         </p>
       ) : !ready ? (
-        <p className="text-sm text-muted-foreground">Найдите сотрудника по фамилии или выберите филиал</p>
+        <p className="text-sm text-muted-foreground">{t("settings.employees.promptSearch")}</p>
       ) : list.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(list.error)}
+          {kpiErrorText(list.error, t)}
         </p>
       ) : list.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{t("settings.employees.loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Никого не нашли</p>
+        <p className="text-sm text-muted-foreground">{t("settings.employees.empty")}</p>
       ) : (
         <div className="space-y-2">
           {tgLoad.blocking != null && (
             <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-              {kpiErrorText(tgLoad.blocking)}
+              {kpiErrorText(tgLoad.blocking, t)}
             </p>
           )}
           {tgLoad.stale != null && <StaleNote error={tgLoad.stale} />}
@@ -119,12 +121,12 @@ export function EmployeesTab() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ФИО</TableHead>
-                <TableHead>Филиал</TableHead>
-                <TableHead>Должность</TableHead>
-                <TableHead>Карта</TableHead>
-                <TableHead>Табельный номер</TableHead>
-                <TableHead>Telegram</TableHead>
+                <TableHead>{t("settings.employees.colName")}</TableHead>
+                <TableHead>{t("settings.employees.colTerminal")}</TableHead>
+                <TableHead>{t("settings.employees.colRole")}</TableHead>
+                <TableHead>{t("settings.employees.colCard")}</TableHead>
+                <TableHead>{t("settings.employees.colExternalId")}</TableHead>
+                <TableHead>{t("settings.employees.colTelegram")}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -134,7 +136,7 @@ export function EmployeesTab() {
                   <TableCell>{employeeName(r)}</TableCell>
                   <TableCell>{r.terminal_name ?? "—"}</TableCell>
                   <TableCell>{r.staff_role_name ?? "—"}</TableCell>
-                  <TableCell>{cardAssignLabel(r)}</TableCell>
+                  <TableCell>{cardAssignLabel(r, t)}</TableCell>
                   <TableCell>
                     <ExternalIdCell
                       row={r}
@@ -148,7 +150,7 @@ export function EmployeesTab() {
                   </TableCell>
                   <TableCell className="text-right">
                     <Button type="button" variant="outline" className="h-11" onClick={() => setTarget(r)}>
-                      Карта…
+                      {t("settings.employees.cardButton")}
                     </Button>
                   </TableCell>
                 </TableRow>
@@ -175,18 +177,19 @@ function ExternalIdCell({
   onEdit: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [text, setText] = useState(row.external_id ?? "");
-  const issue = externalIdIssue(text);
+  const issue = externalIdIssue(text, t);
 
   const save = useMutation({
     mutationFn: (value: string | null) => kpiApi.employees.setExternalId(row.id, value),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.employeesAll });
-      toast.success("Табельный номер сохранён");
+      toast.success(t("settings.employees.externalIdSaved"));
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
   });
 
   if (!editing) {
@@ -198,7 +201,7 @@ function ExternalIdCell({
           variant="ghost"
           size="icon"
           className="size-11"
-          aria-label="Изменить табельный номер"
+          aria-label={t("settings.employees.editExternalIdAria")}
           onClick={() => {
             setText(row.external_id ?? "");
             onEdit();
@@ -222,7 +225,7 @@ function ExternalIdCell({
       <Input
         autoFocus
         maxLength={100}
-        aria-label="Табельный номер"
+        aria-label={t("settings.employees.externalIdAria")}
         className="h-11"
         value={text}
         disabled={save.isPending}
@@ -239,10 +242,10 @@ function ExternalIdCell({
       {issue && <p className="text-xs text-destructive">{issue}</p>}
       <div className="flex gap-2">
         <Button type="button" className="h-11" disabled={save.isPending || issue !== null} onClick={submit}>
-          Сохранить
+          {t("settings.employees.save")}
         </Button>
         <Button type="button" variant="outline" className="h-11" disabled={save.isPending} onClick={onClose}>
-          Отмена
+          {t("settings.employees.cancel")}
         </Button>
       </div>
     </div>
@@ -250,6 +253,7 @@ function ExternalIdCell({
 }
 
 function AssignDialog({ row, onClose }: { row: EmployeeRow | null; onClose: () => void }) {
+  const t = useTranslations("kpi");
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={row !== null} onOpenChange={(o) => !o && !pending && onClose()}>
@@ -258,8 +262,8 @@ function AssignDialog({ row, onClose }: { row: EmployeeRow | null; onClose: () =
           <AssignBody key={row.id} row={row} onClose={onClose} onPending={setPending} />
         ) : (
           <>
-            <DialogTitle className="sr-only">Карта сотрудника</DialogTitle>
-            <DialogDescription className="sr-only">Карта сотрудника</DialogDescription>
+            <DialogTitle className="sr-only">{t("settings.employees.assignTitle")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings.employees.assignTitle")}</DialogDescription>
           </>
         )}
       </DialogContent>
@@ -268,6 +272,7 @@ function AssignDialog({ row, onClose }: { row: EmployeeRow | null; onClose: () =
 }
 
 function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: () => void; onPending: (p: boolean) => void }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const cards = useQuery<Card[], Error>({
     queryKey: qk.cards(false),
@@ -291,10 +296,10 @@ function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: ()
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: qk.employeesAll });
       qc.invalidateQueries({ queryKey: qk.formAll });
-      toast.success("Карта сохранена");
+      toast.success(t("settings.employees.cardSaved"));
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
   });
 
   const busy = save.isPending;
@@ -306,23 +311,23 @@ function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: ()
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Карта сотрудника</DialogTitle>
+        <DialogTitle>{t("settings.employees.assignTitle")}</DialogTitle>
         <DialogDescription>{[employeeName(row), row.terminal_name].filter(Boolean).join(" · ")}</DialogDescription>
       </DialogHeader>
 
       {cards.error && (
         <p role="alert" className="text-sm text-destructive">
-          {kpiErrorText(cards.error)}
+          {kpiErrorText(cards.error, t)}
         </p>
       )}
 
       <Select value={value} disabled={busy} onValueChange={setValue}>
-        <SelectTrigger className="h-11 w-full" aria-label="Карта">
+        <SelectTrigger className="h-11 w-full" aria-label={t("settings.employees.cardAria")}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="auto">Авто (по должности)</SelectItem>
-          <SelectItem value="none">Не оценивается</SelectItem>
+          <SelectItem value="auto">{t("settings.employees.optionAuto")}</SelectItem>
+          <SelectItem value="none">{t("settings.employees.optionNone")}</SelectItem>
           {options.map((c) => (
             <SelectItem key={c.id} value={c.id}>
               {c.title}
@@ -336,16 +341,16 @@ function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: ()
         value={comment}
         disabled={busy}
         onChange={(e) => setComment(e.target.value)}
-        aria-label="Комментарий"
-        placeholder="Комментарий (необязательно)"
+        aria-label={t("settings.employees.commentAria")}
+        placeholder={t("settings.employees.commentPlaceholder")}
       />
 
       <DialogFooter className="gap-2 sm:gap-2">
         <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
-          Отмена
+          {t("settings.employees.cancel")}
         </Button>
         <Button type="button" className="h-11" disabled={busy || cards.isPending} onClick={() => !busy && save.mutate()}>
-          Сохранить
+          {t("settings.employees.save")}
         </Button>
       </DialogFooter>
     </>

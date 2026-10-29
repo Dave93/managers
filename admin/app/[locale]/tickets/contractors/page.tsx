@@ -16,6 +16,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Inbox, Plus, RotateCw, ShieldAlert, SquarePen, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { cn } from "@admin/lib/utils";
@@ -36,12 +37,13 @@ const NO_FIRMS: ContractorRow[] = [];
 const NO_EXECUTORS: ExecutorRow[] = [];
 
 function AccessPanel() {
+  const t = useTranslations("ticketsUi.contractors");
   return (
     <div role="alert" className="rounded-lg border bg-card">
       <ForbiddenBody
-        title="Нет доступа к фирмам и исполнителям"
-        prefix="Экрану нужно право"
-        suffix="Попросите администратора добавить его вашей роли в форме роли, затем перезагрузите страницу."
+        title={t("accessTitle")}
+        prefix={t("accessPrefix")}
+        suffix={t("accessSuffix")}
       />
     </div>
   );
@@ -93,22 +95,25 @@ function ListFrame({
   children,
 }: {
   q: QueryState;
-  what: string;
+  what: "firms" | "executors";
   isEmpty: boolean;
   empty: React.ReactNode;
   onRetry: () => void;
   skeletonRows: number;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("ticketsUi.contractors");
+  const tt = useTranslations("ticketsUi.table");
+  const tl = useTranslations("ticketsLib");
   const apiError = q.error as ApiError | null;
   if (q.isError && !q.hasData) {
     if (apiError?.status === 403) {
       return (
         <div role="alert">
           <ForbiddenBody
-            title={`Нет доступа к списку ${what}`}
-            prefix="Сервер ответил отказом (403). Нужно право"
-            suffix="Попросите администратора добавить его вашей роли, затем перезагрузите страницу."
+            title={t(`listForbidden.${what}`)}
+            prefix={t("listForbiddenPrefix")}
+            suffix={t("listForbiddenSuffix")}
           />
         </div>
       );
@@ -119,21 +124,21 @@ function ListFrame({
         <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 space-y-2.5">
           <p className="text-[14px] font-semibold leading-tight">
-            {network ? "Нет связи с сервером" : `Не удалось загрузить список ${what}`}
+            {network ? tt("noConnection") : t(`listLoadFailed.${what}`)}
           </p>
           <p className="max-w-xl break-words text-[12.5px] leading-snug text-muted-foreground">
             {network
-              ? "Запрос не дошёл до сервера. Проверьте соединение и повторите."
-              : apiMessage(apiError)}
+              ? tt("noConnectionBody")
+              : apiMessage(apiError, tl)}
           </p>
           {network && (
             <p className="break-words font-mono text-[11px] text-muted-foreground">
-              {apiMessage(apiError)}
+              {apiMessage(apiError, tl)}
             </p>
           )}
           <Button variant="outline" size="sm" onClick={onRetry} disabled={q.isFetching}>
             <RotateCw className={q.isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
-            {q.isFetching ? "Повторяем…" : "Повторить"}
+            {q.isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       </div>
@@ -160,13 +165,13 @@ function ListFrame({
         >
           <TriangleAlert className="size-3.5 shrink-0" />
           <span>
-            {apiError?.status === 403 ? "Доступ пропал." : "Не удалось обновить список."} Показаны
-            данные на{" "}
-            {new Date(q.dataUpdatedAt).toLocaleTimeString("ru-RU", {
-              hour: "2-digit",
-              minute: "2-digit",
+            {apiError?.status === 403 ? t("staleForbidden") : tt("staleFailed")}{" "}
+            {tt("staleShown", {
+              time: new Date(q.dataUpdatedAt).toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             })}
-            .
           </span>
           <Button
             variant="ghost"
@@ -175,7 +180,7 @@ function ListFrame({
             onClick={onRetry}
             disabled={q.isFetching}
           >
-            {q.isFetching ? "Повторяем…" : "Повторить"}
+            {q.isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       )}
@@ -204,6 +209,7 @@ function FirmRow({
   onSelect: () => void;
   onEdit: () => void;
 }) {
+  const t = useTranslations("ticketsUi.contractors");
   return (
     <li className={cn("flex items-stretch border-b last:border-b-0", selected && "bg-muted/60")}>
       <button
@@ -223,19 +229,19 @@ function FirmRow({
           </span>
           {!firm.is_active && (
             <span className="shrink-0 rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              Выключена
+              {t("firmDisabled")}
             </span>
           )}
         </span>
         <span className="block truncate text-[12px] text-muted-foreground">
-          {blank(firm.phone) ?? "телефон не указан"}
+          {blank(firm.phone) ?? t("phoneMissing")}
         </span>
       </button>
       <Button
         variant="ghost"
         size="sm"
         className="my-auto mr-2 h-8 w-8 shrink-0 p-0"
-        aria-label={`Изменить фирму ${firm.name}`}
+        aria-label={t("editFirmAria", { name: firm.name })}
         onClick={onEdit}
       >
         <SquarePen className="size-4" />
@@ -245,6 +251,7 @@ function FirmRow({
 }
 
 function ExecutorRowView({ ex, onOpen }: { ex: ExecutorRow; onOpen: () => void }) {
+  const t = useTranslations("ticketsUi.contractors");
   return (
     <li className="border-b last:border-b-0">
       <button
@@ -262,14 +269,14 @@ function ExecutorRowView({ ex, onOpen }: { ex: ExecutorRow; onOpen: () => void }
             {ex.full_name}
           </span>
           <span className="block truncate text-[12px] text-muted-foreground">
-            {blank(ex.phone) ?? "телефон не указан"} · {langOf(ex.lang) === "uz" ? "Oʻzbekcha" : "Русский"}
+            {blank(ex.phone) ?? t("phoneMissing")} · {langOf(ex.lang) === "uz" ? "Oʻzbekcha" : "Русский"}
           </span>
         </span>
         <span className="flex flex-wrap items-center gap-1.5">
           <BindingChip row={ex} />
           {!ex.is_active && (
             <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-[11px] font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-              Выключен
+              {t("executorDisabled")}
             </span>
           )}
         </span>
@@ -279,6 +286,7 @@ function ExecutorRowView({ ex, onOpen }: { ex: ExecutorRow; onOpen: () => void }
 }
 
 export default function ContractorsPage() {
+  const t = useTranslations("ticketsUi.contractors");
   // Тот же ключ, что у CanAccess и layout: один запрос на всё приложение.
   const perms = useQuery({
     queryKey: ["my_permissions"],
@@ -323,10 +331,9 @@ export default function ContractorsPage() {
   return (
     <div className="space-y-4 pb-10">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">Фирмы и исполнители</h1>
+        <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-[12px] text-muted-foreground">
-          Подрядчики, которым уходят заявки, и их люди. Здесь же человека приглашают в Telegram-бота:
-          он получает заявки, пока привязан и активен.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -334,9 +341,9 @@ export default function ContractorsPage() {
         <AccessPanel />
       ) : (
         <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-          <section aria-label="Фирмы" className="rounded-lg border bg-card">
+          <section aria-label={t("firms")} className="rounded-lg border bg-card">
             <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
-              <h2 className="text-[13px] font-semibold">Фирмы</h2>
+              <h2 className="text-[13px] font-semibold">{t("firms")}</h2>
               <Button
                 size="sm"
                 variant="outline"
@@ -344,7 +351,7 @@ export default function ContractorsPage() {
                 disabled={!listsEnabled}
               >
                 <Plus className="size-3.5" />
-                Добавить
+                {t("add")}
               </Button>
             </div>
             <ListFrame
@@ -356,13 +363,13 @@ export default function ContractorsPage() {
                 dataUpdatedAt: firmsQ.dataUpdatedAt,
                 hasData: firmsQ.data !== undefined,
               }}
-              what="фирм"
+              what="firms"
               isEmpty={firms.length === 0}
               empty={
                 <>
-                  <p className="text-[13px] font-medium">Фирм пока нет</p>
+                  <p className="text-[13px] font-medium">{t("firmsEmptyTitle")}</p>
                   <p className="mx-auto mt-1 max-w-xs text-[12px] leading-snug text-muted-foreground">
-                    Добавьте первую фирму, затем её людей.
+                    {t("firmsEmptyBody")}
                   </p>
                 </>
               }
@@ -383,10 +390,10 @@ export default function ContractorsPage() {
             </ListFrame>
           </section>
 
-          <section aria-label="Исполнители" className="rounded-lg border bg-card">
+          <section aria-label={t("executors")} className="rounded-lg border bg-card">
             <div className="flex items-center justify-between gap-2 border-b px-4 py-2.5">
               <h2 className="min-w-0 truncate text-[13px] font-semibold">
-                {selected ? `Исполнители: ${selected.name}` : "Исполнители"}
+                {selected ? t("executorsOf", { name: selected.name }) : t("executors")}
               </h2>
               <Button
                 size="sm"
@@ -395,14 +402,14 @@ export default function ContractorsPage() {
                 disabled={!selected}
               >
                 <Plus className="size-3.5" />
-                Добавить
+                {t("add")}
               </Button>
             </div>
             {selected === null ? (
               <p className="px-5 py-10 text-center text-[12.5px] text-muted-foreground">
                 {firmsQ.isError || firmsQ.isPending
-                  ? "Исполнители появятся, когда загрузится список фирм."
-                  : "Сначала добавьте фирму."}
+                  ? t("executorsWaitFirms")
+                  : t("addFirmFirst")}
               </p>
             ) : (
               <ListFrame
@@ -414,13 +421,13 @@ export default function ContractorsPage() {
                   dataUpdatedAt: executorsQ.dataUpdatedAt,
                   hasData: executorsQ.data !== undefined,
                 }}
-                what="исполнителей"
+                what="executors"
                 isEmpty={executors.length === 0}
                 empty={
                   <>
-                    <p className="text-[13px] font-medium">В этой фирме пока никого нет</p>
+                    <p className="text-[13px] font-medium">{t("executorsEmptyTitle")}</p>
                     <p className="mx-auto mt-1 max-w-sm text-[12px] leading-snug text-muted-foreground">
-                      Добавьте человека, затем откройте его и выдайте ссылку-приглашение в бот.
+                      {t("executorsEmptyBody")}
                     </p>
                   </>
                 }
@@ -429,7 +436,7 @@ export default function ContractorsPage() {
               >
                 {!selected.is_active && (
                   <p className="border-b px-4 py-2 text-[12px] text-muted-foreground">
-                    Фирма выключена. Её люди остаются в справочнике.
+                    {t("firmDisabledNote")}
                   </p>
                 )}
                 <ul>

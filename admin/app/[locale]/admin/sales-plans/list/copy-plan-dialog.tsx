@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/button";
@@ -21,10 +22,10 @@ import {
 } from "@admin/components/ui/select";
 import { toast } from "sonner";
 
-const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
+const MONTH_KEYS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+] as const;
 
 type Props = {
   open: boolean;
@@ -50,6 +51,7 @@ export function CopyPlanDialog({
   sourceMonth,
   onSuccess,
 }: Props) {
+  const t = useTranslations("salesPlans");
   const queryClient = useQueryClient();
 
   const [targetYear, setTargetYear] = useState(String(sourceYear));
@@ -73,7 +75,7 @@ export function CopyPlanDialog({
         target_month: Number(targetMonth),
       });
       if (status !== 200) {
-        throw new Error((data as any)?.message ?? "Ошибка копирования");
+        throw new Error((data as any)?.message ?? t("copy.error"));
       }
       return data as { created: any[]; skipped: any[] };
     },
@@ -82,11 +84,11 @@ export function CopyPlanDialog({
       const skippedN = res.skipped.length;
 
       if (createdN === 0 && skippedN > 0) {
-        toast.error("Все планы уже существуют в выбранном месяце");
+        toast.error(t("copy.allExist"));
       } else if (skippedN === 0) {
-        toast.success(`Скопировано: ${createdN}`);
+        toast.success(t("copy.copied", { count: createdN }));
       } else {
-        toast(`Создано: ${createdN}. Пропущено: ${skippedN} (уже существуют)`);
+        toast(t("copy.partial", { created: createdN, skipped: skippedN }));
       }
 
       queryClient.invalidateQueries({ queryKey: ["sales_plans"] });
@@ -99,7 +101,9 @@ export function CopyPlanDialog({
   });
 
   const isMulti = sourcePlanIds.length > 1;
-  const title = isMulti ? `Копировать планы (${sourcePlanIds.length})` : "Копировать план";
+  const title = isMulti
+    ? t("copy.titleMulti", { count: sourcePlanIds.length })
+    : t("copy.title");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -109,12 +113,12 @@ export function CopyPlanDialog({
         </DialogHeader>
 
         <DialogDescription>
-          {sourceLabel} будет скопирован в выбранный месяц
+          {t("copy.description", { label: sourceLabel })}
         </DialogDescription>
 
         <div className="grid grid-cols-2 gap-3 pt-2">
           <div>
-            <label className="text-sm font-medium mb-1 block">Год</label>
+            <label className="text-sm font-medium mb-1 block">{t("create.year")}</label>
             <Select value={targetYear} onValueChange={setTargetYear}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -125,12 +129,12 @@ export function CopyPlanDialog({
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Месяц</label>
+            <label className="text-sm font-medium mb-1 block">{t("create.month")}</label>
             <Select value={targetMonth} onValueChange={setTargetMonth}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {MONTHS.map((name, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                {MONTH_KEYS.map((key, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{t(`months.${key}`)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -139,10 +143,10 @@ export function CopyPlanDialog({
 
         <DialogFooter className="pt-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
+            {t("form.cancel")}
           </Button>
           <Button onClick={() => mutation.mutate()} disabled={mutation.isPending}>
-            {mutation.isPending ? "Копирование..." : "Копировать"}
+            {mutation.isPending ? t("copy.copying") : t("copy.submit")}
           </Button>
         </DialogFooter>
       </DialogContent>

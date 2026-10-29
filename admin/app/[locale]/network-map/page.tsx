@@ -16,6 +16,7 @@
 
 import * as React from "react";
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { Loader2, Network, ShieldAlert } from "lucide-react";
 
 import type { Branch } from "./_components/use-network-map";
@@ -29,18 +30,24 @@ import {
 } from "./_components/summary";
 import type { MapMode } from "./_components/vocabulary";
 
+function MapLoading() {
+  const t = useTranslations("networkMap");
+  return (
+    <div className="flex h-full w-full items-center justify-center rounded-lg border border-slate-800 bg-[#070c16] text-[12px] text-slate-500">
+      <Loader2 className="mr-2 size-4 animate-spin" /> {t("page.mapLoading")}
+    </div>
+  );
+}
+
 // leaflet трогает window на импорте — только на клиенте и только после
 // монтирования.
 const MapCanvas = dynamic(() => import("./_components/map-canvas"), {
   ssr: false,
-  loading: () => (
-    <div className="flex h-full w-full items-center justify-center rounded-lg border border-slate-800 bg-[#070c16] text-[12px] text-slate-500">
-      <Loader2 className="mr-2 size-4 animate-spin" /> карта загружается
-    </div>
-  ),
+  loading: () => <MapLoading />,
 });
 
 export default function NetworkMapPage() {
+  const t = useTranslations("networkMap");
   const q = useNetworkMap();
   const [mode, setMode] = React.useState<MapMode>("staff");
   const [hoveredId, setHoveredId] = React.useState<string | null>(null);
@@ -63,11 +70,10 @@ export default function NetworkMapPage() {
       <div className="mb-3">
         <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
           <Network className="size-4 text-muted-foreground" aria-hidden />
-          Карта сети
+          {t("page.title")}
         </h1>
         <p className="text-[12px] text-muted-foreground">
-          Филиалы обоих брендов, состав команд и пробелы в справочнике — из
-          одного запроса, без пересчёта на клиенте.
+          {t("page.subtitle")}
         </p>
       </div>
 
@@ -76,37 +82,39 @@ export default function NetworkMapPage() {
           <div className="flex items-start gap-2 rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2.5 text-[12.5px] leading-snug text-red-200">
             <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
             <span>
-              Карта сети отдаётся по праву{" "}
-              <code className="font-mono text-[11px]">employees.list</code>, а у
-              вашей роли его нет. Это не сбой: страница загрузилась, отказал
-              именно доступ. Обратитесь к администратору office-админки.
+              {t.rich("page.denied", {
+                code: (chunks) => (
+                  <code className="font-mono text-[11px]">{chunks}</code>
+                ),
+              })}
             </span>
           </div>
         ) : q.isError ? (
           <div className="flex items-start justify-between gap-3 rounded-md border border-red-500/40 bg-red-500/5 px-3 py-2.5 text-[12.5px] leading-snug text-red-200">
-            <span>Не удалось загрузить карту сети: {q.error?.message}</span>
+            <span>
+              {t("page.loadFailed", {
+                message: q.error?.message || t("page.loadFailedShort"),
+              })}
+            </span>
             <button
               type="button"
               onClick={() => q.refetch()}
               className="shrink-0 rounded border border-red-400/50 px-2 py-0.5 text-[11px] text-red-100 hover:bg-red-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
             >
-              повторить
+              {t("page.retry")}
             </button>
           </div>
         ) : q.isLoading ? (
           <div className="flex h-[380px] items-center justify-center text-[12px] text-slate-500">
-            <Loader2 className="mr-2 size-4 animate-spin" /> собираем сеть
+            <Loader2 className="mr-2 size-4 animate-spin" /> {t("page.loading")}
           </div>
         ) : !network || branches.length === 0 ? (
           <div className="rounded-md border border-slate-800 bg-slate-900/40 px-4 py-8 text-center">
             <p className="text-[13px] font-medium text-slate-200">
-              В вашем скоупе нет филиалов
+              {t("page.emptyTitle")}
             </p>
             <p className="mx-auto mt-1 max-w-md text-[11.5px] leading-snug text-slate-400">
-              Карта показывает только те филиалы, которые назначены вашей роли.
-              Роль без назначенных филиалов и без права головного офиса видит
-              пустую сеть — это не ошибка загрузки. Назначает филиалы
-              администратор office-админки.
+              {t("page.emptyText")}
             </p>
           </div>
         ) : (

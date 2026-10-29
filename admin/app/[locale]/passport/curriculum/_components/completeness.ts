@@ -37,28 +37,26 @@ export const needsPhoto = (vt: PassportVerificationType) =>
 export const isUnsignable = (vt: PassportVerificationType) =>
   vt === "dual" || needsPhoto(vt);
 
-export const VERIFICATION_LABELS: Record<PassportVerificationType, string> = {
-  quiz: "Квиз",
-  observation: "Наблюдение наставника",
-  quiz_observation: "Квиз + наблюдение",
-  quiz_observation_photo: "Квиз + наблюдение + фото",
-  dual: "Двойная подпись",
-};
+/**
+ * Translator bound to the `passportUi.curriculum` namespace. These helpers are
+ * plain functions (no hooks), so callers pass their own `t`.
+ */
+export type Tr = (key: string, values?: Record<string, string | number>) => string;
 
-export const UNSIGNABLE_WARNING =
-  "На текущем этапе такую тему нельзя подписать: у наставника нет ни загрузки фото, ни второй подписи. Публикация модуля с такой темой будет отклонена. Выберите «Квиз», «Наблюдение» или «Квиз + наблюдение».";
+export const verificationLabel = (t: Tr, vt: string) =>
+  t(`verification.${vt}`);
 
 /** The four bilingual pairs the publish gate checks, in form order. */
 export const TOPIC_PAIRS = [
-  { key: "title", ru: "title_ru", uz: "title_uz", label: "Название темы" },
-  { key: "step", ru: "step_ru", uz: "step_uz", label: "Шаг — что делаем" },
+  { key: "title", ru: "title_ru", uz: "title_uz", labelKey: "pairs.title" },
+  { key: "step", ru: "step_ru", uz: "step_uz", labelKey: "pairs.step" },
   {
     key: "key_point",
     ru: "key_point_ru",
     uz: "key_point_uz",
-    label: "Ключевой момент — как именно",
+    labelKey: "pairs.keyPoint",
   },
-  { key: "reason", ru: "reason_ru", uz: "reason_uz", label: "Почему так" },
+  { key: "reason", ru: "reason_ru", uz: "reason_uz", labelKey: "pairs.reason" },
 ] as const;
 
 export type TopicPairKey = (typeof TOPIC_PAIRS)[number]["key"];
@@ -67,7 +65,7 @@ const filled = (v: unknown) => typeof v === "string" && v.trim().length > 0;
 
 export interface PairState {
   key: TopicPairKey;
-  label: string;
+  labelKey: string;
   ru: boolean;
   uz: boolean;
   complete: boolean;
@@ -78,7 +76,7 @@ export function topicPairStates(topic: Record<string, any>): PairState[] {
   return TOPIC_PAIRS.map((p) => {
     const ru = filled(topic[p.ru]);
     const uz = filled(topic[p.uz]);
-    return { key: p.key, label: p.label, ru, uz, complete: ru && uz };
+    return { key: p.key, labelKey: p.labelKey, ru, uz, complete: ru && uz };
   });
 }
 
@@ -102,41 +100,40 @@ export function topicMissingLangs(topic: Record<string, any>): {
 }
 
 /** Every reason this ONE topic would block its module's publication. */
-export function topicBlockers(topic: Record<string, any>): string[] {
+export function topicBlockers(t: Tr, topic: Record<string, any>): string[] {
   const out: string[] = [];
   for (const p of topicPairStates(topic)) {
     if (p.complete) continue;
-    const missing = !p.ru && !p.uz ? "RU и UZ" : !p.ru ? "RU" : "UZ";
-    out.push(`${p.label}: не заполнено (${missing})`);
+    const missing =
+      !p.ru && !p.uz ? t("blockers.missingBoth") : !p.ru ? "RU" : "UZ";
+    out.push(t("blockers.pairMissing", { label: t(p.labelKey), missing }));
   }
   const vt = (topic.verification_type ??
     "quiz_observation") as PassportVerificationType;
   if (isUnsignable(vt)) {
-    out.push(
-      `Тип проверки «${VERIFICATION_LABELS[vt]}» пока нельзя опубликовать — наставник не сможет подписать тему`
-    );
+    out.push(t("blockers.unsignable", { type: verificationLabel(t, vt) }));
     // publish-validation.ts returns early here: the checklist shape is moot
     // while the type itself is refused. Mirror that, or the panel shows
     // blockers the server will never mention.
     return out;
   }
   if (hasQuiz(vt) && !topic.quiz_test_id)
-    out.push("Не выбран тест для квиза");
+    out.push(t("blockers.noQuiz"));
   if (hasObservation(vt)) {
     const cl = topic.observation_checklist as {
       items?: unknown[];
       questions?: unknown[];
     } | null;
     if (!cl || !Array.isArray(cl.items) || cl.items.length === 0)
-      out.push("Чек-лист наблюдения: нет ни одного пункта");
+      out.push(t("blockers.noChecklistItems"));
     if (!cl || !Array.isArray(cl.questions))
-      out.push("Чек-лист наблюдения: нет блока контрольных вопросов");
+      out.push(t("blockers.noChecklistQuestions"));
   }
   return out;
 }
 
-export const topicIsComplete = (topic: Record<string, any>) =>
-  topicBlockers(topic).length === 0;
+export const topicIsComplete = (t: Tr, topic: Record<string, any>) =>
+  topicBlockers(t, topic).length === 0;
 
 /**
  * The exact topic list the backend feeds validateModuleForPublish:
@@ -165,22 +162,23 @@ export interface ModuleReadiness {
 
 /** Whole-module readiness, mirroring validateModuleForPublish's order. */
 export function moduleReadiness(
+  t: Tr,
   mod: Pick<PassportModule, "title_ru" | "title_uz"> | null | undefined,
   topics: PassportTopic[]
 ): ModuleReadiness {
   const list = publishTopics(topics);
   const modBlockers: string[] = [];
   if (mod && (!filled(mod.title_ru) || !filled(mod.title_uz)))
-    modBlockers.push("Название модуля нужно на обоих языках (RU и UZ)");
+    modBlockers.push(t("blockers.moduleTitle"));
   if (list.length === 0)
-    modBlockers.push("В модуле нет ни одной активной темы");
+    modBlockers.push(t("blockers.noActiveTopics"));
 
   const perTopic: ModuleReadiness["topicBlockers"] = [];
   let incompleteTranslations = 0;
-  list.forEach((t, i) => {
-    if (topicMissingLangs(t).any) incompleteTranslations += 1;
-    const reasons = topicBlockers(t);
-    if (reasons.length) perTopic.push({ topic: t, index: i + 1, reasons });
+  list.forEach((topic, i) => {
+    if (topicMissingLangs(topic).any) incompleteTranslations += 1;
+    const reasons = topicBlockers(t, topic);
+    if (reasons.length) perTopic.push({ topic, index: i + 1, reasons });
   });
 
   return {

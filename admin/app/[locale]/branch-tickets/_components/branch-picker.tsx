@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { Check, Store } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { Input } from "@components/ui/input";
@@ -25,6 +26,7 @@ export function BranchPicker({
   onChoose: (id: string | null) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("branchTickets.picker");
   const labelId = useId();
   const [query, setQuery] = useState("");
 
@@ -32,7 +34,7 @@ export function BranchPicker({
     return (
       <div className="flex items-center gap-2 text-base">
         <Store className="size-5 text-muted-foreground" aria-hidden />
-        <span className="text-muted-foreground">Заявка уйдёт в филиал:</span>
+        <span className="text-muted-foreground">{t("willGoTo")}</span>
         <span className="font-semibold">{branches[0].name}</span>
       </div>
     );
@@ -45,9 +47,9 @@ export function BranchPicker({
   return (
     <div className="space-y-2">
       <p id={labelId} className="flex flex-wrap items-baseline gap-x-2 text-base font-medium">
-        <span>Филиал</span>
+        <span>{t("branch")}</span>
         <span className="text-sm font-normal text-muted-foreground">
-          <span aria-hidden className="text-destructive">*</span> обязательно, за вами закреплено {branches.length}
+          <span aria-hidden className="text-destructive">*</span> {t("requiredAssigned", { count: branches.length })}
         </span>
       </p>
       {branches.length <= PILL_LIMIT ? (
@@ -63,7 +65,7 @@ export function BranchPicker({
           {chosen && (
             <p className="flex items-center gap-2 text-base">
               <Check className="size-5 text-emerald-600" aria-hidden />
-              <span className="text-muted-foreground">Выбран:</span>
+              <span className="text-muted-foreground">{t("chosen")}</span>
               <span className="font-semibold">{chosen.name}</span>
             </p>
           )}
@@ -86,14 +88,14 @@ export function BranchPicker({
             // Enter/Go невозможна ни на какой клавиатуре, включая те, где клавиша
             // приходит как Unidentified и keydown выше не срабатывает.
             form="branch-search-no-form"
-            placeholder="Найти филиал"
-            aria-label="Найти филиал"
+            placeholder={t("search")}
+            aria-label={t("search")}
             disabled={disabled}
             className="h-11 text-base md:text-base"
           />
           <div role="radiogroup" aria-labelledby={labelId} className="max-h-64 overflow-y-auto rounded-lg border">
             {shown.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-muted-foreground">Такого филиала нет среди закреплённых за вами.</p>
+              <p className="px-4 py-3 text-sm text-muted-foreground">{t("notFound")}</p>
             ) : (
               shown.map((b) => (
                 <button

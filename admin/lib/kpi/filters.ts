@@ -1,12 +1,11 @@
 // Фильтры и списки выбора по строкам сотрудников. Всё считается на клиенте по уже загруженным строкам.
 import type { EmployeeRow } from "@admin/lib/kpi-api";
+import { ruT, type KpiT } from "./i18n";
 import { rowStatus, type RowStatus } from "./status";
 
 /** Сентинел «все» для Select: Radix не принимает пустую строку как value. */
 export const ALL = "__all__";
 export type Option = { id: string; name: string };
-
-const NO_TERMINAL_NAME = "Филиал без названия";
 
 export function employeeName(r: { first_name: string; last_name: string }): string {
   return `${r.last_name.trim()} ${r.first_name.trim()}`.trim();
@@ -16,10 +15,10 @@ function byName(a: Option, b: Option): number {
   return a.name.localeCompare(b.name, "ru");
 }
 
-export function terminalOptions(rows: readonly { terminal_id: string; terminal_name: string | null }[]): Option[] {
+export function terminalOptions(rows: readonly { terminal_id: string; terminal_name: string | null }[], t: KpiT = ruT): Option[] {
   const seen = new Map<string, Option>();
   for (const r of rows) {
-    if (!seen.has(r.terminal_id)) seen.set(r.terminal_id, { id: r.terminal_id, name: r.terminal_name ?? NO_TERMINAL_NAME });
+    if (!seen.has(r.terminal_id)) seen.set(r.terminal_id, { id: r.terminal_id, name: r.terminal_name ?? t("lib.filters.noTerminalName") });
   }
   return [...seen.values()].sort(byName);
 }

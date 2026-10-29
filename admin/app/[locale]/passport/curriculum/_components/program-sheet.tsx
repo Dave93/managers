@@ -11,6 +11,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -30,7 +31,7 @@ import {
 } from "@admin/lib/passport-api";
 
 import { BilingualPair } from "./bilingual-field";
-import { apiMessage, qk } from "./use-curriculum";
+import { qk, useApiMessage } from "./use-curriculum";
 
 function ProgramForm({
   program,
@@ -41,6 +42,8 @@ function ProgramForm({
   onClose: () => void;
   onCreated: (p: PassportProgram) => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
+  const apiMessage = useApiMessage();
   const queryClient = useQueryClient();
 
   const form = useForm({
@@ -71,7 +74,9 @@ function ProgramForm({
       return data as PassportProgram;
     },
     onSuccess: (p) => {
-      toast.success(program ? "Программа сохранена" : "Программа создана");
+      toast.success(
+        program ? t("programSheet.saved") : t("programSheet.created")
+      );
       queryClient.invalidateQueries({ queryKey: qk.programs });
       if (!program) onCreated(p);
       onClose();
@@ -89,7 +94,7 @@ function ProgramForm({
       className="space-y-6 pb-4"
     >
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Должность</Label>
+        <Label className="text-[13px] font-medium">{t("programSheet.position")}</Label>
         <form.Field name="position">
           {(field: any) => (
             <Input
@@ -100,23 +105,22 @@ function ProgramForm({
           )}
         </form.Field>
         <p className="text-[11px] text-muted-foreground">
-          Название должности, для которой составляется программа. Список программ
-          сортируется по этому полю.
+          {t("programSheet.positionHint")}
         </p>
       </div>
 
       <BilingualPair
         form={form}
-        label="Название программы"
+        label={t("programSheet.titleLabel")}
         nameRu="title_ru"
         nameUz="title_uz"
       />
 
       <div className="flex items-center justify-between gap-3 rounded-md border border-border/70 px-3 py-2">
         <div>
-          <Label className="text-[13px] font-medium">Программа активна</Label>
+          <Label className="text-[13px] font-medium">{t("programSheet.active")}</Label>
           <p className="text-[11px] text-muted-foreground">
-            Неактивную программу нельзя назначать новым стажёрам.
+            {t("programSheet.activeHint")}
           </p>
         </div>
         <form.Field name="active">
@@ -131,11 +135,11 @@ function ProgramForm({
 
       <div className="flex justify-end gap-2 border-t pt-4">
         <Button type="button" variant="outline" onClick={onClose}>
-          Отмена
+          {t("common.cancel")}
         </Button>
         <Button type="submit" disabled={save.isPending}>
           {save.isPending && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-          {program ? "Сохранить" : "Создать программу"}
+          {program ? t("common.save") : t("programSheet.create")}
         </Button>
       </div>
     </form>
@@ -153,14 +157,16 @@ export function ProgramSheet({
   program: PassportProgram | null;
   onCreated: (p: PassportProgram) => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto px-6 pb-8 sm:max-w-xl">
         <SheetHeader className="px-0 pt-6">
-          <SheetTitle>{program ? "Программа" : "Новая программа"}</SheetTitle>
+          <SheetTitle>
+            {program ? t("programSheet.titleExisting") : t("programSheet.titleNew")}
+          </SheetTitle>
           <SheetDescription>
-            Программа обучения одной должности. Модули к ней привязываются
-            отдельно.
+            {t("programSheet.description")}
           </SheetDescription>
         </SheetHeader>
         {open && (

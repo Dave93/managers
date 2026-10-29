@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronLeftIcon, ChevronRightIcon, DownloadIcon } from "lucide-react";
 import { Input } from "@components/ui/input";
@@ -28,21 +29,24 @@ import {
   statementExportUrl,
   type CreditEntryType,
 } from "@admin/lib/credit-api";
-import { formatSum } from "../columns";
+import { useFormatSum } from "../columns";
 
-const ENTRY_TYPE_LABELS: Record<CreditEntryType, string> = {
-  authorize: "Резерв",
-  capture: "Списание",
-  void: "Отмена резерва",
-  refund: "Возврат",
-  amend: "Изменение",
-  payment: "Оплата",
-  adjustment: "Корректировка",
-};
+const ENTRY_TYPES: CreditEntryType[] = [
+  "authorize",
+  "capture",
+  "void",
+  "refund",
+  "amend",
+  "payment",
+  "adjustment",
+];
 
 const PAGE_SIZE = 50;
 
 export default function StatementTab({ companyId }: { companyId: string }) {
+  const t = useTranslations("systemPages.creditCompanies.statement");
+  const tc = useTranslations("forms.common");
+  const formatSum = useFormatSum();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [brand, setBrand] = useState<string>("all");
@@ -77,25 +81,25 @@ export default function StatementTab({ companyId }: { companyId: string }) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader>
-            <CardDescription>Долг</CardDescription>
+            <CardDescription>{t("debt")}</CardDescription>
             <CardTitle>{formatSum(summary?.posted)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>В резерве</CardDescription>
+            <CardDescription>{t("reserved")}</CardDescription>
             <CardTitle>{formatSum(summary?.reserved)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Доступно</CardDescription>
+            <CardDescription>{t("available")}</CardDescription>
             <CardTitle>{formatSum(summary?.available)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>День</CardDescription>
+            <CardDescription>{t("day")}</CardDescription>
             <CardTitle className="text-base">
               {formatSum(summary?.day_spent)} / {formatSum(summary?.limit_daily)}
             </CardTitle>
@@ -103,7 +107,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
         </Card>
         <Card>
           <CardHeader>
-            <CardDescription>Месяц</CardDescription>
+            <CardDescription>{t("month")}</CardDescription>
             <CardTitle className="text-base">
               {formatSum(summary?.month_spent)} / {formatSum(summary?.limit_monthly)}
             </CardTitle>
@@ -113,7 +117,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
 
       <div className="flex items-end gap-2 flex-wrap">
         <div className="space-y-1">
-          <Label>С даты</Label>
+          <Label>{t("fromDate")}</Label>
           <Input
             type="date"
             value={from}
@@ -124,7 +128,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
           />
         </div>
         <div className="space-y-1">
-          <Label>По дату</Label>
+          <Label>{t("toDate")}</Label>
           <Input
             type="date"
             value={to}
@@ -135,7 +139,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
           />
         </div>
         <div className="space-y-1">
-          <Label>Бренд</Label>
+          <Label>{t("brand")}</Label>
           <Select
             value={brand}
             onValueChange={(v) => {
@@ -147,7 +151,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Все</SelectItem>
+              <SelectItem value="all">{t("all")}</SelectItem>
               <SelectItem value="chopar">Chopar</SelectItem>
               <SelectItem value="les">Les Ailes</SelectItem>
             </SelectContent>
@@ -157,7 +161,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
           variant="outline"
           onClick={() => window.open(statementExportUrl(companyId, query), "_blank")}
         >
-          <DownloadIcon className="mr-2 h-4 w-4" /> Экспорт XLSX
+          <DownloadIcon className="mr-2 h-4 w-4" /> {t("exportXlsx")}
         </Button>
       </div>
 
@@ -165,26 +169,26 @@ export default function StatementTab({ companyId }: { companyId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Дата</TableHead>
-              <TableHead>Тип</TableHead>
-              <TableHead>Бренд</TableHead>
-              <TableHead>№ заказа</TableHead>
-              <TableHead className="text-right">Сумма</TableHead>
-              <TableHead className="text-right">Баланс</TableHead>
+              <TableHead>{t("date")}</TableHead>
+              <TableHead>{tc("type")}</TableHead>
+              <TableHead>{t("brand")}</TableHead>
+              <TableHead>{t("orderNumber")}</TableHead>
+              <TableHead className="text-right">{t("amount")}</TableHead>
+              <TableHead className="text-right">{t("balance")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
-                  Загрузка...
+                  {tc("loading")}
                 </TableCell>
               </TableRow>
             ) : entries.length ? (
               entries.map((entry) => (
                 <TableRow key={entry.id}>
                   <TableCell>{new Date(entry.created_at).toLocaleString("ru-RU")}</TableCell>
-                  <TableCell>{ENTRY_TYPE_LABELS[entry.entry_type] ?? entry.entry_type}</TableCell>
+                  <TableCell>{ENTRY_TYPES.includes(entry.entry_type) ? t(`entryTypes.${entry.entry_type}`) : entry.entry_type}</TableCell>
                   <TableCell>{entry.brand ?? "—"}</TableCell>
                   <TableCell>{entry.order_number ?? "—"}</TableCell>
                   <TableCell
@@ -201,7 +205,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
             ) : (
               <TableRow>
                 <TableCell colSpan={6} className="h-16 text-center text-muted-foreground">
-                  Нет операций
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -211,7 +215,7 @@ export default function StatementTab({ companyId }: { companyId: string }) {
 
       <div className="flex items-center justify-between px-2">
         <div className="text-sm text-muted-foreground">
-          Всего: {total}
+          {t("total", { count: String(total) })}
         </div>
         <div className="flex items-center gap-2">
           <Button

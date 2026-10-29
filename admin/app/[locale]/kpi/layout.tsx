@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import NoAccessNotice from "@admin/components/layout/no-access-notice";
 
@@ -12,6 +13,7 @@ export default function KpiSectionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("kpiScreens.layout");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -24,9 +26,9 @@ export default function KpiSectionLayout({
   if (!perms.includes("kpi_layout"))
     return (
       <NoAccessNotice
-        title="Раздел «KPI сотрудников» недоступен"
+        title={t("noAccessTitle")}
         missing={["kpi_layout"]}
-        explanation="Раздел работает, но вашей роли не выдано право на него. Право на раздел выдаётся отдельно от прав на экраны: оценки, нарушения, споры, повышения, настройки."
+        explanation={t("noAccessExplanation")}
       />
     );
   // Дорожка minmax(0,1fr) обнуляет min-content раздела: иначе широкие таблицы растягивают

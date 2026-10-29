@@ -1,12 +1,13 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { permissionsColumns } from "./columns";
+import { usePermissionsColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import PermissionsFormSheet from "@admin/components/forms/permissions/sheet";
 
 export default function PermissionListPage() {
+  const columns = usePermissionsColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -20,7 +21,7 @@ export default function PermissionListPage() {
         </div>
       </div>
       <div className="py-10">
-        <DataTable columns={permissionsColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

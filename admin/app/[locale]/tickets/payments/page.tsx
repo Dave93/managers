@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import type { TicketRow } from "@admin/lib/tickets-api";
@@ -34,6 +35,9 @@ const DEFAULT_PAGE_SIZE = 100;
 const NO_ROWS: TicketRow[] = [];
 
 export default function PaymentsPage() {
+  const t = useTranslations("ticketsUi.payments");
+  const tColumns = useTranslations("ticketsUi.payments.columns");
+  const tl = useTranslations("ticketsLib");
   // Тот же ключ, что у CanAccess и layout: один запрос на всё приложение.
   const perms = useQuery({
     queryKey: ["my_permissions"],
@@ -113,6 +117,8 @@ export default function PaymentsPage() {
             if (!next.delete(id)) next.add(id);
             return next;
           }),
+        t: tColumns,
+        tl,
         onToggleAll: () => setSelected(selectAll === "all" ? new Set() : new Set(rows.map((r) => r.id))),
         onExpand: (id) =>
           setExpanded((prev) => {
@@ -121,7 +127,7 @@ export default function PaymentsPage() {
             return next;
           }),
       }),
-    [selected, expanded, selectAll, busy, rows]
+    [selected, expanded, selectAll, busy, rows, tColumns]
   );
 
   const changePage = (i: number) => {
@@ -162,10 +168,9 @@ export default function PaymentsPage() {
   return (
     <div className="space-y-4 pb-10">
       <div>
-        <h1 className="text-lg font-semibold tracking-tight">К оплате</h1>
+        <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-[12px] text-muted-foreground">
-          Закрытые заявки с актом, по которым нужно решить: платить или нет. Раскройте строку, чтобы
-          увидеть акт и фото результата, отметьте нужные и утвердите пачку одним нажатием.
+          {t("subtitle")}
         </p>
       </div>
 

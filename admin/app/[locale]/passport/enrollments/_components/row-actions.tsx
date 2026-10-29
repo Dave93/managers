@@ -25,6 +25,7 @@
 //    по QR", not instant lockout.
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCircle2,
@@ -64,8 +65,9 @@ import { isLive } from "./status";
 import type { InviteToPrint } from "./invite-print";
 import {
   apiMessage,
-  fullName,
   qk,
+  useApiFallback,
+  useFullName,
   useTerminalNames,
 } from "./use-enrollments";
 
@@ -82,6 +84,9 @@ export function RowActions({
   onPrint: (invite: InviteToPrint) => void;
   onJournal: (row: PassportEnrollmentRow) => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.rowActions");
+  const fallback = useApiFallback();
+  const fullName = useFullName();
   const queryClient = useQueryClient();
   const terminalName = useTerminalNames();
   const [askReinvite, setAskReinvite] = useState(false);
@@ -90,18 +95,25 @@ export function RowActions({
 
   const live = isLive(row.status);
   const name = fullName(row.first_name, row.last_name);
+  const traineeLine = t.rich("trainee", {
+    b: (c) => <b>{c}</b>,
+    name,
+    hasPosition: row.position ? "yes" : "no",
+    position: row.position ?? "",
+    program: row.program_title_ru ?? t("noProgram"),
+  });
 
   const issue = useMutation({
     mutationFn: async () => {
       const { data, error } = await reinvite(row.id);
-      if (error) throw new Error(apiMessage(error));
+      if (error) throw new Error(apiMessage(error, fallback));
       return data!;
     },
     onSuccess: (res) => {
       toast.success(
         res.revoked > 0
-          ? `Новый код выпущен. Аннулировано старых кодов: ${res.revoked} — если они распечатаны, заберите листки.`
-          : "Новый код выпущен. Действующих старых кодов не было."
+          ? t("reinviteRevoked", { count: res.revoked })
+          : t("reinviteNone")
       );
       setAskReinvite(false);
       onPrint({
@@ -114,25 +126,25 @@ export function RowActions({
         branch: terminalName(row.terminal_id),
       });
     },
-    onError: (e: any) => toast.error(apiMessage(e)),
+    onError: (e: any) => toast.error(apiMessage(e, fallback)),
   });
 
   const close = useMutation({
     mutationFn: async (r: CloseResult) => {
       const { data, error } = await closeEnrollment(row.id, r);
-      if (error) throw new Error(apiMessage(error));
+      if (error) throw new Error(apiMessage(error, fallback));
       return data!;
     },
     onSuccess: (_d, r) => {
       toast.success(
         r === "completed"
-          ? "Стажировка завершена: испытательный срок пройден."
-          : "Стажировка закрыта: испытательный срок не пройден."
+          ? t("closedPassed")
+          : t("closedFailed")
       );
       queryClient.invalidateQueries({ queryKey: qk.enrollmentsAll });
       setAskClose(false);
     },
-    onError: (e: any) => toast.error(apiMessage(e)),
+    onError: (e: any) => toast.error(apiMessage(e, fallback)),
   });
 
   return (
@@ -140,19 +152,19 @@ export function RowActions({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="sm" className="size-8 p-0">
-            <span className="sr-only">Действия</span>
+            <span className="sr-only">{t("actions")}</span>
             <MoreHorizontal className="size-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem onSelect={() => onJournal(row)}>
-            <ScrollText className="mr-2 size-3.5" /> Журнал
+            <ScrollText className="mr-2 size-3.5" /> {t("journal")}
           </DropdownMenuItem>
           {canManage && live && (
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => setAskReinvite(true)}>
-                <QrCode className="mr-2 size-3.5" /> Выдать новый QR
+                <QrCode className="mr-2 size-3.5" /> {t("reinviteItem")}
               </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-destructive focus:text-destructive"
@@ -161,7 +173,7 @@ export function RowActions({
                   setAskClose(true);
                 }}
               >
-                <CheckCircle2 className="mr-2 size-3.5" /> Завершить стажировку
+                <CheckCircle2 className="mr-2 size-3.5" /> {t("closeItem")}
               </DropdownMenuItem>
             </>
           )}
@@ -172,35 +184,28 @@ export function RowActions({
       <AlertDialog open={askReinvite} onOpenChange={setAskReinvite}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Выпустить новый QR-код?</AlertDialogTitle>
+            <AlertDialogTitle>{t("reinviteTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[13px] leading-snug">
-                <p>
-                  Стажёр: <b>{name}</b>
-                  {row.position ? ` · ${row.position}` : ""} ·{" "}
-                  {row.program_title_ru ?? "программа не указана"}.
-                </p>
+                <p>{traineeLine}</p>
                 <p className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-                  Все ранее выданные коды этой стажировки перестанут работать
-                  сразу. Если распечатанный QR уже у человека на руках — этот
-                  листок станет мёртвым, заберите его и отдайте новый.
+                  {t("reinviteWarn")}
                 </p>
                 <p>
-                  Новый код одноразовый и действует 7 дней. Сразу после выпуска
-                  откроется страница печати.
+                  {t("reinviteInfo")}
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={issue.isPending}>
-              Отмена
+              {t("cancel")}
             </AlertDialogCancel>
             <Button onClick={() => issue.mutate()} disabled={issue.isPending}>
               {issue.isPending && (
                 <Loader2 className="mr-1.5 size-4 animate-spin" />
               )}
-              Выпустить и напечатать
+              {t("reinviteSubmit")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -210,31 +215,27 @@ export function RowActions({
       <AlertDialog open={askClose} onOpenChange={setAskClose}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Завершить стажировку?</AlertDialogTitle>
+            <AlertDialogTitle>{t("closeTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-[13px] leading-snug">
-                <p>
-                  Стажёр: <b>{name}</b>
-                  {row.position ? ` · ${row.position}` : ""} ·{" "}
-                  {row.program_title_ru ?? "программа не указана"}.
-                </p>
+                <p>{traineeLine}</p>
 
                 <div className="space-y-1.5">
-                  <p className="font-medium text-foreground">Итог:</p>
+                  <p className="font-medium text-foreground">{t("outcome")}</p>
                   {(
                     [
                       {
                         v: "completed" as const,
                         icon: CheckCircle2,
-                        label: "Испытательный срок пройден",
-                        hint: "Стажёр допущен к самостоятельной работе.",
+                        label: t("passedLabel"),
+                        hint: t("passedHint"),
                         tone: "text-emerald-600 dark:text-emerald-400",
                       },
                       {
                         v: "failed" as const,
                         icon: XCircle,
-                        label: "Испытательный срок не пройден",
-                        hint: "Паспорт закрывается как непройденный. Запись останется в истории сотрудника.",
+                        label: t("failedLabel"),
+                        hint: t("failedHint"),
                         tone: "text-red-600 dark:text-red-400",
                       },
                     ] as const
@@ -268,19 +269,14 @@ export function RowActions({
                 </div>
 
                 <p className="rounded-md border border-border/70 bg-muted/50 px-2.5 py-2">
-                  Все ещё не отсканированные QR-коды этой стажировки перестанут
-                  работать, <b>включая уже распечатанные и отданные на руки</b> —
-                  новые входы по ним станут невозможны (уже открытая у стажёра
-                  сессия в Telegram может доработать до 12 часов). Заново открыть
-                  закрытую стажировку из админки нельзя — понадобится начать
-                  новую. Журнал и все отметки наставников сохранятся.
+                  {t.rich("closeWarn", { b: (c) => <b>{c}</b> })}
                 </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={close.isPending}>
-              Отмена
+              {t("cancel")}
             </AlertDialogCancel>
             <Button
               variant={result === "failed" ? "destructive" : "default"}
@@ -291,8 +287,8 @@ export function RowActions({
                 <Loader2 className="mr-1.5 size-4 animate-spin" />
               )}
               {result === "failed"
-                ? "Закрыть как непройденную"
-                : "Завершить успешно"}
+                ? t("closeAsFailed")
+                : t("closeAsPassed")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

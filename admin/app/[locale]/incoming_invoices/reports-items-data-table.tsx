@@ -23,6 +23,7 @@ import { useMemo, useState } from "react";
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
+import { useTranslations } from "next-intl";
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<ReportsItemsWithRelation, TValue>[];
@@ -33,6 +34,7 @@ export function DataTable<TData, TValue>({
   columns,
   recordId,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("invoicesUi.reportItems");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 50,
@@ -221,15 +223,15 @@ export function DataTable<TData, TValue>({
       </div>
 
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Приход</div>
+        <div>{t("incomeTotal")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(incomeTotal)}</div>
       </div>
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Расход</div>
+        <div>{t("outcomeTotal")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(outcomeTotal)}</div>
       </div>
       <div className="flex justify-between border-b-2 pb-1 font-bold">
-        <div>Итого</div>
+        <div>{t("total")}</div>
         <div>{Intl.NumberFormat("ru-RU").format(total)}</div>
       </div>
     </div>

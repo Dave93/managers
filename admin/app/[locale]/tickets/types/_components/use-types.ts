@@ -1,6 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { TicketsLibT } from "@admin/lib/tickets-i18n";
 
 import {
   apiMessage,
@@ -112,18 +113,24 @@ export type ServerProblem = {
 // Текст сбоя записи. 422 по схеме приходит как {message, errors: string[]}, а
 // apiMessage вернул бы только первую строку списка, поэтому весь список
 // берётся из error.value и показывается целиком.
-export function serverProblem(error: unknown): ServerProblem {
+export function serverProblem(
+  error: unknown,
+  // Переводчик словаря `ticketsUi.types.problem`.
+  t: (key: "forbidden" | "noConnection", values: Record<string, string>) => string,
+  // Переводчик словаря `ticketsLib` для запасных текстов apiMessage.
+  tl?: TicketsLibT
+): ServerProblem {
   const e = error as ApiError | null;
   const status = e?.status;
   if (status === 403) {
     return {
-      headline: `Нет права ${TYPES_RIGHT}. Попросите администратора добавить его вашей роли.`,
+      headline: t("forbidden", { right: TYPES_RIGHT }),
       items: [],
     };
   }
   if (status === undefined) {
     return {
-      headline: `Нет связи с сервером: ${apiMessage(error)}. Неизвестно, дошёл ли запрос; обновите список и проверьте.`,
+      headline: t("noConnection", { message: apiMessage(error, tl) }),
       items: [],
     };
   }
@@ -131,12 +138,12 @@ export function serverProblem(error: unknown): ServerProblem {
   // Ошибку валидации Elysia (422 до обработчика) отдаёт JSON-строкой в message
   // и объектами в errors: ни то ни другое человеку показывать нельзя, а
   // apiMessage это уже умеет сводить к одной фразе.
-  if (value?.type === "validation") return { headline: apiMessage(error), items: [] };
+  if (value?.type === "validation") return { headline: apiMessage(error, tl), items: [] };
   const items = Array.isArray(value?.errors)
     ? value.errors.filter((x): x is string => typeof x === "string")
     : [];
   return {
-    headline: typeof value?.message === "string" ? value.message : apiMessage(error),
+    headline: typeof value?.message === "string" ? value.message : apiMessage(error, tl),
     items,
   };
 }

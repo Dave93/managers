@@ -8,35 +8,44 @@ import { vacancy } from "@backend/../drizzle/schema";
 import DeleteAction from "./delete-action";
 import { cn } from "@admin/lib/utils";
 import { CandidatesSheet } from "./candidates-sheet";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 
-export const vacancyColumns: ColumnDef<any>[] = [
+type TFn = ReturnType<typeof useTranslations>;
+
+export const useVacancyColumns = (): ColumnDef<any>[] => {
+  const t = useTranslations("hrPages.vacancy");
+  return useMemo(() => getVacancyColumns(t), [t]);
+};
+
+export const getVacancyColumns = (t: TFn): ColumnDef<any>[] => [
   {
     accessorKey: "applicationNum",
-    header: "Номер вакансии",
+    header: t("columns.applicationNum"),
   },
   {
     accessorKey: "organization",
-    header: "Бренд",
+    header: t("columns.brand"),
     cell: ({ row }) => row.original.organization || '-'
   },
   {
     accessorKey: "positionTitle",
-    header: "Должность",
+    header: t("columns.position"),
     cell: ({ row }) => row.original.positionTitle || '-'
   },
   {
     accessorKey: "terminal",
-    header: "Филиал",
+    header: t("columns.terminal"),
     cell: ({ row }) => row.original.terminal || '-'
   },
   {
     accessorKey: "workSchedule",
-    header: "График работы",
+    header: t("columns.workSchedule"),
     cell: ({ row }) => row.original.workSchedule || '-'
   },
   {
     accessorKey: "candidatesCount",
-    header: "Кандидаты",
+    header: t("columns.candidates"),
     cell: ({ row }) => {
       const count = row.original.candidatesCount || 0;
       const vacancyTitle = `${row.original.applicationNum} - ${row.original.positionTitle}`;
@@ -51,42 +60,42 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "status",
-    header: "Статус",
+    header: t("columns.status"),
     cell: ({ row }) => {
       const record = row.original;
 
       if (!record || !record.status) {
-        return <Badge variant="default">Не указан</Badge>;
+        return <Badge variant="default">{t("statusNotSet")}</Badge>;
       }
 
       const statusMap = {
         open: { 
-          label: "Открыта", 
+          label: t("statuses.open"), 
           color: "text-green-500 dark:text-green-400",
           icon: CheckCircle2Icon 
         },
         in_progress: { 
-          label: "В процессе", 
+          label: t("statuses.in_progress"), 
           color: "text-blue-500 dark:text-blue-400",
           icon: Clock3Icon 
         },
         found_candidates: { 
-          label: "Найдены кандидаты", 
+          label: t("statuses.found_candidates"), 
           color: "text-yellow-500 dark:text-yellow-400",
           icon: UsersIcon 
         },
         interview: { 
-          label: "Собеседование", 
+          label: t("statuses.interview"), 
           color: "text-purple-500 dark:text-purple-400",
           icon: UserCheckIcon 
         },
         closed: { 
-          label: "Закрыта", 
+          label: t("statuses.closed"), 
           color: "text-red-500 dark:text-red-400",
           icon: XCircleIcon 
         },
         cancelled: { 
-          label: "Отменена", 
+          label: t("statuses.cancelled"), 
           color: "text-red-500 dark:text-red-400",
           icon: XCircleIcon 
         }
@@ -114,12 +123,12 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "reason",
-    header: "Причина открытия",
+    header: t("columns.reason"),
     cell: ({ row }) => row.original.reason || '-'
   },
   {
     accessorKey: "recruiter",
-    header: "Рекрутер",
+    header: t("columns.recruiter"),
     cell: ({ row }) => {
       const firstName = row.original.recruiterName;
       const lastName = row.original.recruiterLastName;
@@ -129,7 +138,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "openDate",
-    header: "Дата открытия",
+    header: t("columns.openDate"),
     cell: ({ row }) => {
       const date = row.original.openDate;
       if (!date) return '-';
@@ -138,7 +147,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "termClosingDate",
-    header: "Срок закрытия",
+    header: t("columns.termClosingDate"),
     cell: ({ row }) => {
       const date = row.original.termClosingDate;
       if (!date) return '-';
@@ -147,7 +156,7 @@ export const vacancyColumns: ColumnDef<any>[] = [
   },
   {
     accessorKey: "closingDate",
-    header: "Дата закрытия",
+    header: t("columns.closingDate"),
     cell: ({ row }) => {
       const date = row.original.closingDate;
       if (!date) return '-';

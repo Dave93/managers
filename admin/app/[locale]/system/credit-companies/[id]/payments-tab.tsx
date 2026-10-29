@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Input } from "@components/ui/input";
@@ -34,15 +35,15 @@ import {
   payCompany,
   type CreditOpResult,
 } from "@admin/lib/credit-api";
-import { formatSum } from "../columns";
+import { useFormatSum } from "../columns";
 
-const OP_ERROR_MESSAGES: Record<string, string> = {
-  bad_amount: "Некорректная сумма",
-  not_found: "Компания не найдена",
-  service_error: "Ошибка сервиса, попробуйте ещё раз",
-};
+// Error codes that have a translated message under `errors.<code>`.
+const KNOWN_OP_ERRORS = ["bad_amount", "not_found", "service_error"];
 
 export default function PaymentsTab({ companyId }: { companyId: string }) {
+  const t = useTranslations("systemPages.creditCompanies.payments");
+  const tc = useTranslations("forms.common");
+  const formatSum = useFormatSum();
   const queryClient = useQueryClient();
   const canPay = useCanAccess("credit.pay");
 
@@ -90,9 +91,9 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
     },
     onSuccess: (result) => {
       if (result?.reason === "duplicate_doc") {
-        toast.error("Платёжка с этим номером уже проведена");
+        toast.error(t("duplicate"));
       } else {
-        toast.success("Платёж проведён");
+        toast.success(t("paid"));
         setAmount("");
         setDocNumber("");
         setDocDate("");
@@ -104,7 +105,11 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
       // Falls back to the raw reason (not a generic message) for any code
       // the service adds that this map hasn't caught up with yet — OpResult
       // errors are shown verbatim per the brief, not swallowed into "unknown".
-      toast.error(OP_ERROR_MESSAGES[err.message] ?? `Не удалось провести платёж: ${err.message}`);
+      toast.error(
+        KNOWN_OP_ERRORS.includes(err.message)
+          ? t(`errors.${err.message}`)
+          : t("payFailed", { message: err.message })
+      );
     },
   });
 
@@ -124,13 +129,17 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
       return data;
     },
     onSuccess: () => {
-      toast.success("Корректировка применена");
+      toast.success(t("adjusted"));
       setAdjAmount("");
       setAdjReason("");
       invalidateAll();
     },
     onError: (err: any) => {
-      toast.error(OP_ERROR_MESSAGES[err.message] ?? `Не удалось применить корректировку: ${err.message}`);
+      toast.error(
+        KNOWN_OP_ERRORS.includes(err.message)
+          ? t(`errors.${err.message}`)
+          : t("adjustFailed", { message: err.message })
+      );
     },
   });
 
@@ -142,18 +151,18 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Дата</TableHead>
-              <TableHead>Сумма</TableHead>
-              <TableHead>№ платёжки</TableHead>
-              <TableHead>Дата платёжки</TableHead>
-              <TableHead>Примечание</TableHead>
+              <TableHead>{t("date")}</TableHead>
+              <TableHead>{t("amount")}</TableHead>
+              <TableHead>{t("docNumber")}</TableHead>
+              <TableHead>{t("docDate")}</TableHead>
+              <TableHead>{t("note")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={5} className="h-16 text-center text-muted-foreground">
-                  Загрузка...
+                  {tc("loading")}
                 </TableCell>
               </TableRow>
             ) : payments.length ? (
@@ -171,7 +180,7 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
             ) : (
               <TableRow>
                 <TableCell colSpan={5} className="h-16 text-center text-muted-foreground">
-                  Нет платежей
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -182,13 +191,13 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
       {canPay && (
         <>
           <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Погасить долг</h4>
+            <h4 className="text-sm font-semibold">{t("payDebt")}</h4>
             <form
               onSubmit={(e) => e.preventDefault()}
               className="flex items-end gap-2 flex-wrap"
             >
               <div className="space-y-1">
-                <Label>Сумма (сум)</Label>
+                <Label>{t("amountSum")}</Label>
                 <Input
                   type="number"
                   min="0"
@@ -199,7 +208,7 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
                 />
               </div>
               <div className="space-y-1">
-                <Label>№ платёжки *</Label>
+                <Label>{t("docNumberRequired")}</Label>
                 <Input
                   value={docNumber}
                   onChange={(e) => setDocNumber(e.target.value)}
@@ -207,7 +216,7 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Дата платёжки</Label>
+                <Label>{t("docDate")}</Label>
                 <Input
                   type="date"
                   value={docDate}
@@ -215,31 +224,33 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Примечание</Label>
+                <Label>{t("note")}</Label>
                 <Input value={note} onChange={(e) => setNote(e.target.value)} className="w-56" />
               </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" disabled={!paymentValid || payMutation.isPending}>
                     {payMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Погасить
+                    {t("repay")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Провести платёж?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("payConfirmTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Сумма {amount || 0} сум по платёжке №{docNumber || "—"} будет списана с долга
-                      компании. Действие нельзя отменить.
+                      {t("payConfirmText", {
+                        amount: String(amount || 0),
+                        docNumber: docNumber || "—",
+                      })}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => payMutation.mutate()}
                       disabled={payMutation.isPending}
                     >
-                      Подтвердить
+                      {t("confirm")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -248,16 +259,16 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
           </div>
 
           <div className="space-y-2">
-            <h4 className="text-sm font-semibold">Корректировка баланса</h4>
+            <h4 className="text-sm font-semibold">{t("adjustment")}</h4>
             <p className="text-xs text-muted-foreground">
-              Плюс уменьшает долг, минус увеличивает.
+              {t("adjustmentHint")}
             </p>
             <form
               onSubmit={(e) => e.preventDefault()}
               className="flex items-end gap-2 flex-wrap"
             >
               <div className="space-y-1">
-                <Label>Сумма (сум, ± )</Label>
+                <Label>{t("adjustAmountSum")}</Label>
                 <Input
                   type="number"
                   value={adjAmount}
@@ -267,7 +278,7 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Причина *</Label>
+                <Label>{t("reasonRequired")}</Label>
                 <Textarea
                   value={adjReason}
                   onChange={(e) => setAdjReason(e.target.value)}
@@ -288,24 +299,26 @@ export default function PaymentsTab({ companyId }: { companyId: string }) {
                     disabled={!adjustmentValid || adjustMutation.isPending}
                   >
                     {adjustMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Применить
+                    {t("apply")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Применить корректировку?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("adjustConfirmTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      {adjAmount} сум ({Number(adjAmount) > 0 ? "уменьшит" : "увеличит"} долг
-                      компании). Действие нельзя отменить.
+                      {t("adjustConfirmText", {
+                        amount: adjAmount,
+                        direction: Number(adjAmount) > 0 ? "decrease" : "increase",
+                      })}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => adjustMutation.mutate()}
                       disabled={adjustMutation.isPending}
                     >
-                      Подтвердить
+                      {t("confirm")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>

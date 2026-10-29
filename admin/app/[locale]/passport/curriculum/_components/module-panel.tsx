@@ -26,6 +26,7 @@
 // away the only actionable thing on the screen.
 
 import { useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
@@ -73,28 +74,14 @@ import {
 
 import { moduleReadiness } from "./completeness";
 import { issueLabel, translatePublishErrors, type PublishIssue } from "./publish-errors";
-import { MODULE_STATUS_LABEL, StatusChip } from "./status";
+import { StatusChip } from "./status";
 import {
-  apiMessage,
+  useApiMessage,
   moduleIsWritable,
   qk,
   type CurriculumAccess,
 } from "./use-curriculum";
 
-// Deactivation is offered from two places (the action bar and the
-// unpublish-refused block). The consequence text is defined once so the second
-// entry point can never turn into a bare, unconfirmed destructive click.
-const DEACTIVATE_TITLE = "Снять модуль с обращения?";
-const DEACTIVATE_CONSEQUENCE = (
-  <>
-    <p>Модуль пропадёт из выдачи стажёрам и из списка модулей по умолчанию.</p>
-    <p>
-      Весь прогресс, подписи и стажировки <b>сохранятся</b> — это мягкое
-      снятие, а не удаление. Вернуть можно кнопкой «Вернуть в обращение»
-      (включите «Показывать снятые с обращения», чтобы его найти).
-    </p>
-  </>
-);
 
 function ConfirmAction({
   trigger,
@@ -111,6 +98,7 @@ function ConfirmAction({
   destructive?: boolean;
   onConfirm: () => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -126,7 +114,7 @@ function ConfirmAction({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               className={cn(
                 destructive &&
@@ -170,6 +158,8 @@ export function ModulePanel({
   onEdit: () => void;
   onSelectModule: (m: PassportModule) => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
+  const apiMessage = useApiMessage();
   const queryClient = useQueryClient();
   const [issues, setIssues] = useState<PublishIssue[] | null>(null);
   const [inUse, setInUse] = useState<{ rows: number } | null>(null);
@@ -179,7 +169,7 @@ export function ModulePanel({
   // ready module would flash "не готов" on every selection — and the publish
   // dialog would warn about blockers that do not exist.
   const topicsUnknown = topicsLoading && topics.length === 0;
-  const readiness = moduleReadiness(mod, topics);
+  const readiness = moduleReadiness(t, mod, topics);
   const inScope = access.canPublish || mod.owner_department === access.department;
   // "Frozen" for the edit button's label: published, foreign department, or no
   // edit right — all three make the module Sheet read-only, so the button must
@@ -200,7 +190,7 @@ export function ModulePanel({
       return data;
     },
     onSuccess: () => {
-      toast.success("Модуль отправлен на проверку");
+      toast.success(t("panel.toastSubmitted"));
       refresh();
     },
     onError: (e: any) => toast.error(apiMessage(e)),
@@ -214,14 +204,14 @@ export function ModulePanel({
     },
     onSuccess: () => {
       setIssues(null);
-      toast.success("Модуль опубликован и доступен стажёрам");
+      toast.success(t("panel.toastPublished"));
       refresh();
     },
     onError: (error: any) => {
       const errs = publishErrors(error);
       if (errs) {
-        setIssues(translatePublishErrors(errs, topics));
-        toast.error("Публикация отклонена — смотрите список ниже");
+        setIssues(translatePublishErrors(t, errs, topics));
+        toast.error(t("panel.toastPublishRejected"));
         return;
       }
       toast.error(apiMessage(error));
@@ -236,7 +226,7 @@ export function ModulePanel({
     },
     onSuccess: () => {
       setInUse(null);
-      toast.success("Модуль снят с публикации и снова редактируется");
+      toast.success(t("panel.toastUnpublished"));
       refresh();
     },
     onError: (error: any) => {
@@ -260,10 +250,9 @@ export function ModulePanel({
       // Select the fork: otherwise the user stares at the still-published
       // original and concludes the button did nothing.
       onSelectModule(created);
-      toast.success(
-        `Создана версия v${created.version}. Она ещё не привязана ни к одной программе — привяжите её, когда будете готовы заменить текущую.`,
-        { duration: 8000 }
-      );
+      toast.success(t("panel.toastForked", { version: created.version }), {
+        duration: 8000,
+      });
     },
     onError: (e: any) => toast.error(apiMessage(e)),
   });
@@ -276,7 +265,7 @@ export function ModulePanel({
     },
     onSuccess: () => {
       setInUse(null);
-      toast.success("Модуль снят с обращения");
+      toast.success(t("panel.toastDeactivated"));
       refresh();
     },
     onError: (e: any) => toast.error(apiMessage(e)),
@@ -289,7 +278,7 @@ export function ModulePanel({
       return data;
     },
     onSuccess: () => {
-      toast.success("Модуль возвращён в обращение");
+      toast.success(t("panel.toastActivated"));
       refresh();
     },
     onError: (e: any) => toast.error(apiMessage(e)),
@@ -305,7 +294,7 @@ export function ModulePanel({
       return data;
     },
     onSuccess: () => {
-      toast.success("Модуль привязан к программе");
+      toast.success(t("panel.toastAttached"));
       refresh();
     },
     onError: (e: any) => toast.error(apiMessage(e)),
@@ -321,15 +310,15 @@ export function ModulePanel({
       return data;
     },
     onSuccess: () => {
-      toast.success("Модуль отвязан от программы");
+      toast.success(t("panel.toastDetached"));
       refresh();
     },
     onError: (e: any) => {
       if (refusalCode(e) === "module_in_use_in_program") {
         toast.error(
-          `Отвязать нельзя: у стажёров этой программы уже есть прогресс по модулю (${
-            e?.value?.progress_rows ?? "?"
-          } записей). Деактивируйте модуль вместо отвязки.`,
+          t("panel.toastDetachBlocked", {
+            rows: e?.value?.progress_rows ?? "?",
+          }),
           { duration: 9000 }
         );
         return;
@@ -337,6 +326,20 @@ export function ModulePanel({
       toast.error(apiMessage(e));
     },
   });
+
+  const bold = (c: ReactNode) => <b>{c}</b>;
+
+  // Deactivation is offered from two places (the action bar and the
+  // unpublish-refused block). The consequence text is defined once so the
+  // second entry point can never turn into a bare, unconfirmed destructive
+  // click.
+  const deactivateTitle = t("panel.deactivateTitle");
+  const deactivateConsequence = (
+    <>
+      <p>{t("panel.deactivateP1")}</p>
+      <p>{t.rich("panel.deactivateP2", { b: bold })}</p>
+    </>
+  );
 
   const busy =
     submit.isPending ||
@@ -360,12 +363,12 @@ export function ModulePanel({
                 !mod.active && "text-muted-foreground line-through"
               )}
             >
-              {mod.title_ru.trim() || "Модуль без названия"}
+              {mod.title_ru.trim() || t("panel.noTitle")}
             </h2>
             <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
               {mod.title_uz.trim() || (
                 <span className="text-amber-600 dark:text-amber-400">
-                  нет узбекского названия
+                  {t("panel.noUzTitle")}
                 </span>
               )}
             </p>
@@ -380,12 +383,14 @@ export function ModulePanel({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
-          <span>Департамент: {mod.owner_department}</span>
-          <span>Бренд: {mod.brand ?? "оба"}</span>
-          <span>Тем: {readiness.total}</span>
+          <span>{t("panel.department", { value: mod.owner_department })}</span>
+          <span>
+            {t("panel.brand", { value: mod.brand ?? t("panel.brandBoth") })}
+          </span>
+          <span>{t("panel.topicsCount", { count: readiness.total })}</span>
           {!inScope && (
             <span className="font-medium text-amber-600 dark:text-amber-400">
-              чужой департамент — только просмотр
+              {t("panel.foreignDepartment")}
             </span>
           )}
         </div>
@@ -404,27 +409,24 @@ export function ModulePanel({
           ) : (
             <Pencil className="mr-1.5 size-3.5" />
           )}
-          {frozen ? "Открыть (только чтение)" : "Редактировать"}
+          {frozen ? t("panel.openReadonly") : t("panel.edit")}
         </Button>
 
         {access.canEdit && inScope && mod.status === "draft" && (
           <ConfirmAction
             trigger={
               <Button size="sm" variant="outline" disabled={busy}>
-                <Send className="mr-1.5 size-3.5" /> На проверку
+                <Send className="mr-1.5 size-3.5" /> {t("panel.submit")}
               </Button>
             }
-            title="Отправить модуль на проверку?"
+            title={t("panel.submitTitle")}
             description={
               <>
-                <p>
-                  Модуль перейдёт в статус «На проверке» и попадёт к HR. Стажёры
-                  его пока не увидят.
-                </p>
-                <p>Содержание при этом остаётся редактируемым.</p>
+                <p>{t("panel.submitP1")}</p>
+                <p>{t("panel.submitP2")}</p>
               </>
             }
-            confirmLabel="Отправить"
+            confirmLabel={t("panel.submitConfirm")}
             onConfirm={() => submit.mutate()}
           />
         )}
@@ -433,30 +435,22 @@ export function ModulePanel({
           <ConfirmAction
             trigger={
               <Button size="sm" disabled={busy}>
-                <ArrowUpCircle className="mr-1.5 size-3.5" /> Опубликовать
+                <ArrowUpCircle className="mr-1.5 size-3.5" /> {t("panel.publish")}
               </Button>
             }
-            title="Опубликовать модуль?"
+            title={t("panel.publishTitle")}
             description={
               <>
-                <p>
-                  Модуль сразу станет доступен стажёрам всех программ, к которым
-                  он привязан, и вернётся в обращение, даже если был снят.
-                </p>
-                <p>
-                  После публикации модуль <b>замораживается</b>: править темы и
-                  тексты напрямую больше нельзя — только «Новая версия» или
-                  снятие с публикации (пока по нему нет прогресса).
-                </p>
+                <p>{t("panel.publishP1")}</p>
+                <p>{t.rich("panel.publishP2", { b: bold })}</p>
                 {!topicsUnknown && !readiness.ready && (
                   <p className="text-amber-700 dark:text-amber-400">
-                    Проверка уже сейчас показывает незакрытые пункты — публикация
-                    скорее всего будет отклонена.
+                    {t("panel.publishWarn")}
                   </p>
                 )}
               </>
             }
-            confirmLabel="Опубликовать"
+            confirmLabel={t("panel.publish")}
             onConfirm={() => publish.mutate()}
           />
         )}
@@ -465,24 +459,17 @@ export function ModulePanel({
           <ConfirmAction
             trigger={
               <Button size="sm" variant="outline" disabled={busy}>
-                <Undo2 className="mr-1.5 size-3.5" /> Снять с публикации
+                <Undo2 className="mr-1.5 size-3.5" /> {t("panel.unpublish")}
               </Button>
             }
-            title="Снять модуль с публикации?"
+            title={t("panel.unpublishTitle")}
             description={
               <>
-                <p>
-                  Модуль вернётся в «Черновик» и снова станет редактируемым.
-                  Номер версии не изменится.
-                </p>
-                <p>
-                  Это возможно, только пока <b>ни один стажёр</b> не начал
-                  проходить модуль. Если прогресс уже есть, система откажет —
-                  тогда доступны «Новая версия» и «Деактивировать».
-                </p>
+                <p>{t("panel.unpublishP1")}</p>
+                <p>{t.rich("panel.unpublishP2", { b: bold })}</p>
               </>
             }
-            confirmLabel="Снять"
+            confirmLabel={t("panel.unpublishConfirm")}
             onConfirm={() => unpublish.mutate()}
           />
         )}
@@ -491,27 +478,18 @@ export function ModulePanel({
           <ConfirmAction
             trigger={
               <Button size="sm" variant="outline" disabled={busy}>
-                <Copy className="mr-1.5 size-3.5" /> Новая версия
+                <Copy className="mr-1.5 size-3.5" /> {t("panel.newVersion")}
               </Button>
             }
-            title={`Создать версию v${mod.version + 1}?`}
+            title={t("panel.forkTitle", { version: mod.version + 1 })}
             description={
               <>
-                <p>
-                  Будет создан черновик-копия модуля со всеми темами. Стажёры
-                  его не увидят, пока он не опубликован.
-                </p>
-                <p>
-                  Текущая опубликованная версия <b>остаётся в работе</b> и
-                  продолжает выдаваться стажёрам, пока вы её не деактивируете.
-                </p>
-                <p>
-                  Копия не привязана ни к одной программе — привяжите её, когда
-                  будете готовы к замене.
-                </p>
+                <p>{t("panel.forkP1")}</p>
+                <p>{t.rich("panel.forkP2", { b: bold })}</p>
+                <p>{t("panel.forkP3")}</p>
               </>
             }
-            confirmLabel="Создать версию"
+            confirmLabel={t("panel.forkConfirm")}
             onConfirm={() => fork.mutate()}
           />
         )}
@@ -520,12 +498,12 @@ export function ModulePanel({
           <ConfirmAction
             trigger={
               <Button size="sm" variant="outline" disabled={busy}>
-                <CircleSlash className="mr-1.5 size-3.5" /> Деактивировать
+                <CircleSlash className="mr-1.5 size-3.5" /> {t("panel.deactivate")}
               </Button>
             }
-            title={DEACTIVATE_TITLE}
-            description={DEACTIVATE_CONSEQUENCE}
-            confirmLabel="Деактивировать"
+            title={deactivateTitle}
+            description={deactivateConsequence}
+            confirmLabel={t("panel.deactivate")}
             destructive
             onConfirm={() => deactivate.mutate()}
           />
@@ -538,7 +516,7 @@ export function ModulePanel({
             disabled={busy}
             onClick={() => activate.mutate()}
           >
-            <RotateCcw className="mr-1.5 size-3.5" /> Вернуть в обращение
+            <RotateCcw className="mr-1.5 size-3.5" /> {t("panel.activate")}
           </Button>
         )}
 
@@ -549,7 +527,7 @@ export function ModulePanel({
             disabled={busy}
             onClick={() => attach.mutate()}
           >
-            Привязать к программе
+            {t("panel.attach")}
           </Button>
         )}
 
@@ -557,23 +535,17 @@ export function ModulePanel({
           <ConfirmAction
             trigger={
               <Button size="sm" variant="ghost" disabled={busy}>
-                <Link2Off className="mr-1.5 size-3.5" /> Отвязать от программы
+                <Link2Off className="mr-1.5 size-3.5" /> {t("panel.detach")}
               </Button>
             }
-            title="Отвязать модуль от программы?"
+            title={t("panel.detachTitle")}
             description={
               <>
-                <p>
-                  Модуль исчезнет из этой программы, но останется в системе и в
-                  других программах.
-                </p>
-                <p>
-                  Если у стажёров этой программы уже есть прогресс по модулю,
-                  система откажет — используйте деактивацию.
-                </p>
+                <p>{t("panel.detachP1")}</p>
+                <p>{t("panel.detachP2")}</p>
               </>
             }
-            confirmLabel="Отвязать"
+            confirmLabel={t("panel.detachConfirm")}
             destructive
             onConfirm={() => detach.mutate()}
           />
@@ -589,34 +561,35 @@ export function ModulePanel({
         {inUse && (
           <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3">
             <p className="text-[13px] font-medium text-destructive">
-              Снять с публикации нельзя: стажёры уже работают с модулем
-              {inUse.rows ? ` (записей прогресса: ${inUse.rows})` : ""}.
+              {inUse.rows
+                ? t("panel.inUseRows", { rows: inUse.rows })
+                : t("panel.inUse")}
             </p>
             <p className="mt-1 text-[12px] text-muted-foreground">
-              Их путь нельзя обрывать задним числом. Доступные варианты:
+              {t("panel.inUseHint")}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {access.canEdit && inScope && (
                 <Button size="sm" variant="outline" onClick={() => fork.mutate()}>
-                  <Copy className="mr-1.5 size-3.5" /> Создать новую версию
+                  <Copy className="mr-1.5 size-3.5" /> {t("panel.createNewVersion")}
                 </Button>
               )}
               {access.canPublish && mod.active && (
                 <ConfirmAction
                   trigger={
                     <Button size="sm" variant="outline">
-                      <CircleSlash className="mr-1.5 size-3.5" /> Деактивировать
+                      <CircleSlash className="mr-1.5 size-3.5" /> {t("panel.deactivate")}
                     </Button>
                   }
-                  title={DEACTIVATE_TITLE}
-                  description={DEACTIVATE_CONSEQUENCE}
-                  confirmLabel="Деактивировать"
+                  title={deactivateTitle}
+                  description={deactivateConsequence}
+                  confirmLabel={t("panel.deactivate")}
                   destructive
                   onConfirm={() => deactivate.mutate()}
                 />
               )}
               <Button size="sm" variant="ghost" onClick={() => setInUse(null)}>
-                Закрыть
+                {t("common.close")}
               </Button>
             </div>
           </div>
@@ -627,14 +600,13 @@ export function ModulePanel({
             <div className="flex items-center gap-2">
               <AlertTriangle className="size-4 text-destructive" />
               <p className="text-[13px] font-medium text-destructive">
-                Публикация отклонена — {issues.length}{" "}
-                {issues.length === 1 ? "причина" : "причин(ы)"}
+                {t("panel.rejected", { count: issues.length })}
               </p>
             </div>
             <ul className="mt-2 space-y-1.5">
               {issues.map((iss, i) => (
                 <li key={i} className="text-[12.5px] leading-snug">
-                  <span className="font-medium">{issueLabel(iss)}</span>
+                  <span className="font-medium">{issueLabel(t, iss)}</span>
                   {": "}
                   <span className="text-muted-foreground">{iss.text}</span>
                 </li>
@@ -646,7 +618,7 @@ export function ModulePanel({
               className="mt-2"
               onClick={() => setIssues(null)}
             >
-              Скрыть
+              {t("panel.hide")}
             </Button>
           </div>
         )}
@@ -662,26 +634,24 @@ export function ModulePanel({
             )}
             <h3 className="text-[13px] font-semibold">
               {topicsUnknown
-                ? "Проверяем готовность…"
+                ? t("panel.checking")
                 : readiness.ready
-                  ? "Готов к публикации"
-                  : "Не готов к публикации"}
+                  ? t("panel.ready")
+                  : t("panel.notReady")}
             </h3>
             {!topicsUnknown && topicsLoading && (
               <Loader2 className="size-3 animate-spin text-muted-foreground" />
             )}
           </div>
           <p className="mt-1 text-[12px] text-muted-foreground">
-            Проверка повторяет серверный гейт: обе языковые версии всех полей,
-            хотя бы одна активная тема, тест для квиза, чек-лист для наблюдения
-            и подписываемый тип проверки.
+            {t("panel.readinessNote")}
           </p>
 
           {!topicsUnknown && !readiness.ready && (
             <div className="mt-3 space-y-3">
               {readiness.moduleBlockers.length > 0 && (
                 <div>
-                  <p className="text-[12px] font-medium">Модуль</p>
+                  <p className="text-[12px] font-medium">{t("panel.moduleHeading")}</p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] text-muted-foreground">
                     {readiness.moduleBlockers.map((b, i) => (
                       <li key={i}>{b}</li>
@@ -692,8 +662,12 @@ export function ModulePanel({
               {readiness.topicBlockers.map(({ topic, index, reasons }) => (
                 <div key={topic.id}>
                   <p className="text-[12px] font-medium">
-                    Тема {index}
-                    {topic.title_ru.trim() ? ` «${topic.title_ru.trim()}»` : ""}
+                    {topic.title_ru.trim()
+                      ? t("panel.topicHeadingTitled", {
+                          index,
+                          title: topic.title_ru.trim(),
+                        })
+                      : t("panel.topicHeading", { index })}
                   </p>
                   <ul className="mt-1 list-disc space-y-0.5 pl-4 text-[12px] text-muted-foreground">
                     {reasons.map((r, i) => (
@@ -708,9 +682,11 @@ export function ModulePanel({
 
         <Separator />
         <p className="text-[11px] text-muted-foreground">
-          Статус: {MODULE_STATUS_LABEL[mod.status]}
-          {!mod.active && " · снят с обращения"} · обновлён{" "}
-          {new Date(mod.updated_at).toLocaleString("ru-RU")}
+          {t("panel.statusLine", {
+            status: t(`status.${mod.status}`),
+            retired: mod.active ? "no" : "yes",
+            date: new Date(mod.updated_at).toLocaleString("ru-RU"),
+          })}
         </p>
       </div>
     </div>

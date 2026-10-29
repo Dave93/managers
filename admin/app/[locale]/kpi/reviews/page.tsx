@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
@@ -37,6 +38,9 @@ export default function ReviewsPage() {
 }
 
 function ReviewsScreen() {
+  const t = useTranslations("kpiScreens.reviews");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const now = useMemo(() => new Date(), []);
   const me = useKpiMe();
   const { access } = useKpiPerms();
@@ -66,7 +70,7 @@ function ReviewsScreen() {
     () => (placeholder || selectedId === null ? null : rows.find((r) => r.id === selectedId) ?? null),
     [placeholder, rows, selectedId]
   );
-  const terminals = useMemo(() => terminalOptions(rows), [rows]);
+  const terminals = useMemo(() => terminalOptions(rows, tk), [rows]);
   const cards = useMemo(() => cardOptions(rows), [rows]);
   const counts = useMemo(() => statusCounts(rows), [rows]);
   const visible = useMemo(() => filterRows(rows, filter), [rows, filter]);
@@ -80,7 +84,7 @@ function ReviewsScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Оценки</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title")}</h1>
         <PeriodSelect
           value={period}
           onChange={(v) => {
@@ -96,8 +100,11 @@ function ReviewsScreen() {
 
       {deadlines && (
         <p className="text-sm text-muted-foreground">
-          Отправка с {formatTashkent(deadlines.submit_opens_at)}, срок до {formatTashkent(deadlines.review_deadline)}, споры до{" "}
-          {formatTashkent(deadlines.dispute_deadline)}
+          {t("deadlines", {
+            opens: formatTashkent(deadlines.submit_opens_at),
+            deadline: formatTashkent(deadlines.review_deadline),
+            disputes: formatTashkent(deadlines.dispute_deadline),
+          })}
         </p>
       )}
 
@@ -115,7 +122,7 @@ function ReviewsScreen() {
                 active && "border-primary bg-muted font-medium"
               )}
             >
-              {ROW_STATUS[s].label} <span className="tabular-nums">{counts[s]}</span>
+              {tk(ROW_STATUS[s].labelKey)} <span className="tabular-nums">{counts[s]}</span>
             </button>
           );
         })}
@@ -125,29 +132,29 @@ function ReviewsScreen() {
         <Input
           value={filter.search}
           onChange={(e) => set({ search: e.target.value })}
-          placeholder="Поиск по имени"
-          aria-label="Поиск по имени"
+          placeholder={t("searchByName")}
+          aria-label={t("searchByName")}
           className="w-full sm:w-56"
         />
         <Select value={filter.terminal_id} onValueChange={(v) => set({ terminal_id: v })}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Филиал">
-            <SelectValue placeholder="Филиал" />
+          <SelectTrigger className="w-full sm:w-52" aria-label={t("branch")}>
+            <SelectValue placeholder={t("branch")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Все филиалы</SelectItem>
-            {terminals.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
+            <SelectItem value={ALL}>{t("allBranches")}</SelectItem>
+            {terminals.map((tm) => (
+              <SelectItem key={tm.id} value={tm.id}>
+                {tm.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={filter.card_id} onValueChange={(v) => set({ card_id: v })}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Карта">
-            <SelectValue placeholder="Карта" />
+          <SelectTrigger className="w-full sm:w-52" aria-label={t("card")}>
+            <SelectValue placeholder={t("card")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Все карты</SelectItem>
+            <SelectItem value={ALL}>{t("allCards")}</SelectItem>
             {cards.map((c) => (
               <SelectItem key={c.id} value={c.id}>
                 {c.name}
@@ -162,39 +169,39 @@ function ReviewsScreen() {
 
       {employees.error != null && employees.data === undefined ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(employees.error)}
+          {kpiErrorText(employees.error, tk)}
         </p>
       ) : employees.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : rows.length === 0 ? (
         <div className="space-y-3 text-sm">
-          <p className="text-muted-foreground">За этот месяц сотрудников для оценки нет.</p>
+          <p className="text-muted-foreground">{t("noEmployees")}</p>
           {access.evaluate && !access.view && (
             <div className="space-y-1">
               {me.data && me.data.scopes.length > 0 ? (
                 <ul className="list-inside list-disc">
                   {me.data.scopes.map((s) => (
                     <li key={s.id}>
-                      {s.card_title ?? "Любая карта"} · {s.terminal_name ?? "Любой филиал"}
+                      {s.card_title ?? t("anyCard")} · {s.terminal_name ?? t("anyBranch")}
                     </li>
                   ))}
                 </ul>
               ) : (
-                me.data && <p>Назначений нет — попросите HR назначить вас оценщиком</p>
+                me.data && <p>{t("noAssignments")}</p>
               )}
             </div>
           )}
         </div>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-muted-foreground">По выбранным фильтрам никого нет.</p>
+        <p className="text-sm text-muted-foreground">{t("noMatches")}</p>
       ) : (
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Сотрудник</TableHead>
-              <TableHead className="hidden lg:table-cell">Филиал</TableHead>
-              <TableHead className="hidden lg:table-cell">Карта</TableHead>
-              <TableHead className="hidden sm:table-cell">Статус</TableHead>
+              <TableHead>{t("colEmployee")}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t("colBranch")}</TableHead>
+              <TableHead className="hidden lg:table-cell">{t("colCard")}</TableHead>
+              <TableHead className="hidden sm:table-cell">{t("colStatus")}</TableHead>
               <TableHead className="text-right">%</TableHead>
             </TableRow>
           </TableHeader>
@@ -203,8 +210,8 @@ function ReviewsScreen() {
               const st = ROW_STATUS[rowStatus(r)];
               const badges = (
                 <>
-                  <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
-                  {r.review?.late && <KpiBadge tone="amber">с опозданием</KpiBadge>}
+                  <KpiBadge tone={st.tone}>{tk(st.labelKey)}</KpiBadge>
+                  {r.review?.late && <KpiBadge tone="amber">{t("late")}</KpiBadge>}
                 </>
               );
               return (
@@ -226,10 +233,10 @@ function ReviewsScreen() {
                       Текстовые колонки переносятся, чтобы таблица не была шире карточки. */}
                   <TableCell className="whitespace-normal">
                     <div className="break-words font-medium">{employeeName(r)}</div>
-                    <div className="break-words text-xs text-muted-foreground lg:hidden">{r.terminal_name ?? "Филиал без названия"}</div>
+                    <div className="break-words text-xs text-muted-foreground lg:hidden">{r.terminal_name ?? t("unnamedBranch")}</div>
                     <div className="mt-1 flex flex-wrap gap-1 sm:hidden">{badges}</div>
                   </TableCell>
-                  <TableCell className="hidden whitespace-normal lg:table-cell">{r.terminal_name ?? "Филиал без названия"}</TableCell>
+                  <TableCell className="hidden whitespace-normal lg:table-cell">{r.terminal_name ?? t("unnamedBranch")}</TableCell>
                   <TableCell className="hidden whitespace-normal lg:table-cell">{r.card?.title_ru ?? "—"}</TableCell>
                   <TableCell className="hidden sm:table-cell">
                     <div className="flex flex-col items-start gap-1">{badges}</div>

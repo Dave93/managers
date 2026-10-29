@@ -8,8 +8,10 @@ import {
   navigationMenuTriggerStyle,
 } from "@components/ui/navigation-menu";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("settingsPage");
   return (
     <div className="flex">
       <div className="w-2/12 mr-6">
@@ -19,7 +21,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <NavigationMenuItem>
                 <NavigationMenuLink asChild>
                   <Link href="/settings" className={navigationMenuTriggerStyle()}>
-                    Основные
+                    {t("main")}
                   </Link>
                 </NavigationMenuLink>
               </NavigationMenuItem>

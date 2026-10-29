@@ -13,16 +13,9 @@
 // other two follow: each screen owns its vocabulary file, so one screen's
 // refactor cannot silently repaint another's.
 
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import type { PassportEnrollmentStatus } from "@admin/lib/passport-api";
-
-export const ENROLLMENT_STATUS_LABEL: Record<PassportEnrollmentStatus, string> =
-  {
-    active: "Идёт",
-    paused: "На паузе",
-    completed: "Завершена",
-    failed: "Не пройдена",
-  };
 
 const CHIP: Record<PassportEnrollmentStatus, string> = {
   active:
@@ -49,6 +42,7 @@ export function EnrollmentStatusChip({
   status: PassportEnrollmentStatus;
   className?: string;
 }) {
+  const t = useTranslations("passport.enrollmentStatus");
   return (
     <span
       className={cn(
@@ -58,7 +52,7 @@ export function EnrollmentStatusChip({
       )}
     >
       <span className={cn("size-1.5 rounded-full", DOT[status])} aria-hidden />
-      {ENROLLMENT_STATUS_LABEL[status]}
+      {t(status)}
     </span>
   );
 }

@@ -12,6 +12,7 @@
 
 import { motion } from "framer-motion";
 import * as React from "react";
+import { useTranslations } from "next-intl";
 
 import type { Branch } from "./use-network-map";
 import {
@@ -29,9 +30,12 @@ import {
   SHIFT_ORDER,
   TRAINEE_ALERT,
   TRAINEE_COLOR,
+  Tr,
   buildArcs,
+  groupLabel,
   hexPath,
   nodeScale,
+  shiftLabel,
 } from "./vocabulary";
 
 export const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -42,7 +46,7 @@ export function traineeShare(b: Branch): number {
 }
 
 /** Сегменты кольца для конкретного режима. В режиме «Данные» кольца нет. */
-export function arcsFor(b: Branch, mode: MapMode): Arc[] {
+export function arcsFor(b: Branch, mode: MapMode, t: Tr): Arc[] {
   if (!b.has_staff_data || mode === "data" || b.staff.total === 0) return [];
   if (mode === "shifts")
     return buildArcs(
@@ -50,7 +54,7 @@ export function arcsFor(b: Branch, mode: MapMode): Arc[] {
         key: k,
         n: b.staff.shifts[k] ?? 0,
         color: SHIFT[k].color,
-        label: SHIFT[k].label,
+        label: shiftLabel(k, t),
         dotted: k === "unknown",
       }))
     );
@@ -60,13 +64,13 @@ export function arcsFor(b: Branch, mode: MapMode): Arc[] {
         key: "trainees",
         n: b.staff.trainees,
         color: TRAINEE_COLOR,
-        label: "Стажёры",
+        label: t("arcs.trainees"),
       },
       {
         key: "rest",
         n: b.staff.total - b.staff.trainees,
         color: EXPERIENCED_COLOR,
-        label: "Остальные",
+        label: t("arcs.rest"),
       },
     ]);
   return buildArcs(
@@ -74,7 +78,7 @@ export function arcsFor(b: Branch, mode: MapMode): Arc[] {
       key: k,
       n: b.staff.groups[k] ?? 0,
       color: GROUP[k].color,
-      label: GROUP[k].label,
+      label: groupLabel(k, t),
     }))
   );
 }
@@ -106,10 +110,11 @@ export function GlyphBody({
   dim = false,
   scaleOverride,
 }: GlyphProps) {
+  const t = useTranslations("networkMap");
   const brand = BRAND[b.brand] ?? BRAND.other;
   const scale =
     scaleOverride ?? nodeScale(mode, b.has_staff_data, b.staff.total);
-  const arcs = arcsFor(b, mode);
+  const arcs = arcsFor(b, mode, t);
   const noData = !b.has_staff_data;
   const emptyKnown = b.has_staff_data && b.staff.total === 0;
   const alerting =

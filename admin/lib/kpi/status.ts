@@ -1,5 +1,6 @@
 // Статусы и подписи KPI. Подписи — строго по спеке экранов, тон — цвет бейджа.
 import type { EmployeeRow, ItemSource } from "@admin/lib/kpi-api";
+import { ruT, type KpiT } from "./i18n";
 
 export type Tone = "gray" | "amber" | "green" | "red" | "blue";
 export type RowStatus = "none" | "draft" | "submitted" | "disputed";
@@ -11,59 +12,63 @@ export function rowStatus(r: Pick<EmployeeRow, "review" | "open_dispute">): RowS
   return r.review.status;
 }
 
-export const ROW_STATUS: Record<RowStatus, { label: string; tone: Tone }> = {
-  none: { label: "Нет оценки", tone: "gray" },
-  draft: { label: "Черновик", tone: "amber" },
-  submitted: { label: "Отправлена", tone: "green" },
-  disputed: { label: "Спор", tone: "red" },
+/** label — русский запасной текст; в интерфейсе переводите `t(labelKey)`. */
+export type StatusMeta = { label: string; labelKey: string; tone: Tone };
+const meta = (labelKey: string, tone: Tone): StatusMeta => ({ label: ruT(labelKey), labelKey, tone });
+
+export const ROW_STATUS: Record<RowStatus, StatusMeta> = {
+  none: meta("lib.status.row.none", "gray"),
+  draft: meta("lib.status.row.draft", "amber"),
+  submitted: meta("lib.status.row.submitted", "green"),
+  disputed: meta("lib.status.row.disputed", "red"),
 };
 
-export const VIOLATION_STATUS: Record<"active" | "cancelled", { label: string; tone: Tone }> = {
-  active: { label: "Действует", tone: "red" },
-  cancelled: { label: "Отменено", tone: "gray" },
+export const VIOLATION_STATUS: Record<"active" | "cancelled", StatusMeta> = {
+  active: meta("lib.status.violation.active", "red"),
+  cancelled: meta("lib.status.violation.cancelled", "gray"),
 };
 
-export const DISPUTE_STATUS: Record<"open" | "accepted" | "rejected", { label: string; tone: Tone }> = {
-  open: { label: "Открыт", tone: "amber" },
-  accepted: { label: "Принят", tone: "green" },
-  rejected: { label: "Отклонён", tone: "gray" },
+export const DISPUTE_STATUS: Record<"open" | "accepted" | "rejected", StatusMeta> = {
+  open: meta("lib.status.dispute.open", "amber"),
+  accepted: meta("lib.status.dispute.accepted", "green"),
+  rejected: meta("lib.status.dispute.rejected", "gray"),
 };
 
-export const RAISE_STATUS: Record<"proposed" | "insufficient" | "approved" | "rejected", { label: string; tone: Tone }> = {
-  proposed: { label: "Предложено", tone: "blue" },
-  insufficient: { label: "Мало оценок", tone: "gray" },
-  approved: { label: "Утверждено", tone: "green" },
-  rejected: { label: "Отказано", tone: "red" },
+export const RAISE_STATUS: Record<"proposed" | "insufficient" | "approved" | "rejected", StatusMeta> = {
+  proposed: meta("lib.status.raise.proposed", "blue"),
+  insufficient: meta("lib.status.raise.insufficient", "gray"),
+  approved: meta("lib.status.raise.approved", "green"),
+  rejected: meta("lib.status.raise.rejected", "red"),
 };
 
-export const PERIOD_STATUS: Record<"open" | "closed", { label: string; tone: Tone }> = {
-  open: { label: "Открыт", tone: "green" },
-  closed: { label: "Закрыт", tone: "gray" },
+export const PERIOD_STATUS: Record<"open" | "closed", StatusMeta> = {
+  open: meta("lib.status.period.open", "green"),
+  closed: meta("lib.status.period.closed", "gray"),
 };
 
-const EVENT_KIND: Record<string, string> = {
-  submitted: "Отправлена",
-  changed: "Изменена",
-  dispute_opened: "Открыт спор",
-  dispute_resolved: "Спор разобран",
-  hr_adjusted: "Правка HR",
-};
+const EVENT_KINDS = ["submitted", "changed", "dispute_opened", "dispute_resolved", "hr_adjusted"];
 
 /** Неизвестный kind (backend мог добавить новый) показываем как есть, а не прячем. */
-export function eventKindLabel(kind: string): string {
-  return Object.prototype.hasOwnProperty.call(EVENT_KIND, kind) ? EVENT_KIND[kind] : kind;
+export function eventKindLabel(kind: string, t: KpiT = ruT): string {
+  return EVENT_KINDS.includes(kind) ? t(`lib.event.kind.${kind}`) : kind;
 }
 
 /** Кто сделал запись в истории: пользователь по имени, сотрудник (спор из Telegram) или система. */
-export function eventActorLabel(e: { actor_kind: string; actor_name: string | null }): string {
+export function eventActorLabel(e: { actor_kind: string; actor_name: string | null }, t: KpiT = ruT): string {
   if (e.actor_name) return e.actor_name;
-  return e.actor_kind === "employee" ? "Сотрудник (Telegram)" : "Система";
+  return e.actor_kind === "employee" ? t("lib.event.actor.employee") : t("lib.event.actor.system");
 }
 
-export const SOURCE_LABEL: Record<ItemSource, string> = {
-  manual: "Вручную",
-  attendance: "Приход и уход (Workly)",
-  cooking_speed: "Скорость приготовления",
-  sales_plan: "План продаж",
-  food_cost: "Фудкост и остатки",
+/** Ключи подписей источников пункта: `t(SOURCE_LABEL_KEY[source])`. */
+export const SOURCE_LABEL_KEY: Record<ItemSource, string> = {
+  manual: "lib.source.manual",
+  attendance: "lib.source.attendance",
+  cooking_speed: "lib.source.cooking_speed",
+  sales_plan: "lib.source.sales_plan",
+  food_cost: "lib.source.food_cost",
 };
+
+/** Русские подписи (запасной вариант без `t`). */
+export const SOURCE_LABEL: Record<ItemSource, string> = Object.fromEntries(
+  Object.entries(SOURCE_LABEL_KEY).map(([k, key]) => [k, ruT(key)])
+) as Record<ItemSource, string>;

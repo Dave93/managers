@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import UsersFormSheet from "@components/forms/users/sheet";
@@ -8,10 +10,13 @@ import { Badge } from "@components/ui/badge";
 import { users } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const usersColumns: ColumnDef<typeof users.$inferSelect>[] = [
+export function useUsersColumns(): ColumnDef<typeof users.$inferSelect>[] {
+  const t = useTranslations("systemPages.columns");
+  return useMemo<ColumnDef<typeof users.$inferSelect>[]>(
+    () => [
   {
     accessorKey: "status",
-    header: "Статус",
+    header: t("status"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -24,15 +29,15 @@ export const usersColumns: ColumnDef<typeof users.$inferSelect>[] = [
   },
   {
     accessorKey: "login",
-    header: "Логин",
+    header: t("login"),
   },
   {
     accessorKey: "first_name",
-    header: "Имя",
+    header: t("firstName"),
   },
   {
     accessorKey: "last_name",
-    header: "Фамилия",
+    header: t("lastName"),
   },
   {
     id: "actions",
@@ -50,4 +55,7 @@ export const usersColumns: ColumnDef<typeof users.$inferSelect>[] = [
       );
     },
   },
-];
+    ],
+    [t]
+  );
+}

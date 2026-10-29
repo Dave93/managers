@@ -13,12 +13,17 @@ import { RowActions } from "./_components/row-actions";
 import type { InviteToPrint } from "./_components/invite-print";
 import { deadlineInfo, fmtDate, fullName } from "./_components/use-enrollments";
 
+/** next-intl translator, scoped to "passportUi.enrollments". */
+type Translate = (key: string) => string;
+
 export function buildColumns({
   canManage,
   terminalName,
   onPrint,
   onJournal,
+  t,
 }: {
+  t: Translate;
   canManage: boolean;
   terminalName: (id: string | null) => string;
   onPrint: (invite: InviteToPrint) => void;
@@ -27,16 +32,16 @@ export function buildColumns({
   return [
     {
       id: "employee",
-      header: "Стажёр",
+      header: t("columns.trainee"),
       cell: ({ row }) => {
         const r = row.original;
         return (
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-[13px] font-medium leading-tight">
-              {fullName(r.first_name, r.last_name)}
+              {fullName(r.first_name, r.last_name, t("common.noName"))}
             </span>
             <span className="truncate text-[11.5px] text-muted-foreground">
-              {r.position || "должность не указана"}
+              {r.position || t("common.noPosition")}
             </span>
           </div>
         );
@@ -44,7 +49,7 @@ export function buildColumns({
     },
     {
       id: "terminal",
-      header: "Филиал",
+      header: t("columns.branch"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">
           {/* Server-resolved name first; terminalName() is the fallback for a
@@ -55,7 +60,7 @@ export function buildColumns({
     },
     {
       id: "program",
-      header: "Программа",
+      header: t("columns.program"),
       cell: ({ row }) => {
         const r = row.original;
         return (
@@ -74,7 +79,7 @@ export function buildColumns({
     },
     {
       id: "started",
-      header: "Старт",
+      header: t("columns.start"),
       cell: ({ row }) => (
         <span className="text-[12.5px] tabular-nums text-muted-foreground">
           {fmtDate(row.original.started_at)}
@@ -83,7 +88,7 @@ export function buildColumns({
     },
     {
       id: "deadline",
-      header: "Испытательный",
+      header: t("columns.probation"),
       cell: ({ row }) => {
         const r = row.original;
         return (
@@ -97,7 +102,7 @@ export function buildColumns({
     },
     {
       id: "status",
-      header: "Статус",
+      header: t("columns.status"),
       cell: ({ row }) => <EnrollmentStatusChip status={row.original.status} />,
     },
     {

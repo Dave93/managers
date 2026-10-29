@@ -1,3 +1,5 @@
+import { useTranslations } from "next-intl";
+import { toIntlLocale } from "../intl-locale";
 import type { ShiftFlag } from "./flags";
 
 const TZ = "Asia/Tashkent";
@@ -28,46 +30,32 @@ export function fmtDayMonthTime(iso: string): string {
   return `${p.day}.${p.month} ${p.hour}:${p.minute}`;
 }
 
-// Russian plural: 1, 21 → one; 2–4, 22–24 → few; 0, 5–20, 11–14 → many.
-export function plural(n: number, one: string, few: string, many: string): string {
-  const n100 = Math.abs(Math.trunc(n)) % 100;
-  const n10 = n100 % 10;
-  if (n100 >= 11 && n100 <= 14) return many;
-  if (n10 === 1) return one;
-  if (n10 >= 2 && n10 <= 4) return few;
-  return many;
-}
-
-export const fmtDay = (day: string) =>
-  new Date(`${day}T12:00:00+05:00`).toLocaleDateString("ru-RU", {
+export const fmtDay = (day: string, locale: string) =>
+  new Date(`${day}T12:00:00+05:00`).toLocaleDateString(toIntlLocale(locale), {
     day: "2-digit",
     month: "short",
     weekday: "short",
     timeZone: TZ,
   });
 
-export function fmtDuration(fromIso: string, toIso: string | null, nowMs = Date.now()): string {
+type Translate = (key: string, values?: Record<string, string | number>) => string;
+
+// `td` is a translator scoped to "dashboardUi.duration".
+export function fmtDuration(fromIso: string, toIso: string | null, td: Translate, nowMs = Date.now()): string {
   const ms = (toIso ? Date.parse(toIso) : nowMs) - Date.parse(fromIso);
   const totalMin = Math.max(0, Math.round(ms / 60_000));
   const h = Math.floor(totalMin / 60);
   const m = totalMin % 60;
-  return h > 0 ? `${h} ч ${m} мин` : `${m} мин`;
+  return h > 0 ? td("hoursMinutes", { hours: h, minutes: m }) : td("minutes", { minutes: m });
 }
 
-export const fmtMoney = (v: number) =>
-  `${Math.round(v).toLocaleString("ru-RU")} сум`;
+export const fmtMoney = (v: number, unit: string) =>
+  `${Math.round(v).toLocaleString("ru-RU")} ${unit}`;
 
-export const FLAG_LABEL: Record<ShiftFlag, string> = {
-  late_open: "позднее открытие",
-  late_close: "позднее закрытие",
-  too_long: "долгая смена",
-  unclosed: "не закрыта на момент синхронизации",
+// Money formatter bound to the localized currency label (ru: "сум").
+export const useFmtMoney = () => {
+  const t = useTranslations("dashboardUi");
+  return (v: number) => fmtMoney(v, t("currency"));
 };
 
-export const STATUS_LABEL: Record<string, string> = {
-  OPEN: "открыта",
-  CLOSED: "закрыта",
-  ACCEPTED: "принята",
-  UNACCEPTED: "не принята",
-  HASWARNINGS: "подозрительная",
-};
+export const KNOWN_STATUSES = new Set(["OPEN", "CLOSED", "ACCEPTED", "UNACCEPTED", "HASWARNINGS"]);

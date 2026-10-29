@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
@@ -15,6 +16,7 @@ const toDraft = (tiers: readonly Tier[]): TierDraft[] =>
   tiers.map((t) => ({ min_pct: String(t.min_pct).replace(".", ","), amount: String(t.amount) }));
 
 export function TiersTab() {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const me = useKpiMe();
   const tiers = useQuery<Tier[], Error>({
@@ -37,9 +39,9 @@ export function TiersTab() {
     onSuccess: (saved) => {
       qc.setQueryData(qk.tiers, saved);
       setRows(toDraft(saved));
-      toast.success("Шкала сохранена");
+      toast.success(t("settings.tiers.saved"));
     },
-    onError: (e) => setProblem(kpiErrorText(e)),
+    onError: (e) => setProblem(kpiErrorText(e, t)),
   });
   const busy = save.isPending;
 
@@ -50,7 +52,7 @@ export function TiersTab() {
 
   const submit = () => {
     if (busy || rows === null || cap === undefined) return;
-    const res = tiersFromDraft(rows, cap);
+    const res = tiersFromDraft(rows, cap, t);
     if ("error" in res) {
       setProblem(res.error);
       return;
@@ -62,11 +64,11 @@ export function TiersTab() {
   if (tiers.error) {
     return (
       <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-        {kpiErrorText(tiers.error)}
+        {kpiErrorText(tiers.error, t)}
       </p>
     );
   }
-  if (tiers.isPending || rows === null) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
+  if (tiers.isPending || rows === null) return <p className="text-sm text-muted-foreground">{t("settings.tiers.loading")}</p>;
 
   return (
     <div className="space-y-4">
@@ -74,8 +76,8 @@ export function TiersTab() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Средняя от, %</TableHead>
-              <TableHead>Повышение, сум</TableHead>
+              <TableHead>{t("settings.tiers.colMin")}</TableHead>
+              <TableHead>{t("settings.tiers.colRaise")}</TableHead>
               <TableHead />
             </TableRow>
           </TableHeader>
@@ -83,7 +85,7 @@ export function TiersTab() {
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={3} className="text-sm text-muted-foreground">
-                  Ступеней нет: повышение никому не положено
+                  {t("settings.tiers.empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -91,7 +93,7 @@ export function TiersTab() {
               <TableRow key={i}>
                 <TableCell>
                   <Input
-                    aria-label={`Порог ступени ${i + 1}, %`}
+                    aria-label={t("settings.tiers.minAria", { n: i + 1 })}
                     inputMode="decimal"
                     className="h-11 w-32"
                     value={r.min_pct}
@@ -101,7 +103,7 @@ export function TiersTab() {
                 </TableCell>
                 <TableCell>
                   <Input
-                    aria-label={`Сумма ступени ${i + 1}, сум`}
+                    aria-label={t("settings.tiers.amountAria", { n: i + 1 })}
                     inputMode="numeric"
                     className="h-11 w-40"
                     value={r.amount}
@@ -120,7 +122,7 @@ export function TiersTab() {
                       setRows((cur) => (cur ?? []).filter((_, j) => j !== i));
                     }}
                   >
-                    Убрать
+                    {t("settings.tiers.remove")}
                   </Button>
                 </TableCell>
               </TableRow>
@@ -140,18 +142,18 @@ export function TiersTab() {
             setRows((cur) => [...(cur ?? []), { min_pct: "", amount: "" }]);
           }}
         >
-          Добавить ступень
+          {t("settings.tiers.add")}
         </Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Ниже самой низкой ступени — без повышения.
-        {cap !== undefined ? ` Потолок: ${formatSum(cap)}` : ""}
+        {t("settings.tiers.belowLowest")}
+        {cap !== undefined ? ` ${t("settings.tiers.cap", { sum: formatSum(cap, t) })}` : ""}
       </p>
 
       {me.error && (
         <p role="alert" className="text-sm text-destructive">
-          {kpiErrorText(me.error)}
+          {kpiErrorText(me.error, t)}
         </p>
       )}
       {problem && (
@@ -161,7 +163,7 @@ export function TiersTab() {
       )}
 
       <Button type="button" className="h-11" disabled={busy || cap === undefined} onClick={submit}>
-        Сохранить шкалу
+        {t("settings.tiers.save")}
       </Button>
     </div>
   );

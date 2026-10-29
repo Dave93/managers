@@ -7,19 +7,21 @@ import type {
   UnmatchedReason,
 } from "@admin/lib/kpi-api";
 import { formatTashkent } from "./format";
+import { ruT, type KpiT } from "./i18n";
 import { monthLabel } from "./periods";
 import type { Tone } from "./status";
 
 /** Колонки выбраны по номеру (0 — A); у необязательных полей может не быть. */
 export type MappingDraft = Partial<Record<AttendanceField, number>>;
 
-export const MAPPING_FIELDS: readonly { key: AttendanceField; label: string; required: boolean }[] = [
-  { key: "external_id", label: "Табельный номер", required: true },
-  { key: "date", label: "Дата", required: true },
-  { key: "check_in", label: "Приход", required: false },
-  { key: "check_out", label: "Уход", required: false },
-  { key: "late_minutes", label: "Опоздание, мин", required: false },
-  { key: "absent", label: "Прогул", required: false },
+/** label — русский запасной текст; в интерфейсе переводите `t(labelKey)`. */
+export const MAPPING_FIELDS: readonly { key: AttendanceField; label: string; labelKey: string; required: boolean }[] = [
+  { key: "external_id", label: ruT("lib.attendance.field.external_id"), labelKey: "lib.attendance.field.external_id", required: true },
+  { key: "date", label: ruT("lib.attendance.field.date"), labelKey: "lib.attendance.field.date", required: true },
+  { key: "check_in", label: ruT("lib.attendance.field.check_in"), labelKey: "lib.attendance.field.check_in", required: false },
+  { key: "check_out", label: ruT("lib.attendance.field.check_out"), labelKey: "lib.attendance.field.check_out", required: false },
+  { key: "late_minutes", label: ruT("lib.attendance.field.late_minutes"), labelKey: "lib.attendance.field.late_minutes", required: false },
+  { key: "absent", label: ruT("lib.attendance.field.absent"), labelKey: "lib.attendance.field.absent", required: false },
 ];
 
 /** Буквы колонок Excel: 0 → A, 25 → Z, 26 → AA. */
@@ -34,8 +36,8 @@ export function columnLetter(i: number): string {
   return out;
 }
 
-export function columnLabel(i: number, header: string): string {
-  return `${columnLetter(i)} — ${header.trim() || "(без названия)"}`;
+export function columnLabel(i: number, header: string, t: KpiT = ruT): string {
+  return `${columnLetter(i)} — ${header.trim() || t("lib.attendance.noHeader")}`;
 }
 
 /** Строка заголовков по номеру с 1; вне таблицы — пусто. */
@@ -79,14 +81,14 @@ export function guessMapping(headers: readonly string[]): MappingDraft {
   return out;
 }
 
-export function mappingIssues(m: MappingDraft): { errors: string[]; warnings: string[] } {
+export function mappingIssues(m: MappingDraft, t: KpiT = ruT): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
-  if (m.external_id === undefined) errors.push("Выберите колонку с табельным номером");
-  if (m.date === undefined) errors.push("Выберите колонку с датой");
-  if (m.late_minutes === undefined) warnings.push("Колонка опоздания не выбрана: опоздания будут считаться нулевыми");
+  if (m.external_id === undefined) errors.push(t("lib.attendance.issue.noExternalId"));
+  if (m.date === undefined) errors.push(t("lib.attendance.issue.noDate"));
+  if (m.late_minutes === undefined) warnings.push(t("lib.attendance.issue.noLate"));
   if (m.absent === undefined) {
-    warnings.push("Колонка прогулов не выбрана: прогулы не попадут в расчёт, дни без отметок пропускаются");
+    warnings.push(t("lib.attendance.issue.noAbsent"));
   }
   return { errors, warnings };
 }
@@ -110,44 +112,52 @@ export function defaultSheet(sheets: readonly AttendanceSheetPreview[]): string 
 
 const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
-export function fileIssue(f: { name: string; size: number }): string | null {
-  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) return "Нужен файл xlsx, xls или csv";
-  if (f.size === 0) return "Файл пустой";
-  if (f.size > MAX_FILE_BYTES) return "Файл больше 5 МБ";
+export function fileIssue(f: { name: string; size: number }, t: KpiT = ruT): string | null {
+  if (!/\.(xlsx|xls|csv)$/i.test(f.name)) return t("lib.attendance.file.type");
+  if (f.size === 0) return t("lib.attendance.file.empty");
+  if (f.size > MAX_FILE_BYTES) return t("lib.attendance.file.size");
   return null;
 }
 
-export const UNMATCHED_REASON_TEXT: Record<UnmatchedReason, string> = {
-  no_external_id: "Пустой табельный номер",
-  unknown_external_id: "Нет активного сотрудника с таким табельным номером",
-  ambiguous_external_id: "Табельный номер у нескольких сотрудников",
-  bad_date: "Дата не распознана",
-  outside_period: "Дата вне выбранного месяца",
-  bad_time: "Время прихода или ухода не распознано",
-  bad_late: "Опоздание — не целое число минут",
-  duplicate_day: "Вторая строка за тот же день, учтена первая",
-  not_working_day: "Нерабочий день (выходной, отпуск, больничный)",
-  no_marks: "Нет отметок прихода и ухода",
+/** Ключи причин: `t(UNMATCHED_REASON_KEY[reason])`. */
+export const UNMATCHED_REASON_KEY: Record<UnmatchedReason, string> = {
+  no_external_id: "lib.attendance.unmatched.no_external_id",
+  unknown_external_id: "lib.attendance.unmatched.unknown_external_id",
+  ambiguous_external_id: "lib.attendance.unmatched.ambiguous_external_id",
+  bad_date: "lib.attendance.unmatched.bad_date",
+  outside_period: "lib.attendance.unmatched.outside_period",
+  bad_time: "lib.attendance.unmatched.bad_time",
+  bad_late: "lib.attendance.unmatched.bad_late",
+  duplicate_day: "lib.attendance.unmatched.duplicate_day",
+  not_working_day: "lib.attendance.unmatched.not_working_day",
+  no_marks: "lib.attendance.unmatched.no_marks",
 };
 
+/** Русские тексты причин (запасной вариант без `t`). */
+export const UNMATCHED_REASON_TEXT: Record<UnmatchedReason, string> = Object.fromEntries(
+  Object.entries(UNMATCHED_REASON_KEY).map(([k, key]) => [k, ruT(key)])
+) as Record<UnmatchedReason, string>;
+
+const reasonText = (k: UnmatchedReason, t: KpiT) => (Object.hasOwn(UNMATCHED_REASON_KEY, k) ? t(UNMATCHED_REASON_KEY[k]) : k);
+
 /** Строка итогов: «не сопоставлено» — только строки без найденного сотрудника, «пропущено» — строки найденных, не попавшие в учёт. */
-export function rowsCountText(r: Pick<AttendanceImportRow, "rows_total" | "rows_matched" | "rows_unmatched" | "rows_skipped">): string {
-  return `Строк: ${r.rows_total} · сопоставлено: ${r.rows_matched} · не сопоставлено: ${r.rows_unmatched} · пропущено: ${r.rows_skipped}`;
+export function rowsCountText(r: Pick<AttendanceImportRow, "rows_total" | "rows_matched" | "rows_unmatched" | "rows_skipped">, t: KpiT = ruT): string {
+  return t("lib.attendance.rowsCount", { total: r.rows_total, matched: r.rows_matched, unmatched: r.rows_unmatched, skipped: r.rows_skipped });
 }
 
 /** Причины пропуска по строкам: «Нерабочий день: 2, Нет отметок прихода и ухода: 1». */
-export function skippedReasonsText(rows: readonly { reason: UnmatchedReason }[]): string {
+export function skippedReasonsText(rows: readonly { reason: UnmatchedReason }[], t: KpiT = ruT): string {
   const n = new Map<UnmatchedReason, number>();
   for (const r of rows) n.set(r.reason, (n.get(r.reason) ?? 0) + 1);
-  return [...n].map(([k, c]) => `${(UNMATCHED_REASON_TEXT[k] ?? k).replace(/ \(.*\)$/, "")}: ${c}`).join(", ");
+  return [...n].map(([k, c]) => `${reasonText(k, t).replace(/ \(.*\)$/, "")}: ${c}`).join(", ");
 }
 
 /** Итоги по сопоставленным дням: по ним видно, учлись ли прогулы и опоздания. */
-export function importTotalsText(t: Pick<AttendanceImportRow, "days_present" | "days_late" | "days_absent">): string {
-  return `Дней: ${t.days_present}, с опозданием: ${t.days_late}, прогулов: ${t.days_absent}`;
+export function importTotalsText(r: Pick<AttendanceImportRow, "days_present" | "days_late" | "days_absent">, t: KpiT = ruT): string {
+  return t("lib.attendance.totals", { present: r.days_present, late: r.days_late, absent: r.days_absent });
 }
 
-export const HISTORY_CHECK_FAILED = "Не удалось проверить прошлые загрузки";
+export const HISTORY_CHECK_FAILED = ruT("lib.attendance.historyFailed");
 
 /**
  * Предупреждение перед загрузкой: действующий импорт месяца будет заменён целиком.
@@ -155,21 +165,24 @@ export const HISTORY_CHECK_FAILED = "Не удалось проверить пр
  */
 export function replaceNotice(
   history: { data: readonly AttendanceImportRow[] | undefined; error: unknown },
-  period: string
+  period: string,
+  t: KpiT = ruT,
+  locale = "ru"
 ): string | null {
   const existing = history.data?.find((r) => r.status === "committed");
   if (existing) {
-    return (
-      `За ${monthLabel(period)} уже загружен «${existing.file_name}» ${formatTashkent(existing.created_at)}, ` +
-      `сопоставлено строк: ${existing.rows_matched}. Новая загрузка заменит его. ` +
-      "Сотрудники, которых нет в новом файле, потеряют данные за месяц"
-    );
+    return t("lib.attendance.replace", {
+      month: monthLabel(period, locale),
+      file: existing.file_name,
+      date: formatTashkent(existing.created_at),
+      matched: existing.rows_matched,
+    });
   }
-  if (history.error != null && history.data === undefined) return HISTORY_CHECK_FAILED;
+  if (history.error != null && history.data === undefined) return t("lib.attendance.historyFailed");
   return null;
 }
 
-export const IMPORT_STATUS: Record<"committed" | "replaced", { label: string; tone: Tone }> = {
-  committed: { label: "Действует", tone: "green" },
-  replaced: { label: "Заменён", tone: "gray" },
+export const IMPORT_STATUS: Record<"committed" | "replaced", { label: string; labelKey: string; tone: Tone }> = {
+  committed: { label: ruT("lib.status.import.committed"), labelKey: "lib.status.import.committed", tone: "green" },
+  replaced: { label: ruT("lib.status.import.replaced"), labelKey: "lib.status.import.replaced", tone: "gray" },
 };

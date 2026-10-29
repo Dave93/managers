@@ -1,9 +1,11 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { BarChart, LineChart, PieChart, Activity, TrendingUp, ChevronUp } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@admin/components/ui/card";
 
 const LoadingAnimation = () => {
+  const t = useTranslations("dashboardUi");
   // Варианты анимации для пульсации
   const pulseVariants: any = {
     initial: { opacity: 0.6, scale: 0.95 },
@@ -247,7 +249,7 @@ const LoadingAnimation = () => {
               ease: "easeInOut",
             }}
           >
-            Загрузка данных...
+            {t("loadingData")}
           </motion.div>
         </div>
       </CardContent>

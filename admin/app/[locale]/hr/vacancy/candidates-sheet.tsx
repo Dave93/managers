@@ -10,8 +10,9 @@ import {
 } from "@admin/components/ui/sheet";
 import { Badge } from "@admin/components/ui/badge";
 import { DataTable } from "../candidates/data-table";
-import { candidateColumns } from "../candidates/columns";
+import { useCandidateColumns } from "../candidates/columns";
 import { UsersIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface CandidatesSheetProps {
     vacancyId: string;
@@ -20,7 +21,9 @@ interface CandidatesSheetProps {
 }
 
 export function CandidatesSheet({ vacancyId, vacancyTitle, candidatesCount }: CandidatesSheetProps) {
+    const t = useTranslations("hrPages.vacancy");
     const [open, setOpen] = useState(false);
+    const candidateColumns = useCandidateColumns();
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -36,7 +39,7 @@ export function CandidatesSheet({ vacancyId, vacancyTitle, candidatesCount }: Ca
             <SheetContent className="w-full sm:max-w-3xl">
                 <SheetHeader>
                     <SheetTitle>
-                        Кандидаты на вакансию: {vacancyTitle}
+                        {t("candidatesSheetTitle", { title: vacancyTitle })}
                     </SheetTitle>
                 </SheetHeader>
                 <div className="m-6">

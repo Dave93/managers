@@ -34,7 +34,9 @@ export function apiMessage(error: any): string {
   const v = error?.value ?? error;
   if (typeof v?.message === "string") return v.message;
   if (typeof error?.message === "string") return error.message;
-  return "Не удалось выполнить запрос";
+  // Empty on purpose: the screens show their own translated fallback
+  // (`message || t("requestFailed")`) because this runs outside React.
+  return "";
 }
 
 /**
@@ -249,11 +251,19 @@ const DATE_FMT = new Intl.DateTimeFormat("ru-RU", {
   month: "2-digit",
   year: "numeric",
 });
-const LONG_FMT = new Intl.DateTimeFormat("ru-RU", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-});
+const LONG_FMTS = new Map<string, Intl.DateTimeFormat>();
+function longFmt(locale: string): Intl.DateTimeFormat {
+  let f = LONG_FMTS.get(locale);
+  if (!f) {
+    f = new Intl.DateTimeFormat(locale === "ru" ? "ru-RU" : locale, {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+    LONG_FMTS.set(locale, f);
+  }
+  return f;
+}
 const TIME_FMT = new Intl.DateTimeFormat("ru-RU", {
   hour: "2-digit",
   minute: "2-digit",
@@ -264,9 +274,12 @@ export function fmtDate(value: string | null | undefined): string {
   return Number.isNaN(ms) ? "—" : DATE_FMT.format(ms);
 }
 
-export function fmtLongDate(value: string | number | null | undefined): string {
+export function fmtLongDate(
+  value: string | number | null | undefined,
+  locale: string = "ru"
+): string {
   const ms = typeof value === "number" ? value : parseTimestamp(value);
-  return Number.isNaN(ms) ? "—" : LONG_FMT.format(ms);
+  return Number.isNaN(ms) ? "—" : longFmt(locale).format(ms);
 }
 
 export function fmtTime(value: string | null | undefined): string {
@@ -274,25 +287,13 @@ export function fmtTime(value: string | null | undefined): string {
   return Number.isNaN(ms) ? "—" : TIME_FMT.format(ms);
 }
 
-/** "Пётр Иванов" from the row's nullable join columns. */
+/** "Пётр Иванов" from the row's nullable join columns. `fallback` is the
+ *  translated "no name" label. */
 export function fullName(
   first: string | null | undefined,
-  last: string | null | undefined
+  last: string | null | undefined,
+  fallback: string
 ): string {
   const s = [last, first].filter(Boolean).join(" ").trim();
-  return s.length ? s : "Без имени";
-}
-
-export function plural(
-  n: number,
-  one: string,
-  few: string,
-  many: string
-): string {
-  const abs = Math.abs(n) % 100;
-  const last = abs % 10;
-  if (abs > 10 && abs < 20) return `${n} ${many}`;
-  if (last > 1 && last < 5) return `${n} ${few}`;
-  if (last === 1) return `${n} ${one}`;
-  return `${n} ${many}`;
+  return s.length ? s : fallback;
 }

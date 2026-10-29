@@ -9,48 +9,51 @@ import {
   SelectValue,
 } from "@components/ui/select"
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 
 export default function ListBox() {
   const router = useRouter();
+  const t = useTranslations("reportsUi.reportNames");
+  const tl = useTranslations("reportsUi");
   const items = [
     {
       key: "outgoing_invoices",
-      label: "Заказы",
+      label: t("long.orders"),
       href: "/outgoing_invoices",
     },
     {
       key: "incoming invoices",
-      label: "Приходная накладная (Таблица)",
+      label: t("long.incomingTable"),
       href: "/incoming_invoices",
     },
     {
       key: "incoming_with_items",
-      label: "Приходная накладная (Детально)",
+      label: t("long.incomingDetail"),
       href: "/incoming_with_items",
     },
     {
       key: "refund_invoices",
-      label: "Возврат товаров",
+      label: t("long.refund"),
       href: "/refund_invoices",
     },
     {
       key: "internal_transfer",
-      label: "Внутреннее перемещение (Приход)",
+      label: t("long.internalIn"),
       href: "/internal_transfer",
     },
     {
       key: "expenses_transfer",
-      label: "Внутреннее перемещение (Расход)",
+      label: t("long.internalOut"),
       href: "/expenses_transfer",
     },
     {
       key: "writeoff_items",
-      label: "Акт Списания",
+      label: t("long.writeoff"),
       href: "/writeoff_items",
     },
     {
       key: "report_olap",
-      label: "Акт Реализации",
+      label: t("long.olap"),
       href: "/report_olap",
     },
     // {
@@ -64,7 +67,7 @@ export default function ListBox() {
     <div className="px-4 w-full max-w-[400px]">
       <Select onValueChange={(value) => router.push(value)}>
         <SelectTrigger>
-          <SelectValue placeholder="Выберите отчет" />
+          <SelectValue placeholder={tl("selectReport")} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>

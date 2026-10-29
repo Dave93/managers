@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
@@ -9,10 +11,13 @@ import CanAccess from "@admin/components/can-access";
 import { roles } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const rolesColumns: ColumnDef<typeof roles.$inferSelect>[] = [
+export function useRolesColumns(): ColumnDef<typeof roles.$inferSelect>[] {
+  const t = useTranslations("systemPages.columns");
+  return useMemo<ColumnDef<typeof roles.$inferSelect>[]>(
+    () => [
   {
     accessorKey: "active",
-    header: "Активен",
+    header: t("active"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -25,11 +30,11 @@ export const rolesColumns: ColumnDef<typeof roles.$inferSelect>[] = [
   },
   {
     accessorKey: "name",
-    header: "Заголовок",
+    header: t("title"),
   },
   {
     accessorKey: "code",
-    header: "Код",
+    header: t("code"),
   },
   {
     id: "actions",
@@ -50,4 +55,7 @@ export const rolesColumns: ColumnDef<typeof roles.$inferSelect>[] = [
       );
     },
   },
-];
+    ],
+    [t]
+  );
+}

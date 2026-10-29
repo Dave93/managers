@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo } from "react";
 import { parseAsString, parseAsStringEnum, useQueryState } from "nuqs";
+import { useTranslations } from "next-intl";
 import { useIsMobile } from "@admin/utils/use-is-mobile";
 import { cn } from "@admin/lib/utils";
 import { BoardHeader } from "./board-header";
@@ -12,6 +13,7 @@ import { useBoard, useBoardModel } from "./use-board";
 type Props = { view: "board" | "products"; onView: (v: "board" | "products") => void };
 
 export function BoardView({ view, onView }: Props) {
+  const t = useTranslations("stoplistPage");
   const [brand, setBrand] = useQueryState("brand", parseAsStringEnum(["les", "chopar"]));
   const [search, setSearch] = useQueryState("q", parseAsString.withDefault(""));
   const [selected, setSelected] = useQueryState("t", parseAsString);
@@ -42,7 +44,7 @@ export function BoardView({ view, onView }: Props) {
   if (query.error) {
     return (
       <div className="py-16 text-center text-sm text-red-500">
-        Не удалось загрузить стоп-лист. Обновите страницу.
+        {t("board.loadError")}
       </div>
     );
   }

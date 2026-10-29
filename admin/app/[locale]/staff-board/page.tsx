@@ -48,6 +48,7 @@ const has = (haystack: string | null | undefined, needle: string) =>
 
 export default function StaffBoardPage() {
   const t = useTranslations("attestation");
+  const tb = useTranslations("staffBoard");
   const q = useStaffBoard();
   // Читать состав можно по employees.list, заводить человека — по
   // employees.edit. Право спрашивается один раз здесь и раздаётся карточкам
@@ -130,11 +131,10 @@ export default function StaffBoardPage() {
         <div className="min-w-0">
           <h1 className="inline-flex items-center gap-2 text-lg font-semibold tracking-tight">
             <UsersRound className="size-4 text-muted-foreground" aria-hidden />
-            Состав филиалов
+            {tb("page.title")}
           </h1>
           <p className="text-[12px] text-muted-foreground">
-            Кто где работает и как собрана команда — по каждому филиалу
-            поимённо, из одного запроса.
+            {tb("page.subtitle")}
           </p>
         </div>
         {canEdit && (
@@ -151,36 +151,38 @@ export default function StaffBoardPage() {
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug text-destructive">
           <ShieldAlert className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
-            Состав филиалов отдаётся по праву{" "}
-            <code className="font-mono text-[11px]">employees.list</code>, а у
-            вашей роли его нет. Это не сбой: страница загрузилась, отказал именно
-            доступ. Обратитесь к администратору office-админки.
+            {tb.rich("page.denied", {
+              code: (chunks) => (
+                <code className="font-mono text-[11px]">{chunks}</code>
+              ),
+            })}
           </span>
         </div>
       ) : q.isError ? (
         <div className="flex items-start justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug text-destructive">
-          <span>Не удалось загрузить состав филиалов: {q.error?.message}</span>
+          <span>
+            {tb("page.loadFailed", {
+              message: q.error?.message || tb("page.loadFailedShort"),
+            })}
+          </span>
           <button
             type="button"
             onClick={() => q.refetch()}
             className="shrink-0 rounded border border-destructive/50 px-2 py-0.5 text-[11px] transition-colors hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            повторить
+            {tb("page.retry")}
           </button>
         </div>
       ) : q.isLoading ? (
         <div className="flex h-[320px] items-center justify-center text-[12px] text-muted-foreground">
-          <Loader2 className="mr-2 size-4 animate-spin" aria-hidden /> собираем
-          состав филиалов
+          <Loader2 className="mr-2 size-4 animate-spin" aria-hidden />{" "}
+          {tb("page.loading")}
         </div>
       ) : !network || branches.length === 0 ? (
         <div className="rounded-lg border border-dashed px-4 py-10 text-center">
-          <p className="text-[13px] font-medium">В вашем скоупе нет филиалов</p>
+          <p className="text-[13px] font-medium">{tb("page.emptyTitle")}</p>
           <p className="mx-auto mt-1 max-w-md text-[11.5px] leading-snug text-muted-foreground">
-            Экран показывает только те филиалы, которые назначены вашей роли.
-            Роль без назначенных филиалов и без права головного офиса видит
-            пустой список — это не ошибка загрузки. Назначает филиалы
-            администратор office-админки.
+            {tb("page.emptyText")}
           </p>
         </div>
       ) : (
@@ -197,19 +199,19 @@ export default function StaffBoardPage() {
             (cards.length === 0 ? (
               <div className="rounded-lg border border-dashed px-4 py-8 text-center">
                 <p className="text-[13px] font-medium">
-                  Ни один филиал не подошёл под фильтры
+                  {tb("page.noMatchTitle")}
                 </p>
                 <p className="mx-auto mt-1 max-w-lg text-[11.5px] leading-snug text-muted-foreground">
                   {peopleFilters
-                    ? "Фильтры по сотруднику и смене оставляют филиал в выдаче только тогда, когда в нём есть хотя бы один подходящий человек."
-                    : "Снимите часть условий — фильтры складываются, а не заменяют друг друга."}{" "}
+                    ? tb("page.noMatchPeople")
+                    : tb("page.noMatchRelax")}{" "}
                   {filtersActive(filters) && (
                     <button
                       type="button"
                       onClick={() => setFilters(EMPTY_FILTERS)}
                       className="underline decoration-dotted underline-offset-2 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      Сбросить фильтры
+                      {tb("page.resetFilters")}
                     </button>
                   )}
                 </p>
@@ -235,17 +237,14 @@ export default function StaffBoardPage() {
             <section className="min-w-0 rounded-lg border border-dashed bg-muted/20 p-2.5">
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                 <h2 className="text-[11px] font-semibold uppercase tracking-wide">
-                  Данные не заведены · {noData.length}
+                  {tb("page.noDataTitle", { count: noData.length })}
                 </h2>
                 <p className="text-[11px] text-muted-foreground">
-                  по этим филиалам в справочнике сотрудников нет ни одной строки
-                  — это пробел в данных, а не пустой филиал
+                  {tb("page.noDataSub")}
                 </p>
               </div>
               <p className="mt-1 max-w-3xl text-[11px] leading-snug text-muted-foreground">
-                Пока филиала нет в справочнике, на нём нельзя завести
-                стажировку: паспорт стажёра заводится на сотрудника из
-                employees. Люди там работают — просто система о них не знает.
+                {tb("page.noDataText")}
               </p>
               {noDataApplicable ? (
                 <div
@@ -260,11 +259,7 @@ export default function StaffBoardPage() {
                 </div>
               ) : (
                 <p className="mt-2 rounded border border-dashed px-2.5 py-2 text-[11px] leading-snug text-muted-foreground">
-                  {noData.length} таких филиалов скрыто: включены фильтры по
-                  людям или по сигналам, а у филиала без строк в справочнике
-                  сотрудников нет — под такие условия он не попадает по
-                  определению, а не потому что «не подошёл». Снимите фильтр по
-                  сотруднику, смене и сигналам, чтобы увидеть их.
+                  {tb("page.noDataHidden", { count: noData.length })}
                 </p>
               )}
             </section>

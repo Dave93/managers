@@ -9,9 +9,12 @@ import {
 import { List } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { DataTable } from "./reports-items-data-table";
-import { reportsItemsColumns } from "./reports-items-columns";
+import { useReportsItemsColumns } from "./reports-items-columns";
+import { useTranslations } from "next-intl";
 
 export default function ReportItemsSheet({ recordId }: { recordId: string }) {
+  const t = useTranslations("invoicesUi.reportItems");
+  const reportsItemsColumns = useReportsItemsColumns();
   const [open, setOpen] = useState<boolean>(false);
 
   const beforeOpen = async (open: boolean) => {
@@ -33,7 +36,7 @@ export default function ReportItemsSheet({ recordId }: { recordId: string }) {
         <SheetHeader>
           <SheetTitle asChild>
             <div className="flex justify-between mt-7 mb-4 items-center text-2xl!">
-              <span>Позиции кассы</span>
+              <span>{t("sheetTitle")}</span>
             </div>
           </SheetTitle>
         </SheetHeader>

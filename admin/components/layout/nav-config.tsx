@@ -3,7 +3,7 @@ import * as React from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
-import { KPI_SCREEN_PERMS, KPI_SCREEN_TITLE } from "@admin/lib/kpi/access";
+import { KPI_SCREEN_PERMS } from "@admin/lib/kpi/access";
 import {
   Award,
   Ban,
@@ -33,8 +33,7 @@ import {
 // экраны KPI открываются оценщику или наблюдателю.
 export type NavPermission = string | string[] | { any: readonly string[] };
 
-// Переводчик раздела tickets.nav (useTranslations("tickets.nav")). Остальное меню
-// пока жёстко по-русски, поэтому buildNav принимает переводчик только для заявок.
+// Переводчик раздела tickets.nav (useTranslations("tickets.nav")); остальное меню — через t (раздел nav).
 export type TicketsNavT = (
   key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
 ) => string;
@@ -63,93 +62,93 @@ export type NavEntry =
     };
 
 // Mirrors the prod main-nav data (single source for sidebar + breadcrumbs).
-export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
+export function buildNav(locale: string, t: (key: string) => string, tTickets: TicketsNavT): NavEntry[] {
   const p = (path: string) => `/${locale}${path}`;
   return [
     {
       kind: "group",
-      title: "Настройки",
+      title: t("settings"),
       icon: Settings2,
       items: [
-        { title: "Разрешения", href: p("/system/permissions"), permission: "permissions.list" },
-        { title: "Роли", href: p("/system/roles"), permission: "roles.list" },
-        { title: "Пользователи", href: p("/system/users"), permission: "users.list" },
-        { title: "Статус", href: p("/system/reports_status"), permission: "reports_status.list" },
-        { title: "Группы продуктов", href: p("/system/product_groups"), permission: "product_groups.list" },
-        { title: "Внешние партнёры", href: p("/system/external-partners"), permission: "external_partners.list" },
-        { title: "Кредитные компании", href: p("/system/credit-companies"), permission: "credit.list" },
+        { title: t("permissions"), href: p("/system/permissions"), permission: "permissions.list" },
+        { title: t("roles"), href: p("/system/roles"), permission: "roles.list" },
+        { title: t("users"), href: p("/system/users"), permission: "users.list" },
+        { title: t("status"), href: p("/system/reports_status"), permission: "reports_status.list" },
+        { title: t("productGroups"), href: p("/system/product_groups"), permission: "product_groups.list" },
+        { title: t("externalPartners"), href: p("/system/external-partners"), permission: "external_partners.list" },
+        { title: t("creditCompanies"), href: p("/system/credit-companies"), permission: "credit.list" },
         // Справочник ролей в смене (staff_roles), из которого форма сотрудника
         // собирает должность. Живёт в настройках, а не в HR: рядом с «Должность»
         // (/hr/position) его бы приняли за ту же сущность, а это вакансия —
         // вилка, филиал, требования. Последним пунктом и по той же причине,
         // по которой он не первый: экран заводится раз в год.
-        { title: "Роли сотрудников", href: p("/system/staff-roles"), permission: "employees.list" },
+        { title: t("staffRoles"), href: p("/system/staff-roles"), permission: "employees.list" },
       ],
     },
-    { kind: "link", title: "Организации", href: p("/organization/organizations"), icon: Building2, permission: "organizations.list" },
-    { kind: "link", title: "Филиалы", href: p("/organization/terminals"), icon: Store, permission: "terminals.list" },
-    { kind: "link", title: "Кассы", href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
-    { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
-    { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
-    { kind: "link", title: "Состав филиалов", href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
+    { kind: "link", title: t("organizations"), href: p("/organization/organizations"), icon: Building2, permission: "organizations.list" },
+    { kind: "link", title: t("branches"), href: p("/organization/terminals"), icon: Store, permission: "terminals.list" },
+    { kind: "link", title: t("cashRegisters"), href: p("/admin/reports"), icon: Banknote, permission: "reports.list" },
+    { kind: "link", title: t("employees"), href: p("/employees"), icon: Users, permission: "employees.list" },
+    { kind: "link", title: t("networkMap"), href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
+    { kind: "link", title: t("staffBoard"), href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
     {
       kind: "group",
-      title: "Инвентаризация",
+      title: t("inventory"),
       icon: ClipboardList,
       permission: "inventory.count",
       items: [
-        { title: "Инвентаризации", href: p("/inventory"), permission: "inventory.count" },
-        { title: "Остатки склада", href: p("/inventory/stock"), permission: "inventory.templates" },
-        { title: "Оборотная ведомость", href: p("/inventory/turnover"), permission: "inventory.count" },
-        { title: "Шаблоны инвентаризаций", href: p("/inventory/templates"), permission: "inventory.templates" },
-        { title: "Сверка с iiko", href: p("/inventory/reconciliation"), permission: "inventory.reconcile" },
+        { title: t("inventoryList"), href: p("/inventory"), permission: "inventory.count" },
+        { title: t("inventoryStock"), href: p("/inventory/stock"), permission: "inventory.templates" },
+        { title: t("inventoryTurnover"), href: p("/inventory/turnover"), permission: "inventory.count" },
+        { title: t("inventoryTemplates"), href: p("/inventory/templates"), permission: "inventory.templates" },
+        { title: t("inventoryReconciliation"), href: p("/inventory/reconciliation"), permission: "inventory.reconcile" },
       ],
     },
     {
       kind: "group",
-      title: "Аттестация",
+      title: t("attestation"),
       icon: GraduationCap,
       permission: "attestation_layout",
       items: [
-        { title: "Тесты", href: p("/attestation/tests"), permission: "tests.list" },
-        { title: "Аналитика", href: p("/attestation/analytics"), permission: "attestation.analytics" },
-        { title: "Пройти тест", href: p("/attestation/kiosk"), permission: "attestation.run" },
-        { title: "Мой PIN", href: p("/attestation/pin"), permission: "attestation_layout" },
-        { title: "PIN менеджеров", href: p("/attestation/manager-pins"), permission: "attestation.manage_pins" },
+        { title: t("attestationTests"), href: p("/attestation/tests"), permission: "tests.list" },
+        { title: t("attestationAnalytics"), href: p("/attestation/analytics"), permission: "attestation.analytics" },
+        { title: t("attestationKiosk"), href: p("/attestation/kiosk"), permission: "attestation.run" },
+        { title: t("attestationPin"), href: p("/attestation/pin"), permission: "attestation_layout" },
+        { title: t("attestationManagerPins"), href: p("/attestation/manager-pins"), permission: "attestation.manage_pins" },
       ],
     },
     {
       kind: "group",
-      title: "Паспорт стажёра",
+      title: t("passport"),
       icon: IdCard,
       permission: "passport_layout",
       items: [
-        { title: "Программы обучения", href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
-        { title: "Стажировки", href: p("/passport/enrollments"), permission: "passport.enrollments.manage" },
-        { title: "Матрица", href: p("/passport/matrix"), permission: "passport.matrix.view" },
+        { title: t("passportCurriculum"), href: p("/passport/curriculum"), permission: "passport.curriculum.edit" },
+        { title: t("passportEnrollments"), href: p("/passport/enrollments"), permission: "passport.enrollments.manage" },
+        { title: t("passportMatrix"), href: p("/passport/matrix"), permission: "passport.matrix.view" },
         // passport.mentors.manage is seeded by stage-1b task B2; until then this
         // item is filtered out for everyone, which is the intended fail-closed
         // default for a page whose backend does not exist yet.
-        { title: "Наставники", href: p("/passport/mentors"), permission: "passport.mentors.manage" },
+        { title: t("passportMentors"), href: p("/passport/mentors"), permission: "passport.mentors.manage" },
       ],
     },
-    { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
+    { kind: "link", title: t("medical"), href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
     {
       kind: "group",
-      title: "KPI сотрудников",
+      title: t("kpiGroup"),
       icon: Award,
       permission: "kpi_layout",
       items: [
-        { title: KPI_SCREEN_TITLE.reviews, href: p("/kpi/reviews"), permission: { any: KPI_SCREEN_PERMS.reviews } },
-        { title: KPI_SCREEN_TITLE.violations, href: p("/kpi/violations"), permission: { any: KPI_SCREEN_PERMS.violations } },
-        { title: KPI_SCREEN_TITLE.disputes, href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
-        { title: KPI_SCREEN_TITLE.month, href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
-        { title: KPI_SCREEN_TITLE.raises, href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
-        { title: KPI_SCREEN_TITLE.attendance, href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
-        { title: KPI_SCREEN_TITLE.network, href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
-        { title: KPI_SCREEN_TITLE.revenue_plans, href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
-        { title: KPI_SCREEN_TITLE.sanitary, href: p("/kpi/sanitary/new"), permission: { any: KPI_SCREEN_PERMS.sanitary } },
-        { title: KPI_SCREEN_TITLE.settings, href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },
+        { title: t("kpi.reviews"), href: p("/kpi/reviews"), permission: { any: KPI_SCREEN_PERMS.reviews } },
+        { title: t("kpi.violations"), href: p("/kpi/violations"), permission: { any: KPI_SCREEN_PERMS.violations } },
+        { title: t("kpi.disputes"), href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
+        { title: t("kpi.month"), href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
+        { title: t("kpi.raises"), href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
+        { title: t("kpi.attendance"), href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
+        { title: t("kpi.network"), href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
+        { title: t("kpi.revenue_plans"), href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
+        { title: t("kpi.sanitary"), href: p("/kpi/sanitary/new"), permission: { any: KPI_SCREEN_PERMS.sanitary } },
+        { title: t("kpi.settings"), href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },
       ],
     },
     // Заявки. Право пункта берётся с самого экрана, а не с плана. Офисный
@@ -173,52 +172,52 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
     { kind: "link", title: tTickets("branch"), href: p("/branch-tickets"), icon: Wrench, permission: ["tickets.create", "tickets.list"] },
     {
       kind: "group",
-      title: "Детская площадка",
+      title: t("playground"),
       icon: Baby,
       permission: "playground_tickets.list",
       items: [
-        { title: "Сканирование", href: p("/admin/playground/scan"), permission: "playground_tickets.list" },
-        { title: "Список билетов", href: p("/admin/playground/list"), permission: "playground_tickets.list" },
+        { title: t("playgroundScan"), href: p("/admin/playground/scan"), permission: "playground_tickets.list" },
+        { title: t("playgroundList"), href: p("/admin/playground/list"), permission: "playground_tickets.list" },
       ],
     },
     {
       kind: "group",
-      title: "План продаж",
+      title: t("salesPlan"),
       icon: Target,
       permission: "sales_plans.list",
       items: [
-        { title: "Планы", href: p("/admin/sales-plans/list"), permission: "sales_plans.list" },
-        { title: "Дашборд", href: p("/admin/sales-plans/dashboard"), permission: "sales_plans.list" },
+        { title: t("salesPlans"), href: p("/admin/sales-plans/list"), permission: "sales_plans.list" },
+        { title: t("salesPlanDashboard"), href: p("/admin/sales-plans/dashboard"), permission: "sales_plans.list" },
       ],
     },
-    { kind: "link", title: "Стоп-лист", href: p("/admin/stoplist"), icon: Ban, permission: "stoplist.list" },
-    { kind: "link", title: "Конфиги", href: p("/settings"), icon: Wrench, permission: "settings.list" },
-    { kind: "link", title: "Дашборд", href: p("/dashboard"), icon: LayoutDashboard, permission: "charts.list" },
-    { kind: "link", title: "Незакрытые заказы", href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
+    { kind: "link", title: t("stoplist"), href: p("/admin/stoplist"), icon: Ban, permission: "stoplist.list" },
+    { kind: "link", title: t("configs"), href: p("/settings"), icon: Wrench, permission: "settings.list" },
+    { kind: "link", title: t("dashboard"), href: p("/dashboard"), icon: LayoutDashboard, permission: "charts.list" },
+    { kind: "link", title: t("hangingOrders"), href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
     {
       kind: "group",
-      title: "Отчеты",
+      title: t("reports"),
       icon: FileText,
       items: [
-        { title: "Заказы", href: p("/outgoing_invoices"), permission: "outgoing_invoices.list" },
-        { title: "Приходная накладная (Таблица)", href: p("/incoming_invoices"), permission: "incoming_invoices.list" },
-        { title: "Приходная накладная (Детально)", href: p("/incoming_with_items"), permission: "incoming_with_items.list" },
-        { title: "Возврат товаров", href: p("/refund_invoices"), permission: "refund_invoices.list" },
-        { title: "Внутреннее перемещение (Приход)", href: p("/internal_transfer"), permission: "internal_transfer.list" },
-        { title: "Внутреннее перемещение (Расход)", href: p("/expenses_transfer"), permission: "internal_transfer.list" },
-        { title: "Акт Списания", href: p("/writeoff_items"), permission: "writeoff_items.list" },
-        { title: "Акт Реализации", href: p("/report_olap"), permission: "report_olap.list" },
+        { title: t("outgoingInvoices"), href: p("/outgoing_invoices"), permission: "outgoing_invoices.list" },
+        { title: t("incomingInvoices"), href: p("/incoming_invoices"), permission: "incoming_invoices.list" },
+        { title: t("incomingWithItems"), href: p("/incoming_with_items"), permission: "incoming_with_items.list" },
+        { title: t("refundInvoices"), href: p("/refund_invoices"), permission: "refund_invoices.list" },
+        { title: t("internalTransferIn"), href: p("/internal_transfer"), permission: "internal_transfer.list" },
+        { title: t("internalTransferOut"), href: p("/expenses_transfer"), permission: "internal_transfer.list" },
+        { title: t("writeoffItems"), href: p("/writeoff_items"), permission: "writeoff_items.list" },
+        { title: t("reportOlap"), href: p("/report_olap"), permission: "report_olap.list" },
       ],
     },
     {
       kind: "group",
-      title: "HR",
+      title: t("hr"),
       icon: Users,
       items: [
-        { title: "Вакансии", href: p("/hr/vacancy"), permission: "vacancy.list" },
-        { title: "Должность", href: p("/hr/position"), permission: "positions.list" },
-        { title: "График Работ", href: p("/hr/schedule"), permission: "work_schedule.list" },
-        { title: "Анкета", href: p("/hr/candidates"), permission: "candidates.list" },
+        { title: t("hrVacancy"), href: p("/hr/vacancy"), permission: "vacancy.list" },
+        { title: t("hrPosition"), href: p("/hr/position"), permission: "positions.list" },
+        { title: t("hrSchedule"), href: p("/hr/schedule"), permission: "work_schedule.list" },
+        { title: t("hrCandidates"), href: p("/hr/candidates"), permission: "candidates.list" },
       ],
     },
   ];
@@ -227,6 +226,7 @@ export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
 // Permission-filtered nav; same my_permissions query CanAccess uses.
 export function useFilteredNav(): NavEntry[] {
   const locale = useLocale();
+  const t = useTranslations("nav");
   const tTickets = useTranslations("tickets.nav");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
@@ -246,7 +246,7 @@ export function useFilteredNav(): NavEntry[] {
           ? p.every((x) => perms.includes(x))
           : p.any.some((x) => perms.includes(x)));
     const out: NavEntry[] = [];
-    for (const e of buildNav(locale, tTickets)) {
+    for (const e of buildNav(locale, t, tTickets)) {
       if (e.kind === "link") {
         if (has(e.permission)) out.push(e);
       } else {
@@ -257,5 +257,5 @@ export function useFilteredNav(): NavEntry[] {
       }
     }
     return out;
-  }, [data, locale, tTickets]);
+  }, [data, locale, t, tTickets]);
 }

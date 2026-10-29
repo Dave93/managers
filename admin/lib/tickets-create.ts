@@ -9,6 +9,7 @@
 
 import type { FieldDef, TicketPriority, TicketTypeRow } from "./tickets-api";
 import { detailValue } from "./tickets-details";
+import { ruT, type TicketsLibT } from "./tickets-i18n";
 
 // ---------------------------------------------------------------------------
 // лимиты
@@ -76,15 +77,15 @@ export function terminalIdsFromMe(me: unknown): string[] | null {
 // сессии, не попадает в список: филиал, переназначенный после входа, сервер
 // всё равно не примет. Id без имени в базе (удалён, строк нет, соединение
 // недоступно) остаётся с подписью «Филиал <начало id>».
-export function branchesFromSession(ids: readonly string[], rows: unknown): Branch[] {
-  const names = new Map(branchesFromRows(rows).map((b) => [b.id, b.name]));
+export function branchesFromSession(ids: readonly string[], rows: unknown, t: TicketsLibT = ruT): Branch[] {
+  const names = new Map(branchesFromRows(rows, t).map((b) => [b.id, b.name]));
   const seen = new Set<string>();
   const out: Branch[] = [];
   for (const raw of ids) {
     const id = String(raw ?? "").trim();
     if (!id || seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, name: names.get(id) ?? `Филиал ${id.slice(0, 8)}` });
+    out.push({ id, name: names.get(id) ?? t("branch.fallback", { id: id.slice(0, 8) }) });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }
@@ -92,7 +93,7 @@ export function branchesFromSession(ids: readonly string[], rows: unknown): Bran
 // Строки GET /users_terminals/my_terminals: {terminal_id, terminals: {...}|null},
 // где terminals — левое соединение (null, если филиал удалён). Служит только
 // источником имён: набор филиалов задаёт сессия (terminalIdsFromMe).
-export function branchesFromRows(rows: unknown): Branch[] {
+export function branchesFromRows(rows: unknown, t: TicketsLibT = ruT): Branch[] {
   if (!Array.isArray(rows)) return [];
   const seen = new Set<string>();
   const out: Branch[] = [];
@@ -101,7 +102,7 @@ export function branchesFromRows(rows: unknown): Branch[] {
     if (!id || seen.has(id)) continue;
     seen.add(id);
     const name = typeof r?.terminals?.name === "string" ? r.terminals.name.trim() : "";
-    out.push({ id, name: name || `Филиал ${id.slice(0, 8)}` });
+    out.push({ id, name: name || t("branch.fallback", { id: id.slice(0, 8) }) });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name, "ru"));
 }
@@ -164,19 +165,19 @@ export function missingItems(i: {
   branchUnchosen: boolean;
   photoCount: number;
   photosProcessing: number;
-}): string[] {
+}, t: TicketsLibT = ruT): string[] {
   const out: string[] = [];
-  if (i.branchUnchosen) out.push("Выберите филиал");
+  if (i.branchUnchosen) out.push(t("missing.branch"));
   for (const f of i.schema) {
     const label = f.label_ru || f.key;
     const s = fieldState(f, i.values);
-    if (s === "invalid") out.push(`Проверьте поле «${label}»`);
+    if (s === "invalid") out.push(t("missing.checkField", { label }));
     else if (s === "empty" && f.required) {
-      out.push(f.type === "select" ? `Выберите «${label}»` : `Заполните «${label}»`);
+      out.push(f.type === "select" ? t("missing.select", { label }) : t("missing.fill", { label }));
     }
   }
-  if (i.photosProcessing > 0) out.push("Дождитесь обработки фотографий");
-  else if (i.photoCount === 0) out.push("Добавьте хотя бы одну фотографию");
+  if (i.photosProcessing > 0) out.push(t("missing.photosProcessing"));
+  else if (i.photoCount === 0) out.push(t("missing.photoNeeded"));
   return out;
 }
 
@@ -208,16 +209,14 @@ export type CreateInput = {
 // подставляет запасной), а отсутствующее поле сервер заменил бы первым
 // терминалом сессии. Content-Type не ставится: границу multipart добавит
 // браузер.
-export function buildCreateFormData(i: CreateInput): FormData {
+export function buildCreateFormData(i: CreateInput, t: TicketsLibT = ruT): FormData {
   if (!i.terminalId?.trim()) {
-    throw new CreateBlocked(
-      "Заявка не отправлена: не выбран филиал. Этот экран для менеджера, за которым закреплён филиал."
-    );
+    throw new CreateBlocked(t("blocked.noBranch"));
   }
-  if (!i.typeId) throw new CreateBlocked("Заявка не отправлена: не выбран тип.");
-  if (i.photos.length === 0) throw new CreateBlocked("Заявка не отправлена: нужна хотя бы одна фотография.");
+  if (!i.typeId) throw new CreateBlocked(t("blocked.noType"));
+  if (i.photos.length === 0) throw new CreateBlocked(t("blocked.noPhoto"));
   if (i.photos.length > MAX_PHOTOS) {
-    throw new CreateBlocked(`Заявка не отправлена: не больше ${MAX_PHOTOS} фотографий.`);
+    throw new CreateBlocked(t("blocked.tooManyPhotos", { max: MAX_PHOTOS }));
   }
   const fd = new FormData();
   fd.append("type_id", i.typeId);
@@ -253,22 +252,26 @@ export type NoAnswerKind = "network" | "timeout" | "no_body";
 // fetch», человеку не нужно: он получает понятную фразу, а сырой текст уходит
 // в консоль (один раз на объект ошибки, потому что функцию зовёт рендер).
 const LOGGED_LOAD_ERRORS = new WeakSet<object>();
-export const NO_CONNECTION_TEXT = "Нет связи с сервером. Проверьте интернет и повторите.";
+export const NO_CONNECTION_TEXT = ruT("load.noConnection");
 
-export function loadErrorText(error: unknown): string {
-  const e = error as { status?: unknown; message?: unknown } | null | undefined;
+// Ошибка с `messageKey` (ставит unwrap/postTicket из tickets-api) несёт свой
+// текст как ключ ticketsLib.api.*: его переводят при показе. Ошибка с
+// `local: true` создана самим клиентом и уже переведена (на не русской локали
+// кириллицы в ней нет, поэтому по regexp её не узнать).
+export function loadErrorText(error: unknown, t: TicketsLibT = ruT): string {
+  const e = error as { status?: unknown; message?: unknown; messageKey?: unknown; local?: unknown } | null | undefined;
   const message = typeof e?.message === "string" ? e.message : "";
-  if (typeof e?.status === "number" || /[А-Яа-яЁё]/.test(message)) return message || "Не удалось выполнить запрос";
+  if (typeof e?.messageKey === "string") return t(`api.${e.messageKey}`);
+  if (typeof e?.status === "number" || e?.local === true || /[А-Яа-яЁё]/.test(message)) return message || t("api.failed");
   if (e && typeof e === "object" && !LOGGED_LOAD_ERRORS.has(e)) {
     LOGGED_LOAD_ERRORS.add(e);
     console.error("tickets: загрузка не удалась", error);
   }
-  return NO_CONNECTION_TEXT;
+  return t("load.noConnection");
 }
 
-const CHECK_LIST = "Откройте список заявок филиала и проверьте, нет ли там новой";
-
-export function describeFailure(e: unknown): SubmitFailure {
+export function describeFailure(e: unknown, t: TicketsLibT = ruT): SubmitFailure {
+  const CHECK_LIST = t("failure.checkList");
   const err = e as {
     status?: number;
     message?: string;
@@ -277,31 +280,35 @@ export function describeFailure(e: unknown): SubmitFailure {
     // true: тело ответа разобрано как JSON с `message`, то есть отвечал наш
     // бэкенд. Ставит postTicket.
     bodyParsed?: boolean;
+    // Ключ ticketsLib.api.*, если текст — наш запасной, а не ответ сервера.
+    messageKey?: string;
   } | null;
-  const server = typeof err?.message === "string" && err.message ? err.message : "Не удалось создать заявку";
+  const server = typeof err?.messageKey === "string"
+    ? t(`api.${err.messageKey}`)
+    : typeof err?.message === "string" && err.message ? err.message : t("failure.createFallback");
   if (err instanceof CreateBlocked) return { message: server, refetchTypes: false, outcomeUnknown: false };
 
   const unknown = (message: string): SubmitFailure => ({ message, refetchTypes: false, outcomeUnknown: true });
   const status = err?.status;
   if (status === undefined || err?.kind) {
     if (err?.kind === "timeout") {
-      return unknown(`Сервер не ответил за отведённое время, и неизвестно, дошла ли заявка. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+      return unknown(t("failure.timeout", { check: CHECK_LIST }));
     }
     if (err?.kind === "no_body") {
-      return unknown(`Сервер ответил, но без данных заявки: неизвестно, создалась ли она. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+      return unknown(t("failure.noBody", { check: CHECK_LIST }));
     }
     if (err?.kind === "network" || status === undefined) {
       // Любой другой сбой до ответа сервера читается так же: ответа нет. Сырой
       // текст ошибки человеку не показываем (его пишет в консоль хук).
       return unknown(
         err?.kind === "network"
-          ? `Связь оборвалась, и неизвестно, дошла ли заявка до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
-          : `Не удалось отправить заявку, и неизвестно, дошла ли она до сервера. ${CHECK_LIST}, прежде чем создавать ещё одну.`
+          ? t("failure.network", { check: CHECK_LIST })
+          : t("failure.sendFailed", { check: CHECK_LIST })
       );
     }
   }
   if (status === 502 || status === 503 || status === 504) {
-    return unknown(`Сервер не ответил вовремя (код ${status}). Заявка могла создаться. ${CHECK_LIST}, прежде чем создавать ещё одну.`);
+    return unknown(t("failure.gateway", { status, check: CHECK_LIST }));
   }
   // 5xx различаем по телу, а не по коду. Наш бэкенд всегда отвечает JSON с
   // `message`, и достижимый 500 от него значит «ничего не создано». А прокси
@@ -309,31 +316,29 @@ export function describeFailure(e: unknown): SubmitFailure {
   // ошибке отдаёт 500 с плоским текстом «Internal Server Error»: запрос мог
   // дойти и заявка создаться. Тело не разобрано, значит исход неизвестен.
   if (status !== undefined && status >= 500 && !err?.bodyParsed) {
-    return unknown(
-      `Сервер вернул ошибку без пояснения (код ${status}), и неизвестно, создалась ли заявка. ${CHECK_LIST}, прежде чем создавать ещё одну.`
-    );
+    return unknown(t("failure.noExplanation", { status, check: CHECK_LIST }));
   }
   const list = Array.isArray(err?.errors) ? (err!.errors as unknown[]).filter((x) => typeof x === "string") : [];
   const detailed = list.length ? `${server}: ${list.join("; ")}` : server;
   if (status === 401) {
-    return { message: "Сессия истекла. Войдите заново, заявка не создана.", refetchTypes: false, outcomeUnknown: false };
+    return { message: t("failure.sessionExpired"), refetchTypes: false, outcomeUnknown: false };
   }
   if (status === 403 && /Филиал недоступен/.test(server)) {
     return {
-      message: "Филиал недоступен для вашей учётной записи. Возможно, вас перевели: выйдите и войдите заново.",
+      message: t("failure.branchUnavailable"),
       refetchTypes: false,
       outcomeUnknown: false,
     };
   }
   if (status === 404 || status === 422) {
     return {
-      message: `${detailed}. Список типов обновлён: проверьте тип и поля и отправьте ещё раз.`,
+      message: t("failure.refetched", { detailed }),
       refetchTypes: true,
       outcomeUnknown: false,
     };
   }
   if (status === 413) {
-    return { message: "Фотографии слишком большие для отправки. Уберите часть и попробуйте снова.", refetchTypes: false, outcomeUnknown: false };
+    return { message: t("failure.tooLarge"), refetchTypes: false, outcomeUnknown: false };
   }
   return { message: detailed, refetchTypes: false, outcomeUnknown: false };
 }
@@ -382,19 +387,19 @@ const fail = (error: string): PhotoOutcome => ({ ok: false, error });
 //  - toBlob вернул null: оригинал, если он сам годится (JPEG/PNG до 10 МБ),
 //    иначе отказ. Тихо отправлять негодное нельзя;
 //  - результат не меньше оригинала: оригинал, если он годится.
-export async function preparePhoto<I>(file: File, io: PhotoIO<I>): Promise<PhotoOutcome> {
-  const label = file.name || "файл";
-  if (file.size <= 0) return fail(`${label}: пустой файл`);
+export async function preparePhoto<I>(file: File, io: PhotoIO<I>, t: TicketsLibT = ruT): Promise<PhotoOutcome> {
+  const label = file.name || t("photo.defaultLabel");
+  if (file.size <= 0) return fail(t("photo.empty", { label }));
 
   let decoded: { image: I; width: number; height: number };
   try {
     decoded = await io.decode(file);
   } catch {
-    return fail(`${label}: не удаётся открыть как изображение. Нужны JPEG или PNG, снятые камерой или выбранные из галереи`);
+    return fail(t("photo.decodeFailed", { label }));
   }
   const { image, width, height } = decoded;
   try {
-    if (!(width > 0 && height > 0)) return fail(`${label}: изображение без размеров`);
+    if (!(width > 0 && height > 0)) return fail(t("photo.noSize", { label }));
 
     const originalFits = isAcceptedMime(file.type) && file.size <= MAX_PHOTO_BYTES;
     if (originalFits && Math.max(width, height) <= MAX_PHOTO_SIDE) {
@@ -411,10 +416,10 @@ export async function preparePhoto<I>(file: File, io: PhotoIO<I>): Promise<Photo
     // Safari подменяет неподдержанный формат PNG-ом молча: проверяем тип.
     if (!blob || blob.size <= 0 || blob.type !== "image/jpeg") {
       if (originalFits) return { ok: true, file, recompressed: false };
-      return fail(`${label}: не удалось подготовить фотографию к отправке. Снимите ещё раз или выберите другой файл`);
+      return fail(t("photo.prepareFailed", { label }));
     }
     if (originalFits && blob.size >= file.size) return { ok: true, file, recompressed: false };
-    if (blob.size > MAX_PHOTO_BYTES) return fail(`${label}: после сжатия больше ${MAX_PHOTO_MB} МБ`);
+    if (blob.size > MAX_PHOTO_BYTES) return fail(t("photo.tooBigAfter", { label, mb: MAX_PHOTO_MB }));
     return {
       ok: true,
       file: new File([blob], jpegName(file.name), { type: "image/jpeg", lastModified: file.lastModified }),

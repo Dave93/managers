@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
 import NoAccessNotice from "@admin/components/layout/no-access-notice";
@@ -15,6 +16,7 @@ export default function NetworkMapSectionLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("networkMap");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -27,9 +29,9 @@ export default function NetworkMapSectionLayout({
   if (!perms.includes("employees.list"))
     return (
       <NoAccessNotice
-        title="Карта сети недоступна"
+        title={t("layout.noAccessTitle")}
         missing={["employees.list"]}
-        explanation="Экран показывает состав команд по филиалам и берёт его из общего справочника сотрудников, поэтому открывается тем же правом, что и справочник. Попросите администратора office выдать право вашей роли."
+        explanation={t("layout.noAccessExplanation")}
       />
     );
   return <>{children}</>;

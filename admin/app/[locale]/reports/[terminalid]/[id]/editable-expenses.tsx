@@ -8,6 +8,7 @@ import { apiClient } from "@admin/utils/eden";
 import { MinusCircle } from "lucide-react";
 import { useEffect } from "react";
 import { Label } from "@admin/components/ui/label";
+import { useTranslations } from "next-intl";
 
 type EditableExpensesProps = {
   terminal_id: string;
@@ -18,6 +19,7 @@ export default function EditableExpenses({
   terminal_id,
   date,
 }: EditableExpensesProps) {
+  const t = useTranslations("reportsUi");
   const {
     editableExpenses,
     addExpensesItem,
@@ -72,7 +74,7 @@ export default function EditableExpenses({
             <div className="w-2/3">
               <Input
                 className=" ring-2 ring-ring ring-offset-2"
-                placeholder="Основание"
+                placeholder={t("basis")}
                 onChange={(e) => {
                   updateExpensesItemLabelByIndex(index, e.target.value);
                 }}
@@ -82,7 +84,7 @@ export default function EditableExpenses({
             <div className="w-1/3 px-4">
               <Input
                 className="ring-2 ring-ring ring-offset-2 text-right py-0 text-xl"
-                placeholder="наличные"
+                placeholder={t("cashLower")}
                 type="number"
                 onChange={(e) =>
                   updateExpensesItemValueByIndex(
@@ -119,7 +121,7 @@ export default function EditableExpenses({
         ))}
 
       <Button className="mt-2 w-full" onClick={addExpense}>
-        Добавить
+        {t("add")}
       </Button>
     </>
   );

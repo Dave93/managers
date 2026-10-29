@@ -5,7 +5,7 @@ export const routing = defineRouting({
   // A list of all locales that are supported
   locales: ["en", "ru", "uz-Latn", "uz-Cyrl"],
   // Used when no locale matches
-  defaultLocale: "ru",
+  defaultLocale: "uz-Latn",
   localePrefix: "always",
   // Disable automatic locale detection
   localeDetection: false

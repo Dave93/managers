@@ -100,6 +100,7 @@ function Metric({
 
 export default function MatrixPage() {
   const t = useTranslations("passport.matrix");
+  const tu = useTranslations("passportUi.matrix");
   const access = useMatrixAccess();
   const terminals = useTerminals();
   const terminalName = useTerminalNames();
@@ -217,9 +218,9 @@ export default function MatrixPage() {
       <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
         <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
         <span>
-          Матрица отдаётся по праву{" "}
-          <code className="font-mono text-[11px]">passport.matrix.view</code>, а
-          у вашей роли его нет. Обратитесь к администратору.
+          {tu.rich("noAccessRole", {
+            code: (c) => <code className="font-mono text-[11px]">{c}</code>,
+          })}
         </span>
       </div>
     );
@@ -384,7 +385,7 @@ export default function MatrixPage() {
                 ? "text-red-600 dark:text-red-400"
                 : undefined
             }
-            hint="Модули, у которых дедлайн прошёл и которые ещё не закрыты. Уже закрытые просроченные сюда не входят."
+            hint={tu("hintOverdue")}
           />
           <Metric
             label={t("metricAwaiting")}
@@ -392,7 +393,7 @@ export default function MatrixPage() {
             tone={
               metrics.awaiting ? "text-amber-600 dark:text-amber-400" : undefined
             }
-            hint="Модули, где слабейшая тема на уровне «сделал»: стажёр свою часть выполнил, следующий шаг за наставником."
+            hint={tu("hintAwaiting")}
           />
           <Metric
             label={t("metricCompleted30")}
@@ -400,13 +401,13 @@ export default function MatrixPage() {
             hint={
               completedInScope
                 ? undefined
-                : "Завершённые стажировки не входят в текущий фильтр, поэтому считать нечего."
+                : tu("hintCompletedOutOfScope")
             }
             action={
               completedInScope
                 ? undefined
                 : {
-                    label: "показать",
+                    label: tu("show"),
                     onClick: () => {
                       setStatus("completed");
                       setPage(0);
@@ -418,10 +419,7 @@ export default function MatrixPage() {
       </div>
 
       <p className="mb-3 px-1 text-[11px] leading-snug text-muted-foreground">
-        «Всего» — по текущему фильтру целиком; остальные счётчики — по строкам на
-        этой странице. «Просрочено модулей» намеренно не считает уже закрытые
-        модули: у такого модуля ячейка всё равно с красной (пунктирной) рамкой —
-        дедлайн действительно прошёл, — но догонять там уже нечего.
+        {tu("metricsNote")}
       </p>
 
       <MatrixLegend className="mb-4" />
@@ -431,9 +429,9 @@ export default function MatrixPage() {
         <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
           <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
           <span>
-            Матрица отдаётся по праву{" "}
-            <code className="font-mono text-[11px]">passport.matrix.view</code>,
-            а у вас его нет. Обратитесь к администратору.
+            {tu.rich("noAccessYou", {
+              code: (c) => <code className="font-mono text-[11px]">{c}</code>,
+            })}
           </span>
         </div>
       ) : q.isLoading ? (
@@ -445,28 +443,18 @@ export default function MatrixPage() {
         </div>
       ) : q.isError ? (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-6 text-center text-[12.5px] text-destructive">
-          {q.error?.message ?? "Не удалось загрузить матрицу"}
+          {q.error?.message || tu("loadFailed")}
         </div>
       ) : rows.length === 0 ? (
         <div className="rounded-lg border bg-card px-4 py-14 text-center">
           <p className="text-[13.5px] font-medium">
-            {filtersDirty ? "По этому фильтру никого нет" : "Стажировок пока нет"}
+            {filtersDirty ? tu("emptyFiltered") : tu("emptyNone")}
           </p>
           <p className="mx-auto mt-1.5 max-w-lg text-[12px] leading-snug text-muted-foreground">
             {filtersDirty ? (
-              <>
-                По умолчанию показаны только идущие стажировки. Переключите
-                статус на «Все», чтобы увидеть завершённые, или сбросьте фильтры.
-                Должность сверяется точь-в-точь с карточкой сотрудника — если
-                там написано иначе, чем в программе, фильтр по должности ничего
-                не найдёт.
-              </>
+              tu("emptyFilteredHint")
             ) : (
-              <>
-                Как только HR начнёт первую стажировку на вкладке «Стажировки»,
-                стажёр появится здесь строкой, а модули его программы —
-                колонками.
-              </>
+              tu("emptyNoneHint")
             )}
           </p>
           {filtersDirty && (
@@ -493,7 +481,9 @@ export default function MatrixPage() {
       {rows.length > 0 && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 px-1">
           <div className="flex items-center gap-2">
-            <span className="text-[12px] text-muted-foreground">Строк:</span>
+            <span className="text-[12px] text-muted-foreground">
+              {tu("rowsLabel")}
+            </span>
             <Select
               value={String(pageSize)}
               onValueChange={(v) => {
@@ -513,7 +503,7 @@ export default function MatrixPage() {
               </SelectContent>
             </Select>
             <span className="text-[12px] tabular-nums text-muted-foreground">
-              всего: {total}
+              {tu("totalLabel", { total })}
             </span>
             {q.isFetching && (
               <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
@@ -521,7 +511,7 @@ export default function MatrixPage() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[12px] tabular-nums text-muted-foreground">
-              стр. {page + 1} из {pageCount}
+              {tu("pageOf", { page: page + 1, count: pageCount })}
             </span>
             <Button
               variant="outline"

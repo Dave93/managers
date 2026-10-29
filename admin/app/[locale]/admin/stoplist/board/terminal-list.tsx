@@ -1,4 +1,5 @@
 "use client";
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import { Skeleton } from "@admin/components/ui/skeleton";
 import { BRAND_LABEL, fmtDuration, severityDot } from "./format";
@@ -13,6 +14,7 @@ type Props = {
 };
 
 export function TerminalList({ terminals, selectedKey, onSelect, showBrand, isLoading }: Props) {
+  const t = useTranslations("stoplistPage");
   if (isLoading) {
     return (
       <div className="space-y-1 p-1">
@@ -25,20 +27,20 @@ export function TerminalList({ terminals, selectedKey, onSelect, showBrand, isLo
   if (terminals.length === 0) {
     return (
       <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-        Ни одного филиала со стопами
+        {t("board.noTerminals")}
       </div>
     );
   }
   return (
     <ul className="divide-y">
-      {terminals.map((t) => {
-        const active = t.key === selectedKey;
-        const burning = t.freshCount > 0;
+      {terminals.map((tm) => {
+        const active = tm.key === selectedKey;
+        const burning = tm.freshCount > 0;
         return (
-          <li key={t.key}>
+          <li key={tm.key}>
             <button
               type="button"
-              onClick={() => onSelect(t.key)}
+              onClick={() => onSelect(tm.key)}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors",
                 active ? "bg-primary/10" : "hover:bg-muted/60"
@@ -47,25 +49,25 @@ export function TerminalList({ terminals, selectedKey, onSelect, showBrand, isLo
               <span
                 className={cn(
                   "h-2 w-2 shrink-0 rounded-full",
-                  burning ? severityDot(t.maxFreshSeconds) : "bg-muted-foreground/30"
+                  burning ? severityDot(tm.maxFreshSeconds) : "bg-muted-foreground/30"
                 )}
                 aria-hidden
               />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
-                  <span className="truncate text-sm font-medium">{t.name}</span>
+                  <span className="truncate text-sm font-medium">{tm.name}</span>
                   {showBrand && (
                     <span className="shrink-0 text-[11px] text-muted-foreground">
-                      {BRAND_LABEL[t.brand] ?? t.brand}
+                      {BRAND_LABEL[tm.brand] ?? tm.brand}
                     </span>
                   )}
                 </span>
                 <span className="block truncate text-xs text-muted-foreground">
                   {burning
-                    ? `самый долгий свежий ${fmtDuration(t.maxFreshSeconds)}`
-                    : t.staleCount > 0
-                      ? `${t.staleCount} висят давно`
-                      : `${t.chronicCount} хронических`}
+                    ? t("board.longestFresh", { duration: fmtDuration(t, tm.maxFreshSeconds) })
+                    : tm.staleCount > 0
+                      ? t("board.staleCount", { count: tm.staleCount })
+                      : t("board.chronicCount", { count: tm.chronicCount })}
                 </span>
               </span>
               <span className="flex shrink-0 flex-col items-end leading-tight">
@@ -75,11 +77,11 @@ export function TerminalList({ terminals, selectedKey, onSelect, showBrand, isLo
                     burning ? "text-foreground" : "text-muted-foreground/60"
                   )}
                 >
-                  {t.freshCount}
+                  {tm.freshCount}
                 </span>
-                {(t.staleCount > 0 || t.chronicCount > 0) && (
+                {(tm.staleCount > 0 || tm.chronicCount > 0) && (
                   <span className="text-[11px] tabular-nums text-muted-foreground">
-                    +{t.staleCount + t.chronicCount}
+                    +{tm.staleCount + tm.chronicCount}
                   </span>
                 )}
               </span>

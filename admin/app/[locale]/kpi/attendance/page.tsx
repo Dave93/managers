@@ -1,5 +1,6 @@
 "use client";
 import React, { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { calendarPeriod, periodOptions } from "@admin/lib/kpi/periods";
 import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
@@ -16,6 +17,7 @@ export default function AttendancePage() {
 }
 
 function AttendanceScreen() {
+  const t = useTranslations("kpiScreens.attendance");
   const now = useMemo(() => new Date(), []);
   const me = useKpiMe();
   const options = useMemo(() => periodOptions(now, 12), [now]);
@@ -28,11 +30,9 @@ function AttendanceScreen() {
   return (
     <div className="space-y-6 p-4 sm:p-6">
       <div className="space-y-1">
-        <h1 className="text-xl font-semibold">Загрузка Workly</h1>
+        <h1 className="text-xl font-semibold">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Выгрузите из Workly отчёт посещаемости за месяц: xlsx, xls или csv, до 5 МБ. Один файл на всю сеть за
-          календарный месяц. Строки сопоставляются с сотрудниками по табельному номеру. Новая загрузка за месяц заменяет
-          прошлую
+          {t("description")}
         </p>
       </div>
 
@@ -41,7 +41,7 @@ function AttendanceScreen() {
       <ImportWizard period={period} />
 
       <section className="space-y-2">
-        <h2 className="text-base font-medium">Загрузки за месяц</h2>
+        <h2 className="text-base font-medium">{t("importsHeading")}</h2>
         <ImportsTable period={period} />
       </section>
     </div>

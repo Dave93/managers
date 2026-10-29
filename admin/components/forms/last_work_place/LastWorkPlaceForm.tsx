@@ -8,6 +8,7 @@ import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import { Textarea } from "@components/ui/textarea";
@@ -47,6 +48,8 @@ const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHand
 }
 
 export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWorkPlaceFormProps) {
+    const t = useTranslations("forms.lastWorkPlace");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLDivElement>(null);
 
     const [lastWorkPlace, setLastWorkPlace] = useState("");
@@ -80,10 +83,10 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
 
             // Validate required fields
             const missingFields = [];
-            if (!organizationName) missingFields.push("Наименование организации");
-            if (!position) missingFields.push("Должность");
-            if (!employmentDate) missingFields.push("Дата приема на работу");
-            if (!dismissalDate) missingFields.push("Дата увольнения");
+            if (!organizationName) missingFields.push(t("organizationName"));
+            if (!position) missingFields.push(t("position"));
+            if (!employmentDate) missingFields.push(t("employmentDate"));
+            if (!dismissalDate) missingFields.push(t("dismissalDate"));
 
             if (missingFields.length > 0) {
                 console.error('Validation failed: Missing required fields', {
@@ -96,7 +99,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     employmentDate,
                     dismissalDate
                 });
-                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
+                toast.error(t("fillFields", { fields: missingFields.join(", ") }));
                 return;
             }
 
@@ -111,7 +114,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     startDate,
                     endDate
                 });
-                toast.error("Пожалуйста, введите корректные даты");
+                toast.error(t("invalidDates"));
                 return;
             }
 
@@ -120,7 +123,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     startDate,
                     endDate
                 });
-                toast.error("Дата увольнения не может быть раньше даты приема на работу");
+                toast.error(t("dismissalBeforeEmployment"));
                 return;
             }
 
@@ -141,7 +144,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast.success("Запись о месте работы добавлена");
+            toast.success(t("added"));
 
             // Reset form
             setLastWorkPlace("");
@@ -167,7 +170,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                     dismissalDate
                 }
             });
-            toast.error("Произошла ошибка при добавлении места работы");
+            toast.error(t("addError"));
         }
     };
 
@@ -182,12 +185,12 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
             }}
         >
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Записи о местах работы</h2>
+                <h2 className="text-xl font-semibold">{t("entriesTitle")}</h2>
             </div>
 
             {entries.length > 0 && (
                 <div className="p-3 rounded-md mb-4">
-                    <p className="font-medium text-green-700">Добавлено записей: {entries.length}</p>
+                    <p className="font-medium text-green-700">{t("addedCount", { count: entries.length })}</p>
                     <ul className="list-disc pl-5 mt-2">
                         {entries.map((entry, index) => (
                             <li key={index} className="text-sm text-green-800 mb-1">
@@ -202,7 +205,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                     }}
                                     className="ml-2 h-6 text-red-500 hover:text-red-700"
                                 >
-                                    <Trash2 className="h-3 w-3 mr-1" /> Удалить
+                                    <Trash2 className="h-3 w-3 mr-1" /> {tc("delete")}
                                 </Button>
                             </li>
                         ))}
@@ -211,32 +214,32 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
             )}
 
             <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-border">
-                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">Добавить новое место работы</h3>
+                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">{t("addNew")}</h3>
 
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Наименование организации <span className="text-red-500 ml-1">*</span>
+                        {t("organizationName")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
                         value={organizationName}
                         onChange={(e) => setOrganizationName(e.target.value)}
-                        placeholder="Введите название организации"
+                        placeholder={t("enterOrganizationName")}
                     />
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Должность <span className="text-red-500 ml-1">*</span>
+                        {t("position")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
                         value={position}
                         onChange={(e) => setPosition(e.target.value)}
-                        placeholder="Введите должность"
+                        placeholder={t("enterPosition")}
                     />
                 </div>
 
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Дата приема на работу <span className="text-red-500 ml-1">*</span>
+                        {t("employmentDate")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -250,7 +253,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {employmentDate ? format(employmentDate, "PPP") : <span>Выберите дату</span>}
+                                {employmentDate ? format(employmentDate, "PPP") : <span>{t("pickDate")}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent container={formRef.current!} className="w-auto p-0">
@@ -304,7 +307,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Дата увольнения <span className="text-red-500 ml-1">*</span>
+                        {t("dismissalDate")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -318,7 +321,7 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dismissalDate ? format(dismissalDate, "PPP") : <span>Выберите дату</span>}
+                                {dismissalDate ? format(dismissalDate, "PPP") : <span>{t("pickDate")}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent container={formRef.current!} className="w-auto p-0">
@@ -372,34 +375,34 @@ export default function LastWorkPlaceForm({ onAdd, onRemove, entries }: LastWork
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Адрес организации</Label>
+                    <Label>{t("organizationAddress")}</Label>
                     <Input
                         value={addressOrg}
                         onChange={(e) => setAddressOrg(e.target.value)}
-                        placeholder="Введите адрес организации"
+                        placeholder={t("enterOrganizationAddress")}
                     />
                 </div>
                 <div className="space-y-2">
-                    <Label>Опыт работы</Label>
+                    <Label>{t("experience")}</Label>
                     <Input
                         value={experience}
                         onChange={(e) => setExperience(e.target.value)}
-                        placeholder="Укажите опыт работы"
+                        placeholder={t("enterExperience")}
                     />
                 </div>
 
                 <div className="col-span-2 space-y-2">
-                    <Label>Причина увольнения</Label>
+                    <Label>{t("dismissalReason")}</Label>
                     <Textarea
                         value={dismissalReason}
                         onChange={(e) => setDismissalReason(e.target.value)}
-                        placeholder="Укажите причину увольнения"
+                        placeholder={t("enterDismissalReason")}
                     />
                 </div>
 
                 <div className="col-span-2 flex justify-end mt-4">
                     <Button onClick={handleAdd} type="button">
-                        Добавить место работы
+                        {t("addEntry")}
                     </Button>
                 </div>
             </div>

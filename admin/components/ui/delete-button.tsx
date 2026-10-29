@@ -5,6 +5,7 @@ import {
   PopoverTrigger,
 } from "@components/ui/popover";
 import { DeleteIcon, Trash2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export function DeleteButton({
   recordId,
@@ -13,6 +14,7 @@ export function DeleteButton({
   recordId: string;
   deleteRecord: any;
 }) {
+  const t = useTranslations("common");
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -23,9 +25,9 @@ export function DeleteButton({
       <PopoverContent className="w-80">
         <div className="grid gap-4">
           <div className="space-y-2">
-            <h4 className="font-medium leading-none text-center">Удалить</h4>
+            <h4 className="font-medium leading-none text-center">{t("delete")}</h4>
             <p className="text-sm text-muted-foreground text-center">
-              Вы действительно хотите удалить эту запись?
+              {t("deleteConfirm")}
             </p>
           </div>
           <div className="space-x-3 mx-auto">
@@ -40,7 +42,7 @@ export function DeleteButton({
                 });
               }}
             >
-              Удалить
+              {t("delete")}
             </Button>
           </div>
         </div>

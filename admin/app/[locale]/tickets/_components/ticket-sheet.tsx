@@ -27,6 +27,7 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RotateCw, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Skeleton } from "@components/ui/skeleton";
@@ -71,33 +72,21 @@ import { PhotoStrip } from "./photo-strip";
 // подписи и форматирование
 // ---------------------------------------------------------------------------
 
-const ACTOR_RU: Record<ActorKind, string> = {
-  manager: "Филиал",
-  executor: "Исполнитель",
-  office: "Офис",
-  system: "Система",
-};
+// Подписи лежат в словаре `ticketsUi.sheet` (actor.*, event.*, payment.*);
+// неизвестное значение с бэкенда показываем как есть.
+export function useActorLabel(): (kind: ActorKind) => string {
+  const t = useTranslations("ticketsUi.sheet");
+  return (kind) => (t.has(`actor.${kind}`) ? t(`actor.${kind}`) : kind);
+}
 
-const EVENT_RU: Record<TicketEventType, string> = {
-  created: "Заявка создана",
-  assigned: "Назначен исполнитель",
-  comment: "Комментарий",
-  done_submitted: "Работа сдана",
-  reopened: "Возвращена в работу",
-  closed: "Работа принята",
-  cancelled: "Заявка отменена",
-  payment_approved: "Оплата утверждена",
-  payment_rejected: "Оплата отклонена",
-};
+function useEventLabel(): (type: TicketEventType) => string {
+  const t = useTranslations("ticketsUi.sheet");
+  return (type) => (t.has(`event.${type}`) ? t(`event.${type}`) : type);
+}
 
-export const PAYMENT_RU: Record<PaymentStatus, string> = {
-  pending: "на утверждении офиса",
-  approved: "утверждена",
-  rejected: "отклонена",
-};
-
-export function actorLabel(kind: ActorKind): string {
-  return ACTOR_RU[kind] ?? kind;
+function usePaymentLabel(): (status: PaymentStatus) => string {
+  const t = useTranslations("ticketsUi.sheet");
+  return (status) => (t.has(`payment.${status}`) ? t(`payment.${status}`) : status);
 }
 
 export function fmtTs(value: string | null | undefined): string {
@@ -128,25 +117,20 @@ const CANCEL_RIGHT = "tickets.cancel";
 // 403 приходит от макроса прав английским «You don't have permissions»: вместо
 // него русский текст с кодом права (как панели прав на других экранах раздела).
 // Нужное право знает вызывающий, он и передаёт его вторым аргументом.
-export function actionError(error: unknown, right?: string): string {
-  const status = (error as ApiError)?.status;
-  if (status === 409) {
-    return "Статус заявки уже изменился: её успели обработать раньше. Карточка обновлена, проверьте текущий статус.";
-  }
-  if (status === 403) {
-    return right
-      ? `У вашей роли нет права ${right}. Попросите администратора добавить его в форме роли, затем перезагрузите страницу.`
-      : "У вашей роли нет права на это действие. Попросите администратора добавить его в форме роли.";
-  }
-  return apiMessage(error);
+export function useActionError(): (error: unknown, right?: string) => string {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  return (error, right) => {
+    const status = (error as ApiError)?.status;
+    if (status === 409) return t("actionConflict");
+    if (status === 403) {
+      return right ? t("actionForbiddenRight", { right }) : t("actionForbidden");
+    }
+    return apiMessage(error, tl);
+  };
 }
 
-const RESULT_EMPTY: Record<Exclude<ResultColumn, "photos">, string> = {
-  not_submitted: "Исполнитель ещё не сдал работу",
-  submitted_without_photos:
-    "Исполнитель сдал работу без фото результата: принять её нельзя, верните в работу и попросите приложить фото",
-  none: "Фото результата не приложены",
-};
+type ResultEmptyKey = Exclude<ResultColumn, "photos">;
 
 // ---------------------------------------------------------------------------
 // поля по схеме типа
@@ -199,17 +183,18 @@ export function Empty({ children }: { children: React.ReactNode }) {
 }
 
 export function FieldsSection({ card }: { card: TicketCard }) {
+  const t = useTranslations("ticketsUi.sheet");
   const { rows, schemaKnown } = buildFieldRows(card);
   const description = card.description?.trim();
   return (
-    <Section title="Поля заявки">
+    <Section title={t("fieldsTitle")}>
       {!schemaKnown && (
         <p className="text-[12px] text-muted-foreground">
-          Тип заявки недоступен, поэтому подписей полей нет: показаны ключи.
+          {t("schemaUnknown")}
         </p>
       )}
       {rows.length === 0 && !description ? (
-        <Empty>В заявке нет заполненных полей.</Empty>
+        <Empty>{t("noFields")}</Empty>
       ) : (
         <dl className="grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)] gap-x-4 gap-y-1.5 text-sm">
           {rows.map((r) => (
@@ -219,7 +204,7 @@ export function FieldsSection({ card }: { card: TicketCard }) {
                 {r.value}
                 {r.removed && (
                   <span className="ml-2 text-[11px] text-amber-700 dark:text-amber-400">
-                    поле удалено из типа
+                    {t("fieldRemoved")}
                   </span>
                 )}
               </dd>
@@ -227,7 +212,7 @@ export function FieldsSection({ card }: { card: TicketCard }) {
           ))}
           {description && (
             <div className="contents">
-              <dt className="text-muted-foreground">Описание</dt>
+              <dt className="text-muted-foreground">{t("description")}</dt>
               <dd className="whitespace-pre-wrap break-words">{description}</dd>
             </div>
           )}
@@ -238,20 +223,22 @@ export function FieldsSection({ card }: { card: TicketCard }) {
 }
 
 export function ActSection({ card }: { card: TicketCard }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
   const items = card.work_items ?? [];
   return (
-    <Section title="Акт выполненных работ">
+    <Section title={t("actTitle")}>
       {items.length === 0 ? (
-        <Empty>Акт не заполнен</Empty>
+        <Empty>{t("actEmpty")}</Empty>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full text-sm">
             <thead className="bg-muted/40 text-left text-[11px] uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="w-8 px-3 py-1.5 font-medium">№</th>
-                <th className="px-3 py-1.5 font-medium">Работа</th>
-                <th className="px-3 py-1.5 text-right font-medium">Кол-во</th>
-                <th className="px-3 py-1.5 text-right font-medium">Сумма</th>
+                <th className="px-3 py-1.5 font-medium">{t("actWork")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{t("actQty")}</th>
+                <th className="px-3 py-1.5 text-right font-medium">{t("actAmount")}</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -263,17 +250,17 @@ export function ActSection({ card }: { card: TicketCard }) {
                     {fmtQty(w.qty)}
                     {w.unit ? ` ${w.unit}` : ""}
                   </td>
-                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{formatAmount(w.amount)}</td>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">{formatAmount(w.amount, tl)}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot className="border-t bg-muted/20 font-medium">
               <tr>
                 <td colSpan={3} className="px-3 py-1.5 text-right">
-                  Итого
+                  {t("actTotal")}
                 </td>
                 <td className="whitespace-nowrap px-3 py-1.5 text-right tabular-nums">
-                  {formatAmount(card.work_total_amount)}
+                  {formatAmount(card.work_total_amount, tl)}
                 </td>
               </tr>
             </tfoot>
@@ -285,15 +272,18 @@ export function ActSection({ card }: { card: TicketCard }) {
 }
 
 export function PaymentSection({ card }: { card: TicketCard }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  const paymentLabel = usePaymentLabel();
   // Сумма появляется вместе с актом. До него payment_status всё равно
   // «pending», и подпись «на утверждении офиса» у заявки без суммы лгала бы.
   if (card.work_total_amount === null || card.work_total_amount === undefined) return null;
   const status = card.payment_status;
   return (
-    <Section title="Оплата">
+    <Section title={t("paymentTitle")}>
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-sm">
-        <span className="font-semibold tabular-nums">{formatAmount(card.work_total_amount)}</span>
-        <span className="text-muted-foreground">{PAYMENT_RU[status] ?? status}</span>
+        <span className="font-semibold tabular-nums">{formatAmount(card.work_total_amount, tl)}</span>
+        <span className="text-muted-foreground">{paymentLabel(status)}</span>
         {status !== "pending" && card.payment_approved_at && (
           <span className="text-[12px] text-muted-foreground">{fmtTs(card.payment_approved_at)}</span>
         )}
@@ -320,11 +310,14 @@ function ConversationSection({
   sending: boolean;
   error: unknown;
 }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  const actorLabel = useActorLabel();
   const comments = card.comments ?? [];
   return (
-    <Section title="Переписка">
+    <Section title={t("conversationTitle")}>
       {comments.length === 0 ? (
-        <Empty>Комментариев пока нет.</Empty>
+        <Empty>{t("noComments")}</Empty>
       ) : (
         <ul className="space-y-2">
           {comments.map((c) => (
@@ -342,18 +335,18 @@ function ConversationSection({
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Написать комментарий"
-          aria-label="Новый комментарий"
+          placeholder={t("commentPlaceholder")}
+          aria-label={t("commentAria")}
           rows={2}
           disabled={sending}
         />
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" onClick={onSend} disabled={sending || draft.trim() === ""}>
-            {sending ? "Отправляем…" : "Отправить"}
+            {sending ? t("sending") : t("send")}
           </Button>
           {error ? (
             <span role="alert" className="text-[12.5px] text-destructive">
-              {apiMessage(error)}
+              {apiMessage(error, tl)}
             </span>
           ) : null}
         </div>
@@ -363,10 +356,13 @@ function ConversationSection({
 }
 
 export function EventsSection({ events }: { events: TicketEventRow[] }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const actorLabel = useActorLabel();
+  const eventLabel = useEventLabel();
   return (
-    <Section title="Лента событий">
+    <Section title={t("eventsTitle")}>
       {events.length === 0 ? (
-        <Empty>Событий пока нет.</Empty>
+        <Empty>{t("noEvents")}</Empty>
       ) : (
         <ol className="space-y-1.5 text-sm">
           {events.map((e) => {
@@ -374,7 +370,7 @@ export function EventsSection({ events }: { events: TicketEventRow[] }) {
             return (
               <li key={e.id}>
                 <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="font-medium">{EVENT_RU[e.type] ?? e.type}</span>
+                  <span className="font-medium">{eventLabel(e.type)}</span>
                   <span className="text-[11.5px] text-muted-foreground">{actorLabel(e.actor_kind)}</span>
                   <span className="text-[11.5px] tabular-nums text-muted-foreground">{fmtTs(e.created_at)}</span>
                 </div>
@@ -395,6 +391,9 @@ export function EventsSection({ events }: { events: TicketEventRow[] }) {
 // ---------------------------------------------------------------------------
 
 function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
+  const actionError = useActionError();
   const qc = useQueryClient();
   // Без onDone: хук вызывает его после ЛЮБОЙ мутации, в том числе после
   // комментария, и отправка сообщения закрыла бы панель. Закрытие передаётся
@@ -438,17 +437,17 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
     });
   };
 
-  const typeName = card.type?.name_ru ?? "Тип удалён";
-  const terminal = card.terminal_name ?? "Филиал не найден";
+  const typeName = card.type?.name_ru ?? t("typeDeleted");
+  const terminal = card.terminal_name ?? t("branchNotFound");
   const executor = card.assigned_executor_id
-    ? (card.executor_name ?? "Исполнитель удалён")
-    : "не назначен";
+    ? (card.executor_name ?? t("executorDeleted"))
+    : t("notAssigned");
   const problem = (card.attachments ?? []).filter((a) => a.phase === "problem");
   // Фото и кнопки приёмки решает та же функция, что у планшета: только снимки
   // текущей сдачи (возврат в работу вложений не удаляет).
   const accept = acceptanceState(card);
   const result = accept.result;
-  const resultEmpty = RESULT_EMPTY[accept.column === "photos" ? "none" : accept.column];
+  const resultEmpty = t(`resultEmpty.${(accept.column === "photos" ? "none" : accept.column) as ResultEmptyKey}`);
   const hasAmount = card.work_total_amount !== null && card.work_total_amount !== undefined;
 
   return (
@@ -463,18 +462,22 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
           {typeName} · {terminal}
         </SheetDescription>
         <p className="text-[12px] leading-snug text-muted-foreground">
-          Создана {fmtTs(card.created_at)}, автор: {card.author_name ?? "неизвестен"}. Исполнитель: {executor}.
-          {card.reopen_count > 0 ? ` Возвращалась в работу: ${card.reopen_count}.` : ""}
+          {t("headerMeta", {
+            date: fmtTs(card.created_at),
+            author: card.author_name ?? t("authorUnknown"),
+            executor,
+          })}
+          {card.reopen_count > 0 ? ` ${t("reopenedCount", { count: card.reopen_count })}` : ""}
         </p>
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-5 py-4">
         <FieldsSection card={card} />
-        <PhotoStrip title="Фото проблемы" items={problem} empty="Менеджер не приложил фото" />
+        <PhotoStrip title={t("photosProblem")} items={problem} empty={t("photosProblemEmpty")} />
         {/* Решает колонка, как на планшете: у заявки в работе снимки новее
             последнего возврата полосой не показываются, там заглушка. */}
         <PhotoStrip
-          title="Фото результата"
+          title={t("photosResult")}
           items={accept.column === "photos" ? result : []}
           empty={resultEmpty}
         />
@@ -506,8 +509,8 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
                   <Textarea
                     value={returnComment}
                     onChange={(e) => setReturnComment(e.target.value)}
-                    placeholder="Что переделать (нужно, чтобы вернуть в работу)"
-                    aria-label="Комментарий к возврату в работу"
+                    placeholder={t("returnPlaceholder")}
+                    aria-label={t("returnAria")}
                     rows={2}
                     disabled={busy}
                   />
@@ -516,21 +519,23 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
                   {accept.accept && (
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
-                        <Button disabled={busy}>{actions.close.isPending ? "Принимаем…" : "Принять работу"}</Button>
+                        <Button disabled={busy}>{actions.close.isPending ? t("accepting") : t("accept")}</Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Принять работу по заявке {card.number}?</AlertDialogTitle>
+                          <AlertDialogTitle>{t("acceptTitle", { number: card.number })}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Заявка закроется, исполнитель получит сообщение.
-                            {hasAmount ? ` Сумма ${formatAmount(card.work_total_amount)} уйдёт на утверждение оплаты.` : ""}{" "}
-                            Отменить приёмку нельзя.
+                            {t("acceptDesc1")}
+                            {hasAmount
+                              ? ` ${t("acceptDescAmount", { amount: formatAmount(card.work_total_amount, tl) })}`
+                              : ""}{" "}
+                            {t("acceptDesc2")}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Не принимать</AlertDialogCancel>
+                          <AlertDialogCancel>{t("acceptCancel")}</AlertDialogCancel>
                           <AlertDialogAction onClick={() => run((o) => actions.close.mutate(card.id, o))}>
-                            Принять работу
+                            {t("accept")}
                           </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
@@ -543,12 +548,12 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
                       run((o) => actions.reopen.mutate({ id: card.id, comment: returnComment.trim() }, o))
                     }
                   >
-                    {actions.reopen.isPending ? "Возвращаем…" : "Вернуть в работу"}
+                    {actions.reopen.isPending ? t("returning") : t("returnToWork")}
                   </Button>
                 </div>
                 {!accept.accept && (
                   <p className="text-[12.5px] leading-snug text-muted-foreground">
-                    Принять работу без фото результата нельзя: верните её в работу и попросите приложить фото.
+                    {t("acceptNoPhotos")}
                   </p>
                 )}
               </div>
@@ -556,9 +561,12 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
 
             {card.status === "done" && !canClose && (
               <p className="text-[12.5px] leading-snug text-muted-foreground">
-                Принять работу или вернуть её в работу может роль с правом{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{CLOSE_RIGHT}</code>. У вашей роли его
-                нет: попросите администратора.
+                {t.rich("noCloseRight", {
+                  right: CLOSE_RIGHT,
+                  code: (chunks) => (
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{chunks}</code>
+                  ),
+                })}
               </p>
             )}
 
@@ -566,25 +574,25 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="outline" disabled={busy}>
-                    {actions.cancel.isPending ? "Отменяем…" : "Отменить"}
+                    {actions.cancel.isPending ? t("cancelling") : t("cancel")}
                   </Button>
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Отменить заявку {card.number}?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("cancelTitle", { number: card.number })}</AlertDialogTitle>
                     <AlertDialogDescription>
-                      Отменённую заявку нельзя вернуть в работу: если работа всё же нужна, придётся создать новую заявку.
+                      {t("cancelDesc")}
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <Textarea
                     value={cancelReason}
                     onChange={(e) => setCancelReason(e.target.value)}
-                    placeholder="Причина (необязательно)"
-                    aria-label="Причина отмены"
+                    placeholder={t("cancelReasonPlaceholder")}
+                    aria-label={t("cancelReasonAria")}
                     rows={2}
                   />
                   <AlertDialogFooter>
-                    <AlertDialogCancel>Не отменять</AlertDialogCancel>
+                    <AlertDialogCancel>{t("cancelKeep")}</AlertDialogCancel>
                     <AlertDialogAction
                       onClick={() => {
                         const comment = cancelReason.trim();
@@ -593,7 +601,7 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
                         );
                       }}
                     >
-                      Отменить заявку
+                      {t("cancelConfirm")}
                     </AlertDialogAction>
                   </AlertDialogFooter>
                 </AlertDialogContent>
@@ -602,15 +610,18 @@ function CardView({ card, onClose }: { card: TicketCard; onClose: () => void }) 
 
             {(card.status === "new" || card.status === "in_progress") && !canCancel && (
               <p className="text-[12.5px] leading-snug text-muted-foreground">
-                Отменить заявку может роль с правом{" "}
-                <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{CANCEL_RIGHT}</code>. У вашей роли
-                его нет: попросите администратора. Принять работу можно, когда исполнитель её сдаст.
+                {t.rich("noCancelRight", {
+                  right: CANCEL_RIGHT,
+                  code: (chunks) => (
+                    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{chunks}</code>
+                  ),
+                })}
               </p>
             )}
 
             {(card.status === "closed" || card.status === "cancelled") && (
               <p className="text-sm text-muted-foreground">
-                {card.status === "closed" ? "Заявка закрыта" : "Заявка отменена"}, действий нет.
+                {card.status === "closed" ? t("closedNoActions") : t("cancelledNoActions")}
               </p>
             )}
           </>
@@ -648,6 +659,8 @@ export function Notice({
 }
 
 function TicketBody({ ticketId, onClose }: { ticketId: string; onClose: () => void }) {
+  const t = useTranslations("ticketsUi.sheet");
+  const tl = useTranslations("ticketsLib");
   const { data: card, isPending, isError, error, isFetching, refetch } = useTicketCard(ticketId);
 
   if (card) return <CardView card={card} onClose={onClose} />;
@@ -657,8 +670,8 @@ function TicketBody({ ticketId, onClose }: { ticketId: string; onClose: () => vo
   return (
     <>
       <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
-        <SheetTitle className="text-base">Заявка</SheetTitle>
-        <SheetDescription className="sr-only">Карточка заявки</SheetDescription>
+        <SheetTitle className="text-base">{t("ticket")}</SheetTitle>
+        <SheetDescription className="sr-only">{t("ticketCard")}</SheetDescription>
       </SheetHeader>
       <div className="min-h-0 flex-1 overflow-y-auto" aria-busy={isPending}>
         {isPending ? (
@@ -671,33 +684,37 @@ function TicketBody({ ticketId, onClose }: { ticketId: string; onClose: () => vo
         ) : isError && status === 404 ? (
           <Notice
             icon={<TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />}
-            title="Заявка не найдена"
+            title={t("notFoundTitle")}
           >
             <p className="text-[12.5px] leading-snug text-muted-foreground">
-              Её могли удалить, либо она относится к филиалу, которого нет в вашем доступе.
+              {t("notFoundBody")}
             </p>
           </Notice>
         ) : isError && status === 403 ? (
           <Notice
             icon={<ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" />}
-            title="Нет доступа к заявке"
+            title={t("forbiddenTitle")}
           >
             <p className="text-[12.5px] leading-snug text-muted-foreground">
-              Сервер ответил отказом (403). Для карточки нужно право{" "}
-              <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">tickets.list</code>.
+              {t.rich("forbiddenBody", {
+                right: "tickets.list",
+                code: (chunks) => (
+                  <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{chunks}</code>
+                ),
+              })}
             </p>
           </Notice>
         ) : (
           <Notice
             icon={<TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />}
-            title={status === undefined ? "Нет связи с сервером" : "Не удалось загрузить заявку"}
+            title={status === undefined ? t("noConnection") : t("loadFailed")}
           >
             <p className="break-words text-[12.5px] leading-snug text-muted-foreground">
-              {apiError ? apiMessage(apiError) : "Неизвестная ошибка"}
+              {apiError ? apiMessage(apiError, tl) : t("unknownError")}
             </p>
             <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching}>
               <RotateCw className={isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
-              {isFetching ? "Повторяем…" : "Повторить"}
+              {isFetching ? t("retrying") : t("retry")}
             </Button>
           </Notice>
         )}

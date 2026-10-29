@@ -3,6 +3,7 @@
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import {
   Select,
@@ -33,6 +34,7 @@ type PlaygroundTicket = {
 };
 
 export function DataTable() {
+  const t = useTranslations("playgroundUi");
   const [pageIndex, setPageIndex] = useState(0);
   const pageSize = 20;
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -97,23 +99,23 @@ export function DataTable() {
           }}
         >
           <SelectTrigger className="sm:w-[200px]">
-            <SelectValue placeholder="Статус" />
+            <SelectValue placeholder={t("filters.status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="active">Активные</SelectItem>
-            <SelectItem value="used">Использованные</SelectItem>
+            <SelectItem value="all">{t("filters.all")}</SelectItem>
+            <SelectItem value="active">{t("filters.active")}</SelectItem>
+            <SelectItem value="used">{t("filters.used")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Загрузка...
+          {t("loading")}
         </div>
       ) : tickets.length === 0 ? (
         <div className="flex items-center justify-center py-12 text-muted-foreground">
-          Нет данных
+          {t("noData")}
         </div>
       ) : (
         <div className="divide-y rounded-xl border bg-card">
@@ -133,17 +135,17 @@ export function DataTable() {
                 </div>
                 <div className="flex items-center gap-2 min-w-0 sm:gap-3 sm:flex-1">
                   <span className="font-semibold tabular-nums shrink-0 sm:w-32 sm:text-right">
-                    {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} сум
+                    {Intl.NumberFormat("ru-RU").format(ticket.order_amount)} {t("currency")}
                   </span>
                   <span className="text-xs text-muted-foreground shrink-0">
-                    Детей: {ticket.children_count}
+                    {t("childrenLabel", { count: ticket.children_count })}
                   </span>
                   <span className="text-xs text-muted-foreground truncate min-w-0 hidden md:inline md:flex-1">
                     {ticket.terminal_name ?? ""}
                   </span>
                   {ticket.is_used && ticket.used_at && (
                     <span className="text-xs text-muted-foreground whitespace-nowrap hidden lg:inline">
-                      исп. {dayjs(ticket.used_at).format("DD.MM HH:mm")}
+                      {t("usedShort", { date: dayjs(ticket.used_at).format("DD.MM HH:mm") })}
                     </span>
                   )}
                 </div>
@@ -152,7 +154,7 @@ export function DataTable() {
                 variant={ticket.is_used ? "destructive" : "default"}
                 className="shrink-0"
               >
-                {ticket.is_used ? "Использован" : "Активен"}
+                {ticket.is_used ? t("status.used") : t("status.active")}
               </Badge>
             </div>
           ))}
@@ -162,8 +164,11 @@ export function DataTable() {
       {total > 0 && (
         <div className="flex items-center justify-between pt-2">
           <span className="text-sm text-muted-foreground">
-            {pageIndex * pageSize + 1}–
-            {Math.min((pageIndex + 1) * pageSize, total)} из {total}
+            {t("pageRange", {
+              from: pageIndex * pageSize + 1,
+              to: Math.min((pageIndex + 1) * pageSize, total),
+              total,
+            })}
           </span>
           <div className="flex gap-2">
             <Button
@@ -172,7 +177,7 @@ export function DataTable() {
               onClick={() => setPageIndex((p) => p - 1)}
               disabled={!canPrev}
             >
-              Назад
+              {t("prev")}
             </Button>
             <Button
               variant="outline"
@@ -180,7 +185,7 @@ export function DataTable() {
               onClick={() => setPageIndex((p) => p + 1)}
               disabled={!canNext}
             >
-              Вперёд
+              {t("next")}
             </Button>
           </div>
         </div>

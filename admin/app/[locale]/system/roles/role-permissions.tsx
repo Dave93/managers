@@ -1,10 +1,11 @@
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import { RolesPermissionsDataTable } from "./role-permissions-table";
-import { rolesPermissionsColumns } from "./role-permissions-columns";
+import { useRolesPermissionsColumns } from "./role-permissions-columns";
 import RolePermissionsForm from "./role-permissions-form";
 
 export default function RolePermissions() {
+  const columns = useRolesPermissionsColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -18,7 +19,7 @@ export default function RolePermissions() {
         </div>
       </div>
       <div className="py-10">
-        <RolesPermissionsDataTable columns={rolesPermissionsColumns} />
+        <RolesPermissionsDataTable columns={columns} />
       </div>
     </div>
   );

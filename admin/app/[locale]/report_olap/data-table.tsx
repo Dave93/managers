@@ -32,19 +32,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@components/ui/select";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DoubleArrowLeftIcon,
-  DoubleArrowRightIcon,
-} from "@radix-ui/react-icons";
+import { ChevronRightIcon } from "@radix-ui/react-icons";
 import dayjs from "dayjs";
 
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
 
+import { TablePager } from "@admin/components/ui/table-pager";
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<Stoplist, TValue>[];
 }
@@ -76,6 +73,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 };
 
 export function DataTable<TData, TValue>() {
+  const t = useTranslations("invoicesUi");
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const productType = useStoplistFilterStore((state) => state.productType);
@@ -175,24 +173,24 @@ export function DataTable<TData, TValue>() {
     let cols: ColumnDef<Stoplist, TValue>[] = [
       {
         accessorKey: "name",
-        header: "Название",
+        header: t("columns.name"),
         enablePinning: true,
         size: isMobile ? 140 : 150,
       },
       {
         accessorKey: "supplierProductArticle",
-        header: "Артикул",
+        header: t("columns.article"),
       },
       {
         accessorKey: "unit",
-        header: "Единица измерения",
+        header: t("columns.unit"),
         enablePinning: true,
         size: 110,
       },
       // @ts-ignore
       columnHelper.group({
         id: "group",
-        header: () => <span style={{ color: "red" }}>Всего</span>,
+        header: () => <span style={{ color: "red" }}>{t("columns.total")}</span>,
         // @ts-ignore
         columns: [
           // @ts-ignore
@@ -237,7 +235,7 @@ export function DataTable<TData, TValue>() {
       }
     }
     return cols;
-  }, [date]);
+  }, [date, t]);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
@@ -328,7 +326,7 @@ export function DataTable<TData, TValue>() {
     }
 
     if (!filteredData.length) {
-      return <p className="text-center text-muted-foreground py-8">Нет данных</p>;
+      return <p className="text-center text-muted-foreground py-8">{t("noData")}</p>;
     }
 
     return (
@@ -394,7 +392,7 @@ export function DataTable<TData, TValue>() {
       <div className="flex items-center gap-2">
         <input
           type="text"
-          placeholder="Поиск по названию..."
+          placeholder={t("searchByName")}
           value={globalFilter}
           onChange={(e) => setGlobalFilter(e.target.value)}
           className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -404,7 +402,7 @@ export function DataTable<TData, TValue>() {
           onClick={() => setShowArticle((v) => !v)}
           className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
         >
-          {showArticle ? "Скрыть артикул" : "Артикул"}
+          {showArticle ? t("hideArticle") : t("columns.article")}
         </button>
       </div>
 
@@ -510,74 +508,13 @@ export function DataTable<TData, TValue>() {
       )}
 
       {/* Pagination */}
-      <div className="flex flex-wrap gap-3 items-center justify-between pb-4 px-2 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex items-center space-x-2">
-            <p className="text-sm font-medium whitespace-nowrap">Rows per page</p>
-            <Select
-              value={`${table.getState().pagination.pageSize}`}
-              onValueChange={(value) => {
-                table.setPageSize(Number(value));
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
-                />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {[10, 20, 30, 40, 50, 100, 200].map((pageSize) => (
-                  <SelectItem key={pageSize} value={`${pageSize}`}>
-                    {pageSize}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex items-center justify-center text-sm font-medium whitespace-nowrap">
-          Page {table.getState().pagination.pageIndex + 1} of{" "}
-          {table.getPageCount()}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">Go to first page</span>
-            <DoubleArrowLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <span className="sr-only">Go to previous page</span>
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to next page</span>
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <span className="sr-only">Go to last page</span>
-            <DoubleArrowRightIcon className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TablePager
+        pageIndex={table.getState().pagination.pageIndex}
+        pageCount={table.getPageCount()}
+        pageSize={table.getState().pagination.pageSize}
+        onPageChange={(i) => table.setPageIndex(i)}
+        onPageSizeChange={(size) => table.setPageSize(size)}
+      />
     </div>
   );
 }
