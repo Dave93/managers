@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Textarea } from "@admin/components/ui/textarea";
@@ -20,6 +21,7 @@ export function OpenDisputeDialog({
   commentMin: number;
   onClose: () => void;
 }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
   const [touched, setTouched] = useState(false);
@@ -35,13 +37,13 @@ export function OpenDisputeDialog({
     mutationFn: (s: NonNullable<typeof subject>) =>
       kpiApi.disputes.open({ subject_type: s.type, subject_id: s.id, reason: reason.trim() }),
     onSuccess: async () => {
-      toast.success("Спор открыт");
+      toast.success(t("common.disputeDialog.opened"));
       await Promise.all(
         [qk.employeesAll, qk.violationsAll, qk.disputesAll, qk.formAll].map((queryKey) => qc.invalidateQueries({ queryKey }))
       );
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
   });
 
   const submit = () => {
@@ -57,7 +59,7 @@ export function OpenDisputeDialog({
     <Dialog open={subject !== null} onOpenChange={(o) => !o && !open.isPending && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Оспорить от имени сотрудника</DialogTitle>
+          <DialogTitle>{t("common.disputeDialog.title")}</DialogTitle>
           <DialogDescription>{subject?.title}</DialogDescription>
         </DialogHeader>
         <div className="space-y-2">
@@ -66,19 +68,19 @@ export function OpenDisputeDialog({
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             onBlur={() => setTouched(true)}
-            aria-label="Причина спора со слов сотрудника"
-            placeholder="Причина спора со слов сотрудника"
+            aria-label={t("common.disputeDialog.reason")}
+            placeholder={t("common.disputeDialog.reason")}
           />
           <p className={touched && !ok ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>
-            Не меньше {commentMin} символов без пробелов
+            {t("common.disputeDialog.min", { min: commentMin })}
           </p>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" disabled={open.isPending} onClick={onClose}>
-            Отмена
+            {t("common.disputeDialog.cancel")}
           </Button>
           <Button type="button" className="h-11" disabled={open.isPending} onClick={submit}>
-            Открыть спор
+            {t("common.disputeDialog.open")}
           </Button>
         </DialogFooter>
       </DialogContent>

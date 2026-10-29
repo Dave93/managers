@@ -37,6 +37,7 @@ const fetchData = async (
 
 const RevenueByBranches = () => {
   const t = useTranslations();
+  const tRank = useTranslations("dashboardUi.rankSummary");
   const compact = (n: number) => {
     const billion = 1_000_000_000, million = 1_000_000, thousand = 1_000;
     if (Math.abs(n) >= billion) return `${(n / billion).toFixed(2)} ${t("charts.billion")}`;
@@ -93,7 +94,7 @@ const RevenueByBranches = () => {
   );
 
   const ownRows = React.useMemo(() => rows.filter((r) => r.own), [rows]);
-  const subtitle = data.masked ? rankSummary(ownRows, data.total, { brandSelected: !!organization }) : undefined;
+  const subtitle = data.masked ? rankSummary(ownRows, data.total, { brandSelected: !!organization }, tRank) : undefined;
 
   return (
     <RankedBarCard

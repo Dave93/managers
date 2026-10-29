@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Check, ChevronsUpDown } from "lucide-react";
 
 import { cn } from "@admin/lib/utils";
@@ -32,6 +33,7 @@ export default function MultiSelect({
   onValueChange: (value: string[]) => void;
   value: string[];
 }) {
+  const t = useTranslations("forms.multiSelect");
   const [open, setOpen] = React.useState(false);
 
   return (
@@ -55,15 +57,15 @@ export default function MultiSelect({
                     {framework.label}
                   </div>
                 ))
-              : "Выберите филиал..."}
+              : t("select")}
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
       <PopoverContent>
         <Command>
-          <CommandInput placeholder="Поиск филиал..." />
-          <CommandEmpty>Филиал не найден.</CommandEmpty>
+          <CommandInput placeholder={t("search")} />
+          <CommandEmpty>{t("notFound")}</CommandEmpty>
           <CommandList>
             {data.map((framework) => (
               <CommandItem

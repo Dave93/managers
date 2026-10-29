@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
@@ -13,8 +14,6 @@ import { KpiApiError, kpiErrorText } from "@admin/lib/kpi/errors";
 import { cardCodeOk, parseRoleCodes } from "@admin/lib/kpi/settings";
 import { useStaffRoles } from "@admin/lib/staff-roles";
 import { qk } from "../../_components/use-kpi";
-
-const CODE_HINT = "Латиница в нижнем регистре, цифры и _, от 2 до 40 символов";
 
 type Values = {
   code: string;
@@ -33,6 +32,7 @@ function sortOk(s: string): boolean {
 }
 
 export function CardDialog({ card, open, onClose }: { card: Card | null; open: boolean; onClose: () => void }) {
+  const t = useTranslations("kpi");
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !pending && onClose()}>
@@ -41,8 +41,8 @@ export function CardDialog({ card, open, onClose }: { card: Card | null; open: b
           <CardForm key={card?.id ?? "new"} card={card} onClose={onClose} onPending={setPending} />
         ) : (
           <>
-            <DialogTitle className="sr-only">Карта</DialogTitle>
-            <DialogDescription className="sr-only">Карта</DialogDescription>
+            <DialogTitle className="sr-only">{t("settings.cardDialog.srTitle")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings.cardDialog.srTitle")}</DialogDescription>
           </>
         )}
       </DialogContent>
@@ -51,6 +51,7 @@ export function CardDialog({ card, open, onClose }: { card: Card | null; open: b
 }
 
 function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: () => void; onPending: (p: boolean) => void }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const roles = useStaffRoles({ activeOnly: true });
   const [codeError, setCodeError] = useState<string | null>(null);
@@ -94,12 +95,12 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
       qc.invalidateQueries({ queryKey: qk.cardsAll });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
       qc.invalidateQueries({ queryKey: qk.formAll });
-      toast.success("Карта сохранена");
+      toast.success(t("settings.cardDialog.saved"));
       onClose();
     },
     onError: (e) => {
-      if (e instanceof KpiApiError && e.code === "code_taken") setCodeError(kpiErrorText(e));
-      else toast.error(kpiErrorText(e));
+      if (e instanceof KpiApiError && e.code === "code_taken") setCodeError(kpiErrorText(e, t));
+      else toast.error(kpiErrorText(e, t));
     },
   });
 
@@ -122,8 +123,8 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
       className="space-y-4"
     >
       <DialogHeader>
-        <DialogTitle>{card ? "Карта" : "Новая карта"}</DialogTitle>
-        <DialogDescription>{card ? card.code : "Карта оценки сотрудника"}</DialogDescription>
+        <DialogTitle>{card ? t("settings.cardDialog.titleEdit") : t("settings.cardDialog.titleNew")}</DialogTitle>
+        <DialogDescription>{card ? card.code : t("settings.cardDialog.descriptionNew")}</DialogDescription>
       </DialogHeader>
 
       {!card && (
@@ -133,7 +134,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
             const bad = v !== "" && !cardCodeOk(v);
             return (
               <div className="space-y-1">
-                <Label htmlFor="card-code">Код</Label>
+                <Label htmlFor="card-code">{t("settings.cardDialog.code")}</Label>
                 <Input
                   id="card-code"
                   className="h-11"
@@ -146,7 +147,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
                   }}
                 />
                 <p className={bad || codeError ? "text-sm text-destructive" : "text-sm text-muted-foreground"} role={bad || codeError ? "alert" : undefined}>
-                  {codeError ?? CODE_HINT}
+                  {codeError ?? t("settings.cardDialog.codeHint")}
                 </p>
               </div>
             );
@@ -157,7 +158,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
       <form.Field name="title_ru">
         {(field) => (
           <div className="space-y-1">
-            <Label htmlFor="card-title-ru">Название (рус.)</Label>
+            <Label htmlFor="card-title-ru">{t("settings.cardDialog.titleRu")}</Label>
             <Input id="card-title-ru" className="h-11" value={field.state.value} disabled={busy} onChange={(e) => field.handleChange(e.target.value)} />
           </div>
         )}
@@ -165,32 +166,32 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
       <form.Field name="title_uz">
         {(field) => (
           <div className="space-y-1">
-            <Label htmlFor="card-title-uz">Название (узб.)</Label>
+            <Label htmlFor="card-title-uz">{t("settings.cardDialog.titleUz")}</Label>
             <Input id="card-title-uz" className="h-11" value={field.state.value} disabled={busy} onChange={(e) => field.handleChange(e.target.value)} />
           </div>
         )}
       </form.Field>
 
       <div className="space-y-1">
-        <Label>Должности, которым карта выдаётся автоматически</Label>
+        <Label>{t("settings.cardDialog.roles")}</Label>
         {roles.isError ? (
           <form.Field name="rolesText">
             {(field) => (
               <div className="space-y-1">
                 <Input
-                  aria-label="Коды ролей через запятую"
-                  placeholder="Коды ролей через запятую"
+                  aria-label={t("settings.cardDialog.roleCodes")}
+                  placeholder={t("settings.cardDialog.roleCodes")}
                   className="h-11"
                   value={field.state.value}
                   disabled={busy}
                   onChange={(e) => field.handleChange(e.target.value)}
                 />
-                <p className="text-sm text-muted-foreground">Справочник должностей недоступен, коды вводятся вручную</p>
+                <p className="text-sm text-muted-foreground">{t("settings.cardDialog.rolesUnavailable")}</p>
               </div>
             )}
           </form.Field>
         ) : roles.isPending ? (
-          <p className="text-sm text-muted-foreground">Загрузка…</p>
+          <p className="text-sm text-muted-foreground">{t("settings.cardDialog.loading")}</p>
         ) : (
           <form.Field name="roles">
             {(field) => {
@@ -198,13 +199,13 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
               const extra = selected.filter((c) => !known.has(c));
               const options = [
                 ...(roles.data ?? []).map((r) => ({ code: r.code, label: r.name_ru })),
-                ...extra.map((c) => ({ code: c, label: `${c} (нет среди активных)` })),
+                ...extra.map((c) => ({ code: c, label: t("settings.cardDialog.inactiveRole", { code: c }) })),
               ];
               const toggle = (code: string, on: boolean) =>
                 field.handleChange(on ? [...selected, code] : selected.filter((c) => c !== code));
               return (
                 <div className="grid max-h-56 gap-1 overflow-y-auto rounded-md border p-2 sm:grid-cols-2">
-                  {options.length === 0 && <p className="text-sm text-muted-foreground">Должностей нет</p>}
+                  {options.length === 0 && <p className="text-sm text-muted-foreground">{t("settings.cardDialog.noRoles")}</p>}
                   {options.map((o) => (
                     <label key={o.code} className="flex min-h-9 items-center gap-2 text-sm">
                       <input type="checkbox" checked={selected.includes(o.code)} disabled={busy} onChange={(e) => toggle(o.code, e.target.checked)} />
@@ -221,7 +222,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
       <form.Field name="sort">
         {(field) => (
           <div className="space-y-1">
-            <Label htmlFor="card-sort">Порядок</Label>
+            <Label htmlFor="card-sort">{t("settings.cardDialog.sort")}</Label>
             <Input
               id="card-sort"
               type="number"
@@ -233,7 +234,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
             />
             {!sortOk(field.state.value) && (
               <p role="alert" className="text-sm text-destructive">
-                Порядок — целое число от 0 до 100000
+                {t("settings.cardDialog.sortError")}
               </p>
             )}
           </div>
@@ -245,7 +246,7 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
           {(field) => (
             <label className="flex min-h-11 items-center gap-2 text-sm">
               <Switch checked={field.state.value} disabled={busy} onCheckedChange={field.handleChange} />
-              Карта включена
+              {t("settings.cardDialog.enabled")}
             </label>
           )}
         </form.Field>
@@ -261,10 +262,10 @@ function CardForm({ card, onClose, onPending }: { card: Card | null; onClose: ()
           return (
             <DialogFooter className="gap-2 sm:gap-2">
               <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
-                Отмена
+                {t("settings.cardDialog.cancel")}
               </Button>
               <Button type="submit" className="h-11" disabled={busy || !ok}>
-                Сохранить
+                {t("settings.cardDialog.save")}
               </Button>
             </DialogFooter>
           );

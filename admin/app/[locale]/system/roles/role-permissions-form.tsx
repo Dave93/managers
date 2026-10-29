@@ -17,7 +17,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { linkedRolesPermissionsColumns } from "./role-permissions-columns";
+import { useLinkedRolesPermissionsColumns } from "./role-permissions-columns";
 import {
   Table,
   TableBody,
@@ -37,6 +37,7 @@ export default function RolePermissionsForm({
 }: {
   children: React.ReactNode;
 }) {
+  const linkedRolesPermissionsColumns = useLinkedRolesPermissionsColumns();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState<boolean>(false);
   const roleSelection = useRolesStore((state) => state.selectedRows);

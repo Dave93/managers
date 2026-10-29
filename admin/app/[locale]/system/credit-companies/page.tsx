@@ -2,9 +2,10 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Plus } from "lucide-react";
 import { DataTable } from "./data-table";
-import { getCreditCompaniesColumns, formatSum } from "./columns";
+import { getCreditCompaniesColumns, useFormatSum } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Card, CardHeader, CardTitle, CardDescription } from "@admin/components/ui/card";
 import CreditCompaniesFormSheet from "@admin/components/forms/credit_companies/sheet";
@@ -12,8 +13,10 @@ import { useCanAccess } from "@admin/components/use-can-access";
 import { getSummary } from "@admin/lib/credit-api";
 
 export default function CreditCompaniesListPage() {
+  const t = useTranslations("systemPages.creditCompanies");
+  const formatSum = useFormatSum();
   const canEdit = useCanAccess("credit.edit");
-  const columns = useMemo(() => getCreditCompaniesColumns(canEdit), [canEdit]);
+  const columns = useMemo(() => getCreditCompaniesColumns(canEdit, t), [canEdit, t]);
 
   const { data: summary } = useQuery({
     queryKey: ["credit_summary"],
@@ -29,12 +32,12 @@ export default function CreditCompaniesListPage() {
   return (
     <div>
       <div className="flex justify-between">
-        <h2 className="text-3xl font-bold tracking-tight">Кредитные компании</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("title")}</h2>
         {canEdit && (
           <div className="flex items-center space-x-2">
             <CreditCompaniesFormSheet>
               <Button>
-                <Plus className="mr-2 h-4 w-4" /> Добавить компанию
+                <Plus className="mr-2 h-4 w-4" /> {t("addCompany")}
               </Button>
             </CreditCompaniesFormSheet>
           </div>
@@ -44,14 +47,14 @@ export default function CreditCompaniesListPage() {
       <div className="mt-6 grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
-            <CardDescription>Общий долг</CardDescription>
+            <CardDescription>{t("summary.totalDebt")}</CardDescription>
             <CardTitle className="text-2xl">{formatSum(summary?.total_debt)}</CardTitle>
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardDescription>Топ должников</CardDescription>
+            <CardDescription>{t("summary.topDebtors")}</CardDescription>
             {topDebtors.length ? (
               <ul className="mt-1 space-y-1 text-sm">
                 {topDebtors.map((d) => (
@@ -62,14 +65,14 @@ export default function CreditCompaniesListPage() {
                 ))}
               </ul>
             ) : (
-              <CardTitle className="text-base text-muted-foreground">нет</CardTitle>
+              <CardTitle className="text-base text-muted-foreground">{t("none")}</CardTitle>
             )}
           </CardHeader>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardDescription>&gt;80% месячного лимита</CardDescription>
+            <CardDescription>{t("summary.over80")}</CardDescription>
             {overLimit.length ? (
               <ul className="mt-1 space-y-1 text-sm">
                 {overLimit.map((c) => (
@@ -82,7 +85,7 @@ export default function CreditCompaniesListPage() {
                 ))}
               </ul>
             ) : (
-              <CardTitle className="text-base text-muted-foreground">нет</CardTitle>
+              <CardTitle className="text-base text-muted-foreground">{t("none")}</CardTitle>
             )}
           </CardHeader>
         </Card>

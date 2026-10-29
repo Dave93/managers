@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   Popover,
   PopoverContent,
@@ -45,6 +46,7 @@ import React from "react";
 import { useAuth } from "@admin/components/useAuth";
 
 export const OlapFilters = () => {
+  const t = useTranslations("invoicesUi.filters");
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
@@ -150,10 +152,10 @@ export const OlapFilters = () => {
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent position="popper">
-              <SelectItem value="-1">Вчера</SelectItem>
-              <SelectItem value="0">Сегодня</SelectItem>
-              <SelectItem value="lastWeek">За прошлую неделю</SelectItem>
-              <SelectItem value="lastMonth">За прошлый месяц</SelectItem>
+              <SelectItem value="-1">{t("yesterday")}</SelectItem>
+              <SelectItem value="0">{t("today")}</SelectItem>
+              <SelectItem value="lastWeek">{t("lastWeek")}</SelectItem>
+              <SelectItem value="lastMonth">{t("lastMonth")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -175,7 +177,7 @@ export const OlapFilters = () => {
         value={storeId}
       >
         <SelectTrigger className="w-full sm:max-w-xs">
-          <SelectValue placeholder="Склады" />
+          <SelectValue placeholder={t("stores")} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
@@ -194,14 +196,14 @@ export const OlapFilters = () => {
         }}
       >
         <SelectTrigger className="w-full sm:max-w-xs">
-          <SelectValue placeholder="Тип продукта" />
+          <SelectValue placeholder={t("productType")} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            <SelectItem value="all">Все типы</SelectItem>
-            <SelectItem value="GOODS">Товары</SelectItem>
-            <SelectItem value="DISH">Блюда</SelectItem>
-            <SelectItem value="PREPARED">Заготовки</SelectItem>
+            <SelectItem value="all">{t("allTypes")}</SelectItem>
+            <SelectItem value="GOODS">{t("goods")}</SelectItem>
+            <SelectItem value="DISH">{t("dishes")}</SelectItem>
+            <SelectItem value="PREPARED">{t("prepared")}</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>

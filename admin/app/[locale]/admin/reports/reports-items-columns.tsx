@@ -2,6 +2,7 @@
 import { ColumnDef } from "@tanstack/react-table";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Check } from "lucide-react";
@@ -11,22 +12,24 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 const editableSources = ["cash", "uzcard", "humo", "other_expenses"];
 const editableStatusCode = ["checking", "confirmed", "rejected"];
-export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
+export const useReportsItemsColumns = (): ColumnDef<ReportsItemsWithRelation>[] => {
+  const t = useTranslations("adminReports");
+  return useMemo<ColumnDef<ReportsItemsWithRelation>[]>(() => [
   {
     accessorKey: "label",
-    header: "Заголовок",
+    header: t("items.columns.label"),
   },
   {
     accessorKey: "type",
-    header: "Тип",
+    header: t("items.columns.type"),
     cell: ({ row }) => {
       const record = row.original;
       let value = "";
 
       if (record.type === "income") {
-        value = "Доход";
+        value = t("items.income");
       } else if (record.type === "outcome") {
-        value = "Расход";
+        value = t("items.outcome");
       }
 
       return <span>{value}</span>;
@@ -34,7 +37,7 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Сумма",
+    header: t("items.columns.amount"),
     cell: function Cell({ row }) {
       const queryClient = useQueryClient();
       const record = row.original;
@@ -107,4 +110,5 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
       );
     },
   },
-];
+  ], [t]);
+};

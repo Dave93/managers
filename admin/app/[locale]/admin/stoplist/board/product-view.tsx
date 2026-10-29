@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import { Skeleton } from "@admin/components/ui/skeleton";
-import { BRAND_LABEL, fmtDateTime, fmtDuration, severityClass, terminalsWord } from "./format";
+import { BRAND_LABEL, fmtDateTime, fmtDuration, severityClass } from "./format";
 import type { ProductGroup } from "./use-board";
 
 type Props = {
@@ -22,6 +23,7 @@ function ProductRow({
   showBrand: boolean;
   onOpenTerminal: (key: string) => void;
 }) {
+  const t = useTranslations("stoplistPage");
   const [open, setOpen] = useState(false);
   const n = p.terminals.length;
   return (
@@ -44,12 +46,12 @@ function ProductRow({
             )}
           </span>
           <span className="block text-xs text-muted-foreground">
-            {n} {terminalsWord(n)}
-            {p.freshCount > 0 ? `, ${p.freshCount} за сутки` : ""}
+            {t("board.terminalsCount", { count: n })}
+            {p.freshCount > 0 ? `, ${t("board.freshInDay", { count: p.freshCount })}` : ""}
           </span>
         </span>
         <span className={cn("shrink-0 text-sm tabular-nums", severityClass(p.maxSeconds))}>
-          до {fmtDuration(p.maxSeconds)}
+          {t("board.upTo", { duration: fmtDuration(t, p.maxSeconds) })}
         </span>
         <span
           className={cn(
@@ -71,11 +73,11 @@ function ProductRow({
               >
                 {terminal.name}
                 <span className="ml-2 text-xs text-muted-foreground">
-                  с {fmtDateTime(position.started_at)}
+                  {t("board.since", { date: fmtDateTime(position.started_at) })}
                 </span>
               </button>
               <span className={cn("text-sm tabular-nums", severityClass(position.seconds))}>
-                {fmtDuration(position.seconds)}
+                {fmtDuration(t, position.seconds)}
               </span>
             </li>
           ))}
@@ -86,6 +88,7 @@ function ProductRow({
 }
 
 export function ProductView({ products, showBrand, isLoading, onOpenTerminal }: Props) {
+  const t = useTranslations("stoplistPage");
   if (isLoading) {
     return (
       <div className="space-y-1 p-1">
@@ -98,16 +101,16 @@ export function ProductView({ products, showBrand, isLoading, onOpenTerminal }: 
   if (products.length === 0) {
     return (
       <div className="px-3 py-10 text-center text-sm text-muted-foreground">
-        Ничего не найдено
+        {t("board.nothingFound")}
       </div>
     );
   }
   return (
     <div className="rounded-lg border">
       <div className="flex items-center gap-3 border-b bg-muted/40 px-3 py-1.5 text-xs text-muted-foreground">
-        <span className="ml-7 flex-1">Продукт · в скольких филиалах в стопе сейчас</span>
-        <span>самый долгий</span>
-        <span className="w-8 text-right">филиалов</span>
+        <span className="ml-7 flex-1">{t("board.productHeader")}</span>
+        <span>{t("board.longest")}</span>
+        <span className="w-8 text-right">{t("board.terminalsHeader")}</span>
       </div>
       <ul className="divide-y">
         {products.map((p) => (

@@ -2,6 +2,7 @@
 import React, { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
@@ -13,6 +14,7 @@ import { SETTINGS_FIELDS, settingsIssues, settingsPatch } from "@admin/lib/kpi/s
 import { qk } from "../../_components/use-kpi";
 
 export function DeadlinesTab() {
+  const t = useTranslations("kpi");
   const settings = useQuery<KpiSettings, Error>({
     queryKey: qk.settings,
     queryFn: () => kpiApi.settings.get(),
@@ -21,15 +23,16 @@ export function DeadlinesTab() {
   if (settings.error) {
     return (
       <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-        {kpiErrorText(settings.error)}
+        {kpiErrorText(settings.error, t)}
       </p>
     );
   }
-  if (!settings.data) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
+  if (!settings.data) return <p className="text-sm text-muted-foreground">{t("settings.deadlines.loading")}</p>;
   return <DeadlinesForm before={settings.data} />;
 }
 
 function DeadlinesForm({ before }: { before: KpiSettings }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [problem, setProblem] = useState<string | null>(null);
 
@@ -44,15 +47,15 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
       qc.setQueryData(qk.settings, saved);
       qc.invalidateQueries({ queryKey: qk.me });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
-      toast.success("Настройки сохранены");
+      toast.success(t("settings.deadlines.saved"));
     },
-    onError: (e) => setProblem(kpiErrorText(e)),
+    onError: (e) => setProblem(kpiErrorText(e, t)),
   });
   const busy = save.isPending;
 
   const submit = (values: KpiSettings) => {
     if (busy) return;
-    const issues = settingsIssues(values);
+    const issues = settingsIssues(values, t);
     if (issues.length > 0) {
       setProblem(issues.join(". "));
       return;
@@ -60,7 +63,7 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
     const patch = settingsPatch(before, values);
     if (Object.keys(patch).length === 0) {
       setProblem(null);
-      toast.message("Нет изменений");
+      toast.message(t("settings.deadlines.noChanges"));
       return;
     }
     setProblem(null);
@@ -85,14 +88,14 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
               return (
                 <label htmlFor={id} className="flex min-h-11 items-center gap-2 text-sm">
                   <Switch id={id} checked={field.state.value as boolean} disabled={busy} onCheckedChange={(v) => { setProblem(null); field.handleChange(v as never); }} />
-                  {f.label}
+                  {t(f.labelKey)}
                 </label>
               );
             }
             const v = field.state.value as number;
             return (
               <div className="space-y-1">
-                <Label htmlFor={id}>{f.label}</Label>
+                <Label htmlFor={id}>{t(f.labelKey)}</Label>
                 <Input
                   id={id}
                   type="number"
@@ -107,7 +110,7 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
                     field.handleChange((e.target.value === "" ? NaN : Number(e.target.value)) as never);
                   }}
                 />
-                {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
+                {f.hintKey && <p className="text-xs text-muted-foreground">{t(f.hintKey)}</p>}
               </div>
             );
           }}
@@ -121,7 +124,7 @@ function DeadlinesForm({ before }: { before: KpiSettings }) {
       )}
 
       <Button type="submit" className="h-11" disabled={busy}>
-        Сохранить
+        {t("settings.deadlines.save")}
       </Button>
     </form>
   );

@@ -72,7 +72,7 @@ describe("проверки", () => {
     ]);
     expect(UNMATCHED_REASON_TEXT.not_working_day).toBe("Нерабочий день (выходной, отпуск, больничный)");
     expect(UNMATCHED_REASON_TEXT.no_marks).toBe("Нет отметок прихода и ухода");
-    expect([IMPORT_STATUS.committed, IMPORT_STATUS.replaced]).toEqual([{ label: "Действует", tone: "green" }, { label: "Заменён", tone: "gray" }]);
+    expect([IMPORT_STATUS.committed, IMPORT_STATUS.replaced].map(({ label, tone }) => ({ label, tone }))).toEqual([{ label: "Действует", tone: "green" }, { label: "Заменён", tone: "gray" }]);
   });
 });
 

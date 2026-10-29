@@ -21,6 +21,9 @@ import type { Brand, GroupKey, ShiftKey } from "./use-network-map";
 
 export type MapMode = "staff" | "shifts" | "trainees" | "data";
 
+/** Функция перевода из useTranslations("networkMap"). */
+export type Tr = (key: string, values?: Record<string, string | number>) => string;
+
 // --------------------------------------------------------------------------
 // бренды
 //
@@ -31,12 +34,18 @@ export type MapMode = "staff" | "shifts" | "trainees" | "data";
 // --------------------------------------------------------------------------
 export const BRAND: Record<
   Brand,
-  { label: string; color: string; shape: "circle" | "hex" }
+  { label: string | null; color: string; shape: "circle" | "hex" }
 > = {
   les: { label: "Les Ailes", color: "#fc004a", shape: "circle" },
   chopar: { label: "ChoparPizza", color: "#ffb02e", shape: "hex" },
-  other: { label: "Прочее", color: "#94a3b8", shape: "circle" },
+  other: { label: null, color: "#94a3b8", shape: "circle" },
 };
+
+/** Подпись бренда: названия брендов не переводятся, «Прочее» — да. */
+export function brandLabel(brand: Brand, t: Tr): string {
+  const b = BRAND[brand] ?? BRAND.other;
+  return b.label ?? t("brand.other");
+}
 
 // --------------------------------------------------------------------------
 // состав
@@ -50,28 +59,24 @@ export const GROUP_ORDER: GroupKey[] = [
 
 export const GROUP: Record<
   GroupKey,
-  { label: string; short: string; color: string; hint: string }
+  { short: string; color: string; hint: string }
 > = {
   kitchen: {
-    label: "Кухня",
     short: "Кух",
     color: "#34d399",
     hint: "повар, старший повар, универсал, работник кухни, салатчица, мойка",
   },
   front: {
-    label: "Фронт",
     short: "Фронт",
     color: "#38bdf8",
     hint: "кассир, работник зала, раздача",
   },
   management: {
-    label: "Управление",
     short: "Упр",
     color: "#a78bfa",
     hint: "менеджер, стажёр-менеджер",
   },
   other: {
-    label: "Прочее",
     short: "Проч",
     color: "#94a3b8",
     hint: "охрана, няня, всё, что не разобралось по должности",
@@ -83,24 +88,29 @@ export const GROUP: Record<
 export const SHIFT_ORDER: ShiftKey[] = ["day", "night", "unknown"];
 export const SHIFT: Record<
   ShiftKey,
-  { label: string; color: string; hint: string }
+  { color: string; hint: string }
 > = {
   day: {
-    label: "День",
     color: "#e8eefc",
     hint: "в должности явно указана дневная смена",
   },
   night: {
-    label: "Ночь",
     color: "#7c83ff",
     hint: "в должности явно указана ночная смена",
   },
   unknown: {
-    label: "Смена не указана",
     color: "#3b4763",
     hint: "в строке должности смены нет — это пробел справочника, а не третья смена",
   },
 };
+
+export function groupLabel(k: GroupKey, t: Tr): string {
+  return t(`group.${k}`);
+}
+
+export function shiftLabel(k: ShiftKey, t: Tr): string {
+  return t(`shift.${k}`);
+}
 
 export const TRAINEE_COLOR = "#ffd166";
 export const EXPERIENCED_COLOR = "#3d4b66";
@@ -109,40 +119,12 @@ export const TRAINEE_ALERT = 1 / 3;
 
 export const NO_DATA_COLOR = "#64748b";
 
-export const MODES: {
-  value: MapMode;
-  label: string;
-  question: string;
-  legend: string;
-}[] = [
-  {
-    value: "staff",
-    label: "Штат",
-    question: "Где сколько людей и какого состава",
-    legend:
-      "Размер узла — корень из числа людей (линейный размер раздавил бы карту: разброс от 0 до 36). Кольцо — доли состава по часовой стрелке от 12 часов: кухня, фронт, управление, прочее.",
-  },
-  {
-    value: "shifts",
-    label: "Смены",
-    question: "Как штат разложен на день и ночь",
-    legend:
-      "Кольцо — доли смен: светлое это день, тёмно-синее ночь, глухое серое — смена в справочнике не указана. Размер узла прежний, число людей.",
-  },
-  {
-    value: "trainees",
-    label: "Стажёры",
-    question: "Где много новичков",
-    legend:
-      "Кольцо — доля стажёров в штате филиала. Тёплый ореол вокруг узла означает, что стажёров треть и больше: такой филиал тянет обучение, а не работает.",
-  },
-  {
-    value: "data",
-    label: "Данные",
-    question: "Где справочник заполнен, а где нет",
-    legend:
-      "Размер выключен, чтобы карта читалась только как покрытие: закрашенный узел — состав заведён, пунктирный полый со знаком «?» — по филиалу нет ни одной строки. Пунктирные узлы мигают, потому что это дыра в данных, а не оформление.",
-  },
+/** Подписи режимов (label, question, legend) лежат в переводах: mode.<value>.* */
+export const MODES: { value: MapMode }[] = [
+  { value: "staff" },
+  { value: "shifts" },
+  { value: "trainees" },
+  { value: "data" },
 ];
 
 // --------------------------------------------------------------------------

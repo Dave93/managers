@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
@@ -25,6 +26,10 @@ export default function RaisesPage() {
 }
 
 function RaisesScreen() {
+  const t = useTranslations("kpiScreens.raises");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const now = useMemo(() => new Date(), []);
   const qc = useQueryClient();
   const { access } = useKpiPerms();
@@ -50,9 +55,9 @@ function RaisesScreen() {
     mutationFn: () => kpiApi.raises.compute(quarter),
     onSuccess: (fresh) => {
       qc.setQueryData(qk.raises(quarter), fresh);
-      toast.success(`Пересчитано: ${fresh.length}`);
+      toast.success(t("recomputed", { count: fresh.length }));
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
   const exportCsv = async () => {
@@ -69,7 +74,7 @@ function RaisesScreen() {
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (e) {
-      toast.error(kpiErrorText(e));
+      toast.error(kpiErrorText(e, tk));
     } finally {
       setCsvBusy(false);
     }
@@ -84,15 +89,15 @@ function RaisesScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Повышения</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title")}</h1>
         <Select value={quarter} onValueChange={setQuarter}>
-          <SelectTrigger className="w-48" aria-label="Квартал">
-            <SelectValue placeholder="Квартал" />
+          <SelectTrigger className="w-48" aria-label={t("quarter")}>
+            <SelectValue placeholder={t("quarter")} />
           </SelectTrigger>
           <SelectContent>
             {options.map((q) => (
               <SelectItem key={q} value={q}>
-                {quarterLabel(q)}
+                {quarterLabel(q, tk)}
               </SelectItem>
             ))}
           </SelectContent>
@@ -100,10 +105,10 @@ function RaisesScreen() {
         {access.approve && (
           <>
             <Button type="button" className="h-11" disabled={compute.isPending} onClick={() => compute.mutate()}>
-              Пересчитать
+              {t("recompute")}
             </Button>
             <Button type="button" variant="outline" className="h-11" disabled={csvBusy} onClick={exportCsv}>
-              Выгрузить CSV
+              {t("exportCsv")}
             </Button>
           </>
         )}
@@ -111,7 +116,7 @@ function RaisesScreen() {
 
       {meLoad.blocking != null && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(meLoad.blocking)}
+          {kpiErrorText(meLoad.blocking, tk)}
         </p>
       )}
 
@@ -119,13 +124,13 @@ function RaisesScreen() {
 
       {listLoad.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(listLoad.blocking)}
+          {kpiErrorText(listLoad.blocking, tk)}
         </p>
       ) : list.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {access.approve ? "За квартал нет расчёта. Нажмите «Пересчитать»." : "HR ещё не считал повышения за этот квартал"}
+          {access.approve ? t("emptyApprove") : t("emptyNoApprove")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
@@ -134,21 +139,21 @@ function RaisesScreen() {
               <TableRow>
                 {/* ФИО прилипает слева, «Решение» справа: узкое окно прокручивает середину, а имя и кнопка остаются на месте.
                     Фон непрозрачный (токен темы) и z-index выше соседних ячеек, ничего не просвечивает. */}
-                <TableHead className="sticky left-0 z-20 bg-background">ФИО</TableHead>
-                <TableHead>Филиал</TableHead>
-                <TableHead>Карта</TableHead>
+                <TableHead className="sticky left-0 z-20 bg-background">{t("colName")}</TableHead>
+                <TableHead>{t("colBranch")}</TableHead>
+                <TableHead>{t("colCard")}</TableHead>
                 {months.map((m) => (
                   <TableHead key={m} className="text-right">
-                    {monthLabel(m).slice(0, 3)}
+                    {monthLabel(m, locale).slice(0, 3)}
                   </TableHead>
                 ))}
-                <TableHead className="text-right">Средняя</TableHead>
-                <TableHead className="text-right">Предложение</TableHead>
-                <TableHead>Статус</TableHead>
-                <TableHead>Решение</TableHead>
+                <TableHead className="text-right">{t("colAverage")}</TableHead>
+                <TableHead className="text-right">{t("colSuggested")}</TableHead>
+                <TableHead>{t("colStatus")}</TableHead>
+                <TableHead>{t("colDecision")}</TableHead>
                 {access.approve && (
                   <TableHead className="sticky right-0 z-20 bg-background">
-                    <span className="sr-only">Действия</span>
+                    <span className="sr-only">{t("colActions")}</span>
                   </TableHead>
                 )}
               </TableRow>
@@ -168,17 +173,17 @@ function RaisesScreen() {
                       </TableCell>
                     ))}
                     <TableCell className="text-right">{formatPct(r.avg_pct)}</TableCell>
-                    <TableCell className="text-right">{formatSum(r.suggested_amount)}</TableCell>
+                    <TableCell className="text-right">{formatSum(r.suggested_amount, tk)}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
-                        {r.stale && <KpiBadge tone="amber">устарело</KpiBadge>}
+                        <KpiBadge tone={st.tone}>{tk(st.labelKey)}</KpiBadge>
+                        {r.stale && <KpiBadge tone="amber">{t("stale")}</KpiBadge>}
                       </div>
                     </TableCell>
                     <TableCell className="min-w-40 text-sm">
                       {decided ? (
                         <div className="space-y-0.5">
-                          <div>{r.status === "approved" ? formatSum(r.approved_amount) : "Отказано"}</div>
+                          <div>{r.status === "approved" ? formatSum(r.approved_amount, tk) : t("refused")}</div>
                           <div className="text-xs text-muted-foreground">{r.decided_by_name ?? "—"}</div>
                           {r.comment && <div className="whitespace-pre-wrap break-words text-xs">{r.comment}</div>}
                         </div>
@@ -189,7 +194,7 @@ function RaisesScreen() {
                     {access.approve && (
                       <TableCell className="sticky right-0 z-10 bg-background">
                         <Button type="button" variant="outline" className="h-11" disabled={cap === undefined} onClick={() => setDecideId(r.id)}>
-                          Решение
+                          {t("decideButton")}
                         </Button>
                       </TableCell>
                     )}

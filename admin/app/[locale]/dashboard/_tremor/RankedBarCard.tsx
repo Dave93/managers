@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { Card, CardContent } from "@admin/components/ui/card";
 import { cn } from "@admin/lib/utils";
@@ -30,10 +31,11 @@ type Props = {
 };
 
 const DeltaChip = ({ current, previous }: { current: number; previous: number | null | undefined }) => {
+  const t = useTranslations("dashboardUi.rankedBar");
   if (previous == null) {
     return (
       <span className="inline-flex items-center gap-0.5 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px] font-bold text-muted-foreground dark:bg-slate-800">
-        новый
+        {t("new")}
       </span>
     );
   }
@@ -72,6 +74,8 @@ export default function RankedBarCard({
   orgOptions,
   onOrganizationChange,
 }: Props) {
+  const t = useTranslations("dashboardUi.rankedBar");
+  const tCharts = useTranslations("charts");
   const sorted = React.useMemo(() => {
     const allRanked = rows.length > 0 && rows.every((r) => r.rank != null);
     if (allRanked) {
@@ -124,7 +128,7 @@ export default function RankedBarCard({
                     onClick={() => onOrganizationChange("")}
                     className="px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
                   >
-                    Все
+                    {tCharts("all")}
                   </button>
                   {orgOptions.map((o) => (
                     <button
@@ -191,7 +195,7 @@ export default function RankedBarCard({
             );
           })}
           {sorted.length === 0 && (
-            <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
+            <div className="py-6 text-center text-sm text-muted-foreground">{t("noData")}</div>
           )}
         </div>
       </CardContent>

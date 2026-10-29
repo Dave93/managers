@@ -11,7 +11,7 @@ import { InferSelectModel } from "drizzle-orm";
 import { Minus, Plus } from "lucide-react";
 import { InternalTransferListDto } from "@backend/modules/internal_transfer/dto/list.dto";
 
-export const reportsColumns: ColumnDef<InternalTransferListDto>[] = [
+export const getReportsColumns = (t: (key: string) => string): ColumnDef<InternalTransferListDto>[] => [
   {
     accessorKey: "id",
     header: () => null,
@@ -32,15 +32,15 @@ export const reportsColumns: ColumnDef<InternalTransferListDto>[] = [
   },
   {
     accessorKey: "documentNumber",
-    header: "Документ",
+    header: t("columns.document"),
   },
   {
     accessorKey: "fromStoreName",
-    header: "Склад из",
+    header: t("columns.storeFrom"),
   },
   {
     accessorKey: "toStoreName",
-    header: "Склад в",
+    header: t("columns.storeTo"),
     // cell: ({ row }) => {
     //   const record = row.original;
     //   return (
@@ -53,7 +53,7 @@ export const reportsColumns: ColumnDef<InternalTransferListDto>[] = [
   },
   {
     accessorKey: "dateIncoming",
-    header: "Дата",
+    header: t("columns.date"),
     cell: ({ row }) => {
       const record = row.original;
       return (

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import {
   Area,
   CartesianGrid,
@@ -96,6 +97,7 @@ export default function KpiAreaCard({
   onOrganizationChange,
   footerRight,
 }: Props) {
+  const tCharts = useTranslations("charts");
   const pct = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
   const up = pct >= 0;
   const gradId = React.useId();
@@ -134,7 +136,7 @@ export default function KpiAreaCard({
                 onClick={() => onOrganizationChange("")}
                 className="px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
               >
-                Все
+                {tCharts("all")}
               </button>
               {orgOptions.map((o) => (
                 <button

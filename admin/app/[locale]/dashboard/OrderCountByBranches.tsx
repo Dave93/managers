@@ -37,6 +37,7 @@ const fetchData = async (
 
 const OrderCountByBranches = () => {
   const t = useTranslations();
+  const tRank = useTranslations("dashboardUi.rankSummary");
   const compact = (n: number) => {
     const million = 1_000_000, thousand = 1_000;
     if (Math.abs(n) >= million) return `${(n / million).toFixed(1)} ${t("charts.million")}`;
@@ -92,7 +93,7 @@ const OrderCountByBranches = () => {
   );
 
   const ownRows = React.useMemo(() => rows.filter((r) => r.own), [rows]);
-  const subtitle = data.masked ? rankSummary(ownRows, data.total, { brandSelected: !!organization }) : undefined;
+  const subtitle = data.masked ? rankSummary(ownRows, data.total, { brandSelected: !!organization }, tRank) : undefined;
 
   return (
     <RankedBarCard

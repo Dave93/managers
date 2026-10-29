@@ -33,6 +33,7 @@
 
 import { useMemo } from "react";
 import { AlertTriangle } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import type {
@@ -41,21 +42,9 @@ import type {
   PassportMatrixRow,
 } from "@admin/lib/passport-api";
 
-import { LevelChip, levelTitle } from "./level";
+import { LevelChip, levelTitle, type MatrixT } from "./level";
 import { EnrollmentStatusChip } from "./status";
-import {
-  brandLabel,
-  deadlineInfo,
-  fmtDate,
-  fullName,
-  plural,
-} from "./use-matrix";
-
-const OVERDUE_COUNTER_TITLE = [
-  "Модули, у которых дедлайн прошёл и которые ещё не закрыты.",
-  "Уже закрытый просроченный модуль сюда НЕ входит — но его ячейка всё равно с пунктирной красной рамкой: дедлайн действительно прошёл, догонять там нечего.",
-  "Модуль без активных тем, наоборот, входит: закрытым он не считается, хотя ячейка у него пустая — вопрос это к программе обучения, а не к стажёру.",
-].join("\n");
+import { brandLabel, deadlineInfo, fmtDate, fullName } from "./use-matrix";
 
 /** The identity of a column. NEVER `module_id` alone — see the header comment. */
 export function columnKey(m: { program_id: string; module_id: string }): string {
@@ -98,31 +87,36 @@ function edgeClass(cell: PassportMatrixCell | null): string {
 }
 
 function cellTitle(
+  t: MatrixT,
   column: PassportMatrixModule,
   cell: PassportMatrixCell | null
 ): string {
-  if (!cell)
-    return `${column.title_ru}\nМодуль не входит в прогресс этой стажировки`;
+  if (!cell) return `${column.title_ru}\n${t("grid.cellNoProgress")}`;
   const lines = [
     column.title_ru,
-    `Уровень: ${levelTitle(cell.level_min)}`,
-    `Тем закрыто (уровень «сам» и выше): ${cell.topics_done} из ${cell.topics_total}`,
-    cell.required ? "Модуль обязательный" : "Модуль необязательный",
+    t("grid.cellLevel", { level: levelTitle(t, cell.level_min) }),
+    t("grid.cellTopicsDone", {
+      done: cell.topics_done,
+      total: cell.topics_total,
+    }),
+    cell.required ? t("grid.cellRequired") : t("grid.cellOptional"),
   ];
   if (cell.deadline_at) {
     const label =
       cell.deadline_status === "overdue"
         ? cell.complete
-          ? "дедлайн прошёл, но модуль уже закрыт"
-          : "ПРОСРОЧЕН"
+          ? t("grid.cellDeadlinePassedClosed")
+          : t("grid.cellOverdue")
         : cell.deadline_status === "warning"
-          ? "меньше 3 дней"
-          : "в срок";
-    lines.push(`Дедлайн модуля: ${fmtDate(cell.deadline_at)} — ${label}`);
+          ? t("lessThan3Days")
+          : t("grid.cellOnTime");
+    lines.push(
+      t("grid.cellDeadline", { date: fmtDate(cell.deadline_at), label })
+    );
   } else {
-    lines.push("Дедлайн модуля не задан");
+    lines.push(t("grid.cellDeadlineNone"));
   }
-  lines.push("Нажмите, чтобы открыть журнал");
+  lines.push(t("grid.cellClickJournal"));
   return lines.join("\n");
 }
 
@@ -135,6 +129,12 @@ function ProgramSection({
   terminalName: (id: string | null) => string;
   onOpenCell: (t: CellTarget) => void;
 }) {
+  const t = useTranslations("passportUi.matrix");
+  const overdueCounterTitle = [
+    t("grid.overdueTitle1"),
+    t("grid.overdueTitle2"),
+    t("grid.overdueTitle3"),
+  ].join("\n");
   return (
     <section className="w-full min-w-0">
       <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 px-1">
@@ -142,8 +142,8 @@ function ProgramSection({
           {group.title}
         </h2>
         <span className="text-[11.5px] text-muted-foreground">
-          {plural(group.rows.length, "стажёр", "стажёра", "стажёров")} ·{" "}
-          {plural(group.columns.length, "модуль", "модуля", "модулей")}
+          {t("grid.trainees", { count: group.rows.length })} ·{" "}
+          {t("grid.modules", { count: group.columns.length })}
         </span>
       </div>
 
@@ -153,9 +153,7 @@ function ProgramSection({
           two-column table that looks like a bug. */}
       {group.columns.length === 0 && (
         <p className="mb-2 px-1 text-[11.5px] leading-snug text-amber-700 dark:text-amber-400">
-          В этой программе нет ни одного опубликованного модуля, поэтому колонок
-          нет. Стажёры к ней привязаны, но учить их пока нечему — модули нужно
-          опубликовать в конструкторе программ обучения.
+          {t("grid.noPublished")}
         </p>
       )}
 
@@ -168,13 +166,13 @@ function ProgramSection({
                 scope="col"
                 className="sticky left-0 z-20 w-[268px] min-w-[268px] border-b bg-card px-3 py-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground shadow-[1px_0_0_0_hsl(var(--border))]"
               >
-                Стажёр
+                {t("grid.colTrainee")}
               </th>
               <th
                 scope="col"
                 className="w-[96px] min-w-[96px] border-b bg-card px-2 py-2 text-center text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
               >
-                Модули
+                {t("grid.colModules")}
               </th>
               {group.columns.map((c, i) => (
                 <th
@@ -182,19 +180,21 @@ function ProgramSection({
                   scope="col"
                   title={`${i + 1}. ${c.title_ru}${
                     c.deadline_days
-                      ? `\nДедлайн: ${c.deadline_days} дн. от старта стажировки`
-                      : "\nДедлайн не задан"
-                  }${c.required ? "" : "\nНеобязательный модуль"}`}
+                      ? `\n${t("grid.colDeadline", { days: c.deadline_days })}`
+                      : `\n${t("grid.colDeadlineNone")}`
+                  }${c.required ? "" : `\n${t("grid.colOptionalModule")}`}`}
                   className="w-[112px] min-w-[112px] max-w-[112px] border-b bg-card px-1.5 py-2 align-bottom"
                 >
                   <span className="block text-[9.5px] font-medium tabular-nums text-muted-foreground/70">
                     {i + 1}
                     {!c.required && (
-                      <span className="ml-1 font-normal">необяз.</span>
+                      <span className="ml-1 font-normal">
+                        {t("grid.optionalShort")}
+                      </span>
                     )}
                     {c.deadline_days ? (
                       <span className="ml-1 font-normal">
-                        · {c.deadline_days} дн.
+                        · {t("grid.daysShort", { count: c.deadline_days })}
                       </span>
                     ) : null}
                   </span>
@@ -221,7 +221,8 @@ function ProgramSection({
                         <span className="truncate text-[13px] font-medium">
                           {fullName(
                             row.employee.first_name,
-                            row.employee.last_name
+                            row.employee.last_name,
+                            t("unnamed")
                           )}
                         </span>
                         {row.status !== "active" && (
@@ -229,7 +230,7 @@ function ProgramSection({
                         )}
                       </span>
                       <span className="truncate text-[11px] text-muted-foreground">
-                        {row.employee.position || "должность не указана"} ·{" "}
+                        {row.employee.position || t("positionNotSet")} ·{" "}
                         {row.terminal_name ?? terminalName(row.terminal_id)}
                         {brandLabel(row.brand)
                           ? ` · ${brandLabel(row.brand)}`
@@ -243,25 +244,18 @@ function ProgramSection({
                               ? "border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
                               : "border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300"
                           )}
-                          title={`Испытательный срок до ${fmtDate(
-                            row.probation_deadline
-                          )}`}
+                          title={t("grid.probationUntil", {
+                            date: fmtDate(row.probation_deadline),
+                          })}
                         >
                           <AlertTriangle className="size-2.5" aria-hidden />
-                          испытательный{" "}
                           {probation.tone === "overdue"
-                            ? `просрочен на ${plural(
-                                Math.abs(probation.days),
-                                "день",
-                                "дня",
-                                "дней"
-                              )}`
-                            : `— ${plural(
-                                Math.max(probation.days, 0),
-                                "день",
-                                "дня",
-                                "дней"
-                              )}`}
+                            ? t("grid.probationOverdue", {
+                                days: Math.abs(probation.days),
+                              })
+                            : t("grid.probationLeft", {
+                                days: Math.max(probation.days, 0),
+                              })}
                         </span>
                       )}
                     </span>
@@ -280,9 +274,9 @@ function ProgramSection({
                     {row.totals.overdue_modules > 0 && (
                       <span
                         className="block text-[10px] font-medium leading-tight text-red-600 dark:text-red-400"
-                        title={OVERDUE_COUNTER_TITLE}
+                        title={overdueCounterTitle}
                       >
-                        {row.totals.overdue_modules} просроч.
+                        {t("grid.overdueShort", { count: row.totals.overdue_modules })}
                       </span>
                     )}
                   </td>
@@ -303,16 +297,19 @@ function ProgramSection({
                           onClick={() =>
                             onOpenCell({ row, column: c, cell })
                           }
-                          title={cellTitle(c, cell)}
+                          title={cellTitle(t, c, cell)}
                           aria-label={`${fullName(
                             row.employee.first_name,
-                            row.employee.last_name
+                            row.employee.last_name,
+                            t("unnamed")
                           )} — ${c.title_ru}: ${
                             cell
-                              ? `${levelTitle(cell.level_min)}, тем ${
-                                  cell.topics_done
-                                } из ${cell.topics_total}`
-                              : "нет данных"
+                              ? t("grid.ariaState", {
+                                  level: levelTitle(t, cell.level_min),
+                                  done: cell.topics_done,
+                                  total: cell.topics_total,
+                                })
+                              : t("grid.ariaNoData")
                           }`}
                           className={cn(
                             "flex h-[46px] w-full flex-col items-center justify-center gap-0.5 rounded-md border-2 transition-colors",
@@ -360,6 +357,7 @@ export function MatrixGrid({
   terminalName: (id: string | null) => string;
   onOpenCell: (t: CellTarget) => void;
 }) {
+  const t = useTranslations("passportUi.matrix");
   const groups = useMemo<ProgramGroup[]>(() => {
     const byProgram = new Map<string, ProgramGroup>();
     for (const row of rows) {
@@ -367,7 +365,7 @@ export function MatrixGrid({
       if (!g) {
         g = {
           program_id: row.program_id,
-          title: row.program_title_ru ?? "Программа без названия",
+          title: row.program_title_ru ?? t("grid.untitledProgram"),
           // The one selection rule the API's own comment mandates.
           columns: modules.filter((m) => m.program_id === row.program_id),
           rows: [],
@@ -377,7 +375,7 @@ export function MatrixGrid({
       g.rows.push(row);
     }
     return [...byProgram.values()];
-  }, [modules, rows]);
+  }, [modules, rows, t]);
 
   return (
     <div className="w-full min-w-0 space-y-6">

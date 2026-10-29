@@ -38,6 +38,7 @@ import {
 
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useStoplistFilterStore } from "./filters_store";
 import { invoices, internal_transfer } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
@@ -76,6 +77,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("invoicesUi");
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const documentNumber = useStoplistFilterStore(
@@ -201,8 +203,8 @@ export function DataTable<TData, TValue>({
           primary: r.documentNumber ?? "—",
           secondary: r.dateIncoming ? dayjs(r.dateIncoming).format("DD.MM.YYYY HH:mm") : "",
           fields: [
-            { label: "Из", value: r.fromStoreName ?? "—" },
-            { label: "В", value: r.toStoreName ?? "—" },
+            { label: t("fromShort"), value: r.fromStoreName ?? "—" },
+            { label: t("toShort"), value: r.toStoreName ?? "—" },
           ],
           details: <InternalItemsTable invoiceId={r.id} invoiceDate={r.dateIncoming} />,
         })}

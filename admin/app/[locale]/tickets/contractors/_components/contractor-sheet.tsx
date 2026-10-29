@@ -11,6 +11,7 @@
 
 import { useId, useState } from "react";
 import { TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -27,7 +28,7 @@ import {
 } from "@components/ui/sheet";
 import type { ContractorRow, ContractorUpdateInput } from "@admin/lib/tickets-api";
 
-import { mutationErrorText, useContractorActions, useSheetSession } from "./use-contractors";
+import { useContractorActions, useMutationErrorText, useSheetSession } from "./use-contractors";
 
 export type ContractorTarget = { kind: "create" } | { kind: "edit"; id: string };
 
@@ -74,6 +75,8 @@ export function ContractorBody({
   onClose: () => void;
   onSaved?: (row: ContractorRow) => void;
 }) {
+  const t = useTranslations("ticketsUi.contractors.firmSheet");
+  const mutationErrorText = useMutationErrorText();
   const ids = { name: useId(), phone: useId(), note: useId(), active: useId() };
   const actions = useContractorActions();
 
@@ -102,13 +105,13 @@ export function ContractorBody({
     return (
       <>
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
-          <SheetTitle className="text-base">Фирма</SheetTitle>
-          <SheetDescription className="sr-only">Правка фирмы</SheetDescription>
+          <SheetTitle className="text-base">{t("firm")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("editFirm")}</SheetDescription>
         </SheetHeader>
         <div role="alert" className="flex items-start gap-3 px-5 py-6">
           <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-[12.5px] leading-snug text-muted-foreground">
-            Фирма не найдена в загруженном списке. Закройте панель и обновите страницу.
+            {t("notFound")}
           </p>
         </div>
       </>
@@ -154,18 +157,18 @@ export function ContractorBody({
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
         <SheetTitle className="text-base">
-          {mode === "create" ? "Новая фирма" : initial.name || "Фирма"}
+          {mode === "create" ? t("newFirm") : initial.name || t("firm")}
         </SheetTitle>
         <SheetDescription className="text-[12px]">
           {mode === "create"
-            ? "Исполнителей фирмы можно добавить после сохранения."
-            : "Название, контакты и примечание фирмы."}
+            ? t("createDesc")
+            : t("editDesc")}
         </SheetDescription>
       </SheetHeader>
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <div className="space-y-1.5">
-          <Label htmlFor={ids.name}>Название</Label>
+          <Label htmlFor={ids.name}>{t("name")}</Label>
           <Input
             id={ids.name}
             value={name}
@@ -180,11 +183,11 @@ export function ContractorBody({
             disabled={pending}
           />
           {touched && nameMissing && (
-            <p className="text-[12px] text-destructive">Название обязательно.</p>
+            <p className="text-[12px] text-destructive">{t("nameRequired")}</p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={ids.phone}>Телефон</Label>
+          <Label htmlFor={ids.phone}>{t("phone")}</Label>
           <Input
             id={ids.phone}
             value={phone}
@@ -195,7 +198,7 @@ export function ContractorBody({
           />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={ids.note}>Примечание</Label>
+          <Label htmlFor={ids.note}>{t("note")}</Label>
           <Textarea
             id={ids.note}
             value={note}
@@ -207,7 +210,7 @@ export function ContractorBody({
         {mode === "edit" && (
           <div className="space-y-1.5 rounded-md border px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
-              <Label htmlFor={ids.active}>Фирма активна</Label>
+              <Label htmlFor={ids.active}>{t("active")}</Label>
               <Switch
                 id={ids.active}
                 checked={active}
@@ -216,9 +219,7 @@ export function ContractorBody({
               />
             </div>
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Выключенная фирма остаётся в справочнике и отмечена в списке. На рассылку заявок
-              флаг фирмы не влияет: заявки получают исполнители, а чтобы человек их не получал,
-              выключите его самого.
+              {t("activeHint")}
             </p>
           </div>
         )}
@@ -231,10 +232,10 @@ export function ContractorBody({
 
       <SheetFooter className="shrink-0 flex-row justify-end gap-2 border-t px-5 py-3">
         <Button type="button" variant="outline" onClick={onClose}>
-          Отмена
+          {t("cancel")}
         </Button>
         <Button type="submit" disabled={pending || nameMissing || (mode === "edit" && !dirty)}>
-          {pending ? "Сохраняем…" : mode === "create" ? "Создать" : "Сохранить"}
+          {pending ? t("saving") : mode === "create" ? t("create") : t("save")}
         </Button>
       </SheetFooter>
     </form>

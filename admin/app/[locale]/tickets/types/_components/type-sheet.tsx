@@ -18,6 +18,7 @@
 
 import { useId, useMemo, useRef, useEffect, useState } from "react";
 import { TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -51,7 +52,7 @@ import {
 import type { ContractorRow, TicketTypeRow } from "@admin/lib/tickets-api";
 
 import { useSheetSession } from "../../contractors/_components/use-contractors";
-import { FieldsEditor, Segmented } from "./fields-editor";
+import { FieldsEditor, Segmented, useIssueText } from "./fields-editor";
 import {
   buildCreateBody,
   buildUpdatePatch,
@@ -89,20 +90,6 @@ export type FirmsState =
   | { status: "error"; message: string };
 
 const NO_FIRM = "__none__";
-
-const FORM_LABELS: Record<keyof TypeFormValues, string> = {
-  code: "Код",
-  number_prefix: "Префикс номера",
-  name_ru: "Название по-русски",
-  name_uz: "Название по-узбекски",
-  icon: "Значок",
-  sort: "Порядок на планшете",
-};
-
-const KINDS = [
-  { value: "external", label: "Внешняя фирма" },
-  { value: "staff", label: "Сотрудник" },
-] as const;
 
 export function TypeSheet({
   target,
@@ -143,27 +130,25 @@ export function CountNote({
 }: {
   count: { state: "known"; n: number } | { state: "unknown" } | { state: "checking" };
 }) {
+  const t = useTranslations("ticketsUi.types.sheet");
   // Число считает GET /tickets в пределах филиалов сессии, поэтому оно
   // только поясняет и ничего не разрешает: подтверждение показывается всегда.
   if (count.state === "known") {
     return count.n > 0 ? (
-      <>
-        В доступных вам филиалах заявок этого типа: {count.n}. В остальных филиалах их может быть
-        больше.
-      </>
+      <>{t("countKnown", { count: count.n })}</>
     ) : (
-      <>
-        В доступных вам филиалах заявок этого типа нет, но в остальных филиалах они могут быть.
-      </>
+      <>{t("countZero")}</>
     );
   }
   if (count.state === "checking") {
-    return <>Идёт подсчёт заявок этого типа. Считайте, что они есть.</>;
+    return <>{t("countChecking")}</>;
   }
   return (
     <>
-      Число заявок этого типа неизвестно: подсчёт не удался (для него нужно право{" "}
-      <code className="font-mono text-[12px]">{LIST_RIGHT}</code>). Считайте, что заявки есть.
+      {t.rich("countUnknown", {
+        right: LIST_RIGHT,
+        code: (chunks) => <code className="font-mono text-[12px]">{chunks}</code>,
+      })}
     </>
   );
 }
@@ -175,45 +160,39 @@ export function RiskList({
   risks: OrphanRisks;
   prefix?: PrefixChange | null;
 }) {
+  const t = useTranslations("ticketsUi.types.sheet");
   return (
     <ul className="list-disc space-y-1.5 pl-5 text-[13px]">
       {prefix && (
-        <li>
-          Префикс «{prefix.from}» заменён на «{prefix.to}»: заявка {prefix.from}-000012 станет{" "}
-          {prefix.to}-000012, и так со всеми заявками этого типа, старыми тоже. Прежних номеров не
-          останется нигде; те, что уже ушли в Telegram, записаны или названы по телефону, перестанут
-          совпадать.
-        </li>
+        <li>{t("riskPrefix", { from: prefix.from, to: prefix.to })}</li>
       )}
       {risks.renamed.map((r) => (
         <li key={`rn:${r.from}`}>
-          Ключ «{r.from}» заменён на «{r.to}»: в старых заявках значение остаётся под «{r.from}»
-          {risks.reused.includes(r.from)
-            ? " (этот ключ теперь у другого поля, см. ниже)."
-            : ", карточка покажет его без подписи с пометкой «поле удалено из типа»."}
+          {t("riskRenamed", {
+            from: r.from,
+            to: r.to,
+            reused: risks.reused.includes(r.from) ? "yes" : "no",
+          })}
         </li>
       ))}
       {risks.removed.map((k) => (
         <li key={`rm:${k}`}>
-          Поле «{k}» удалено: в старых заявках значение останется
-          {risks.reused.includes(k)
-            ? " (этот ключ теперь у другого поля, см. ниже)."
-            : ", но без подписи и с пометкой «поле удалено из типа»."}
+          {t("riskRemoved", { key: k, reused: risks.reused.includes(k) ? "yes" : "no" })}
         </li>
       ))}
       {risks.reused.map((k) => (
         <li key={`ru:${k}`} className="font-medium">
-          Ключ «{k}» теперь у другого поля. Пометки «поле удалено из типа» у него не будет: старые
-          значения под этим ключом в заявках отрисуются под подписью нового поля, как будто их
-          вводили для него, а у списка покажут сырой код вместо подписи. Возьмите для нового поля
-          другой ключ.
+          {t("riskReused", { key: k })}
         </li>
       ))}
       {risks.optionLoss.map((o) => (
         <li key={`op:${o.key}`}>
           {o.toText
-            ? `Поле «${o.key}» стало текстовым: в старых заявках вместо подписи варианта будет показан его код.`
-            : `Поле «${o.key}»: варианты ${o.values.map((v) => `«${v}»`).join(", ")} убраны или переименованы, в старых заявках вместо подписи будет показан код значения.`}
+            ? t("riskToText", { key: o.key })
+            : t("riskOptionsLost", {
+                key: o.key,
+                values: o.values.map((v) => `«${v}»`).join(", "),
+              })}
         </li>
       ))}
     </ul>
@@ -233,6 +212,15 @@ export function TypeBody({
   onRetryFirms: () => void;
   onClose: () => void;
 }) {
+  const t = useTranslations("ticketsUi.types.sheet");
+  const tForm = useTranslations("ticketsUi.types.form");
+  const tProblem = useTranslations("ticketsUi.types.problem");
+  const tl = useTranslations("ticketsLib");
+  const issueText = useIssueText();
+  const kinds = [
+    { value: "external", label: t("kindExternal") },
+    { value: "staff", label: t("kindStaff") },
+  ] as const;
   const ids = {
     code: useId(),
     prefix: useId(),
@@ -298,7 +286,7 @@ export function TypeBody({
     setTouched((prev) => ({ ...prev, [k]: true }));
   };
 
-  const formErrors = validateTypeForm(values, mode, initial.state.values);
+  const formErrors = validateTypeForm(values, mode, initial.state.values, (k, v) => tForm(k, v));
   const issues = useMemo(() => validateDrafts(fields), [fields]);
   const schemaChanged = schemaSignature(fields) !== initial.signature;
   // Сохранённая схема, которую не трогали, на запись не уходит, так что её
@@ -354,13 +342,13 @@ export function TypeBody({
     return (
       <>
         <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
-          <SheetTitle className="text-base">Тип заявки</SheetTitle>
-          <SheetDescription className="sr-only">Правка типа заявки</SheetDescription>
+          <SheetTitle className="text-base">{t("ticketType")}</SheetTitle>
+          <SheetDescription className="sr-only">{t("editTicketType")}</SheetDescription>
         </SheetHeader>
         <div role="alert" className="flex items-start gap-3 px-5 py-6">
           <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
           <p className="text-[12.5px] leading-snug text-muted-foreground">
-            Тип не найден в загруженном списке. Закройте панель и обновите страницу.
+            {t("notFound")}
           </p>
         </div>
       </>
@@ -369,7 +357,7 @@ export function TypeBody({
 
   const shownError = (k: keyof TypeFormValues) =>
     touched[k] || mode === "edit" ? formErrors[k] : undefined;
-  const problem = error ? serverProblem(error) : null;
+  const problem = error ? serverProblem(error, (k, v) => tProblem(k, v), tl) : null;
 
   const firmList = firms.status === "ready" ? firms.list : [];
   const boundFirm = initial.state.contractorId
@@ -382,12 +370,12 @@ export function TypeBody({
     <form onSubmit={submit} className="flex min-h-0 flex-1 flex-col">
       <SheetHeader className="shrink-0 border-b px-5 py-4 pr-12 text-left">
         <SheetTitle className="text-base">
-          {mode === "create" ? "Новый тип заявки" : initial.state.values.name_ru || "Тип заявки"}
+          {mode === "create" ? t("newTicketType") : initial.state.values.name_ru || t("ticketType")}
         </SheetTitle>
         <SheetDescription className="text-[12px]">
           {mode === "create"
-            ? "Название, фирма и поля, которые менеджер заполняет на планшете."
-            : "Название, фирма и поля типа. Код и вид исполнителя после создания не меняются."}
+            ? t("createDesc")
+            : t("editDesc")}
         </SheetDescription>
       </SheetHeader>
 
@@ -413,10 +401,10 @@ export function TypeBody({
           </div>
         )}
 
-        <section aria-label="Основное" className="space-y-4">
+        <section aria-label={t("main")} className="space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor={ids.nameRu}>Название по-русски</Label>
+              <Label htmlFor={ids.nameRu}>{t("formLabels.name_ru")}</Label>
               <Input
                 id={ids.nameRu}
                 value={values.name_ru}
@@ -431,7 +419,7 @@ export function TypeBody({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={ids.nameUz}>Название по-узбекски</Label>
+              <Label htmlFor={ids.nameUz}>{t("formLabels.name_uz")}</Label>
               <Input
                 id={ids.nameUz}
                 value={values.name_uz}
@@ -449,7 +437,7 @@ export function TypeBody({
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor={ids.code}>Код</Label>
+              <Label htmlFor={ids.code}>{t("formLabels.code")}</Label>
               {mode === "create" ? (
                 <>
                   <Input
@@ -460,7 +448,7 @@ export function TypeBody({
                     aria-invalid={Boolean(shownError("code"))}
                     autoComplete="off"
                     spellCheck={false}
-                    placeholder="например, ad_tv"
+                    placeholder={t("codePlaceholder")}
                     className="font-mono text-[13px]"
                     disabled={pending}
                   />
@@ -468,7 +456,7 @@ export function TypeBody({
                     <p className="text-[12px] text-destructive">{shownError("code")}</p>
                   ) : (
                     <p className="text-[12px] leading-snug text-muted-foreground">
-                      Уникален. После создания не меняется.
+                      {t("codeUnique")}
                     </p>
                   )}
                 </>
@@ -481,14 +469,14 @@ export function TypeBody({
                     {initial.state.values.code}
                   </p>
                   <p className="text-[12px] leading-snug text-muted-foreground">
-                    Не меняется после создания.
+                    {t("codeLocked")}
                   </p>
                 </>
               )}
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor={ids.prefix}>Префикс номера</Label>
+              <Label htmlFor={ids.prefix}>{t("formLabels.number_prefix")}</Label>
               <Input
                 id={ids.prefix}
                 value={values.number_prefix}
@@ -497,7 +485,7 @@ export function TypeBody({
                 aria-invalid={Boolean(shownError("number_prefix"))}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="например, TV"
+                placeholder={t("prefixPlaceholder")}
                 className="font-mono text-[13px]"
                 disabled={pending}
               />
@@ -506,22 +494,18 @@ export function TypeBody({
               )}
               {mode === "edit" ? (
                 <p className="rounded-md bg-amber-50 px-2.5 py-2 text-[12px] leading-snug text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-                  Номер заявки нигде не хранится: он собирается из префикса типа при каждом показе, в
-                  том числе в уведомлениях Telegram. Если сменить префикс у типа, по которому уже есть
-                  заявки, все они, и старые тоже, получат новые номера, а прежних номеров не
-                  останется. Номера, которые уже ушли исполнителям, названы в очереди к оплате или
-                  записаны на бумаге, перестанут совпадать.
+                  {t("prefixWarning")}
                 </p>
               ) : (
                 <p className="text-[12px] leading-snug text-muted-foreground">
-                  Номер заявки собирается как «{values.number_prefix.trim() || "TV"}-000123».
+                  {t("prefixPreview", { example: `${values.number_prefix.trim() || "TV"}-000123` })}
                 </p>
               )}
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <Label id={ids.kind}>Исполнитель</Label>
+            <Label id={ids.kind}>{t("executor")}</Label>
             {mode === "create" ? (
               <div>
                 <Segmented
@@ -532,16 +516,16 @@ export function TypeBody({
                     // сервер на неё отвечает 422.
                     if (k === "staff") setContractorId("");
                   }}
-                  options={KINDS}
+                  options={kinds}
                   disabled={pending}
                   labelledBy={ids.kind}
                 />
               </div>
             ) : (
               <p className="text-[13px]">
-                {initial.state.kind === "external" ? "Внешняя фирма" : "Сотрудник"}
+                {initial.state.kind === "external" ? t("kindExternal") : t("kindStaff")}
                 <span className="ml-2 text-[12px] text-muted-foreground">
-                  Не меняется после создания.
+                  {t("codeLocked")}
                 </span>
               </p>
             )}
@@ -549,7 +533,7 @@ export function TypeBody({
 
           {kind === "staff" ? (
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Заявки этого типа берёт сотрудник, фирма не нужна.
+              {t("staffNote")}
             </p>
           ) : (
             <FirmControl
@@ -570,15 +554,14 @@ export function TypeBody({
             >
               <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
               <span>
-                Фирма не выбрана — заявки по этому типу создать нельзя. Тип можно сохранить так и
-                привязать фирму позже.
+                {t("noFirmNote")}
               </span>
             </p>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor={ids.icon}>Значок (необязательно)</Label>
+              <Label htmlFor={ids.icon}>{t("iconOptional")}</Label>
               <Input
                 id={ids.icon}
                 value={values.icon}
@@ -586,7 +569,7 @@ export function TypeBody({
                 aria-invalid={Boolean(shownError("icon"))}
                 autoComplete="off"
                 spellCheck={false}
-                placeholder="например, tv или cctv"
+                placeholder={t("iconPlaceholder")}
                 className="font-mono text-[13px]"
                 disabled={pending}
               />
@@ -595,7 +578,7 @@ export function TypeBody({
               )}
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor={ids.sort}>Порядок на планшете</Label>
+              <Label htmlFor={ids.sort}>{t("formLabels.sort")}</Label>
               <Input
                 id={ids.sort}
                 value={values.sort}
@@ -609,7 +592,7 @@ export function TypeBody({
                 <p className="text-[12px] text-destructive">{shownError("sort")}</p>
               ) : (
                 <p className="text-[12px] leading-snug text-muted-foreground">
-                  Меньше — выше в списке.
+                  {t("sortHint")}
                 </p>
               )}
             </div>
@@ -617,7 +600,7 @@ export function TypeBody({
 
           <div className="space-y-1.5 rounded-md border px-3 py-2.5">
             <div className="flex items-center justify-between gap-3">
-              <Label htmlFor={ids.active}>Тип активен</Label>
+              <Label htmlFor={ids.active}>{t("active")}</Label>
               <Switch
                 id={ids.active}
                 checked={active}
@@ -626,8 +609,7 @@ export function TypeBody({
               />
             </div>
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Выключенный тип пропадает с планшета, и заявку на него создать нельзя. Уже созданные
-              заявки остаются и открываются как раньше. Удалить тип нельзя: его только выключают.
+              {t("activeHint")}
             </p>
           </div>
         </section>
@@ -644,21 +626,21 @@ export function TypeBody({
       <SheetFooter className="shrink-0 flex-col items-stretch gap-2 border-t px-5 py-3">
         {(hasFormErrors || blocking.length > 0) && (
           <p role="status" className="text-[12px] leading-snug text-destructive">
-            Сохранить нельзя:{" "}
+            {t("cannotSave")}{" "}
             {firstFormError
-              ? `${FORM_LABELS[firstFormError[0]]}: ${firstFormError[1]}`
-              : `${blocking[0].where}: ${blocking[0].message}`}
+              ? `${t(`formLabels.${firstFormError[0]}`)}: ${firstFormError[1]}`
+              : `${issueText.where(blocking[0])}: ${issueText.message(blocking[0])}`}
             {blocking.length > (firstFormError ? 0 : 1)
-              ? ` Ошибок в схеме: ${blocking.length}.`
+              ? ` ${t("schemaErrors", { count: blocking.length })}`
               : ""}
           </p>
         )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
-            Отмена
+            {t("cancel")}
           </Button>
           <Button type="submit" disabled={!canSave}>
-            {pending ? "Сохраняем…" : mode === "create" ? "Создать" : "Сохранить"}
+            {pending ? t("saving") : mode === "create" ? t("create") : t("save")}
           </Button>
         </div>
       </SheetFooter>
@@ -666,7 +648,7 @@ export function TypeBody({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Правка затронет уже созданные заявки</AlertDialogTitle>
+            <AlertDialogTitle>{t("confirmTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 text-[13px] leading-snug">
                 <p>
@@ -674,14 +656,14 @@ export function TypeBody({
                 </p>
                 <RiskList risks={risks} prefix={prefixChanged} />
                 {!noRisks(risks) && (
-                  <p>Значения в заявках не пропадут, но вернуть прежнюю подпись можно только вернув ключ.</p>
+                  <p>{t("confirmNote")}</p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Вернуться к правке</AlertDialogCancel>
-            <AlertDialogAction onClick={save}>Сохранить всё равно</AlertDialogAction>
+            <AlertDialogCancel>{t("confirmBack")}</AlertDialogCancel>
+            <AlertDialogAction onClick={save}>{t("confirmSave")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -712,36 +694,38 @@ function FirmControl({
   initialId: string;
   disabled: boolean;
 }) {
+  const t = useTranslations("ticketsUi.types.sheet");
+  const tt = useTranslations("ticketsUi.table");
   const wasBound = initialId !== "";
   if (firms.status !== "ready") {
     const note =
       firms.status === "loading" ? (
-        "Загружаем список фирм…"
+        t("firmsLoading")
       ) : firms.status === "denied" ? (
         <>
-          Список фирм читается с правом{" "}
-          <code className="font-mono text-[12px]">{CONTRACTORS_RIGHT}</code>. У вашей роли его
-          нет, поэтому фирму отсюда не выбрать
-          {wasBound ? ", а название текущей не показать." : "."}
+          {t.rich(wasBound ? "firmsDeniedBound" : "firmsDenied", {
+            right: CONTRACTORS_RIGHT,
+            code: (chunks) => <code className="font-mono text-[12px]">{chunks}</code>,
+          })}
         </>
       ) : (
         <>
-          Не удалось загрузить список фирм: {firms.message}{" "}
+          {t("firmsLoadFailed", { message: firms.message })}{" "}
           <button type="button" className="underline underline-offset-2" onClick={onRetry}>
-            Повторить
+            {tt("retry")}
           </button>
         </>
       );
     return (
       <div className="space-y-1.5">
-        <Label htmlFor={id}>Фирма</Label>
+        <Label htmlFor={id}>{t("firm")}</Label>
         <Select value={wasBound ? "bound" : NO_FIRM} disabled>
           <SelectTrigger id={id} className="w-full sm:max-w-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NO_FIRM}>Не выбрана</SelectItem>
-            <SelectItem value="bound">Выбрана (название недоступно)</SelectItem>
+            <SelectItem value={NO_FIRM}>{t("firmNone")}</SelectItem>
+            <SelectItem value="bound">{t("firmBoundUnknown")}</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-[12px] leading-snug text-muted-foreground">{note}</p>
@@ -755,7 +739,7 @@ function FirmControl({
   const orphaned = wasBound && !boundFirm;
   return (
     <div className="space-y-1.5">
-      <Label htmlFor={id}>Фирма</Label>
+      <Label htmlFor={id}>{t("firm")}</Label>
       <Select
         value={value === "" ? NO_FIRM : value}
         onValueChange={(v) => onChange(v === NO_FIRM ? "" : v)}
@@ -765,20 +749,20 @@ function FirmControl({
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          {!wasBound && <SelectItem value={NO_FIRM}>Не выбрана</SelectItem>}
-          {orphaned && <SelectItem value={initialId}>Фирма не найдена в справочнике</SelectItem>}
+          {!wasBound && <SelectItem value={NO_FIRM}>{t("firmNone")}</SelectItem>}
+          {orphaned && <SelectItem value={initialId}>{t("firmNotFound")}</SelectItem>}
           {list.map((f) => (
             <SelectItem key={f.id} value={f.id}>
               {f.name}
-              {f.is_active ? "" : " (выключена)"}
+              {f.is_active ? "" : ` ${t("firmDisabledParen")}`}
             </SelectItem>
           ))}
         </SelectContent>
       </Select>
       <p className="text-[12px] leading-snug text-muted-foreground">
         {wasBound
-          ? "Фирму можно заменить, но не снять: сервер не принимает пустое значение. Чтобы тип перестал принимать заявки, выключите его."
-          : "Заявки этого типа уходят исполнителям выбранной фирмы."}
+          ? t("firmReplaceHint")
+          : t("firmSendHint")}
       </p>
     </div>
   );

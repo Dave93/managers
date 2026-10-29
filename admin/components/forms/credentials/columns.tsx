@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
@@ -10,17 +12,19 @@ import CredentialsAddFormSheet from "./form_sheet";
 import { credentials } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const credentialsColumns: ColumnDef<
-  typeof credentials.$inferSelect
->[] = [
+export function useCredentialsColumns(): ColumnDef<typeof credentials.$inferSelect>[] {
+  const t = useTranslations("forms.credentials");
+  const tc = useTranslations("forms.common");
+  return useMemo<ColumnDef<typeof credentials.$inferSelect>[]>(
+    () => [
     {
       accessorKey: "key",
-      header: "Ключ",
+      header: t("key"),
       size: 100,
     },
     {
       accessorKey: "type",
-      header: "Тип",
+      header: tc("type"),
     },
     {
       id: "actions",
@@ -47,4 +51,7 @@ export const credentialsColumns: ColumnDef<
         );
       },
     },
-  ];
+      ],
+    [t, tc]
+  );
+}

@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 
@@ -21,6 +22,7 @@ export default function OrganizationsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -113,7 +115,7 @@ export default function OrganizationsForm({
     >
       <div className="space-y-2">
         <div>
-          <Label>Активность</Label>
+          <Label>{tc("active")}</Label>
         </div>
         <form.Field name="active">
           {(field) => {
@@ -130,7 +132,7 @@ export default function OrganizationsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Название</Label>
+          <Label>{tc("name")}</Label>
         </div>
         <form.Field name="name">
           {(field) => {
@@ -153,7 +155,7 @@ export default function OrganizationsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Код</Label>
+          <Label>{tc("code")}</Label>
         </div>
         <form.Field name="code">
           {(field) => {
@@ -176,7 +178,7 @@ export default function OrganizationsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Телефон</Label>
+          <Label>{tc("phone")}</Label>
         </div>
         <form.Field name="phone">
           {(field) => {
@@ -199,7 +201,7 @@ export default function OrganizationsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Описание</Label>
+          <Label>{tc("description")}</Label>
         </div>
         <form.Field name="description">
           {(field) => {

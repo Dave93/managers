@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Textarea } from "@admin/components/ui/textarea";
@@ -13,6 +14,8 @@ import { qk } from "../../_components/use-kpi";
 
 /** Отмена нарушения. Причина — не меньше 3 букв или цифр: сервер проверяет её через commentOk(reason, 3). */
 export function CancelViolationDialog({ violation, onClose }: { violation: ViolationRow | null; onClose: () => void }) {
+  const t = useTranslations("kpiScreens.violations.cancel");
+  const tk = useTranslations("kpi");
   const qc = useQueryClient();
   const [reason, setReason] = useState("");
   const [touched, setTouched] = useState(false);
@@ -27,11 +30,11 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
   const cancel = useMutation({
     mutationFn: (v: ViolationRow) => kpiApi.violations.cancel(v.id, reason.trim()),
     onSuccess: async () => {
-      toast.success("Нарушение отменено");
+      toast.success(t("cancelled"));
       await Promise.all([qk.violationsAll, qk.formAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
   const submit = () => {
@@ -47,7 +50,7 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
     <Dialog open={violation !== null} onOpenChange={(o) => !o && !cancel.isPending && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Отменить нарушение</DialogTitle>
+          <DialogTitle>{t("title")}</DialogTitle>
           <DialogDescription>
             {violation ? `${violation.employee_name}, ${formatTashkent(violation.occurred_at)}` : ""}
           </DialogDescription>
@@ -58,20 +61,20 @@ export function CancelViolationDialog({ violation, onClose }: { violation: Viola
             value={reason}
             onChange={(e) => setReason(e.target.value)}
             onBlur={() => setTouched(true)}
-            aria-label="Причина отмены"
-            placeholder="Причина отмены"
+            aria-label={t("reason")}
+            placeholder={t("reason")}
           />
           <p className={touched && !ok ? "text-sm text-destructive" : "text-xs text-muted-foreground"}>
-            Не меньше {VIOLATION_COMMENT_MIN} букв или цифр
+            {t("reasonMin", { count: VIOLATION_COMMENT_MIN })}
           </p>
-          <p className="text-xs text-muted-foreground">Причину отмены увидит сотрудник</p>
+          <p className="text-xs text-muted-foreground">{t("reasonVisible")}</p>
         </div>
         <DialogFooter>
           <Button type="button" variant="outline" className="h-11" disabled={cancel.isPending} onClick={onClose}>
-            Назад
+            {t("back")}
           </Button>
           <Button type="button" variant="destructive" className="h-11" disabled={cancel.isPending} onClick={submit}>
-            Отменить нарушение
+            {t("title")}
           </Button>
         </DialogFooter>
       </DialogContent>

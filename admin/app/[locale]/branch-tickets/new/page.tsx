@@ -25,6 +25,7 @@
 
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { useRouter } from "@admin/i18n/routing";
@@ -39,8 +40,9 @@ const REQUIRED: string[] = [CREATE_RIGHTS.create];
 const LIST_RIGHT = "tickets.list";
 
 function Loading() {
+  const t = useTranslations("branchTickets.create");
   return (
-    <div className="space-y-3" aria-busy="true" aria-label="Загрузка">
+    <div className="space-y-3" aria-busy="true" aria-label={t("loading")}>
       <Skeleton className="h-8 w-64" />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
         <Skeleton className="h-32" />
@@ -52,6 +54,8 @@ function Loading() {
 }
 
 export default function NewBranchTicketPage() {
+  const t = useTranslations("branchTickets.create");
+  const tl = useTranslations("ticketsLib");
   // Тот же ключ, что у CanAccess и layout: один запрос на всё приложение.
   const perms = useQuery({
     queryKey: ["my_permissions"],
@@ -79,9 +83,9 @@ export default function NewBranchTicketPage() {
 
   const header = (
     <div>
-      <h1 className="text-2xl font-semibold tracking-tight">Новая заявка</h1>
+      <h1 className="text-2xl font-semibold tracking-tight">{t("title")}</h1>
       <p className="text-base text-muted-foreground">
-        Опишите, что сломалось, и приложите фотографии: заявка сразу уйдёт исполнителю.
+        {t("subtitle")}
       </p>
     </div>
   );
@@ -98,8 +102,8 @@ export default function NewBranchTicketPage() {
     // здесь быть не может: любой сбой читается как «не удалось определить».
     body = (
       <LoadFailedPanel
-        title="Не удалось определить ваш филиал"
-        detail={loadErrorText(branches.error)}
+        title={t("branchUnknownTitle")}
+        detail={loadErrorText(branches.error, tl)}
         onRetry={() => branches.refetch()}
         retrying={branches.isFetching}
       />
@@ -114,8 +118,8 @@ export default function NewBranchTicketPage() {
         <NoAccessPanel missing={[CREATE_RIGHTS.create]} serverDenied />
       ) : (
         <LoadFailedPanel
-          title="Не удалось загрузить типы заявок"
-          detail={loadErrorText(types.error)}
+          title={t("typesLoadFailed")}
+          detail={loadErrorText(types.error, tl)}
           onRetry={() => types.refetch()}
           retrying={types.isFetching}
         />
@@ -126,8 +130,8 @@ export default function NewBranchTicketPage() {
         key={round}
         types={types.data}
         branches={branches.data}
-        onCreated={(t) => {
-          if (canOpenList) router.push(`/branch-tickets?created=${encodeURIComponent(t.id)}`);
+        onCreated={(created) => {
+          if (canOpenList) router.push(`/branch-tickets?created=${encodeURIComponent(created.id)}`);
         }}
         onTypesStale={() => qc.invalidateQueries({ queryKey: branchKeys.types })}
         onAnother={() => setRound((r) => r + 1)}

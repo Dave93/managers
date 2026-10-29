@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   CartesianGrid,
   Line,
@@ -21,7 +22,7 @@ import {
   SelectValue,
 } from "@admin/components/ui/select";
 import ChartCard from "../_tremor/ChartCard";
-import { fmtDay, fmtMoney } from "../cash-shifts/format";
+import { fmtDay, useFmtMoney } from "../cash-shifts/format";
 import { cashierKpiErrorMessage, useCashierDaily, useCashierKpi } from "./useCashierKpi";
 import Footnote from "./Footnote";
 
@@ -38,19 +39,15 @@ const COLOR_SELECTED_CASHIER = "#d97706";
 
 const NONE = "__all__";
 
-const formatCompactMoney = (n: number) => {
-  if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} млн`;
-  if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)} тыс`;
-  return `${Math.round(n)}`;
-};
-
 // `any` here matches the Tooltip content signature used by the other
 // recharts widgets in this dashboard (recharts' payload type is unwieldy).
 function ChartTooltip({ active, payload, label }: any) {
+  const locale = useLocale();
+  const fmtMoney = useFmtMoney();
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-lg border bg-background p-3 text-sm shadow-lg">
-      <div className="mb-1 font-medium">{fmtDay(String(label ?? ""))}</div>
+      <div className="mb-1 font-medium">{fmtDay(String(label ?? ""), locale)}</div>
       {payload.map((p: any) =>
         p.value == null ? null : (
           <div key={p.dataKey} className="flex items-center gap-2">
@@ -82,6 +79,15 @@ function CardLegend({ items }: { items: { color: string; label: string }[] }) {
 }
 
 const CashierDailyTrend = () => {
+  const t = useTranslations("dashboardUi.cashierKpi.trend");
+  const tk = useTranslations("dashboardUi.cashierKpi");
+  const tCharts = useTranslations("charts");
+  const locale = useLocale();
+  const formatCompactMoney = (n: number) => {
+    if (Math.abs(n) >= 1_000_000) return `${(n / 1_000_000).toFixed(1)} ${tCharts("million")}`;
+    if (Math.abs(n) >= 1_000) return `${(n / 1_000).toFixed(0)} ${tCharts("thousand")}`;
+    return `${Math.round(n)}`;
+  };
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
   const terminals = terminalsFilter ? terminalsFilter.toString() : undefined;
@@ -125,30 +131,30 @@ const CashierDailyTrend = () => {
 
   const days = dailyQuery.data?.days ?? [];
   const error = dailyQuery.isError
-    ? cashierKpiErrorMessage(dailyQuery.error)
+    ? cashierKpiErrorMessage(dailyQuery.error, tk)
     : kpiQuery.isError
-      ? cashierKpiErrorMessage(kpiQuery.error)
+      ? cashierKpiErrorMessage(kpiQuery.error, tk)
       : null;
   const loading = dailyQuery.isLoading || kpiQuery.isLoading;
 
   const legendItems = [
-    { color: COLOR_REVENUE_PER_CASHIER, label: "Выручка на кассира" },
+    { color: COLOR_REVENUE_PER_CASHIER, label: t("revenuePerCashier") },
     ...(cashierId
-      ? [{ color: COLOR_SELECTED_CASHIER, label: selectedLabel ? `Выбранный кассир: ${selectedLabel}` : "Выбранный кассир" }]
+      ? [{ color: COLOR_SELECTED_CASHIER, label: selectedLabel ? t("selectedCashierNamed", { name: selectedLabel }) : t("selectedCashier") }]
       : []),
-    { color: COLOR_ACTIVE_CASHIERS, label: "Активных кассиров" },
+    { color: COLOR_ACTIVE_CASHIERS, label: t("activeCashiers") },
   ];
 
   return (
     <ChartCard
-      title="Кассиры: динамика по дням"
+      title={t("title")}
       headerRight={
         <Select value={cashierId ?? NONE} onValueChange={(v) => setCashierId(v === NONE ? null : v)}>
           <SelectTrigger size="sm" className="h-8 w-[200px] text-xs">
-            <SelectValue placeholder="Все кассиры" />
+            <SelectValue placeholder={t("allCashiers")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={NONE}>Все кассиры</SelectItem>
+            <SelectItem value={NONE}>{t("allCashiers")}</SelectItem>
             {cashierOptions.map((o) => (
               <SelectItem key={o.id} value={o.id}>
                 {o.label}
@@ -183,7 +189,7 @@ const CashierDailyTrend = () => {
                   <Line
                     type="monotone"
                     dataKey="revenue_per_cashier"
-                    name="Выручка на кассира"
+                    name={t("revenuePerCashier")}
                     stroke={COLOR_REVENUE_PER_CASHIER}
                     strokeWidth={2}
                     dot={false}
@@ -193,7 +199,7 @@ const CashierDailyTrend = () => {
                     <Line
                       type="monotone"
                       dataKey="cashier_revenue"
-                      name={selectedLabel ? `Выбранный кассир: ${selectedLabel}` : "Выбранный кассир"}
+                      name={selectedLabel ? t("selectedCashierNamed", { name: selectedLabel }) : t("selectedCashier")}
                       stroke={COLOR_SELECTED_CASHIER}
                       strokeWidth={2}
                       dot={false}
@@ -211,7 +217,7 @@ const CashierDailyTrend = () => {
                   <CartesianGrid vertical={false} strokeOpacity={0.4} />
                   <XAxis
                     dataKey="day"
-                    tickFormatter={fmtDay}
+                    tickFormatter={(d: string) => fmtDay(d, locale)}
                     tickLine={false}
                     axisLine={false}
                     minTickGap={24}
@@ -229,7 +235,7 @@ const CashierDailyTrend = () => {
                   <Line
                     type="monotone"
                     dataKey="active_cashiers"
-                    name="Активных кассиров"
+                    name={t("activeCashiers")}
                     stroke={COLOR_ACTIVE_CASHIERS}
                     strokeWidth={2}
                     dot={false}

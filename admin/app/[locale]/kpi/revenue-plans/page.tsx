@@ -3,6 +3,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -45,6 +46,10 @@ export default function RevenuePlansPage() {
 }
 
 function RevenuePlansScreen() {
+  const t = useTranslations("kpiScreens.revenuePlans");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const now = useMemo(() => new Date(), []);
   const options = useMemo(() => planPeriods(now), [now]);
   const [period, setPeriod] = useState(() => calendarPeriod(now));
@@ -61,7 +66,7 @@ function RevenuePlansScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">План выручки · {monthLabel(period)}</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title", { month: monthLabel(period, locale) })}</h1>
         <PeriodSelect value={period} onChange={(v) => v && setPeriod(v)} options={options} className="w-44" />
       </div>
 
@@ -69,10 +74,10 @@ function RevenuePlansScreen() {
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : !plans.data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         // key: при смене месяца черновик и подсказки начинаются заново.
         <PlanEditor key={period} period={period} rows={plans.data} />
@@ -82,6 +87,10 @@ function RevenuePlansScreen() {
 }
 
 function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }) {
+  const t = useTranslations("kpiScreens.revenuePlans");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const [draft, setDraft] = useState<PlanDraft>(() => planDraft(rows));
   const [growth, setGrowth] = useState("10");
@@ -100,9 +109,9 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
       setDraft(r.draft);
       setBase(Object.fromEntries(list.map((s) => [s.terminal_id, s])));
       setIssues([]);
-      toast.success(suggestSummary(r));
+      toast.success(suggestSummary(r, tk));
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
   const runSuggest = (mode: "empty" | "all") => {
@@ -128,11 +137,11 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
     onSuccess: async (list, items) => {
       qc.setQueryData(qk.revenuePlans(period), list);
       setDraft(planDraft(list));
-      toast.success(`План сохранён: ${items.length}`);
+      toast.success(t("planSaved", { count: items.length }));
       await qc.invalidateQueries({ queryKey: qk.branchAll });
     },
     // Черновик остаётся: HR исправит поле и нажмёт ещё раз.
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
     onSettled: () => {
       saving.current = false;
     },
@@ -140,11 +149,11 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
 
   const onSave = () => {
     if (saving.current || save.isPending) return;
-    const { items, errors } = planChanges(draft, rows);
+    const { items, errors } = planChanges(draft, rows, tk);
     setIssues(errors);
     if (errors.length > 0) return;
     if (items.length === 0) {
-      toast.message("Нет изменений");
+      toast.message(t("noChanges"));
       return;
     }
     saving.current = true;
@@ -156,13 +165,13 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
   return (
     <div className="space-y-4">
       <div className="space-y-1.5 rounded-lg border p-3">
-        <Label htmlFor="rp-growth">Заполнить от прошлого года</Label>
+        <Label htmlFor="rp-growth">{t("fillFromLastYear")}</Label>
         <div className="flex flex-wrap items-center gap-2">
           <Input
             id="rp-growth"
             inputMode="decimal"
-            aria-label="Рост, %"
-            placeholder="Рост, %"
+            aria-label={t("growth")}
+            placeholder={t("growth")}
             className="h-11 w-32"
             value={growth}
             disabled={suggest.isPending}
@@ -172,51 +181,49 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
             }}
           />
           <Button type="button" variant="outline" className="h-11" disabled={suggest.isPending || busy} onClick={() => runSuggest("empty")}>
-            {suggest.isPending && suggest.variables?.mode === "empty" ? "Считаем…" : "Заполнить от прошлого года"}
+            {suggest.isPending && suggest.variables?.mode === "empty" ? t("calculating") : t("fillFromLastYear")}
           </Button>
           <Button type="button" variant="outline" className="h-11" disabled={suggest.isPending || busy} onClick={askReplace}>
-            {suggest.isPending && suggest.variables?.mode === "all" ? "Считаем…" : "Заменить все"}
+            {suggest.isPending && suggest.variables?.mode === "all" ? t("calculating") : t("replaceAll")}
           </Button>
         </div>
         {growthError && (
           <p role="alert" className="text-xs text-destructive">
-            Рост — число от −50 до 200
+            {t("growthError")}
           </p>
         )}
         <p className="text-xs text-muted-foreground">
-          Выручка того же месяца год назад, умноженная на рост. Результат округляется до 1 000 сум. «Заполнить» трогает только пустые
-          поля, «Заменить все» — все, где есть выручка прошлого года
+          {t("hint")}
         </p>
       </div>
 
       <AlertDialog open={replaceOpen} onOpenChange={setReplaceOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Заменить все планы?</AlertDialogTitle>
+            <AlertDialogTitle>{t("replaceTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Введённые суммы заменятся подсказкой от прошлого года. Филиалы без выручки прошлого года не изменятся. В базу попадёт
-              после «Сохранить»
+              {t("replaceDescription")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11">Отмена</AlertDialogCancel>
+            <AlertDialogCancel className="h-11">{tc("cancel")}</AlertDialogCancel>
             <AlertDialogAction className="h-11" onClick={() => runSuggest("all")}>
-              Заменить все
+              {t("replaceAll")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {rows.length === 0 ? (
-        <p className="rounded-md border p-4 text-sm text-muted-foreground">Нет филиалов, для которых можно задать план</p>
+        <p className="rounded-md border p-4 text-sm text-muted-foreground">{t("noBranches")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Филиал</TableHead>
-                <TableHead className="text-right">{baseLabel ? `Выручка ${monthLabel(baseLabel)}` : "Выручка год назад"}</TableHead>
-                <TableHead>План, сум</TableHead>
+                <TableHead>{t("colBranch")}</TableHead>
+                <TableHead className="text-right">{baseLabel ? t("revenueOf", { month: monthLabel(baseLabel, locale) }) : t("revenueYearAgo")}</TableHead>
+                <TableHead>{t("colPlan")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -227,24 +234,24 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
                   <TableRow key={r.terminal_id}>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
-                        <span>{r.terminal_name ?? "Филиал без названия"}</span>
-                        {!r.has_iiko && <KpiBadge tone="gray">нет связи с iiko</KpiBadge>}
+                        <span>{r.terminal_name ?? t("unnamedBranch")}</span>
+                        {!r.has_iiko && <KpiBadge tone="gray">{t("noIiko")}</KpiBadge>}
                       </div>
                     </TableCell>
                     <TableCell className="text-right whitespace-nowrap text-muted-foreground">
-                      {b ? formatSum(b.base_revenue) : ""}
+                      {b ? formatSum(b.base_revenue, tk) : ""}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
                         <Input
                           inputMode="numeric"
-                          aria-label={`План, сум: ${r.terminal_name ?? "Филиал"}`}
+                          aria-label={t("planAria", { name: r.terminal_name ?? t("branchFallback") })}
                           className="h-11 w-40 sm:h-9"
                           value={draft[r.terminal_id] ?? ""}
                           disabled={busy}
                           onChange={(e) => setDraft((cur) => ({ ...cur, [r.terminal_id]: e.target.value }))}
                         />
-                        {changed && <span className="text-xs whitespace-nowrap text-amber-700">не сохранено</span>}
+                        {changed && <span className="text-xs whitespace-nowrap text-amber-700">{t("unsaved")}</span>}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -257,18 +264,18 @@ function PlanEditor({ period, rows }: { period: string; rows: RevenuePlanRow[] }
 
       {issues.length > 0 && (
         <ul role="alert" className="list-inside list-disc rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-          {issues.map((t) => (
-            <li key={t}>{t}</li>
+          {issues.map((msg) => (
+            <li key={msg}>{msg}</li>
           ))}
         </ul>
       )}
 
       <Button type="button" className="h-11" disabled={busy || rows.length === 0} onClick={onSave}>
-        {busy ? "Сохраняем…" : "Сохранить"}
+        {busy ? t("saving") : t("save")}
       </Button>
 
       <p className="text-xs text-muted-foreground">
-        План нужен для показателя «Продажи к плану». Пустое поле удаляет план филиала. Новый план учитывается со следующего пересчёта
+        {t("footnote")}
       </p>
     </div>
   );

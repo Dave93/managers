@@ -20,10 +20,12 @@ import { useQuery } from "@tanstack/react-query";
 import useToken from "@admin/store/get-token";
 import { apiClient } from "@admin/utils/eden";
 import { useState, useMemo, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { PaginationState } from "@tanstack/react-table";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 
 export default function TerminalsFilter() {
+  const t = useTranslations("reportsUi.terminalsFilter");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -59,8 +61,8 @@ export default function TerminalsFilter() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger className="border flex items-center justify-between px-3 relative rounded-md w-full sm:w-[300px]">
         {selectedTerminal
-          ? terminals.find((t: any) => t.id === selectedTerminal)?.name
-          : "Все терминалы"}
+          ? terminals.find((term: any) => term.id === selectedTerminal)?.name
+          : t("all")}
         <div className="flex items-center">
           {selectedTerminal && (
             <X
@@ -79,13 +81,13 @@ export default function TerminalsFilter() {
       <PopoverContent className="w-[300px] p-0">
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Search terminals..."
+            placeholder={t("search")}
             value={searchQuery}
             onValueChange={handleSearch}
           />
           <CommandList>
             {filteredTerminals.length === 0 ? (
-              <CommandEmpty>No terminal found.</CommandEmpty>
+              <CommandEmpty>{t("notFound")}</CommandEmpty>
             ) : (
               <CommandGroup>
                 {filteredTerminals.map((terminal: any) => (

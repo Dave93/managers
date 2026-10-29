@@ -2,6 +2,7 @@
 import React, { Suspense, useMemo } from "react";
 import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type BranchBreakdown } from "@admin/lib/kpi-api";
 import { canOpen } from "@admin/lib/kpi/access";
@@ -22,9 +23,10 @@ import { IndicatorCard } from "./_components/indicator-card";
 const PERIOD_RE = /^\d{4}-(0[1-9]|1[0-2])-01$/;
 
 export default function BranchPage() {
+  const tc = useTranslations("kpiScreens.common");
   return (
     <ScreenGate screen="branch">
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Загрузка…</p>}>
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">{tc("loading")}</p>}>
         <BranchScreen />
       </Suspense>
     </ScreenGate>
@@ -32,6 +34,10 @@ export default function BranchPage() {
 }
 
 function BranchScreen() {
+  const t = useTranslations("kpiScreens.branch");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const { terminalId } = useParams<{ terminalId: string }>();
   const router = useRouter();
   const pathname = usePathname();
@@ -66,12 +72,12 @@ function BranchScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <Link href="/kpi/network" className="inline-flex min-h-11 items-center text-sm text-muted-foreground hover:underline">
-        ← Сеть
+        {t("backToNetwork")}
       </Link>
 
       <div className="flex flex-wrap items-center gap-2">
         <h1 className="mr-2 text-xl font-semibold">
-          {data?.terminal_name ?? "Филиал"} · {monthLabel(period)}
+          {data?.terminal_name ?? t("fallbackTitle")} · {monthLabel(period, locale)}
         </h1>
         <PeriodSelect value={period} onChange={change} options={options} className="w-44" />
       </div>
@@ -80,10 +86,10 @@ function BranchScreen() {
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : !data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         <>
           {data.version !== null && data.preliminary && <PreliminaryNote />}
@@ -91,7 +97,7 @@ function BranchScreen() {
 
           <div className="space-y-1">
             {data.version === null || data.score === null ? (
-              <p className="text-sm text-muted-foreground">Балл за этот месяц не посчитан</p>
+              <p className="text-sm text-muted-foreground">{t("notComputed")}</p>
             ) : (
               <>
                 <div className="flex flex-wrap items-center gap-3">
@@ -99,12 +105,12 @@ function BranchScreen() {
                   {data.tier_pct !== null && (
                     <KpiBadge tone={tierTone(data.tier_pct)}>{data.tier_pct}&nbsp;%</KpiBadge>
                   )}
-                  {coverageText(data.indicators) !== "" && (
-                    <span className="text-sm text-muted-foreground">{coverageText(data.indicators)}</span>
+                  {coverageText(data.indicators, tk) !== "" && (
+                    <span className="text-sm text-muted-foreground">{coverageText(data.indicators, tk)}</span>
                   )}
                 </div>
-                <p className="text-sm">{nextTierText(data.next_tier)}</p>
-                <p className="text-sm text-muted-foreground">Посчитано {formatTashkent(data.computed_at)}</p>
+                <p className="text-sm">{nextTierText(data.next_tier, tk)}</p>
+                <p className="text-sm text-muted-foreground">{t("computedAt", { date: formatTashkent(data.computed_at) })}</p>
               </>
             )}
           </div>
@@ -117,18 +123,18 @@ function BranchScreen() {
 
           <section className="space-y-2">
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className="mr-2 text-base font-medium">Санитарные проверки</h2>
+              <h2 className="mr-2 text-base font-medium">{t("sanitaryTitle")}</h2>
               {canOpen(perms, "sanitary") && (
                 <Link
                   href={`/kpi/sanitary/new?terminal_id=${terminalId}`}
                   className="inline-flex h-11 items-center rounded-md border px-4 text-sm font-medium hover:bg-muted/50"
                 >
-                  Новая проверка
+                  {t("newCheck")}
                 </Link>
               )}
             </div>
             {data.sanitary_checks.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Проверок за месяц нет</p>
+              <p className="text-sm text-muted-foreground">{t("noChecks")}</p>
             ) : (
               <ul className="space-y-2">
                 {data.sanitary_checks.map((c) => {
@@ -141,8 +147,8 @@ function BranchScreen() {
                         </span>
                         <span className="font-medium">{formatPct(c.pct)}</span>
                       </div>
-                      {countedLater(c, data.computed_at) && <KpiBadge tone="amber">войдёт в следующий пересчёт</KpiBadge>}
-                      {failed.length > 0 && <p className="text-muted-foreground">Не выполнено: {failed.join(", ")}</p>}
+                      {countedLater(c, data.computed_at) && <KpiBadge tone="amber">{t("countedLater")}</KpiBadge>}
+                      {failed.length > 0 && <p className="text-muted-foreground">{t("notDone", { items: failed.join(", ") })}</p>}
                       {c.comment && <p>{c.comment}</p>}
                     </li>
                   );
@@ -157,6 +163,7 @@ function BranchScreen() {
 }
 
 function NewData({ data, period, canCompute }: { data: BranchBreakdown; period: string; canCompute: boolean }) {
-  const hint = newDataHint(data, { canCompute, period, onNetwork: false });
+  const tk = useTranslations("kpi");
+  const hint = newDataHint(data, { canCompute, period, onNetwork: false }, tk);
   return hint ? <NewDataNote text={hint.text} href={hint.href} /> : null;
 }

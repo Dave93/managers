@@ -10,6 +10,7 @@ import Link from "next/link";
 
 import { ChevronLeft } from "lucide-react";
 import { Skeleton } from "@admin/components/ui/skeleton";
+import { useTranslations } from "next-intl";
 // @ts-ignore
 import dayjs from "dayjs";
 import ClickSum from "./click";
@@ -34,6 +35,7 @@ interface paramsProps {
 
 
 export default function ReportsPageClient(props: paramsProps) {
+  const t = useTranslations("reportsUi");
   const roleCode = useGetRole();
   const { clearData } = useReportDataStore();
 
@@ -58,7 +60,7 @@ export default function ReportsPageClient(props: paramsProps) {
         <Link href="/">
           <Button variant="outline" className="mt-2 mx-2">
             <ChevronLeft />
-            Back
+            {t("back")}
           </Button>
         </Link>
         <div className="font-bold text-2xl text-center">
@@ -118,7 +120,7 @@ export default function ReportsPageClient(props: paramsProps) {
 
         <div className="my-3">
           <CardTitle className="text-center text-3xl my-2">
-            Остаток на кассе
+            {t("cashBalance")}
           </CardTitle>
           <Balance />
         </div>
@@ -167,7 +169,7 @@ export default function ReportsPageClient(props: paramsProps) {
               <EditableIncomes terminal_id={terminalId} date={id} />
             </Suspense>
           </div>
-          <CardTitle className="text-center text-3xl mt-6">Расход</CardTitle>
+          <CardTitle className="text-center text-3xl mt-6">{t("expense")}</CardTitle>
           <TotalExpenses />
           <Suspense
             fallback={<Skeleton className="w-36 text-xl h-7 rounded-full" />}

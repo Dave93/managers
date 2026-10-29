@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { ru } from "date-fns/locale";
+import { useLocale, useTranslations } from "next-intl";
 import { CalendarIcon } from "@radix-ui/react-icons";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Calendar } from "@admin/components/ui/calendar";
@@ -11,13 +11,14 @@ import {
   PopoverTrigger,
 } from "@admin/components/ui/popover";
 import { cn } from "@admin/lib/utils";
+import { getDateFnsLocale } from "@admin/lib/date-locale";
 
 // Single-date picker bound to an ISO yyyy-MM-dd string ("" = empty).
 export function DatePickerField({
   value,
   onChange,
   maxToday = false,
-  placeholder = "дд.мм.гггг",
+  placeholder,
   className,
 }: {
   value: string;
@@ -26,6 +27,8 @@ export function DatePickerField({
   placeholder?: string;
   className?: string;
 }) {
+  const t = useTranslations("common");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const selected = value ? parseISO(value) : undefined;
   return (
@@ -41,7 +44,7 @@ export function DatePickerField({
           )}
         >
           <CalendarIcon className="mr-2 h-4 w-4" />
-          {selected ? format(selected, "dd.MM.yyyy") : placeholder}
+          {selected ? format(selected, "dd.MM.yyyy") : (placeholder ?? t("datePlaceholder"))}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0 z-[60]" align="start">
@@ -50,7 +53,7 @@ export function DatePickerField({
           selected={selected}
           defaultMonth={selected}
           disabled={maxToday ? { after: new Date() } : undefined}
-          locale={ru}
+          locale={getDateFnsLocale(locale)}
           onSelect={(d) => {
             onChange(d ? format(d, "yyyy-MM-dd") : "");
             setOpen(false);

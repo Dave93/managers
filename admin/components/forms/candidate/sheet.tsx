@@ -9,6 +9,7 @@ import {
 } from "@admin/components/ui/sheet";
 import { Plus, Pencil } from "lucide-react";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import CandidateForm from "./_form";
 
 export function CandidateSheet({
@@ -18,6 +19,8 @@ export function CandidateSheet({
     recordId?: string;
     trigger?: React.ReactNode;
 }) {
+    const t = useTranslations("forms.candidate");
+    const tc = useTranslations("forms.common");
     const [open, setOpen] = useState(false);
 
     const beforeOpen = async (open: boolean) => {
@@ -38,12 +41,12 @@ export function CandidateSheet({
                         {recordId ? (
                             <>
                                 <Pencil className="mr-2 h-4 w-4" />
-                                Редактировать
+                                {tc("edit")}
                             </>
                         ) : (
                             <>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Создать
+                                {tc("create")}
                             </>
                         )}
                     </Button>
@@ -52,10 +55,10 @@ export function CandidateSheet({
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader className="mb-5">
                     <SheetTitle>
-                        {recordId ? "Редактировать кандидата" : "Создать кандидата"}
+                        {recordId ? t("sheet.titleEdit") : t("sheet.titleCreate")}
                     </SheetTitle>
                     <SheetDescription>
-                        Заполните форму ниже для {recordId ? "редактирования" : "создания"} кандидата
+                        {recordId ? t("sheet.descriptionEdit") : t("sheet.descriptionCreate")}
                     </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6">

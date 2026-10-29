@@ -7,6 +7,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/po
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Loader2, MessageSquare, Edit3, X } from "lucide-react";
 import { cn } from "@admin/lib/utils";
 
@@ -38,6 +39,7 @@ export function CommentEditor({
     initialComment,
     className,
 }: CommentEditorProps) {
+    const t = useTranslations("hangingOrders");
     const [comment, setComment] = useState(initialComment || "");
     const [lastSavedComment, setLastSavedComment] = useState(initialComment || "");
     const [isOpen, setIsOpen] = useState(false);
@@ -61,13 +63,13 @@ export function CommentEditor({
         onSuccess: (data, savedComment) => {
             setLastSavedComment(savedComment);
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
-            toast.success("Комментарий сохранен", {
+            toast.success(t("commentEditor.saved"), {
                 duration: 2000,
             });
         },
         onError: (error) => {
             console.error("Error updating comment:", error);
-            toast.error("Ошибка при сохранении комментария");
+            toast.error(t("commentEditor.saveError"));
             // Возвращаем предыдущее значение при ошибке
             setComment(lastSavedComment);
         },
@@ -111,7 +113,7 @@ export function CommentEditor({
     const isSaving = updateCommentMutation.isPending;
 
     // Отображение в таблице - компактный вид
-    const displayText = lastSavedComment || "Нет комментария";
+    const displayText = lastSavedComment || t("commentEditor.none");
     const truncatedText = displayText.length > 50 ? `${displayText.substring(0, 50)}...` : displayText;
 
     return (
@@ -145,7 +147,7 @@ export function CommentEditor({
                 <PopoverContent className="w-80" align="start">
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-sm">Комментарий к заказу</h4>
+                            <h4 className="font-medium text-sm">{t("commentEditor.title")}</h4>
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -160,7 +162,7 @@ export function CommentEditor({
                             <Textarea
                                 value={comment}
                                 onChange={handleCommentChange}
-                                placeholder="Добавьте комментарий к обработке заказа..."
+                                placeholder={t("commentEditor.placeholder")}
                                 className={cn(
                                     "min-h-[100px] resize-none pr-8",
                                     isModified && !isSaving && "border-orange-300 bg-orange-50/50",
@@ -186,11 +188,11 @@ export function CommentEditor({
                         <div className="flex items-center justify-between">
                             <div className="text-xs text-muted-foreground">
                                 {isSaving ? (
-                                    <span className="text-blue-600">Сохранение...</span>
+                                    <span className="text-blue-600">{t("saving")}</span>
                                 ) : isModified ? (
-                                    <span className="text-orange-600">Несохраненные изменения</span>
+                                    <span className="text-orange-600">{t("commentEditor.unsaved")}</span>
                                 ) : (
-                                    <span className="text-green-600">Автосохранение включено</span>
+                                    <span className="text-green-600">{t("commentEditor.autosave")}</span>
                                 )}
                             </div>
                             

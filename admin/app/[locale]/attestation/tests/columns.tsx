@@ -3,10 +3,16 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Edit2Icon, ListChecks } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
+import { useTranslations } from "next-intl";
 import { Link } from "@admin/i18n/routing";
 import DeleteAction from "./delete-action";
 import AttestationTestFormSheet from "@admin/components/forms/attestation-test/sheet";
 import { attestation_tests } from "@backend/../drizzle/schema";
+
+function NameHeader() {
+  const t = useTranslations("attestation");
+  return <>{t("tests.name")}</>;
+}
 
 export const attestationTestColumns: ColumnDef<
   typeof attestation_tests.$inferSelect
@@ -16,7 +22,7 @@ export const attestationTestColumns: ColumnDef<
     header: "✓",
     cell: ({ row }) => <Switch checked={row.original.active} disabled />,
   },
-  { accessorKey: "title", header: "Название" },
+  { accessorKey: "title", header: () => <NameHeader /> },
   { accessorKey: "passing_score", header: "%" },
   {
     id: "actions",

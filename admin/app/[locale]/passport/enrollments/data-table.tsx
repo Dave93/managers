@@ -11,6 +11,7 @@
 //    same rows the table is showing instead of issuing a second query.
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   ColumnDef,
   PaginationState,
@@ -67,6 +68,7 @@ interface DataTableProps {
 }
 
 export function DataTable({ columns, filters, onResult }: DataTableProps) {
+  const t = useTranslations("passportUi.enrollments.table");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 20,
@@ -162,7 +164,7 @@ export function DataTable({ columns, filters, onResult }: DataTableProps) {
                   colSpan={columns.length}
                   className="h-24 text-center text-[12.5px] text-muted-foreground"
                 >
-                  Загрузка…
+                  {t("loading")}
                 </TableCell>
               </TableRow>
             ) : isError ? (
@@ -172,8 +174,8 @@ export function DataTable({ columns, filters, onResult }: DataTableProps) {
                   className="h-24 text-center text-[12.5px] text-destructive"
                 >
                   {(error as any)?.status === 403
-                    ? "Нет доступа к списку стажировок."
-                    : (error as any)?.message ?? "Не удалось загрузить список"}
+                    ? t("noAccess")
+                    : (error as any)?.message ?? t("loadFailed")}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
@@ -189,11 +191,9 @@ export function DataTable({ columns, filters, onResult }: DataTableProps) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-28 text-center">
-                  <p className="text-[13px] font-medium">Стажировок нет</p>
+                  <p className="text-[13px] font-medium">{t("emptyTitle")}</p>
                   <p className="mx-auto mt-1 max-w-md text-[12px] leading-snug text-muted-foreground">
-                    По этому фильтру ничего не нашлось. По умолчанию показаны
-                    только идущие стажировки — переключите фильтр на «Все», чтобы
-                    увидеть завершённые.
+                    {t("emptyBody")}
                   </p>
                 </TableCell>
               </TableRow>
@@ -204,7 +204,7 @@ export function DataTable({ columns, filters, onResult }: DataTableProps) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-muted-foreground">Строк:</span>
+          <span className="text-[12px] text-muted-foreground">{t("rows")}</span>
           <Select
             value={`${pageSize}`}
             onValueChange={(v) => table.setPageSize(Number(v))}
@@ -221,12 +221,15 @@ export function DataTable({ columns, filters, onResult }: DataTableProps) {
             </SelectContent>
           </Select>
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            всего: {total}
+            {t("total", { total })}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            стр. {pageIndex + 1} из {Math.max(table.getPageCount(), 1)}
+            {t("page", {
+              page: pageIndex + 1,
+              pages: Math.max(table.getPageCount(), 1),
+            })}
           </span>
           <Button
             variant="outline"

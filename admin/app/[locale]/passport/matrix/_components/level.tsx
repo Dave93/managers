@@ -32,14 +32,23 @@
 // the counter visibly disagree on purpose rather than looking broken.
 
 import { Check } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 
-export const LEVEL_LABEL: Record<number, string> = {
-  1: "Увидел",
-  2: "Сделал",
-  3: "Сам",
-  4: "Учит других",
+/** A translator scoped to `passportUi.matrix`. */
+export type MatrixT = ReturnType<typeof useTranslations>;
+
+const LEVEL_KEY: Record<number, string> = {
+  1: "level.l1",
+  2: "level.l2",
+  3: "level.l3",
+  4: "level.l4",
 };
+
+export function levelLabel(t: MatrixT, level: number): string | undefined {
+  const key = LEVEL_KEY[level];
+  return key ? t(key) : undefined;
+}
 
 const LEVEL_CHIP: Record<number, string> = {
   1: "border-slate-200 bg-slate-100 text-slate-700 dark:border-slate-700 dark:bg-slate-800/70 dark:text-slate-300",
@@ -53,10 +62,10 @@ const LEVEL_CHIP: Record<number, string> = {
 const NOT_STARTED =
   "border-dashed border-border bg-transparent text-muted-foreground";
 
-export function levelTitle(level: number | null): string {
-  if (level === null) return "в модуле нет активных тем";
-  if (level === 0) return "не начато";
-  return `${level} — ${LEVEL_LABEL[level] ?? "неизвестный уровень"}`;
+export function levelTitle(t: MatrixT, level: number | null): string {
+  if (level === null) return t("level.noActiveTopics");
+  if (level === 0) return t("level.notStarted");
+  return `${level} — ${levelLabel(t, level) ?? t("level.unknown")}`;
 }
 
 /**
@@ -94,6 +103,7 @@ export function LevelChip({
  * kind of thing a reader invents a wrong theory about.
  */
 export function MatrixLegend({ className }: { className?: string }) {
+  const t = useTranslations("passportUi.matrix");
   return (
     <div
       className={cn(
@@ -102,7 +112,7 @@ export function MatrixLegend({ className }: { className?: string }) {
       )}
     >
       <span className="text-[10px] font-semibold uppercase tracking-wide">
-        Уровень
+        {t("legend.level")}
       </span>
       {/* Level 0 — the trainee has active topics but has opened none of them.
           A DIFFERENT fact from "the module has no active topics" (level_min
@@ -110,54 +120,54 @@ export function MatrixLegend({ className }: { className?: string }) {
           to be named or the vocabulary is ambiguous. */}
       <span className="inline-flex items-center gap-1.5">
         <LevelChip level={0} />
-        не начато
+        {t("level.notStarted")}
       </span>
       {[1, 2, 3, 4].map((l) => (
         <span key={l} className="inline-flex items-center gap-1.5">
           <LevelChip level={l} />
-          {LEVEL_LABEL[l]}
+          {levelLabel(t, l)}
         </span>
       ))}
 
       <span className="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden />
 
       <span className="text-[10px] font-semibold uppercase tracking-wide">
-        Дедлайн модуля
+        {t("legend.deadline")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
           className="inline-block size-[18px] rounded border-2 border-red-400 bg-red-50 dark:bg-red-950/40"
           aria-hidden
         />
-        просрочен
+        {t("legend.overdue")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
           className="inline-block size-[18px] rounded border-2 border-dashed border-red-300"
           aria-hidden
         />
-        просрочен, но модуль уже закрыт — догонять нечего
+        {t("legend.overdueClosed")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
           className="inline-block size-[18px] rounded border-2 border-amber-300 bg-amber-50 dark:bg-amber-950/30"
           aria-hidden
         />
-        меньше 3 дней
+        {t("lessThan3Days")}
       </span>
 
       <span className="mx-1 hidden h-4 w-px bg-border sm:block" aria-hidden />
 
       <span className="inline-flex items-center gap-1.5">
         <LevelChip level={3} complete />
-        все темы модуля на «сам» и выше
+        {t("legend.allTopics")}
       </span>
       <span className="inline-flex items-center gap-1.5">
         <span
           className="inline-block size-[18px] rounded border border-dashed border-border"
           aria-hidden
         />
-        в модуле нет активных тем
+        {t("level.noActiveTopics")}
       </span>
     </div>
   );

@@ -2,6 +2,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@admin/components/ui/sheet";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
@@ -31,8 +32,6 @@ import { StaleNote } from "../../_components/stale-note";
 import { qk } from "../../_components/use-kpi";
 import { ReviewHistory } from "./review-history";
 
-const CONFIRM_TEXT = "Есть несохранённые изменения. Закрыть без сохранения?";
-
 export function ReviewSheet({
   period,
   row,
@@ -44,10 +43,11 @@ export function ReviewSheet({
   commentMin: number;
   onClose: () => void;
 }) {
+  const t = useTranslations("kpiScreens.reviews.sheet");
   // Тело сообщает, есть ли несохранённые правки; закрытие панели решает снаружи.
   const dirtyRef = useRef(false);
   const requestClose = () => {
-    if (dirtyRef.current && !window.confirm(CONFIRM_TEXT)) return;
+    if (dirtyRef.current && !window.confirm(t("confirmClose"))) return;
     dirtyRef.current = false;
     onClose();
   };
@@ -59,8 +59,8 @@ export function ReviewSheet({
           <ReviewSheetBody key={`${period}:${row.id}`} period={period} row={row} commentMin={commentMin} dirtyRef={dirtyRef} />
         ) : (
           <>
-            <SheetTitle className="sr-only">Оценка сотрудника</SheetTitle>
-            <SheetDescription className="sr-only">Оценка сотрудника</SheetDescription>
+            <SheetTitle className="sr-only">{t("employeeReview")}</SheetTitle>
+            <SheetDescription className="sr-only">{t("employeeReview")}</SheetDescription>
           </>
         )}
       </SheetContent>
@@ -79,6 +79,10 @@ function ReviewSheetBody({
   commentMin: number;
   dirtyRef: React.MutableRefObject<boolean>;
 }) {
+  const t = useTranslations("kpiScreens.reviews.sheet");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const formKey = qk.form(period, row.id);
   const form = useQuery<ReviewForm, KpiApiError>({
@@ -147,7 +151,7 @@ function ReviewSheetBody({
     } else if (e instanceof KpiApiError && e.code === "note_required" && typeof e.body.item_id === "string") {
       setIssues([{ code: "note_required", item_id: e.body.item_id }]);
     }
-    toast.error(kpiErrorText(e));
+    toast.error(kpiErrorText(e, tk));
     // 409 значит, что форма на экране устарела (месяц закрыт, спор открыт, уже отправлена).
     if (e instanceof KpiApiError && e.status === 409) {
       void qc.invalidateQueries({ queryKey: formKey });
@@ -160,7 +164,7 @@ function ReviewSheetBody({
     const found = reviewIssues(items, draft, action, comment, commentMin);
     if (found.length > 0) {
       setIssues(found);
-      toast.error(issueText(found[0], commentMin));
+      toast.error(issueText(found[0], commentMin, tk));
       return;
     }
     latch.current = true;
@@ -169,16 +173,16 @@ function ReviewSheetBody({
     try {
       const inputs = toItemInputs(items, draft);
       if (action === "change") {
-        finish(await kpiApi.reviews.change(data.review!.id, inputs, comment.trim()), "Изменения сохранены");
+        finish(await kpiApi.reviews.change(data.review!.id, inputs, comment.trim()), t("changesSaved"));
       } else if (action === "draft") {
-        finish(await kpiApi.reviews.saveDraft(period, row.id, inputs), "Черновик сохранён");
+        finish(await kpiApi.reviews.saveDraft(period, row.id, inputs), t("draftSaved"));
       } else if (data.review) {
-        finish(await kpiApi.reviews.submit(data.review.id, inputs), "Оценка отправлена");
+        finish(await kpiApi.reviews.submit(data.review.id, inputs), t("reviewSubmitted"));
       } else {
         const saved = await kpiApi.reviews.saveDraft(period, row.id, inputs);
         // Черновик уже на сервере: кладём его в кэш, чтобы повтор после ошибки отправки не создавал второй.
         qc.setQueryData(formKey, saved);
-        finish(await kpiApi.reviews.submit(saved.review!.id), "Оценка отправлена");
+        finish(await kpiApi.reviews.submit(saved.review!.id), t("reviewSubmitted"));
       }
     } catch (e) {
       fail(e);
@@ -211,11 +215,14 @@ function ReviewSheetBody({
         <SheetDescription asChild>
           <div className="space-y-1">
             <div>
-              {row.terminal_name ?? "Филиал без названия"} · {data?.card.title_ru ?? row.card?.title_ru ?? "Без карты"} ·{" "}
-              {monthLabel(period)}
+              {t("subtitle", {
+                branch: row.terminal_name ?? t("unnamedBranch"),
+                card: data?.card.title_ru ?? row.card?.title_ru ?? t("noCard"),
+                month: monthLabel(period, locale),
+              })}
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <KpiBadge tone={status.tone}>{status.label}</KpiBadge>
+              <KpiBadge tone={status.tone}>{tk(status.labelKey)}</KpiBadge>
               <span className="tabular-nums">{formatPct(review?.score_pct ?? null)}</span>
             </div>
           </div>
@@ -225,9 +232,9 @@ function ReviewSheetBody({
       <Tabs value={tab} onValueChange={setTab} className="flex min-h-0 flex-1 flex-col gap-0">
         <div className="px-4 pt-3">
           <TabsList>
-            <TabsTrigger value="form">Оценка</TabsTrigger>
+            <TabsTrigger value="form">{t("tabReview")}</TabsTrigger>
             <TabsTrigger value="history" disabled={reviewId === null}>
-              История
+              {t("tabHistory")}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -237,23 +244,23 @@ function ReviewSheetBody({
             {/* Ошибка закрывает форму, только пока данных нет: сбой фонового обновления не стирает правки. */}
             {form.error && !data ? (
               <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-                {kpiErrorText(form.error)}
+                {kpiErrorText(form.error, tk)}
               </p>
             ) : !data ? (
-              <p className="text-sm text-muted-foreground">Загрузка…</p>
+              <p className="text-sm text-muted-foreground">{tc("loading")}</p>
             ) : (
               <>
                 {form.error && <StaleNote error={form.error} />}
                 {baseItems.map(renderItem)}
                 {extraItems.length > 0 && (
                   <>
-                    <h3 className="pt-2 text-sm font-semibold">Дополнительные пункты</h3>
+                    <h3 className="pt-2 text-sm font-semibold">{t("extraItems")}</h3>
                     {extraItems.map(renderItem)}
                   </>
                 )}
                 {data.other_violations.length > 0 && (
                   <section className="space-y-2">
-                    <h3 className="text-sm font-semibold">Нарушения без пункта</h3>
+                    <h3 className="text-sm font-semibold">{t("violationsNoItem")}</h3>
                     <ul className="space-y-2">
                       {data.other_violations.map((v) => (
                         <li key={v.id} className="space-y-1 rounded border p-2 text-sm">
@@ -265,7 +272,7 @@ function ReviewSheetBody({
                     </ul>
                   </section>
                 )}
-                <div className="text-sm font-medium tabular-nums">Итог: {formatPct(pct)}</div>
+                <div className="text-sm font-medium tabular-nums">{t("total", { pct: formatPct(pct) })}</div>
               </>
             )}
           </div>
@@ -274,9 +281,9 @@ function ReviewSheetBody({
             <div className="sticky bottom-0 space-y-3 border-t bg-background p-4">
               {mode === "readonly" && (
                 <div className="space-y-1 text-sm">
-                  <div className="font-medium">Только просмотр</div>
+                  <div className="font-medium">{t("readOnly")}</div>
                   <div className="text-muted-foreground">
-                    {data.period_status === "closed" ? "Месяц закрыт" : "Нет прав на изменение этой оценки"}
+                    {data.period_status === "closed" ? t("monthClosed") : t("noEditRights")}
                   </div>
                 </div>
               )}
@@ -285,15 +292,15 @@ function ReviewSheetBody({
                 <>
                   {!canSubmit && (
                     <p className="text-sm text-muted-foreground">
-                      Отправка откроется {formatTashkent(data.deadlines.submit_opens_at)}
+                      {t("submitOpensAt", { date: formatTashkent(data.deadlines.submit_opens_at) })}
                     </p>
                   )}
                   <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
                     <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" disabled={busy} onClick={() => run("draft")}>
-                      Сохранить черновик
+                      {t("saveDraft")}
                     </Button>
                     <Button type="button" className="h-11 w-full sm:w-auto" disabled={busy || !canSubmit} onClick={() => run("submit")}>
-                      Отправить
+                      {t("submit")}
                     </Button>
                   </div>
                 </>
@@ -303,7 +310,7 @@ function ReviewSheetBody({
                 <>
                   {disputeBlocks && (
                     <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-                      По оценке открыт спор — изменить можно только через разбор спора
+                      {t("disputeBlocks")}
                     </p>
                   )}
                   <div className="space-y-1">
@@ -315,24 +322,24 @@ function ReviewSheetBody({
                         setComment(e.target.value);
                         setIssues((is) => is.filter((i) => i.code !== "comment_required" && i.code !== "no_changes"));
                       }}
-                      aria-label="Комментарий к изменению"
-                      placeholder="Комментарий к изменению"
+                      aria-label={t("changeComment")}
+                      placeholder={t("changeComment")}
                     />
-                    <p className="text-xs text-muted-foreground">Не меньше {commentMin} символов без пробелов</p>
-                    <p className="text-xs text-muted-foreground">Причину изменения увидит сотрудник</p>
+                    <p className="text-xs text-muted-foreground">{t("commentMin", { count: commentMin })}</p>
+                    <p className="text-xs text-muted-foreground">{t("reasonVisible")}</p>
                     {commentIssue && (
                       <p role="alert" className="text-sm text-destructive">
-                        {issueText(commentIssue, commentMin)}
+                        {issueText(commentIssue, commentMin, tk)}
                       </p>
                     )}
                   </div>
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                     {!data.open_dispute && !row.open_dispute && data.period_status === "open" && data.review &&
                       (data.dispute_rejected ? (
-                        <p className="text-sm text-muted-foreground">Спор отклонён. Повторно оспорить нельзя</p>
+                        <p className="text-sm text-muted-foreground">{t("disputeRejected")}</p>
                       ) : (
                         <Button type="button" variant="link" className="h-11" onClick={() => setDisputeOpen(true)}>
-                          Оспорить от имени сотрудника
+                          {t("disputeOnBehalf")}
                         </Button>
                       ))}
                     <Button
@@ -341,7 +348,7 @@ function ReviewSheetBody({
                       disabled={busy || disputeBlocks}
                       onClick={() => run("change")}
                     >
-                      Сохранить изменения
+                      {t("saveChanges")}
                     </Button>
                   </div>
                 </>
@@ -358,7 +365,7 @@ function ReviewSheetBody({
       <OpenDisputeDialog
         subject={
           disputeOpen && data?.review
-            ? { type: "review", id: data.review.id, title: `Оценка: ${employeeName(row)}, ${monthLabel(period)}` }
+            ? { type: "review", id: data.review.id, title: t("disputeSubject", { name: employeeName(row), month: monthLabel(period, locale) }) }
             : null
         }
         commentMin={commentMin}

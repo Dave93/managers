@@ -1,6 +1,7 @@
 "use client";
 
 import { Loader2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export type JobProgress = { title: string; text: string };
 
@@ -11,6 +12,7 @@ export type JobProgress = { title: string; text: string };
  * страницы overflow-x-hidden, с ним sticky не прилипает.
  */
 export function JobProgressBanner({ progress }: { progress: JobProgress | null }) {
+    const t = useTranslations("hangingOrders");
     if (!progress) return null;
 
     // «день 18 из 122», «обработано 52 из 154» — первая пара даёт полосу.
@@ -54,7 +56,7 @@ export function JobProgressBanner({ progress }: { progress: JobProgress | null }
                 />
             </div>
             <p className="mt-2 text-xs text-blue-700 dark:text-blue-300">
-                Страницу можно не держать открытой — задача идёт на сервере.
+                {t("jobProgress.footer")}
             </p>
         </div>
     );

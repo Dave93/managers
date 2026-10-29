@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Card, CardContent } from "@admin/components/ui/card";
 import { cn } from "@admin/lib/utils";
 import type { OrgOption } from "./KpiAreaCard";
@@ -15,6 +16,7 @@ export function OrgToggle({
   orgOptions?: OrgOption[];
   onOrganizationChange?: (id: string) => void;
 }) {
+  const t = useTranslations("charts");
   if (!orgOptions || orgOptions.length === 0 || !onOrganizationChange) return null;
   return (
     <div className="inline-flex shrink-0 overflow-hidden rounded-lg border">
@@ -24,7 +26,7 @@ export function OrgToggle({
         onClick={() => onOrganizationChange("")}
         className="px-3 py-1.5 text-xs font-medium text-muted-foreground data-[active=true]:bg-muted data-[active=true]:text-foreground"
       >
-        Все
+        {t("all")}
       </button>
       {orgOptions.map((o) => (
         <button

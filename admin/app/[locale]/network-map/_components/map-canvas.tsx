@@ -22,13 +22,14 @@
 import * as React from "react";
 import { MapContainer, ScaleControl, TileLayer, useMap } from "react-leaflet";
 import { motion } from "framer-motion";
+import { useTranslations } from "next-intl";
 import { Minus, Plus, Maximize2, ImageOff, Locate } from "lucide-react";
 import type { Map as LeafletMap } from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 import type { Branch } from "./use-network-map";
 import { GlyphBody, EASE_OUT } from "./branch-glyph";
-import { BRAND, MapMode, RING_R, nodeScale } from "./vocabulary";
+import { BRAND, MapMode, RING_R, brandLabel, nodeScale } from "./vocabulary";
 
 const TASHKENT: [number, number] = [41.3, 69.26];
 /** Подписи узлов включаются с этого зума — раньше они наезжают друг на друга. */
@@ -90,6 +91,7 @@ function NodeLayer({
   onSelect,
   onFitAll,
 }: NodeLayerProps) {
+  const t = useTranslations("networkMap");
   const groups = React.useRef(new Map<string, SVGGElement | null>());
   const labels = React.useRef(new Map<string, SVGTextElement | null>());
   const tip = React.useRef<HTMLDivElement | null>(null);
@@ -284,11 +286,11 @@ function NodeLayer({
                 </span>
               </div>
               <div className="mt-1 text-[11px] leading-snug text-slate-400">
-                {(BRAND[hovered.brand] ?? BRAND.other).label}
+                {brandLabel(hovered.brand, t)}
                 {" · "}
                 {hovered.has_staff_data
-                  ? `${hovered.staff.total} чел.`
-                  : "состав не заведён"}
+                  ? t("canvas.people", { count: hovered.staff.total })
+                  : t("canvas.noStaff")}
               </div>
             </div>
           </div>
@@ -303,14 +305,14 @@ function NodeLayer({
       >
         <span>
           <span ref={offViewCount} className="font-semibold text-slate-100" />{" "}
-          филиалов вне вида
+          {t("canvas.offView")}
         </span>
         <button
           type="button"
           onClick={onFitAll}
           className="rounded border border-slate-600 px-1.5 py-px text-[10.5px] text-slate-200 hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
         >
-          показать всю сеть
+          {t("canvas.showAll")}
         </button>
       </div>
     </>
@@ -334,6 +336,7 @@ export default function MapCanvas({
   onHover,
   onSelect,
 }: MapCanvasProps) {
+  const t = useTranslations("networkMap");
   const [map, setMap] = React.useState<LeafletMap | null>(null);
   const [tiles, setTiles] = React.useState<"pending" | "ok" | "failed">(
     "pending"
@@ -415,16 +418,16 @@ export default function MapCanvas({
       />
 
       <div className="absolute right-2 top-2 z-[600] flex flex-col gap-1">
-        <MapButton label="Приблизить" onClick={() => map?.zoomIn()}>
+        <MapButton label={t("canvas.zoomIn")} onClick={() => map?.zoomIn()}>
           <Plus className="size-3.5" />
         </MapButton>
-        <MapButton label="Отдалить" onClick={() => map?.zoomOut()}>
+        <MapButton label={t("canvas.zoomOut")} onClick={() => map?.zoomOut()}>
           <Minus className="size-3.5" />
         </MapButton>
-        <MapButton label="Ядро сети (Ташкент)" onClick={fitCore}>
+        <MapButton label={t("canvas.core")} onClick={fitCore}>
           <Locate className="size-3.5" />
         </MapButton>
-        <MapButton label="Вся сеть" onClick={fitAll}>
+        <MapButton label={t("canvas.all")} onClick={fitAll}>
           <Maximize2 className="size-3.5" />
         </MapButton>
       </div>
@@ -433,9 +436,7 @@ export default function MapCanvas({
         <div className="absolute left-2 top-2 z-[600] flex max-w-[300px] items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-2.5 py-2 text-[11px] leading-snug text-amber-200">
           <ImageOff className="mt-px size-3.5 shrink-0" aria-hidden />
           <span>
-            Подложка карты не загрузилась. Филиалы, их расположение друг
-            относительно друга и масштабная линейка внизу остаются верными —
-            пропали только улицы.
+            {t("canvas.tilesFailed")}
           </span>
         </div>
       )}

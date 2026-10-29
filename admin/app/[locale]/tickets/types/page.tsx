@@ -19,6 +19,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Inbox, Plus, RotateCw, ShieldAlert, SquarePen, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { cn } from "@admin/lib/utils";
@@ -64,12 +65,13 @@ function ForbiddenBody({
 }
 
 function AccessPanel() {
+  const t = useTranslations("ticketsUi.types");
   return (
     <div role="alert" className="rounded-lg border bg-card">
       <ForbiddenBody
-        title="Нет доступа к типам заявок"
-        prefix="Экрану нужно право"
-        suffix="Попросите администратора добавить его вашей роли в форме роли, затем перезагрузите страницу."
+        title={t("accessTitle")}
+        prefix={t("accessPrefix")}
+        suffix={t("accessSuffix")}
       />
     </div>
   );
@@ -100,15 +102,18 @@ function ListFrame({
   onRetry: () => void;
   children: React.ReactNode;
 }) {
+  const t = useTranslations("ticketsUi.types");
+  const tt = useTranslations("ticketsUi.table");
+  const tl = useTranslations("ticketsLib");
   const apiError = q.error as ApiError | null;
   if (q.isError && !q.hasData) {
     if (apiError?.status === 403) {
       return (
         <div role="alert">
           <ForbiddenBody
-            title="Нет доступа к списку типов"
-            prefix="Сервер ответил отказом (403). Нужно право"
-            suffix="Попросите администратора добавить его вашей роли, затем перезагрузите страницу."
+            title={t("listForbiddenTitle")}
+            prefix={t("listForbiddenPrefix")}
+            suffix={t("listForbiddenSuffix")}
           />
         </div>
       );
@@ -119,21 +124,21 @@ function ListFrame({
         <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
         <div className="min-w-0 space-y-2.5">
           <p className="text-[14px] font-semibold leading-tight">
-            {network ? "Нет связи с сервером" : "Не удалось загрузить список типов"}
+            {network ? tt("noConnection") : t("listLoadFailed")}
           </p>
           <p className="max-w-xl break-words text-[12.5px] leading-snug text-muted-foreground">
             {network
-              ? "Запрос не дошёл до сервера. Проверьте соединение и повторите."
-              : apiMessage(apiError)}
+              ? tt("noConnectionBody")
+              : apiMessage(apiError, tl)}
           </p>
           {network && (
             <p className="break-words font-mono text-[11px] text-muted-foreground">
-              {apiMessage(apiError)}
+              {apiMessage(apiError, tl)}
             </p>
           )}
           <Button variant="outline" size="sm" onClick={onRetry} disabled={q.isFetching}>
             <RotateCw className={q.isFetching ? "size-3.5 animate-spin" : "size-3.5"} />
-            {q.isFetching ? "Повторяем…" : "Повторить"}
+            {q.isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       </div>
@@ -160,13 +165,13 @@ function ListFrame({
         >
           <TriangleAlert className="size-3.5 shrink-0" />
           <span>
-            {apiError?.status === 403 ? "Доступ пропал." : "Не удалось обновить список."} Показаны
-            данные на{" "}
-            {new Date(q.dataUpdatedAt).toLocaleTimeString("ru-RU", {
-              hour: "2-digit",
-              minute: "2-digit",
+            {apiError?.status === 403 ? t("staleForbidden") : tt("staleFailed")}{" "}
+            {tt("staleShown", {
+              time: new Date(q.dataUpdatedAt).toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             })}
-            .
           </span>
           <Button
             variant="ghost"
@@ -175,7 +180,7 @@ function ListFrame({
             onClick={onRetry}
             disabled={q.isFetching}
           >
-            {q.isFetching ? "Повторяем…" : "Повторить"}
+            {q.isFetching ? tt("retrying") : tt("retry")}
           </Button>
         </div>
       )}
@@ -210,26 +215,27 @@ function Chip({ tone, children }: { tone: "off" | "on"; children: React.ReactNod
 // external без фирмы — законное состояние «фирму ещё не выбрали», но заявку на
 // такой тип не завести, и это написано прямо в строке, а не спрятано.
 function ExecutorCell({ row, firms }: { row: TicketTypeRow; firms: FirmsState }) {
+  const t = useTranslations("ticketsUi.types");
   if (row.executor_kind === "staff") {
-    return <span className="text-muted-foreground">Сотрудник</span>;
+    return <span className="text-muted-foreground">{t("kindStaff")}</span>;
   }
   if (!row.contractor_id) {
     return (
       <span className="flex items-start gap-1.5 text-amber-800 dark:text-amber-300">
         <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
         <span className="max-w-[16rem] text-[12.5px] leading-snug">
-          Фирма не выбрана — заявки по этому типу создать нельзя
+          {t("firmNotChosen")}
         </span>
       </span>
     );
   }
   if (firms.status === "ready") {
     const firm = firms.list.find((f) => f.id === row.contractor_id);
-    if (!firm) return <span className="text-muted-foreground">Фирма не найдена в справочнике</span>;
+    if (!firm) return <span className="text-muted-foreground">{t("firmNotFound")}</span>;
     return (
       <span>
         {firm.name}
-        {!firm.is_active && <span className="ml-1.5 text-muted-foreground">(выключена)</span>}
+        {!firm.is_active && <span className="ml-1.5 text-muted-foreground">{t("firmDisabledParen")}</span>}
       </span>
     );
   }
@@ -238,8 +244,8 @@ function ExecutorCell({ row, firms }: { row: TicketTypeRow; firms: FirmsState })
       {firms.status === "loading"
         ? "…"
         : firms.status === "denied"
-          ? "Фирма выбрана (название недоступно)"
-          : "Фирма выбрана (список фирм не загрузился)"}
+          ? t("firmChosenDenied")
+          : t("firmChosenError")}
     </span>
   );
 }
@@ -248,6 +254,8 @@ const fieldCount = (row: TicketTypeRow) =>
   Array.isArray(row.fields_schema) ? row.fields_schema.length : 0;
 
 export default function TicketTypesPage() {
+  const t = useTranslations("ticketsUi.types");
+  const tl = useTranslations("ticketsLib");
   // Тот же ключ, что у CanAccess и layout: один запрос на всё приложение.
   const perms = useQuery({
     queryKey: ["my_permissions"],
@@ -275,7 +283,7 @@ export default function TicketTypesPage() {
     : firmsQ.isError
       ? (firmsQ.error as ApiError | null)?.status === 403
         ? { status: "denied" }
-        : { status: "error", message: apiMessage(firmsQ.error) }
+        : { status: "error", message: apiMessage(firmsQ.error, tl) }
       : { status: "loading" };
 
   const [target, setTarget] = useState<TypeTarget | null>(null);
@@ -287,16 +295,15 @@ export default function TicketTypesPage() {
     <div className="space-y-4 pb-10">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-lg font-semibold tracking-tight">Типы заявок</h1>
+          <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
           <p className="max-w-2xl text-[12px] text-muted-foreground">
-            Что можно завести на планшете филиала, какой фирме или сотруднику это уходит и какие поля
-            заполняет менеджер.
+            {t("subtitle")}
           </p>
         </div>
         {!missing && (
           <Button size="sm" onClick={() => setTarget({ kind: "create" })} disabled={!enabled}>
             <Plus className="size-3.5" />
-            Добавить тип
+            {t("addType")}
           </Button>
         )}
       </div>
@@ -304,7 +311,7 @@ export default function TicketTypesPage() {
       {missing ? (
         <AccessPanel />
       ) : (
-        <section aria-label="Типы заявок" className="rounded-lg border bg-card">
+        <section aria-label={t("title")} className="rounded-lg border bg-card">
           <ListFrame
             q={{
               isPending: typesQ.isPending,
@@ -317,9 +324,9 @@ export default function TicketTypesPage() {
             isEmpty={rows.length === 0}
             empty={
               <>
-                <p className="text-[13px] font-medium">Типов заявок пока нет</p>
+                <p className="text-[13px] font-medium">{t("emptyTitle")}</p>
                 <p className="mx-auto mt-1 max-w-xs text-[12px] leading-snug text-muted-foreground">
-                  Добавьте первый тип: без него на планшете нечего выбрать.
+                  {t("emptyBody")}
                 </p>
               </>
             }
@@ -329,14 +336,14 @@ export default function TicketTypesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Название</TableHead>
-                    <TableHead>Код</TableHead>
-                    <TableHead>Префикс</TableHead>
-                    <TableHead>Исполнитель</TableHead>
-                    <TableHead className="text-right">Полей</TableHead>
-                    <TableHead>Статус</TableHead>
+                    <TableHead>{t("colName")}</TableHead>
+                    <TableHead>{t("colCode")}</TableHead>
+                    <TableHead>{t("colPrefix")}</TableHead>
+                    <TableHead>{t("colExecutor")}</TableHead>
+                    <TableHead className="text-right">{t("colFields")}</TableHead>
+                    <TableHead>{t("colStatus")}</TableHead>
                     <TableHead className="w-10">
-                      <span className="sr-only">Изменить</span>
+                      <span className="sr-only">{t("edit")}</span>
                     </TableHead>
                   </TableRow>
                 </TableHeader>
@@ -364,14 +371,14 @@ export default function TicketTypesPage() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{fieldCount(r)}</TableCell>
                       <TableCell>
-                        <Chip tone={r.active ? "on" : "off"}>{r.active ? "Активен" : "Выключен"}</Chip>
+                        <Chip tone={r.active ? "on" : "off"}>{r.active ? t("active") : t("disabled")}</Chip>
                       </TableCell>
                       <TableCell>
                         <Button
                           variant="ghost"
                           size="sm"
                           className="h-8 w-8 p-0"
-                          aria-label={`Изменить тип ${r.name_ru}`}
+                          aria-label={t("editTypeAria", { name: r.name_ru })}
                           onClick={() => setTarget({ kind: "edit", id: r.id })}
                         >
                           <SquarePen className="size-4" />

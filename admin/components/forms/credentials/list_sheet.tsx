@@ -7,7 +7,7 @@ import {
   SheetTrigger,
 } from "@components/ui/sheet";
 import { CredentialsList } from "./list";
-import { credentialsColumns } from "./columns";
+import { useCredentialsColumns } from "./columns";
 import { PlusIcon } from "lucide-react";
 import CredentialsAddFormSheet from "./form_sheet";
 import { Button } from "@admin/components/ui/buttonOrigin";
@@ -21,6 +21,7 @@ export default function CredentialsFormSheet({
   recordId: string;
   model: string;
 }) {
+  const credentialsColumns = useCredentialsColumns();
   const [open, setOpen] = useState<boolean>(false);
 
   const beforeOpen = async (open: boolean) => {

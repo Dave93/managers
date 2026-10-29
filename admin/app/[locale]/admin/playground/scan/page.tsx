@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/button";
 
@@ -12,6 +13,7 @@ type ValidationResult = {
 };
 
 export default function PlaygroundScanPage() {
+  const t = useTranslations("playgroundUi");
   const [result, setResult] = useState<ValidationResult | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
@@ -87,7 +89,7 @@ export default function PlaygroundScanPage() {
       if (!qrData.startsWith("PLAYGROUND:")) {
         showResult({
           type: "warning",
-          title: "Это не билет детской площадки",
+          title: t("scan.notPlaygroundTicket"),
         });
         return;
       }
@@ -101,12 +103,14 @@ export default function PlaygroundScanPage() {
         if (status === 200 && data && "ticket_id" in data) {
           showResult({
             type: "success",
-            title: "Билет действителен",
+            title: t("scan.valid"),
             details: [
-              `Кол-во детей: ${(data as any).children_count}`,
-              `Номер заказа: ${(data as any).order_number}`,
-              `Сумма: ${Intl.NumberFormat("ru-RU").format((data as any).order_amount)} сум`,
-              `Терминал: ${(data as any).terminal_name}`,
+              t("scan.childrenCount", { count: (data as any).children_count }),
+              t("scan.orderNumber", { number: (data as any).order_number }),
+              t("scan.amount", {
+                amount: Intl.NumberFormat("ru-RU").format((data as any).order_amount),
+              }),
+              t("scan.terminal", { name: (data as any).terminal_name }),
             ],
           });
         } else {
@@ -118,28 +122,28 @@ export default function PlaygroundScanPage() {
               : "";
             showResult({
               type: "error",
-              title: "Билет уже использован",
-              details: usedAt ? [`Использован: ${usedAt}`] : undefined,
+              title: t("scan.alreadyUsed"),
+              details: usedAt ? [t("scan.usedAt", { date: usedAt })] : undefined,
             });
           } else if (message === "Ticket expired") {
-            showResult({ type: "error", title: "Билет просрочен" });
+            showResult({ type: "error", title: t("scan.expired") });
           } else if (message === "Ticket not found") {
-            showResult({ type: "error", title: "Билет не найден" });
+            showResult({ type: "error", title: t("scan.notFound") });
           } else {
             showResult({
               type: "error",
-              title: message || "Ошибка валидации",
+              title: message || t("scan.validationError"),
             });
           }
         }
       } catch (err) {
         showResult({
           type: "error",
-          title: "Ошибка сети. Попробуйте ещё раз.",
+          title: t("scan.networkError"),
         });
       }
     },
-    [showResult]
+    [showResult, t]
   );
 
   const startScanner = useCallback(async () => {
@@ -174,10 +178,10 @@ export default function PlaygroundScanPage() {
       console.error("Camera error:", err);
       setResult({
         type: "warning",
-        title: "Не удалось запустить камеру. Проверьте разрешения.",
+        title: t("scan.cameraError"),
       });
     }
-  }, [handleQrData]);
+  }, [handleQrData, t]);
 
   useEffect(() => {
     return () => {
@@ -199,14 +203,14 @@ export default function PlaygroundScanPage() {
   return (
     <div className="max-w-lg mx-auto">
       <h2 className="text-3xl font-bold tracking-tight pb-4">
-        Сканирование билета
+        {t("scan.title")}
       </h2>
 
       <div id={scannerContainerId} className="mb-4 rounded-lg overflow-hidden" />
 
       {!isScanning && (
         <Button onClick={startScanner} className="w-full mb-4">
-          Запустить камеру
+          {t("scan.startCamera")}
         </Button>
       )}
 
@@ -231,7 +235,7 @@ export default function PlaygroundScanPage() {
           }}
           className="w-full mt-4"
         >
-          Сканировать ещё
+          {t("scan.scanAgain")}
         </Button>
       )}
     </div>

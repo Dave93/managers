@@ -12,6 +12,7 @@ import { Toaster } from "@admin/components/ui/sonner"
 import CanAccess from "../can-access";
 import NoAccessNotice from "./no-access-notice";
 import { apiClient } from "@admin/utils/eden";
+import { useTranslations } from "next-intl";
 
 // Every shell below is gated on one of these. A role holding NONE of them used
 // to fall through all four <CanAccess> blocks and render literally nothing —
@@ -32,6 +33,7 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const t = useTranslations("layoutUi.noAccess");
   const roleCode = useGetRole();
 
   // Same query key the four <CanAccess> children use, so this is the same
@@ -67,9 +69,9 @@ export default function MainLayout({
           )} */}
       {shellDenied && (
         <NoAccessNotice
-          title="Нет доступа к разделам админки"
+          title={t("shellTitle")}
           missing={LAYOUT_PERMISSIONS}
-          explanation="Ваша роль заведена, но ей не выдано ни одного права на оболочку админки, поэтому показать нечего. Чаще всего нужно admin_layout — именно внутри него открываются «Паспорт стажёра», «Аттестация», отчёты и остальные разделы. Отдельные права раздела (например passport_layout) без права на оболочку не работают."
+          explanation={t("shellExplanation")}
         />
       )}
       {roleCode === null && <NoRoleLayout>{children}</NoRoleLayout>}

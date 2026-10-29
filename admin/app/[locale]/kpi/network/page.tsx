@@ -3,6 +3,7 @@ import React, { Suspense, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,8 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Link } from "@admin/i18n/routing";
 import { kpiApi, type BranchCell, type BranchNetwork } from "@admin/lib/kpi-api";
 import {
-  COMPUTE_CONFIRM_TEXT,
-  INDICATOR_LABEL,
+  INDICATOR_LABEL_KEY,
   cellTone,
   coverageText,
   defaultBranchPeriod,
@@ -64,9 +64,10 @@ const TILE: Record<Tone, string> = {
 };
 
 export default function NetworkPage() {
+  const tc = useTranslations("kpiScreens.common");
   return (
     <ScreenGate screen="network">
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Загрузка…</p>}>
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">{tc("loading")}</p>}>
         <NetworkScreen />
       </Suspense>
     </ScreenGate>
@@ -74,6 +75,10 @@ export default function NetworkPage() {
 }
 
 function NetworkScreen() {
+  const t = useTranslations("kpiScreens.network");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const now = useMemo(() => new Date(), []);
   const { access } = useKpiPerms();
   const asked = useSearchParams().get("period");
@@ -99,7 +104,7 @@ function NetworkScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Балл филиалов · {monthLabel(period)}</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title", { month: monthLabel(period, locale) })}</h1>
         <PeriodSelect value={period} onChange={(v) => v && setPicked(v)} options={options} className="w-44" />
         {canCompute && <ComputeButton period={period} />}
       </div>
@@ -108,10 +113,10 @@ function NetworkScreen() {
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : !data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         <NetworkView period={period} data={data} canCompute={canCompute} />
       )}
@@ -120,6 +125,10 @@ function NetworkScreen() {
 }
 
 function ComputeButton({ period }: { period: string }) {
+  const t = useTranslations("kpiScreens.network");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   // Защёлка: второй тап до ответа сервера не уходит запросом.
@@ -128,12 +137,12 @@ function ComputeButton({ period }: { period: string }) {
     mutationFn: (p: string) => kpiApi.branch.compute(p),
     onSuccess: async (r) => {
       toast.success(
-        r.version === null ? "Данных за месяц нет: ни один филиал не посчитан" : `Посчитано филиалов: ${r.terminals}`
+        r.version === null ? t("noDataToast") : t("computedBranches", { count: r.terminals })
       );
       await qc.invalidateQueries({ queryKey: qk.branchAll });
     },
     onError: async (e) => {
-      toast.error(kpiErrorText(e));
+      toast.error(kpiErrorText(e, tk));
       // Исход неизвестен (сеть, 5xx): расчёт мог пройти, обновляем сеть.
       if (!outcomeKnown(e)) await qc.invalidateQueries({ queryKey: qk.branchAll });
     },
@@ -155,18 +164,18 @@ function ComputeButton({ period }: { period: string }) {
   return (
     <>
       <Button type="button" className="h-11" disabled={compute.isPending} onClick={onClick}>
-        {compute.isPending ? "Считаем…" : "Пересчитать"}
+        {compute.isPending ? t("computing") : t("recompute")}
       </Button>
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Пересчитать {monthLabel(period)}?</AlertDialogTitle>
-            <AlertDialogDescription>{COMPUTE_CONFIRM_TEXT}</AlertDialogDescription>
+            <AlertDialogTitle>{t("confirmTitle", { month: monthLabel(period, locale) })}</AlertDialogTitle>
+            <AlertDialogDescription>{tk("lib.branch.computeConfirm")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="h-11">Отмена</AlertDialogCancel>
+            <AlertDialogCancel className="h-11">{tc("cancel")}</AlertDialogCancel>
             <AlertDialogAction className="h-11" onClick={run}>
-              Посчитать
+              {t("calculate")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -176,6 +185,9 @@ function ComputeButton({ period }: { period: string }) {
 }
 
 function NetworkView({ period, data, canCompute }: { period: string; data: BranchNetwork; canCompute: boolean }) {
+  const t = useTranslations("kpiScreens.network");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const rows = data.rows;
   const counts = tierCounts(rows);
   const average = networkAverage(rows);
@@ -184,31 +196,31 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
         {data.version === null
-          ? "За этот месяц расчёта нет"
-          : `Посчитано ${formatTashkent(data.computed_at)}, версия ${data.version}`}
+          ? t("noCalcThisMonth")
+          : t("computedVersion", { date: formatTashkent(data.computed_at), version: data.version })}
       </p>
 
       {data.version !== null && data.preliminary && <PreliminaryNote />}
 
       {(() => {
-        const hint = newDataHint(data, { canCompute, period, onNetwork: true });
+        const hint = newDataHint(data, { canCompute, period, onNetwork: true }, tk);
         return hint ? <NewDataNote text={hint.text} href={hint.href} /> : null;
       })()}
 
       {rows.length === 0 ? (
         <p className="rounded-md border p-4 text-sm text-muted-foreground">
           {data.version !== null
-            ? "В расчёте нет доступных вам филиалов"
+            ? t("noAccessibleBranches")
             : canCompute
-              ? `Расчёта за ${monthLabel(period)} нет. Нажмите «Пересчитать»`
-              : "HR ещё не считал балл за этот месяц"}
+              ? t("noCalcFor", { month: monthLabel(period, locale) })
+              : t("hrNotCalculated")}
         </p>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <div className="rounded-lg border p-3">
               <div className="text-2xl font-semibold">{formatScore(average)}</div>
-              <div className="text-sm text-muted-foreground">Средний балл</div>
+              <div className="text-sm text-muted-foreground">{t("averageScore")}</div>
             </div>
             {counts.map((c) => (
               <div key={c.pct} className={cn("rounded-lg border p-3", TILE[tierTone(c.pct)])}>
@@ -222,19 +234,19 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Филиал</TableHead>
-                  <TableHead className="text-right">Балл</TableHead>
-                  <TableHead>Ступень</TableHead>
+                  <TableHead>{t("colBranch")}</TableHead>
+                  <TableHead className="text-right">{t("colScore")}</TableHead>
+                  <TableHead>{t("colTier")}</TableHead>
                   {data.columns.map((code) => (
                     <TableHead key={code} className="text-right">
-                      {INDICATOR_LABEL[code] ?? code}
+                      {Object.hasOwn(INDICATOR_LABEL_KEY, code) ? tk(INDICATOR_LABEL_KEY[code]) : code}
                     </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => {
-                  const coverage = coverageText(Object.values(r.cells).filter((c): c is BranchCell => c !== undefined));
+                  const coverage = coverageText(Object.values(r.cells).filter((c): c is BranchCell => c !== undefined), tk);
                   return (
                     <TableRow key={r.terminal_id}>
                       <TableCell>
@@ -242,7 +254,7 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
                           href={`/kpi/branch/${r.terminal_id}?period=${period}`}
                           className="inline-flex min-h-11 items-center underline-offset-2 hover:underline"
                         >
-                          {r.terminal_name ?? "Филиал без названия"}
+                          {r.terminal_name ?? t("unnamedBranch")}
                         </Link>
                       </TableCell>
                       <TableCell className="text-right whitespace-nowrap">
@@ -257,10 +269,10 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
                         return (
                           <TableCell
                             key={code}
-                            title={cell && cell.points !== null ? `${formatPoints(cell.points)} балла` : undefined}
+                            title={cell && cell.points !== null ? t("pointsTitle", { points: formatPoints(cell.points) }) : undefined}
                             className={cn("text-right whitespace-nowrap", CELL[cellTone(cell)])}
                           >
-                            {formatFact(cell?.fact ?? null)}
+                            {formatFact(cell?.fact ?? null, tk)}
                           </TableCell>
                         );
                       })}
@@ -272,7 +284,7 @@ function NetworkView({ period, data, canCompute }: { period: string; data: Branc
           </div>
 
           <p className="text-xs text-muted-foreground">
-            Зелёный — цель взята, жёлтый — между порогом и целью, красный — порог не взят, серый — нет данных
+            {t("legend")}
           </p>
         </>
       )}

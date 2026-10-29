@@ -169,6 +169,11 @@ export type Issue = {
   code: IssueCode;
   target: IssueTarget;
   optionUid?: string;
+  // Ключ поля корректен: тогда where — сам ключ, иначе «поле #N». UI по этому
+  // признаку подставляет перевод вместо русского «поле #N».
+  keyOk: boolean;
+  // Значение варианта для option_dup (в clause оно уже вшито по-русски).
+  detail?: string;
   // Формулировка сервера без префикса.
   clause: string;
   // Текст для человека: клауза с заглавной буквы плюс, где надо, подсказка.
@@ -195,12 +200,14 @@ export function validateDrafts(drafts: FieldDraft[]): Issue[] {
       code: IssueCode,
       target: IssueTarget,
       clause: string,
-      extra?: { optionUid?: string; hint?: string }
+      extra?: { optionUid?: string; hint?: string; detail?: string }
     ) =>
       issues.push({
         fieldUid: f.uid,
         fieldIndex: i,
         where,
+        keyOk,
+        detail: extra?.detail,
         code,
         target,
         optionUid: extra?.optionUid,
@@ -241,7 +248,7 @@ export function validateDrafts(drafts: FieldDraft[]): Issue[] {
       }
       const v = o.value.trim();
       if (seenValues.has(v)) {
-        push("option_dup", "option_value", CLAUSE.optionDup(v), { optionUid: o.uid });
+        push("option_dup", "option_value", CLAUSE.optionDup(v), { optionUid: o.uid, detail: v });
       } else {
         seenValues.add(v);
       }
@@ -365,41 +372,55 @@ export type TypeFormValues = {
 };
 export type TypeFormErrors = Partial<Record<keyof TypeFormValues, string>>;
 
+// Тексты ошибок формы лежат в словаре `ticketsUi.types.form`; модуль остаётся
+// чистым (без React и next-intl), переводчик приходит параметром.
+export type FormMsg =
+  | "nameRequired"
+  | "tooLong"
+  | "codeRequired"
+  | "codeFormat"
+  | "prefixRequired"
+  | "prefixFormat"
+  | "sortFormat";
+export type FormTranslate = (key: FormMsg, values?: Record<string, number>) => string;
+
 export function validateTypeForm(
   v: TypeFormValues,
   mode: "create" | "edit",
-  initial: TypeFormValues
+  initial: TypeFormValues,
+  t: FormTranslate
 ): TypeFormErrors {
   const e: TypeFormErrors = {};
 
+  const tr = t;
   for (const k of ["name_ru", "name_uz"] as const) {
     const t = v[k].trim();
-    if (t === "") e[k] = "Название обязательно.";
-    else if (t.length > LIMITS.name) e[k] = `Не длиннее ${LIMITS.name} знаков.`;
+    if (t === "") e[k] = tr("nameRequired");
+    else if (t.length > LIMITS.name) e[k] = tr("tooLong", { max: LIMITS.name });
   }
 
   if (mode === "create") {
     const c = v.code.trim();
-    if (c === "") e.code = "Код обязателен.";
+    if (c === "") e.code = tr("codeRequired");
     else if (!CODE_RE.test(c)) {
-      e.code = `Код: латиница в snake_case (ad_tv, cameras), начинается с буквы, не длиннее ${LIMITS.code} знаков.`;
+      e.code = tr("codeFormat", { max: LIMITS.code });
     }
   }
 
   const p = v.number_prefix.trim();
-  if (p === "") e.number_prefix = "Префикс обязателен.";
-  else if (p.length > LIMITS.prefix) e.number_prefix = `Не длиннее ${LIMITS.prefix} знаков.`;
+  if (p === "") e.number_prefix = tr("prefixRequired");
+  else if (p.length > LIMITS.prefix) e.number_prefix = tr("tooLong", { max: LIMITS.prefix });
   // Формат проверяем, только когда префикс новый или правится: уже сохранённый
   // нестандартный префикс не должен блокировать правку соседних полей.
   else if ((mode === "create" || p !== initial.number_prefix.trim()) && !PREFIX_RE.test(p)) {
-    e.number_prefix = "Только заглавные латинские буквы и цифры.";
+    e.number_prefix = tr("prefixFormat");
   }
 
-  if (v.icon.trim().length > LIMITS.icon) e.icon = `Не длиннее ${LIMITS.icon} знаков.`;
+  if (v.icon.trim().length > LIMITS.icon) e.icon = tr("tooLong", { max: LIMITS.icon });
 
   const s = v.sort.trim();
   if (!/^-?\d+$/.test(s) || Math.abs(Number(s)) > LIMITS.sortAbs) {
-    e.sort = "Целое число, например 0 или 10.";
+    e.sort = tr("sortFormat");
   }
   return e;
 }

@@ -53,6 +53,7 @@ import {
   Plus,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import {
   Collapsible,
@@ -74,7 +75,7 @@ import {
 } from "@admin/lib/passport-api";
 
 import {
-  VERIFICATION_LABELS,
+  verificationLabel,
   hasObservation,
   hasQuiz,
   isUnsignable,
@@ -103,6 +104,7 @@ export interface TreeHandlers {
 }
 
 function VerificationIcon({ topic }: { topic: PassportTopic }) {
+  const t = useTranslations("passportUi.curriculum");
   const vt = topic.verification_type;
   if (isUnsignable(vt))
     return (
@@ -111,8 +113,7 @@ function VerificationIcon({ topic }: { topic: PassportTopic }) {
           <AlertTriangle className="size-3.5 shrink-0 text-amber-600 dark:text-amber-500" />
         </TooltipTrigger>
         <TooltipContent className="max-w-[280px]">
-          «{VERIFICATION_LABELS[vt]}» — такую тему нельзя подписать на текущем
-          этапе, публикация модуля будет отклонена
+          {t("tree.unsignableTooltip", { type: verificationLabel(t, vt) })}
         </TooltipContent>
       </Tooltip>
     );
@@ -124,7 +125,7 @@ function VerificationIcon({ topic }: { topic: PassportTopic }) {
           {hasObservation(vt) && <Eye className="size-3.5" />}
         </span>
       </TooltipTrigger>
-      <TooltipContent>{VERIFICATION_LABELS[vt]}</TooltipContent>
+      <TooltipContent>{verificationLabel(t, vt)}</TooltipContent>
     </Tooltip>
   );
 }
@@ -160,6 +161,7 @@ function TopicRow({
     isDragging,
   } = useSortable({ id: topic.id, disabled: !draggable });
 
+  const t = useTranslations("passportUi.curriculum");
   const missing = topicMissingLangs(topic);
   const selected = handlers.selectedTopicId === topic.id;
 
@@ -177,7 +179,7 @@ function TopicRow({
       {draggable ? (
         <button
           type="button"
-          aria-label="Перетащить тему"
+          aria-label={t("tree.dragTopic")}
           className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/40 opacity-0 transition-opacity duration-150 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring group-hover/topic:opacity-100 active:cursor-grabbing"
           {...attributes}
           {...listeners}
@@ -202,7 +204,7 @@ function TopicRow({
             !topic.title_ru.trim() && "italic text-muted-foreground"
           )}
         >
-          {topic.title_ru.trim() || "Без названия"}
+          {topic.title_ru.trim() || t("common.untitled")}
         </span>
       </button>
       <VerificationIcon topic={topic} />
@@ -228,6 +230,7 @@ function ModuleNode({
   canEditThis: boolean;
   showDepartment: boolean;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -285,7 +288,9 @@ function ModuleNode({
         apiMessage
       ),
     onError: (e: any) => {
-      toast.error(`Порядок не сохранён: ${e?.message ?? "ошибка"}`);
+      toast.error(
+        t("tree.orderNotSaved", { message: e?.message || t("common.error") })
+      );
       // Roll back to the server's truth rather than leaving the optimistic
       // order on screen pretending it was saved.
       queryClient.invalidateQueries({ queryKey: qk.topics(mod.id) });
@@ -327,7 +332,7 @@ function ModuleNode({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            aria-label={open ? "Свернуть" : "Развернуть"}
+            aria-label={open ? t("tree.collapse") : t("tree.expand")}
             className="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
           >
             <ChevronRight
@@ -351,7 +356,7 @@ function ModuleNode({
               !mod.title_ru.trim() && "italic text-muted-foreground"
             )}
           >
-            {mod.title_ru.trim() || "Без названия"}
+            {mod.title_ru.trim() || t("common.untitled")}
           </span>
           {mod.version > 1 && (
             <span className="ml-1.5 rounded bg-muted px-1 py-px text-[10px] font-semibold text-muted-foreground">
@@ -373,8 +378,7 @@ function ModuleNode({
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-[280px]">
-              Тем с неподписываемым типом проверки: {unsignableCount}. Публикация
-              будет отклонена, пока тип не изменён.
+              {t("tree.unsignableCount", { count: unsignableCount })}
             </TooltipContent>
           </Tooltip>
         )}
@@ -388,12 +392,12 @@ function ModuleNode({
         <div className="ml-[13px] border-l border-border/60 py-0.5 pl-2">
           {topicsLoading && ordered.length === 0 && (
             <div className="flex items-center gap-2 px-2 py-1.5 text-[12px] text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> загрузка тем…
+              <Loader2 className="size-3 animate-spin" /> {t("tree.loadingTopics")}
             </div>
           )}
           {!topicsLoading && ordered.length === 0 && (
             <p className="px-2 py-1.5 text-[12px] text-muted-foreground">
-              Тем пока нет. Модуль без тем опубликовать нельзя.
+              {t("tree.noTopics")}
             </p>
           )}
           <DndContext
@@ -417,7 +421,7 @@ function ModuleNode({
           </DndContext>
           {reorder.isPending && (
             <div className="flex items-center gap-1.5 px-2 py-1 text-[11px] text-muted-foreground">
-              <Loader2 className="size-3 animate-spin" /> сохраняем порядок…
+              <Loader2 className="size-3 animate-spin" /> {t("tree.savingOrder")}
             </div>
           )}
           {canEditThis && (
@@ -426,12 +430,12 @@ function ModuleNode({
               onClick={() => handlers.onCreateTopic(mod, ordered.length)}
               className="mt-0.5 flex w-full items-center gap-1.5 rounded px-1.5 py-1 text-[12px] text-muted-foreground transition-colors duration-150 hover:bg-muted/60 hover:text-foreground"
             >
-              <Plus className="size-3.5" /> Добавить тему
+              <Plus className="size-3.5" /> {t("tree.addTopic")}
             </button>
           )}
           {!canEditThis && mod.status === "published" && (
             <p className="px-2 py-1 text-[11px] text-muted-foreground">
-              Модуль опубликован — темы заморожены.
+              {t("tree.frozen")}
             </p>
           )}
         </div>

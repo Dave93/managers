@@ -3,6 +3,7 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import { toast } from "sonner";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -16,6 +17,8 @@ import {
 } from "@components/ui/alert-dialog";
 
 export default function DeleteAction({ recordId }: { recordId: string }) {
+    const t = useTranslations("hrPages.vacancy");
+    const tc = useTranslations("forms.common");
     const queryClient = useQueryClient();
 
     const deleteMutation = useMutation({
@@ -23,7 +26,7 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
             return apiClient.api.vacancy({ id: recordId }).delete();
         },
         onSuccess: () => {
-            toast.success("Вакансия удалена");
+            toast.success(t("deleted"));
             queryClient.invalidateQueries({ queryKey: ["vacancy"] });
         },
         onError: (error: any) => {
@@ -40,18 +43,18 @@ export default function DeleteAction({ recordId }: { recordId: string }) {
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
-                    <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                    <AlertDialogTitle>{t("deleteConfirmTitle")}</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Это действие нельзя отменить. Вакансия будет удалена навсегда.
+                        {t("deleteConfirmDescription")}
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Отмена</AlertDialogCancel>
+                    <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                     <AlertDialogAction
                         onClick={() => deleteMutation.mutate()}
                         disabled={deleteMutation.isPending}
                     >
-                        {deleteMutation.isPending ? "Удаление..." : "Удалить"}
+                        {deleteMutation.isPending ? t("deleting") : tc("delete")}
                     </AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>

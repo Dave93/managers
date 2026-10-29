@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ImageOff, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { attachmentUrl, type AttachmentRow } from "@admin/lib/tickets-api";
 
 // Файл отдаёт авторизованный роут; он может ответить 404, если строка в базе
@@ -9,12 +10,13 @@ import { attachmentUrl, type AttachmentRow } from "@admin/lib/tickets-api";
 // Показать разбитую картинку вместо карточки нельзя: человек решит, что
 // сломался весь экран.
 function Thumb({ a, onOpen }: { a: AttachmentRow; onOpen: () => void }) {
+  const t = useTranslations("ticketsUi.photo");
   const [broken, setBroken] = useState(false);
   if (broken) {
     return (
       <div className="flex size-24 flex-col items-center justify-center gap-1 rounded-md border border-dashed text-muted-foreground">
         <ImageOff className="size-5" />
-        <span className="text-[11px]">нет файла</span>
+        <span className="text-[11px]">{t("noFile")}</span>
       </div>
     );
   }
@@ -40,6 +42,7 @@ function Thumb({ a, onOpen }: { a: AttachmentRow; onOpen: () => void }) {
 // должен только просмотр. Фокус уходит на кнопку закрытия и после закрытия
 // возвращается туда, откуда просмотр открыли.
 function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
+  const t = useTranslations("ticketsUi.photo");
   const [broken, setBroken] = useState(false);
   const closeRef = useRef<HTMLButtonElement>(null);
 
@@ -66,14 +69,14 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Фото"
+      aria-label={t("photo")}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-6"
       onClick={onClose}
     >
       <button
         ref={closeRef}
         type="button"
-        aria-label="Закрыть фото"
+        aria-label={t("closePhoto")}
         onClick={onClose}
         className="absolute right-4 top-4 rounded-md bg-black/50 p-2 text-white outline-none hover:bg-black/70 focus-visible:ring-[3px] focus-visible:ring-white/60"
       >
@@ -82,7 +85,7 @@ function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
       {broken ? (
         <div className="flex flex-col items-center gap-2 text-white/80">
           <ImageOff className="size-8" />
-          <span className="text-sm">нет файла</span>
+          <span className="text-sm">{t("noFile")}</span>
         </div>
       ) : (
         // eslint-disable-next-line @next/next/no-img-element

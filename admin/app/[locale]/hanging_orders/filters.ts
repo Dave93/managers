@@ -8,6 +8,7 @@ export const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
  * Статусы так, как их показывает iikoOffice. Храним статус iikoCloud, а он
  * дробит «Новую» на кухонные этапы — бэк-офис их не различает: для него заказ
  * новый, пока его не отдали курьеру. Кухонный этап виден в «Застрял на».
+ * label — русская подпись для CSV; в UI подписи берутся из переводов по key.
  */
 export const OFFICE_STATUSES = [
     {
@@ -27,8 +28,21 @@ export const OFFICE_STATUSES = [
 export const officeStatusOf = (raw: string | null | undefined) =>
     OFFICE_STATUSES.find((s) => s.values.includes(raw ?? ""));
 
+/**
+ * Русская подпись статуса — только для CSV-экспорта (он остаётся по-русски).
+ * Для интерфейса используйте officeStatusLabelT.
+ */
 export const officeStatusLabel = (raw: string | null | undefined) =>
     officeStatusOf(raw)?.label ?? raw ?? "";
+
+/** Переводит подпись статуса iikoOffice для UI (ключи hangingOrders.officeStatus.*). */
+export const officeStatusLabelT = (
+    t: (key: string) => string,
+    raw: string | null | undefined,
+) => {
+    const status = officeStatusOf(raw);
+    return status ? t(`officeStatus.${status.key}`) : raw ?? "";
+};
 
 /** Фильтры из шапки таблицы, по одному на колонку. */
 export type ColumnFilters = {

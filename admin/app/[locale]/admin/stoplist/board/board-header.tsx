@@ -1,5 +1,6 @@
 "use client";
 import { Search, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
 import { cn } from "@admin/lib/utils";
 import { fmtAgo } from "./format";
@@ -16,8 +17,9 @@ type Props = {
   isFetching: boolean;
 };
 
-const BRANDS: { value: string | null; label: string }[] = [
-  { value: null, label: "Оба бренда" },
+// label: null — берётся из перевода stoplistPage.board.bothBrands.
+const BRANDS: { value: string | null; label: string | null }[] = [
+  { value: null, label: null },
   { value: "les", label: "Les Ailes" },
   { value: "chopar", label: "Chopar" },
 ];
@@ -58,13 +60,14 @@ export function BoardHeader({
   syncedAt,
   isFetching,
 }: Props) {
+  const t = useTranslations("stoplistPage");
   return (
     <div className="flex flex-col gap-3 border-b pb-3">
       <div className="flex flex-wrap items-center gap-2">
         <div className="inline-flex rounded-lg border bg-muted/40 p-0.5">
           {BRANDS.map((b) => (
             <button
-              key={b.label}
+              key={b.value ?? "both"}
               type="button"
               onClick={() => onBrand(b.value)}
               className={cn(
@@ -74,7 +77,7 @@ export function BoardHeader({
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
-              {b.label}
+              {b.label ?? t("board.bothBrands")}
             </button>
           ))}
         </div>
@@ -83,13 +86,13 @@ export function BoardHeader({
           <Input
             value={search}
             onChange={(e) => onSearch(e.target.value)}
-            placeholder="Продукт или филиал"
+            placeholder={t("board.searchPlaceholder")}
             className="pl-8 pr-8"
           />
           {search && (
             <button
               type="button"
-              aria-label="Очистить"
+              aria-label={t("board.clear")}
               onClick={() => onSearch("")}
               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
@@ -98,17 +101,17 @@ export function BoardHeader({
           )}
         </div>
         <div className="ml-auto text-xs text-muted-foreground" title={syncedAt ?? ""}>
-          {isFetching ? "обновляем…" : `данные ${fmtAgo(syncedAt)}`}
+          {isFetching ? t("board.updating") : t("board.dataAgo", { ago: fmtAgo(t, syncedAt) })}
         </div>
       </div>
       <div className="flex flex-wrap gap-x-6 gap-y-2">
-        <Stat value={kpi?.fresh ?? "—"} label="свежих стопов (до 24 ч)" tone="amber" />
-        <Stat value={kpi?.terminalsBurning ?? "—"} label="филиалов со свежими" />
-        <Stat value={kpi?.stale ?? "—"} label="висят 1–30 дней" tone="red" />
-        <Stat value={kpi?.chronic ?? "—"} label="хронических (>30 дней)" tone="muted" />
+        <Stat value={kpi?.fresh ?? "—"} label={t("board.kpiFresh")} tone="amber" />
+        <Stat value={kpi?.terminalsBurning ?? "—"} label={t("board.kpiTerminalsBurning")} />
+        <Stat value={kpi?.stale ?? "—"} label={t("board.kpiStale")} tone="red" />
+        <Stat value={kpi?.chronic ?? "—"} label={t("board.kpiChronic")} tone="muted" />
         <div className="hidden h-9 w-px bg-border sm:block" />
-        <Stat value={stats?.stops_today ?? "—"} label="поставлено сегодня" />
-        <Stat value={stats?.released_today ?? "—"} label="снято сегодня" />
+        <Stat value={stats?.stops_today ?? "—"} label={t("board.stopsToday")} />
+        <Stat value={stats?.released_today ?? "—"} label={t("board.releasedToday")} />
       </div>
     </div>
   );

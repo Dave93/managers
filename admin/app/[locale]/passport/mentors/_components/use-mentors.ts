@@ -5,6 +5,7 @@
 // change its data layer without dragging a sibling screen down with it.
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import {
   listMentors,
@@ -18,19 +19,20 @@ export interface ApiError extends Error {
   value?: any;
 }
 
-export function apiMessage(error: any): string {
+export function apiMessage(error: any, fallback: string): string {
   const v = error?.value ?? error;
   if (typeof v?.message === "string") return v.message;
   if (typeof error?.message === "string") return error.message;
-  return "Не удалось выполнить запрос";
+  return fallback;
 }
 
 export async function unwrap<T>(
-  call: Promise<{ data: T | null; error: any }>
+  call: Promise<{ data: T | null; error: any }>,
+  fallback: string
 ): Promise<T> {
   const { data, error } = await call;
   if (error) {
-    const e = new Error(apiMessage(error)) as ApiError;
+    const e = new Error(apiMessage(error, fallback)) as ApiError;
     e.status = error?.status;
     e.value = error?.value;
     throw e;
@@ -68,9 +70,10 @@ export function useMentorsAccess(): MentorsAccess {
 }
 
 export function useMentors(query: PassportMentorListQuery, enabled = true) {
+  const t = useTranslations("passportUi.mentors");
   return useQuery<PassportListResponse<PassportMentorRow>, ApiError>({
     queryKey: qk.mentors(query),
-    queryFn: () => unwrap(listMentors(query)),
+    queryFn: () => unwrap(listMentors(query), t("requestFailed")),
     enabled,
     retry: false,
     placeholderData: (prev) => prev,
@@ -100,6 +103,7 @@ export interface OfficeUser {
  * showing an empty dropdown.
  */
 export function useOfficeUsers(enabled: boolean) {
+  const t = useTranslations("passportUi.mentors");
   return useQuery<OfficeUser[], ApiError>({
     queryKey: qk.officeUsers,
     queryFn: async () => {
@@ -116,14 +120,14 @@ export function useOfficeUsers(enabled: boolean) {
         },
       });
       if (error) {
-        const e = new Error(apiMessage(error)) as ApiError;
+        const e = new Error(apiMessage(error, t("requestFailed"))) as ApiError;
         e.status = (error as any)?.status;
         e.value = (error as any)?.value;
         throw e;
       }
       const rows = ((data as any)?.data ?? []) as OfficeUser[];
       return [...rows].sort((a, b) =>
-        userLabel(a).localeCompare(userLabel(b), "ru")
+        userLabel(a, t("noName")).localeCompare(userLabel(b, t("noName")), "ru")
       );
     },
     enabled,
@@ -132,27 +136,21 @@ export function useOfficeUsers(enabled: boolean) {
   });
 }
 
-/** The users table's status enum, in the language the page is written in. */
-export const USER_STATUS_LABEL: Record<string, string> = {
-  active: "активна",
-  blocked: "заблокирована",
-  inactive: "отключена",
-};
-
-export function userStatusLabel(status: string | null | undefined): string {
-  if (!status) return "неизвестно";
-  return USER_STATUS_LABEL[status] ?? status;
-}
+/** The users table's status enum; the labels live under passportUi.mentors.userStatus. */
+export const USER_STATUS_KEYS = ["active", "blocked", "inactive"] as const;
 
 /** first+last, falling back to login — the same rule the list route applies
  *  server-side when it computes `user.name`. */
-export function userLabel(u: {
-  first_name?: string | null;
-  last_name?: string | null;
-  login?: string | null;
-}): string {
+export function userLabel(
+  u: {
+    first_name?: string | null;
+    last_name?: string | null;
+    login?: string | null;
+  },
+  noName: string
+): string {
   const s = [u.last_name, u.first_name].filter(Boolean).join(" ").trim();
-  return s.length ? s : (u.login ?? "без имени");
+  return s.length ? s : (u.login ?? noName);
 }
 
 /**

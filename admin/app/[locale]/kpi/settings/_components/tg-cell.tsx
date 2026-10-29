@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   AlertDialog,
@@ -32,31 +33,32 @@ export function TgCell({
   state: TgState;
   name: string;
 }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [inviteOpen, setInviteOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const unbind = useMutation({
     mutationFn: (id: string) => kpiApi.tg.unbind(id),
-    onSuccess: () => toast.success("Telegram отвязан"),
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onSuccess: () => toast.success(t("settings.tgCell.unbound")),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
     // Сброс и при ошибке: после not_found устаревший статус должен обновиться.
     onSettled: () => qc.invalidateQueries({ queryKey: qk.tgBindingsAll }),
   });
 
   // Статус неизвестен: не показываем «Не привязан» и не даём действий, которые от него зависят.
-  if (state === "loading") return <span className="text-sm text-muted-foreground" aria-label="Статус Telegram загружается">…</span>;
-  if (state === "error") return <span className="text-sm text-muted-foreground" aria-label="Статус Telegram недоступен">—</span>;
+  if (state === "loading") return <span className="text-sm text-muted-foreground" aria-label={t("settings.tgCell.statusLoadingAria")}>…</span>;
+  if (state === "error") return <span className="text-sm text-muted-foreground" aria-label={t("settings.tgCell.statusUnavailableAria")}>—</span>;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <KpiBadge tone={binding ? "green" : "gray"}>{bindingLabel(binding)}</KpiBadge>
+      <KpiBadge tone={binding ? "green" : "gray"}>{bindingLabel(binding, t)}</KpiBadge>
       <Button type="button" variant="outline" className="h-11" onClick={() => setInviteOpen(true)}>
-        Ссылка-приглашение
+        {t("settings.tgCell.invite")}
       </Button>
       {binding && (
         <Button type="button" variant="outline" className="h-11" disabled={unbind.isPending} onClick={() => setConfirmOpen(true)}>
-          Отвязать
+          {t("settings.tgCell.unbind")}
         </Button>
       )}
 
@@ -65,11 +67,11 @@ export function TgCell({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Отвязать Telegram?</AlertDialogTitle>
-            <AlertDialogDescription>{`Отвязать Telegram у ${name}? Уведомления перестанут приходить.`}</AlertDialogDescription>
+            <AlertDialogTitle>{t("settings.tgCell.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("settings.tgCell.confirmText", { name })}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
+            <AlertDialogCancel>{t("settings.tgCell.cancel")}</AlertDialogCancel>
             <Button
               type="button"
               variant="destructive"
@@ -80,7 +82,7 @@ export function TgCell({
                 setConfirmOpen(false);
               }}
             >
-              Отвязать
+              {t("settings.tgCell.unbind")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>

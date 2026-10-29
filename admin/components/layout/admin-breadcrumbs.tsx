@@ -14,6 +14,7 @@ import { buildNav, leafPaths } from "./nav-config";
 export function AdminBreadcrumbs() {
   const pathname = usePathname();
   const locale = useLocale();
+  const t = useTranslations("nav");
   const tTickets = useTranslations("tickets.nav");
   let group: string | null = null;
   let page: string | null = null;
@@ -21,7 +22,7 @@ export function AdminBreadcrumbs() {
   const match = (href: string) =>
     (pathname === href || pathname.startsWith(href + "/")) &&
     href.length > bestLen;
-  for (const e of buildNav(locale, tTickets)) {
+  for (const e of buildNav(locale, t, tTickets)) {
     if (e.kind === "link") {
       if (match(e.href)) {
         group = null;

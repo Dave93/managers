@@ -1,18 +1,21 @@
 "use client";
 import { Suspense } from "react";
 import { parseAsStringEnum, useQueryState } from "nuqs";
+import { useTranslations } from "next-intl";
 import { cn } from "@admin/lib/utils";
 import { BoardView } from "./board/board-view";
 import { HistoryView } from "./history-view";
 
+// Подписи — stoplistPage.views.<value>.
 const VIEWS = [
-  { value: "board", label: "По филиалам" },
-  { value: "products", label: "По продуктам" },
-  { value: "history", label: "История" },
+  { value: "board" },
+  { value: "products" },
+  { value: "history" },
 ] as const;
 type View = (typeof VIEWS)[number]["value"];
 
 function StoplistContent() {
+  const t = useTranslations("stoplistPage");
   const [view, setView] = useQueryState(
     "view",
     parseAsStringEnum<View>(["board", "products", "history"]).withDefault("board")
@@ -20,8 +23,8 @@ function StoplistContent() {
   return (
     <div>
       <div className="flex flex-wrap items-center gap-4 pb-3">
-        <h2 className="text-2xl font-bold tracking-tight">Стоп-лист</h2>
-        <nav className="flex gap-1" aria-label="Режим">
+        <h2 className="text-2xl font-bold tracking-tight">{t("title")}</h2>
+        <nav className="flex gap-1" aria-label={t("viewsAria")}>
           {VIEWS.map((v) => (
             <button
               key={v.value}
@@ -34,16 +37,16 @@ function StoplistContent() {
                   : "text-muted-foreground hover:bg-muted hover:text-foreground"
               )}
             >
-              {v.label}
+              {t(`views.${v.value}`)}
             </button>
           ))}
         </nav>
         {view === "history" && (
           <span
             className="ml-auto text-xs text-muted-foreground"
-            title="История стоп-листа собирается с 13.08.2026; более ранние периоды неполные"
+            title={t("historyNoteTitle")}
           >
-            полные данные с 13.08.2026
+            {t("historyNote")}
           </span>
         )}
       </div>
@@ -56,9 +59,14 @@ function StoplistContent() {
   );
 }
 
+function StoplistFallback() {
+  const t = useTranslations("stoplistPage");
+  return <div className="py-10 text-center text-sm text-muted-foreground">{t("loading")}</div>;
+}
+
 export default function StoplistPage() {
   return (
-    <Suspense fallback={<div className="py-10 text-center text-sm text-muted-foreground">Загрузка…</div>}>
+    <Suspense fallback={<StoplistFallback />}>
       <StoplistContent />
     </Suspense>
   );

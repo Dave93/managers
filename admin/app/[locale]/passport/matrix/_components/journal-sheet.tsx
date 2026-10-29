@@ -22,6 +22,7 @@
 //  * `actor.name` is already resolved server-side. Do not fetch users.
 
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -50,7 +51,7 @@ import type {
   PassportSignoffAction,
 } from "@admin/lib/passport-api";
 
-import { LevelChip, levelTitle } from "./level";
+import { LevelChip, levelTitle, type MatrixT } from "./level";
 import { EnrollmentStatusChip } from "./status";
 import type { CellTarget } from "./matrix-grid";
 import {
@@ -66,36 +67,41 @@ const PAGE = 50;
 
 type Tone = "neutral" | "good" | "bad" | "info" | "accent";
 
+// `labelKey` is a key under `passportUi.matrix.journal.actions`.
 const ACTION: Record<
   PassportSignoffAction,
-  { label: string; icon: any; tone: Tone }
+  { labelKey: string; icon: any; tone: Tone }
 > = {
-  material_opened: { label: "Открыл материал", icon: BookOpen, tone: "neutral" },
-  quiz_passed: { label: "Сдал тест", icon: CheckCircle2, tone: "good" },
-  quiz_failed: { label: "Не сдал тест", icon: XCircle, tone: "bad" },
-  observed: { label: "Наставник принял", icon: UserCheck, tone: "good" },
+  material_opened: {
+    labelKey: "material_opened",
+    icon: BookOpen,
+    tone: "neutral",
+  },
+  quiz_passed: { labelKey: "quiz_passed", icon: CheckCircle2, tone: "good" },
+  quiz_failed: { labelKey: "quiz_failed", icon: XCircle, tone: "bad" },
+  observed: { labelKey: "observed", icon: UserCheck, tone: "good" },
   observation_declined: {
-    label: "Наставник не принял",
+    labelKey: "observation_declined",
     icon: XCircle,
     tone: "bad",
   },
   recheck_passed: {
-    label: "Ре-проверка пройдена",
+    labelKey: "recheck_passed",
     icon: RefreshCw,
     tone: "good",
   },
   recheck_failed: {
-    label: "Ре-проверка провалена",
+    labelKey: "recheck_failed",
     icon: RefreshCw,
     tone: "bad",
   },
-  level_set: { label: "Уровень повышен", icon: ArrowUpCircle, tone: "info" },
+  level_set: { labelKey: "level_set", icon: ArrowUpCircle, tone: "info" },
   level_rolled_back: {
-    label: "Уровень откачен",
+    labelKey: "level_rolled_back",
     icon: ArrowDownCircle,
     tone: "bad",
   },
-  stamp_issued: { label: "Печать выдана", icon: Stamp, tone: "accent" },
+  stamp_issued: { labelKey: "stamp_issued", icon: Stamp, tone: "accent" },
 };
 
 const TONE_DOT: Record<Tone, string> = {
@@ -107,11 +113,7 @@ const TONE_DOT: Record<Tone, string> = {
     "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/50 dark:text-violet-400",
 };
 
-const ACTOR_LABEL: Record<string, string> = {
-  office: "Офис",
-  trainee: "Стажёр",
-  system: "Система",
-};
+const ACTOR_KEYS = ["office", "trainee", "system"];
 
 /** meta is `unknown` server-side and never validated — read it defensively. */
 function metaLevel(meta: unknown): number | null {
@@ -126,9 +128,9 @@ function dayKey(iso: string): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function dayLabel(iso: string): string {
+function dayLabel(t: MatrixT, locale: string, iso: string): string {
   const ms = parseTimestamp(iso);
-  if (Number.isNaN(ms)) return "Без даты";
+  if (Number.isNaN(ms)) return t("journal.noDate");
   const d = new Date(ms);
   const today = new Date();
   const yst = new Date(today.getTime() - 86400_000);
@@ -136,9 +138,9 @@ function dayLabel(iso: string): string {
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
-  if (same(d, today)) return "Сегодня";
-  if (same(d, yst)) return "Вчера";
-  return fmtLongDate(ms);
+  if (same(d, today)) return t("journal.today");
+  if (same(d, yst)) return t("journal.yesterday");
+  return fmtLongDate(ms, locale);
 }
 
 function Entry({
@@ -148,16 +150,18 @@ function Entry({
   entry: PassportJournalEntry;
   terminalName: (id: string | null) => string;
 }) {
-  const spec = ACTION[entry.action] ?? {
-    label: entry.action,
-    icon: BookOpen,
-    tone: "neutral" as Tone,
+  const t = useTranslations("passportUi.matrix");
+  const known = ACTION[entry.action];
+  const spec = {
+    label: known ? t(`journal.actions.${known.labelKey}`) : entry.action,
+    icon: known?.icon ?? BookOpen,
+    tone: known?.tone ?? ("neutral" as Tone),
   };
   const Icon = spec.icon;
   const subject =
     entry.topic?.title_ru ??
     entry.module?.title_ru ??
-    (entry.topic || entry.module ? "материал удалён" : null);
+    (entry.topic || entry.module ? t("journal.materialDeleted") : null);
   const moduleLine =
     entry.topic && entry.module?.title_ru ? entry.module.title_ru : null;
   const level = metaLevel(entry.meta);
@@ -183,7 +187,7 @@ function Entry({
           <span className="text-[13px] font-medium leading-tight">
             {spec.label}
             {level !== null && (
-              <span className="ml-1 text-muted-foreground">→ ур. {level}</span>
+              <span className="ml-1 text-muted-foreground">{t("journal.levelArrow", { level })}</span>
             )}
           </span>
           <span className="text-[11.5px] tabular-nums text-muted-foreground">
@@ -196,13 +200,15 @@ function Entry({
         )}
         {moduleLine && (
           <p className="truncate text-[11px] leading-snug text-muted-foreground">
-            модуль: {moduleLine}
+            {t("journal.moduleLine", { title: moduleLine })}
           </p>
         )}
 
         <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
           <span className="rounded border px-1 py-px text-[10px] uppercase tracking-wide">
-            {ACTOR_LABEL[actorKind] ?? actorKind}
+            {ACTOR_KEYS.includes(actorKind)
+              ? t(`journal.actors.${actorKind}`)
+              : actorKind}
           </span>
           {/* A `kind === null` row has no human behind it, so the «Система»
               badge IS the actor — appending "без имени" would read as a person
@@ -212,7 +218,7 @@ function Entry({
               not disagree about the same journal. */}
           {entry.actor.kind !== null && (
             <span className="text-foreground/80">
-              {entry.actor.name ?? "без имени"}
+              {entry.actor.name ?? t("journal.actorUnnamed")}
             </span>
           )}
           <span>·</span>
@@ -232,11 +238,12 @@ function Entry({
 /** The facts of the clicked cell, restated so the drawer answers "why is this
  *  square red" without the reader going back to the grid. */
 function CellFacts({ target }: { target: CellTarget }) {
+  const t = useTranslations("passportUi.matrix");
   const { column, cell } = target;
   if (!cell)
     return (
       <div className="rounded-md border border-dashed px-3 py-2 text-[12px] text-muted-foreground">
-        По модулю «{column.title_ru}» у этой стажировки нет данных прогресса.
+        {t("journal.factsNoData", { title: column.title_ru })}
       </div>
     );
 
@@ -253,16 +260,20 @@ function CellFacts({ target }: { target: CellTarget }) {
       <span className="flex items-center gap-1.5 text-[12.5px]">
         <LevelChip level={cell.level_min} complete={cell.complete} />
         <span className="text-muted-foreground">
-          {levelTitle(cell.level_min)}
+          {levelTitle(t, cell.level_min)}
         </span>
       </span>
       <span className="text-[12.5px] tabular-nums">
-        темы: <b>{cell.topics_done}</b>/{cell.topics_total}
+        {t.rich("journal.factsTopics", {
+          b: (c) => <b>{c}</b>,
+          done: cell.topics_done,
+          total: cell.topics_total,
+        })}
       </span>
       <span className="text-[12.5px]">
         {cell.deadline_at ? (
           <>
-            дедлайн модуля:{" "}
+            {t("journal.factsDeadline")}{" "}
             <b
               className={cn(
                 overdue && "text-red-700 dark:text-red-300",
@@ -274,18 +285,19 @@ function CellFacts({ target }: { target: CellTarget }) {
             </b>
             {overdue && cell.complete && (
               <span className="ml-1 text-muted-foreground">
-                (прошёл, но модуль уже закрыт — в счётчик «просрочено» не
-                входит)
+                {t("journal.factsClosedNote")}
               </span>
             )}
           </>
         ) : (
-          <span className="text-muted-foreground">дедлайн модуля не задан</span>
+          <span className="text-muted-foreground">
+            {t("journal.factsDeadlineNone")}
+          </span>
         )}
       </span>
       {!cell.required && (
         <span className="text-[11.5px] text-muted-foreground">
-          модуль необязательный
+          {t("journal.factsOptional")}
         </span>
       )}
     </div>
@@ -299,6 +311,8 @@ export function MatrixJournalSheet({
   target: CellTarget | null;
   onOpenChange: (v: boolean) => void;
 }) {
+  const t = useTranslations("passportUi.matrix");
+  const locale = useLocale();
   const [limit, setLimit] = useState(PAGE);
   const [moduleOnly, setModuleOnly] = useState(true);
   const terminalName = useTerminalNames();
@@ -332,13 +346,17 @@ export function MatrixJournalSheet({
     const k = dayKey(r.created_at);
     const last = groups[groups.length - 1];
     if (last && last.key === k) last.rows.push(r);
-    else groups.push({ key: k, label: dayLabel(r.created_at), rows: [r] });
+    else groups.push({
+        key: k,
+        label: dayLabel(t, locale, r.created_at),
+        rows: [r],
+      });
   }
 
   const traineeName = target
     ? [target.row.employee.last_name, target.row.employee.first_name]
         .filter(Boolean)
-        .join(" ") || "Без имени"
+        .join(" ") || t("unnamed")
     : "";
 
   return (
@@ -352,15 +370,18 @@ export function MatrixJournalSheet({
           <SheetDescription className="text-[12.5px] leading-snug">
             {target ? (
               <>
-                {target.column.title_ru} · {target.row.employee.position || "должность не указана"} ·{" "}
+                {target.column.title_ru} ·{" "}
+                {target.row.employee.position || t("positionNotSet")} ·{" "}
                 {target.row.terminal_name ??
                   terminalName(target.row.terminal_id)}
                 {enrollment
-                  ? ` · стажировка с ${fmtDate(enrollment.started_at)}`
+                  ? ` · ${t("journal.enrolledSince", {
+                      date: fmtDate(enrollment.started_at),
+                    })}`
                   : ""}
               </>
             ) : (
-              "Кто что подтвердил, когда и откуда."
+              t("journal.subtitle")
             )}
           </SheetDescription>
         </SheetHeader>
@@ -375,21 +396,20 @@ export function MatrixJournalSheet({
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
             <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
             <span>
-              Журнал отдаётся по праву{" "}
-              <code className="font-mono text-[11px]">
-                passport.matrix.view
-              </code>
-              , а у вас его нет — либо стажёр не из вашего филиала. Обратитесь к
-              администратору.
+              {t.rich("journal.noAccess", {
+                code: (c) => (
+                  <code className="font-mono text-[11px]">{c}</code>
+                ),
+              })}
             </span>
           </div>
         ) : q.isLoading ? (
           <p className="flex items-center gap-2 py-10 text-[12.5px] text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Загрузка журнала…
+            <Loader2 className="size-4 animate-spin" /> {t("journal.loading")}
           </p>
         ) : q.isError ? (
           <p className="py-10 text-[12.5px] text-destructive">
-            {q.error?.message}
+            {q.error?.message || t("requestFailed")}
           </p>
         ) : (
           <div className="space-y-4">
@@ -407,14 +427,21 @@ export function MatrixJournalSheet({
                       : "border-border text-muted-foreground hover:bg-muted/60"
                   )}
                 >
-                  только модуль «{target?.column.title_ru}»
+                  {t("journal.onlyModule", { title: target?.column.title_ru ?? "" })}
                   {moduleOnly && <X className="size-3" />}
                 </button>
               )}
               <span className="text-[11px] text-muted-foreground">
                 {moduleOnly && moduleId
-                  ? `${rows.length} из ${loaded.length} загруженных записей (всего в журнале ${q.data?.total ?? 0}) — фильтр по модулю применяется к загруженным`
-                  : `${loaded.length} из ${q.data?.total ?? 0} записей журнала`}
+                  ? t("journal.countFocused", {
+                      shown: rows.length,
+                      loaded: loaded.length,
+                      total: q.data?.total ?? 0,
+                    })
+                  : t("journal.countAll", {
+                      loaded: loaded.length,
+                      total: q.data?.total ?? 0,
+                    })}
               </span>
             </div>
 
@@ -422,13 +449,13 @@ export function MatrixJournalSheet({
               <div className="py-10 text-center">
                 <p className="text-[13px] font-medium">
                   {moduleOnly && moduleId
-                    ? "По этому модулю записей пока нет"
-                    : "Пока ничего не произошло"}
+                    ? t("journal.emptyModule")
+                    : t("journal.emptyAll")}
                 </p>
                 <p className="mx-auto mt-1 max-w-sm text-[12px] leading-snug text-muted-foreground">
                   {moduleOnly && moduleId
-                    ? "Снимите фильтр по модулю, чтобы увидеть всю историю стажировки, или подгрузите более старые записи."
-                    : "Первая запись появится, когда стажёр откроет первый материал в Telegram. Если этого долго нет — проверьте, дошёл ли до него QR."}
+                    ? t("journal.emptyModuleHint")
+                    : t("journal.emptyAllHint")}
                 </p>
               </div>
             ) : (
@@ -463,13 +490,15 @@ export function MatrixJournalSheet({
                 {q.isFetching && (
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
                 )}
-                Показать ещё
+                {t("journal.loadMore")}
               </Button>
             )}
             {!canLoadMore && (q.data?.total ?? 0) > loaded.length && (
               <p className="text-center text-[11.5px] text-muted-foreground">
-                Показаны последние {loaded.length} из {q.data?.total} записей —
-                это предел выдачи журнала.
+                {t("journal.limitReached", {
+                  loaded: loaded.length,
+                  total: q.data?.total ?? 0,
+                })}
               </p>
             )}
           </div>

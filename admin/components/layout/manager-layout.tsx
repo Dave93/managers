@@ -18,6 +18,7 @@ const labelClass =
 // overflows on narrow screens.
 function MoreMenu() {
   const t = useTranslations("inventory");
+  const tm = useTranslations("layoutUi.manager");
   const tStock = useTranslations("inventory.stock");
   const tDaily = useTranslations("inventory.reconcile.interim");
   const tTurnover = useTranslations("inventory.turnover");
@@ -55,7 +56,7 @@ function MoreMenu() {
           <circle cx="10" cy="10" r="2" />
           <circle cx="16" cy="10" r="2" />
         </svg>
-        <span className={labelClass}>Ещё</span>
+        <span className={labelClass}>{tm("more")}</span>
       </button>
       {open && (
         <div className="absolute bottom-16 right-0 z-50 min-w-44 rounded-xl border border-gray-200 bg-white shadow-lg dark:bg-gray-800 dark:border-gray-600 py-1">
@@ -144,7 +145,7 @@ function MoreMenu() {
                   d="M4.5 3.75a.75.75 0 00-.75.75v4.5a5.25 5.25 0 0010.5 0V4.5a.75.75 0 00-.75-.75h-1.5m-6 0h-1.5m9.75 9.75v1.5a5.25 5.25 0 01-5.25 5.25v0a5.25 5.25 0 01-5.25-5.25M18.75 13.5a2.25 2.25 0 100-4.5 2.25 2.25 0 000 4.5zm0 0v3a5.25 5.25 0 01-5.25 5.25"
                 />
               </svg>
-              Медосмотр
+              {tm("medical")}
             </Link>
           </CanAccess>
           {/* KPI: CanAccess принимает одно право, а тут «kpi_layout и любое из» — то же правило, что в меню (canOpen). */}
@@ -155,7 +156,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <ClipboardCheck aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Оценки
+              {tm("reviews")}
             </Link>
           )}
           {canOpen(perms, "violations") && (
@@ -165,7 +166,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <TriangleAlert aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Нарушения
+              {tm("violations")}
             </Link>
           )}
           {canOpen(perms, "disputes") && (
@@ -175,7 +176,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <MessageSquareWarning aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Споры
+              {tm("disputes")}
             </Link>
           )}
           {canOpen(perms, "month") && (
@@ -185,7 +186,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <CalendarCheck aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Месяц
+              {tm("month")}
             </Link>
           )}
           {canOpen(perms, "raises") && (
@@ -195,7 +196,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <TrendingUp aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Повышения
+              {tm("raises")}
             </Link>
           )}
           {canOpen(perms, "network") && (
@@ -205,7 +206,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <Gauge aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Балл филиала
+              {tm("branchScore")}
             </Link>
           )}
           {canOpen(perms, "sanitary") && (
@@ -215,7 +216,7 @@ function MoreMenu() {
               className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
             >
               <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-              Санитария
+              {tm("sanitary")}
             </Link>
           )}
         </div>
@@ -229,6 +230,7 @@ export default function ManagerLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const tm = useTranslations("layoutUi.manager");
   return (
     // pb-20: нижнее меню закреплено (h-16) и иначе закрывает конец длинных страниц.
     <div className="md:container pb-20">
@@ -245,7 +247,7 @@ export default function ManagerLayout({
             >
               <path d="m19.707 9.293-2-2-7-7a1 1 0 0 0-1.414 0l-7 7-2 2a1 1 0 0 0 1.414 1.414L2 10.414V18a2 2 0 0 0 2 2h3a1 1 0 0 0 1-1v-4a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v4a1 1 0 0 0 1 1h3a2 2 0 0 0 2-2v-7.586l.293.293a1 1 0 0 0 1.414-1.414Z" />
             </svg>
-            <span className={labelClass}>Главная</span>
+            <span className={labelClass}>{tm("home")}</span>
           </Link>
 
           <Link href="/manager_reports" type="button" className={itemClass}>
@@ -262,7 +264,7 @@ export default function ManagerLayout({
                 clipRule="evenodd"
               />
             </svg>
-            <span className={labelClass}>Отчеты</span>
+            <span className={labelClass}>{tm("reports")}</span>
           </Link>
 
           <CanAccess permission="stoplist.list">
@@ -279,7 +281,7 @@ export default function ManagerLayout({
                 <circle cx="12" cy="12" r="9" />
                 <path strokeLinecap="round" d="M5.7 5.7l12.6 12.6" />
               </svg>
-              <span className={labelClass}>Стоп-лист</span>
+              <span className={labelClass}>{tm("stoplist")}</span>
             </Link>
           </CanAccess>
 
@@ -305,7 +307,7 @@ export default function ManagerLayout({
                   d="M12 14l6.16-3.42A12 12 0 0112 21a12 12 0 01-6.16-10.42L12 14z"
                 />
               </svg>
-              <span className={labelClass}>Аттестация</span>
+              <span className={labelClass}>{tm("attestation")}</span>
             </Link>
           </CanAccess>
 

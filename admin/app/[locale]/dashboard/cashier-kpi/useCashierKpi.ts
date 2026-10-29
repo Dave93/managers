@@ -41,12 +41,13 @@ export function useCashierDaily(
 // The API refuses periods over 92 days with 400, and rejects malformed
 // dates / bad terminal ids with 422 — both need a human message instead of
 // a raw "HTTP 400" / "HTTP 422" string.
-export function cashierKpiErrorMessage(error: unknown): string {
+// `t` is a translator scoped to "dashboardUi.cashierKpi".
+export function cashierKpiErrorMessage(error: unknown, t: (key: string) => string): string {
   if (error instanceof Error && error.message === "HTTP 400") {
-    return "Период больше 92 дней. Выберите период короче.";
+    return t("periodTooLong");
   }
   if (error instanceof Error && error.message === "HTTP 422") {
-    return "Некорректные параметры запроса.";
+    return t("badParams");
   }
-  return "Не удалось загрузить данные по кассирам.";
+  return t("loadError");
 }

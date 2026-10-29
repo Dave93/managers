@@ -1,14 +1,17 @@
 "use client";
 import { Suspense } from "react";
+import { useTranslations } from "next-intl";
 import { DataTable } from "./data-table";
-import { reportsColumns } from "./columns";
+import { useReportsColumns } from "./columns";
 import ReportsFilterPanel from "./filter-panel";
 
 function ReportsContent() {
+  const t = useTranslations("adminReports");
+  const reportsColumns = useReportsColumns();
   return (
     <div>
       <div className="flex justify-between pb-4">
-        <h2 className="text-3xl font-bold tracking-tight">Кассы</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("title")}</h2>
       </div>
       <div className="sticky top-16 z-10">
         <ReportsFilterPanel />

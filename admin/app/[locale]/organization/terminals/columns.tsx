@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon, KeyRound } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
@@ -11,11 +13,13 @@ import CredentialsFormSheet from "@admin/components/forms/credentials/list_sheet
 import { terminals } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const terminalsColumns: ColumnDef<typeof terminals.$inferSelect>[] =
-  [
+export function useTerminalsColumns(): ColumnDef<typeof terminals.$inferSelect>[] {
+  const t = useTranslations("systemPages.columns");
+  return useMemo<ColumnDef<typeof terminals.$inferSelect>[]>(
+    () => [
     {
       accessorKey: "name",
-      header: "Название",
+      header: t("name"),
     },
     // // {
     // //   accessorKey: "description",
@@ -47,4 +51,7 @@ export const terminalsColumns: ColumnDef<typeof terminals.$inferSelect>[] =
         );
       },
     },
-  ];
+      ],
+    [t]
+  );
+}

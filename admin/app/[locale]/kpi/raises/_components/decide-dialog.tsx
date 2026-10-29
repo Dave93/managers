@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Input } from "@admin/components/ui/input";
@@ -14,6 +15,7 @@ import { commentReason, decisionBody, decisionIssues, type DecisionInput } from 
 import { qk } from "../../_components/use-kpi";
 
 export function DecideDialog({ row, cap, onClose }: { row: RaiseRow | null; cap: number; onClose: () => void }) {
+  const t = useTranslations("kpiScreens.raises.decide");
   // Тело держим по id строки: введённое не переживает смену строки.
   const [pending, setPending] = useState(false);
   return (
@@ -23,8 +25,8 @@ export function DecideDialog({ row, cap, onClose }: { row: RaiseRow | null; cap:
           <DecideBody key={row.id} row={row} cap={cap} onClose={onClose} onPending={setPending} />
         ) : (
           <>
-            <DialogTitle className="sr-only">Решение по повышению</DialogTitle>
-            <DialogDescription className="sr-only">Решение по повышению</DialogDescription>
+            <DialogTitle className="sr-only">{t("title")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("title")}</DialogDescription>
           </>
         )}
       </DialogContent>
@@ -33,6 +35,9 @@ export function DecideDialog({ row, cap, onClose }: { row: RaiseRow | null; cap:
 }
 
 function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: number; onClose: () => void; onPending: (p: boolean) => void }) {
+  const t = useTranslations("kpiScreens.raises.decide");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const qc = useQueryClient();
   const [status, setStatus] = useState<DecisionInput["status"]>("approved");
   const [amount, setAmount] = useState(String(row.suggested_amount));
@@ -41,7 +46,7 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
 
   const input: DecisionInput = { status, amount, comment };
   const issues = decisionIssues(row, input, cap);
-  const reason = commentReason(row, input);
+  const reason = commentReason(row, input, tk);
   const unresolved = row.status === "proposed" || row.status === "insufficient";
   const hardBlock = issues.includes("stale") || issues.includes("periods_open");
   const quarter = row.quarter_start;
@@ -50,10 +55,10 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
     mutationFn: () => kpiApi.raises.decide(row.id, decisionBody(input)),
     onSuccess: (updated) => {
       qc.setQueryData<RaiseRow[]>(qk.raises(quarter), (rows) => rows?.map((r) => (r.id === updated.id ? updated : r)));
-      toast.success("Решение сохранено");
+      toast.success(t("saved"));
       onClose();
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
   const save = () => {
@@ -74,26 +79,26 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Решение по повышению</DialogTitle>
+        <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>
-          {[row.employee_name, row.terminal_name, quarterLabel(quarter)].filter(Boolean).join(" · ")}
+          {[row.employee_name, row.terminal_name, quarterLabel(quarter, tk)].filter(Boolean).join(" · ")}
         </DialogDescription>
       </DialogHeader>
 
-      <p className="text-sm text-muted-foreground">Предложение: {formatSum(row.suggested_amount)}</p>
+      <p className="text-sm text-muted-foreground">{t("suggestion", { amount: formatSum(row.suggested_amount, tk) })}</p>
 
       {issues.includes("periods_open") && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          Не все месяцы квартала закрыты — решение сохранить нельзя
+          {t("periodsOpen")}
         </p>
       )}
       {row.stale && unresolved && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          Оценки менялись после расчёта — нажмите «Пересчитать»
+          {t("staleWarning")}
         </p>
       )}
 
-      <div className="flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label="Решение">
+      <div className="flex flex-wrap gap-4 text-sm" role="radiogroup" aria-label={t("radioLabel")}>
         <label className="flex min-h-11 items-center gap-2">
           <input
             type="radio"
@@ -102,7 +107,7 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
             disabled={busy}
             onChange={() => setStatus("approved")}
           />
-          Утвердить
+          {t("approve")}
         </label>
         <label className="flex min-h-11 items-center gap-2">
           <input
@@ -112,14 +117,14 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
             disabled={busy}
             onChange={() => setStatus("rejected")}
           />
-          Отказать
+          {t("reject")}
         </label>
       </div>
 
       {status === "approved" && (
         <div className="space-y-1">
           <label htmlFor={`raise-amount-${row.id}`} className="block text-sm font-medium">
-            Сумма повышения, сум
+            {t("amountLabel")}
           </label>
           <Input
             id={`raise-amount-${row.id}`}
@@ -131,35 +136,35 @@ function DecideBody({ row, cap, onClose, onPending }: { row: RaiseRow; cap: numb
           />
           {issues.includes("bad_amount") && (
             <p role="alert" className="text-sm text-destructive">
-              Сумма — целое число от 0 до {formatSum(cap)}
+              {t("badAmount", { max: formatSum(cap, tk) })}
             </p>
           )}
         </div>
       )}
 
       <div className="space-y-1">
-        {reason !== null && <p className="text-sm text-muted-foreground">Нужен комментарий: {reason}</p>}
+        {reason !== null && <p className="text-sm text-muted-foreground">{t("commentNeededReason", { reason })}</p>}
         <Textarea
           rows={3}
           value={comment}
           disabled={busy}
           onChange={(e) => setComment(e.target.value)}
-          aria-label="Комментарий"
-          placeholder="Комментарий"
+          aria-label={t("comment")}
+          placeholder={t("comment")}
         />
         {touched && issues.includes("comment_required") && (
           <p role="alert" className="text-sm text-destructive">
-            Нужен комментарий
+            {t("commentNeeded")}
           </p>
         )}
       </div>
 
       <DialogFooter className="gap-2 sm:gap-2">
         <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
-          Отмена
+          {tc("cancel")}
         </Button>
         <Button type="button" className="h-11" disabled={busy || hardBlock} onClick={save}>
-          Сохранить
+          {t("save")}
         </Button>
       </DialogFooter>
     </>

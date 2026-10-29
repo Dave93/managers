@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@admin/components/ui/card";
 import { Skeleton } from "@admin/components/ui/skeleton";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
@@ -10,7 +11,7 @@ import { computeFlags, tashkentToday } from "./cash-shifts/flags";
 import DayStrip, { type DaySummary } from "./cash-shifts/DayStrip";
 import DayTimeline from "./cash-shifts/DayTimeline";
 import SettingsPopover from "./cash-shifts/SettingsPopover";
-import { fmtDayMonthTime, plural } from "./cash-shifts/format";
+import { fmtDayMonthTime } from "./cash-shifts/format";
 import type { CashShiftFull, CashShiftLite } from "./cash-shifts/types";
 
 // Cash shift routes live on a widened (non-Eden) controller, so this widget
@@ -42,6 +43,7 @@ const TimelineSkeleton = () => (
 );
 
 const CashShiftsByDay = () => {
+  const t = useTranslations("dashboardUi.cashShifts");
   const { dateRange } = useDateRangeState();
   const [terminalsFilter] = useTerminalsFilter();
   const terminals = terminalsFilter ? terminalsFilter.toString() : undefined;
@@ -99,29 +101,28 @@ const CashShiftsByDay = () => {
 
   const syncedAt = listQuery.data?.synced_at ?? null;
   const totals = days.reduce(
-    (t, d) => ({ shifts: t.shifts + d.shifts, flagged: t.flagged + d.flagged }),
+    (acc, d) => ({ shifts: acc.shifts + d.shifts, flagged: acc.flagged + d.flagged }),
     { shifts: 0, flagged: 0 }
   );
   // The API refuses periods over 92 days with 400.
   const listError =
     listQuery.error instanceof Error && listQuery.error.message === "HTTP 400"
-      ? "Период больше 92 дней. Выберите период короче."
-      : "Не удалось загрузить смены.";
+      ? t("periodTooLong")
+      : t("loadError");
 
   return (
     <Card className="flex h-full flex-col gap-4">
       <CardHeader className="flex flex-row items-start justify-between gap-3 space-y-0">
         <div className="space-y-1.5">
-          <CardTitle>Кассовые смены</CardTitle>
+          <CardTitle>{t("title")}</CardTitle>
           {listQuery.isSuccess && (days.length > 0 || syncedAt) && (
             <CardDescription className="flex flex-wrap gap-x-3 text-xs tabular-nums">
               {days.length > 0 && (
                 <span>
-                  {totals.shifts.toLocaleString("ru-RU")} {plural(totals.shifts, "смена", "смены", "смен")} за
-                  период, с нарушениями: {totals.flagged.toLocaleString("ru-RU")}
+                  {t("summary", { n: totals.shifts, flagged: totals.flagged.toLocaleString("ru-RU") })}
                 </span>
               )}
-              {syncedAt && <span>данные на {fmtDayMonthTime(syncedAt)}</span>}
+              {syncedAt && <span>{t("dataAt", { time: fmtDayMonthTime(syncedAt) })}</span>}
             </CardDescription>
           )}
         </div>
@@ -137,7 +138,7 @@ const CashShiftsByDay = () => {
         )}
         {activeDay &&
           (dayQuery.isError ? (
-            <p className="flex min-h-[200px] items-center text-sm text-red-600 dark:text-red-400">Не удалось загрузить день.</p>
+            <p className="flex min-h-[200px] items-center text-sm text-red-600 dark:text-red-400">{t("dayLoadError")}</p>
           ) : dayQuery.isLoading ? (
             <TimelineSkeleton />
           ) : (
@@ -145,7 +146,7 @@ const CashShiftsByDay = () => {
               <DayTimeline day={activeDay} shifts={dayFlags.visible} />
               {dayFlags.hiddenCount > 0 && (
                 <p className="-mt-2 shrink-0 text-xs text-muted-foreground">
-                  Скрыто коротких смен: {dayFlags.hiddenCount}
+                  {t("hiddenShort", { count: dayFlags.hiddenCount })}
                 </p>
               )}
             </>

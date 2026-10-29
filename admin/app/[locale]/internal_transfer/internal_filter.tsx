@@ -1,3 +1,4 @@
+import { useTranslations } from "next-intl";
 import {
   Popover,
   PopoverContent,
@@ -45,6 +46,7 @@ import {
 } from "@backend/modules/cache_control/dto/cache.dto";
 
 export const InternalTransferFilters = () => {
+  const t = useTranslations("invoicesUi.filters");
   const date = useStoplistFilterStore((state) => state.date);
   const setDate = useStoplistFilterStore((state) => state.setDate);
   const setStoreId = useStoplistFilterStore((state) => state.setStoreId);
@@ -140,10 +142,10 @@ export const InternalTransferFilters = () => {
               <SelectValue placeholder="Select" />
             </SelectTrigger>
             <SelectContent position="popper">
-              <SelectItem value="-1">Вчера</SelectItem>
-              <SelectItem value="0">Сегодня</SelectItem>
-              <SelectItem value="lastWeek">За прошлую неделю</SelectItem>
-              <SelectItem value="lastMonth">За прошлый месяц</SelectItem>
+              <SelectItem value="-1">{t("yesterday")}</SelectItem>
+              <SelectItem value="0">{t("today")}</SelectItem>
+              <SelectItem value="lastWeek">{t("lastWeek")}</SelectItem>
+              <SelectItem value="lastMonth">{t("lastMonth")}</SelectItem>
             </SelectContent>
           </Select>
 
@@ -165,7 +167,7 @@ export const InternalTransferFilters = () => {
         value={storeId}
       >
         <SelectTrigger className="max-w-xs">
-          <SelectValue placeholder="Склады" />
+          <SelectValue placeholder={t("stores")} />
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>

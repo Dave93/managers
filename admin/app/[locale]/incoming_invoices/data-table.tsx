@@ -44,6 +44,7 @@ import dayjs from "dayjs";
 
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useStoplistFilterStore } from "./filters_store";
 import { cn } from "@admin/lib/utils";
 import { useIsMobile } from "@admin/utils/use-is-mobile";
@@ -54,6 +55,7 @@ import "./style.css";
 interface DataTableProps<TData, TValue> { }
 
 function PerDayDetails({ row, showAct }: { row: any; showAct?: boolean }) {
+  const t = useTranslations("invoicesUi");
   const entries = Object.keys(row)
     .filter((k) => /^\d{4}_\d{2}_\d{2}_(base|act)$/.test(k) && Number(row[k]) > 0)
     .map((k) => {
@@ -66,13 +68,13 @@ function PerDayDetails({ row, showAct }: { row: any; showAct?: boolean }) {
       };
     })
     .sort((a, b) => a.sortKey.localeCompare(b.sortKey) || a.kind.localeCompare(b.kind));
-  if (!entries.length) return <div className="text-sm text-muted-foreground">Нет движений</div>;
+  if (!entries.length) return <div className="text-sm text-muted-foreground">{t("noMovements")}</div>;
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3 md:grid-cols-4">
       {entries.map((e, i) => (
         <div key={i} className="flex items-baseline justify-between gap-2 border-b border-dashed border-slate-200 pb-1 dark:border-slate-700">
           <span className="text-muted-foreground">
-            {e.date}{showAct ? <span className="ml-1 text-xs">{e.kind === "base" ? "опр." : "акт."}</span> : ""}
+            {e.date}{showAct ? <span className="ml-1 text-xs">{e.kind === "base" ? t("kindBase") : t("kindAct")}</span> : ""}
           </span>
           <span className="font-medium tabular-nums">
             {Intl.NumberFormat("ru-RU", { maximumFractionDigits: 3 }).format(e.value)} {row.unit ?? ""}
@@ -105,6 +107,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 };
 
 export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("invoicesUi");
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const showActualColumn = useStoplistFilterStore(
@@ -216,7 +219,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
     let cols = [
       {
         accessorKey: "name",
-        header: "Название",
+        header: t("columns.name"),
         enablePinning: true,
         size: 200,
         cell: ({ row }: any) => (
@@ -225,11 +228,11 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
       },
       {
         accessorKey: "supplierProductArticle",
-        header: "Артикул",
+        header: t("columns.article"),
       },
       {
         accessorKey: "unit",
-        header: "Единица измерения",
+        header: t("columns.unit"),
         enablePinning: true,
         size: 110,
       },
@@ -246,7 +249,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
               })
             }
           >
-            Всего {sorting[0]?.id === "totalBase" ? (sorting[0].desc ? "↓" : "↑") : "⇅"}
+            {t("columns.total")} {sorting[0]?.id === "totalBase" ? (sorting[0].desc ? "↓" : "↑") : "⇅"}
           </button>
         ),
         // @ts-ignore
@@ -294,7 +297,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
                   if (!v) return "";
                   return Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 3 });
                 },
-                header: () => "Опр.",
+                header: () => t("columns.base"),
               }),
             ],
           })
@@ -302,13 +305,13 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
       }
     }
     return cols;
-  }, [date, activeDateKeys, sorting]);
+  }, [date, activeDateKeys, sorting, t]);
 
   const columnsWithActual = useMemo(() => {
     let cols = [
       {
         accessorKey: "name",
-        header: "Название",
+        header: t("columns.name"),
         enablePinning: true,
         size: 200,
         cell: ({ row }: any) => (
@@ -317,11 +320,11 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
       },
       {
         accessorKey: "supplierProductArticle",
-        header: "Артикул",
+        header: t("columns.article"),
       },
       {
         accessorKey: "unit",
-        header: "Единица измерения",
+        header: t("columns.unit"),
         enablePinning: true,
         size: 110,
       },
@@ -338,7 +341,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
               })
             }
           >
-            Всего {sorting[0]?.id === "totalBase" ? (sorting[0].desc ? "↓" : "↑") : "⇅"}
+            {t("columns.total")} {sorting[0]?.id === "totalBase" ? (sorting[0].desc ? "↓" : "↑") : "⇅"}
           </button>
         ),
         // @ts-ignore
@@ -406,7 +409,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
                   if (!v) return "";
                   return Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 3 });
                 },
-                header: () => "Опр.",
+                header: () => t("columns.base"),
               }),
               // @ts-ignore
               columnHelper.accessor(m.format("YYYY_MM_DD") + "_act", {
@@ -415,7 +418,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
                   if (!v) return "";
                   return Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 3 });
                 },
-                header: () => "Акт.",
+                header: () => t("columns.act"),
               }),
             ],
           })
@@ -423,7 +426,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
       }
     }
     return cols;
-  }, [date, activeDateKeys, sorting]);
+  }, [date, activeDateKeys, sorting, t]);
 
   const table = useReactTable({
     data: search ? filteredData : (data?.data ?? defaultData),
@@ -514,9 +517,9 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
           primary: r.name ?? "—",
           secondary: r.supplierProductArticle ?? "",
           fields: [
-            { label: "Всего", value: (() => {
-              const t = Object.keys(r).filter((k: string) => k.endsWith("_base")).reduce((s: number, k: string) => s + Number((r as any)[k] || 0), 0);
-              return t ? `${Intl.NumberFormat("ru-RU").format(t)} ${r.unit ?? ""}`.trim() : "—";
+            { label: t("columns.total"), value: (() => {
+              const total = Object.keys(r).filter((k: string) => k.endsWith("_base")).reduce((s: number, k: string) => s + Number((r as any)[k] || 0), 0);
+              return total ? `${Intl.NumberFormat("ru-RU").format(total)} ${r.unit ?? ""}`.trim() : "—";
             })() },
           ],
           details: (() => {
@@ -553,7 +556,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Input
-          placeholder="Поиск по названию или артикулу..."
+          placeholder={t("searchByNameOrArticle")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
@@ -564,7 +567,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
             className="text-sm text-muted-foreground hover:text-foreground"
             onClick={() => setSearch("")}
           >
-            Очистить
+            {t("clear")}
           </button>
         )}
         <button
@@ -572,7 +575,7 @@ export function DataTable<TData, TValue>({ }: DataTableProps<TData, TValue>) {
           onClick={() => setShowArticle((v) => !v)}
           className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
         >
-          {showArticle ? "Скрыть артикул" : "Артикул"}
+          {showArticle ? t("hideArticle") : t("columns.article")}
         </button>
       </div>
       <div

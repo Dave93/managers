@@ -10,6 +10,7 @@ import {
 import { Plus, Pencil } from "lucide-react";
 import PositionsForm from "./_form";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export function PositionsSheet({
     recordId,
@@ -19,6 +20,8 @@ export function PositionsSheet({
     trigger?: React.ReactNode;
 }) {
     const [open, setOpen] = useState(false);
+    const t = useTranslations("forms.position");
+    const tc = useTranslations("forms.common");
 
 
     const beforeOpen = async (open: boolean) => {
@@ -39,12 +42,12 @@ export function PositionsSheet({
                         {recordId ? (
                             <>
                                 <Pencil className="mr-2 h-4 w-4" />
-                                Редактировать
+                                {tc("edit")}
                             </>
                         ) : (
                             <>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Создать
+                                {tc("create")}
                             </>
                         )}
                     </Button>
@@ -53,10 +56,10 @@ export function PositionsSheet({
             <SheetContent className="sm:max-w-2xl overflow-y-auto">
                 <SheetHeader className="mb-5">
                     <SheetTitle>
-                        {recordId ? "Редактировать должность" : "Создать должность"}
+                        {recordId ? t("titleEdit") : t("titleCreate")}
                     </SheetTitle>
                     <SheetDescription>
-                        Заполните форму ниже для {recordId ? "редактирования" : "создания"} должности
+                        {recordId ? t("descriptionEdit") : t("descriptionCreate")}
                     </SheetDescription>
                 </SheetHeader>
                 <div className="space-y-6">

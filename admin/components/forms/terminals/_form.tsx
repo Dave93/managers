@@ -1,4 +1,5 @@
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Switch } from "@components/ui/switch";
 
@@ -17,6 +18,8 @@ export default function TerminalsForm({
   setOpen: (open: boolean) => void;
   recordId?: string;
 }) {
+  const tc = useTranslations("forms.common");
+  const t = useTranslations("forms.terminals");
   const queryClient = useQueryClient();
 
   const onAddSuccess = (actionText: string) => {
@@ -146,7 +149,7 @@ export default function TerminalsForm({
     >
       <div className="space-y-2">
         <div>
-          <Label>Активность</Label>
+          <Label>{tc("active")}</Label>
         </div>
         <form.Field name="active">
           {(field) => {
@@ -163,7 +166,7 @@ export default function TerminalsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Название</Label>
+          <Label>{tc("name")}</Label>
         </div>
         <form.Field name="name">
           {(field) => {
@@ -186,7 +189,7 @@ export default function TerminalsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Телефон</Label>
+          <Label>{tc("phone")}</Label>
         </div>
         <form.Field name="phone">
           {(field) => {
@@ -209,7 +212,7 @@ export default function TerminalsForm({
       </div>
       <div className="space-y-2">
         <div>
-          <Label>Детская площадка</Label>
+          <Label>{t("playground")}</Label>
         </div>
         <form.Field name="playground_enabled">
           {(field) => {
@@ -224,14 +227,12 @@ export default function TerminalsForm({
           }}
         </form.Field>
         <p className="text-sm text-muted-foreground">
-          Если включено — при оплате заказа на сумму от установленного минимума
-          на чеке дополнительно печатается QR-билет для детской площадки.
-          Выключите, если в этом филиале нет детской площадки.
+          {t("playgroundHint")}
         </p>
       </div>
       {/* <div className="space-y-2">
           <div>
-            <Label>Описание</Label>
+            <Label>{tc("description")}</Label>
           </div>
           <form.Field name="description">
             {(field) => {

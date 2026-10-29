@@ -8,8 +8,10 @@ import { CalendarReport } from "@admin/components/reports/calendar";
 import { useMemo } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
+import { useTranslations } from "next-intl";
 
 export default function ManagerReportPage() {
+  const t = useTranslations("reportsUi");
   const [
     { data: terminalsList, isLoading: isTerminalsLoading },
     { data: reportsStatus, isLoading: isReportsStatusLoading },
@@ -97,7 +99,7 @@ export default function ManagerReportPage() {
               ))}
           </Tabs>
           <div className="mt-6">
-            <div className="text-2xl font-bold border-b-2">Статусы</div>
+            <div className="text-2xl font-bold border-b-2">{t("statuses")}</div>
             <div className="space-y-2 mt-4">
               {reportsStatus &&
                 Array.isArray(reportsStatus) &&

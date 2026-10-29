@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,6 +39,9 @@ export default function MonthPage() {
 }
 
 function MonthScreen() {
+  const t = useTranslations("kpiScreens.month");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const now = useMemo(() => new Date(), []);
   const { access } = useKpiPerms();
   const me = useKpiMe();
@@ -62,7 +66,7 @@ function MonthScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Месяц</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title")}</h1>
         <PeriodSelect value={period} onChange={(v) => setPicked(v)} options={options} className="w-44" />
       </div>
 
@@ -70,10 +74,10 @@ function MonthScreen() {
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : !data || !period ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         <SummaryView period={period} data={data} canApprove={access.approve} seesLagging={access.approve || access.manage} />
       )}
@@ -93,51 +97,54 @@ function SummaryView({
   canApprove: boolean;
   seesLagging: boolean;
 }) {
+  const t = useTranslations("kpiScreens.month");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const st = PERIOD_STATUS[data.status];
   const c = data.counts;
-  const tiles: { label: string; value: number; href?: string }[] = [
-    { label: "Сотрудников", value: c.employees },
-    { label: "Отправлено", value: c.submitted },
-    { label: "Черновики", value: c.drafts },
-    { label: "Нет оценки", value: c.none },
-    { label: "С опозданием", value: c.late },
-    { label: "Открытые споры", value: c.open_disputes, href: "/kpi/disputes" },
+  const tiles: { key: string; label: string; value: number; href?: string }[] = [
+    { key: "employees", label: t("tiles.employees"), value: c.employees },
+    { key: "submitted", label: t("tiles.submitted"), value: c.submitted },
+    { key: "drafts", label: t("tiles.drafts"), value: c.drafts },
+    { key: "none", label: t("tiles.none"), value: c.none },
+    { key: "late", label: t("tiles.late"), value: c.late },
+    { key: "openDisputes", label: t("tiles.openDisputes"), value: c.open_disputes, href: "/kpi/disputes" },
   ];
 
   return (
     <div className="space-y-4">
       <div className="space-y-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-lg font-medium">{monthLabel(period)}</span>
-          <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
+          <span className="text-lg font-medium">{monthLabel(period, locale)}</span>
+          <KpiBadge tone={st.tone}>{tk(st.labelKey)}</KpiBadge>
         </div>
         {data.status === "closed" && (
           <p className="text-sm text-muted-foreground">
-            Закрыл {data.closed_by_name ?? "—"} {formatTashkent(data.closed_at)}
+            {t("closedBy", { name: data.closed_by_name ?? "—", date: formatTashkent(data.closed_at) })}
           </p>
         )}
       </div>
 
       <ul className="space-y-1 text-sm">
-        <li>Отправка оценок с {formatTashkent(data.deadlines.submit_opens_at)}</li>
-        <li>Срок оценок {formatTashkent(data.deadlines.review_deadline)}</li>
-        <li>Споры до {formatTashkent(data.deadlines.dispute_deadline)}</li>
+        <li>{t("submitOpens", { date: formatTashkent(data.deadlines.submit_opens_at) })}</li>
+        <li>{t("reviewDeadline", { date: formatTashkent(data.deadlines.review_deadline) })}</li>
+        <li>{t("disputeDeadline", { date: formatTashkent(data.deadlines.dispute_deadline) })}</li>
       </ul>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-        {tiles.map((t) => {
+        {tiles.map((tile) => {
           const body = (
             <>
-              <div className="text-2xl font-semibold">{t.value}</div>
-              <div className="text-sm text-muted-foreground">{t.label}</div>
+              <div className="text-2xl font-semibold">{tile.value}</div>
+              <div className="text-sm text-muted-foreground">{tile.label}</div>
             </>
           );
-          return t.href ? (
-            <Link key={t.label} href={t.href} className="rounded-lg border p-3 hover:bg-muted/50">
+          return tile.href ? (
+            <Link key={tile.key} href={tile.href} className="rounded-lg border p-3 hover:bg-muted/50">
               {body}
             </Link>
           ) : (
-            <div key={t.label} className="rounded-lg border p-3">
+            <div key={tile.key} className="rounded-lg border p-3">
               {body}
             </div>
           );
@@ -146,23 +153,23 @@ function SummaryView({
 
       {seesLagging && (
         <section className="space-y-2">
-          <h2 className="text-base font-medium">Кто не оценил</h2>
+          <h2 className="text-base font-medium">{t("laggingTitle")}</h2>
           {data.unassigned > 0 && (
             <p role="status" className="rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
-              Без оценщика: {data.unassigned}. Этих сотрудников некому оценить — назначьте оценщика в настройках, вкладка «Оценщики».
+              {t("unassigned", { count: data.unassigned })}
             </p>
           )}
           {data.lagging.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {data.unassigned > 0 ? "Назначенные оценщики отправили все оценки" : "Все оценщики отправили оценки"}
+              {data.unassigned > 0 ? t("assignedAllSent") : t("allSent")}
             </p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Оценщик</TableHead>
-                    <TableHead className="text-right">Не отправлено</TableHead>
+                    <TableHead>{t("colReviewer")}</TableHead>
+                    <TableHead className="text-right">{t("colPending")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -185,6 +192,10 @@ function SummaryView({
 }
 
 function MonthActions({ period, data }: { period: string; data: PeriodSummary }) {
+  const t = useTranslations("kpiScreens.month");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
@@ -201,11 +212,11 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
     mutationFn: () => kpiApi.periods.close(period),
     onSuccess: (s) => {
       setDisputesBlock(false);
-      return done(s, "Месяц закрыт");
+      return done(s, t("monthClosed"));
     },
     onError: (e) => {
       setDisputesBlock(e instanceof KpiApiError && e.code === "open_disputes");
-      toast.error(kpiErrorText(e));
+      toast.error(kpiErrorText(e, tk));
     },
   });
 
@@ -214,9 +225,9 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
     onSuccess: async (s) => {
       setReopenOpen(false);
       setComment("");
-      await done(s, "Месяц открыт заново");
+      await done(s, t("monthReopened"));
     },
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
   return (
@@ -224,18 +235,18 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
       {data.status === "open" && (
         <div className="space-y-2">
           <Button type="button" className="h-11" disabled={!data.can_close || close.isPending} onClick={() => setConfirmOpen(true)}>
-            Закрыть месяц
+            {t("closeMonth")}
           </Button>
           {!data.can_close && data.close_blockers.length > 0 && (
             <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
               {data.close_blockers.map((code) => (
-                <li key={code}>{codeText(code)}</li>
+                <li key={code}>{codeText(code, tk)}</li>
               ))}
             </ul>
           )}
           {disputesBlock && (
             <Link href="/kpi/disputes" className="text-sm underline">
-              К спорам
+              {t("toDisputes")}
             </Link>
           )}
         </div>
@@ -243,19 +254,19 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
 
       {data.status === "closed" && (
         <Button type="button" variant="outline" className="h-11" onClick={() => setReopenOpen(true)}>
-          Открыть заново
+          {t("reopen")}
         </Button>
       )}
 
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Закрыть {monthLabel(period)}?</AlertDialogTitle>
-            <AlertDialogDescription>После закрытия оценку меняет только HR с причиной</AlertDialogDescription>
+            <AlertDialogTitle>{t("confirmCloseTitle", { month: monthLabel(period, locale) })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("confirmCloseDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Отмена</AlertDialogCancel>
-            <AlertDialogAction onClick={() => close.mutate()}>Закрыть месяц</AlertDialogAction>
+            <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => close.mutate()}>{t("closeMonth")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -268,20 +279,20 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Открыть {monthLabel(period)} заново</DialogTitle>
-            <DialogDescription>Укажите причину: она сохранится в журнале месяца</DialogDescription>
+            <DialogTitle>{t("reopenTitle", { month: monthLabel(period, locale) })}</DialogTitle>
+            <DialogDescription>{t("reopenDescription")}</DialogDescription>
           </DialogHeader>
           <Textarea
             rows={3}
             value={comment}
             disabled={reopen.isPending}
             onChange={(e) => setComment(e.target.value)}
-            aria-label="Причина"
-            placeholder="Причина"
+            aria-label={t("reason")}
+            placeholder={t("reason")}
           />
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="outline" className="h-11" disabled={reopen.isPending} onClick={() => setReopenOpen(false)}>
-              Отмена
+              {tc("cancel")}
             </Button>
             <Button
               type="button"
@@ -289,7 +300,7 @@ function MonthActions({ period, data }: { period: string; data: PeriodSummary })
               disabled={reopen.isPending || !commentOk(comment, 1)}
               onClick={() => reopen.mutate()}
             >
-              Открыть заново
+              {t("reopen")}
             </Button>
           </DialogFooter>
         </DialogContent>

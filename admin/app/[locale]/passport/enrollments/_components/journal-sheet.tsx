@@ -19,6 +19,7 @@
 //  * `actor.name` is already resolved server-side. Do not fetch users.
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   ArrowDownCircle,
   ArrowUpCircle,
@@ -49,9 +50,9 @@ import type {
 import { EnrollmentStatusChip } from "./status";
 import {
   fmtDate,
-  fmtLongDate,
   fmtTime,
   parseTimestamp,
+  useFmtLongDate,
   useJournal,
   useTerminalNames,
 } from "./use-enrollments";
@@ -60,28 +61,18 @@ const PAGE = 50;
 
 type Tone = "neutral" | "good" | "bad" | "info" | "accent";
 
-const ACTION: Record<
-  PassportSignoffAction,
-  { label: string; icon: any; tone: Tone }
-> = {
-  material_opened: { label: "Открыл материал", icon: BookOpen, tone: "neutral" },
-  quiz_passed: { label: "Сдал тест", icon: CheckCircle2, tone: "good" },
-  quiz_failed: { label: "Не сдал тест", icon: XCircle, tone: "bad" },
-  observed: { label: "Наставник принял", icon: UserCheck, tone: "good" },
-  observation_declined: {
-    label: "Наставник не принял",
-    icon: XCircle,
-    tone: "bad",
-  },
-  recheck_passed: { label: "Ре-проверка пройдена", icon: RefreshCw, tone: "good" },
-  recheck_failed: { label: "Ре-проверка провалена", icon: RefreshCw, tone: "bad" },
-  level_set: { label: "Уровень повышен", icon: ArrowUpCircle, tone: "info" },
-  level_rolled_back: {
-    label: "Уровень откачен",
-    icon: ArrowDownCircle,
-    tone: "bad",
-  },
-  stamp_issued: { label: "Печать выдана", icon: Stamp, tone: "accent" },
+// The label of each action lives in passportUi.enrollments.journal.action.<key>.
+const ACTION: Record<PassportSignoffAction, { icon: any; tone: Tone }> = {
+  material_opened: { icon: BookOpen, tone: "neutral" },
+  quiz_passed: { icon: CheckCircle2, tone: "good" },
+  quiz_failed: { icon: XCircle, tone: "bad" },
+  observed: { icon: UserCheck, tone: "good" },
+  observation_declined: { icon: XCircle, tone: "bad" },
+  recheck_passed: { icon: RefreshCw, tone: "good" },
+  recheck_failed: { icon: RefreshCw, tone: "bad" },
+  level_set: { icon: ArrowUpCircle, tone: "info" },
+  level_rolled_back: { icon: ArrowDownCircle, tone: "bad" },
+  stamp_issued: { icon: Stamp, tone: "accent" },
 };
 
 const TONE_DOT: Record<Tone, string> = {
@@ -93,11 +84,8 @@ const TONE_DOT: Record<Tone, string> = {
     "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-900/60 dark:bg-violet-950/50 dark:text-violet-400",
 };
 
-const ACTOR_LABEL: Record<string, string> = {
-  office: "Офис",
-  trainee: "Стажёр",
-  system: "Система",
-};
+// Actor kinds with a translation under journal.actor.<kind>.
+const ACTOR_KINDS = ["office", "trainee", "system"];
 
 /** meta is `unknown` server-side and never validated — read it defensively. */
 function metaLevel(meta: unknown): number | null {
@@ -112,9 +100,13 @@ function dayKey(iso: string): string {
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
 }
 
-function dayLabel(iso: string): string {
+function dayLabel(
+  iso: string,
+  t: (key: string) => string,
+  fmtLongDate: (v: number) => string
+): string {
   const ms = parseTimestamp(iso);
-  if (Number.isNaN(ms)) return "Без даты";
+  if (Number.isNaN(ms)) return t("noDate");
   const d = new Date(ms);
   const today = new Date();
   const yst = new Date(today.getTime() - 86400_000);
@@ -122,8 +114,8 @@ function dayLabel(iso: string): string {
     a.getFullYear() === b.getFullYear() &&
     a.getMonth() === b.getMonth() &&
     a.getDate() === b.getDate();
-  if (same(d, today)) return "Сегодня";
-  if (same(d, yst)) return "Вчера";
+  if (same(d, today)) return t("today");
+  if (same(d, yst)) return t("yesterday");
   return fmtLongDate(ms);
 }
 
@@ -134,16 +126,18 @@ function Entry({
   entry: PassportJournalEntry;
   terminalName: (id: string | null) => string;
 }) {
-  const spec = ACTION[entry.action] ?? {
-    label: entry.action,
-    icon: BookOpen,
-    tone: "neutral" as Tone,
+  const t = useTranslations("passportUi.enrollments.journal");
+  const known = ACTION[entry.action];
+  const spec = {
+    label: known ? t(`action.${entry.action}`) : entry.action,
+    icon: known?.icon ?? BookOpen,
+    tone: (known?.tone ?? "neutral") as Tone,
   };
   const Icon = spec.icon;
   const subject =
     entry.topic?.title_ru ??
     entry.module?.title_ru ??
-    (entry.topic || entry.module ? "материал удалён" : null);
+    (entry.topic || entry.module ? t("subjectDeleted") : null);
   const moduleLine =
     entry.topic && entry.module?.title_ru ? entry.module.title_ru : null;
   const level = metaLevel(entry.meta);
@@ -170,7 +164,9 @@ function Entry({
           <span className="text-[13px] font-medium leading-tight">
             {spec.label}
             {level !== null && (
-              <span className="ml-1 text-muted-foreground">→ ур. {level}</span>
+              <span className="ml-1 text-muted-foreground">
+                {t("levelArrow", { level })}
+              </span>
             )}
           </span>
           <span className="text-[11.5px] tabular-nums text-muted-foreground">
@@ -183,13 +179,15 @@ function Entry({
         )}
         {moduleLine && (
           <p className="truncate text-[11px] leading-snug text-muted-foreground">
-            модуль: {moduleLine}
+            {t("moduleLine", { module: moduleLine })}
           </p>
         )}
 
         <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-foreground">
           <span className="rounded border px-1 py-px text-[10px] uppercase tracking-wide">
-            {ACTOR_LABEL[actorKind] ?? actorKind}
+            {ACTOR_KINDS.includes(actorKind)
+              ? t(`actor.${actorKind}`)
+              : actorKind}
           </span>
           {/* A `kind === null` row has no human behind it, so the «Система»
               badge IS the actor — appending "без имени" would read as a person
@@ -197,7 +195,7 @@ function Entry({
               trainee rows, where a missing name is exactly that. */}
           {entry.actor.kind !== null && (
             <span className="text-foreground/80">
-              {entry.actor.name ?? "без имени"}
+              {entry.actor.name ?? t("actorNoName")}
             </span>
           )}
           <span>·</span>
@@ -223,6 +221,8 @@ export function JournalSheet({
   traineeName: string | null;
   onOpenChange: (v: boolean) => void;
 }) {
+  const t = useTranslations("passportUi.enrollments.journal");
+  const fmtLongDate = useFmtLongDate();
   const [limit, setLimit] = useState(PAGE);
   const terminalName = useTerminalNames();
 
@@ -244,7 +244,7 @@ export function JournalSheet({
     const k = dayKey(r.created_at);
     const last = groups[groups.length - 1];
     if (last && last.key === k) last.rows.push(r);
-    else groups.push({ key: k, label: dayLabel(r.created_at), rows: [r] });
+    else groups.push({ key: k, label: dayLabel(r.created_at, t, fmtLongDate), rows: [r] });
   }
 
   return (
@@ -252,18 +252,20 @@ export function JournalSheet({
       <SheetContent className="w-full overflow-y-auto px-6 pb-10 sm:max-w-2xl">
         <SheetHeader className="px-0 pt-6">
           <SheetTitle className="flex flex-wrap items-center gap-2">
-            {traineeName ?? "Журнал стажировки"}
+            {traineeName ?? t("defaultTitle")}
             {enrollment && <EnrollmentStatusChip status={enrollment.status} />}
           </SheetTitle>
           <SheetDescription className="text-[12.5px] leading-snug">
             {enrollment ? (
               <>
-                Стажировка начата {fmtDate(enrollment.started_at)} · филиал{" "}
-                {terminalName(enrollment.terminal_id)} · записей:{" "}
-                {q.data?.total ?? 0}
+                {t("header", {
+                  date: fmtDate(enrollment.started_at),
+                  branch: terminalName(enrollment.terminal_id),
+                  total: q.data?.total ?? 0,
+                })}
               </>
             ) : (
-              "Кто что подтвердил, когда и откуда. Записи не редактируются и не удаляются."
+              t("description")
             )}
           </SheetDescription>
         </SheetHeader>
@@ -272,17 +274,14 @@ export function JournalSheet({
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
             <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
             <span>
-              Журнал отдаётся по праву{" "}
-              <code className="font-mono text-[11px]">
-                passport.matrix.view
-              </code>
-              , а у вас его нет — либо стажёр не из вашего филиала. Обратитесь к
-              администратору.
+              {t.rich("denied", {
+                code: (c) => <code className="font-mono text-[11px]">{c}</code>,
+              })}
             </span>
           </div>
         ) : q.isLoading ? (
           <p className="flex items-center gap-2 py-10 text-[12.5px] text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" /> Загрузка журнала…
+            <Loader2 className="size-4 animate-spin" /> {t("loading")}
           </p>
         ) : q.isError ? (
           <p className="py-10 text-[12.5px] text-destructive">
@@ -290,10 +289,9 @@ export function JournalSheet({
           </p>
         ) : rows.length === 0 ? (
           <div className="py-12 text-center">
-            <p className="text-[13px] font-medium">Пока ничего не произошло</p>
+            <p className="text-[13px] font-medium">{t("emptyTitle")}</p>
             <p className="mx-auto mt-1 max-w-sm text-[12px] leading-snug text-muted-foreground">
-              Первая запись появится, когда стажёр откроет первый материал в
-              Telegram. Если этого долго нет — проверьте, дошёл ли до него QR.
+              {t("emptyBody")}
             </p>
           </div>
         ) : (
@@ -322,13 +320,12 @@ export function JournalSheet({
                 {q.isFetching && (
                   <Loader2 className="mr-1.5 size-3.5 animate-spin" />
                 )}
-                Показать ещё
+                {t("loadMore")}
               </Button>
             )}
             {!canLoadMore && (q.data?.total ?? 0) > rows.length && (
               <p className="text-center text-[11.5px] text-muted-foreground">
-                Показаны последние {rows.length} из {q.data?.total} записей —
-                это предел выдачи журнала.
+                {t("limitNote", { shown: rows.length, total: q.data?.total ?? 0 })}
               </p>
             )}
           </div>

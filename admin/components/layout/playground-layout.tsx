@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { UserNav } from "./user-nav";
 
 export default function PlaygroundLayout({
@@ -11,11 +12,12 @@ export default function PlaygroundLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const t = useTranslations("layoutUi.playground");
 
   const navItems = [
     {
       href: "/admin/playground/scan",
-      label: "Сканировать",
+      label: t("scan"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -40,7 +42,7 @@ export default function PlaygroundLayout({
     },
     {
       href: "/admin/playground/list",
-      label: "Билеты",
+      label: t("tickets"),
       icon: (
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -66,7 +68,7 @@ export default function PlaygroundLayout({
     <div className="min-h-[100dvh] flex flex-col bg-background">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
-          <span className="text-lg font-semibold">Детская площадка</span>
+          <span className="text-lg font-semibold">{t("title")}</span>
           <UserNav />
         </div>
       </header>

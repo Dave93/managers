@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@admin/components/ui/button";
@@ -23,12 +23,13 @@ type PlanItem = {
   planned_qty: number;
 };
 
-const MONTHS = [
-  "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
-  "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь",
-];
+const MONTH_KEYS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+] as const;
 
 export default function CreateSalesPlanPage() {
+  const t = useTranslations("salesPlans");
   const locale = useLocale();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -112,7 +113,7 @@ export default function CreateSalesPlanPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sales_plans"] });
-      toast.success("План создан");
+      toast.success(t("create.created"));
       router.push(`/${locale}/admin/sales-plans/list`);
     },
     onError: (e: Error) => {
@@ -130,14 +131,14 @@ export default function CreateSalesPlanPage() {
 
   return (
     <div className="max-w-3xl">
-      <h2 className="text-3xl font-bold tracking-tight pb-4">Создать план продаж</h2>
+      <h2 className="text-3xl font-bold tracking-tight pb-4">{t("create.title")}</h2>
 
       <div className="space-y-6">
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[180px]">
-            <label className="text-sm font-medium mb-1 block">Терминал</label>
+            <label className="text-sm font-medium mb-1 block">{t("create.terminal")}</label>
             <Select value={terminalId} onValueChange={setTerminalId}>
-              <SelectTrigger><SelectValue placeholder="Выберите терминал" /></SelectTrigger>
+              <SelectTrigger><SelectValue placeholder={t("create.selectTerminal")} /></SelectTrigger>
               <SelectContent>
                 {terminals.map((t: any) => (
                   <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
@@ -146,7 +147,7 @@ export default function CreateSalesPlanPage() {
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Год</label>
+            <label className="text-sm font-medium mb-1 block">{t("create.year")}</label>
             <Select value={year} onValueChange={setYear}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -157,12 +158,12 @@ export default function CreateSalesPlanPage() {
             </Select>
           </div>
           <div>
-            <label className="text-sm font-medium mb-1 block">Месяц</label>
+            <label className="text-sm font-medium mb-1 block">{t("create.month")}</label>
             <Select value={month} onValueChange={setMonth}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                {MONTHS.map((name, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
+                {MONTH_KEYS.map((key, i) => (
+                  <SelectItem key={i + 1} value={String(i + 1)}>{t(`months.${key}`)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -170,9 +171,9 @@ export default function CreateSalesPlanPage() {
         </div>
 
         <div>
-          <label className="text-sm font-medium mb-1 block">Добавить продукт</label>
+          <label className="text-sm font-medium mb-1 block">{t("form.addProduct")}</label>
           <Input
-            placeholder="Начните вводить название..."
+            placeholder={t("form.searchPlaceholder")}
             value={productSearch}
             onChange={(e) => setProductSearch(e.target.value)}
           />
@@ -196,8 +197,8 @@ export default function CreateSalesPlanPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="p-3 text-left font-medium">Продукт</th>
-                  <th className="p-3 text-center font-medium w-40">План на месяц</th>
+                  <th className="p-3 text-left font-medium">{t("form.product")}</th>
+                  <th className="p-3 text-center font-medium w-40">{t("form.planPerMonth")}</th>
                   <th className="p-3 text-right font-medium w-20"></th>
                 </tr>
               </thead>
@@ -229,9 +230,9 @@ export default function CreateSalesPlanPage() {
             onClick={() => createMutation.mutate()}
             disabled={!terminalId || items.length === 0 || createMutation.isPending}
           >
-            {createMutation.isPending ? "Сохранение..." : "Создать план"}
+            {createMutation.isPending ? t("form.saving") : t("create.submit")}
           </Button>
-          <Button variant="outline" onClick={() => router.back()}>Отмена</Button>
+          <Button variant="outline" onClick={() => router.back()}>{t("form.cancel")}</Button>
         </div>
       </div>
     </div>

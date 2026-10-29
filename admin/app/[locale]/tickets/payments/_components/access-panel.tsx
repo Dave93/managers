@@ -1,6 +1,7 @@
 "use client";
 
 import { ShieldAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 // Права экрана. Чтение очереди требует tickets.list (GET /tickets), решение по
 // оплате — tickets.payment.approve. Тексты панели копируют в форму роли, поэтому
@@ -18,23 +19,23 @@ export function AccessPanel({
   // true: отказ пришёл от сервера (403), а не из списка прав сессии.
   serverDenied?: boolean;
 }) {
+  const t = useTranslations("ticketsUi.payments.access");
+  const code = (chunks: React.ReactNode) => (
+    <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">{chunks}</code>
+  );
   return (
     <div role="alert" className="rounded-lg border bg-card">
       <div className="flex items-start gap-3 px-5 py-6">
         <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
         <div className="min-w-0 space-y-2.5">
-          <p className="text-[14px] font-semibold leading-tight">Нет доступа к очереди «К оплате»</p>
+          <p className="text-[14px] font-semibold leading-tight">{t("title")}</p>
           <p className="max-w-xl text-[12.5px] leading-snug text-muted-foreground">
-            {serverDenied ? "Сервер ответил отказом (403). " : ""}
-            Экрану нужны два права:{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">
-              {PAYMENT_RIGHTS.approve}
-            </code>{" "}
-            (утверждать и отклонять оплату) и{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[12px]">
-              {PAYMENT_RIGHTS.list}
-            </code>{" "}
-            (читать заявки). У вашей роли не хватает:
+            {serverDenied ? `${t("serverDenied")} ` : ""}
+            {t.rich("body", {
+              approve: PAYMENT_RIGHTS.approve,
+              list: PAYMENT_RIGHTS.list,
+              code,
+            })}
           </p>
           <ul className="space-y-1">
             {missing.map((p) => (
@@ -46,7 +47,7 @@ export function AccessPanel({
             ))}
           </ul>
           <p className="max-w-xl text-[12px] leading-snug text-muted-foreground">
-            Попросите администратора добавить их роли в форме роли, затем перезагрузите страницу.
+            {t("hint")}
           </p>
         </div>
       </div>

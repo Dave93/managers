@@ -17,6 +17,7 @@ import {
     SelectValue,
 } from "@admin/components/ui/select";
 import { cn } from "@admin/lib/utils";
+import { useTranslations } from "next-intl";
 
 type WorkSchedule = {
     id: string;
@@ -31,7 +32,18 @@ type WorkSchedule = {
 };
 
 
+// Значения дней хранятся в БД по-русски — не переводить сами значения, только подписи.
 const daysWeek = ["Понедельник", "Вторник", "Среда", "Четверг", "Пятница", "Суббота", "Воскресенье"];
+
+const dayKeys: Record<string, string> = {
+    "Понедельник": "monday",
+    "Вторник": "tuesday",
+    "Среда": "wednesday",
+    "Четверг": "thursday",
+    "Пятница": "friday",
+    "Суббота": "saturday",
+    "Воскресенье": "sunday",
+};
 
 type ApiData = {
     name: string;
@@ -63,12 +75,14 @@ export default function WorkScheduleForm({
     setOpen: (open: boolean) => void;
     recordId?: string;
 }) {
+    const t = useTranslations("forms.schedule");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLFormElement | null>(null);
     const queryClient = useQueryClient();
-    const onAddSuccess = (actionText: string) => {
+    const onAddSuccess = (actionText: "added" | "updated") => {
         queryClient.invalidateQueries({ queryKey: ['work_schedules'] });
         queryClient.invalidateQueries({ queryKey: ['work_schedules_cached'] });
-        toast.success(`График Работ успешно ${actionText}`);
+        toast.success(t(actionText));
         setOpen(false);
     };
     const [selectedDays, setSelectedDays] = useState<string[]>([]);
@@ -80,7 +94,7 @@ export default function WorkScheduleForm({
     const createMutation = useMutation({
         mutationFn: (newTodo: typeof work_schedules.$inferInsert) => {
             if (!newTodo.organization_id) {
-                throw new Error("Пожалуйста, выберите организацию");
+                throw new Error(t("errors.selectOrganization"));
             }
             const data: ApiData = {
                 name: newTodo.name,
@@ -96,7 +110,7 @@ export default function WorkScheduleForm({
                 data,
             })
         },
-        onSuccess: () => onAddSuccess('Added'),
+        onSuccess: () => onAddSuccess("added"),
         onError,
     });
 
@@ -106,7 +120,7 @@ export default function WorkScheduleForm({
             id: string;
         }) => {
             if (!newTodo.data.organization_id) {
-                throw new Error("Пожалуйста, выберите организацию");
+                throw new Error(t("errors.selectOrganization"));
             }
             const data: ApiData = {
                 name: newTodo.data.name,
@@ -141,22 +155,22 @@ export default function WorkScheduleForm({
         onSubmit: async ({ value }) => {
             try {
                 if (!value.organization_id) {
-                    throw new Error("Пожалуйста, выберите организацию");
+                    throw new Error(t("errors.selectOrganization"));
                 }
                 if (!value.name) {
-                    throw new Error("Пожалуйста, введите название графика");
+                    throw new Error(t("errors.enterName"));
                 }
                 if (!value.days || value.days.length === 0) {
-                    throw new Error("Пожалуйста, выберите рабочие дни");
+                    throw new Error(t("errors.selectDays"));
                 }
                 if (!value.start_time) {
-                    throw new Error("Пожалуйста, укажите время начала работы");
+                    throw new Error(t("errors.enterStartTime"));
                 }
                 if (!value.end_time) {
-                    throw new Error("Пожалуйста, укажите время окончания работы");
+                    throw new Error(t("errors.enterEndTime"));
                 }
                 if (!value.max_start_time) {
-                    throw new Error("Пожалуйста, укажите максимальное время начала");
+                    throw new Error(t("errors.enterMaxStartTime"));
                 }
 
                 if (recordId) {
@@ -297,11 +311,11 @@ export default function WorkScheduleForm({
         >
             <div className="grid gap-4">
                 <div className="space-y-2">
-                    <Label>Название графика</Label>
+                    <Label>{t("name")}</Label>
                     <form.Field name="name">
                         {(field) => (
                             <Input
-                                placeholder="Название графика"
+                                placeholder={t("name")}
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
@@ -311,7 +325,7 @@ export default function WorkScheduleForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Организация</Label>
+                    <Label>{t("organization")}</Label>
                     <form.Field name="organization_id">
                         {(field) => (
                             <Select
@@ -319,7 +333,7 @@ export default function WorkScheduleForm({
                                 onValueChange={handleOrganizationChange}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите бренд" />
+                                    <SelectValue placeholder={t("selectBrand")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {(organizationsData || []).map((org) => (
@@ -334,7 +348,7 @@ export default function WorkScheduleForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Рабочие дни</Label>
+                    <Label>{t("workDays")}</Label>
                     <form.Field name="days">
                         {(field) => {
                             // Используем состояние selectedDays для отображения выбранных дней
@@ -345,7 +359,7 @@ export default function WorkScheduleForm({
                                     <div className="grid grid-cols-7 gap-2">
                                         {daysWeek.map((day) => {
                                             const isSelected = days.includes(day);
-                                            const shortDay = day.substring(0, 2);
+                                            const shortDay = t(`daysShort.${dayKeys[day]}`);
                                             return (
                                                 <div
                                                     key={day}
@@ -374,7 +388,7 @@ export default function WorkScheduleForm({
                                         {days.length > 0 ? (
                                             days.map((day) => (
                                                 <Badge key={day} variant="secondary" className="mr-1">
-                                                    {day}
+                                                    {dayKeys[day] ? t(`days.${dayKeys[day]}`) : day}
                                                     <span
                                                         className="ml-1 cursor-pointer hover:text-destructive"
                                                         onClick={(e) => {
@@ -391,7 +405,7 @@ export default function WorkScheduleForm({
                                                 </Badge>
                                             ))
                                         ) : (
-                                            <span className="text-sm text-muted-foreground">Выберите рабочие дни</span>
+                                            <span className="text-sm text-muted-foreground">{t("selectWorkDays")}</span>
                                         )}
                                     </div>
                                 </div>
@@ -402,7 +416,7 @@ export default function WorkScheduleForm({
 
                 <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                        <Label>Начало работы</Label>
+                        <Label>{t("startTime")}</Label>
                         <form.Field name="start_time">
                             {(field) => (
                                 <Input
@@ -416,7 +430,7 @@ export default function WorkScheduleForm({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Конец работы</Label>
+                        <Label>{t("endTime")}</Label>
                         <form.Field name="end_time">
                             {(field) => (
                                 <Input
@@ -430,7 +444,7 @@ export default function WorkScheduleForm({
                     </div>
 
                     <div className="space-y-2">
-                        <Label>Макс. время начала</Label>
+                        <Label>{t("maxStartTime")}</Label>
                         <form.Field name="max_start_time">
                             {(field) => (
                                 <Input
@@ -445,12 +459,12 @@ export default function WorkScheduleForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Бонус</Label>
+                    <Label>{t("bonus")}</Label>
                     <form.Field name="bonus_price">
                         {(field) => (
                             <Input
                                 type="number"
-                                placeholder="Сумма бонуса"
+                                placeholder={t("bonusAmount")}
                                 value={field.state.value}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(Number(e.target.value))}
@@ -460,7 +474,7 @@ export default function WorkScheduleForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Статус</Label>
+                    <Label>{tc("status")}</Label>
                     <form.Field name="active">
                         {(field) => (
                             <Select
@@ -468,11 +482,11 @@ export default function WorkScheduleForm({
                                 onValueChange={(value) => field.handleChange(value === "active")}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите статус" />
+                                    <SelectValue placeholder={t("selectStatus")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="active">Активный</SelectItem>
-                                    <SelectItem value="inactive">Неактивный</SelectItem>
+                                    <SelectItem value="active">{t("statusActive")}</SelectItem>
+                                    <SelectItem value="inactive">{t("statusInactive")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -481,7 +495,7 @@ export default function WorkScheduleForm({
 
                 <Button type="submit" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {recordId ? "Обновить" : "Создать"}
+                    {recordId ? t("update") : tc("create")}
                 </Button>
             </div>
         </form>

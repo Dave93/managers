@@ -6,14 +6,11 @@ import { apiClient } from "@admin/utils/eden";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 import { organizations } from "@admin/lib/organizations";
+import { useTranslations } from "next-intl";
 import ChartCard from "../_tremor/ChartCard";
+import { useCompactNumber } from "../compact";
 
-const compact = (n: number) => {
-  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)} млрд`;
-  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)} млн`;
-  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(0)} тыс`;
-  return new Intl.NumberFormat("ru-RU").format(Math.round(n));
-};
+const fmtNumber = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
 
 const COLORS = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#84cc16"];
 
@@ -37,6 +34,8 @@ function Sparkline({ values, color }: { values: number[]; color: string }) {
 type TrendRow = { date: string; source: string; total_sales: number };
 
 const MobileSourcesTrendCard = () => {
+  const t = useTranslations("dashboardUi.mobile");
+  const compact = useCompactNumber([2, 1, 0], fmtNumber);
   const { dateRange } = useDateRangeState();
   const { startDate, endDate } = React.useMemo(() => {
     if (dateRange?.from && dateRange?.to) return { startDate: dateRange.from, endDate: dateRange.to };
@@ -81,14 +80,14 @@ const MobileSourcesTrendCard = () => {
 
   return (
     <ChartCard
-      title="Доп. продажи по источникам"
+      title={t("additionalSalesBySource")}
       organization={organization}
       orgOptions={organizations}
       onOrganizationChange={(id) => setOrganization(id || null)}
       bodyClassName="overflow-auto"
     >
       {rows.length === 0 ? (
-        <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
+        <div className="py-6 text-center text-sm text-muted-foreground">{t("noData")}</div>
       ) : (
         <div className="space-y-1">
           {rows.map((r, i) => (

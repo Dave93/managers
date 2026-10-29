@@ -8,6 +8,7 @@ import {
   getPaginationRowModel,
   useReactTable,
 } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
 
 import {
   Table,
@@ -54,6 +55,7 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: 10,
   });
+  const t = useTranslations("organizationPages.terminals");
   const isMobileHook = useIsMobile();
 
 
@@ -154,7 +156,7 @@ export function DataTable<TData, TValue>({
     <div className="space-y-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <Input
-          placeholder="Поиск по названию..."
+          placeholder={t("searchPlaceholder")}
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="sm:max-w-sm"
@@ -167,10 +169,10 @@ export function DataTable<TData, TValue>({
           }}
         >
           <SelectTrigger className="sm:w-[260px]">
-            <SelectValue placeholder="Все организации" />
+            <SelectValue placeholder={t("allOrganizations")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Все организации</SelectItem>
+            <SelectItem value="all">{t("allOrganizations")}</SelectItem>
             {(organizations ?? []).map((org) => (
               <SelectItem key={org.id} value={org.id}>
                 {org.name}

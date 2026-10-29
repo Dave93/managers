@@ -1,6 +1,7 @@
 "use client";
 
 import { useId } from "react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { Textarea } from "@components/ui/textarea";
@@ -71,6 +72,7 @@ export function DynamicFields({
   onChange: (key: string, value: string) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("branchTickets.fields");
   const base = useId();
   return (
     <div className="space-y-5">
@@ -86,10 +88,10 @@ export function DynamicFields({
               <span>{label}</span>
               {f.required ? (
                 <span className="text-sm font-normal text-muted-foreground">
-                  <span aria-hidden className="text-destructive">*</span> обязательно
+                  <span aria-hidden className="text-destructive">*</span> {t("required")}
                 </span>
               ) : (
-                <span className="text-sm font-normal text-muted-foreground">по желанию</span>
+                <span className="text-sm font-normal text-muted-foreground">{t("optional")}</span>
               )}
             </p>
             {f.type === "select" ? (
@@ -103,7 +105,7 @@ export function DynamicFields({
                   disabled={disabled}
                 />
                 {state === "invalid" && (
-                  <p className="text-sm text-destructive">Выбранный вариант больше недоступен, выберите заново.</p>
+                  <p className="text-sm text-destructive">{t("optionGone")}</p>
                 )}
               </>
             ) : (
@@ -113,7 +115,7 @@ export function DynamicFields({
                 value={text}
                 rows={3}
                 maxLength={MAX_TEXT}
-                placeholder="Опишите словами"
+                placeholder={t("describe")}
                 disabled={disabled}
                 onChange={(e) => onChange(f.key, e.target.value)}
                 className="min-h-24 text-base md:text-base"

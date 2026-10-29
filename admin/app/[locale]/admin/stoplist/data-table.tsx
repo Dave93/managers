@@ -31,6 +31,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useIsMobile } from "@admin/utils/use-is-mobile";
@@ -71,6 +72,7 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
+  const t = useTranslations("stoplistPage");
   const { dateRange } = useDateRangeState();
   const { startDate, endDate } = useMemo(() => {
     if (dateRange?.from && dateRange?.to)
@@ -145,19 +147,19 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
     <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
       <div className="rounded-xl border p-3 text-center">
         <div className="text-2xl font-bold">{summary?.open ?? "—"}</div>
-        <div className="text-xs text-muted-foreground">в стопе сейчас</div>
+        <div className="text-xs text-muted-foreground">{t("tiles.openNow")}</div>
       </div>
       <div className="rounded-xl border p-3 text-center">
         <div className="text-2xl font-bold">{summary?.open_over_day ?? "—"}</div>
-        <div className="text-xs text-muted-foreground">дольше суток</div>
+        <div className="text-xs text-muted-foreground">{t("tiles.overDay")}</div>
       </div>
       <div className="rounded-xl border p-3 text-center">
         <div className="text-2xl font-bold">{summary?.products ?? "—"}</div>
-        <div className="text-xs text-muted-foreground">продуктов за период</div>
+        <div className="text-xs text-muted-foreground">{t("tiles.products")}</div>
       </div>
       <div className="rounded-xl border p-3 text-center">
         <div className="text-2xl font-bold">{summary?.hours_in_period ?? "—"}</div>
-        <div className="text-xs text-muted-foreground">часов простоя за период</div>
+        <div className="text-xs text-muted-foreground">{t("tiles.hoursInPeriod")}</div>
       </div>
     </div>
   );
@@ -165,7 +167,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
   if (error) {
     return (
       <div className="py-10 text-center text-red-500">
-        Не удалось загрузить стоп-лист
+        {t("loadError")}
       </div>
     );
   }
@@ -186,7 +188,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
           canPrev={pageIndex > 0}
           canNext={data?.total ? (pageIndex + 1) * pageSize < data.total : false}
           page={pageIndex}
-          empty="За период стопов не было"
+          empty={t("noStopsInPeriod")}
         />
       </div>
     );
@@ -214,7 +216,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
             {isLoading ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  Загрузка…
+                  {t("loading")}
                 </TableCell>
               </TableRow>
             ) : table.getRowModel().rows?.length ? (
@@ -230,7 +232,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
-                  За период стопов не было
+                  {t("noStopsInPeriod")}
                 </TableCell>
               </TableRow>
             )}
@@ -239,10 +241,10 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
       </div>
       <div className="flex items-center justify-between px-2">
         <div className="flex-1 text-sm text-muted-foreground">
-          {data?.total != null ? `${data.total.toLocaleString("ru-RU")} записей` : ""}
+          {data?.total != null ? t("records", { count: data.total.toLocaleString("ru-RU") }) : ""}
         </div>
         <div className="flex items-center space-x-2">
-          <p className="text-sm font-medium">Строк на странице</p>
+          <p className="text-sm font-medium">{t("rowsPerPage")}</p>
           <Select
             value={`${pageSize}`}
             onValueChange={(value) => table.setPageSize(Number(value))}
@@ -260,7 +262,7 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
           </Select>
         </div>
         <div className="flex w-[120px] items-center justify-center text-sm font-medium">
-          Стр. {pageIndex + 1} из {Math.max(table.getPageCount(), 1)}
+          {t("pageOf", { page: pageIndex + 1, total: Math.max(table.getPageCount(), 1) })}
         </div>
         <div className="flex items-center space-x-2">
           <Button

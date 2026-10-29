@@ -1,11 +1,13 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import { SelectClearable, SelectItem, SelectContent, SelectValue, SelectTriggerClearable } from "@admin/components/ui/select-clearable";
 import { useReportsStatusesFilter } from "./reports-statuses.hook";
 
 export default function ReportsStatusesFilter() {
+  const t = useTranslations("reportsUi");
   const [selectedStatus, setSelectedStatus] = useReportsStatusesFilter();
 
   const { data, isLoading } = useQuery({
@@ -22,7 +24,7 @@ export default function ReportsStatusesFilter() {
   return (
     <SelectClearable onValueChange={setSelectedStatus} value={selectedStatus ?? undefined} >
       <SelectTriggerClearable className="w-44" showClear onClear={() => setSelectedStatus('')}>
-        <SelectValue placeholder="Выберите статус" />
+        <SelectValue placeholder={t("selectStatus")} />
       </SelectTriggerClearable>
       <SelectContent>
         {data &&

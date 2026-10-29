@@ -9,12 +9,13 @@ import { buildFiltersJson, officeStatusLabel, type ColumnFilters } from "./filte
 import { BulkCancelDialog, type BulkTarget } from "./bulk-cancel";
 import { JobProgressBanner, type JobProgress } from "./job-progress";
 import { useCanAccess } from "@admin/components/use-can-access";
-import { hangingOrdersColumns } from "./columns";
+import { useHangingOrdersColumns } from "./columns";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import CanAccess from "@admin/components/can-access";
 import { toast } from "sonner";
 import { useState, useCallback, useEffect, Suspense } from "react";
+import { useTranslations } from "next-intl";
 import dayjs from "dayjs";
 import { saveAs } from 'file-saver';
 import { Input } from "@admin/components/ui/input";
@@ -42,7 +43,19 @@ const yesterdayRange = {
     to: dayjs().subtract(1, "day").endOf("day").toDate(),
 };
 
+// Подписи статусов обработки для CSV-экспорта: выгрузка остаётся по-русски
+// независимо от языка интерфейса.
+const CSV_STATUS_LABELS: Record<string, string> = {
+    "pending": "В ожидании",
+    "in_progress": "В работе",
+    "truth": "Правда",
+    "lie": "Ложь",
+    "no_info": "Нет информации"
+};
+
 function HangingOrdersContent() {
+    const t = useTranslations("hangingOrders");
+    const columns = useHangingOrdersColumns();
     const [searchTerm, setSearchTerm] = useState("");
     const [brandFilter, setBrandFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -104,16 +117,16 @@ function HangingOrdersContent() {
                     }
                     : { days: 3 }),
             });
-            if (error) throw new Error((error.value as any)?.message ?? "Не удалось обновить статусы");
+            if (error) throw new Error((error.value as any)?.message ?? t("refresh.error"));
 
             // Длинный период сервер сверяет фоновой задачей — опрашиваем её.
             const job = (data as { job?: { id: string; alreadyRunning?: boolean } } | null)?.job;
             if (!job) return data;
 
-            const title = "Сверка с iiko";
+            const title = t("refresh.progressTitle");
             setJobProgress({
                 title,
-                text: job.alreadyRunning ? "уже идёт — подключаюсь к ней…" : "запущена…",
+                text: job.alreadyRunning ? t("refresh.alreadyRunning") : t("refresh.started"),
             });
             try {
                 const startedAt = Date.now();
@@ -122,13 +135,13 @@ function HangingOrdersContent() {
                     const { data: st, error: stErr } = await apiClient.api["hanging-orders"]
                         .refresh({ jobId: job.id })
                         .get();
-                    if (stErr) throw new Error((stErr.value as any)?.message ?? "Статус сверки недоступен");
+                    if (stErr) throw new Error((stErr.value as any)?.message ?? t("refresh.statusUnavailable"));
                     const status = st as { state: string; progress?: string; message?: string };
                     if (status.state === "done") return status;
-                    if (status.state === "error") throw new Error(status.message ?? "Сверка упала");
-                    setJobProgress({ title, text: status.progress ?? "идёт…" });
+                    if (status.state === "error") throw new Error(status.message ?? t("refresh.failed"));
+                    setJobProgress({ title, text: status.progress ?? t("refresh.running") });
                 }
-                throw new Error("Сверка идёт дольше 30 минут — проверьте позже");
+                throw new Error(t("refresh.tooLong"));
             } finally {
                 setJobProgress(null);
             }
@@ -146,9 +159,9 @@ function HangingOrdersContent() {
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
 
             if (errors.length > 0) {
-                toast.warning(`${period}обновлено ${updated} из ${checked}. Ошибки: ${errors.join("; ")}`);
+                toast.warning(t("refresh.doneWithErrors", { period, updated, checked, errors: errors.join("; ") }));
             } else {
-                toast.success(`${period}проверено ${checked} заказов, обновлено ${updated}`);
+                toast.success(t("refresh.done", { period, checked, updated }));
             }
         },
         onError: (e: Error) => toast.error(e.message),
@@ -176,27 +189,19 @@ function HangingOrdersContent() {
         enabled: false,
     });
 
-    const getStatusLabel = (status: string) => {
-        const statusLabels: Record<string, string> = {
-            "pending": "В ожидании",
-            "in_progress": "В работе",
-            "truth": "Правда",
-            "lie": "Ложь",
-            "no_info": "Нет информации"
-        };
-        return statusLabels[status] || status;
-    };
+    // Только для CSV — по-русски.
+    const getStatusLabel = (status: string) => CSV_STATUS_LABELS[status] || status;
 
     const brandLabel = (brand?: string | null) =>
         brand === "les_ailes" ? "Les Ailes" : brand === "chopar" ? "Chopar" : brand || "";
 
     const exportToCSV = useCallback(async () => {
-        toast.loading("Загрузка данных...");
+        toast.loading(t("export.loading"));
         const { data: freshData } = await refetch();
         toast.dismiss();
 
         if (!freshData?.data || freshData.data.length === 0) {
-            toast.error("Нет данных для экспорта");
+            toast.error(t("export.noData"));
             return;
         }
 
@@ -249,12 +254,12 @@ function HangingOrdersContent() {
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             saveAs(blob, `Незакрытые заказы ${dayjs().format('YYYY-MM-DD')}.csv`);
             
-            toast.success("Экспорт выполнен успешно");
+            toast.success(t("export.success"));
         } catch (error) {
             console.error("Error exporting to CSV:", error);
-            toast.error("Ошибка при экспорте");
+            toast.error(t("export.error"));
         }
-    }, [refetch]);
+    }, [refetch, t]);
 
     const clearFilters = () => {
         setSearchTerm("");
@@ -273,10 +278,10 @@ function HangingOrdersContent() {
             <div className="flex justify-between items-start gap-2">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Незакрытые заказы
+                        {t("title")}
                     </h1>
                     <p className="text-muted-foreground mt-2">
-                        Управление и отслеживание проблемных заказов
+                        {t("subtitle")}
                     </p>
                 </div>
                 <div className="flex items-center space-x-2">
@@ -288,7 +293,7 @@ function HangingOrdersContent() {
                             disabled={refreshFromIiko.isPending}
                         >
                             <RefreshCw className={cn("h-4 w-4 mr-2", refreshFromIiko.isPending && "animate-spin")} />
-                            {refreshFromIiko.isPending ? "Обновляю…" : "Обновить из iiko"}
+                            {refreshFromIiko.isPending ? t("refresh.pending") : t("refresh.button")}
                         </Button>
                     </CanAccess>
                     <Button
@@ -297,7 +302,7 @@ function HangingOrdersContent() {
                         onClick={exportToCSV}
                     >
                         <Download className="h-4 w-4 mr-2" />
-                        Экспорт в Excel
+                        {t("export.button")}
                     </Button>
                 </div>
             </div>
@@ -308,17 +313,17 @@ function HangingOrdersContent() {
                     <div className="flex items-center gap-4 flex-wrap">
                         {/* Период */}
                         <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium whitespace-nowrap">Период:</label>
+                            <label className="text-sm font-medium whitespace-nowrap">{t("filters.period")}</label>
                             <DateRangeFilter defaultRange={yesterdayRange} />
                         </div>
 
                         {/* Поиск по ID заказа */}
                         <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium whitespace-nowrap">Поиск:</label>
+                            <label className="text-sm font-medium whitespace-nowrap">{t("filters.search")}</label>
                             <div className="relative">
                                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="ID заказа..."
+                                    placeholder={t("filters.searchPlaceholder")}
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                     className="pl-8 w-48"
@@ -328,13 +333,13 @@ function HangingOrdersContent() {
 
                         {/* Бренд */}
                         <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium whitespace-nowrap">Бренд:</label>
+                            <label className="text-sm font-medium whitespace-nowrap">{t("filters.brand")}</label>
                             <Select value={brandFilter} onValueChange={setBrandFilter}>
                                 <SelectTrigger className="w-40">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Все бренды</SelectItem>
+                                    <SelectItem value="all">{t("filters.allBrands")}</SelectItem>
                                     <SelectItem value="chopar">Chopar</SelectItem>
                                     <SelectItem value="les_ailes">Les Ailes</SelectItem>
                                 </SelectContent>
@@ -343,18 +348,18 @@ function HangingOrdersContent() {
 
                         {/* Статус обработки */}
                         <div className="flex items-center gap-2">
-                            <label className="text-sm font-medium whitespace-nowrap">Статус:</label>
+                            <label className="text-sm font-medium whitespace-nowrap">{t("filters.status")}</label>
                             <Select value={statusFilter} onValueChange={setStatusFilter}>
                                 <SelectTrigger className="w-44">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Все статусы</SelectItem>
-                                    <SelectItem value="pending">В ожидании</SelectItem>
-                                    <SelectItem value="in_progress">В работе</SelectItem>
-                                    <SelectItem value="truth">Правда</SelectItem>
-                                    <SelectItem value="lie">Ложь</SelectItem>
-                                    <SelectItem value="no_info">Нет информации</SelectItem>
+                                    <SelectItem value="all">{t("filters.allStatuses")}</SelectItem>
+                                    <SelectItem value="pending">{t("processingStatus.pending")}</SelectItem>
+                                    <SelectItem value="in_progress">{t("processingStatus.in_progress")}</SelectItem>
+                                    <SelectItem value="truth">{t("processingStatus.truth")}</SelectItem>
+                                    <SelectItem value="lie">{t("processingStatus.lie")}</SelectItem>
+                                    <SelectItem value="no_info">{t("processingStatus.no_info")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -367,13 +372,13 @@ function HangingOrdersContent() {
                                 onCheckedChange={setHideClosed}
                             />
                             <Label htmlFor="hide-closed" className="text-sm font-medium whitespace-nowrap">
-                                Скрыть закрытые
+                                {t("filters.hideClosed")}
                             </Label>
                         </div>
 
                         {/* Кнопка сброса */}
                         <Button variant="outline" size="sm" onClick={clearFilters} className="ml-auto">
-                            Сбросить
+                            {t("filters.reset")}
                         </Button>
                     </div>
                 </CardContent>
@@ -385,10 +390,7 @@ function HangingOrdersContent() {
                 <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
                     <span>
-                        iiko гарантирует отмену только заказов <b>за последние 7 дней</b>. Старше — пока
-                        iikoCloud их ещё хранит, а это не обещано и может кончиться в любой момент. Заказ,
-                        который облако уже не хранит, отменяется только вручную на кассе. Отменяйте
-                        висящие, пока им нет недели.
+                        {t.rich("sevenDaysNotice", { b: (chunks) => <b>{chunks}</b> })}
                     </span>
                 </div>
             )}
@@ -396,7 +398,10 @@ function HangingOrdersContent() {
             {canIiko && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border px-4 py-2 text-sm">
                     <span className="text-muted-foreground">
-                        Выбрано: <span className="font-medium text-foreground">{selectedIds.length}</span>
+                        {t.rich("selected", {
+                            count: selectedIds.length,
+                            num: (chunks) => <span className="font-medium text-foreground">{chunks}</span>,
+                        })}
                     </span>
                     <Button
                         variant="destructive"
@@ -404,7 +409,7 @@ function HangingOrdersContent() {
                         disabled={selectedIds.length === 0}
                         onClick={() => setBulkTarget({ mode: "ids", ids: selectedIds, count: selectedIds.length })}
                     >
-                        Отменить выбранные в iiko
+                        {t("cancelSelected")}
                     </Button>
                     <Button
                         variant="outline"
@@ -412,11 +417,11 @@ function HangingOrdersContent() {
                         disabled={total === 0}
                         onClick={() => setBulkTarget({ mode: "filter", filters: tableFilters, count: total })}
                     >
-                        Отменить все по фильтру ({total})
+                        {t("cancelAllByFilter", { total })}
                     </Button>
                     {selectedIds.length > 0 && (
                         <Button variant="ghost" size="sm" onClick={() => setSelectedIds([])}>
-                            Снять выбор
+                            {t("clearSelection")}
                         </Button>
                     )}
                 </div>
@@ -434,7 +439,7 @@ function HangingOrdersContent() {
 
             <div className="py-10">
                 <DataTable 
-                    columns={hangingOrdersColumns} 
+                    columns={columns} 
                     searchTerm={searchTerm}
                     brandFilter={brandFilter}
                     statusFilter={statusFilter}
@@ -453,9 +458,14 @@ function HangingOrdersContent() {
     );
 }
 
+function PageFallback() {
+    const t = useTranslations("hangingOrders");
+    return <div>{t("loading")}</div>;
+}
+
 export default function HangingOrdersPage() {
     return (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<PageFallback />}>
             <HangingOrdersContent />
         </Suspense>
     );

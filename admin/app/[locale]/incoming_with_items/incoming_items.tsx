@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   CellContext,
   ColumnDef,
@@ -37,6 +38,7 @@ export function InvoiceItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("invoicesUi");
   const isFranchiseAccess = useCanAccess("franchise_manager.list");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -48,15 +50,15 @@ export function InvoiceItemsTable<TData, TValue>({
       return [
         {
           accessorKey: "productName",
-          header: "Название",
+          header: t("columns.name"),
         },
         {
           accessorKey: "unit",
-          header: "Единица измерения",
+          header: t("columns.unit"),
         },
         {
           accessorKey: "amount",
-          header: "Количество",
+          header: t("columns.quantity"),
           cell: ({ row }: any) => {
             const v = (row.original as any).amount;
             return v != null && v !== "" ? Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 4 }) : "";
@@ -67,15 +69,15 @@ export function InvoiceItemsTable<TData, TValue>({
       return [
         {
           accessorKey: "productName",
-          header: "Название",
+          header: t("columns.name"),
         },
         {
           accessorKey: "unit",
-          header: "Единица измерения",
+          header: t("columns.unit"),
         },
         {
           accessorKey: "amount",
-          header: "Количество",
+          header: t("columns.quantity"),
           cell: ({ row }: any) => {
             const v = (row.original as any).amount;
             return v != null && v !== "" ? Number(v).toLocaleString("ru-RU", { maximumFractionDigits: 4 }) : "";
@@ -83,7 +85,7 @@ export function InvoiceItemsTable<TData, TValue>({
         },
         {
           accessorKey: "sum",
-          header: "Сумма",
+          header: t("columns.sum"),
           cell: ({ row }: CellContext<InvoiceItemsListDto, any>) => {
             const record = row.original;
 
@@ -92,7 +94,7 @@ export function InvoiceItemsTable<TData, TValue>({
         },
       ];
     }
-  }, [isFranchiseAccess]);
+  }, [isFranchiseAccess, t]);
 
   const filters = [
     {
@@ -208,7 +210,7 @@ export function InvoiceItemsTable<TData, TValue>({
                   colSpan={3}
                   className="text-slate-900 font-bold text-lg dark:text-zinc-100 "
                 >
-                  Итого
+                  {t("grandTotal")}
                 </TableCell>
 
                 <TableCell className="text-slate-900 font-bold text-center text-lg dark:text-zinc-100 ">

@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Label } from "@admin/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
@@ -39,6 +40,9 @@ export default function NewViolationPage() {
 }
 
 function NewViolationScreen() {
+  const t = useTranslations("kpiScreens.violationsNew");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const router = useRouter();
   const qc = useQueryClient();
   // Пока заполняют форму, возврат на вкладку не перезапрашивает данные: сбой обновления не должен её трогать.
@@ -88,7 +92,7 @@ function NewViolationScreen() {
   const submit = async () => {
     if (!latch.acquire()) return;
     const draft = { terminal_id: terminalId, employee_id: employeeId, card_item_id: itemId, comment, photos: photos.map((p) => p.file) };
-    const found = violationIssues(draft, photoRequired);
+    const found = violationIssues(draft, photoRequired, tk);
     setIssues(found);
     if (found.length > 0) {
       latch.release();
@@ -100,7 +104,7 @@ function NewViolationScreen() {
     } catch (e) {
       if (outcomeKnown(e)) {
         latch.release();
-        toast.error(kpiErrorText(e));
+        toast.error(kpiErrorText(e, tk));
       } else {
         setUnknown(true);
       }
@@ -108,7 +112,7 @@ function NewViolationScreen() {
       return;
     }
     // Нарушение записано: защёлка остаётся до ухода с экрана, повторной записи быть не должно.
-    toast.success("Нарушение записано");
+    toast.success(t("recorded"));
     photos.forEach(revokePhoto);
     await Promise.all([qk.violationsAll, qk.formAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
     router.push("/kpi/violations");
@@ -120,18 +124,18 @@ function NewViolationScreen() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 pb-20 sm:p-6">
-      <h1 className="text-xl font-semibold">Зафиксировать нарушение</h1>
+      <h1 className="text-xl font-semibold">{t("title")}</h1>
 
       {load.blocking == null && stale != null && <StaleNote error={stale} />}
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : employees.isPending || me.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : terminals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Нет сотрудников, которых вы можете оценивать. Попросите HR назначить вас оценщиком.</p>
+        <p className="text-sm text-muted-foreground">{t("noEmployees")}</p>
       ) : (
         <form
           className="space-y-4"
@@ -141,7 +145,7 @@ function NewViolationScreen() {
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="v-terminal">Филиал</Label>
+            <Label htmlFor="v-terminal">{t("branch")}</Label>
             <Select
               value={terminalId ?? ""}
               disabled={locked}
@@ -152,12 +156,12 @@ function NewViolationScreen() {
               }}
             >
               <SelectTrigger id="v-terminal" className={TRIGGER}>
-                <SelectValue placeholder="Выберите филиал" />
+                <SelectValue placeholder={t("pickBranch")} />
               </SelectTrigger>
               <SelectContent>
-                {terminals.map((t) => (
-                  <SelectItem key={t.id} value={t.id}>
-                    {t.name}
+                {terminals.map((x) => (
+                  <SelectItem key={x.id} value={x.id}>
+                    {x.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -165,7 +169,7 @@ function NewViolationScreen() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="v-employee">Сотрудник</Label>
+            <Label htmlFor="v-employee">{t("employee")}</Label>
             <Select
               value={employeeId ?? ""}
               disabled={locked || !terminalId}
@@ -175,7 +179,7 @@ function NewViolationScreen() {
               }}
             >
               <SelectTrigger id="v-employee" className={TRIGGER}>
-                <SelectValue placeholder="Выберите сотрудника" />
+                <SelectValue placeholder={t("pickEmployee")} />
               </SelectTrigger>
               <SelectContent>
                 {people.map((r) => (
@@ -188,17 +192,17 @@ function NewViolationScreen() {
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="v-item">Пункт карты</Label>
+            <Label htmlFor="v-item">{t("cardItem")}</Label>
             <Select
               value={itemId ?? NO_ITEM}
               disabled={locked || !row}
               onValueChange={(v) => setItemId(v === NO_ITEM ? null : v)}
             >
               <SelectTrigger id="v-item" className={TRIGGER}>
-                <SelectValue placeholder="Без пункта" />
+                <SelectValue placeholder={t("noItem")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={NO_ITEM}>Без пункта</SelectItem>
+                <SelectItem value={NO_ITEM}>{t("noItem")}</SelectItem>
                 {items.map((i) => (
                   <SelectItem key={i.id} value={i.id}>
                     {i.title_ru}
@@ -208,29 +212,29 @@ function NewViolationScreen() {
             </Select>
             {cards.data === undefined && cards.error != null ? (
               <p role="alert" className="text-xs text-destructive">
-                Пункты карты не загрузились: {kpiErrorText(cards.error)}. Можно записать без пункта
+                {t("itemsFailed", { error: kpiErrorText(cards.error, tk) })}
               </p>
             ) : (
-              row && cards.isPending && <p className="text-xs text-muted-foreground">Загрузка пунктов…</p>
+              row && cards.isPending && <p className="text-xs text-muted-foreground">{t("loadingItems")}</p>
             )}
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="v-comment">Что случилось</Label>
+            <Label htmlFor="v-comment">{t("whatHappened")}</Label>
             <Textarea
               id="v-comment"
               rows={4}
               value={comment}
               disabled={locked}
               onChange={(e) => setComment(e.target.value)}
-              placeholder="Что случилось"
+              placeholder={t("whatHappened")}
             />
-            <p className="text-xs text-muted-foreground">Не меньше {VIOLATION_COMMENT_MIN} символов</p>
-            <p className="text-xs text-muted-foreground">Комментарий увидит сотрудник</p>
+            <p className="text-xs text-muted-foreground">{t("commentMin", { count: VIOLATION_COMMENT_MIN })}</p>
+            <p className="text-xs text-muted-foreground">{t("commentVisible")}</p>
           </div>
 
           <div className="space-y-1.5">
-            <Label>{photoRequired ? "Фото (обязательно)" : "Фото"}</Label>
+            <Label>{photoRequired ? t("photoRequired") : t("photo")}</Label>
             <PhotoInput
               photos={photos}
               max={KPI_MAX_PHOTOS}
@@ -249,25 +253,25 @@ function NewViolationScreen() {
 
           {issues.length > 0 && (
             <ul role="alert" className="list-inside list-disc rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-              {issues.map((t) => (
-                <li key={t}>{t}</li>
+              {issues.map((msg) => (
+                <li key={msg}>{msg}</li>
               ))}
             </ul>
           )}
 
           {unknown && (
             <div role="alert" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              <p>Не знаем, дошло ли нарушение до сервера. Откройте журнал и проверьте, прежде чем записывать снова</p>
+              <p>{t("unknownOutcome")}</p>
               {/* Новая вкладка: форма с фото остаётся, если нарушение не дошло. */}
               <Link href="/kpi/violations" target="_blank" rel="noreferrer" className="font-medium underline underline-offset-4">
-                Открыть журнал
+                {t("openJournal")}
               </Link>
             </div>
           )}
 
           {/* Не sticky: нижняя панель ManagerLayout (h-16) закрыла бы кнопку. */}
           <Button type="submit" className="h-11 w-full" disabled={processing > 0 || locked}>
-            Зафиксировать
+            {t("record")}
           </Button>
         </form>
       )}

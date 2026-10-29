@@ -5,19 +5,28 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 import DeleteAction from "./delete-action";
 import { positions } from "@backend/../drizzle/schema";
 import { PositionsSheet } from "@admin/components/forms/position/sheet";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 
-export const positionsColumns: ColumnDef<typeof positions.$inferSelect>[] = [
+type TFn = ReturnType<typeof useTranslations>;
+
+export const usePositionsColumns = (): ColumnDef<typeof positions.$inferSelect>[] => {
+    const t = useTranslations("hrPages.position");
+    return useMemo(() => getPositionsColumns(t), [t]);
+};
+
+export const getPositionsColumns = (t: TFn): ColumnDef<typeof positions.$inferSelect>[] => [
     {
         accessorKey: "title",
-        header: "Название должности",
+        header: t("columns.title"),
     },
     {
         accessorKey: "description",
-        header: "Описание должности",
+        header: t("columns.description"),
     },
     {
         accessorKey: "requirements",
-        header: "Требования",
+        header: t("columns.requirements"),
     },
     {
         id: "actions",

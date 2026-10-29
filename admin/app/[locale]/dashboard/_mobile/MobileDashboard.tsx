@@ -11,6 +11,7 @@ import { cn } from "@admin/lib/utils";
 import { apiClient } from "@admin/utils/eden";
 import { useDateRangeState } from "@admin/components/filters/date-range-filter/date-range-state.hook";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
+import { useCompactNumber } from "../compact";
 import LoadingAnimation from "../LoadingAnimation";
 import OrderDistributionChart from "../OrderDistributionChart";
 import MobileSourcesTrendCard from "./MobileSourcesTrendCard";
@@ -42,12 +43,7 @@ const useFilters = () => {
 
 const fmt = (n: number) => new Intl.NumberFormat("ru-RU").format(Math.round(n));
 
-const compactNum = (n: number) => {
-  if (Math.abs(n) >= 1e9) return `${(n / 1e9).toFixed(2)} млрд`;
-  if (Math.abs(n) >= 1e6) return `${(n / 1e6).toFixed(1)} млн`;
-  if (Math.abs(n) >= 1e3) return `${(n / 1e3).toFixed(0)} тыс`;
-  return fmt(n);
-};
+const useCompactNum = () => useCompactNumber([2, 1, 0], fmt);
 
 const Delta = ({ current, previous }: { current: number; previous: number }) => {
   const pct = previous !== 0 ? ((current - previous) / previous) * 100 : 0;
@@ -64,8 +60,10 @@ const Delta = ({ current, previous }: { current: number; previous: number }) => 
   );
 };
 
-const TileBoundary = ({ children }: { children: React.ReactNode }) => (
-  <ErrorBoundary fallback={<Card><CardContent className="p-3 text-xs text-red-500">Ошибка</CardContent></Card>}>
+const TileBoundary = ({ children }: { children: React.ReactNode }) => {
+  const t = useTranslations("dashboardUi.mobile");
+  return (
+  <ErrorBoundary fallback={<Card><CardContent className="p-3 text-xs text-red-500">{t("error")}</CardContent></Card>}>
     <Suspense
       fallback={
         <Card>
@@ -79,18 +77,22 @@ const TileBoundary = ({ children }: { children: React.ReactNode }) => (
       {children}
     </Suspense>
   </ErrorBoundary>
-);
+  );
+};
 
 // Full-width wrapper for the detailed (non-tile) chart/table cards on mobile.
-const CardWrap = ({ height, children }: { height: string; children: React.ReactNode }) => (
+const CardWrap = ({ height, children }: { height: string; children: React.ReactNode }) => {
+  const t = useTranslations("dashboardUi.mobile");
+  return (
   <div className={cn("min-w-0", height)}>
-    <ErrorBoundary fallback={<Card><CardContent className="p-4 text-sm text-red-500">Ошибка загрузки</CardContent></Card>}>
+    <ErrorBoundary fallback={<Card><CardContent className="p-4 text-sm text-red-500">{t("loadError")}</CardContent></Card>}>
       <Suspense fallback={<div className="flex h-full items-center justify-center"><LoadingAnimation /></div>}>
         {children}
       </Suspense>
     </ErrorBoundary>
   </div>
-);
+  );
+};
 
 // ---- number tile -----------------------------------------------------------
 
@@ -106,6 +108,7 @@ type TileProps = {
 };
 
 const NumberTile = ({ title, endpoint, curField, prevField, agg = "sum", compact = false }: TileProps) => {
+  const compactNum = useCompactNum();
   const { startDate, endDate, terminals } = useFilters();
   const query: Record<string, string> = { startDate, endDate, interval: "1 day" };
   if (terminals) query.terminals = terminals;
@@ -184,6 +187,8 @@ const DistributionTile = ({ title, match }: { title: string; match: string }) =>
 type TopBranchRow = { name: string; rank: number; own: boolean; current: number | null; previous: number | null };
 
 const TopBranchTile = ({ title }: { title: string }) => {
+  const t = useTranslations("dashboardUi.mobile");
+  const compactNum = useCompactNum();
   const { startDate, endDate, terminals } = useFilters();
   const query: { startDate: string; endDate: string; terminals?: string } = { startDate, endDate };
   if (terminals) query.terminals = terminals;
@@ -225,12 +230,12 @@ const TopBranchTile = ({ title }: { title: string }) => {
               <div className="mt-1.5 flex items-center justify-between gap-1">
                 <Delta current={own.current} previous={own.previous ?? 0} />
                 <span className="text-[11px] text-muted-foreground">
-                  {own.rank} из {data.total} в сети
+                  {t("rankInNetwork", { rank: own.rank, total: data.total })}
                 </span>
               </div>
             </>
           ) : (
-            <div className="mt-1 text-sm text-muted-foreground">нет данных</div>
+            <div className="mt-1 text-sm text-muted-foreground">{t("noDataLower")}</div>
           )}
         </CardContent>
       </Card>
@@ -250,7 +255,7 @@ const TopBranchTile = ({ title }: { title: string }) => {
             <div className="mt-1.5"><Delta current={top.current} previous={top.previous ?? 0} /></div>
           </>
         ) : (
-          <div className="mt-1 text-sm text-muted-foreground">нет данных</div>
+          <div className="mt-1 text-sm text-muted-foreground">{t("noDataLower")}</div>
         )}
       </CardContent>
     </Card>
@@ -323,6 +328,8 @@ const MobileRankedList = ({
   nameField?: string;
   subField?: string;
 }) => {
+  const t = useTranslations("dashboardUi.mobile");
+  const compactNum = useCompactNum();
   const { startDate, endDate, terminals } = useFilters();
   const query: { startDate: string; endDate: string; terminals?: string } = { startDate, endDate };
   if (terminals) query.terminals = terminals;
@@ -355,7 +362,7 @@ const MobileRankedList = ({
       <CardContent className="p-4">
         <div className="mb-3 text-sm font-semibold">{title}</div>
         {rows.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t("noData")}</div>
         ) : (
           <div className="space-y-1">
             {rows.map((r, i) => (
@@ -369,7 +376,7 @@ const MobileRankedList = ({
                 </div>
                 <div className="w-20 shrink-0 text-right">
                   <div className="text-xs font-semibold tabular-nums">{compactNum(r.sales)}</div>
-                  <div className="text-[11px] text-muted-foreground tabular-nums">{fmt(r.qty)} шт</div>
+                  <div className="text-[11px] text-muted-foreground tabular-nums">{t("pcs", { count: fmt(r.qty) })}</div>
                 </div>
               </div>
             ))}
@@ -383,6 +390,7 @@ const MobileRankedList = ({
 // ---- simple {name,value} ranked list (popular dishes) ----------------------
 
 const SimpleRankedList = ({ title, endpoint, formatValue }: { title: string; endpoint: "popular-dishes" | "popular-dishes-by-price"; formatValue: (n: number) => string }) => {
+  const t = useTranslations("dashboardUi.mobile");
   const { startDate, endDate, terminals } = useFilters();
   const query: { startDate: string; endDate: string; interval: string; terminals?: string } = { startDate, endDate, interval: "1 day" };
   if (terminals) query.terminals = terminals;
@@ -408,7 +416,7 @@ const SimpleRankedList = ({ title, endpoint, formatValue }: { title: string; end
       <CardContent className="p-4">
         <div className="mb-3 text-sm font-semibold">{title}</div>
         {rows.length === 0 ? (
-          <div className="py-6 text-center text-sm text-muted-foreground">Нет данных</div>
+          <div className="py-6 text-center text-sm text-muted-foreground">{t("noData")}</div>
         ) : (
           <div className="space-y-1">
             {rows.map((r, i) => (
@@ -434,6 +442,8 @@ const SimpleRankedList = ({ title, endpoint, formatValue }: { title: string; end
 
 export default function MobileDashboard() {
   const t = useTranslations();
+  const tm = useTranslations("dashboardUi.mobile");
+  const compactNum = useCompactNum();
   const { startDate, endDate } = useFilters();
   const lastYear = (iso: string) => {
     const d = new Date(iso);
@@ -443,7 +453,7 @@ export default function MobileDashboard() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-muted-foreground">
-        ↑↓ — к тому же периоду год назад ({lastYear(startDate)} – {lastYear(endDate)})
+        {tm("yoyHint", { from: lastYear(startDate), to: lastYear(endDate) })}
       </p>
       <div className="grid grid-cols-2 gap-3">
       <TileBoundary>
@@ -456,13 +466,13 @@ export default function MobileDashboard() {
         <NumberTile title={t("charts.AverageCheckChart.title")} endpoint="average-check" curField="current_avg_check" prevField="previous_avg_check" agg="mean" />
       </TileBoundary>
       <TileBoundary>
-        <DistributionTile title="Онлайн заказы" match="online" />
+        <DistributionTile title={tm("onlineOrders")} match="online" />
       </TileBoundary>
       <TileBoundary>
-        <DistributionTile title="Офлайн заказы" match="offline" />
+        <DistributionTile title={tm("offlineOrders")} match="offline" />
       </TileBoundary>
       <TileBoundary>
-        <TopBranchTile title="Топ филиал" />
+        <TopBranchTile title={tm("topBranch")} />
       </TileBoundary>
       </div>
 
@@ -473,11 +483,11 @@ export default function MobileDashboard() {
         <CardWrap height="h-[460px]"><OrderCountByBranches /></CardWrap>
         <TileBoundary><HourlyBarsCard title={t("charts.OrderHourlyHeatmapChart.title")} field="averageOrderCount" formatValue={(n) => fmt(n)} /></TileBoundary>
         <TileBoundary><HourlyBarsCard title={t("charts.OrderAmountHourlyHeatmapChart.title")} field="averageRevenue" formatValue={compactNum} /></TileBoundary>
-        <TileBoundary><SimpleRankedList title="Топ блюд — количество" endpoint="popular-dishes" formatValue={(n) => fmt(n)} /></TileBoundary>
-        <TileBoundary><SimpleRankedList title="Топ блюд — сумма" endpoint="popular-dishes-by-price" formatValue={compactNum} /></TileBoundary>
-        <TileBoundary><MobileRankedList title="Доп. продажи" endpoint="basket-additional-sales" arrayKey="products" /></TileBoundary>
-        <TileBoundary><MobileRankedList title="Доп. продажи по источникам" endpoint="basket-additional-sales-by-source" arrayKey="sources" /></TileBoundary>
-        <TileBoundary><MobileRankedList title="Доп. продажи по группам" endpoint="basket-additional-sales-by-source-group" arrayKey="productSources" nameField="productName" subField="sourceName" /></TileBoundary>
+        <TileBoundary><SimpleRankedList title={tm("topDishesCount")} endpoint="popular-dishes" formatValue={(n) => fmt(n)} /></TileBoundary>
+        <TileBoundary><SimpleRankedList title={tm("topDishesAmount")} endpoint="popular-dishes-by-price" formatValue={compactNum} /></TileBoundary>
+        <TileBoundary><MobileRankedList title={tm("additionalSales")} endpoint="basket-additional-sales" arrayKey="products" /></TileBoundary>
+        <TileBoundary><MobileRankedList title={tm("additionalSalesBySource")} endpoint="basket-additional-sales-by-source" arrayKey="sources" /></TileBoundary>
+        <TileBoundary><MobileRankedList title={tm("additionalSalesByGroup")} endpoint="basket-additional-sales-by-source-group" arrayKey="productSources" nameField="productName" subField="sourceName" /></TileBoundary>
         <TileBoundary><MobileSourcesTrendCard /></TileBoundary>
         <CardWrap height="h-[520px]"><StoplistByDay /></CardWrap>
         <CardWrap height="h-auto"><CashShiftsByDay /></CardWrap>

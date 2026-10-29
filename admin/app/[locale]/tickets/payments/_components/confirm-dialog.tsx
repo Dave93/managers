@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,8 +26,6 @@ export type Confirmation = {
   totalMinor: bigint | null;
 };
 
-const noun = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "заявке" : "заявкам");
-
 export function ConfirmDialog({
   confirmation,
   comment,
@@ -39,6 +39,7 @@ export function ConfirmDialog({
   onCancel: () => void;
   onConfirm: (c: Confirmation) => void;
 }) {
+  const t = useTranslations("ticketsUi.payments.confirm");
   const c = confirmation;
   const n = c?.ids.length ?? 0;
   const approve = c?.kind === "approve";
@@ -48,32 +49,32 @@ export function ConfirmDialog({
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>
-            {approve ? "Утвердить" : "Отклонить"} оплату по {n} {noun(n)}?
+            {t(approve ? "titleApprove" : "titleReject", { count: n })}
           </AlertDialogTitle>
           <AlertDialogDescription>
             {c && c.totalMinor !== null && (
               <>
-                Сумма по выбранным: {formatMinor(c.totalMinor)} сум.{" "}
+                {t("total", { amount: formatMinor(c.totalMinor) })}{" "}
               </>
             )}
             {approve
-              ? "Вернуть утверждение в очередь из админки нельзя."
-              : "Заявки останутся закрытыми, оплата по ним будет отклонена. Причина сохранится в заявке."}
+              ? t("noteApprove")
+              : t("noteReject")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {!approve && (
           <Textarea
             value={comment}
             onChange={(e) => onComment(e.target.value)}
-            placeholder="Причина отклонения (обязательно)"
-            aria-label="Причина отклонения"
+            placeholder={t("reasonPlaceholder")}
+            aria-label={t("reasonAria")}
             rows={3}
           />
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel>Не сейчас</AlertDialogCancel>
+          <AlertDialogCancel>{t("notNow")}</AlertDialogCancel>
           <AlertDialogAction disabled={reasonMissing} onClick={() => c && onConfirm(c)}>
-            {approve ? `Утвердить ${n}` : `Отклонить ${n}`}
+            {t(approve ? "confirmApprove" : "confirmReject", { count: n })}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

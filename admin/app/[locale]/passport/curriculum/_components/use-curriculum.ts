@@ -5,6 +5,7 @@
 // actions and the tree share one cache.
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import {
   listModules,
@@ -25,11 +26,19 @@ export interface ApiError extends Error {
   value?: any;
 }
 
-export function apiMessage(error: any): string {
+// `fallback` is passed by the display layer (translated); the throw sites leave
+// it empty so no hardcoded text ends up inside an Error.
+export function apiMessage(error: any, fallback = ""): string {
   const v = error?.value ?? error;
-  if (typeof v?.message === "string") return v.message;
-  if (typeof error?.message === "string") return error.message;
-  return "Не удалось выполнить запрос";
+  if (typeof v?.message === "string" && v.message) return v.message;
+  if (typeof error?.message === "string" && error.message) return error.message;
+  return fallback;
+}
+
+/** Display-side apiMessage with the translated generic fallback. */
+export function useApiMessage(): (error: any) => string {
+  const t = useTranslations("passportUi.curriculum");
+  return (error) => apiMessage(error, t("common.requestFailed"));
 }
 
 /**

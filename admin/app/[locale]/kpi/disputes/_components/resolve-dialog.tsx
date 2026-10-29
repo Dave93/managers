@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Textarea } from "@admin/components/ui/textarea";
@@ -26,6 +27,7 @@ import { qk, useKpiMe } from "../../_components/use-kpi";
 const FALLBACK_COMMENT_MIN = 5;
 
 export function ResolveDialog({ dispute, onClose }: { dispute: DisputeRow | null; onClose: () => void }) {
+  const t = useTranslations("kpiScreens.disputes.resolve");
   // Тело держим по id спора: черновик баллов и комментарий не переживают смену спора.
   return (
     <Dialog open={dispute !== null} onOpenChange={(o) => !o && onClose()}>
@@ -34,8 +36,8 @@ export function ResolveDialog({ dispute, onClose }: { dispute: DisputeRow | null
           <ResolveBody key={dispute.id} dispute={dispute} onClose={onClose} />
         ) : (
           <>
-            <DialogTitle className="sr-only">Разбор спора</DialogTitle>
-            <DialogDescription className="sr-only">Разбор спора</DialogDescription>
+            <DialogTitle className="sr-only">{t("title")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("title")}</DialogDescription>
           </>
         )}
       </DialogContent>
@@ -44,6 +46,10 @@ export function ResolveDialog({ dispute, onClose }: { dispute: DisputeRow | null
 }
 
 function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () => void }) {
+  const t = useTranslations("kpiScreens.disputes.resolve");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
+  const locale = useLocale();
   const qc = useQueryClient();
   const me = useKpiMe();
   const commentMin = me.data?.settings.change_comment_min ?? FALLBACK_COMMENT_MIN;
@@ -84,14 +90,14 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   const resolve = useMutation({
     mutationFn: (body: Parameters<typeof kpiApi.disputes.resolve>[1]) => kpiApi.disputes.resolve(dispute.id, body),
     onSuccess: async () => {
-      toast.success("Спор разобран");
+      toast.success(t("resolved"));
       await Promise.all(
         [qk.disputesAll, qk.employeesAll, qk.violationsAll, qk.formAll].map((queryKey) => qc.invalidateQueries({ queryKey }))
       );
       onClose();
     },
     onError: (e) => {
-      toast.error(kpiErrorText(e));
+      toast.error(kpiErrorText(e, tk));
       // 409 (спор уже разобран, месяц закрыт и т. п.): список споров и форма на экране устарели.
       if (e instanceof KpiApiError && e.status === 409) {
         void qc.invalidateQueries({ queryKey: qk.disputesAll });
@@ -103,7 +109,7 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   const decide = (decision: "accepted" | "rejected") => {
     if (resolve.isPending) return;
     const subject = isReview ? "review" : "violation";
-    const problems = resolveIssues(subject, decision, comment, decision === "accepted" ? changed : 0, commentMin);
+    const problems = resolveIssues(subject, decision, comment, decision === "accepted" ? changed : 0, commentMin, tk);
     const blocked = problems.length > 0 || (isReview && decision === "accepted" && itemIssues.length > 0);
     if (blocked) {
       setTried(decision);
@@ -120,10 +126,10 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   const setItem = (id: string, v: DraftItem) => setDraft({ ...effective, [id]: v });
 
   const commentProblems = touched
-    ? resolveIssues(isReview ? "review" : "violation", "rejected", comment, 0, commentMin)
+    ? resolveIssues(isReview ? "review" : "violation", "rejected", comment, 0, commentMin, tk)
     : [];
   const acceptProblems = tried === "accepted"
-    ? resolveIssues(isReview ? "review" : "violation", "accepted", comment, changed, commentMin).filter(
+    ? resolveIssues(isReview ? "review" : "violation", "accepted", comment, changed, commentMin, tk).filter(
         (p) => !commentProblems.includes(p)
       )
     : [];
@@ -137,27 +143,27 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Разбор спора</DialogTitle>
+        <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>
-          {[dispute.employee_name, dispute.terminal_name, subjectLabel(dispute)].filter(Boolean).join(" · ")}
+          {[dispute.employee_name, dispute.terminal_name, subjectLabel(dispute, tk, locale)].filter(Boolean).join(" · ")}
         </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-1 rounded-md bg-muted/50 p-3 text-sm">
-        <div className="text-xs text-muted-foreground">Причина спора</div>
+        <div className="text-xs text-muted-foreground">{t("reasonLabel")}</div>
         <p className="whitespace-pre-wrap break-words">{dispute.reason}</p>
       </div>
 
       {employeeId === null ? (
         <p role="alert" className="rounded-md border p-3 text-sm text-muted-foreground">
-          Спор без сотрудника (балл филиала) разбирается в фазе 5
+          {t("noEmployee")}
         </p>
       ) : loadError != null && !hasData ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(loadError)}
+          {kpiErrorText(loadError, tk)}
         </p>
       ) : loading ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         <>
           {loadError != null && <StaleNote error={loadError} />}
@@ -182,13 +188,13 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
             (violation ? (
               <div className="space-y-2 rounded-md border p-3 text-sm">
                 <div className="text-xs text-muted-foreground">{formatTashkent(violation.occurred_at)}</div>
-                <div className="font-medium">{violation.item_title_ru ?? "Без пункта"}</div>
+                <div className="font-medium">{violation.item_title_ru ?? t("noItem")}</div>
                 <p className="whitespace-pre-wrap break-words">{violation.comment}</p>
                 <PhotoThumbs photos={violation.photos} size="md" />
               </div>
             ) : (
               <p role="alert" className="rounded-md border p-3 text-sm text-muted-foreground">
-                Нарушение не найдено или недоступно
+                {t("violationNotFound")}
               </p>
             ))}
 
@@ -198,8 +204,8 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
               value={comment}
               disabled={busy}
               onChange={(e) => setComment(e.target.value)}
-              aria-label="Комментарий к решению (его увидит сотрудник)"
-              placeholder="Комментарий к решению (его увидит сотрудник)"
+              aria-label={t("commentPlaceholder")}
+              placeholder={t("commentPlaceholder")}
             />
             {commentProblems.map((p) => (
               <p key={p} role="alert" className="text-sm text-destructive">
@@ -211,23 +217,23 @@ function ResolveBody({ dispute, onClose }: { dispute: DisputeRow; onClose: () =>
                 {p}
               </p>
             ))}
-            <p className="text-xs text-muted-foreground">После отказа сотрудник не сможет оспорить эту запись повторно</p>
+            <p className="text-xs text-muted-foreground">{t("rejectNote")}</p>
           </div>
 
           <DialogFooter className="gap-2 sm:gap-2">
             <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
-              Закрыть
+              {tc("close")}
             </Button>
             <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={() => decide("rejected")}>
-              Отклонить
+              {t("reject")}
             </Button>
             {isReview ? (
               <Button type="button" className="h-11" disabled={busy || !form.data} onClick={() => decide("accepted")}>
-                Принять с новыми баллами
+                {t("acceptReview")}
               </Button>
             ) : (
               <Button type="button" className="h-11" disabled={busy || !violation} onClick={() => decide("accepted")}>
-                Принять — отменить нарушение
+                {t("acceptViolation")}
               </Button>
             )}
           </DialogFooter>

@@ -1,3 +1,6 @@
+/** Функция перевода из useTranslations("stoplistPage"). */
+export type StoplistT = (key: string, values?: Record<string, string | number>) => string;
+
 export const HOUR = 3600;
 export const DAY = 86400;
 
@@ -12,15 +15,15 @@ export function tierOf(seconds: number): Tier {
   return "fresh";
 }
 
-export function fmtDuration(totalSeconds: number): string {
+export function fmtDuration(t: StoplistT, totalSeconds: number): string {
   const s = Math.max(0, Number(totalSeconds) || 0);
   const days = Math.floor(s / DAY);
   const hours = Math.floor((s % DAY) / HOUR);
   const minutes = Math.floor((s % HOUR) / 60);
-  if (days >= 30) return `${Math.floor(days / 30)} мес ${days % 30} д`;
-  if (days > 0) return `${days} д ${hours} ч`;
-  if (hours > 0) return `${hours} ч ${minutes} мин`;
-  return `${minutes} мин`;
+  if (days >= 30) return t("duration.monthsDays", { months: Math.floor(days / 30), days: days % 30 });
+  if (days > 0) return t("duration.daysHours", { days, hours });
+  if (hours > 0) return t("duration.hoursMinutes", { hours, minutes });
+  return t("duration.minutes", { minutes });
 }
 
 // Text colour by urgency. Only three steps so the eye can rank a column.
@@ -59,22 +62,37 @@ const dateTimeFmt = new Intl.DateTimeFormat("ru-RU", {
   minute: "2-digit",
   timeZone: "Asia/Tashkent",
 });
-const dateFmt = new Intl.DateTimeFormat("ru-RU", {
-  day: "2-digit",
-  month: "short",
-  timeZone: "Asia/Tashkent",
-});
+// Название месяца зависит от языка интерфейса; для ru формат прежний.
+const INTL_LOCALES: Record<string, string> = {
+  ru: "ru-RU",
+  en: "en-GB",
+  "uz-Latn": "uz-Latn-UZ",
+  "uz-Cyrl": "uz-Cyrl-UZ",
+};
+const dateFmtCache = new Map<string, Intl.DateTimeFormat>();
+function dateFmtFor(locale: string): Intl.DateTimeFormat {
+  let f = dateFmtCache.get(locale);
+  if (!f) {
+    f = new Intl.DateTimeFormat(INTL_LOCALES[locale] ?? "ru-RU", {
+      day: "2-digit",
+      month: "short",
+      timeZone: "Asia/Tashkent",
+    });
+    dateFmtCache.set(locale, f);
+  }
+  return f;
+}
 
 export const fmtTime = (iso: string) => timeFmt.format(new Date(iso));
 export const fmtDateTime = (iso: string) => dateTimeFmt.format(new Date(iso));
-export const fmtDate = (iso: string) => dateFmt.format(new Date(iso));
+export const fmtDate = (iso: string, locale = "ru") => dateFmtFor(locale).format(new Date(iso));
 
-export function fmtAgo(iso: string | null, now = Date.now()): string {
-  if (!iso) return "нет данных";
+export function fmtAgo(t: StoplistT, iso: string | null, now = Date.now()): string {
+  if (!iso) return t("ago.noData");
   const s = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
-  if (s < 90) return "только что";
-  if (s < HOUR) return `${Math.round(s / 60)} мин назад`;
-  if (s < DAY) return `${Math.round(s / HOUR)} ч назад`;
+  if (s < 90) return t("ago.justNow");
+  if (s < HOUR) return t("ago.minutes", { count: Math.round(s / 60) });
+  if (s < DAY) return t("ago.hours", { count: Math.round(s / HOUR) });
   return fmtDateTime(iso);
 }
 
@@ -83,12 +101,3 @@ export const BRAND_LABEL: Record<string, string> = {
   chopar: "Chopar",
 };
 
-export const plural = (n: number, one: string, few: string, many: string) => {
-  const m10 = n % 10;
-  const m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return one;
-  if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
-  return many;
-};
-export const positionsWord = (n: number) => plural(n, "позиция", "позиции", "позиций");
-export const terminalsWord = (n: number) => plural(n, "филиал", "филиала", "филиалов");

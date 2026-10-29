@@ -23,6 +23,7 @@ import {
   Sun,
   UserCog,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import type { Branch } from "./use-network-map";
@@ -36,11 +37,14 @@ import {
   SHIFT_ORDER,
   TRAINEE_ALERT,
   TRAINEE_COLOR,
+  brandLabel,
+  groupLabel,
   pct,
-  plural,
+  shiftLabel,
 } from "./vocabulary";
 
 function BrandTag({ brand }: { brand: Branch["brand"] }) {
+  const t = useTranslations("networkMap");
   const b = BRAND[brand] ?? BRAND.other;
   return (
     <span className="inline-flex items-center gap-1 whitespace-nowrap text-[10px] text-slate-400">
@@ -49,17 +53,18 @@ function BrandTag({ brand }: { brand: Branch["brand"] }) {
         style={{ background: b.color }}
         aria-hidden
       />
-      {b.label}
+      {brandLabel(brand, t)}
     </span>
   );
 }
 
 /** Правая метрика строки — она меняется вместе с режимом, как и узлы. */
 function RowMetric({ b, mode }: { b: Branch; mode: MapMode }) {
+  const t = useTranslations("networkMap");
   if (!b.has_staff_data)
     return (
       <span className="whitespace-nowrap text-[11px] text-amber-300/80">
-        нет данных
+        {t("rail.noData")}
       </span>
     );
   if (mode === "shifts")
@@ -88,7 +93,7 @@ function RowMetric({ b, mode }: { b: Branch; mode: MapMode }) {
   if (mode === "data")
     return (
       <span className="whitespace-nowrap text-[11px] text-emerald-300/90">
-        состав заведён
+        {t("dataFilled")}
       </span>
     );
   return (
@@ -111,6 +116,7 @@ function BranchRow({
   onHover: (id: string | null) => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useTranslations("networkMap");
   const ref = React.useRef<HTMLButtonElement | null>(null);
   React.useEffect(() => {
     if (active) ref.current?.scrollIntoView({ block: "nearest" });
@@ -140,7 +146,7 @@ function BranchRow({
           {!b.has_coords && (
             <MapPinOff
               className="size-3 shrink-0 text-slate-500"
-              aria-label="нет координат"
+              aria-label={t("rail.noCoords")}
             />
           )}
         </span>
@@ -166,6 +172,7 @@ export function BranchList({
   onHover: (id: string | null) => void;
   onSelect: (id: string) => void;
 }) {
+  const t = useTranslations("networkMap");
   const withData = branches
     .filter((b) => b.has_staff_data)
     .sort((a, z) => z.staff.total - a.staff.total || a.name.localeCompare(z.name, "ru"));
@@ -177,9 +184,9 @@ export function BranchList({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-baseline justify-between px-1.5 pb-1.5">
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-          Филиалы
+          {t("rail.branches")}
         </h2>
-        <span className="text-[10px] text-slate-500">по убыванию штата</span>
+        <span className="text-[10px] text-slate-500">{t("rail.sortedBy")}</span>
       </div>
       <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto pr-1">
         {withData.map((b) => (
@@ -197,12 +204,10 @@ export function BranchList({
           <>
             <div className="mt-3 border-t border-dashed border-slate-700 px-1.5 pb-1 pt-2">
               <div className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/90">
-                Состав не заведён · {noData.length}
+                {t("rail.noStaffGroup", { count: noData.length })}
               </div>
               <p className="mt-0.5 text-[10.5px] leading-snug text-slate-500">
-                В справочнике сотрудников по этим филиалам нет ни одной строки.
-                Это пробел в данных, а не пустой филиал — сколько там людей,
-                экран не знает и не показывает.
+                {t("rail.noStaffGroupText")}
               </p>
             </div>
             {noData.map((b) => (
@@ -220,8 +225,7 @@ export function BranchList({
 
         {branches.length === 0 && (
           <p className="px-1.5 py-6 text-[12px] leading-snug text-slate-400">
-            В вашем скоупе нет активных филиалов. Скоуп задаётся ролью в
-            office-админке; если филиалы должны быть, их назначает администратор.
+            {t("rail.emptyScope")}
           </p>
         )}
       </div>
@@ -289,7 +293,7 @@ export function BranchCard({
   mode: MapMode;
   onBack: () => void;
 }) {
-  const brand = BRAND[b.brand] ?? BRAND.other;
+  const t = useTranslations("networkMap");
   const share = traineeShare(b);
   const gradeKeys = ["1", "2", "3", "—"].filter((k) => (b.staff.grades[k] ?? 0) > 0);
 
@@ -306,7 +310,7 @@ export function BranchCard({
         onClick={onBack}
         className="mb-2 inline-flex w-fit items-center gap-1 rounded px-1 py-0.5 text-[11px] text-slate-400 transition-colors hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400"
       >
-        <ArrowLeft className="size-3.5" /> ко всем филиалам
+        <ArrowLeft className="size-3.5" /> {t("card.back")}
       </button>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -320,12 +324,12 @@ export function BranchCard({
               <BrandTag brand={b.brand} />
               {b.playground && (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-sky-900/70 bg-sky-950/50 px-1 py-px text-[10px] text-sky-300">
-                  <Baby className="size-3" aria-hidden /> детская площадка
+                  <Baby className="size-3" aria-hidden /> {t("card.playground")}
                 </span>
               )}
               {!b.has_coords && (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap rounded border border-slate-700 bg-slate-800/70 px-1 py-px text-[10px] text-slate-300">
-                  <MapPinOff className="size-3" aria-hidden /> нет на карте
+                  <MapPinOff className="size-3" aria-hidden /> {t("card.notOnMap")}
                 </span>
               )}
             </div>
@@ -334,19 +338,19 @@ export function BranchCard({
 
         <dl className="mt-3 space-y-1.5 text-[11.5px] leading-snug">
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-slate-500">Менеджер</dt>
+            <dt className="w-[74px] shrink-0 text-slate-500">{t("card.manager")}</dt>
             <dd className="min-w-0 text-slate-200">
-              {b.manager_name || <span className="text-slate-500">не указан</span>}
+              {b.manager_name || <span className="text-slate-500">{t("card.notSpecified")}</span>}
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-slate-500">Адрес</dt>
+            <dt className="w-[74px] shrink-0 text-slate-500">{t("card.address")}</dt>
             <dd className="min-w-0 text-slate-300">
-              {b.address || <span className="text-slate-500">не указан</span>}
+              {b.address || <span className="text-slate-500">{t("card.notSpecified")}</span>}
             </dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-[74px] shrink-0 text-slate-500">Координаты</dt>
+            <dt className="w-[74px] shrink-0 text-slate-500">{t("card.coords")}</dt>
             <dd className="min-w-0 font-mono text-[11px] text-slate-400">
               {b.has_coords ? (
                 <span className="inline-flex items-center gap-1">
@@ -355,7 +359,7 @@ export function BranchCard({
                 </span>
               ) : (
                 <span className="font-sans text-slate-500">
-                  не заведены — филиал показан в полосе под картой
+                  {t("card.coordsMissing")}
                 </span>
               )}
             </dd>
@@ -365,36 +369,32 @@ export function BranchCard({
         {!b.has_staff_data ? (
           <div className="mt-3 rounded-md border border-dashed border-amber-500/40 bg-amber-500/5 p-2.5">
             <div className="text-[12px] font-medium text-amber-200">
-              Состав не заведён
+              {t("card.noStaffTitle")}
             </div>
             <p className="mt-1 text-[11px] leading-snug text-slate-400">
-              В справочнике сотрудников нет ни одной активной строки с этим
-              филиалом. Экран не подставляет сюда ноль: «людей нет» и «данных
-              нет» — разные факты, и второй лечится заведением сотрудников в
-              разделе «Сотрудники», а не наймом.
+              {t("card.noStaffText")}
             </p>
           </div>
         ) : b.staff.total === 0 ? (
           <div className="mt-3 rounded-md border border-slate-700 bg-slate-800/40 p-2.5">
             <div className="text-[12px] font-medium text-slate-200">
-              Активных сотрудников нет
+              {t("card.zeroTitle")}
             </div>
             <p className="mt-1 text-[11px] leading-snug text-slate-400">
-              Строки по филиалу в справочнике есть, но все они неактивны. Это
-              настоящий ноль, а не пробел в данных.
+              {t("card.zeroText")}
             </p>
           </div>
         ) : (
           <div className="mt-3 space-y-3">
             <div className="grid grid-cols-3 gap-2 rounded-md border border-slate-800 bg-slate-900/50 px-2.5 py-2">
-              <Stat label="всего" value={b.staff.total} />
+              <Stat label={t("card.total")} value={b.staff.total} />
               <Stat
-                label="стажёры"
+                label={t("card.trainees")}
                 value={`${b.staff.trainees} · ${pct(b.staff.trainees, b.staff.total)}`}
                 tone={share >= TRAINEE_ALERT ? "text-amber-300" : undefined}
               />
               <Stat
-                label="день / ночь"
+                label={t("card.dayNight")}
                 value={`${b.staff.shifts.day} / ${b.staff.shifts.night}`}
               />
             </div>
@@ -404,50 +404,46 @@ export function BranchCard({
                 className="rounded border-l-2 pl-2 text-[11px] leading-snug text-amber-200"
                 style={{ borderColor: TRAINEE_COLOR }}
               >
-                Стажёров {pct(b.staff.trainees, b.staff.total)} штата — филиал
-                сейчас больше учит, чем работает.
+                {t("card.traineeWarn", { pct: pct(b.staff.trainees, b.staff.total) })}
               </p>
             )}
 
             <section className="space-y-1.5">
               <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Состав
+                {t("card.composition")}
               </h4>
               <Bar
                 parts={GROUP_ORDER.map((k) => ({
                   key: k,
                   n: b.staff.groups[k] ?? 0,
                   color: GROUP[k].color,
-                  label: GROUP[k].label,
+                  label: groupLabel(k, t),
                 }))}
               />
             </section>
 
             <section className="space-y-1.5">
               <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Смены
+                {t("card.shifts")}
               </h4>
               <Bar
                 parts={SHIFT_ORDER.map((k) => ({
                   key: k,
                   n: b.staff.shifts[k] ?? 0,
                   color: SHIFT[k].color,
-                  label: SHIFT[k].label,
+                  label: shiftLabel(k, t),
                 }))}
               />
               {b.staff.shifts.unknown > 0 && (
                 <p className="text-[10.5px] leading-snug text-slate-500">
-                  У {b.staff.shifts.unknown}{" "}
-                  {plural(b.staff.shifts.unknown, "сотрудника", "сотрудников", "сотрудников")}{" "}
-                  смена в должности не написана — это пробел справочника, а не
-                  третья смена.
+                  {t("card.shiftsUnknown", { count: b.staff.shifts.unknown })}
                 </p>
               )}
             </section>
 
             <section className="space-y-1.5">
               <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Разряды
+                {t("card.grades")}
               </h4>
               <div className="flex flex-wrap gap-1">
                 {gradeKeys.map((k) => (
@@ -455,7 +451,7 @@ export function BranchCard({
                     key={k}
                     className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800/70 px-1.5 py-px text-[10.5px] text-slate-200"
                   >
-                    {k === "—" ? "разряд не указан" : `${k} разряд`}
+                    {k === "—" ? t("card.gradeUnset") : t("card.gradeN", { grade: k })}
                     <span className="font-mono text-slate-400">
                       {b.staff.grades[k]}
                     </span>
@@ -463,7 +459,7 @@ export function BranchCard({
                 ))}
                 {gradeKeys.length === 0 && (
                   <span className="text-[11px] text-slate-500">
-                    ни в одной должности разряд не указан
+                    {t("card.noGrades")}
                   </span>
                 )}
               </div>
@@ -471,7 +467,7 @@ export function BranchCard({
 
             <section className="space-y-1">
               <h4 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                Должности
+                {t("card.roles")}
               </h4>
               <ul className="space-y-px">
                 {b.staff.roles.map((r) => (

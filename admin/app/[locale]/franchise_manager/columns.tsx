@@ -6,7 +6,7 @@ import { invoices } from "backend/drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 import { Minus, Plus } from "lucide-react";
 
-export const reportsColumns: ColumnDef<typeof invoices.$inferSelect>[] = [
+export const getReportsColumns = (t: (key: string) => string): ColumnDef<typeof invoices.$inferSelect>[] => [
   {
     accessorKey: "id",
     header: () => null,
@@ -27,11 +27,11 @@ export const reportsColumns: ColumnDef<typeof invoices.$inferSelect>[] = [
   },
   {
     accessorKey: "incomingDocumentNumber",
-    header: "Номер",
+    header: t("columns.number"),
   },
   {
     accessorKey: "incomingDate",
-    header: "Дата",
+    header: t("columns.date"),
     cell: ({ row }) => {
       const record = row.original;
       return (

@@ -1,12 +1,13 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { usersColumns } from "./columns";
+import { useUsersColumns } from "./columns";
 import UsersFormSheet from "@components/forms/users/sheet";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 
 export default function UsersListPage() {
+  const columns = useUsersColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -20,7 +21,7 @@ export default function UsersListPage() {
         </div>
       </div>
       <div className="py-10">
-        <DataTable columns={usersColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

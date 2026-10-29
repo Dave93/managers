@@ -1,16 +1,10 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { Badge } from "@components/ui/badge";
 import { cn } from "@admin/lib/utils";
 import type { TicketPriority, TicketStatus } from "@admin/lib/tickets-api";
-
-const STATUS_RU: Record<TicketStatus, string> = {
-  new: "Новая",
-  in_progress: "В работе",
-  done: "Сдана",
-  closed: "Закрыта",
-  cancelled: "Отменена",
-};
 
 // Тона из палитры самой админки (blue/amber/violet/emerald/zinc/red), каждый с
 // парой для тёмной темы: без неё светлый чип на тёмном фоне выжигает глаза.
@@ -24,23 +18,27 @@ const STATUS_TONE: Record<TicketStatus, string> = {
 
 export const STATUS_ORDER: TicketStatus[] = ["new", "in_progress", "done", "closed", "cancelled"];
 
-export function statusLabel(status: TicketStatus): string {
-  return STATUS_RU[status];
+// Подпись статуса из словаря `ticketsUi.status`: ключ совпадает со значением TicketStatus.
+export function useStatusLabel(): (status: TicketStatus) => string {
+  const t = useTranslations("ticketsUi.status");
+  return (status) => t(status);
 }
 
 export function StatusBadge({ status }: { status: TicketStatus }) {
+  const label = useStatusLabel();
   return (
     <Badge className={cn("border-transparent font-medium", STATUS_TONE[status])}>
-      {STATUS_RU[status]}
+      {label(status)}
     </Badge>
   );
 }
 
 export function PriorityBadge({ priority }: { priority: TicketPriority }) {
+  const t = useTranslations("ticketsUi.status");
   if (priority !== "urgent") return null;
   return (
     <Badge className="border-transparent bg-red-100 font-medium text-red-900 dark:bg-red-950 dark:text-red-200">
-      Срочная
+      {t("urgent")}
     </Badge>
   );
 }
@@ -104,9 +102,15 @@ export function WaitingFor(props: {
   assigned_at: string | null;
   done_at: string | null;
 }) {
+  const t = useTranslations("ticketsUi.status");
   const h = waitingHours(props);
   if (h === null) return <span className="text-muted-foreground">—</span>;
-  const label = h < 1 ? "меньше часа" : h < 24 ? `${h} ч` : `${Math.floor(h / 24)} дн`;
+  const label =
+    h < 1
+      ? t("lessThanHour")
+      : h < 24
+        ? t("hours", { count: h })
+        : t("days", { count: Math.floor(h / 24) });
   return (
     <span className={cn("tabular-nums", h >= 24 && "font-semibold text-red-600 dark:text-red-400")}>
       {label}

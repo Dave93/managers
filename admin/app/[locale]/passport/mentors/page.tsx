@@ -67,7 +67,7 @@ import {
   useMentors,
   useMentorsAccess,
   userLabel,
-  userStatusLabel,
+  USER_STATUS_KEYS,
 } from "./_components/use-mentors";
 
 const PAGE = 100;
@@ -102,6 +102,7 @@ function Chip({
 }
 
 function UnbindButton({ row }: { row: PassportMentorRow }) {
+  const t = useTranslations("passportUi.mentors");
   const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
 
@@ -109,26 +110,24 @@ function UnbindButton({ row }: { row: PassportMentorRow }) {
     mutationFn: async () => {
       const { data, error } = await deleteMentor(row.telegram_id);
       if (error) {
-        const e = new Error(apiMessage(error)) as any;
+        const e = new Error(apiMessage(error, t("requestFailed"))) as any;
         e.value = (error as any)?.value;
         throw e;
       }
       return data!;
     },
     onSuccess: () => {
-      toast.success("Привязка снята. Новый вход невозможен, уже открытая сессия догорит в течение 12 часов.");
+      toast.success(t("unbindOk"));
       queryClient.invalidateQueries({ queryKey: qk.mentorsAll });
       setOpen(false);
     },
     onError: (e: any) => {
       const code = refusalCode(e);
       if (code === "binding_is_trainee")
-        toast.error(
-          "Это привязка стажёра, а не наставника — снять её отсюда нельзя."
-        );
+        toast.error(t("unbindTrainee"));
       else if (code === "binding_not_found")
-        toast.error("Привязки уже нет — обновите список.");
-      else toast.error(apiMessage(e));
+        toast.error(t("unbindGone"));
+      else toast.error(apiMessage(e, t("requestFailed")));
     },
   });
 
@@ -140,40 +139,33 @@ function UnbindButton({ row }: { row: PassportMentorRow }) {
         className="h-7 px-2 text-[12px] text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={() => setOpen(true)}
       >
-        <Link2Off className="mr-1 size-3.5" /> Снять
+        <Link2Off className="mr-1 size-3.5" /> {t("unbind")}
       </Button>
 
       <AlertDialog open={open} onOpenChange={setOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Снять привязку наставника?</AlertDialogTitle>
+            <AlertDialogTitle>{t("unbindTitle")}</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-2 text-[12.5px] leading-snug">
                 <p>
-                  <b>{userLabel(row.user ?? {})}</b> больше не сможет войти в
-                  мини-апп паспорта с Telegram{" "}
-                  <span className="font-mono">{row.telegram_id}</span>: новых
-                  сессий этому аккаунту выдаваться не будет.
+                  {t.rich("unbindWho", {
+                    b: (c) => <b>{c}</b>,
+                    mono: (c) => <span className="font-mono">{c}</span>,
+                    name: userLabel(row.user ?? {}, t("noName")),
+                    id: String(row.telegram_id),
+                  })}
                 </p>
                 <p className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
-                  <b>Это не мгновенный отзыв доступа.</b> Уже выданная сессия
-                  мини-аппа живёт до 12 часов и против этой таблицы не
-                  перепроверяется — если наставник сейчас внутри, он доработает
-                  до конца этого окна и подпись, поставленная за это время,
-                  будет действительной. Если доступ надо закрыть немедленно,
-                  этого мало: нужна помощь администратора на стороне сервера.
+                  {t.rich("unbindWarn", { b: (c) => <b>{c}</b> })}
                 </p>
-                <p className="text-muted-foreground">
-                  История подписей не меняется: журнал append-only, всё, что
-                  наставник подтвердил, остаётся в нём. Привязку можно завести
-                  заново в любой момент — это та же форма.
-                </p>
+                <p className="text-muted-foreground">{t("unbindHistory")}</p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={unbind.isPending}>
-              Отмена
+              {t("cancel")}
             </AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -186,7 +178,7 @@ function UnbindButton({ row }: { row: PassportMentorRow }) {
               {unbind.isPending && (
                 <Loader2 className="mr-1.5 size-4 animate-spin" />
               )}
-              Снять привязку
+              {t("unbindConfirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -197,6 +189,7 @@ function UnbindButton({ row }: { row: PassportMentorRow }) {
 
 export default function MentorsPage() {
   const t = useTranslations("passport.mentors");
+  const tu = useTranslations("passportUi.mentors");
   const access = useMentorsAccess();
   const [page, setPage] = useState(0);
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -216,9 +209,9 @@ export default function MentorsPage() {
       <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2.5 text-[12.5px] leading-snug">
         <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
         <span>
-          Привязки наставников отдаются по праву{" "}
-          <code className="font-mono text-[11px]">passport.mentors.manage</code>
-          , а у вашей роли его нет. Обратитесь к администратору.
+          {tu.rich("noAccess", {
+            code: (c) => <code className="font-mono text-[11px]">{c}</code>,
+          })}
         </span>
       </div>
     );
@@ -244,7 +237,7 @@ export default function MentorsPage() {
             disabled={access.ready && !access.canListUsers}
             title={
               access.ready && !access.canListUsers
-                ? "Нужно право users.list — без списка учётных записей выбрать сотрудника не из чего"
+                ? tu("needUsersList")
                 : undefined
             }
             onClick={() => setSheetOpen(true)}
@@ -258,18 +251,14 @@ export default function MentorsPage() {
         <div className="mb-4 flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[12.5px] leading-snug text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-200">
           <AlertTriangle className="mt-0.5 size-4 shrink-0" />
           <span>
-            <b>Новую привязку отсюда завести не получится.</b> Форма выбирает
-            сотрудника из реестра учётных записей, а он отдаётся по праву{" "}
-            <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
-              users.list
-            </code>{" "}
-            — отдельному от{" "}
-            <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
-              passport.mentors.manage
-            </code>{" "}
-            и не входящему с ним в один набор прав. Уже заведённые привязки
-            видны и снимаются как обычно; новую заведёт администратор с этим
-            правом — либо попросите добавить его вашей роли.
+            {tu.rich("noListBanner", {
+              b: (c) => <b>{c}</b>,
+              code: (c) => (
+                <code className="rounded bg-amber-100 px-1 py-px font-mono text-[11px] dark:bg-amber-900/50">
+                  {c}
+                </code>
+              ),
+            })}
           </span>
         </div>
       )}
@@ -281,11 +270,11 @@ export default function MentorsPage() {
           <TableHeader>
             <TableRow>
               {[
-                "Сотрудник офиса",
-                "Telegram ID",
-                "Заходил в мини-апп",
-                "Язык",
-                "Привязан",
+                tu("colUser"),
+                tu("colTelegram"),
+                tu("colSeen"),
+                tu("colLang"),
+                tu("colBound"),
                 "",
               ].map((h, i) => (
                 <TableHead
@@ -308,7 +297,7 @@ export default function MentorsPage() {
                   colSpan={6}
                   className="h-24 text-center text-[12.5px] text-muted-foreground"
                 >
-                  Загрузка…
+                  {tu("loading")}
                 </TableCell>
               </TableRow>
             ) : q.isError ? (
@@ -318,21 +307,18 @@ export default function MentorsPage() {
                   className="h-24 text-center text-[12.5px] text-destructive"
                 >
                   {q.error?.status === 403
-                    ? "Нет доступа к привязкам наставников."
-                    : (q.error?.message ?? "Не удалось загрузить список")}
+                    ? tu("noAccessList")
+                    : (q.error?.message ?? tu("loadFailed"))}
                 </TableCell>
               </TableRow>
             ) : rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="h-32 text-center">
                   <p className="text-[13px] font-medium">
-                    Наставников пока нет
+                    {tu("emptyTitle")}
                   </p>
                   <p className="mx-auto mt-1 max-w-md text-[12px] leading-snug text-muted-foreground">
-                    Ни один управляющий пока не может открыть мини-апп паспорта.
-                    Возьмите у него Telegram ID и нажмите «Привязать
-                    наставника» — стажёры без наставника не смогут подтвердить
-                    ни одной темы.
+                    {tu("emptyHint")}
                   </p>
                 </TableCell>
               </TableRow>
@@ -346,30 +332,38 @@ export default function MentorsPage() {
                       <span className="flex min-w-0 flex-col gap-0.5">
                         <span className="flex flex-wrap items-center gap-1.5">
                           <span className="text-[13px] font-medium">
-                            {row.user?.name ?? userLabel(row.user ?? {})}
+                            {row.user?.name ?? userLabel(row.user ?? {}, tu("noName"))}
                           </span>
                           {row.banned && (
                             <Chip
                               tone="bad"
-                              title="Аккаунт заблокирован в мини-аппе. Повторная привязка блокировку не снимает."
+                              title={tu("bannedHint")}
                             >
-                              заблокирован
+                              {tu("banned")}
                             </Chip>
                           )}
                           {inactiveUser && (
                             <Chip
                               tone="warn"
-                              title="Учётная запись в админке не активна — права наставника следуют за ней."
+                              title={tu("userInactiveHint")}
                             >
-                              учётка {userStatusLabel(row.user?.status)}
+                              {tu("userStatusChip", {
+                                status: !row.user?.status
+                                  ? tu("userStatus.unknown")
+                                  : (USER_STATUS_KEYS as readonly string[]).includes(
+                                        row.user.status
+                                      )
+                                    ? tu(`userStatus.${row.user.status}` as any)
+                                    : row.user.status,
+                              })}
                             </Chip>
                           )}
                           {!row.user && (
                             <Chip
                               tone="warn"
-                              title="Привязка есть, а учётной записи за ней уже нет."
+                              title={tu("userMissingHint")}
                             >
-                              учётка не найдена
+                              {tu("userMissing")}
                             </Chip>
                           )}
                         </span>
@@ -387,7 +381,7 @@ export default function MentorsPage() {
                           never actually got in, which is the question HR asks. */}
                       {row.tg_first_name ? (
                         <span className="flex items-center gap-1.5 text-[12.5px]">
-                          <Chip tone="ok">заходил</Chip>
+                          <Chip tone="ok">{tu("seen")}</Chip>
                           <span className="text-muted-foreground">
                             {row.tg_first_name}
                           </span>
@@ -395,9 +389,9 @@ export default function MentorsPage() {
                       ) : (
                         <Chip
                           tone="muted"
-                          title="Telegram ещё ни разу не авторизовался этой привязкой. Проверьте, что ID верный и что менеджер открыл бота."
+                          title={tu("neverSeenHint")}
                         >
-                          ещё не заходил
+                          {tu("neverSeen")}
                         </Chip>
                       )}
                     </TableCell>
@@ -421,7 +415,7 @@ export default function MentorsPage() {
       {total > PAGE && (
         <div className="mt-3 flex items-center justify-end gap-2 px-1">
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            стр. {page + 1} из {pageCount} · всего: {total}
+            {tu("pageOf", { page: page + 1, pages: pageCount, total })}
           </span>
           <Button
             variant="outline"
@@ -429,7 +423,7 @@ export default function MentorsPage() {
             disabled={page === 0}
             onClick={() => setPage((p) => Math.max(p - 1, 0))}
           >
-            Назад
+            {tu("prev")}
           </Button>
           <Button
             variant="outline"
@@ -437,15 +431,14 @@ export default function MentorsPage() {
             disabled={page + 1 >= pageCount}
             onClick={() => setPage((p) => p + 1)}
           >
-            Вперёд
+            {tu("next")}
           </Button>
         </div>
       )}
 
       <p className="mt-4 flex items-start gap-2 px-1 text-[11.5px] leading-snug text-muted-foreground">
         <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
-        Снятие привязки закрывает вход сразу, но не обрывает уже открытую
-        сессию: она живёт до 12 часов. Планируйте отзыв доступа с этим окном.
+        {tu("footerNote")}
       </p>
 
       <MentorSheet open={sheetOpen} onOpenChange={setSheetOpen} />

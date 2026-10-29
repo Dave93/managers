@@ -21,6 +21,7 @@ const ALL = "__all__";
 
 const StoplistFilterPanel = () => {
   const t = useTranslations("charts.filters");
+  const ts = useTranslations("stoplistPage");
   const [brand, setBrand] = useStoplistBrandFilter();
   const [status, setStatus] = useStoplistStatusFilter();
   const [search, setSearch] = useStoplistSearchFilter();
@@ -38,27 +39,27 @@ const StoplistFilterPanel = () => {
           onValueChange={(v) => setBrand(v === ALL ? null : (v as "les" | "chopar"))}
         >
           <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Бренд" />
+            <SelectValue placeholder={ts("filters.brand")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Все бренды</SelectItem>
+            <SelectItem value={ALL}>{ts("filters.allBrands")}</SelectItem>
             <SelectItem value="les">Les Ailes</SelectItem>
             <SelectItem value="chopar">Chopar</SelectItem>
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
           <SelectTrigger className="w-[170px]">
-            <SelectValue placeholder="Статус" />
+            <SelectValue placeholder={ts("filters.status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Все</SelectItem>
-            <SelectItem value="open">Сейчас в стопе</SelectItem>
-            <SelectItem value="closed">Снятые</SelectItem>
+            <SelectItem value="all">{ts("filters.all")}</SelectItem>
+            <SelectItem value="open">{ts("filters.open")}</SelectItem>
+            <SelectItem value="closed">{ts("filters.closed")}</SelectItem>
           </SelectContent>
         </Select>
         <Input
           className="w-[240px]"
-          placeholder="Поиск по продукту или филиалу"
+          placeholder={ts("filters.search")}
           value={search}
           onChange={(e) => setSearch(e.target.value || null)}
         />

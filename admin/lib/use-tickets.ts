@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { apiClient } from "@admin/utils/eden";
 import {
   listTickets, getTicket, closeTicket, reopenTicket, cancelTicket,
@@ -78,11 +79,12 @@ export type TicketTerminalOption = { id: string; name: string };
 // самой таблице приходят с сервера, так что при отказе (нет terminals.list)
 // пропадает только фильтр.
 export function useTicketTerminals() {
+  const t = useTranslations("ticketsLib");
   return useQuery<TicketTerminalOption[], Error>({
     queryKey: ["tickets", "terminals"],
     queryFn: async () => {
       const res: any = await apiClient.api.terminals.cached.get();
-      if (res?.error) throw new Error("Не удалось загрузить филиалы");
+      if (res?.error) throw Object.assign(new Error(t("load.terminalsFailed")), { local: true });
       const rows = (res?.data?.data ?? res?.data ?? []) as any[];
       return rows
         .map((t) => ({ id: String(t.id), name: String(t.name ?? t.id) }))

@@ -11,6 +11,7 @@
 // invented here.
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { Check, ChevronsUpDown, Loader2, Search, ShieldAlert } from "lucide-react";
 
 import { Button } from "@components/ui/buttonOrigin";
@@ -22,8 +23,8 @@ import {
 } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import {
-  fullName,
   useEmployeeSearch,
+  useFullName,
   type EmployeeOption,
 } from "./use-enrollments";
 
@@ -38,6 +39,9 @@ export function EmployeePicker({
   terminalName: (id: string | null) => string;
   disabled?: boolean;
 }) {
+  const t = useTranslations("passportUi.enrollments.picker");
+  const tc = useTranslations("passportUi.enrollments.common");
+  const fullName = useFullName();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -95,13 +99,13 @@ export function EmployeePicker({
                 {fullName(value.first_name, value.last_name)}
               </span>
               <span className="truncate text-[11.5px] text-muted-foreground">
-                {value.position || "должность не указана"} ·{" "}
+                {value.position || tc("noPosition")} ·{" "}
                 {terminalName(value.terminal_id)}
               </span>
             </span>
           ) : (
             <span className="text-[13px] text-muted-foreground">
-              Выберите сотрудника
+              {t("choose")}
             </span>
           )}
           <ChevronsUpDown className="ml-2 size-3.5 shrink-0 opacity-50" />
@@ -118,7 +122,7 @@ export function EmployeePicker({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Фамилия или имя"
+            placeholder={t("searchPlaceholder")}
             className="h-8 pl-7 text-[13px]"
           />
         </div>
@@ -128,19 +132,16 @@ export function EmployeePicker({
             <div className="flex items-start gap-2 px-2 py-3 text-[12px] leading-snug text-muted-foreground">
               <ShieldAlert className="mt-0.5 size-4 shrink-0 text-destructive" />
               <span>
-                Нет доступа к реестру сотрудников — не хватает права{" "}
-                <code className="font-mono text-[11px]">employees.list</code>.
-                Оно отдельное от{" "}
-                <code className="font-mono text-[11px]">
-                  passport.enrollments.manage
-                </code>
-                : попросите администратора добавить его вашей роли. Без реестра
-                выбрать стажёра здесь не получится.
+                {t.rich("denied", {
+                  code: (c) => (
+                    <code className="font-mono text-[11px]">{c}</code>
+                  ),
+                })}
               </span>
             </div>
           ) : q.isLoading ? (
             <p className="flex items-center gap-2 px-2 py-3 text-[12px] text-muted-foreground">
-              <Loader2 className="size-3.5 animate-spin" /> Загрузка…
+              <Loader2 className="size-3.5 animate-spin" /> {t("loading")}
             </p>
           ) : q.isError ? (
             <p className="px-2 py-3 text-[12px] text-destructive">
@@ -149,8 +150,8 @@ export function EmployeePicker({
           ) : rows.length === 0 ? (
             <p className="px-2 py-3 text-[12px] text-muted-foreground">
               {debounced
-                ? "Никого не нашли. Проверьте написание фамилии."
-                : "Начните вводить фамилию."}
+                ? t("notFound")
+                : t("startTyping")}
             </p>
           ) : (
             rows.map((e, i) => {
@@ -177,7 +178,7 @@ export function EmployeePicker({
                       {fullName(e.first_name, e.last_name)}
                     </span>
                     <span className="truncate text-[11px] text-muted-foreground">
-                      {e.position || "должность не указана"} ·{" "}
+                      {e.position || tc("noPosition")} ·{" "}
                       {terminalName(e.terminal_id)}
                     </span>
                   </span>
@@ -189,7 +190,7 @@ export function EmployeePicker({
 
         {q.isFetching && !q.isLoading && (
           <p className="border-t px-3 py-1 text-[11px] text-muted-foreground">
-            обновляем…
+            {t("refreshing")}
           </p>
         )}
       </PopoverContent>

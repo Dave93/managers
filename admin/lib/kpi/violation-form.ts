@@ -1,6 +1,7 @@
 // Запись нарушения: проверка полей, multipart-тело, выбор сотрудника и пункта, защёлка от двойной отправки.
 import type { Card, CardItem, EmployeeRow } from "@admin/lib/kpi-api";
 import { terminalOptions, type Option } from "./filters";
+import { ruT, type KpiT } from "./i18n";
 import { commentOk } from "./review-form";
 
 /** MAX_PHOTOS из backend/src/modules/kpi/storage.ts (план 1). */
@@ -22,13 +23,13 @@ export function cancelReasonOk(reason: string): boolean {
 }
 
 /** Тексты по порядку полей формы. */
-export function violationIssues(d: ViolationDraft, photoRequired: boolean): string[] {
+export function violationIssues(d: ViolationDraft, photoRequired: boolean, t: KpiT = ruT): string[] {
   const out: string[] = [];
-  if (!d.terminal_id) out.push("Выберите филиал");
-  if (!d.employee_id) out.push("Выберите сотрудника");
-  if (!commentOk(d.comment, VIOLATION_COMMENT_MIN)) out.push(`Опишите нарушение: не меньше ${VIOLATION_COMMENT_MIN} символов`);
-  if (photoRequired && d.photos.length === 0) out.push("Нужна хотя бы одна фотография");
-  if (d.photos.length > KPI_MAX_PHOTOS) out.push(`Не больше ${KPI_MAX_PHOTOS} фотографий`);
+  if (!d.terminal_id) out.push(t("lib.violation.chooseBranch"));
+  if (!d.employee_id) out.push(t("lib.violation.chooseEmployee"));
+  if (!commentOk(d.comment, VIOLATION_COMMENT_MIN)) out.push(t("lib.violation.describe", { min: VIOLATION_COMMENT_MIN }));
+  if (photoRequired && d.photos.length === 0) out.push(t("lib.violation.photoRequired"));
+  if (d.photos.length > KPI_MAX_PHOTOS) out.push(t("lib.violation.photoMax", { max: KPI_MAX_PHOTOS }));
   return out;
 }
 

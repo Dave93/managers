@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   Armchair, Cctv, Droplets, Flame, Hammer, Lightbulb, Monitor, Paintbrush, Plug, Printer,
   Snowflake, Trash2, Tv, Wifi, Wrench, Zap, TriangleAlert,
@@ -43,6 +44,7 @@ export function TypeTiles({
   onPick: (t: TicketTypeRow) => void;
   onBlocked: (t: TicketTypeRow) => void;
 }) {
+  const tt = useTranslations("branchTickets.tiles");
   return (
     <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
       {sortTypes(types).map((t) => {
@@ -69,7 +71,7 @@ export function TypeTiles({
               <span className="font-mono text-xs text-muted-foreground">{t.code}</span>
               {blocked && (
                 <span id={`type-blocked-${t.id}`} className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                  Фирма не назначена
+                  {tt("noFirm")}
                 </span>
               )}
             </button>
@@ -83,6 +85,7 @@ export function TypeTiles({
 // Пояснение к нажатой плитке без фирмы. Ведущий текст про администратора:
 // менеджер сам ничего не исправит, и ему нужно знать, к кому идти.
 export function TypeBlockedNotice({ type }: { type: TicketTypeRow }) {
+  const t = useTranslations("branchTickets.tiles");
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     // Под сеткой из многих плиток пояснение может оказаться ниже экрана.
@@ -96,10 +99,9 @@ export function TypeBlockedNotice({ type }: { type: TicketTypeRow }) {
     >
       <TriangleAlert className="mt-0.5 size-5 shrink-0" aria-hidden />
       <div className="space-y-1">
-        <p className="text-base font-semibold leading-snug">«{type.name_ru}» пока недоступен</p>
+        <p className="text-base font-semibold leading-snug">{t("blockedTitle", { name: type.name_ru })}</p>
         <p className="text-sm leading-snug">
-          Для этого типа не назначена подрядная фирма, и заявке некому уйти. Создать её сейчас нельзя.
-          Выберите другой тип или сообщите администратору: он назначит фирму в разделе «Типы заявок».
+          {t("blockedBody")}
         </p>
       </div>
     </div>

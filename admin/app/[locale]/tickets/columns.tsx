@@ -4,8 +4,10 @@
 // (подписи значений полей), а номеру нужен обработчик открытия карточки.
 
 import type { ColumnDef } from "@tanstack/react-table";
+import type { useTranslations } from "next-intl";
 
 import { formatAmount } from "@admin/lib/tickets-money";
+import type { TicketsLibT } from "@admin/lib/tickets-i18n";
 import type { TicketRow, TicketTypeRow } from "@admin/lib/tickets-api";
 import { detailValue } from "@admin/lib/tickets-details";
 import { PriorityBadge, StatusBadge, WaitingFor } from "@admin/components/tickets/status";
@@ -36,14 +38,20 @@ const Dash = () => <span className="text-muted-foreground">—</span>;
 export function buildColumns({
   onOpen,
   types,
+  t,
+  tl,
 }: {
   onOpen: (id: string) => void;
   types: TicketTypeRow[] | undefined;
+  // Переводчик словаря `ticketsUi.columns`.
+  t: ReturnType<typeof useTranslations>;
+  // Переводчик словаря `ticketsLib` (суммы).
+  tl?: TicketsLibT;
 }): ColumnDef<TicketRow, any>[] {
   return [
     {
       id: "number",
-      header: "Номер",
+      header: t("number"),
       cell: ({ row }) => (
         <button
           type="button"
@@ -61,21 +69,21 @@ export function buildColumns({
     },
     {
       id: "type",
-      header: "Тип",
+      header: t("type"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">{row.original.type_name ?? <Dash />}</span>
       ),
     },
     {
       id: "terminal",
-      header: "Филиал",
+      header: t("terminal"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">{row.original.terminal_name ?? <Dash />}</span>
       ),
     },
     {
       id: "symptom",
-      header: "Симптом",
+      header: t("symptom"),
       cell: ({ row }) => {
         const s = symptomOf(row.original, types);
         return s ? (
@@ -87,7 +95,7 @@ export function buildColumns({
     },
     {
       id: "status",
-      header: "Статус",
+      header: t("status"),
       cell: ({ row }) => (
         <div className="flex flex-wrap items-center gap-1">
           <StatusBadge status={row.original.status} />
@@ -97,14 +105,14 @@ export function buildColumns({
     },
     {
       id: "executor",
-      header: "Исполнитель",
+      header: t("executor"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">{row.original.executor_name ?? <Dash />}</span>
       ),
     },
     {
       id: "waiting",
-      header: "Висит",
+      header: t("waiting"),
       cell: ({ row }) => (
         <span className="text-[12.5px]">
           <WaitingFor
@@ -118,12 +126,12 @@ export function buildColumns({
     },
     {
       id: "amount",
-      header: () => <span className="block text-right">Сумма</span>,
+      header: () => <span className="block text-right">{t("amount")}</span>,
       cell: ({ row }) => {
         const raw = row.original.work_total_amount;
         return (
           <span className="block text-right text-[12.5px] tabular-nums whitespace-nowrap">
-            {raw === null ? <Dash /> : formatAmount(raw)}
+            {raw === null ? <Dash /> : formatAmount(raw, tl)}
           </span>
         );
       },

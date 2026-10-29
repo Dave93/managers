@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { Input } from "@components/ui/input";
@@ -26,6 +27,8 @@ export default function PhonesTab({
   companyId: string;
   phones: CreditCompanyPhone[];
 }) {
+  const t = useTranslations("systemPages.creditCompanies.phones");
+  const tc = useTranslations("forms.common");
   const queryClient = useQueryClient();
   const canEdit = useCanAccess("credit.edit");
   const [phone, setPhone] = useState("");
@@ -52,16 +55,16 @@ export default function PhonesTab({
       return data;
     },
     onSuccess: () => {
-      toast.success("Телефон добавлен");
+      toast.success(t("added"));
       setPhone("");
       setEmployeeName("");
       invalidate();
     },
     onError: (err: any) => {
       if (err.message === "phone_taken") {
-        toast.error("Телефон уже привязан к другой компании");
+        toast.error(t("phoneTaken"));
       } else {
-        toast.error("Не удалось добавить телефон");
+        toast.error(t("addFailed"));
       }
     },
   });
@@ -73,7 +76,7 @@ export default function PhonesTab({
       return data;
     },
     onSuccess: () => invalidate(),
-    onError: () => toast.error("Не удалось обновить телефон"),
+    onError: () => toast.error(t("updateFailed")),
   });
 
   return (
@@ -82,9 +85,9 @@ export default function PhonesTab({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Телефон</TableHead>
-              <TableHead>Сотрудник</TableHead>
-              <TableHead>Активен</TableHead>
+              <TableHead>{tc("phone")}</TableHead>
+              <TableHead>{t("employee")}</TableHead>
+              <TableHead>{t("active")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -104,7 +107,7 @@ export default function PhonesTab({
                       />
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        {p.active ? "Да" : "Нет"}
+                        {p.active ? t("yes") : t("no")}
                       </span>
                     )}
                   </TableCell>
@@ -113,7 +116,7 @@ export default function PhonesTab({
             ) : (
               <TableRow>
                 <TableCell colSpan={3} className="h-16 text-center text-muted-foreground">
-                  Нет телефонов
+                  {t("empty")}
                 </TableCell>
               </TableRow>
             )}
@@ -131,7 +134,7 @@ export default function PhonesTab({
           className="flex items-end gap-2 flex-wrap"
         >
           <div className="space-y-1">
-            <Label>Телефон</Label>
+            <Label>{tc("phone")}</Label>
             <Input
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
@@ -139,16 +142,16 @@ export default function PhonesTab({
             />
           </div>
           <div className="space-y-1">
-            <Label>Сотрудник</Label>
+            <Label>{t("employee")}</Label>
             <Input
               value={employeeName}
               onChange={(e) => setEmployeeName(e.target.value)}
-              placeholder="Имя (опционально)"
+              placeholder={t("namePlaceholder")}
             />
           </div>
           <Button type="submit" disabled={addMutation.isPending || !phone}>
             {addMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Добавить
+            {tc("add")}
           </Button>
         </form>
       )}

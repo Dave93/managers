@@ -9,6 +9,7 @@
 
 import { useState } from "react";
 import { ImageOff } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { attachmentUrl, type TicketRow } from "@admin/lib/tickets-api";
@@ -25,12 +26,13 @@ function fmtDate(value: string | null): string | null {
 // Превью лежит за авторизованным роутом и может не найтись на диске: тогда
 // вместо разбитой картинки значок, а карточка остаётся рабочей.
 function Preview({ id }: { id: string | null }) {
+  const t = useTranslations("branchTickets.card");
   const [broken, setBroken] = useState(false);
   if (!id || broken) {
     return (
       <div
         className="flex size-20 shrink-0 items-center justify-center rounded-md border border-dashed text-muted-foreground"
-        title={id ? "Файл не найден" : "Фото нет"}
+        title={id ? t("fileNotFound") : t("noPhoto")}
       >
         <ImageOff className="size-6" aria-hidden />
       </div>
@@ -51,10 +53,11 @@ function Preview({ id }: { id: string | null }) {
 }
 
 export function UnreadDot() {
+  const t = useTranslations("branchTickets.card");
   return (
-    <span className="inline-flex items-center" title="Есть новое">
+    <span className="inline-flex items-center" title={t("hasNew")}>
       <span aria-hidden className="size-3 rounded-full bg-blue-600 ring-2 ring-blue-600/25" data-unread-dot />
-      <span className="sr-only">Есть новое</span>
+      <span className="sr-only">{t("hasNew")}</span>
     </span>
   );
 }
@@ -76,6 +79,7 @@ export function BranchTicketCard({
   highlighted: boolean;
   onOpen: (id: string) => void;
 }) {
+  const t = useTranslations("branchTickets.card");
   const unread = showUnreadDot(row);
   const closedOn = row.status === "closed" ? fmtDate(row.closed_at) : null;
   return (
@@ -99,19 +103,19 @@ export function BranchTicketCard({
           <PriorityBadge priority={row.priority} />
         </span>
         <span className="block text-base leading-snug break-words">
-          {row.type_name ?? "Тип удалён"}
+          {row.type_name ?? t("typeDeleted")}
           {symptom ? <span className="text-muted-foreground"> · {symptom}</span> : null}
         </span>
         {branchName && <span className="block text-sm text-muted-foreground">{branchName}</span>}
         <span className="block text-sm text-muted-foreground">
-          {row.executor_name ? `Взял: ${row.executor_name}` : "Исполнитель не назначен"}
+          {row.executor_name ? t("tookBy", { name: row.executor_name }) : t("noExecutor")}
         </span>
         <span className="block text-sm text-muted-foreground">
           {finished ? (
-            closedOn ? `Закрыта ${closedOn}` : null
+            closedOn ? t("closedOn", { date: closedOn }) : null
           ) : (
             <>
-              Висит:{" "}
+              {t("waiting")}{" "}
               <WaitingFor
                 status={row.status}
                 created_at={row.created_at}

@@ -23,19 +23,20 @@
 import * as React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { ChevronDown, Plus } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import AttestationEmployeeFormSheet from "@admin/components/forms/attestation-employee/sheet";
 import type { Branch, GroupKey, Person, ShiftKey } from "./use-staff-board";
 import {
   BrandMark,
-  GROUP,
   GROUP_ORDER,
-  SHIFT,
   SHIFT_ORDER,
   SIGNAL,
+  Tr,
+  groupLabel,
   peopleWord,
+  shiftLabel,
 } from "./vocabulary";
 
 const EASE_OUT = [0.16, 1, 0.3, 1] as const;
@@ -65,6 +66,7 @@ function Highlight({ text, query }: { text: string; query: string }) {
 // равноправные с ним сущности, и плашка вокруг каждого превращала карточку в
 // рябь из мелких рамок.
 function PersonRow({ p, query }: { p: Person; query: string }) {
+  const t = useTranslations("staffBoard");
   return (
     <li className="min-w-0 rounded px-1 py-[3px] transition-colors hover:bg-muted/60">
       <span className="block truncate text-[12.5px] font-medium leading-tight">
@@ -75,8 +77,8 @@ function PersonRow({ p, query }: { p: Person; query: string }) {
         title={p.position ?? undefined}
       >
         {p.role}
-        {p.grade && <span className="tabular-nums"> · {p.grade} разряд</span>}
-        {p.is_trainee && !/стаж/i.test(p.role) && <span> · стажёр</span>}
+        {p.grade && <span className="tabular-nums"> · {t("card.grade", { grade: p.grade })}</span>}
+        {p.is_trainee && !/стаж/i.test(p.role) && <span> · {t("card.trainee")}</span>}
       </span>
     </li>
   );
@@ -140,11 +142,11 @@ function sectionsOf(people: Person[]): Section[] {
  *  Ни точек, ни полосы: цветная полоса тех же четырёх цветов тянула на себя
  *  внимание сильнее, чем имена людей, а сама по себе не отвечала ни на один
  *  вопрос, на который не отвечает эта строка. */
-function composition(branch: Branch): string | null {
+function composition(branch: Branch, t: Tr): string | null {
   const parts = GROUP_ORDER.filter((g) => branch.staff.groups[g] > 0);
   if (parts.length < 2) return null;
   return parts
-    .map((g) => `${GROUP[g].label} ${branch.staff.groups[g]}`)
+    .map((g) => `${groupLabel(g, t)} ${branch.staff.groups[g]}`)
     .join(" · ");
 }
 
@@ -164,6 +166,8 @@ export function BranchCard({
    *  её значило бы получить отказ на сохранении. */
   canEdit?: boolean;
 }) {
+  const t = useTranslations("staffBoard");
+  const locale = useLocale();
   const [expanded, setExpanded] = React.useState(false);
   // Свёрнутая карточка не «прячет» строки стилями, а не рендерит их: скрытая
   // клипом строка всё равно ловит фокус клавиатурой, и человек уезжает табом
@@ -171,7 +175,7 @@ export function BranchCard({
   const shown = expanded ? people : people.slice(0, COLLAPSED);
   const hidden = people.length - shown.length;
   const sections = React.useMemo(() => sectionsOf(shown), [shown]);
-  const composed = composition(branch);
+  const composed = composition(branch, t);
 
   return (
     <article className="flex min-w-0 flex-col rounded-lg border bg-card px-3 py-2.5 text-card-foreground shadow-sm transition-colors hover:border-foreground/20">
@@ -186,7 +190,7 @@ export function BranchCard({
           {branch.staff.total}
         </span>
         <span className="shrink-0 text-[10.5px] leading-tight text-muted-foreground">
-          {peopleWord(branch.staff.total)}
+          {peopleWord(branch.staff.total, t)}
         </span>
       </div>
       {composed && (
@@ -231,15 +235,13 @@ export function BranchCard({
 
       {peopleFiltered && (
         <p className="mt-1.5 text-[10.5px] leading-snug text-muted-foreground">
-          Показано {people.length} из {branch.staff.total} — остальных скрыли
-          фильтры, состав выше считается по всему филиалу.
+          {t("card.shownOf", { shown: people.length, total: branch.staff.total })}
         </p>
       )}
 
       {people.length === 0 ? (
         <p className="mt-2 rounded bg-muted/50 px-2 py-3 text-center text-[11px] text-muted-foreground">
-          Под фильтр не попал никто из {branch.staff.total}{" "}
-          {peopleWord(branch.staff.total)} этого филиала.
+          {t("card.noneMatch", { count: branch.staff.total })}
         </p>
       ) : (
         <div
@@ -251,20 +253,19 @@ export function BranchCard({
           )}
         >
           {sections.map((sec) => {
-            const G = GROUP[sec.group];
             // Одна смена на группу — она названа прямо в заголовке группы, без
             // отдельной строки: лишний ряд ради одного слова.
             const single = sec.shifts.length === 1 ? sec.shifts[0] : null;
             return (
               <section key={sec.group} className="mt-2.5 first:mt-0">
                 <h4 className="flex min-w-0 items-baseline gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  <span className="truncate">{G.label}</span>
+                  <span className="truncate">{groupLabel(sec.group, t)}</span>
                   <span className="font-normal tabular-nums">
                     {sec.people.length}
                   </span>
                   {single && (
                     <span className="truncate font-normal text-muted-foreground/70">
-                      · {SHIFT[single.shift].label.toLocaleLowerCase("ru-RU")}
+                      · {shiftLabel(single.shift, t).toLocaleLowerCase(locale)}
                     </span>
                   )}
                 </h4>
@@ -273,7 +274,7 @@ export function BranchCard({
                     {!single && (
                       <div className="mt-1.5 flex items-baseline gap-1.5 text-[9.5px] uppercase tracking-wide text-muted-foreground/70">
                         <span className="truncate">
-                          {SHIFT[block.shift].label}
+                          {shiftLabel(block.shift, t)}
                         </span>
                         <span className="tabular-nums">
                           {block.people.length}
@@ -315,7 +316,7 @@ export function BranchCard({
                   )}
                   aria-hidden
                 />
-                {expanded ? "Свернуть состав" : `Показать всех — ещё ${hidden}`}
+                {expanded ? t("card.collapse") : t("card.showAll", { count: hidden })}
               </motion.button>
             )}
           </AnimatePresence>

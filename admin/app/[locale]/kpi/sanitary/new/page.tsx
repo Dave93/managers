@@ -4,6 +4,7 @@ import React, { Suspense, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Label } from "@admin/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
@@ -23,12 +24,12 @@ import { qk, useKpiMe, useKpiPerms, useKpiTerminals } from "../../_components/us
 
 const TRIGGER = "h-11 w-full data-[size=default]:h-11";
 const COMMENT_MAX = 1000;
-const TEMPLATE_CHANGED = "Пункты проверки изменились. Ответы сброшены: отметьте пункты заново";
 
 export default function NewSanitaryPage() {
+  const tc = useTranslations("kpiScreens.common");
   return (
     <ScreenGate screen="sanitary">
-      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">Загрузка…</p>}>
+      <Suspense fallback={<p className="p-6 text-sm text-muted-foreground">{tc("loading")}</p>}>
         <NewSanitaryScreen />
       </Suspense>
     </ScreenGate>
@@ -36,6 +37,9 @@ export default function NewSanitaryPage() {
 }
 
 function NewSanitaryScreen() {
+  const t = useTranslations("kpiScreens.sanitary");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const me = useKpiMe({ refetchOnWindowFocus: false });
   const terminals = useKpiTerminals();
   const template = useQuery<SanitaryTemplate, Error>({
@@ -49,16 +53,16 @@ function NewSanitaryScreen() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4 p-4 pb-20 sm:p-6">
-      <h1 className="text-xl font-semibold">Санитарная проверка</h1>
+      <h1 className="text-xl font-semibold">{t("title")}</h1>
 
       {load.blocking == null && stale != null && <StaleNote error={stale} />}
 
       {load.blocking != null ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(load.blocking)}
+          {kpiErrorText(load.blocking, tk)}
         </p>
       ) : !me.data || !terminals.data || !template.data ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : (
         <SanitaryForm scopes={me.data.scopes} terminals={terminals.data} titles={template.data.items} refetchTemplate={() => template.refetch()} />
       )}
@@ -79,6 +83,8 @@ function SanitaryForm({
   titles: string[];
   refetchTemplate: () => Promise<unknown>;
 }) {
+  const t = useTranslations("kpiScreens.sanitary");
+  const tk = useTranslations("kpi");
   const router = useRouter();
   const qc = useQueryClient();
   const { perms, access } = useKpiPerms();
@@ -88,7 +94,7 @@ function SanitaryForm({
   const [pick, setPick] = useState<string | null>(null);
   const asked = params.get("terminal_id");
   const terminalId =
-    pick ?? (asked && list.some((t) => t.id === asked) ? asked : list.length === 1 ? list[0].id : null);
+    pick ?? (asked && list.some((x) => x.id === asked) ? asked : list.length === 1 ? list[0].id : null);
 
   // Ответы привязаны к составу шаблона: если шаблон сменился, старые ответы не относятся к новым пунктам.
   const sig = titles.join("\n");
@@ -115,7 +121,7 @@ function SanitaryForm({
 
   const submit = async () => {
     if (!latch.acquire()) return;
-    const found = sanitaryIssues(draft, titles.length);
+    const found = sanitaryIssues(draft, titles.length, tk);
     setIssues(found);
     if (found.length > 0) {
       latch.release();
@@ -132,9 +138,9 @@ function SanitaryForm({
           // Шаблон изменили, пока форма была открыта: берём новый и просим отметить заново.
           await refetchTemplate();
           setStored(null);
-          setNotice(TEMPLATE_CHANGED);
+          setNotice(t("templateChanged"));
         }
-        toast.error(kpiErrorText(e));
+        toast.error(kpiErrorText(e, tk));
         latch.release();
       } else {
         setUnknown(true);
@@ -142,7 +148,7 @@ function SanitaryForm({
       setSending(false);
       return;
     }
-    toast.success("Проверка сохранена", { description: `Выполнено ${formatPct(row.pct)}. Балл филиала обновится после пересчёта` });
+    toast.success(t("saved"), { description: t("savedDescription", { pct: formatPct(row.pct) }) });
     await Promise.all([qk.sanitaryAll, qk.branchAll].map((queryKey) => qc.invalidateQueries({ queryKey })));
     if (canBranch) {
       // Месяц берём из строки: проверка от 2 ноября лежит в ноябре, а страница без месяца откроет текущий период KPI.
@@ -157,7 +163,7 @@ function SanitaryForm({
   };
 
   if (list.length === 0) {
-    return <p className="text-sm text-muted-foreground">Назначений на филиалы нет — попросите HR назначить вас проверяющим</p>;
+    return <p className="text-sm text-muted-foreground">{t("noAssignments")}</p>;
   }
 
   const branchLink = terminalId ? `/kpi/branch/${terminalId}?period=${calendarPeriod(new Date())}` : "/kpi/network";
@@ -171,7 +177,7 @@ function SanitaryForm({
       }}
     >
       <div className="space-y-1.5">
-        <Label htmlFor="s-terminal">Филиал</Label>
+        <Label htmlFor="s-terminal">{t("branch")}</Label>
         <Select
           value={terminalId ?? ""}
           disabled={locked}
@@ -181,12 +187,12 @@ function SanitaryForm({
           }}
         >
           <SelectTrigger id="s-terminal" className={TRIGGER}>
-            <SelectValue placeholder="Выберите филиал" />
+            <SelectValue placeholder={t("pickBranch")} />
           </SelectTrigger>
           <SelectContent>
-            {list.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
+            {list.map((x) => (
+              <SelectItem key={x.id} value={x.id}>
+                {x.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -201,16 +207,16 @@ function SanitaryForm({
 
       <div className="space-y-2">
         <p className="text-sm text-muted-foreground">
-          Отмечено {marked} из {titles.length}
-          {pct !== null && ` · Выполнено ${formatPct(pct)}`}
+          {t("marked", { marked, total: titles.length })}
+          {pct !== null && t("doneSuffix", { pct: formatPct(pct) })}
         </p>
         <ul className="space-y-2">
           {titles.map((title, i) => (
             <li key={title} className="space-y-2 rounded-lg border p-3">
               <p className="text-sm font-medium break-words">{title}</p>
               <div className="grid grid-cols-2 gap-2">
-                <AnswerButton label="Да" tone="yes" pressed={answers[i] === true} disabled={locked} onClick={() => mark(i, true)} />
-                <AnswerButton label="Нет" tone="no" pressed={answers[i] === false} disabled={locked} onClick={() => mark(i, false)} />
+                <AnswerButton label={t("yes")} tone="yes" pressed={answers[i] === true} disabled={locked} onClick={() => mark(i, true)} />
+                <AnswerButton label={t("no")} tone="no" pressed={answers[i] === false} disabled={locked} onClick={() => mark(i, false)} />
               </div>
             </li>
           ))}
@@ -218,7 +224,7 @@ function SanitaryForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label htmlFor="s-comment">Что не так</Label>
+        <Label htmlFor="s-comment">{t("whatsWrong")}</Label>
         <Textarea
           id="s-comment"
           rows={3}
@@ -226,25 +232,25 @@ function SanitaryForm({
           value={comment}
           disabled={locked}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="Необязательно"
+          placeholder={t("optional")}
         />
       </div>
 
       {issues.length > 0 && (
         <ul role="alert" className="list-inside list-disc rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-          {issues.map((t) => (
-            <li key={t}>{t}</li>
+          {issues.map((msg) => (
+            <li key={msg}>{msg}</li>
           ))}
         </ul>
       )}
 
       {unknown && (
         <div role="alert" className="space-y-1 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          <p>Не знаем, дошла ли проверка до сервера. Проверьте список проверок филиала, прежде чем сохранять снова</p>
+          <p>{t("unknownOutcome")}</p>
           {canBranch && (
             // Новая вкладка: ответы остаются, если проверка не дошла.
             <Link href={branchLink} target="_blank" rel="noreferrer" className="font-medium underline underline-offset-4">
-              Открыть филиал
+              {t("openBranch")}
             </Link>
           )}
         </div>
@@ -252,7 +258,7 @@ function SanitaryForm({
 
       {/* Не sticky: нижняя панель ManagerLayout (h-16) закрыла бы кнопку. */}
       <Button type="submit" className="h-11 w-full" disabled={locked}>
-        {sending ? "Сохраняем…" : "Сохранить проверку"}
+        {sending ? t("saving") : t("saveCheck")}
       </Button>
     </form>
   );

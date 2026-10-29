@@ -22,6 +22,7 @@ import {
   useQueryState,
 } from "nuqs";
 import { ChevronDown } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Label } from "@components/ui/label";
@@ -37,7 +38,7 @@ import {
 } from "@components/ui/select";
 import { cn } from "@admin/lib/utils";
 import type { TicketListQuery, TicketStatus } from "@admin/lib/tickets-api";
-import { STATUS_ORDER, StatusBadge, statusLabel } from "@admin/components/tickets/status";
+import { STATUS_ORDER, StatusBadge, useStatusLabel } from "@admin/components/tickets/status";
 import {
   useTicketList,
   useTicketTerminals,
@@ -83,6 +84,7 @@ function Counter({
   active?: boolean;
   onSelect?: () => void;
 }) {
+  const t = useTranslations("ticketsUi.list");
   const { data, isPending, isError, error } = useTicketList({ limit: 1, offset: 0, filters });
 
   // Загрузка, число и «нет данных» различимы: на отказе счётчик не пульсирует
@@ -92,7 +94,7 @@ function Counter({
   ) : isError && !data ? (
     <span
       className="text-xl font-semibold text-muted-foreground"
-      title={(error as Error)?.message || "Не удалось получить число"}
+      title={(error as Error)?.message || t("counterFailed")}
     >
       —
     </span>
@@ -139,9 +141,11 @@ function StatusMultiSelect({
   onChange: (next: TicketStatus[]) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("ticketsUi.list");
+  const statusLabel = useStatusLabel();
   const label =
     value.length === 0
-      ? "Все статусы"
+      ? t("allStatuses")
       : value.length === 1
         ? statusLabel(value[0])
         : `${statusLabel(value[0])} +${value.length - 1}`;
@@ -186,7 +190,7 @@ function StatusMultiSelect({
             className="mt-1 h-7 w-full justify-start px-2 text-[12px] text-muted-foreground"
             onClick={() => onChange([])}
           >
-            Сбросить статус
+            {t("resetStatus")}
           </Button>
         )}
       </PopoverContent>
@@ -207,6 +211,9 @@ function FilterLabel({ children }: { children: React.ReactNode }) {
 // ---------------------------------------------------------------------------
 
 export default function TicketsPage() {
+  const t = useTranslations("ticketsUi.list");
+  const tl = useTranslations("ticketsLib");
+  const tColumns = useTranslations("ticketsUi.columns");
   const [statuses, setStatuses] = useQueryState(
     "status",
     parseAsArrayOf(parseAsStringEnum<TicketStatus>(STATUS_ORDER)).withDefault([])
@@ -250,8 +257,8 @@ export default function TicketsPage() {
   const [openId, setOpenId] = useState<string | null>(null);
 
   const columns = useMemo(
-    () => buildColumns({ onOpen: setOpenId, types: types.data }),
-    [types.data]
+    () => buildColumns({ onOpen: setOpenId, types: types.data, t: tColumns, tl }),
+    [types.data, tColumns, tl]
   );
 
   const only = (s: TicketStatus) => () => setStatuses([s]);
@@ -260,34 +267,34 @@ export default function TicketsPage() {
   return (
     <div className="pb-10">
       <div className="mb-4">
-        <h1 className="text-lg font-semibold tracking-tight">Заявки</h1>
+        <h1 className="text-lg font-semibold tracking-tight">{t("title")}</h1>
         <p className="text-[12px] text-muted-foreground">
-          Что сейчас происходит: очередь по статусам и список заявок всех филиалов.
+          {t("subtitle")}
         </p>
       </div>
 
       {/* ------------------------------ счётчики ------------------------------ */}
       <div className="mb-4 grid grid-cols-2 divide-x divide-y overflow-hidden rounded-lg border bg-card sm:grid-cols-4 sm:divide-y-0">
         <Counter
-          label="Новые"
+          label={t("counterNew")}
           filters={[{ field: "status", operator: "eq", value: "new" }]}
           active={isOnly("new")}
           onSelect={only("new")}
         />
         <Counter
-          label="В работе"
+          label={t("counterInProgress")}
           filters={[{ field: "status", operator: "eq", value: "in_progress" }]}
           active={isOnly("in_progress")}
           onSelect={only("in_progress")}
         />
         <Counter
-          label="Сдано, ждёт приёмки"
+          label={t("counterDone")}
           filters={[{ field: "status", operator: "eq", value: "done" }]}
           active={isOnly("done")}
           onSelect={only("done")}
         />
         <Counter
-          label="Закрыто за 7 дней"
+          label={t("counterClosed7d")}
           filters={[
             { field: "status", operator: "eq", value: "closed" },
             { field: "closed_at", operator: "gte", value: closedSince },
@@ -298,7 +305,7 @@ export default function TicketsPage() {
       {/* ------------------------------ фильтры ------------------------------ */}
       <div className="mb-4 flex flex-wrap items-end gap-3 rounded-lg border bg-card px-3 py-2.5">
         <div className="space-y-1">
-          <FilterLabel>Статус</FilterLabel>
+          <FilterLabel>{t("filterStatus")}</FilterLabel>
           <StatusMultiSelect value={statuses} onChange={setStatuses} />
         </div>
 
@@ -306,7 +313,7 @@ export default function TicketsPage() {
             и филиалы не те же, что на сам список. */}
         {!types.isError && (
           <div className="space-y-1">
-            <FilterLabel>Тип</FilterLabel>
+            <FilterLabel>{t("filterType")}</FilterLabel>
             <Select
               value={typeId || ALL}
               onValueChange={(v) => setTypeId(v === ALL ? null : v)}
@@ -315,7 +322,7 @@ export default function TicketsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Все типы</SelectItem>
+                <SelectItem value={ALL}>{t("allTypes")}</SelectItem>
                 {(types.data ?? []).map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name_ru}
@@ -328,7 +335,7 @@ export default function TicketsPage() {
 
         {!terminals.isError && (
           <div className="space-y-1">
-            <FilterLabel>Филиал</FilterLabel>
+            <FilterLabel>{t("filterBranch")}</FilterLabel>
             <Select
               value={terminalId || ALL}
               onValueChange={(v) => setTerminalId(v === ALL ? null : v)}
@@ -337,7 +344,7 @@ export default function TicketsPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL}>Все филиалы</SelectItem>
+                <SelectItem value={ALL}>{t("allBranches")}</SelectItem>
                 {(terminals.data ?? []).map((t) => (
                   <SelectItem key={t.id} value={t.id}>
                     {t.name}
@@ -349,7 +356,7 @@ export default function TicketsPage() {
         )}
 
         <div className="space-y-1">
-          <FilterLabel>Приоритет</FilterLabel>
+          <FilterLabel>{t("filterPriority")}</FilterLabel>
           <Select
             value={priorityOn ? priority : ALL}
             onValueChange={(v) => {
@@ -366,9 +373,9 @@ export default function TicketsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Любой</SelectItem>
-              <SelectItem value="urgent">Срочные</SelectItem>
-              <SelectItem value="normal">Обычные</SelectItem>
+              <SelectItem value={ALL}>{t("priorityAny")}</SelectItem>
+              <SelectItem value="urgent">{t("priorityUrgent")}</SelectItem>
+              <SelectItem value="normal">{t("priorityNormal")}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -380,7 +387,7 @@ export default function TicketsPage() {
             onCheckedChange={(v) => setStatuses(v ? ["done"] : null)}
           />
           <Label htmlFor="tickets-awaiting" className="text-[13px] font-normal">
-            Ждут приёмки
+            {t("awaiting")}
           </Label>
         </div>
 
@@ -391,7 +398,7 @@ export default function TicketsPage() {
             className="ml-auto h-8 text-[12px] text-muted-foreground"
             onClick={resetFilters}
           >
-            Сбросить фильтры
+            {t("resetFilters")}
           </Button>
         )}
       </div>

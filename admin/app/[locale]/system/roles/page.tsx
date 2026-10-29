@@ -1,6 +1,6 @@
 "use client";
 import { DataTable } from "./data-table";
-import { rolesColumns } from "./columns";
+import { useRolesColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import RolePermissions from "./role-permissions";
@@ -8,6 +8,7 @@ import RolesFormSheet from "@admin/components/forms/roles/sheet";
 import CanAccess from "@admin/components/can-access";
 
 export default function RolesListPage() {
+  const columns = useRolesColumns();
   return (
     <div className="flex space-x-5">
       <div className="w-6/12">
@@ -24,7 +25,7 @@ export default function RolesListPage() {
           </div>
         </div>
         <div className="py-10">
-          <DataTable columns={rolesColumns} />
+          <DataTable columns={columns} />
         </div>
       </div>
       <div className="w-6/12">

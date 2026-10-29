@@ -9,6 +9,8 @@
 // из lib/format-currency.ts для денег заявок не годится: он округляет до целых и
 // молча срезает тийины.
 
+import { ruT, type TicketsLibT } from "./tickets-i18n";
+
 const DECIMAL_RE = /^\d+(\.\d{1,2})?$/;
 const HUNDRED = BigInt(100);
 const ZERO = BigInt(0);
@@ -43,8 +45,8 @@ export function formatMinor(minor: bigint): string {
 
 // Нечисловое значение показываем как пришло, а не «NaN сум»: человек должен
 // увидеть, что с суммой что-то не так.
-export function formatAmount(raw: string | null | undefined): string {
+export function formatAmount(raw: string | null | undefined, t: TicketsLibT = ruT): string {
   if (raw === null || raw === undefined) return "—";
   const m = toMinor(raw);
-  return m === null ? raw : `${formatMinor(m)} сум`;
+  return m === null ? raw : t("money.amount", { amount: formatMinor(m) });
 }

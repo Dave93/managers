@@ -41,6 +41,7 @@ import dayjs from "dayjs";
 
 import { apiClient } from "@admin/utils/eden";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Stoplist } from "@backend/modules/stoplist/dto/list.dto";
 import { useStoplistFilterStore } from "./filters_store";
 
@@ -84,6 +85,7 @@ const getCommonPinningStyles = (column: Column<any>): CSSProperties => {
 };
 
 export function DataTable<TData, TValue>() {
+  const t = useTranslations("invoicesUi");
   const date = useStoplistFilterStore((state) => state.date);
   const storeId = useStoplistFilterStore((state) => state.storeId);
   const productType = useStoplistFilterStore((state) => state.productType);
@@ -177,24 +179,24 @@ export function DataTable<TData, TValue>() {
     let cols: ColumnDef<Stoplist, TValue>[] = [
       {
         accessorKey: "name",
-        header: "Название",
+        header: t("columns.name"),
         enablePinning: true,
         size: 150,
       },
       {
         accessorKey: "supplierProductArticle",
-        header: "Артикул",
+        header: t("columns.article"),
       },
       {
         accessorKey: "unit",
-        header: "Единица измерения",
+        header: t("columns.unit"),
         enablePinning: true,
         size: 110,
       },
       // @ts-ignore
       columnHelper.group({
         id: "group",
-        header: () => <span style={{ color: "red" }}>Всего</span>,
+        header: () => <span style={{ color: "red" }}>{t("columns.total")}</span>,
         // @ts-ignore
         columns: [
           // @ts-ignore
@@ -241,7 +243,7 @@ export function DataTable<TData, TValue>() {
       }
     }
     return cols;
-  }, [date]);
+  }, [date, t]);
 
   const table = useReactTable({
     data: data?.data ?? defaultData,
@@ -292,7 +294,7 @@ export function DataTable<TData, TValue>() {
     <div className="flex items-center gap-2">
       <input
         type="text"
-        placeholder="Поиск по названию..."
+        placeholder={t("searchByName")}
         value={globalFilter}
         onChange={(e) => setGlobalFilter(e.target.value)}
         className="h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -302,7 +304,7 @@ export function DataTable<TData, TValue>() {
         onClick={() => setShowArticle((v) => !v)}
         className="h-9 shrink-0 rounded-md border border-input bg-background px-3 text-sm hover:bg-accent"
       >
-        {showArticle ? "Скрыть артикул" : "Артикул"}
+        {showArticle ? t("hideArticle") : t("columns.article")}
       </button>
     </div>
   );
@@ -319,12 +321,12 @@ export function DataTable<TData, TValue>() {
             secondary: r.supplierProductArticle ?? "",
             fields: [
               {
-                label: "Всего",
+                label: t("columns.total"),
                 value: (() => {
-                  const t = Object.keys(r)
+                  const total = Object.keys(r)
                     .filter((k: string) => DATE_KEY_RE.test(k))
                     .reduce((s: number, k: string) => s + Number((r as any)[k] || 0), 0);
-                  return t ? `${formatQty(t)} ${r.unit ?? ""}`.trim() : "—";
+                  return total ? `${formatQty(total)} ${r.unit ?? ""}`.trim() : "—";
                 })(),
               },
             ],

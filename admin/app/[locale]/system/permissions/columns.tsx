@@ -1,5 +1,7 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Edit2Icon } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
 
@@ -9,12 +11,13 @@ import PermissionsFormSheet from "@admin/components/forms/permissions/sheet";
 import { permissions } from "@backend/../drizzle/schema";
 import { InferSelectModel } from "drizzle-orm";
 
-export const permissionsColumns: ColumnDef<
-  typeof permissions.$inferSelect
->[] = [
+export function usePermissionsColumns(): ColumnDef<typeof permissions.$inferSelect>[] {
+  const t = useTranslations("systemPages.columns");
+  return useMemo<ColumnDef<typeof permissions.$inferSelect>[]>(
+    () => [
     {
       accessorKey: "active",
-      header: "Активен",
+      header: t("active"),
       cell: ({ row }) => {
         const record = row.original;
 
@@ -27,11 +30,11 @@ export const permissionsColumns: ColumnDef<
     },
     {
       accessorKey: "slug",
-      header: "Код",
+      header: t("code"),
     },
     {
       accessorKey: "description",
-      header: "Описание",
+      header: t("description"),
     },
     {
       id: "actions",
@@ -50,4 +53,7 @@ export const permissionsColumns: ColumnDef<
         );
       },
     },
-  ];
+      ],
+    [t]
+  );
+}

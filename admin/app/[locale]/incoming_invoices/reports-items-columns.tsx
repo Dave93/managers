@@ -8,10 +8,13 @@ import { Check } from "lucide-react";
 import { ReportsItemsWithRelation } from "@backend/modules/reports_items/dto/list.dto";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 
 const editableSources = ["cash", "uzcard", "humo", "other_expenses"];
 const editableStatusCode = ["checking", "confirmed", "rejected"];
-export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
+export const useReportsItemsColumns = (): ColumnDef<ReportsItemsWithRelation>[] => {
+  const t = useTranslations("invoicesUi.reportItems");
+  return [
   // {
   //   accessorKey: "group_id",
   //   header: "Группа",
@@ -28,19 +31,19 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
   // },
   {
     accessorKey: "label",
-    header: "Заголовок",
+    header: t("title"),
   },
   {
     accessorKey: "type",
-    header: "Тип",
+    header: t("type"),
     cell: ({ row }) => {
       const record = row.original;
       let value = "";
 
       if (record.type === "income") {
-        value = "Доход";
+        value = t("income");
       } else if (record.type === "outcome") {
-        value = "Расход";
+        value = t("outcome");
       }
 
       return <span>{value}</span>;
@@ -48,7 +51,7 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
   },
   {
     accessorKey: "amount",
-    header: "Сумма",
+    header: t("amount"),
     cell: function Cell({ row }) {
       const queryClient = useQueryClient();
       const record = row.original;
@@ -123,3 +126,4 @@ export const reportsItemsColumns: ColumnDef<ReportsItemsWithRelation>[] = [
     },
   },
 ];
+};

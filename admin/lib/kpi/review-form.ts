@@ -2,6 +2,7 @@
 // Правила повторяют backend/src/modules/kpi (rules.ts: scorePct, noteRequired, noDataNoteRequired, commentOk, diffScores).
 import type { KpiItemInput, ReviewFormItem } from "@admin/lib/kpi-api";
 import { roundTo } from "./format";
+import { ruT, type KpiT } from "./i18n";
 
 export const SCORE_BUTTONS = [0, 25, 50, 75, 100] as const;
 
@@ -132,17 +133,6 @@ export function reviewIssues(
   return out;
 }
 
-export function issueText(i: FormIssue, commentMin: number): string {
-  switch (i.code) {
-    case "bad_score_text":
-      return "Целое от 0 до 100";
-    case "score_required":
-      return "Поставьте балл: пункт обязателен";
-    case "note_required":
-      return "Балл отличается от предложения или не поставлен — напишите заметку";
-    case "comment_required":
-      return `Комментарий к изменению — не меньше ${commentMin} символов без пробелов`;
-    case "no_changes":
-      return "Баллы не изменились — сохранять нечего";
-  }
+export function issueText(i: FormIssue, commentMin: number, t: KpiT = ruT): string {
+  return t(`lib.reviewIssue.${i.code}`, { min: commentMin });
 }

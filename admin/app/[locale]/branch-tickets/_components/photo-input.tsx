@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Camera, ImagePlus, Loader2, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { Button } from "@components/ui/buttonOrigin";
@@ -138,6 +139,8 @@ export function PhotoInput({
   // Только для проверки отрисовки: сообщения об отклонённых файлах.
   initialNotes?: string[];
 }) {
+  const t = useTranslations("branchTickets.photos");
+  const tl = useTranslations("ticketsLib");
   const [notes, setNotes] = useState<string[]>(initialNotes ?? []);
   // Занятые места считаются синхронно: пока файлы жмутся, props ещё старые.
   // Занятые места = фото в списке + то, что сейчас жмётся. Счёт «сейчас
@@ -167,7 +170,7 @@ export function PhotoInput({
       // выбранного окажется негодной, место освободится, поэтому текст не
       // утверждает, что лимит исчерпан, и говорит, что делать.
       problems.push(
-        `Выбрано файлов: ${files.length}, свободных мест было ${free} (всего ${MAX_PHOTOS}). Последние ${files.length - take.length} не взяты: выберите их ещё раз, если место освободится`
+        t("tooMany", { count: files.length, free, max: MAX_PHOTOS, rest: files.length - take.length })
       );
     }
     if (take.length === 0) {
@@ -178,9 +181,9 @@ export function PhotoInput({
     for (const f of take) {
       let out;
       try {
-        out = await preparePhoto(f, browserIO);
+        out = await preparePhoto(f, browserIO, tl);
       } catch {
-        out = { ok: false as const, error: `${f.name || "файл"}: не удалось обработать` };
+        out = { ok: false as const, error: t("processFailed", { name: f.name || t("fileFallback") }) };
       }
       if (out.ok) {
         // Каждая готовая фотография попадает в список сразу, не ждём остальные.
@@ -217,7 +220,7 @@ export function PhotoInput({
           disabled={disabled || full}
           onClick={() => cameraRef.current?.click()}
         >
-          <Camera className="size-5" /> Снять
+          <Camera className="size-5" /> {t("camera")}
         </Button>
         <Button
           type="button"
@@ -226,13 +229,13 @@ export function PhotoInput({
           disabled={disabled || full}
           onClick={() => galleryRef.current?.click()}
         >
-          <ImagePlus className="size-5" /> Выбрать
+          <ImagePlus className="size-5" /> {t("gallery")}
         </Button>
         <p className="text-base tabular-nums text-muted-foreground" aria-live="polite">
-          {photos.length} из {MAX_PHOTOS}
+          {t("counter", { count: photos.length, max: MAX_PHOTOS })}
           {processing > 0 && (
             <span className="ml-2 inline-flex items-center gap-1 text-sm">
-              <Loader2 className="size-4 animate-spin" aria-hidden /> обрабатываем {processing}
+              <Loader2 className="size-4 animate-spin" aria-hidden /> {t("processing", { count: processing })}
             </span>
           )}
         </p>
@@ -254,10 +257,10 @@ export function PhotoInput({
             <li key={p.id} className="relative">
               {/* blob: адрес нельзя отдать next/image. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt={`Фото ${i + 1}`} className={cn("size-28 rounded-lg border object-cover")} />
+              <img src={p.url} alt={t("photoAlt", { n: i + 1 })} className={cn("size-28 rounded-lg border object-cover")} />
               <button
                 type="button"
-                aria-label={`Убрать фото ${i + 1}`}
+                aria-label={t("removeAria", { n: i + 1 })}
                 disabled={disabled}
                 onClick={() => onRemove(p.id)}
                 className="absolute -right-2 -top-2 flex size-11 items-center justify-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:opacity-60"

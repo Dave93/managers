@@ -12,6 +12,7 @@ import { Badge } from "@admin/components/ui/badge";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Loader2, CheckCircle } from "lucide-react";
 import { cn } from "@admin/lib/utils";
 
@@ -22,34 +23,30 @@ interface StatusDropdownProps {
     size?: "sm" | "default" | "lg";
 }
 
+// Подписи — hangingOrders.processingStatus.<value>.
 const statusOptions = [
 {
     value: "pending",
-    label: "В ожидании",
     variant: "secondary" as const,
     color: "bg-gray-100 text-gray-800 border-gray-200"
 },
     { 
         value: "in_progress", 
-        label: "В работе", 
         variant: "default" as const,
         color: "bg-blue-100 text-blue-800 border-blue-200"
     },
     { 
         value: "truth", 
-        label: "Правда", 
         variant: "default" as const,
         color: "bg-green-100 text-green-800 border-green-200"
     },
     { 
         value: "lie", 
-        label: "Ложь", 
         variant: "destructive" as const,
         color: "bg-red-100 text-red-800 border-red-200"
     },
     { 
         value: "no_info", 
-        label: "Нет информации", 
         variant: "default" as const,
         color: "bg-gray-100 text-gray-800 border-gray-200"
     },
@@ -70,6 +67,7 @@ export function StatusDropdown({
     className,
     size = "sm",
 }: StatusDropdownProps) {
+    const t = useTranslations("hangingOrders");
     const [isOpen, setIsOpen] = useState(false);
     const queryClient = useQueryClient();
 
@@ -82,15 +80,15 @@ export function StatusDropdown({
         },
         onSuccess: (data, newStatus) => {
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
-            const statusLabel = getStatusOption(newStatus).label;
-            toast.success(`Статус изменен на "${statusLabel}"`, {
+            const statusLabel = t(`processingStatus.${getStatusOption(newStatus).value}`);
+            toast.success(t("statusDropdown.changed", { status: statusLabel }), {
                 duration: 3000,
                 icon: <CheckCircle className="h-4 w-4" />,
             });
         },
         onError: (error) => {
             console.error("Error updating status:", error);
-            toast.error("Ошибка при изменении статуса");
+            toast.error(t("statusDropdown.changeError"));
         },
     });
 
@@ -123,7 +121,7 @@ export function StatusDropdown({
                         {isSaving ? (
                             <div className="flex items-center gap-2 px-2 py-1 rounded-md bg-muted">
                                 <Loader2 className="h-3 w-3 animate-spin" />
-                                <span className="text-xs">Сохранение...</span>
+                                <span className="text-xs">{t("saving")}</span>
                             </div>
                         ) : (
                             <Badge 
@@ -135,7 +133,7 @@ export function StatusDropdown({
                                     size === "lg" && "text-base px-4 py-2"
                                 )}
                             >
-                                {currentStatusOption.label}
+                                {t(`processingStatus.${currentStatusOption.value}`)}
                             </Badge>
                         )}
                     </div>
@@ -159,7 +157,7 @@ export function StatusDropdown({
                                         option.color
                                     )}
                                 />
-                                <span>{option.label}</span>
+                                <span>{t(`processingStatus.${option.value}`)}</span>
                                 {option.value === currentStatus && (
                                     <CheckCircle className="h-3 w-3 ml-auto text-green-600" />
                                 )}

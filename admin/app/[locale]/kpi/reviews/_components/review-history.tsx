@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { kpiApi, type ReviewEvent } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry, type KpiApiError } from "@admin/lib/kpi/errors";
 import { formatPct, formatTashkent } from "@admin/lib/kpi/format";
@@ -8,6 +9,9 @@ import { eventActorLabel, eventKindLabel } from "@admin/lib/kpi/status";
 import { qk } from "../../_components/use-kpi";
 
 export function ReviewHistory({ reviewId }: { reviewId: string }) {
+  const t = useTranslations("kpiScreens.reviews.history");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const events = useQuery<ReviewEvent[], KpiApiError>({
     queryKey: qk.events(reviewId),
     queryFn: () => kpiApi.reviews.events(reviewId),
@@ -22,21 +26,21 @@ export function ReviewHistory({ reviewId }: { reviewId: string }) {
   if (events.error) {
     return (
       <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-        {kpiErrorText(events.error)}
+        {kpiErrorText(events.error, tk)}
       </p>
     );
   }
-  if (events.isPending) return <p className="text-sm text-muted-foreground">Загрузка…</p>;
-  if (list.length === 0) return <p className="text-sm text-muted-foreground">История пуста.</p>;
+  if (events.isPending) return <p className="text-sm text-muted-foreground">{tc("loading")}</p>;
+  if (list.length === 0) return <p className="text-sm text-muted-foreground">{t("empty")}</p>;
 
   return (
     <ul className="space-y-3">
       {list.map((e) => (
         <li key={e.id} className="space-y-1 rounded-md border p-3 text-sm">
           <div className="flex flex-wrap items-baseline gap-x-2">
-            <span className="font-medium">{eventKindLabel(e.kind)}</span>
+            <span className="font-medium">{eventKindLabel(e.kind, tk)}</span>
             <span className="text-xs text-muted-foreground">
-              {formatTashkent(e.created_at)} · {eventActorLabel(e)}
+              {formatTashkent(e.created_at)} · {eventActorLabel(e, tk)}
             </span>
           </div>
           {e.old_score_pct !== e.new_score_pct && (

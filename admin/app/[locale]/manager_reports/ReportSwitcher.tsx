@@ -1,21 +1,23 @@
 "use client";
 
 import React from "react";
+import { useTranslations } from "next-intl";
 import { Link, usePathname } from "@admin/i18n/routing";
 
-const REPORTS: { href: string; title: string }[] = [
-  { href: "/outgoing_invoices", title: "Заказы" },
-  { href: "/incoming_invoices", title: "Прих. накл. (Таблица)" },
-  { href: "/incoming_with_items", title: "Прих. накл. (Детально)" },
-  { href: "/refund_invoices", title: "Возврат товаров" },
-  { href: "/internal_transfer", title: "Внутр. перемещение (Приход)" },
-  { href: "/expenses_transfer", title: "Внутр. перемещение (Расход)" },
-  { href: "/writeoff_items", title: "Акт Списания" },
-  { href: "/report_olap", title: "Акт Реализации" },
+const REPORTS: { href: string; titleKey: string }[] = [
+  { href: "/outgoing_invoices", titleKey: "orders" },
+  { href: "/incoming_invoices", titleKey: "incomingTable" },
+  { href: "/incoming_with_items", titleKey: "incomingDetail" },
+  { href: "/refund_invoices", titleKey: "refund" },
+  { href: "/internal_transfer", titleKey: "internalIn" },
+  { href: "/expenses_transfer", titleKey: "internalOut" },
+  { href: "/writeoff_items", titleKey: "writeoff" },
+  { href: "/report_olap", titleKey: "olap" },
 ];
 
 export function ReportSwitcher() {
   const pathname = usePathname();
+  const t = useTranslations("reportsUi.reportNames.short");
   return (
     <div className="-mx-2 mb-3 flex gap-1 overflow-x-auto px-2 py-1">
       {REPORTS.map((r) => {
@@ -29,7 +31,7 @@ export function ReportSwitcher() {
                   : "border-slate-300 bg-white text-slate-700 hover:bg-accent dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
               }`}
             >
-              {r.title}
+              {t(r.titleKey)}
             </span>
           </Link>
         );

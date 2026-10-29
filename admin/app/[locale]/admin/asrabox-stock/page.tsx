@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from "@admin/components/ui/select";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 type Composition = {
   composition_id: string;
@@ -24,6 +25,7 @@ type Composition = {
 };
 
 function AsraboxStockContent() {
+  const t = useTranslations("asraboxStock");
   const queryClient = useQueryClient();
   const [terminalId, setTerminalId] = useState<string>("");
   const [drafts, setDrafts] = useState<Record<string, number>>({});
@@ -59,7 +61,7 @@ function AsraboxStockContent() {
         query: { terminal_id: terminalId },
       });
       if (status !== 200) {
-        const detail = (data as any)?.error || "Ошибка загрузки";
+        const detail = (data as any)?.error || t("errors.load");
         throw new Error(detail);
       }
       return (data as Composition[]) ?? [];
@@ -89,7 +91,7 @@ function AsraboxStockContent() {
         items,
       });
       if (status !== 200) {
-        throw new Error((data as any)?.error || "Ошибка сохранения");
+        throw new Error((data as any)?.error || t("errors.save"));
       }
       return data;
     },
@@ -97,9 +99,9 @@ function AsraboxStockContent() {
       const updated = data?.updated?.length ?? 0;
       const errors = data?.errors?.length ?? 0;
       if (errors > 0) {
-        toast.warning(`Сохранено ${updated}, ошибок ${errors}`);
+        toast.warning(t("toast.savedWithErrors", { updated, errors }));
       } else {
-        toast.success(`Сохранено: ${updated}`);
+        toast.success(t("toast.saved", { updated }));
       }
       queryClient.invalidateQueries({
         queryKey: ["asrabox_stock_compositions", terminalId],
@@ -120,14 +122,14 @@ function AsraboxStockContent() {
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight">Asrabox / Сток</h2>
+        <h2 className="text-3xl font-bold tracking-tight">{t("title")}</h2>
       </div>
 
       <div className="flex items-center gap-3">
-        <span className="text-sm text-muted-foreground">Филиал:</span>
+        <span className="text-sm text-muted-foreground">{t("terminalLabel")}</span>
         <Select value={terminalId} onValueChange={setTerminalId}>
           <SelectTrigger className="w-[320px]">
-            <SelectValue placeholder="Выберите филиал" />
+            <SelectValue placeholder={t("selectTerminal")} />
           </SelectTrigger>
           <SelectContent>
             {terminals.map((t: any) => (
@@ -141,18 +143,17 @@ function AsraboxStockContent() {
 
       {!terminalId ? (
         <div className="text-sm text-muted-foreground">
-          Выберите филиал, чтобы увидеть товары asrabox.
+          {t("selectTerminalHint")}
         </div>
       ) : compositionsQuery.isLoading ? (
-        <div className="text-sm text-muted-foreground">Загрузка…</div>
+        <div className="text-sm text-muted-foreground">{t("loading")}</div>
       ) : compositionsQuery.isError ? (
         <div className="text-sm text-red-600">
-          {(compositionsQuery.error as Error)?.message ?? "Ошибка"}
+          {(compositionsQuery.error as Error)?.message ?? t("errors.generic")}
         </div>
       ) : compositions.length === 0 ? (
         <div className="text-sm text-muted-foreground">
-          Нет товаров asrabox. Запустите{" "}
-          <code>php artisan asrabox_compositions:sync</code> на стороне laravel.
+          {t.rich("noItems", { code: (chunks) => <code>{chunks}</code> })}
         </div>
       ) : (
         <>
@@ -160,11 +161,11 @@ function AsraboxStockContent() {
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  <th className="text-left p-2">Наименование</th>
-                  <th className="text-right p-2">Цена, сум</th>
-                  <th className="text-right p-2">Сейчас</th>
-                  <th className="text-right p-2">Последнее</th>
-                  <th className="text-right p-2 w-32">Поставить</th>
+                  <th className="text-left p-2">{t("columns.name")}</th>
+                  <th className="text-right p-2">{t("columns.price")}</th>
+                  <th className="text-right p-2">{t("columns.current")}</th>
+                  <th className="text-right p-2">{t("columns.last")}</th>
+                  <th className="text-right p-2 w-32">{t("columns.set")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -204,7 +205,7 @@ function AsraboxStockContent() {
               onClick={() => saveMutation.mutate()}
               disabled={!hasChanges || saveMutation.isPending}
             >
-              {saveMutation.isPending ? "Сохранение…" : "Сохранить"}
+              {saveMutation.isPending ? t("saving") : t("save")}
             </Button>
           </div>
         </>

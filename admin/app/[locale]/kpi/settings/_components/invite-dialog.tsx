@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
 import { toast } from "sonner";
 import { Button } from "@admin/components/ui/button";
@@ -58,6 +59,7 @@ function InviteBody({
   onClose: () => void;
   onPending: (p: boolean) => void;
 }) {
+  const t = useTranslations("kpi");
   const qc = useQueryClient();
   const [invite, setInvite] = useState<KpiInvite | null>(null);
   // Привязка, которая уже была при открытии окна или при создании ссылки. Окно уже привязанного сотрудника
@@ -74,7 +76,7 @@ function InviteBody({
       setSeenKey(bindingKey(binding));
     },
     onSuccess: (r) => setInvite(r),
-    onError: (e) => toast.error(kpiErrorText(e)),
+    onError: (e) => toast.error(kpiErrorText(e, t)),
     onSettled: () => onPending(false),
   });
   const busy = create.isPending;
@@ -83,26 +85,26 @@ function InviteBody({
     if (!invite) return;
     try {
       await navigator.clipboard.writeText(invite.link);
-      toast.success("Ссылка скопирована");
+      toast.success(t("settings.invite.copied"));
     } catch {
-      toast.error("Не удалось скопировать: выделите ссылку и скопируйте вручную");
+      toast.error(t("settings.invite.copyFailed"));
     }
   };
 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Ссылка-приглашение</DialogTitle>
+        <DialogTitle>{t("settings.invite.title")}</DialogTitle>
         <DialogDescription>{name}</DialogDescription>
       </DialogHeader>
 
       {bound ? (
         <div role="status" className="space-y-1 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-800 dark:border-green-900 dark:bg-green-950 dark:text-green-200">
-          <div className="font-medium">Telegram подключён</div>
+          <div className="font-medium">{t("settings.invite.connected")}</div>
           <div>
-            {bindingLabel(bound)}, с {formatTashkent(bound.created_at)}
+            {t("settings.invite.connectedSince", { label: bindingLabel(bound, t), date: formatTashkent(bound.created_at) })}
           </div>
-          {"employee_id" in target && <div>Сотрудник откроет «Мой KPI» кнопкой меню бота</div>}
+          {"employee_id" in target && <div>{t("settings.invite.employeeWillOpen")}</div>}
         </div>
       ) : invite ? (
         <div className="space-y-3">
@@ -110,19 +112,19 @@ function InviteBody({
             <QRCodeSVG value={invite.link} size={200} marginSize={4} level="M" />
           </div>
           <div className="flex gap-2">
-            <Input readOnly aria-label="Ссылка-приглашение" className="h-11 min-w-0 flex-1" value={invite.link} onFocus={(e) => e.currentTarget.select()} />
+            <Input readOnly aria-label={t("settings.invite.linkAria")} className="h-11 min-w-0 flex-1" value={invite.link} onFocus={(e) => e.currentTarget.select()} />
             <Button type="button" variant="outline" className="h-11 shrink-0" onClick={copy}>
-              Скопировать
+              {t("settings.invite.copy")}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground">{inviteHint(invite.expires_at)}</p>
+          <p className="text-sm text-muted-foreground">{inviteHint(invite.expires_at, t)}</p>
           {"employee_id" in target && (
-            <p className="text-xs text-muted-foreground">После привязки сотрудник откроет «Мой KPI» кнопкой меню бота</p>
+            <p className="text-xs text-muted-foreground">{t("settings.invite.afterBind")}</p>
           )}
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Ссылка создаётся по кнопке. Новая ссылка отменяет прежнюю, поэтому не создавайте её без нужды, если прежняя уже отправлена.
+          {t("settings.invite.createHint")}
         </p>
       )}
 
@@ -130,12 +132,12 @@ function InviteBody({
       <DialogFooter className="gap-2 sm:flex-wrap sm:gap-2">
         {invite && !bound && (
           <Button type="button" variant="outline" className="h-11" onClick={() => qc.invalidateQueries({ queryKey: qk.tgBindingsAll })}>
-            Обновить статус
+            {t("settings.invite.refresh")}
           </Button>
         )}
         {/* После привязки главное действие — «Закрыть»; новая ссылка остаётся, но второстепенной кнопкой. */}
         <Button type="button" variant={bound ? "default" : "outline"} className="h-11" disabled={busy} onClick={onClose}>
-          Закрыть
+          {t("settings.invite.close")}
         </Button>
         <Button
           type="button"
@@ -144,7 +146,7 @@ function InviteBody({
           disabled={busy}
           onClick={() => !busy && create.mutate()}
         >
-          {invite || bound ? "Создать новую ссылку" : "Создать ссылку"}
+          {invite || bound ? t("settings.invite.createNew") : t("settings.invite.create")}
         </Button>
       </DialogFooter>
     </>

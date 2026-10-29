@@ -11,32 +11,44 @@ import type {
   NoDataReason,
 } from "@admin/lib/kpi-api";
 import { formatPct, formatSum, roundTo } from "./format";
+import { ruT, type KpiT } from "./i18n";
 import { addMonths, calendarPeriod } from "./periods";
 import type { Tone } from "./status";
 
-const NBSP = " ";
 
-export const INDICATOR_LABEL: Record<BranchIndicatorCode, string> = {
-  sales: "Продажи",
-  food_cost: "Себестоимость",
-  service: "Сервис",
-  sanitary: "Санитария",
-  discipline: "Дисциплина",
+/** Ключи подписей показателей: `t(INDICATOR_LABEL_KEY[code])`. */
+export const INDICATOR_LABEL_KEY: Record<BranchIndicatorCode, string> = {
+  sales: "lib.indicator.sales",
+  food_cost: "lib.indicator.food_cost",
+  service: "lib.indicator.service",
+  sanitary: "lib.indicator.sanitary",
+  discipline: "lib.indicator.discipline",
 };
 
-export const NO_DATA_REASON_TEXT: Record<NoDataReason, string> = {
-  not_computed: "Нет в последнем расчёте",
-  no_iiko_link: "Филиал не связан с iiko",
-  no_plan: "Нет плана выручки",
-  no_orders: "Нет выручки за месяц",
-  no_store: "Склад филиала не связан",
-  no_reconciliation: "Нет сверки инвентаризации",
-  not_accepted: "Сверка инвентаризации не принята",
-  no_iiko_document: "В сверке нет документа iiko",
-  no_cooking_rows: "Нет замеров времени приготовления",
-  no_checks: "Не было санитарных проверок",
-  no_attendance: "Нет загрузки Workly",
+/** Русские подписи (запасной вариант без `t`). */
+export const INDICATOR_LABEL: Record<BranchIndicatorCode, string> = Object.fromEntries(
+  Object.entries(INDICATOR_LABEL_KEY).map(([k, key]) => [k, ruT(key)])
+) as Record<BranchIndicatorCode, string>;
+
+/** Ключи причин «нет данных»: `t(NO_DATA_REASON_KEY[reason])`. */
+export const NO_DATA_REASON_KEY: Record<NoDataReason, string> = {
+  not_computed: "lib.noData.not_computed",
+  no_iiko_link: "lib.noData.no_iiko_link",
+  no_plan: "lib.noData.no_plan",
+  no_orders: "lib.noData.no_orders",
+  no_store: "lib.noData.no_store",
+  no_reconciliation: "lib.noData.no_reconciliation",
+  not_accepted: "lib.noData.not_accepted",
+  no_iiko_document: "lib.noData.no_iiko_document",
+  no_cooking_rows: "lib.noData.no_cooking_rows",
+  no_checks: "lib.noData.no_checks",
+  no_attendance: "lib.noData.no_attendance",
 };
+
+/** Русские тексты причин (запасной вариант без `t`). */
+export const NO_DATA_REASON_TEXT: Record<NoDataReason, string> = Object.fromEntries(
+  Object.entries(NO_DATA_REASON_KEY).map(([k, key]) => [k, ruT(key)])
+) as Record<NoDataReason, string>;
 
 const round2 = (n: number) => roundTo(n, 2);
 const comma = (s: string) => s.replace(".", ",");
@@ -69,8 +81,8 @@ export function networkAverage(rows: readonly Pick<BranchScoreRow, "score">[]): 
   return round2(rows.reduce((a, r) => a + r.score, 0) / rows.length);
 }
 
-export function formatFact(fact: number | null): string {
-  return fact === null ? "нет данных" : formatPct(fact);
+export function formatFact(fact: number | null, t: KpiT = ruT): string {
+  return fact === null ? t("lib.branch.noDataValue") : formatPct(fact);
 }
 
 export function formatPoints(p: number | null): string {
@@ -81,15 +93,15 @@ export function formatScore(s: number | null): string {
   return s === null || !Number.isFinite(s) ? "—" : comma(roundTo(s, 2).toFixed(2));
 }
 
-export function nextTierText(n: BranchBreakdown["next_tier"]): string {
-  if (n === null) return "Высшая ступень";
-  return `До ступени ${n.tier_pct}${NBSP}% не хватает ${formatPoints(n.points_needed)} балла`;
+export function nextTierText(n: BranchBreakdown["next_tier"], t: KpiT = ruT): string {
+  if (n === null) return t("lib.branch.topTier");
+  return t("lib.branch.nextTier", { pct: n.tier_pct, points: formatPoints(n.points_needed) });
 }
 
 const int = (n: number) => comma(String(n));
 
 /** Подпись факта под карточкой показателя; нужного числа нет — пустая строка. */
-export function detailsText(code: BranchIndicatorCode, d: Record<string, number | null>): string {
+export function detailsText(code: BranchIndicatorCode, d: Record<string, number | null>, t: KpiT = ruT): string {
   const need = (...keys: string[]): number[] | null => {
     const out: number[] = [];
     for (const k of keys) {
@@ -102,47 +114,47 @@ export function detailsText(code: BranchIndicatorCode, d: Record<string, number 
   switch (code) {
     case "sales": {
       const v = need("revenue", "plan");
-      return v ? `Выручка ${formatSum(v[0])} при плане ${formatSum(v[1])}` : "";
+      return v ? t("lib.branch.details.sales", { revenue: formatSum(v[0], t), plan: formatSum(v[1], t) }) : "";
     }
     case "food_cost": {
       const v = need("overspend", "revenue");
-      return v ? `Перерасход ${formatSum(v[0])} при выручке ${formatSum(v[1])}` : "";
+      return v ? t("lib.branch.details.food_cost", { over: formatSum(v[0], t), revenue: formatSum(v[1], t) }) : "";
     }
     case "service": {
       const v = need("on_time", "orders", "hall_min", "delivery_min");
-      return v ? `В норматив ${int(v[0])} из ${int(v[1])} заказов · зал ${int(v[2])} мин, доставка ${int(v[3])} мин` : "";
+      return v ? t("lib.branch.details.service", { onTime: int(v[0]), orders: int(v[1]), hall: int(v[2]), delivery: int(v[3]) }) : "";
     }
     case "sanitary": {
       const v = need("checks");
-      return v ? `Проверок: ${int(v[0])}` : "";
+      return v ? t("lib.branch.details.sanitary", { count: int(v[0]) }) : "";
     }
     case "discipline": {
       const v = need("on_time", "days", "late", "absent");
-      return v ? `Вовремя ${int(v[0])} из ${int(v[1])} · опозданий ${int(v[2])}, прогулов ${int(v[3])}` : "";
+      return v ? t("lib.branch.details.discipline", { onTime: int(v[0]), days: int(v[1]), late: int(v[2]), absent: int(v[3]) }) : "";
     }
   }
 }
 
 // --- Предварительная версия, покрытие весом, склады, проверки после расчёта ---
 
-export const PRELIMINARY_TEXT =
-  "Предварительно: месяц ещё не закончился, продажи к месячному плану занижены. Пересчитайте после окончания месяца";
+export const PRELIMINARY_TEXT = ruT("lib.branch.preliminary");
 /** Пометка «после расчёта появились проверки, планы или импорт посещаемости». Пересчёт HR запускает вручную. */
-export const NEW_DATA_TEXT = "Есть новые данные — нажмите «Пересчитать»";
-export const NEW_DATA_TEXT_READONLY = "Есть новые данные — балл обновится после пересчёта";
-export const NEW_DATA_LINK_TEXT = "К пересчёту";
+export const NEW_DATA_TEXT = ruT("lib.branch.newData");
+export const NEW_DATA_TEXT_READONLY = ruT("lib.branch.newDataReadonly");
+export const NEW_DATA_LINK_TEXT = ruT("lib.branch.newDataLink");
 
 /** Пометка и ссылка на «Сеть», где живёт «Пересчитать»; без права пересчёта — пометка без кнопки. На самой «Сети» ссылки нет. */
 export function newDataHint(
   data: { inputs_newer: boolean; version: number | null },
-  o: { canCompute: boolean; period: string; onNetwork: boolean }
+  o: { canCompute: boolean; period: string; onNetwork: boolean },
+  t: KpiT = ruT
 ): { text: string; href: string | null } | null {
   if (!data.inputs_newer || data.version === null) return null;
-  if (!o.canCompute) return { text: NEW_DATA_TEXT_READONLY, href: null };
-  return { text: NEW_DATA_TEXT, href: o.onNetwork ? null : `/kpi/network?period=${o.period}` };
+  if (!o.canCompute) return { text: t("lib.branch.newDataReadonly"), href: null };
+  return { text: t("lib.branch.newData"), href: o.onNetwork ? null : `/kpi/network?period=${o.period}` };
 }
 
-export const COMPUTE_CONFIRM_TEXT = "Месяц ещё не закончился — результат будет предварительным. Посчитать?";
+export const COMPUTE_CONFIRM_TEXT = ruT("lib.branch.computeConfirm");
 
 /** Месяц экранов балла по умолчанию — последний завершённый: у текущего продажи к месячному плану ещё не набраны. */
 export function defaultBranchPeriod(now: Date): string {
@@ -166,35 +178,33 @@ export function weightCoverage(list: readonly WeightRow[]): number | null {
 }
 
 /** «по 85 % веса», когда балл посчитан не по всему весу; иначе пусто. */
-export function coverageText(list: readonly WeightRow[]): string {
+export function coverageText(list: readonly WeightRow[], t: KpiT = ruT): string {
   const c = weightCoverage(list);
-  return c === null || c >= 100 ? "" : `по ${comma(String(c))}${NBSP}% веса`;
+  return c === null || c >= 100 ? "" : t("lib.branch.coverage", { pct: comma(String(c)) });
 }
 
 /** Вес показателя; при неполном покрытии — и фактическая доля в балле (вес ÷ вес с данными). */
-export function weightText(weight: number, list: readonly WeightRow[]): string {
-  const base = `вес ${int(weight)}${NBSP}%`;
+export function weightText(weight: number, list: readonly WeightRow[], t: KpiT = ruT): string {
+  const base = t("lib.branch.weight", { weight: int(weight) });
   const c = weightCoverage(list);
   const ok = okWeight(list);
   if (c === null || c >= 100 || !(ok > 0)) return base;
-  return `${base} → фактически ${comma(String(roundTo((100 * weight) / ok, 1)))}${NBSP}%`;
+  return t("lib.branch.weightActual", { base, pct: comma(String(roundTo((100 * weight) / ok, 1))) });
 }
 
 /** Строка карточки показателя с данными: баллы, вес и вклад в балл филиала. */
-export function indicatorLine(r: { points: number | null; weight: number; weighted: number | null }, list: readonly WeightRow[]): string {
-  return `${formatPoints(r.points)} балла · ${weightText(r.weight, list)} · вклад ${formatScore(r.weighted)}`;
+export function indicatorLine(r: { points: number | null; weight: number; weighted: number | null }, list: readonly WeightRow[], t: KpiT = ruT): string {
+  return t("lib.branch.line", { points: formatPoints(r.points), weight: weightText(r.weight, list, t), weighted: formatScore(r.weighted) });
 }
 
-// «из 1 склада», «из 2 складов», «из 21 склада», «из 11 складов»
-const storesWord = (n: number) => (n % 10 === 1 && n % 100 !== 11 ? "склада" : "складов");
-
 /** Подробность «нет данных»: у себестоимости без принятой сверки — сколько складов принято. */
-export function noDataDetailsText(code: BranchIndicatorCode, reason: NoDataReason | null, d: Record<string, number | null>): string {
+export function noDataDetailsText(code: BranchIndicatorCode, reason: NoDataReason | null, d: Record<string, number | null>, t: KpiT = ruT): string {
   if (code !== "food_cost" || (reason !== "not_accepted" && reason !== "no_reconciliation")) return "";
   const total = d.stores_total;
   const done = d.stores_reconciled;
   if (typeof total !== "number" || typeof done !== "number" || !Number.isFinite(total) || !Number.isFinite(done)) return "";
-  return `принято ${int(done)} из ${int(total)} ${storesWord(total)}`;
+  // «из 1 склада», «из 2 складов», «из 21 склада», «из 11 складов»: форму выбирает plural по числу складов.
+  return t("lib.branch.storesDone", { done: int(done), total: int(total), n: total });
 }
 
 /** Проверка заведена после расчёта версии: в балле её ещё нет. Решает created_at — checked_at бывает задним числом. */
@@ -249,25 +259,25 @@ export function weightSum(d: readonly IndicatorDraft[]): number {
   return d.reduce((a, x) => (x.active ? a + (parseWeight(x.weight) ?? 0) : a), 0);
 }
 
-export function indicatorIssues(d: readonly IndicatorDraft[]): string[] {
+export function indicatorIssues(d: readonly IndicatorDraft[], t: KpiT = ruT): string[] {
   const out: string[] = [];
   for (const x of d) {
     const w = parseWeight(x.weight);
-    if (w === null) out.push(`${x.title_ru}: вес — целое от 0 до 100`);
-    else if (x.active && w < 1) out.push(`${x.title_ru}: у активного показателя вес не меньше 1`);
+    if (w === null) out.push(t("lib.branch.issue.weight", { title: x.title_ru }));
+    else if (x.active && w < 1) out.push(t("lib.branch.issue.activeWeight", { title: x.title_ru }));
     const floor = parseDecimal(x.floor);
     const target = parseDecimal(x.target);
     const max = parseDecimal(x.max);
     if (floor === null || target === null || max === null) {
-      out.push(`${x.title_ru}: порог, цель и максимум — числа`);
+      out.push(t("lib.branch.issue.numbers", { title: x.title_ru }));
     } else if (x.direction === "higher_better") {
-      if (!(floor < target && target < max)) out.push(`${x.title_ru}: нужно порог < цель < максимум`);
+      if (!(floor < target && target < max)) out.push(t("lib.branch.issue.orderUp", { title: x.title_ru }));
     } else if (!(floor > target && target > max)) {
-      out.push(`${x.title_ru}: нужно порог > цель > максимум`);
+      out.push(t("lib.branch.issue.orderDown", { title: x.title_ru }));
     }
   }
   const sum = weightSum(d);
-  if (sum !== 100) out.push(`Сумма весов активных показателей ${sum}${NBSP}%, нужно 100${NBSP}%`);
+  if (sum !== 100) out.push(t("lib.branch.issue.sum", { sum }));
   return out;
 }
 
@@ -300,14 +310,14 @@ function parseNorm(s: string): number | null {
   return n >= 1 && n <= 120 ? n : null;
 }
 
-export function branchSettingsIssues(s: { hall: string; delivery: string; items: readonly string[] }): string[] {
+export function branchSettingsIssues(s: { hall: string; delivery: string; items: readonly string[] }, t: KpiT = ruT): string[] {
   const out: string[] = [];
-  if (parseNorm(s.hall) === null) out.push("Норматив зала — целое от 1 до 120 минут");
-  if (parseNorm(s.delivery) === null) out.push("Норматив доставки — целое от 1 до 120 минут");
-  if (s.items.length < 1 || s.items.length > 30) out.push("Пунктов проверки — от 1 до 30");
+  if (parseNorm(s.hall) === null) out.push(t("lib.branch.settingsIssue.hall"));
+  if (parseNorm(s.delivery) === null) out.push(t("lib.branch.settingsIssue.delivery"));
+  if (s.items.length < 1 || s.items.length > 30) out.push(t("lib.branch.settingsIssue.count"));
   const titles = s.items.map((i) => i.trim());
-  if (titles.some((t) => t.length < 1)) out.push("Пункт проверки не может быть пустым");
-  if (titles.some((t) => t.length > 200)) out.push("Пункт проверки длиннее 200 символов");
-  if (new Set(titles).size !== titles.length) out.push("Пункты проверки повторяются");
+  if (titles.some((t) => t.length < 1)) out.push(t("lib.branch.settingsIssue.empty"));
+  if (titles.some((t) => t.length > 200)) out.push(t("lib.branch.settingsIssue.long"));
+  if (new Set(titles).size !== titles.length) out.push(t("lib.branch.settingsIssue.dup"));
   return out;
 }

@@ -1,6 +1,8 @@
 "use client";
 import { ColumnDef } from "@tanstack/react-table";
 import dayjs from "dayjs";
+import { useTranslations } from "next-intl";
+import { useMemo } from "react";
 import { Badge } from "@admin/components/ui/badge";
 
 type PlaygroundTicket = {
@@ -14,66 +16,72 @@ type PlaygroundTicket = {
   created_at: string;
 };
 
-export const playgroundTicketsColumns: ColumnDef<PlaygroundTicket>[] = [
-  {
-    accessorKey: "id",
-    header: "ID",
-    cell: ({ row }) => {
-      return <span className="font-mono">{row.original.id.substring(0, 8)}</span>;
-    },
-  },
-  {
-    accessorKey: "terminal_name",
-    header: "Терминал",
-  },
-  {
-    accessorKey: "order_number",
-    header: "Номер заказа",
-  },
-  {
-    accessorKey: "order_amount",
-    header: "Сумма",
-    cell: ({ row }) => {
-      return (
-        <span>
-          {Intl.NumberFormat("ru-RU").format(row.original.order_amount)} сум
-        </span>
-      );
-    },
-  },
-  {
-    accessorKey: "children_count",
-    header: "Кол-во детей",
-  },
-  {
-    accessorKey: "is_used",
-    header: "Статус",
-    cell: ({ row }) => {
-      const isUsed = row.original.is_used;
-      return (
-        <Badge variant={isUsed ? "destructive" : "default"}>
-          {isUsed ? "Использован" : "Активен"}
-        </Badge>
-      );
-    },
-  },
-  {
-    accessorKey: "created_at",
-    header: "Дата создания",
-    cell: ({ row }) => {
-      return <span>{dayjs(row.original.created_at).format("DD.MM.YYYY HH:mm")}</span>;
-    },
-  },
-  {
-    accessorKey: "used_at",
-    header: "Дата использования",
-    cell: ({ row }) => {
-      const usedAt = row.original.used_at;
-      return usedAt ? (
-        <span>{dayjs(usedAt).format("DD.MM.YYYY HH:mm")}</span>
-      ) : (
-        <span>—</span>
-      );
-    },
-  },
-];
+export const usePlaygroundTicketsColumns = (): ColumnDef<PlaygroundTicket>[] => {
+  const t = useTranslations("playgroundUi");
+  return useMemo(
+    () => [
+      {
+        accessorKey: "id",
+        header: "ID",
+        cell: ({ row }) => {
+          return <span className="font-mono">{row.original.id.substring(0, 8)}</span>;
+        },
+      },
+      {
+        accessorKey: "terminal_name",
+        header: t("columns.terminal"),
+      },
+      {
+        accessorKey: "order_number",
+        header: t("columns.orderNumber"),
+      },
+      {
+        accessorKey: "order_amount",
+        header: t("columns.amount"),
+        cell: ({ row }) => {
+          return (
+            <span>
+              {Intl.NumberFormat("ru-RU").format(row.original.order_amount)} {t("currency")}
+            </span>
+          );
+        },
+      },
+      {
+        accessorKey: "children_count",
+        header: t("columns.childrenCount"),
+      },
+      {
+        accessorKey: "is_used",
+        header: t("columns.status"),
+        cell: ({ row }) => {
+          const isUsed = row.original.is_used;
+          return (
+            <Badge variant={isUsed ? "destructive" : "default"}>
+              {isUsed ? t("status.used") : t("status.active")}
+            </Badge>
+          );
+        },
+      },
+      {
+        accessorKey: "created_at",
+        header: t("columns.createdAt"),
+        cell: ({ row }) => {
+          return <span>{dayjs(row.original.created_at).format("DD.MM.YYYY HH:mm")}</span>;
+        },
+      },
+      {
+        accessorKey: "used_at",
+        header: t("columns.usedAt"),
+        cell: ({ row }) => {
+          const usedAt = row.original.used_at;
+          return usedAt ? (
+            <span>{dayjs(usedAt).format("DD.MM.YYYY HH:mm")}</span>
+          ) : (
+            <span>—</span>
+          );
+        },
+      },
+    ],
+    [t]
+  );
+};

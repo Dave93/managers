@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleCheck, TriangleAlert, X } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { apiMessage, type ApiError } from "@admin/lib/tickets-api";
@@ -32,31 +33,36 @@ export function ActionPanel({
   onReject: () => void;
   onClear: () => void;
 }) {
+  const t = useTranslations("ticketsUi.payments.action");
   return (
     <div
       role="region"
-      aria-label="Действия над выбранными заявками"
+      aria-label={t("regionAria")}
       className="sticky top-2 z-10 space-y-2 rounded-lg border bg-card px-4 py-3 shadow-sm"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="text-[13px]">
-          <span className="font-semibold tabular-nums">Выбрано: {count}</span>
+          <span className="font-semibold tabular-nums">{t("selected", { count })}</span>
           {totalMinor !== null && (
             <span className="text-muted-foreground">
               {" "}
-              · на сумму <span className="tabular-nums">{formatMinor(totalMinor)}</span> сум
+              ·{" "}
+              {t.rich("forAmount", {
+                amount: formatMinor(totalMinor),
+                num: (chunks) => <span className="tabular-nums">{chunks}</span>,
+              })}
             </span>
           )}
         </p>
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Button size="sm" disabled={busy} onClick={onApprove}>
-            {pending === "approve" ? "Утверждаем…" : `Утвердить ${count}`}
+            {pending === "approve" ? t("approving") : t("approve", { count })}
           </Button>
           <Button size="sm" variant="outline" disabled={busy} onClick={onReject}>
-            {pending === "reject" ? "Отклоняем…" : `Отклонить ${count}`}
+            {pending === "reject" ? t("rejecting") : t("reject", { count })}
           </Button>
           <Button size="sm" variant="ghost" disabled={busy} onClick={onClear}>
-            Снять выбор
+            {t("clear")}
           </Button>
         </div>
       </div>
@@ -67,6 +73,7 @@ export function ActionPanel({
 // Отдельно от панели: сбой нужно видеть и тогда, когда выбор уже опустел
 // (обновление очереди могло убрать выбранные строки).
 export function FailureNotice({ error }: { error: unknown }) {
+  const actionError = useActionError();
   return (
     <p
       role="alert"
@@ -79,15 +86,15 @@ export function FailureNotice({ error }: { error: unknown }) {
 
 // Статус ответа различает причины: у 403 есть название права, у обрыва связи
 // нет вовсе, и тогда неизвестно, дошёл ли запрос.
-function actionError(error: unknown): string {
-  const e = error as ApiError;
-  if (e?.status === 403) {
-    return `Сервер отказал (403): для решения по оплате нужно право ${PAYMENT_RIGHTS.approve}. Попросите администратора добавить его вашей роли.`;
-  }
-  if (e?.status === undefined) {
-    return "Нет связи с сервером. Неизвестно, дошёл ли запрос: список обновлён, проверьте по нему, что осталось в очереди, прежде чем повторять.";
-  }
-  return apiMessage(e);
+function useActionError(): (error: unknown) => string {
+  const t = useTranslations("ticketsUi.payments.action");
+  const tl = useTranslations("ticketsLib");
+  return (error) => {
+    const e = error as ApiError;
+    if (e?.status === 403) return t("forbidden", { right: PAYMENT_RIGHTS.approve });
+    if (e?.status === undefined) return t("noConnection");
+    return apiMessage(e, tl);
+  };
 }
 
 // «Пропущено» это не ошибка: сервер не тронул заявку, которой уже нет в
@@ -100,7 +107,7 @@ export function ResultNotice({
   result: DecisionResult;
   onDismiss: () => void;
 }) {
-  const verb = result.kind === "approve" ? "Утверждено" : "Отклонено";
+  const t = useTranslations("ticketsUi.payments.action");
   const nothing = result.done === 0;
   const Icon = nothing ? TriangleAlert : CircleCheck;
   return (
@@ -115,12 +122,14 @@ export function ResultNotice({
       <Icon className="mt-0.5 size-4 shrink-0" />
       <div className="min-w-0 space-y-0.5">
         <p className="text-[13px] font-semibold tabular-nums">
-          {verb} {result.done}, пропущено {result.skipped}
+          {t(result.kind === "approve" ? "resultApproved" : "resultRejected", {
+            done: result.done,
+            skipped: result.skipped,
+          })}
         </p>
         {result.skipped > 0 && (
           <p className="max-w-2xl text-[12.5px] leading-snug">
-            Пропущенных заявок уже нет в очереди: например, по ним успел принять решение другой
-            сотрудник. Это не ошибка, очередь обновлена.
+            {t("skippedNote")}
           </p>
         )}
       </div>
@@ -128,7 +137,7 @@ export function ResultNotice({
         variant="ghost"
         size="sm"
         className="-my-1 ml-auto size-7 shrink-0 p-0"
-        aria-label="Скрыть сообщение"
+        aria-label={t("dismiss")}
         onClick={onDismiss}
       >
         <X className="size-4" />

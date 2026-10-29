@@ -79,7 +79,7 @@ function apiMessage(error: any): string {
   const v = error?.value ?? error;
   if (typeof v?.message === "string") return v.message;
   if (typeof error?.message === "string") return error.message;
-  return "Не удалось загрузить карту сети";
+  return "";
 }
 
 async function unwrap<T>(

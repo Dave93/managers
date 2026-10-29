@@ -5,7 +5,8 @@ import { Button } from "@admin/components/ui/buttonOrigin";
 
 import dayjs from "dayjs";
 import { Badge } from "@admin/components/ui/badge";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -19,10 +20,12 @@ import { ReportsWithRelations } from "@backend/modules/reports/dto/list.dto";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
+export const useReportsColumns = (): ColumnDef<ReportsWithRelations>[] => {
+  const t = useTranslations("adminReports");
+  return useMemo<ColumnDef<ReportsWithRelations>[]>(() => [
   {
     accessorKey: "date",
-    header: "Дата",
+    header: t("columns.date"),
     cell: ({ row }) => {
       const record = row.original;
       return <span>{dayjs(record.date).format("DD.MM.YYYY")}</span>;
@@ -30,7 +33,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "status_id",
-    header: "Статус",
+    header: t("columns.status"),
     cell: function Cell({
       getValue,
       row: { index, original },
@@ -131,7 +134,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "terminal_id",
-    header: "Терминал",
+    header: t("columns.terminal"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -140,7 +143,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "user_id",
-    header: "Пользователь",
+    header: t("columns.user"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -151,7 +154,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "total_amount",
-    header: "Сумма кассовых смен",
+    header: t("columns.totalAmount"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -162,7 +165,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "total_manager_price",
-    header: "Сумма менеджера",
+    header: t("columns.managerAmount"),
     cell: ({ row }) => {
       const record = row.original;
       const difference = record.total_manager_price - record.total_amount;
@@ -177,7 +180,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "difference",
-    header: "Разница",
+    header: t("columns.difference"),
     cell: ({ row }) => {
       const record = row.original;
       const difference = record.difference;
@@ -196,7 +199,7 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
   },
   {
     accessorKey: "arryt_income",
-    header: "Излишка Arryt",
+    header: t("columns.arrytIncome"),
     cell: ({ row }) => {
       const record = row.original;
 
@@ -219,4 +222,5 @@ export const reportsColumns: ColumnDef<ReportsWithRelations>[] = [
       );
     },
   },
-];
+  ], [t]);
+};

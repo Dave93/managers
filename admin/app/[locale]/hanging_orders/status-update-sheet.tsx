@@ -22,6 +22,7 @@ import { Label } from "@admin/components/ui/label";
 import { apiClient } from "@admin/utils/eden";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 
 interface StatusUpdateSheetProps {
@@ -31,11 +32,12 @@ interface StatusUpdateSheetProps {
     trigger: React.ReactNode;
 }
 
+// Подписи — hangingOrders.processingStatus.<value>.
 const statusOptions = [
-    { value: "pending", label: "В ожидании" },
-    { value: "in_progress", label: "В работе" },
-    { value: "resolved", label: "Решено" },
-    { value: "cancelled", label: "Отменено" },
+    { value: "pending" },
+    { value: "in_progress" },
+    { value: "resolved" },
+    { value: "cancelled" },
 ];
 
 export function StatusUpdateSheet({
@@ -44,6 +46,7 @@ export function StatusUpdateSheet({
     currentComment,
     trigger,
 }: StatusUpdateSheetProps) {
+    const t = useTranslations("hangingOrders");
     const [open, setOpen] = useState(false);
     const [status, setStatus] = useState(currentStatus || "pending");
     const [comment, setComment] = useState(currentComment || "");
@@ -59,13 +62,13 @@ export function StatusUpdateSheet({
             return data;
         },
         onSuccess: () => {
-            toast.success("Статус успешно обновлен");
+            toast.success(t("statusSheet.updated"));
             queryClient.invalidateQueries({ queryKey: ["hanging-orders"] });
             setOpen(false);
         },
         onError: (error) => {
             console.error("Error updating status:", error);
-            toast.error("Ошибка при обновлении статуса");
+            toast.error(t("statusSheet.updateError"));
         },
     });
 
@@ -90,23 +93,23 @@ export function StatusUpdateSheet({
             </SheetTrigger>
             <SheetContent>
                 <SheetHeader>
-                    <SheetTitle>Обновить статус заказа</SheetTitle>
+                    <SheetTitle>{t("statusSheet.title")}</SheetTitle>
                     <SheetDescription>
-                        Измените статус обработки и добавьте комментарий
+                        {t("statusSheet.description")}
                     </SheetDescription>
                 </SheetHeader>
                 
                 <form onSubmit={handleSubmit} className="space-y-6 mt-6">
                     <div className="space-y-2">
-                        <Label htmlFor="status">Статус обработки</Label>
+                        <Label htmlFor="status">{t("statusSheet.statusLabel")}</Label>
                         <Select value={status} onValueChange={setStatus}>
                             <SelectTrigger>
-                                <SelectValue placeholder="Выберите статус" />
+                                <SelectValue placeholder={t("statusSheet.statusPlaceholder")} />
                             </SelectTrigger>
                             <SelectContent>
                                 {statusOptions.map((option) => (
                                     <SelectItem key={option.value} value={option.value}>
-                                        {option.label}
+                                        {t(`processingStatus.${option.value}`)}
                                     </SelectItem>
                                 ))}
                             </SelectContent>
@@ -114,10 +117,10 @@ export function StatusUpdateSheet({
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="comment">Комментарий</Label>
+                        <Label htmlFor="comment">{t("statusSheet.commentLabel")}</Label>
                         <Textarea
                             id="comment"
-                            placeholder="Добавьте комментарий по обработке заказа..."
+                            placeholder={t("statusSheet.commentPlaceholder")}
                             value={comment}
                             onChange={(e) => setComment(e.target.value)}
                             rows={4}
@@ -131,7 +134,7 @@ export function StatusUpdateSheet({
                             onClick={() => setOpen(false)}
                             disabled={updateStatusMutation.isPending}
                         >
-                            Отмена
+                            {t("cancel")}
                         </Button>
                         <Button
                             type="submit"
@@ -140,7 +143,7 @@ export function StatusUpdateSheet({
                             {updateStatusMutation.isPending && (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             )}
-                            Сохранить
+                            {t("save")}
                         </Button>
                     </div>
                 </form>

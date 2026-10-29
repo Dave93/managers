@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftIcon, Edit2Icon } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
@@ -11,7 +11,7 @@ import { cn } from "@admin/lib/utils";
 import CreditCompaniesFormSheet from "@admin/components/forms/credit_companies/sheet";
 import { useCanAccess } from "@admin/components/use-can-access";
 import { getCompany } from "@admin/lib/credit-api";
-import { STATUS_LABELS, STATUS_STYLES, formatSum } from "../columns";
+import { getStatusLabel, STATUS_STYLES, useFormatSum } from "../columns";
 import PhonesTab from "./phones-tab";
 import DocumentsTab from "./documents-tab";
 import PaymentsTab from "./payments-tab";
@@ -20,6 +20,9 @@ import StatementTab from "./statement-tab";
 export default function CreditCompanyDetailPage() {
   const params = useParams();
   const locale = useLocale();
+  const t = useTranslations("systemPages.creditCompanies");
+  const tc = useTranslations("forms.common");
+  const formatSum = useFormatSum();
   const id = params.id as string;
   const queryClient = useQueryClient();
   const canEdit = useCanAccess("credit.edit");
@@ -39,14 +42,14 @@ export default function CreditCompanyDetailPage() {
     <div>
       <Link href={`/${locale}/system/credit-companies`}>
         <Button variant="ghost" size="sm" className="mb-4 -ml-2">
-          <ArrowLeftIcon className="mr-2 h-4 w-4" /> Назад к списку
+          <ArrowLeftIcon className="mr-2 h-4 w-4" /> {t("detail.back")}
         </Button>
       </Link>
 
       {isLoading ? (
-        <div className="py-10 text-center text-muted-foreground">Загрузка...</div>
+        <div className="py-10 text-center text-muted-foreground">{tc("loading")}</div>
       ) : !company ? (
-        <div className="py-10 text-center text-muted-foreground">Компания не найдена</div>
+        <div className="py-10 text-center text-muted-foreground">{t("detail.notFound")}</div>
       ) : (
         <>
           <div className="flex justify-between items-start flex-wrap gap-4">
@@ -59,20 +62,20 @@ export default function CreditCompanyDetailPage() {
                     STATUS_STYLES[company.status]
                   )}
                 >
-                  {STATUS_LABELS[company.status]}
+                  {getStatusLabel(company.status, t)}
                 </span>
                 {company.overdue && (
                   <span className="inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium whitespace-nowrap bg-red-100 text-red-700 border-red-200">
-                    Просрочка
+                    {t("overdue")}
                   </span>
                 )}
               </div>
               <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-muted-foreground">
-                <div>Долг: {formatSum(account?.posted)}</div>
-                <div>Резерв: {formatSum(account?.reserved)}</div>
-                <div>Лимит всего: {formatSum(company.limit_total)}</div>
-                <div>Лимит в день: {formatSum(company.limit_daily)}</div>
-                <div>Лимит в месяц: {formatSum(company.limit_monthly)}</div>
+                <div>{t("detail.debt", { value: formatSum(account?.posted) })}</div>
+                <div>{t("detail.reserve", { value: formatSum(account?.reserved) })}</div>
+                <div>{t("detail.limitTotal", { value: formatSum(company.limit_total) })}</div>
+                <div>{t("detail.limitDay", { value: formatSum(company.limit_daily) })}</div>
+                <div>{t("detail.limitMonth", { value: formatSum(company.limit_monthly) })}</div>
               </div>
             </div>
             {canEdit && (
@@ -81,7 +84,7 @@ export default function CreditCompanyDetailPage() {
                 onSaved={() => queryClient.invalidateQueries({ queryKey: ["credit_company", id] })}
               >
                 <Button variant="outline">
-                  <Edit2Icon className="mr-2 h-4 w-4" /> Редактировать
+                  <Edit2Icon className="mr-2 h-4 w-4" /> {tc("edit")}
                 </Button>
               </CreditCompaniesFormSheet>
             )}
@@ -89,10 +92,10 @@ export default function CreditCompanyDetailPage() {
 
           <Tabs defaultValue="phones" className="mt-8">
             <TabsList>
-              <TabsTrigger value="phones">Телефоны</TabsTrigger>
-              <TabsTrigger value="documents">Документы</TabsTrigger>
-              <TabsTrigger value="payments">Погашения</TabsTrigger>
-              <TabsTrigger value="statement">Выписка</TabsTrigger>
+              <TabsTrigger value="phones">{t("detail.tabs.phones")}</TabsTrigger>
+              <TabsTrigger value="documents">{t("detail.tabs.documents")}</TabsTrigger>
+              <TabsTrigger value="payments">{t("detail.tabs.payments")}</TabsTrigger>
+              <TabsTrigger value="statement">{t("detail.tabs.statement")}</TabsTrigger>
             </TabsList>
             <TabsContent value="phones">
               <PhonesTab companyId={id} phones={data?.phones ?? []} />

@@ -22,6 +22,7 @@ import {
 import { Button } from "@admin/components/ui/buttonOrigin";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,7 @@ interface DataTableProps<TData, TValue> {
 export function DataTable<TData, TValue>({
   columns,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("adminReports");
   const now = new Date();
   const { dateRange } = useDateRangeState();
   const { startDate, endDate } = useMemo(() => {
@@ -292,7 +294,7 @@ export function DataTable<TData, TValue>({
           <TableFooter className="font-bold uppercase">
             <TableRow className="text-black">
               <TableCell>
-                <div>Итого</div>
+                <div>{t("total")}</div>
               </TableCell>
               <TableCell colSpan={3}></TableCell>
               <TableCell>

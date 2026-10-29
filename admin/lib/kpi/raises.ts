@@ -1,6 +1,7 @@
 // Решение по квартальному повышению: когда нужен комментарий, что мешает сохранить, тело запроса.
 import type { DecideBody, RaiseRow } from "@admin/lib/kpi-api";
 import { parseAmount } from "@admin/lib/kpi/format";
+import { ruT, type KpiT } from "@admin/lib/kpi/i18n";
 import { commentOk } from "@admin/lib/kpi/review-form";
 
 export type DecisionInput = { status: "approved" | "rejected"; amount: string; comment: string };
@@ -9,12 +10,13 @@ export type DecisionIssue = "stale" | "periods_open" | "bad_amount" | "comment_r
 /** Почему нужен комментарий (правило плана 1, задача 9), либо null. */
 export function commentReason(
   row: Pick<RaiseRow, "status" | "suggested_amount">,
-  input: Pick<DecisionInput, "status" | "amount">
+  input: Pick<DecisionInput, "status" | "amount">,
+  t: KpiT = ruT
 ): string | null {
-  if (row.status === "approved" || row.status === "rejected") return "решение меняется повторно";
-  if (row.status === "insufficient") return "мало оценённых месяцев";
-  if (input.status === "rejected" && row.suggested_amount > 0) return "отказ от предложенной суммы";
-  if (input.status === "approved" && parseAmount(input.amount) !== row.suggested_amount) return "сумма отличается от предложения";
+  if (row.status === "approved" || row.status === "rejected") return t("lib.raises.reasonRepeat");
+  if (row.status === "insufficient") return t("lib.raises.reasonInsufficient");
+  if (input.status === "rejected" && row.suggested_amount > 0) return t("lib.raises.reasonDeclined");
+  if (input.status === "approved" && parseAmount(input.amount) !== row.suggested_amount) return t("lib.raises.reasonDiffers");
   return null;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
@@ -31,6 +32,9 @@ export default function ViolationsPage() {
 }
 
 function ViolationsScreen() {
+  const t = useTranslations("kpiScreens.violations");
+  const tc = useTranslations("kpiScreens.common");
+  const tk = useTranslations("kpi");
   const now = useMemo(() => new Date(), []);
   const me = useKpiMe();
   const { access } = useKpiPerms();
@@ -55,7 +59,7 @@ function ViolationsScreen() {
   });
 
   const rows = useMemo(() => list.data ?? [], [list.data]);
-  const terminals = useMemo(() => terminalOptions(rows), [rows]);
+  const terminals = useMemo(() => terminalOptions(rows, tk), [rows]);
   const visible = useMemo(() => {
     const words = search.toLowerCase().split(/\s+/).filter(Boolean);
     return rows.filter((v) => {
@@ -85,7 +89,7 @@ function ViolationsScreen() {
   return (
     <div className="space-y-4 p-4 sm:p-6">
       <div className="flex flex-wrap items-center gap-2">
-        <h1 className="mr-2 text-xl font-semibold">Нарушения</h1>
+        <h1 className="mr-2 text-xl font-semibold">{t("title")}</h1>
         <PeriodSelect
           value={period}
           onChange={(v) => {
@@ -99,7 +103,7 @@ function ViolationsScreen() {
         />
         {access.evaluate && (
           <Button asChild className="h-11 sm:ml-auto">
-            <Link href="/kpi/violations/new">Зафиксировать</Link>
+            <Link href="/kpi/violations/new">{t("record")}</Link>
           </Button>
         )}
       </div>
@@ -108,31 +112,31 @@ function ViolationsScreen() {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Поиск по имени"
-          aria-label="Поиск по имени"
+          placeholder={t("searchByName")}
+          aria-label={t("searchByName")}
           className="w-full sm:w-56"
         />
         <Select value={terminal} onValueChange={setTerminal}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Филиал">
-            <SelectValue placeholder="Филиал" />
+          <SelectTrigger className="w-full sm:w-52" aria-label={t("branch")}>
+            <SelectValue placeholder={t("branch")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>Все филиалы</SelectItem>
-            {terminals.map((t) => (
-              <SelectItem key={t.id} value={t.id}>
-                {t.name}
+            <SelectItem value={ALL}>{t("allBranches")}</SelectItem>
+            {terminals.map((x) => (
+              <SelectItem key={x.id} value={x.id}>
+                {x.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={(v) => setStatus(v as StatusFilter)}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Статус">
-            <SelectValue placeholder="Статус" />
+          <SelectTrigger className="w-full sm:w-44" aria-label={t("status")}>
+            <SelectValue placeholder={t("status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Действует</SelectItem>
-            <SelectItem value="cancelled">Отменено</SelectItem>
-            <SelectItem value={ALL}>Все</SelectItem>
+            <SelectItem value="active">{t("statusActive")}</SelectItem>
+            <SelectItem value="cancelled">{t("statusCancelled")}</SelectItem>
+            <SelectItem value={ALL}>{t("statusAll")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -142,14 +146,14 @@ function ViolationsScreen() {
 
       {list.error != null && list.data === undefined ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(list.error)}
+          {kpiErrorText(list.error, tk)}
         </p>
       ) : list.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{tc("loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-muted-foreground">За этот месяц нарушений нет.</p>
+        <p className="text-sm text-muted-foreground">{t("noViolations")}</p>
       ) : visible.length === 0 ? (
-        <p className="text-sm text-muted-foreground">По выбранным фильтрам ничего нет.</p>
+        <p className="text-sm text-muted-foreground">{t("noMatches")}</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {visible.map((v) => {
@@ -158,33 +162,33 @@ function ViolationsScreen() {
               <li key={v.id} className="space-y-2 rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm text-muted-foreground">{formatTashkent(v.occurred_at)}</span>
-                  <KpiBadge tone={st.tone}>{st.label}</KpiBadge>
-                  {v.open_dispute && <KpiBadge tone="amber">Спор</KpiBadge>}
+                  <KpiBadge tone={st.tone}>{tk(st.labelKey)}</KpiBadge>
+                  {v.open_dispute && <KpiBadge tone="amber">{t("dispute")}</KpiBadge>}
                 </div>
                 <div>
                   <div className="font-medium">{v.employee_name}</div>
-                  <div className="text-sm text-muted-foreground">{v.terminal_name ?? "Филиал без названия"}</div>
+                  <div className="text-sm text-muted-foreground">{v.terminal_name ?? t("unnamedBranch")}</div>
                 </div>
-                <div className="text-sm">{v.item_title_ru ?? "Без пункта"}</div>
+                <div className="text-sm">{v.item_title_ru ?? t("noItem")}</div>
                 <p className="whitespace-pre-wrap break-words text-sm">{v.comment}</p>
                 <PhotoThumbs photos={v.photos} size="md" />
-                <div className="text-xs text-muted-foreground">Записал: {v.recorded_by_name ?? "—"}</div>
+                <div className="text-xs text-muted-foreground">{t("recordedBy", { name: v.recorded_by_name ?? "—" })}</div>
                 {v.status === "active" && v.dispute_rejected && (
-                  <p className="text-sm text-muted-foreground">Спор отклонён. Повторно оспорить нельзя</p>
+                  <p className="text-sm text-muted-foreground">{t("disputeRejected")}</p>
                 )}
                 {v.status === "cancelled" && v.cancel_reason && (
-                  <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">Причина отмены: {v.cancel_reason}</p>
+                  <p className="whitespace-pre-wrap break-words text-sm text-muted-foreground">{t("cancelReason", { reason: v.cancel_reason })}</p>
                 )}
                 {(canCancel(v) || canDispute(v)) && (
                   <div className="flex flex-wrap gap-2 pt-1">
                     {canDispute(v) && (
                       <Button type="button" variant="outline" className="h-11" onClick={() => setDisputeId(v.id)}>
-                        Оспорить
+                        {t("disputeAction")}
                       </Button>
                     )}
                     {canCancel(v) && (
                       <Button type="button" variant="outline" className="h-11" onClick={() => setCancelId(v.id)}>
-                        Отменить
+                        {t("cancelAction")}
                       </Button>
                     )}
                   </div>

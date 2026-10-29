@@ -19,8 +19,10 @@ import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@admin/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
+import { useTranslations } from "next-intl";
 
 export const VacancyFilters = () => {
+    const t = useTranslations("hrPages.vacancy");
     const setOrganizationId = useVacancyFiltersStore((state) => state.setOrganizationId);
     const organizationId = useVacancyFiltersStore((state) => state.organizationId);
     const setPositionId = useVacancyFiltersStore((state) => state.setPositionId);
@@ -147,7 +149,7 @@ export const VacancyFilters = () => {
                                         format(date.from, "dd.MM.yyyy")
                                     )
                                 ) : (
-                                    <span>Выберите дату</span>
+                                    <span>{t("filters.selectDate")}</span>
                                 )}
                             </Button>
                         </PopoverTrigger>
@@ -167,11 +169,11 @@ export const VacancyFilters = () => {
                 <div className="w-full">
                     <Select  value={organizationId} onValueChange={handleOrganizationChange}>
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите бренд" />
+                            <SelectValue placeholder={t("filters.selectBrand")} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                <SelectItem value="clear" className="text-red-500">Очистить</SelectItem>
+                                <SelectItem value="clear" className="text-red-500">{t("filters.clear")}</SelectItem>
                                 {organizations.map((org) => (
                                     <SelectItem key={org.id} value={org.id}>
                                         {org.name}
@@ -188,11 +190,11 @@ export const VacancyFilters = () => {
                         onValueChange={handlePositionChange}
                     >
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите должность" />
+                            <SelectValue placeholder={t("filters.selectPosition")} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                <SelectItem value="clear" className="text-red-500">Очистить</SelectItem>
+                                <SelectItem value="clear" className="text-red-500">{t("filters.clear")}</SelectItem>
                                 {positions.map((pos) => (
                                     <SelectItem key={pos.id} value={pos.id}>
                                         {pos.title}
@@ -206,11 +208,11 @@ export const VacancyFilters = () => {
                 <div className="w-full">
                     <Select value={terminalId} onValueChange={handleTerminalChange}>
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите филиал" />
+                            <SelectValue placeholder={t("filters.selectTerminal")} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                <SelectItem value="clear" className="text-red-500">Очистить</SelectItem>
+                                <SelectItem value="clear" className="text-red-500">{t("filters.clear")}</SelectItem>
                                 {terminals.map((term) => (
                                     <SelectItem key={term.id} value={term.id}>
                                         {term.name}
@@ -224,11 +226,11 @@ export const VacancyFilters = () => {
                 <div className="w-full">
                     <Select value={workScheduleId} onValueChange={handleWorkScheduleChange}>
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите график работы" />
+                            <SelectValue placeholder={t("filters.selectWorkSchedule")} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                <SelectItem value="clear" className="text-red-500">Очистить</SelectItem>
+                                <SelectItem value="clear" className="text-red-500">{t("filters.clear")}</SelectItem>
                                 {workSchedules.map((ws) => (
                                     <SelectItem key={ws.id} value={ws.id}>
                                         {ws.name}
@@ -242,19 +244,19 @@ export const VacancyFilters = () => {
                 <div className="w-full">
                     <Select value={status} onValueChange={handleStatusChange}>
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите статус" />
+                            <SelectValue placeholder={t("filters.selectStatus")} />
                         </SelectTrigger>
                         <SelectContent>
                             <SelectGroup>
-                                <SelectItem value="clear" className="text-red-500">Очистить</SelectItem>
+                                <SelectItem value="clear" className="text-red-500">{t("filters.clear")}</SelectItem>
                                 {Object.values(vacancyStatusEnumV2.enumValues).map((statusValue) => (
                                     <SelectItem key={statusValue} value={statusValue}>
-                                        {statusValue === "open" && "Открытая"}
-                                        {statusValue === "in_progress" && "В процессе"}
-                                        {statusValue === "found_candidates" && "Найдены кандидаты"}
-                                        {statusValue === "interview" && "Собеседование"}
-                                        {statusValue === "closed" && "Закрыта"}
-                                        {statusValue === "cancelled" && "Отменена"}
+                                        {statusValue === "open" && t("filters.statuses.open")}
+                                        {statusValue === "in_progress" && t("filters.statuses.in_progress")}
+                                        {statusValue === "found_candidates" && t("filters.statuses.found_candidates")}
+                                        {statusValue === "interview" && t("filters.statuses.interview")}
+                                        {statusValue === "closed" && t("filters.statuses.closed")}
+                                        {statusValue === "cancelled" && t("filters.statuses.cancelled")}
                                     </SelectItem>
                                 ))}
                             </SelectGroup>

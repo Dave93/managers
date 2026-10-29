@@ -1,4 +1,6 @@
 "use client";
+import { useMemo } from "react";
+import { useTranslations } from "next-intl";
 import { ColumnDef } from "@tanstack/react-table";
 import { Cloud, Edit2Icon, Eye } from "lucide-react";
 import { Button } from "@admin/components/ui/buttonOrigin";
@@ -9,7 +11,7 @@ import { StatusUpdateSheet } from "./status-update-sheet";
 import { CommentEditor } from "./comment-editor";
 import { StatusDropdown } from "./status-dropdown";
 import { IikoActions } from "./iiko-actions";
-import { officeStatusLabel } from "./filters";
+import { officeStatusLabelT } from "./filters";
 import CanAccess from "@admin/components/can-access";
 import {
     HoverCard,
@@ -24,12 +26,13 @@ const FINAL_ORDER_STATUSES = ["Closed", "Cancelled"];
 
 // Этапы доставки в порядке прохождения. iiko отдаёт отметку времени на каждый;
 // последняя заполненная и есть место, где заказ встал.
+// Подписи этапов — hangingOrders.stages.<key>.label / .next (у последнего next нет).
 const STAGES = [
-    { key: "whenPrinted", label: "принят", next: "не приготовлен" },
-    { key: "whenCookingCompleted", label: "приготовлен", next: "курьеру не передан" },
-    { key: "whenSended", label: "у курьера", next: "не доставлен" },
-    { key: "whenDelivered", label: "доставлен", next: "не закрыт" },
-    { key: "whenClosed", label: "закрыт", next: "" },
+    { key: "whenPrinted", hasNext: true },
+    { key: "whenCookingCompleted", hasNext: true },
+    { key: "whenSended", hasNext: true },
+    { key: "whenDelivered", hasNext: true },
+    { key: "whenClosed", hasNext: false },
 ] as const;
 
 const getBrandBadgeVariant = (brand: string) => {
@@ -43,10 +46,13 @@ const getBrandBadgeVariant = (brand: string) => {
     }
 };
 
-export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[] = [
+export function useHangingOrdersColumns(): ColumnDef<typeof hangingOrders.$inferSelect>[] {
+    const t = useTranslations("hangingOrders");
+
+    return useMemo<ColumnDef<typeof hangingOrders.$inferSelect>[]>(() => [
     {
         accessorKey: "brand",
-        header: "Бренд",
+        header: t("columns.brand"),
         meta: {
             sticky: "left",
         },
@@ -61,7 +67,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "date",
-        header: "Дата",
+        header: t("columns.date"),
         cell: ({ row }) => {
             const { date, timestamp } = row.original;
             if (!date) return "";
@@ -75,7 +81,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "orderId",
-        header: "ID",
+        header: t("columns.id"),
         cell: ({ row }) => {
             const orderId = row.getValue("orderId") as string;
             if (!orderId) return "";
@@ -95,7 +101,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "conception",
-        header: "Концепция",
+        header: t("columns.conception"),
         meta: {
             sticky: "left",
         },
@@ -111,22 +117,22 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         accessorKey: "orderType",
-        header: () => <span title="Тип заказа">Тип</span>,
+        header: () => <span title={t("columns.orderTypeTitle")}>{t("columns.orderType")}</span>,
         cell: ({ row }) => {
             const orderType = row.getValue("orderType") as string;
             if (!orderType) return "";
             // "Доставка курьером" распирала колонку шире всех остальных значений.
-            const short = orderType.replace(/^Доставка курьером$/, "Курьер");
+            const short = orderType.replace(/^Доставка курьером$/, t("courierShort"));
             return <span title={orderType}>{short}</span>;
         },
     },
     {
         accessorKey: "paymentType",
-        header: () => <span title="Тип оплаты">Оплата</span>,
+        header: () => <span title={t("columns.paymentTypeTitle")}>{t("columns.paymentType")}</span>,
     },
     {
         accessorKey: "orderStatus",
-        header: () => <span title="Статус заказа">Статус</span>,
+        header: () => <span title={t("columns.orderStatusTitle")}>{t("columns.orderStatus")}</span>,
         cell: ({ row }) => {
             const orderStatus = row.getValue("orderStatus") as string;
 
@@ -136,24 +142,24 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
             if (orderStatus === "CloudClosed") {
                 const r = row.original;
                 const real = r.whenDelivered
-                    ? "Доставлена"
+                    ? t("officeStatus.delivered")
                     : r.whenSended
-                      ? "В пути"
+                      ? t("officeStatus.onWay")
                       : r.whenCookingCompleted
-                        ? "Ждет отправки"
-                        : "Новая";
+                        ? t("officeStatus.waiting")
+                        : t("officeStatus.new");
                 return (
                     <span
                         className="inline-flex items-center gap-1"
-                        title="В iikoCloud заказ помечен закрытым, но продажи в iikoServer нет: на кассе он висит. Закрыть или отменить — только на кассе."
+                        title={t("columns.cloudClosedTitle")}
                     >
                         {real}
-                        <Cloud className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-label="закрыт только в облаке" />
+                        <Cloud className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-label={t("columns.cloudClosedAria")} />
                     </span>
                 );
             }
 
-            const label = officeStatusLabel(orderStatus);
+            const label = officeStatusLabelT(t, orderStatus);
             return FINAL_ORDER_STATUSES.includes(orderStatus) ? (
                 <span className="text-muted-foreground">{label}</span>
             ) : (
@@ -163,7 +169,7 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
     },
     {
         id: "stuckAt",
-        header: () => <span title="На каком этапе доставки заказ встал">Застрял на</span>,
+        header: () => <span title={t("columns.stuckAtTitle")}>{t("columns.stuckAt")}</span>,
         cell: ({ row }) => {
             const record = row.original as Record<string, string | null>;
             const reached = STAGES.filter((s) => record[s.key]);
@@ -174,12 +180,12 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
             }
 
             const last = reached[reached.length - 1];
-            const at = dayjs(record[last.key] as string);
-            const time = at.isValid() ? at.format("HH:mm") : "";
+            const lastAt = dayjs(record[last.key] as string);
+            const time = lastAt.isValid() ? lastAt.format("HH:mm") : "";
             const chain = reached
                 .map((s) => {
-                    const t = dayjs(record[s.key] as string);
-                    return `${s.label} ${t.isValid() ? t.format("DD.MM HH:mm") : "?"}`;
+                    const at = dayjs(record[s.key] as string);
+                    return `${t(`stages.${s.key}.label`)} ${at.isValid() ? at.format("DD.MM HH:mm") : "?"}`;
                 })
                 .join(" → ");
             const done = last.key === "whenClosed";
@@ -187,17 +193,17 @@ export const hangingOrdersColumns: ColumnDef<typeof hangingOrders.$inferSelect>[
             return (
                 <span
                     className={done ? "text-muted-foreground" : "text-amber-600"}
-                    title={last.next ? `${chain}
-${last.next}` : chain}
+                    title={last.hasNext ? `${chain}
+${t(`stages.${last.key}.next`)}` : chain}
                 >
-                    {last.label} {time}
+                    {t(`stages.${last.key}.label`)} {time}
                 </span>
             );
         },
     },
     {
         accessorKey: "comments",
-        header: () => <span title="Комментарии филиала">Коммент.</span>,
+        header: () => <span title={t("columns.commentsTitle")}>{t("columns.comments")}</span>,
         cell: ({ row }) => {
             const comment = row.getValue("comments") as string;
             if (!comment) return "";
@@ -211,7 +217,7 @@ ${last.next}` : chain}
                     </HoverCardTrigger>
                     <HoverCardContent className="w-80">
                         <div className="text-sm">
-                            <p className="font-semibold mb-2">Полный комментарий:</p>
+                            <p className="font-semibold mb-2">{t("columns.fullComment")}</p>
                             <p className="whitespace-pre-wrap break-words">{comment}</p>
                         </div>
                     </HoverCardContent>
@@ -221,7 +227,7 @@ ${last.next}` : chain}
     },
     {
         accessorKey: "amount",
-        header: "Сумма",
+        header: t("columns.amount"),
         cell: ({ row }) => {
             const amount = row.getValue("amount") as string;
             if (!amount) return "";
@@ -232,20 +238,20 @@ ${last.next}` : chain}
                 maximumFractionDigits: 2
             }).replace(/,/g, ' ');
             
-            return `${formattedAmount} сум`;
+            return t("columns.amountValue", { amount: formattedAmount });
         },
     },
     {
         accessorKey: "phoneNumber",
-        header: "Телефон",
+        header: t("columns.phone"),
     },
     {
         accessorKey: "receiptNumber",
-        header: () => <span title="Номер чека">Чек</span>,
+        header: () => <span title={t("columns.receiptTitle")}>{t("columns.receipt")}</span>,
     },
     {
         accessorKey: "problem",
-        header: "Проблема",
+        header: t("columns.problem"),
         cell: ({ row }) => {
             const problem = row.getValue("problem") as string;
             if (!problem) return "";
@@ -259,7 +265,7 @@ ${last.next}` : chain}
                     </HoverCardTrigger>
                     <HoverCardContent className="w-80">
                         <div className="text-sm">
-                            <p className="font-semibold mb-2">Полная проблема:</p>
+                            <p className="font-semibold mb-2">{t("columns.fullProblem")}</p>
                             <p className="whitespace-pre-wrap break-words">{problem}</p>
                         </div>
                     </HoverCardContent>
@@ -269,7 +275,7 @@ ${last.next}` : chain}
     },
     {
         accessorKey: "status",
-        header: () => <span title="Статус обработки">Обработка</span>,
+        header: () => <span title={t("columns.processingTitle")}>{t("columns.processing")}</span>,
         cell: ({ row }) => {
             const record = row.original;
             return (
@@ -283,7 +289,7 @@ ${last.next}` : chain}
     },
     {
         accessorKey: "comment",
-        header: () => <span title="Комментарий менеджера">Заметка</span>,
+        header: () => <span title={t("columns.noteTitle")}>{t("columns.note")}</span>,
         cell: ({ row }) => {
             const record = row.original;
             return (
@@ -298,7 +304,7 @@ ${last.next}` : chain}
     },
     {
         id: "actions",
-        header: () => <span className="sr-only">Действия</span>,
+        header: () => <span className="sr-only">{t("columns.actions")}</span>,
         cell: ({ row }) => {
             const record = row.original;
 
@@ -309,7 +315,7 @@ ${last.next}` : chain}
                         currentStatus={record.status}
                         currentComment={record.comment}
                         trigger={
-                            <Button variant="ghost" size="sm" title="Подробнее" className="h-7 w-7 p-0">
+                            <Button variant="ghost" size="sm" title={t("columns.details")} className="h-7 w-7 p-0">
                                 <Eye className="h-4 w-4" />
                             </Button>
                         }
@@ -321,9 +327,9 @@ ${last.next}` : chain}
                         <CanAccess permission="hanging_orders.iiko_actions">
                             <span
                                 className="whitespace-nowrap rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200"
-                                title="iikoCloud считает этот заказ закрытым, а продажи в iikoServer нет. Облако команду не примет — закрыть или отменить заказ можно только на кассе (iikoFront)."
+                                title={t("columns.cashierOnlyTitle")}
                             >
-                                только на кассе
+                                {t("columns.cashierOnly")}
                             </span>
                         </CanAccess>
                     ) : (
@@ -337,4 +343,5 @@ ${last.next}` : chain}
             );
         },
     },
-];
+    ], [t]);
+}

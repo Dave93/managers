@@ -15,6 +15,7 @@ import { CalendarIcon, Trash2 } from "lucide-react";
 import { Calendar } from "@admin/components/ui/calendar";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Popover, PopoverContent, PopoverTrigger } from "@components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import { DropdownProps } from "react-day-picker";
@@ -44,6 +45,8 @@ const handleCalendarChange = (_value: string | number, _e: React.ChangeEventHand
     _e(_event)
 }
 export default function EducationForm({ onAdd, onRemove, entries }: EducationFormProps) {
+    const t = useTranslations("forms.education");
+    const tc = useTranslations("forms.common");
 
 
     const formRef = useRef<HTMLDivElement>(null);
@@ -71,11 +74,11 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
 
             // Validate required fields
             const missingFields = [];
-            if (!educationType) missingFields.push("Тип образования");
-            if (!university) missingFields.push("Учебное заведение");
-            if (!speciality) missingFields.push("Специальность");
-            if (!dateStart) missingFields.push("Дата начала");
-            if (!dateEnd) missingFields.push("Дата окончания");
+            if (!educationType) missingFields.push(t("educationType"));
+            if (!university) missingFields.push(t("university"));
+            if (!speciality) missingFields.push(t("speciality"));
+            if (!dateStart) missingFields.push(t("dateStart"));
+            if (!dateEnd) missingFields.push(t("dateEnd"));
 
             if (missingFields.length > 0) {
                 console.error('Validation failed: Missing required fields', {
@@ -85,7 +88,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     dateStart,
                     dateEnd
                 });
-                toast.error(`Пожалуйста, заполните следующие поля: ${missingFields.join(", ")}`);
+                toast.error(t("fillFields", { fields: missingFields.join(", ") }));
                 return;
             }
 
@@ -100,7 +103,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     startDate,
                     endDate
                 });
-                toast.error("Пожалуйста, введите корректные даты");
+                toast.error(t("invalidDates"));
                 return;
             }
 
@@ -109,7 +112,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     startDate,
                     endDate
                 });
-                toast.error("Дата окончания не может быть раньше даты начала");
+                toast.error(t("endBeforeStart"));
                 return;
             }
 
@@ -127,7 +130,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
             onAdd(formattedData);
 
             // Показываем сообщение об успехе
-            toast.success("Запись об образовании добавлена");
+            toast.success(t("added"));
 
             // Reset form
             setEducationType("");
@@ -147,7 +150,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                     dateEnd
                 }
             });
-            toast.error("Произошла ошибка при добавлении образования");
+            toast.error(t("addError"));
         }
     };
 
@@ -162,12 +165,12 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
             }}
         >
             <div className="flex justify-between items-center">
-                <h2 className="text-xl font-semibold">Записи образования</h2>
+                <h2 className="text-xl font-semibold">{t("entriesTitle")}</h2>
             </div>
 
             {entries.length > 0 && (
                 <div className="p-3 rounded-md mb-4">
-                    <p className="font-medium text-green-700">Добавлено записей: {entries.length}</p>
+                    <p className="font-medium text-green-700">{t("addedCount", { count: entries.length })}</p>
                     <ul className="list-disc pl-5 mt-2">
                         {entries.map((entry, index) => (
                             <li key={index} className="text-sm text-green-800 mb-1">
@@ -182,7 +185,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                     }}
                                     className="ml-2 h-6 text-red-500 hover:text-red-700"
                                 >
-                                    <Trash2 className="h-3 w-3 mr-1" /> Удалить
+                                    <Trash2 className="h-3 w-3 mr-1" /> {tc("delete")}
                                 </Button>
                             </li>
                         ))}
@@ -191,11 +194,11 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
             )}
 
             <div className="grid grid-cols-2 gap-4 p-4 rounded-lg border border-border">
-                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">Добавить новое образование</h3>
+                <h3 className="col-span-2 font-semibold text-lg border-b pb-2 mb-2">{t("addNew")}</h3>
 
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Дата начала <span className="text-red-500 ml-1">*</span>
+                        {t("dateStart")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -209,7 +212,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateStart ? format(dateStart, "PPP") : <span>Выберите дату</span>}
+                                {dateStart ? format(dateStart, "PPP") : <span>{t("pickDate")}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent container={formRef.current!} className="w-auto p-0">
@@ -264,7 +267,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Дата окончания <span className="text-red-500 ml-1">*</span>
+                        {t("dateEnd")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Popover>
                         <PopoverTrigger asChild>
@@ -278,7 +281,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                                 aria-label="Select date"
                             >
                                 <CalendarIcon className="mr-2 h-4 w-4" />
-                                {dateEnd ? format(dateEnd, "PPP") : <span>Выберите дату</span>}
+                                {dateEnd ? format(dateEnd, "PPP") : <span>{t("pickDate")}</span>}
                             </Button>
                         </PopoverTrigger>
                         <PopoverContent container={formRef.current!} className="w-auto p-0">
@@ -333,28 +336,28 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Тип образования <span className="text-red-500 ml-1">*</span>
+                        {t("educationType")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Select
                         value={educationType}
                         onValueChange={(value) => setEducationType(value)}
                     >
                         <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Выберите тип" />
+                            <SelectValue placeholder={t("pickType")} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value="Высшее">Высшее</SelectItem>
-                            <SelectItem value="Среднее">Среднее</SelectItem>
-                            <SelectItem value="Профессиональное">Профессиональное</SelectItem>
+                            <SelectItem value="Высшее">{t("types.higher")}</SelectItem>
+                            <SelectItem value="Среднее">{t("types.secondary")}</SelectItem>
+                            <SelectItem value="Профессиональное">{t("types.vocational")}</SelectItem>
                         </SelectContent>
                     </Select>
                 </div>
                 <div className="space-y-2">
                     <Label className="flex items-center">
-                        Учебное заведение <span className="text-red-500 ml-1">*</span>
+                        {t("university")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
-                        placeholder="Введите название"
+                        placeholder={t("enterName")}
                         value={university}
                         onChange={(e) => setUniversity(e.target.value)}
                         className=""
@@ -362,10 +365,10 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                 </div>
                 <div className="space-y-2 col-span-2">
                     <Label className="flex items-center">
-                        Специальность <span className="text-red-500 ml-1">*</span>
+                        {t("speciality")} <span className="text-red-500 ml-1">*</span>
                     </Label>
                     <Input
-                        placeholder="Введите специальность"
+                        placeholder={t("enterSpeciality")}
                         value={speciality}
                         onChange={(e) => setSpeciality(e.target.value)}
                         className=""
@@ -385,7 +388,7 @@ export default function EducationForm({ onAdd, onRemove, entries }: EducationFor
                         className="bg-primary w-full py-6 text-lg"
                         size="lg"
                     >
-                        + Добавить запись об образовании
+                        + {t("addEntry")}
                     </Button>
                 </div>
             </div>

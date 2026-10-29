@@ -2,6 +2,7 @@
 import type { RevenuePlanItem, RevenuePlanRow, RevenueSuggestRow } from "@admin/lib/kpi-api";
 import { parseDecimal } from "./branch";
 import { formatSum, parseAmount } from "./format";
+import { ruT, type KpiT } from "./i18n";
 import { addMonths, calendarPeriod } from "./periods";
 
 const MAX_AMOUNT = 1_000_000_000_000;
@@ -44,26 +45,26 @@ export function applySuggestions(
   return { draft: next, filled, missing, kept };
 }
 
-export function suggestSummary(r: { filled: number; missing: number; kept: number }): string {
-  const s = `Заполнено: ${r.filled}. Без выручки прошлого года: ${r.missing}`;
-  return r.kept > 0 ? `${s}. Оставлено заполненных: ${r.kept}` : s;
+export function suggestSummary(r: { filled: number; missing: number; kept: number }, t: KpiT = ruT): string {
+  const s = t("lib.revenuePlans.suggest", { filled: r.filled, missing: r.missing });
+  return r.kept > 0 ? t("lib.revenuePlans.suggestKept", { base: s, kept: r.kept }) : s;
 }
 
 /** Что отправить: только изменённые строки; пустое поле при прежнем плане удаляет план. */
-export function planChanges(draft: PlanDraft, rows: readonly RevenuePlanRow[]): { items: RevenuePlanItem[]; errors: string[] } {
+export function planChanges(draft: PlanDraft, rows: readonly RevenuePlanRow[], t: KpiT = ruT): { items: RevenuePlanItem[]; errors: string[] } {
   const items: RevenuePlanItem[] = [];
   const errors: string[] = [];
   for (const r of rows) {
     const text = draft[r.terminal_id];
     if (text === undefined) continue;
-    const name = r.terminal_name ?? "Филиал";
+    const name = r.terminal_name ?? t("lib.revenuePlans.branch");
     if (text.trim() === "") {
       if (r.amount !== null) items.push({ terminal_id: r.terminal_id, amount: null });
       continue;
     }
     const amount = parseAmount(text);
-    if (amount === null || amount === 0) errors.push(`${name}: план — целое число больше 0`);
-    else if (amount > MAX_AMOUNT) errors.push(`${name}: план — не больше ${formatSum(MAX_AMOUNT)}`);
+    if (amount === null || amount === 0) errors.push(t("lib.revenuePlans.planInt", { name }));
+    else if (amount > MAX_AMOUNT) errors.push(t("lib.revenuePlans.planMax", { name, max: formatSum(MAX_AMOUNT, t) }));
     else if (amount !== r.amount) items.push({ terminal_id: r.terminal_id, amount });
   }
   return { items, errors };

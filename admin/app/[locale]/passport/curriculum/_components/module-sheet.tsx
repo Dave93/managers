@@ -14,6 +14,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Lock } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@components/ui/buttonOrigin";
 import { Input } from "@components/ui/input";
@@ -42,7 +43,7 @@ import {
 import { BilingualPair } from "./bilingual-field";
 import { StatusChip } from "./status";
 import {
-  apiMessage,
+  useApiMessage,
   moduleIsWritable,
   useTestOptions,
   type CurriculumAccess,
@@ -64,6 +65,8 @@ function ModuleForm({
   onClose: () => void;
   onCreated: (m: PassportModule) => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
+  const apiMessage = useApiMessage();
   const queryClient = useQueryClient();
   const tests = useTestOptions();
   // Read-only whenever the backend would refuse the write: published (409),
@@ -132,17 +135,15 @@ function ModuleForm({
         });
         if (link.error)
           toast.warning(
-            `Модуль создан, но не привязан к программе: ${apiMessage(link.error)}`
+            t("moduleSheet.createdNotLinked", { message: apiMessage(link.error) })
           );
       }
       return created;
     },
     onSuccess: (created) => {
       if (programId && !access.canPublish)
-        toast.info(
-          "Модуль создан. Привязать его к программе может только HR — попросите привязать, иначе он не появится в этом дереве."
-        );
-      else toast.success("Модуль создан");
+        toast.info(t("moduleSheet.createdAskHr"));
+      else toast.success(t("moduleSheet.created"));
       invalidate();
       onCreated(created);
       onClose();
@@ -165,7 +166,7 @@ function ModuleForm({
       return data as PassportModule;
     },
     onSuccess: () => {
-      toast.success("Модуль сохранён");
+      toast.success(t("moduleSheet.saved"));
       invalidate();
       onClose();
     },
@@ -183,12 +184,11 @@ function ModuleForm({
               <Input
                 value={field.state.value ?? ""}
                 disabled={frozen}
-                placeholder="UUID теста"
+                placeholder={t("common.testUuid")}
                 onChange={(e) => field.handleChange(e.target.value || null)}
               />
               <p className="text-[11px] text-muted-foreground">
-                Список тестов недоступен (нет права «tests.list») — вставьте id
-                теста вручную или оставьте пустым.
+                {t("moduleSheet.testsUnavailable")}
               </p>
             </div>
           )}
@@ -203,13 +203,13 @@ function ModuleForm({
             onValueChange={(v) => field.handleChange(v === NO_TEST ? null : v)}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Без экзамена" />
+              <SelectValue placeholder={t("moduleSheet.noExam")} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={NO_TEST}>Без экзамена</SelectItem>
-              {(tests.data ?? []).map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.title}
+              <SelectItem value={NO_TEST}>{t("moduleSheet.noExam")}</SelectItem>
+              {(tests.data ?? []).map((test) => (
+                <SelectItem key={test.id} value={test.id}>
+                  {test.title}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -217,7 +217,7 @@ function ModuleForm({
         )}
       </form.Field>
     );
-  }, [tests.isError, tests.isLoading, tests.data, frozen, form]);
+  }, [tests.isError, tests.isLoading, tests.data, frozen, form, t]);
 
   return (
     <form
@@ -232,26 +232,25 @@ function ModuleForm({
         <div className="flex items-start gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-200">
           <Lock className="mt-0.5 size-4 shrink-0" />
           <span>
-            Модуль опубликован и заморожен: изменить его можно только через
-            «Новая версия» или предварительно сняв с публикации.
+            {t("moduleSheet.frozen")}
           </span>
         </div>
       )}
 
       <BilingualPair
         form={form}
-        label="Название модуля"
+        label={t("moduleSheet.titleLabel")}
         nameRu="title_ru"
         nameUz="title_uz"
         disabled={frozen}
-        hint="Оба языка обязательны — без узбекской версии модуль не опубликуется."
-        placeholderRu="Например: Тесто и заготовки"
+        hint={t("moduleSheet.titleHint")}
+        placeholderRu={t("moduleSheet.titlePlaceholderRu")}
         placeholderUz="Masalan: Xamir va tayyorgarlik"
       />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label className="text-[13px] font-medium">Бренд</Label>
+          <Label className="text-[13px] font-medium">{t("moduleSheet.brand")}</Label>
           <form.Field name="brand">
             {(field: any) => (
               <Select
@@ -265,7 +264,7 @@ function ModuleForm({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_BRAND}>Оба бренда</SelectItem>
+                  <SelectItem value={NO_BRAND}>{t("moduleSheet.bothBrands")}</SelectItem>
                   <SelectItem value="chopar">Chopar Pizza</SelectItem>
                   <SelectItem value="les">Les Ailes</SelectItem>
                 </SelectContent>
@@ -275,7 +274,7 @@ function ModuleForm({
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[13px] font-medium">Департамент-владелец</Label>
+          <Label className="text-[13px] font-medium">{t("moduleSheet.ownerDepartment")}</Label>
           <form.Field name="owner_department">
             {(field: any) => (
               <Input
@@ -287,25 +286,25 @@ function ModuleForm({
           </form.Field>
           <p className="text-[11px] leading-snug text-muted-foreground">
             {access.canPublish
-              ? "HR может передать модуль другому департаменту."
-              : "Редактировать модули может только их департамент — поле недоступно."}
+              ? t("moduleSheet.ownerHintHr")
+              : t("moduleSheet.ownerHintLocked")}
           </p>
         </div>
       </div>
 
       <div className="space-y-2">
-        <Label className="text-[13px] font-medium">Экзамен модуля</Label>
+        <Label className="text-[13px] font-medium">{t("moduleSheet.exam")}</Label>
         {testSelect}
       </div>
 
       {!frozen && (
         <div className="flex justify-end gap-2 border-t pt-4">
           <Button type="button" variant="outline" onClick={onClose}>
-            Отмена
+            {t("common.cancel")}
           </Button>
           <Button type="submit" disabled={busy}>
             {busy && <Loader2 className="mr-1.5 size-4 animate-spin" />}
-            {mod ? "Сохранить" : "Создать модуль"}
+            {mod ? t("common.save") : t("moduleSheet.createModule")}
           </Button>
         </div>
       )}
@@ -328,17 +327,17 @@ export function ModuleSheet({
   programId: string | null;
   onCreated: (m: PassportModule) => void;
 }) {
+  const t = useTranslations("passportUi.curriculum");
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto px-6 pb-8 sm:max-w-2xl">
         <SheetHeader className="px-0 pt-6">
           <SheetTitle className="flex items-center gap-2">
-            {mod ? "Модуль" : "Новый модуль"}
+            {mod ? t("moduleSheet.titleExisting") : t("moduleSheet.titleNew")}
             {mod && <StatusChip status={mod.status} active={mod.active} />}
           </SheetTitle>
           <SheetDescription>
-            Содержание модуля ведётся сразу на двух языках: русский и узбекская
-            латиница.
+            {t("moduleSheet.description")}
           </SheetDescription>
         </SheetHeader>
         {open && (

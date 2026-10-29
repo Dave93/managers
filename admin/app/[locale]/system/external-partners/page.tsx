@@ -1,12 +1,13 @@
 "use client";
 
 import { DataTable } from "./data-table";
-import { externalPartnersColumns } from "./columns";
+import { useExternalPartnersColumns } from "./columns";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import { Plus } from "lucide-react";
 import ExternalPartnersFormSheet from "@admin/components/forms/external_partners/sheet";
 
 export default function ExternalPartnersListPage() {
+  const columns = useExternalPartnersColumns();
   return (
     <div>
       <div className="flex justify-between">
@@ -20,7 +21,7 @@ export default function ExternalPartnersListPage() {
         </div>
       </div>
       <div className="py-10">
-        <DataTable columns={externalPartnersColumns} />
+        <DataTable columns={columns} />
       </div>
     </div>
   );

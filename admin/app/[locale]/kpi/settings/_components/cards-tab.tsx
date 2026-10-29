@@ -1,12 +1,13 @@
 "use client";
 import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { kpiApi, type Card, type CardItem } from "@admin/lib/kpi-api";
 import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { ITEM_SOURCE_OPTIONS, defaultItemWeight } from "@admin/lib/kpi/settings";
-import { SOURCE_LABEL } from "@admin/lib/kpi/status";
+import { SOURCE_LABEL_KEY } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { CardDialog } from "./card-dialog";
@@ -17,6 +18,7 @@ type CardTarget = { card: Card | null } | null;
 type ItemTarget = { cardId: string; item: CardItem | null } | null;
 
 export function CardsTab() {
+  const t = useTranslations("kpi");
   const list = useQuery<Card[], Error>({
     queryKey: qk.cards(true),
     queryFn: () => kpiApi.cards.list(true),
@@ -30,39 +32,39 @@ export function CardsTab() {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <Button type="button" className="h-11" onClick={() => setCardTarget({ card: null })}>
-          Новая карта
+          {t("settings.cards.newCard")}
         </Button>
       </div>
 
       {list.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {kpiErrorText(list.error)}
+          {kpiErrorText(list.error, t)}
         </p>
       ) : list.isPending ? (
-        <p className="text-sm text-muted-foreground">Загрузка…</p>
+        <p className="text-sm text-muted-foreground">{t("settings.cards.loading")}</p>
       ) : cards.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Карт пока нет. Нажмите «Новая карта».</p>
+        <p className="text-sm text-muted-foreground">{t("settings.cards.empty")}</p>
       ) : (
         cards.map((card) => (
           <section key={card.id} className="space-y-3 rounded-md border p-4">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-base font-semibold">{card.title_ru}</h2>
               <code className="text-xs text-muted-foreground">{card.code}</code>
-              {!card.active && <KpiBadge tone="gray">Отключена</KpiBadge>}
+              {!card.active && <KpiBadge tone="gray">{t("settings.cards.cardDisabled")}</KpiBadge>}
               <div className="ml-auto flex flex-wrap gap-2">
                 <Button type="button" variant="outline" className="h-11" onClick={() => setCardTarget({ card })}>
-                  Изменить
+                  {t("settings.cards.edit")}
                 </Button>
                 <Button type="button" variant="outline" className="h-11" onClick={() => setItemTarget({ cardId: card.id, item: null })}>
-                  Добавить пункт
+                  {t("settings.cards.addItem")}
                 </Button>
               </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5 text-sm">
-              <span className="text-muted-foreground">Должности:</span>
+              <span className="text-muted-foreground">{t("settings.cards.roles")}</span>
               {card.staff_role_codes.length === 0 ? (
-                <span className="text-muted-foreground">только вручную</span>
+                <span className="text-muted-foreground">{t("settings.cards.manualOnly")}</span>
               ) : (
                 card.staff_role_codes.map((code) => (
                   <span key={code} className="rounded-full border bg-muted px-2.5 py-0.5 text-xs">
@@ -73,17 +75,17 @@ export function CardsTab() {
             </div>
 
             {card.items.length === 0 ? (
-              <p className="text-sm text-muted-foreground">В карте нет пунктов</p>
+              <p className="text-sm text-muted-foreground">{t("settings.cards.noItems")}</p>
             ) : (
               <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-16">№</TableHead>
-                      <TableHead>Пункт</TableHead>
-                      <TableHead>Источник</TableHead>
-                      <TableHead className="text-right">Вес</TableHead>
-                      <TableHead>Группа</TableHead>
+                      <TableHead className="w-16">{t("settings.cards.colNumber")}</TableHead>
+                      <TableHead>{t("settings.cards.colItem")}</TableHead>
+                      <TableHead>{t("settings.cards.colSource")}</TableHead>
+                      <TableHead className="text-right">{t("settings.cards.colWeight")}</TableHead>
+                      <TableHead>{t("settings.cards.colGroup")}</TableHead>
                       <TableHead />
                     </TableRow>
                   </TableHeader>
@@ -96,16 +98,16 @@ export function CardsTab() {
                           <span>{item.title_ru}</span>
                           {!item.active && (
                             <span className="ml-2">
-                              <KpiBadge tone="gray">Отключён</KpiBadge>
+                              <KpiBadge tone="gray">{t("settings.cards.itemDisabled")}</KpiBadge>
                             </span>
                           )}
                         </TableCell>
                         <TableCell>
-                          {SOURCE_LABEL[item.source]}
-                          {!ITEM_SOURCE_OPTIONS.find((o) => o.value === item.source)?.ready && <span className="text-muted-foreground"> (пока вручную)</span>}
+                          {t(SOURCE_LABEL_KEY[item.source])}
+                          {!ITEM_SOURCE_OPTIONS.find((o) => o.value === item.source)?.ready && <span className="text-muted-foreground"> {t("settings.cards.sourceManualYet")}</span>}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{item.weight}</TableCell>
-                        <TableCell>{item.group_key === "base" ? "Основной" : "Дополнительный"}</TableCell>
+                        <TableCell>{item.group_key === "base" ? t("settings.cards.groupBase") : t("settings.cards.groupExtra")}</TableCell>
                         <TableCell className="text-right">
                           <Button
                             type="button"
@@ -113,7 +115,7 @@ export function CardsTab() {
                             className="h-11"
                             onClick={() => setItemTarget({ cardId: card.id, item })}
                           >
-                            Изменить
+                            {t("settings.cards.edit")}
                           </Button>
                         </TableCell>
                       </TableRow>

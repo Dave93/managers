@@ -1,3 +1,4 @@
+import { compactWithUnits } from "./compact";
 import ChartCard from "./_tremor/ChartCard";
 import { useTerminalsFilter } from "@admin/components/filters/terminals/terminals-filter.hook";
 import { apiClient } from "@admin/utils/eden";
@@ -111,20 +112,8 @@ const PopularDishesChart = () => {
   // Sort the data by value (sales) in descending order and take the top 10
   const topDishes = data.data?.sort((a: any, b: any) => b.value - a.value).slice(0, 10);
 
-  const formatCompactNumber = (number: number) => {
-    const thousand = 1_000;
-    const million = 1_000_000;
-    const billion = 1_000_000_000;
-
-    if (Math.abs(number) >= billion) {
-      return `${(number / billion).toFixed(0)} млрд`;
-    } else if (Math.abs(number) >= million) {
-      return `${(number / million).toFixed(0)} млн`;
-    } else if (Math.abs(number) >= thousand) {
-      return `${(number / thousand).toFixed(0)} тыс`;
-    }
-    return number.toString();
-  };
+  const formatCompactNumber = (number: number) =>
+    compactWithUnits(number, (key) => t(`charts.${key}`), [0, 0, 0], (n) => n.toString());
 
   return (
     <ChartCard title={t('charts.PopularDishesChart.title')} bodyClassName="-mx-2">

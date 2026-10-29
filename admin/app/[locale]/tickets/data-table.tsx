@@ -32,6 +32,7 @@ import {
   DoubleArrowRightIcon,
 } from "@radix-ui/react-icons";
 import { Inbox, RotateCw, ShieldAlert, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import {
   Table,
@@ -78,20 +79,20 @@ const SKELETON_WIDTHS = ["w-20", "w-24", "w-28", "w-40", "w-24", "w-24", "w-12",
 const REQUIRED_RIGHT = "tickets.list";
 
 function ForbiddenPanel() {
+  const t = useTranslations("ticketsUi.table");
   return (
     <div role="alert" className="flex items-start gap-3 px-5 py-6">
       <ShieldAlert className="mt-0.5 size-5 shrink-0 text-destructive" />
       <div className="min-w-0 space-y-2.5">
-        <p className="text-[14px] font-semibold leading-tight">Нет доступа к заявкам</p>
+        <p className="text-[14px] font-semibold leading-tight">{t("forbiddenTitle")}</p>
         <p className="max-w-xl text-[12.5px] leading-snug text-muted-foreground">
-          Сервер ответил отказом (403). Чаще всего так выглядит новая роль, которой
-          ещё не выдали право на список заявок. Для этого экрана нужно право:
+          {t("forbiddenBody")}
         </p>
         <code className="inline-block rounded bg-muted px-1.5 py-0.5 font-mono text-[12px]">
           {REQUIRED_RIGHT}
         </code>
         <p className="max-w-xl text-[12px] leading-snug text-muted-foreground">
-          Попросите администратора добавить его роли, затем перезагрузите страницу.
+          {t("forbiddenHint")}
         </p>
       </div>
     </div>
@@ -107,6 +108,8 @@ function ErrorPanel({
   retrying: boolean;
   onRetry: () => void;
 }) {
+  const t = useTranslations("ticketsUi.table");
+  const tl = useTranslations("ticketsLib");
   // У сетевого сбоя нет HTTP-статуса: запрос не дошёл или оборвался.
   const network = error.status === undefined;
   return (
@@ -114,21 +117,21 @@ function ErrorPanel({
       <TriangleAlert className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" />
       <div className="min-w-0 space-y-2.5">
         <p className="text-[14px] font-semibold leading-tight">
-          {network ? "Нет связи с сервером" : "Не удалось загрузить заявки"}
+          {network ? t("noConnection") : t("loadFailed")}
         </p>
         <p className="max-w-xl break-words text-[12.5px] leading-snug text-muted-foreground">
           {network
-            ? "Запрос не дошёл до сервера. Проверьте соединение и повторите."
-            : apiMessage(error)}
+            ? t("noConnectionBody")
+            : apiMessage(error, tl)}
         </p>
         {network && (
           <p className="break-words font-mono text-[11px] text-muted-foreground">
-            {apiMessage(error)}
+            {apiMessage(error, tl)}
           </p>
         )}
         <Button variant="outline" size="sm" onClick={onRetry} disabled={retrying}>
           <RotateCw className={retrying ? "size-3.5 animate-spin" : "size-3.5"} />
-          {retrying ? "Повторяем…" : "Повторить"}
+          {retrying ? t("retrying") : t("retry")}
         </Button>
       </div>
     </div>
@@ -142,6 +145,7 @@ export function DataTable({
   onResetFilters,
   onOpen,
 }: DataTableProps) {
+  const t = useTranslations("ticketsUi.table");
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 20,
@@ -227,15 +231,13 @@ export function DataTable({
         >
           <TriangleAlert className="size-3.5 shrink-0" />
           <span>
-            {apiError?.status === 403
-              ? "Доступ к заявкам пропал."
-              : "Не удалось обновить список."}{" "}
-            Показаны данные на{" "}
-            {new Date(dataUpdatedAt).toLocaleTimeString("ru-RU", {
-              hour: "2-digit",
-              minute: "2-digit",
+            {apiError?.status === 403 ? t("staleForbidden") : t("staleFailed")}{" "}
+            {t("staleShown", {
+              time: new Date(dataUpdatedAt).toLocaleTimeString("ru-RU", {
+                hour: "2-digit",
+                minute: "2-digit",
+              }),
             })}
-            .
           </span>
           <Button
             variant="ghost"
@@ -244,7 +246,7 @@ export function DataTable({
             onClick={retryAll}
             disabled={isFetching}
           >
-            {isFetching ? "Повторяем…" : "Повторить"}
+            {isFetching ? t("retrying") : t("retry")}
           </Button>
         </div>
       )}
@@ -311,11 +313,11 @@ export function DataTable({
               <TableRow className="hover:bg-transparent">
                 <TableCell colSpan={columns.length} className="h-40 text-center">
                   <Inbox className="mx-auto mb-2 size-5 text-muted-foreground" />
-                  <p className="text-[13px] font-medium">Заявок нет</p>
+                  <p className="text-[13px] font-medium">{t("emptyTitle")}</p>
                   <p className="mx-auto mt-1 max-w-md text-[12px] leading-snug text-muted-foreground">
                     {hasFilters
-                      ? "По этим фильтрам ничего не нашлось. Фильтры можно сбросить, и список покажет все заявки."
-                      : "Пока ни одной заявки. Новые появятся здесь сразу после создания."}
+                      ? t("emptyFiltered")
+                      : t("emptyNone")}
                   </p>
                   {hasFilters && (
                     <Button
@@ -324,7 +326,7 @@ export function DataTable({
                       className="mt-3"
                       onClick={onResetFilters}
                     >
-                      Сбросить фильтры
+                      {t("resetFilters")}
                     </Button>
                   )}
                 </TableCell>
@@ -336,7 +338,7 @@ export function DataTable({
 
       <div className="flex flex-wrap items-center justify-between gap-3 px-1">
         <div className="flex items-center gap-2">
-          <span className="text-[12px] text-muted-foreground">Строк:</span>
+          <span className="text-[12px] text-muted-foreground">{t("rows")}</span>
           <Select
             value={`${pageSize}`}
             onValueChange={(v) => table.setPageSize(Number(v))}
@@ -353,17 +355,17 @@ export function DataTable({
             </SelectContent>
           </Select>
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            всего: {isLoading ? "…" : total}
+            {t("total", { count: isLoading ? "…" : total })}
           </span>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[12px] tabular-nums text-muted-foreground">
-            стр. {pageIndex + 1} из {Math.max(table.getPageCount(), 1)}
+            {t("page", { page: pageIndex + 1, pages: Math.max(table.getPageCount(), 1) })}
           </span>
           <Button
             variant="outline"
             className="hidden size-8 p-0 lg:flex"
-            aria-label="Первая страница"
+            aria-label={t("firstPage")}
             onClick={() => table.setPageIndex(0)}
             disabled={!table.getCanPreviousPage()}
           >
@@ -372,7 +374,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="size-8 p-0"
-            aria-label="Предыдущая страница"
+            aria-label={t("prevPage")}
             onClick={() => table.previousPage()}
             disabled={!table.getCanPreviousPage()}
           >
@@ -381,7 +383,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="size-8 p-0"
-            aria-label="Следующая страница"
+            aria-label={t("nextPage")}
             onClick={() => table.nextPage()}
             disabled={!table.getCanNextPage()}
           >
@@ -390,7 +392,7 @@ export function DataTable({
           <Button
             variant="outline"
             className="hidden size-8 p-0 lg:flex"
-            aria-label="Последняя страница"
+            aria-label={t("lastPage")}
             onClick={() => table.setPageIndex(table.getPageCount() - 1)}
             disabled={!table.getCanNextPage()}
           >

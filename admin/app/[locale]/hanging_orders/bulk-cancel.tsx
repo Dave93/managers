@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 
 import { apiClient } from "@admin/utils/eden";
 import { Button } from "@admin/components/ui/buttonOrigin";
@@ -56,15 +57,15 @@ const common = (lists: Option[][]) => {
         .filter((name) => rest.every((l) => l.some((o) => o.name === name)));
 };
 
-const summary = (s: Stats) =>
+const summary = (t: (key: string, values?: Record<string, string | number>) => string, s: Stats) =>
     [
-        `отменено ${s.cancelled}`,
-        s.alreadyClosed && `уже были закрыты или отменены в iiko ${s.alreadyClosed} — статус обновлён`,
-        s.pending && `касса не подтвердила ${s.pending}`,
-        s.notInCloud && `облако уже не хранит — отменить можно только вручную на кассе ${s.notInCloud}`,
-        s.cloudClosed && `закрыты в облаке, но не пробиты — только вручную на кассе ${s.cloudClosed}`,
-        s.tooOld && `старше 130 дней, не трогали ${s.tooOld}`,
-        s.errors && `ошибок ${s.errors}`,
+        t("bulk.summary.cancelled", { count: s.cancelled }),
+        s.alreadyClosed && t("bulk.summary.alreadyClosed", { count: s.alreadyClosed }),
+        s.pending && t("bulk.summary.pending", { count: s.pending }),
+        s.notInCloud && t("bulk.summary.notInCloud", { count: s.notInCloud }),
+        s.cloudClosed && t("bulk.summary.cloudClosed", { count: s.cloudClosed }),
+        s.tooOld && t("bulk.summary.tooOld", { count: s.tooOld }),
+        s.errors && t("bulk.summary.errors", { count: s.errors }),
     ]
         .filter(Boolean)
         .join(", ");
@@ -85,6 +86,7 @@ export function BulkCancelDialog({
     /** Ход прогона — для заметной панели на странице; null — прогон закончен. */
     onProgress?: (progress: { title: string; text: string } | null) => void;
 }) {
+    const t = useTranslations("hangingOrders");
     const [cause, setCause] = useState("");
     const [removal, setRemoval] = useState("");
     const [fallback, setFallback] = useState("");
@@ -99,7 +101,7 @@ export function BulkCancelDialog({
                 const { data, error } = await apiClient.api["hanging-orders"]["iiko-actions"].options.get({
                     query: { brand },
                 });
-                if (error) throw new Error((error.value as any)?.message ?? "Не удалось получить справочники iiko");
+                if (error) throw new Error((error.value as any)?.message ?? t("iikoOptionsError"));
                 all.push((data as { data: Options }).data);
             }
             return {
@@ -117,12 +119,12 @@ export function BulkCancelDialog({
                 removalTypeName: removal,
                 ...(fallback.trim() && { fallbackComment: fallback.trim() }),
             });
-            if (error) throw new Error((error.value as any)?.message ?? "Не удалось запустить отмену");
+            if (error) throw new Error((error.value as any)?.message ?? t("bulk.startError"));
             const jobId = (data as { job: { id: string } }).job.id;
             onClose();
 
-            const title = "Массовая отмена в iiko";
-            onProgress?.({ title, text: "запущена…" });
+            const title = t("bulk.progressTitle");
+            onProgress?.({ title, text: t("bulk.started") });
             try {
                 const startedAt = Date.now();
                 while (Date.now() - startedAt < 3 * 60 * 60 * 1000) {
@@ -130,7 +132,7 @@ export function BulkCancelDialog({
                     const { data: st, error: stErr } = await apiClient.api["hanging-orders"]["iiko-cancel-bulk"]({
                         jobId,
                     }).get();
-                    if (stErr) throw new Error((stErr.value as any)?.message ?? "Статус отмены недоступен");
+                    if (stErr) throw new Error((stErr.value as any)?.message ?? t("bulk.statusUnavailable"));
                     const status = st as { state: string; progress: string; stats: Stats };
                     if (status.state === "running") {
                         onProgress?.({ title, text: status.progress });
@@ -138,23 +140,23 @@ export function BulkCancelDialog({
                     }
                     return status;
                 }
-                throw new Error("Отмена идёт дольше 3 часов — проверьте журнал позже");
+                throw new Error(t("bulk.tooLong"));
             } finally {
                 onProgress?.(null);
             }
         },
         onSuccess: (status) => {
             const s = status.stats;
-            const text = summary(s);
+            const text = summary(t, s);
             if (status.state === "stopped") {
                 toast.error(
-                    `Остановлено после ${s.errors} ошибок кассы подряд: ${text}. ${s.errorSamples[0] ?? ""}`,
+                    t("bulk.stopped", { errors: s.errors, text, sample: s.errorSamples[0] ?? "" }),
                     { duration: 30000 },
                 );
             } else if (status.state === "error") {
-                toast.error(`Отмена упала: ${s.errorSamples[0] ?? ""}`, { duration: 30000 });
+                toast.error(t("bulk.failed", { sample: s.errorSamples[0] ?? "" }), { duration: 30000 });
             } else if (s.errors > 0) {
-                toast.warning(`${text}. Пример ошибки: ${s.errorSamples[0] ?? ""}`, { duration: 30000 });
+                toast.warning(t("bulk.withErrors", { text, sample: s.errorSamples[0] ?? "" }), { duration: 30000 });
             } else {
                 toast.success(text, { duration: 15000 });
             }
@@ -170,28 +172,26 @@ export function BulkCancelDialog({
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>
-                        Отменить {target?.count ?? 0}{" "}
-                        {target?.mode === "ids" ? "выбранных заказов" : "заказов по фильтру"} в iiko
+                        {t(target?.mode === "ids" ? "bulk.titleIds" : "bulk.titleFilter", { count: target?.count ?? 0 })}
                     </DialogTitle>
                     <DialogDescription>
-                        Только висящие. Отменяются только заказы, которые iikoCloud ещё хранит: гарантированно — за последние 7 дней. Закрытые в iikoServer пропускаются — это
-                        оплаченные заказы. Если касса откажет 5 раз подряд — отмена остановится сама.
+                        {t("bulk.description")}
                     </DialogDescription>
                 </DialogHeader>
 
                 {options.isLoading ? (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Загружаю справочники iiko…
+                        <Loader2 className="h-4 w-4 animate-spin" /> {t("iikoOptionsLoading")}
                     </div>
                 ) : options.error ? (
                     <p className="text-sm text-red-600">{(options.error as Error).message}</p>
                 ) : (
                     <div className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label>Причина отмены</Label>
+                            <Label>{t("cancelCause")}</Label>
                             <Select value={cause} onValueChange={setCause}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Выберите причину" />
+                                    <SelectValue placeholder={t("cancelCausePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {options.data?.causes.map((name) => (
@@ -203,10 +203,10 @@ export function BulkCancelDialog({
                             </Select>
                         </div>
                         <div className="grid gap-2">
-                            <Label>Тип удаления</Label>
+                            <Label>{t("removalType")}</Label>
                             <Select value={removal} onValueChange={setRemoval}>
                                 <SelectTrigger>
-                                    <SelectValue placeholder="Со списанием или без" />
+                                    <SelectValue placeholder={t("removalTypePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {options.data?.removals.map((name) => (
@@ -218,12 +218,12 @@ export function BulkCancelDialog({
                             </Select>
                         </div>
                         <div className="grid gap-2">
-                            <Label>Комментарий, если у заказа нет заметки</Label>
+                            <Label>{t("bulk.fallbackLabel")}</Label>
                             <Textarea
                                 value={fallback}
                                 onChange={(e) => setFallback(e.target.value)}
                                 maxLength={500}
-                                placeholder="У каждого заказа в iiko уйдёт его «Заметка». Этот текст — только для заказов без неё."
+                                placeholder={t("bulk.fallbackPlaceholder")}
                             />
                         </div>
                     </div>
@@ -231,11 +231,11 @@ export function BulkCancelDialog({
 
                 <DialogFooter>
                     <Button variant="outline" onClick={onClose} disabled={run.isPending}>
-                        Не отменять
+                        {t("keepOrder")}
                     </Button>
                     <Button variant="destructive" disabled={!ready || run.isPending} onClick={() => run.mutate()}>
                         {run.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Отменить {target?.count ?? 0}
+                        {t("bulk.confirm", { count: target?.count ?? 0 })}
                     </Button>
                 </DialogFooter>
             </DialogContent>

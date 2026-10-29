@@ -12,6 +12,7 @@
 
 import { useId } from "react";
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { cn } from "@admin/lib/utils";
 import { Button } from "@components/ui/buttonOrigin";
@@ -67,10 +68,31 @@ export function Segmented<T extends string>({
   );
 }
 
-const FIELD_TYPES = [
-  { value: "select", label: "Список" },
-  { value: "text", label: "Текст" },
-] as const;
+// Тексты проблем схемы по коду. message/clause из rules.ts повторяют серверные
+// формулировки по-русски (их сверяет backend-тест), поэтому показываются не они,
+// а переводы из `ticketsUi.types.issue`.
+export function useIssueText() {
+  const t = useTranslations("ticketsUi.types.issue");
+  return {
+    message: (i: Issue): string => {
+      switch (i.code) {
+        case "key_format":
+          return `${t("keyFormat")} ${t("keyHint")}`;
+        case "key_dup":
+          return t("keyDup");
+        case "label_missing":
+          return t("labelMissing");
+        case "select_empty":
+          return t("selectEmpty");
+        case "option_incomplete":
+          return t("optionIncomplete");
+        case "option_dup":
+          return t("optionDup", { value: i.detail ?? "" });
+      }
+    },
+    where: (i: Issue): string => (i.keyOk ? i.where : t("fieldNo", { n: i.fieldIndex + 1 })),
+  };
+}
 
 function Problem({ children }: { children: React.ReactNode }) {
   return <p className="text-[12px] leading-snug text-destructive">{children}</p>;
@@ -97,8 +119,10 @@ function OptionRow({
   onChange: (patch: Partial<OptionDraft>) => void;
   onRemove: () => void;
 }) {
-  const bad = (t: IssueTarget) => problemFor(issues, t, option.uid);
-  const who = `Поле ${fieldNo}, вариант ${index + 1}`;
+  const t = useTranslations("ticketsUi.types.fields");
+  const issueText = useIssueText();
+  const bad = (target: IssueTarget) => problemFor(issues, target, option.uid);
+  const who = t("optionWho", { field: fieldNo, option: index + 1 });
   const first = issues.filter((i) => i.optionUid === option.uid)[0];
   return (
     <li className="space-y-1">
@@ -106,8 +130,8 @@ function OptionRow({
         <Input
           value={option.value}
           onChange={(e) => onChange({ value: e.target.value })}
-          placeholder="Значение"
-          aria-label={`${who}: значение`}
+          placeholder={t("optionValue")}
+          aria-label={t("optionValueAria", { who })}
           aria-invalid={Boolean(bad("option_value"))}
           autoComplete="off"
           spellCheck={false}
@@ -119,7 +143,7 @@ function OptionRow({
           variant="ghost"
           size="sm"
           className="h-9 w-9 shrink-0 p-0 sm:col-start-4 sm:row-start-1"
-          aria-label={`${who}: удалить`}
+          aria-label={t("optionDeleteAria", { who })}
           onClick={onRemove}
           disabled={disabled}
         >
@@ -128,8 +152,8 @@ function OptionRow({
         <Input
           value={option.label_ru}
           onChange={(e) => onChange({ label_ru: e.target.value })}
-          placeholder="Подпись по-русски"
-          aria-label={`${who}: подпись по-русски`}
+          placeholder={t("labelRu")}
+          aria-label={t("optionLabelRuAria", { who })}
           aria-invalid={Boolean(bad("option_label_ru"))}
           autoComplete="off"
           disabled={disabled}
@@ -138,15 +162,15 @@ function OptionRow({
         <Input
           value={option.label_uz}
           onChange={(e) => onChange({ label_uz: e.target.value })}
-          placeholder="Подпись по-узбекски"
-          aria-label={`${who}: подпись по-узбекски`}
+          placeholder={t("labelUz")}
+          aria-label={t("optionLabelUzAria", { who })}
           aria-invalid={Boolean(bad("option_label_uz"))}
           autoComplete="off"
           disabled={disabled}
           className="col-span-2 sm:col-span-1 sm:col-start-3 sm:row-start-1"
         />
       </div>
-      {first && <Problem>{first.message}</Problem>}
+      {first && <Problem>{issueText.message(first)}</Problem>}
     </li>
   );
 }
@@ -173,6 +197,12 @@ function FieldCard({
   onMove: (delta: -1 | 1) => void;
   onRemove: () => void;
 }) {
+  const t = useTranslations("ticketsUi.types.fields");
+  const issueText = useIssueText();
+  const fieldTypes = [
+    { value: "select", label: t("typeSelect") },
+    { value: "text", label: t("typeText") },
+  ] as const;
   const base = useId();
   const ids = {
     key: `${base}-key`,
@@ -196,10 +226,10 @@ function FieldCard({
     <li className="space-y-3 rounded-lg border bg-card p-3.5">
       <div className="flex items-center justify-between gap-2">
         <p className="text-[13px] font-semibold">
-          Поле {no}
+          {t("fieldNo", { n: no })}
           {!was && (
             <span className="ml-2 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-              новое
+              {t("new")}
             </span>
           )}
         </p>
@@ -209,7 +239,7 @@ function FieldCard({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
-            aria-label={`Поле ${no}: выше`}
+            aria-label={t("moveUpAria", { n: no })}
             onClick={() => onMove(-1)}
             disabled={disabled || index === 0}
           >
@@ -220,7 +250,7 @@ function FieldCard({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0"
-            aria-label={`Поле ${no}: ниже`}
+            aria-label={t("moveDownAria", { n: no })}
             onClick={() => onMove(1)}
             disabled={disabled || index === total - 1}
           >
@@ -231,7 +261,7 @@ function FieldCard({
             variant="ghost"
             size="sm"
             className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-            aria-label={`Поле ${no}: удалить`}
+            aria-label={t("removeAria", { n: no })}
             onClick={onRemove}
             disabled={disabled}
           >
@@ -242,7 +272,7 @@ function FieldCard({
 
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
         <div className="space-y-1.5">
-          <Label htmlFor={ids.key}>Ключ</Label>
+          <Label htmlFor={ids.key}>{t("key")}</Label>
           <Input
             id={ids.key}
             value={field.key}
@@ -251,30 +281,29 @@ function FieldCard({
             autoComplete="off"
             spellCheck={false}
             disabled={disabled}
-            placeholder="например, tv_place"
+            placeholder={t("keyPlaceholder")}
             className="font-mono text-[13px]"
           />
           {keyProblem ? (
-            <Problem>{keyProblem.message}</Problem>
+            <Problem>{issueText.message(keyProblem)}</Problem>
           ) : (
             <p className="text-[12px] leading-snug text-muted-foreground">
-              Внутреннее имя поля: по нему значение хранится в заявке.
+              {t("keyHint")}
             </p>
           )}
           {renamedFrom && (
             <p className="text-[12px] leading-snug text-amber-700 dark:text-amber-400">
-              Было «{renamedFrom}». Старые заявки хранят значение под прежним ключом и после
-              сохранения покажут его без подписи.
+              {t("renamed", { from: renamedFrom })}
             </p>
           )}
         </div>
         <div className="space-y-1.5">
-          <Label id={ids.type}>Тип поля</Label>
+          <Label id={ids.type}>{t("fieldType")}</Label>
           <div>
             <Segmented
               value={field.type}
               onChange={(type) => onChange({ type })}
-              options={FIELD_TYPES}
+              options={fieldTypes}
               disabled={disabled}
               labelledBy={ids.type}
             />
@@ -283,7 +312,7 @@ function FieldCard({
       </div>
 
       <div className="flex items-center justify-between gap-3 rounded-md border px-3 py-2">
-        <Label htmlFor={ids.required}>Обязательное поле</Label>
+        <Label htmlFor={ids.required}>{t("required")}</Label>
         <Switch
           id={ids.required}
           checked={field.required}
@@ -294,7 +323,7 @@ function FieldCard({
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor={ids.ru}>Подпись по-русски</Label>
+          <Label htmlFor={ids.ru}>{t("labelRu")}</Label>
           <Input
             id={ids.ru}
             value={field.label_ru}
@@ -303,10 +332,10 @@ function FieldCard({
             autoComplete="off"
             disabled={disabled}
           />
-          {ruProblem && <Problem>{ruProblem.message}</Problem>}
+          {ruProblem && <Problem>{issueText.message(ruProblem)}</Problem>}
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={ids.uz}>Подпись по-узбекски</Label>
+          <Label htmlFor={ids.uz}>{t("labelUz")}</Label>
           <Input
             id={ids.uz}
             value={field.label_uz}
@@ -315,13 +344,13 @@ function FieldCard({
             autoComplete="off"
             disabled={disabled}
           />
-          {uzProblem && <Problem>{uzProblem.message}</Problem>}
+          {uzProblem && <Problem>{issueText.message(uzProblem)}</Problem>}
         </div>
       </div>
 
       {field.type === "select" && (
         <div className="space-y-2 rounded-md bg-muted/40 p-3">
-          <p className="text-[12.5px] font-medium">Варианты</p>
+          <p className="text-[12.5px] font-medium">{t("options")}</p>
           {field.options.length > 0 && (
             <ul className="space-y-2.5">
               {field.options.map((o, oi) => (
@@ -344,7 +373,7 @@ function FieldCard({
               ))}
             </ul>
           )}
-          {optionsProblem && <Problem>{optionsProblem.message}</Problem>}
+          {optionsProblem && <Problem>{issueText.message(optionsProblem)}</Problem>}
           <Button
             type="button"
             variant="outline"
@@ -353,7 +382,7 @@ function FieldCard({
             disabled={disabled}
           >
             <Plus className="size-3.5" />
-            Добавить вариант
+            {t("addOption")}
           </Button>
         </div>
       )}
@@ -375,6 +404,7 @@ export function FieldsEditor({
   disabled: boolean;
   onChange: (next: FieldDraft[]) => void;
 }) {
+  const t = useTranslations("ticketsUi.types.fields");
   const patch = (uid: string, p: Partial<FieldDraft>) =>
     onChange(drafts.map((d) => (d.uid === uid ? { ...d, ...p, touched: true } : d)));
   const move = (index: number, delta: -1 | 1) => {
@@ -386,16 +416,16 @@ export function FieldsEditor({
   };
 
   return (
-    <section aria-label="Поля заявки" className="space-y-3">
+    <section aria-label={t("title")} className="space-y-3">
       <div>
-        <h3 className="text-[13px] font-semibold">Поля заявки</h3>
+        <h3 className="text-[13px] font-semibold">{t("title")}</h3>
         <p className="text-[12px] leading-snug text-muted-foreground">
-          Это то, что менеджер заполняет на планшете. Порядок здесь — порядок на экране.
+          {t("intro")}
         </p>
       </div>
       {drafts.length === 0 ? (
         <p className="rounded-lg border border-dashed px-4 py-6 text-center text-[12.5px] text-muted-foreground">
-          Полей нет: заявка будет только с описанием и фотографиями.
+          {t("empty")}
         </p>
       ) : (
         <ul className="space-y-3">
@@ -423,7 +453,7 @@ export function FieldsEditor({
         disabled={disabled}
       >
         <Plus className="size-3.5" />
-        Добавить поле
+        {t("addField")}
       </Button>
     </section>
   );

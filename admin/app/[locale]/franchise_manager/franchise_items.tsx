@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   ColumnDef,
   PaginationState,
@@ -29,22 +30,22 @@ interface DataTableProps<TData, TValue> {
   invoiceDate: string;
 }
 
-const columns: ColumnDef<InvoiceItemsListDto, any>[] = [
+const getColumns = (t: (key: string) => string): ColumnDef<InvoiceItemsListDto, any>[] => [
   {
     accessorKey: "productName",
-    header: "Название",
+    header: t("columns.name"),
   },
   {
     accessorKey: "unit",
-    header: "Единица измерения",
+    header: t("columns.unit"),
   },
   {
     accessorKey: "amount",
-    header: "Количество",
+    header: t("columns.quantity"),
   },
   {
     accessorKey: "sum",
-    header: "Сумма",
+    header: t("columns.sum"),
   },
 ];
 
@@ -52,6 +53,8 @@ export function FranchiseItemsTable<TData, TValue>({
   invoiceId,
   invoiceDate,
 }: DataTableProps<TData, TValue>) {
+  const t = useTranslations("invoicesUi");
+  const columns = useMemo(() => getColumns(t), [t]);
   const [{ pageIndex, pageSize }, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 100,

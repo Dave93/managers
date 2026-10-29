@@ -1,5 +1,6 @@
 "use client";
 import { ChevronsUpDown, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Avatar, AvatarFallback } from "@components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
 import { useAuth } from "@admin/components/useAuth";
 
 export function NavUser() {
+  const t = useTranslations("common");
   const { user, signOut } = useAuth();
   const { isMobile } = useSidebar();
   // /api/users/me returns { user, role }; unwrap either shape.
@@ -74,7 +76,7 @@ export function NavUser() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => signOut()}>
               <LogOut />
-              Выйти
+              {t("logout")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

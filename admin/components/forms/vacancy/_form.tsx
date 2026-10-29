@@ -21,6 +21,7 @@ import { format } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import { cn } from "@admin/lib/utils";
 import { useSession } from "next-auth/react";
+import { useTranslations } from "next-intl";
 
 
 type VacancyStatus = "open" | "in_progress" | "found_candidates" | "interview" | "closed" | "cancelled";
@@ -84,6 +85,8 @@ export default function VacancyForm({
     setOpen: (open: boolean) => void;
     recordId?: string;
 }) {
+    const t = useTranslations("forms.vacancy");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLFormElement | null>(null);
     const queryClient = useQueryClient();
 
@@ -92,8 +95,8 @@ export default function VacancyForm({
         setOpen(false);
     };
 
-    const onAddSuccess = (actionText: string) => {
-        toast.success(`Vacancy ${actionText}`);
+    const onAddSuccess = (actionText: "added" | "updated") => {
+        toast.success(t(actionText));
         queryClient.invalidateQueries({ queryKey: ["vacancy"] });
         closeForm();
     };
@@ -136,7 +139,7 @@ export default function VacancyForm({
         mutationFn: async (newVacancy: VacancyFormData) => {
             try {
                 if (!newVacancy.work_schedule_id) {
-                    throw new Error("Please select work schedule");
+                    throw new Error(t("selectWorkScheduleError"));
                 }
                 const data = {
                     applicationNum: newVacancy.applicationNum,
@@ -159,7 +162,7 @@ export default function VacancyForm({
                 throw error;
             }
         },
-        onSuccess: () => onAddSuccess("Added"),
+        onSuccess: () => onAddSuccess("added"),
         onError,
     });
 
@@ -190,7 +193,7 @@ export default function VacancyForm({
                 throw error;
             }
         },
-        onSuccess: () => onAddSuccess("Updated"),
+        onSuccess: () => onAddSuccess("updated"),
         onError,
     });
 
@@ -285,17 +288,17 @@ export default function VacancyForm({
         }, [record]),
         onSubmit: async ({ value }) => {
             if (!value.applicationNum) {
-                toast.error("Номер вакансии обязателен");
+                toast.error(t("applicationNumRequired"));
                 return;
             }
 
             if (!value.organizationId) {
-                toast.error("Выберите бренд");
+                toast.error(t("selectBrand"));
                 return;
             }
 
             if (!value.position) {
-                toast.error("Выберите должность");
+                toast.error(t("selectPosition"));
                 return;
             }
 
@@ -516,7 +519,7 @@ export default function VacancyForm({
         >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Статус</Label>
+                    <Label>{tc("status")}</Label>
                     <form.Field name="status">
                         {(field) => (
                             <Select
@@ -526,15 +529,15 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите статус" />
+                                    <SelectValue placeholder={t("selectStatus")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="open">Открыта</SelectItem>
-                                    <SelectItem value="in_progress">В процессе</SelectItem>
-                                    <SelectItem value="found_candidates">Найдены кандидаты</SelectItem>
-                                    <SelectItem value="interview">Собеседование</SelectItem>
-                                    <SelectItem value="closed">Закрыта</SelectItem>
-                                    <SelectItem value="cancelled">Отменена</SelectItem>
+                                    <SelectItem value="open">{t("statuses.open")}</SelectItem>
+                                    <SelectItem value="in_progress">{t("statuses.in_progress")}</SelectItem>
+                                    <SelectItem value="found_candidates">{t("statuses.found_candidates")}</SelectItem>
+                                    <SelectItem value="interview">{t("statuses.interview")}</SelectItem>
+                                    <SelectItem value="closed">{t("statuses.closed")}</SelectItem>
+                                    <SelectItem value="cancelled">{t("statuses.cancelled")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -542,7 +545,7 @@ export default function VacancyForm({
                 </div>
                 
                 <div className="space-y-2">
-                    <Label>Номер вакансии</Label>
+                    <Label>{t("applicationNum")}</Label>
                     <form.Field name="applicationNum">
                         {(field) => (
                             <Input
@@ -559,7 +562,7 @@ export default function VacancyForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Бренд</Label>
+                    <Label>{t("brand")}</Label>
                     <form.Field name="organizationId">
                         {(field) => (
                             <Select
@@ -569,10 +572,10 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите бренд">
+                                    <SelectValue placeholder={t("selectBrand")}>
                                         {changedOrganizationId ?
                                             organizationLabelById[changedOrganizationId] :
-                                            "Выберите бренд"}
+                                            t("selectBrand")}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -588,7 +591,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Филиал</Label>
+                    <Label>{t("terminal")}</Label>
                     <form.Field name="terminalId">
                         {(field) => (
                             <Select
@@ -598,10 +601,10 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите филиал">
+                                    <SelectValue placeholder={t("selectTerminal")}>
                                         {changedTerminalId ?
                                             terminalLabelById[changedTerminalId] :
-                                            "Выберите филиал"}
+                                            t("selectTerminal")}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -619,7 +622,7 @@ export default function VacancyForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Должность</Label>
+                    <Label>{t("position")}</Label>
                     <form.Field name="position">
                         {(field) => (
                             <Select
@@ -629,10 +632,10 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите должность">
+                                    <SelectValue placeholder={t("selectPosition")}>
                                         {changedPositionId ?
                                             positionLabelById[changedPositionId] :
-                                            "Выберите должность"}
+                                            t("selectPosition")}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -648,7 +651,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>График работы</Label>
+                    <Label>{t("workSchedule")}</Label>
                     <form.Field name="work_schedule_id">
                         {(field) => (
                             <Select
@@ -658,10 +661,10 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите график работы">
+                                    <SelectValue placeholder={t("selectWorkSchedule")}>
                                         {changedWorkScheduleId ?
                                             workSchedulesLabelById[changedWorkScheduleId] :
-                                            "Выберите график работы"}
+                                            t("selectWorkSchedule")}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -679,7 +682,7 @@ export default function VacancyForm({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Причина вакансии</Label>
+                    <Label>{t("reason")}</Label>
                     <form.Field name="reason">
                         {(field) => (
                             <Input
@@ -694,7 +697,7 @@ export default function VacancyForm({
                 </div>
 
                 {/* <div className="space-y-2">
-                    <Label>Рекрутер</Label>
+                    <Label>{t("recruiter")}</Label>
                     <form.Field name="recruiter">
                         {(field) => (
                             <Select
@@ -704,10 +707,10 @@ export default function VacancyForm({
                                 }}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите рекрутера">
+                                    <SelectValue placeholder={t("selectRecruiter")}>
                                         {changedRecruiterId ?
                                             recruiterLabelById[changedRecruiterId] :
-                                            "Выберите рекрутера"}
+                                            t("selectRecruiter")}
                                     </SelectValue>
                                 </SelectTrigger>
                                 <SelectContent>
@@ -725,7 +728,7 @@ export default function VacancyForm({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                    <Label>Дата открытия</Label>
+                    <Label>{t("openDate")}</Label>
                     <form.Field name="openDate">
                         {(field) => (
                             <Popover>
@@ -740,7 +743,7 @@ export default function VacancyForm({
                                         {field.getValue() ? (
                                             format(new Date(field.getValue() || ''), "PPP")
                                         ) : (
-                                            <span>Выберите дату</span>
+                                            <span>{t("selectDate")}</span>
                                         )}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
@@ -764,7 +767,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Срок закрытия</Label>
+                    <Label>{t("termClosingDate")}</Label>
                     <form.Field name="termClosingDate">
                         {(field) => (
                             <Popover>
@@ -779,7 +782,7 @@ export default function VacancyForm({
                                         {field.getValue() ? (
                                             format(new Date(field.getValue() || ''), "PPP")
                                         ) : (
-                                            <span>Выберите дату</span>
+                                            <span>{t("selectDate")}</span>
                                         )}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
@@ -803,7 +806,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Дата закрытия</Label>
+                    <Label>{t("closingDate")}</Label>
                     <form.Field name="closingDate">
                         {(field) => (
                             <Popover>
@@ -818,7 +821,7 @@ export default function VacancyForm({
                                         {field.getValue() ? (
                                             format(new Date(field.getValue() || ''), "PPP")
                                         ) : (
-                                            <span>Выберите дату</span>
+                                            <span>{t("selectDate")}</span>
                                         )}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
@@ -842,7 +845,7 @@ export default function VacancyForm({
                 </div>
 
                 <div className="space-y-2">
-                    <Label>Дата стажировки</Label>
+                    <Label>{t("internshipDate")}</Label>
                     <form.Field name="internship_date">
                         {(field) => (
                             <Popover>
@@ -857,7 +860,7 @@ export default function VacancyForm({
                                         {field.getValue() ? (
                                             format(new Date(field.getValue() || ''), "PPP")
                                         ) : (
-                                            <span>Выберите дату</span>
+                                            <span>{t("selectDate")}</span>
                                         )}
                                         <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                     </Button>
@@ -882,7 +885,7 @@ export default function VacancyForm({
             </div>
 
             <div className="space-y-2">
-                <Label>Комментарии</Label>
+                <Label>{t("comments")}</Label>
                 <form.Field name="comments">
                     {(field) => (
                         <Textarea
@@ -899,7 +902,7 @@ export default function VacancyForm({
             <div className="mt-4">
                 <Button type="submit" disabled={isLoading}>
                     {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {recordId ? "Обновить" : "Создать"}
+                    {recordId ? t("update") : tc("create")}
                 </Button>
             </div>
         </form>

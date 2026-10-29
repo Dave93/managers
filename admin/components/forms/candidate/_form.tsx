@@ -1,5 +1,6 @@
 'use client';
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { useMemo, useRef, useState, useEffect } from "react";
 import { Loader2, CalendarIcon, Trash2 } from "lucide-react";
@@ -180,6 +181,8 @@ export default function CandidateForm({
     setOpen: (open: boolean) => void;
     recordId?: string;
 }) {
+    const t = useTranslations("forms.candidate");
+    const tc = useTranslations("forms.common");
     const formRef = useRef<HTMLFormElement | null>(null);
     const queryClient = useQueryClient();
     const [selectedVacancyId, setSelectedVacancyId] = useState<string>("");
@@ -239,8 +242,8 @@ export default function CandidateForm({
         setOpen(false);
     };
 
-    const onAddSuccess = (actionText: string) => {
-        toast.success(`Кандидат ${actionText}`);
+    const onAddSuccess = (message: string) => {
+        toast.success(message);
         queryClient.invalidateQueries({ queryKey: ["candidates"] });
         closeForm();
     };
@@ -262,19 +265,19 @@ export default function CandidateForm({
 
                 // Validate and format dates
                 if (!newCandidate.birthDate) {
-                    throw new Error('Дата рождения обязательна');
+                    throw new Error(t("errors.birthDateRequired"));
                 }
 
                 if (!newCandidate.vacancyId) {
-                    throw new Error('Вакансия обязательна');
+                    throw new Error(t("errors.vacancyRequired"));
                 }
 
                 if (!newCandidate.fullName) {
-                    throw new Error('ФИО обязательно');
+                    throw new Error(t("errors.fullNameRequired"));
                 }
 
                 if (!newCandidate.phoneNumber) {
-                    throw new Error('Номер телефона обязателен');
+                    throw new Error(t("errors.phoneRequired"));
                 }
 
                 // Prepare data for API
@@ -336,7 +339,7 @@ export default function CandidateForm({
                 const responseData = (response as any)?.data;
 
                 if (!responseData?.data?.id) {
-                    throw new Error('Не удалось получить ID созданного кандидата');
+                    throw new Error(t("errors.createdIdMissing"));
                 }
 
                 console.log('Candidate created successfully:', responseData);
@@ -359,7 +362,7 @@ export default function CandidateForm({
                     console.error('Validation errors:', validationErrors);
                     
                     // Формируем читабельное сообщение об ошибках
-                    let errorMessage = "Ошибка валидации: ";
+                    let errorMessage = t("errors.validationPrefix");
                     if (Array.isArray(validationErrors)) {
                         errorMessage += validationErrors.map(err => 
                             `${err.path}: ${err.message}`
@@ -374,10 +377,10 @@ export default function CandidateForm({
                 throw error;
             }
         },
-        onSuccess: () => onAddSuccess("добавлен успешно"),
+        onSuccess: () => onAddSuccess(t("toasts.created")),
         onError: (error: any) => {
             console.error('Mutation error:', error);
-            toast.error(error.message || "Не удалось создать кандидата");
+            toast.error(error.message || t("errors.createFailed"));
         },
     });
 
@@ -461,7 +464,7 @@ export default function CandidateForm({
                 throw error;
             }
         },
-        onSuccess: () => onAddSuccess("обновлен успешно"),
+        onSuccess: () => onAddSuccess(t("toasts.updated")),
         onError: (error: any) => {
             console.error('Update error:', error);
             if (error.response) {
@@ -473,7 +476,7 @@ export default function CandidateForm({
                     console.error('Validation errors:', validationErrors);
                     
                     // Формируем читабельное сообщение об ошибках
-                    let errorMessage = "Ошибка валидации: ";
+                    let errorMessage = t("errors.validationPrefix");
                     if (Array.isArray(validationErrors)) {
                         errorMessage += validationErrors.map(err => 
                             `${err.path}: ${err.message}`
@@ -486,7 +489,7 @@ export default function CandidateForm({
                     return;
                 }
             }
-            toast.error(error.message || "Не удалось обновить кандидата");
+            toast.error(error.message || t("errors.updateFailed"));
         },
     });
 
@@ -502,19 +505,19 @@ export default function CandidateForm({
             }
         },
         onSuccess: () => {
-            toast.success("Кандидат и все связанные данные удалены");
+            toast.success(t("toasts.deleted"));
             queryClient.invalidateQueries({ queryKey: ["candidates"] });
             closeForm();
         },
         onError: (error: any) => {
             console.error('Delete mutation error:', error);
-            toast.error(error.message || "Не удалось удалить кандидата");
+            toast.error(error.message || t("errors.deleteFailed"));
         },
     });
 
     const handleDelete = async () => {
         if (!recordId) {
-            toast.error("ID кандидата не найден");
+            toast.error(t("errors.idNotFound"));
             return;
         }
         
@@ -561,17 +564,17 @@ export default function CandidateForm({
         onSubmit: async ({ value }) => {
             // Validate required fields
             if (!value.vacancyId) {
-                toast.error("Пожалуйста, выберите вакансию");
+                toast.error(t("errors.selectVacancy"));
                 return;
             }
 
             if (!value.fullName) {
-                toast.error("ФИО обязательно для заполнения");
+                toast.error(t("errors.fullNameMustFill"));
                 return;
             }
 
             if (!value.phoneNumber) {
-                toast.error("Номер телефона обязателен для заполнения");
+                toast.error(t("errors.phoneMustFill"));
                 return;
             }
 
@@ -583,7 +586,7 @@ export default function CandidateForm({
                 // Проверяем, есть ли записи об образовании
                 if (educations.length === 0) {
                     // Спрашиваем пользователя, хочет ли он продолжить без образования
-                    if (!window.confirm("У кандидата не добавлено образование. Продолжить без данных об образовании?")) {
+                    if (!window.confirm(t("confirmNoEducation"))) {
                         // Если пользователь отказался, показываем форму образования
                         setShowEducationForm(true);
                         return;
@@ -638,7 +641,7 @@ export default function CandidateForm({
             setEducations(updatedEducations);
 
             // Показываем уведомление об успешном добавлении
-            toast.success(`Образование добавлено`);
+            toast.success(t("toasts.educationAdded"));
         } catch (error) {
             console.error('Error in handleAddEducation:', error);
         }
@@ -655,7 +658,7 @@ export default function CandidateForm({
             console.log('Updated last work places array:', updatedLastWorkPlaces);
             setLastWorkPlaces(updatedLastWorkPlaces);
 
-            toast.success(`Место работы добавлено`);
+            toast.success(t("toasts.workPlaceAdded"));
         } catch (error) {
             console.error('Error in handleAddLastWorkPlace:', error);
         }
@@ -672,7 +675,7 @@ export default function CandidateForm({
             console.log('Updated family lists array:', updatedFamilyLists);
             setFamilyLists(updatedFamilyLists);
 
-            toast.success(`Родственник добавлен`);
+            toast.success(t("toasts.relativeAdded"));
         } catch (error) {
             console.error('Error in handleAddFamilyList:', error);
         }
@@ -798,10 +801,10 @@ export default function CandidateForm({
             // More detailed error handling
             if (error.response) {
                 console.error('Response error data:', error.response.data);
-                const errorMessage = error.response.data?.message || error.message || "Ошибка при отправке формы";
+                const errorMessage = error.response.data?.message || error.message || t("errors.submitFailed");
                 toast.error(errorMessage);
             } else {
-                toast.error("Ошибка при отправке формы");
+                toast.error(t("errors.submitFailed"));
             }
         }
     };
@@ -823,7 +826,7 @@ export default function CandidateForm({
         >
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Вакансия *</Label>
+                    <Label>{t("fields.vacancy")}</Label>
                     <form.Field name="vacancyId">
                         {(field) => (
                             <Select
@@ -832,7 +835,7 @@ export default function CandidateForm({
                                 disabled={vacanciesQuery.isLoading}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите вакансию" />
+                                    <SelectValue placeholder={t("placeholders.vacancy")} />
                                 </SelectTrigger>
                                 <SelectContent>
                                     {vacanciesQuery.data?.data ? vacanciesQuery.data.data.map((vacancy: any) => (
@@ -846,7 +849,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>ФИО *</Label>
+                    <Label>{t("fields.fullName")}</Label>
                     <form.Field name="fullName">
                         {(field) => (
                             <Input
@@ -863,7 +866,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Дата рождения</Label>
+                    <Label>{t("fields.birthDate")}</Label>
                     <form.Field name="birthDate">
                         {(field) => {
                             const dateValue = field.getValue() ? new Date(field.getValue()) : undefined;
@@ -879,7 +882,7 @@ export default function CandidateForm({
                                             aria-label="Select date"
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateValue ? format(dateValue, "PPP") : <span>Выберите дату</span>}
+                                            {dateValue ? format(dateValue, "PPP") : <span>{t("pickDate")}</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"
@@ -939,7 +942,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Номер телефона *</Label>
+                    <Label>{t("fields.phone")}</Label>
                     <form.Field name="phoneNumber">
                         {(field) => (
                             <Input
@@ -957,7 +960,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Электронная почта</Label>
+                    <Label>{t("fields.email")}</Label>
                     <form.Field name="email">
                         {(field) => (
                             <Input
@@ -972,7 +975,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Гражданство</Label>
+                    <Label>{t("fields.citizenship")}</Label>
                     <form.Field name="citizenship">
                         {(field) => (
                             <Input
@@ -989,7 +992,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Место жительства</Label>
+                    <Label>{t("fields.residence")}</Label>
                     <form.Field name="residence">
                         {(field) => (
                             <Input
@@ -1003,7 +1006,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Семейное положение</Label>
+                    <Label>{t("fields.familyStatus")}</Label>
                     <form.Field name="familyStatus">
                         {(field) => (
                             <Input
@@ -1020,7 +1023,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Дети</Label>
+                    <Label>{t("fields.children")}</Label>
                     <form.Field name="children">
                         {(field) => (
                             <Input
@@ -1037,7 +1040,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Язык</Label>
+                    <Label>{t("fields.language")}</Label>
                     <form.Field name="language">
                         {(field) => (
                             <Input
@@ -1053,7 +1056,7 @@ export default function CandidateForm({
             </div>
 
             <div className="space-y-2">
-                <Label>Источник</Label>
+                <Label>{t("fields.source")}</Label>
                 <form.Field name="source">
                     {(field) => (
                         <Input
@@ -1062,7 +1065,7 @@ export default function CandidateForm({
                             value={field.getValue() ?? ""}
                             onBlur={field.handleBlur}
                             onChange={(e) => field.handleChange(e.target.value)}
-                            placeholder="Где вы о нас узнали?"
+                            placeholder={t("placeholders.source")}
                         />
                     )}
                 </form.Field>
@@ -1070,7 +1073,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-                    <Label>Серия паспорта</Label>
+                    <Label>{t("fields.passportSeries")}</Label>
                     <form.Field name="passportSeries">
                         {(field) => (
                             <Input
@@ -1084,7 +1087,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Номер паспорта</Label>
+                    <Label>{t("fields.passportNumber")}</Label>
                     <form.Field name="passportNumber">
                         {(field) => (
                             <Input
@@ -1100,7 +1103,7 @@ export default function CandidateForm({
             </div>
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Дата выдачи паспорта</Label>
+                    <Label>{t("fields.passportIssueDate")}</Label>
                     <form.Field name="passportIdDate">
                         {(field) => {
                             const dateValue = field.getValue() ? new Date(field.getValue()) : undefined;
@@ -1116,7 +1119,7 @@ export default function CandidateForm({
                                             aria-label="Select date"
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateValue ? format(dateValue, "PPP") : <span>Выберите дату</span>}
+                                            {dateValue ? format(dateValue, "PPP") : <span>{t("pickDate")}</span>}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0"
@@ -1176,7 +1179,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Место выдачи паспорта</Label>
+                    <Label>{t("fields.passportIssuePlace")}</Label>
                     <form.Field name="passportIdPlace">
                         {(field) => (
                             <Input
@@ -1193,7 +1196,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Желаемая зарплата</Label>
+                    <Label>{t("fields.desiredSalary")}</Label>
                     <form.Field name="desiredSalary">
                         {(field) => (
                             <Input
@@ -1208,7 +1211,7 @@ export default function CandidateForm({
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Желаемый график</Label>
+                    <Label>{t("fields.desiredSchedule")}</Label>
                     <form.Field name="desiredSchedule">
                         {(field) => (
                             <Input
@@ -1224,7 +1227,7 @@ export default function CandidateForm({
             </div>
 
             <div className="space-y-2">
-                <Label>Цель</Label>
+                <Label>{t("fields.purpose")}</Label>
                 <form.Field name="purpose">
                     {(field) => (
                         <Textarea
@@ -1233,14 +1236,14 @@ export default function CandidateForm({
                             value={field.getValue() ?? ""}
                             onBlur={field.handleBlur}
                             onChange={(e) => field.handleChange(e.target.value)}
-                            placeholder="Цель присоединения к нашей компании"
+                            placeholder={t("placeholders.purpose")}
                         />
                     )}
                 </form.Field>
             </div>
 
             <div className="space-y-2">
-                <Label>Сильные и слабые стороны</Label>
+                <Label>{t("fields.strengths")}</Label>
                 <form.Field name="strengthsShortage">
                     {(field) => (
                         <Textarea
@@ -1249,14 +1252,14 @@ export default function CandidateForm({
                             value={field.getValue() ?? ""}
                             onBlur={field.handleBlur}
                             onChange={(e) => field.handleChange(e.target.value)}
-                            placeholder="Ваши сильные стороны и области для улучшения"
+                            placeholder={t("placeholders.strengths")}
                         />
                     )}
                 </form.Field>
             </div>
 
             {/* <div className="space-y-2">
-                <Label>Родственники</Label>
+                <Label>{t("fields.relatives")}</Label>
                 <form.Field name="relatives">
                     {(field) => (
                         <Textarea
@@ -1265,7 +1268,7 @@ export default function CandidateForm({
                             value={field.getValue() ?? ""}
                             onBlur={field.handleBlur}
                             onChange={(e) => field.handleChange(e.target.value)}
-                            placeholder="Информация о родственниках"
+                            placeholder={t("placeholders.relatives")}
                         />
                     )}
                 </form.Field>
@@ -1273,7 +1276,7 @@ export default function CandidateForm({
 
             <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                    <Label>Желаемая должность</Label>
+                    <Label>{t("fields.desiredPosition")}</Label>
                     <form.Field name="desiredPosition">
                         {(field) => (
                             <Input
@@ -1282,13 +1285,13 @@ export default function CandidateForm({
                                 value={field.getValue() ?? ""}
                                 onBlur={field.handleBlur}
                                 onChange={(e) => field.handleChange(e.target.value)}
-                                placeholder="Какую должность вы ищете?"
+                                placeholder={t("placeholders.desiredPosition")}
                             />
                         )}
                     </form.Field>
                 </div>
                 <div className="space-y-2">
-                    <Label>Статус результата</Label>
+                    <Label>{t("fields.resultStatus")}</Label>
                     <form.Field name="resultStatus">
                         {(field) => (
                             <Select
@@ -1296,12 +1299,12 @@ export default function CandidateForm({
                                 onValueChange={handleResultStatusChange}
                             >
                                 <SelectTrigger className="w-full">
-                                    <SelectValue placeholder="Выберите статус результата" />
+                                    <SelectValue placeholder={t("placeholders.resultStatus")} />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="positive">Положительный</SelectItem>
-                                    <SelectItem value="negative">Отрицательный</SelectItem>
-                                    <SelectItem value="neutral">Нейтральный</SelectItem>
+                                    <SelectItem value="positive">{t("resultStatuses.positive")}</SelectItem>
+                                    <SelectItem value="negative">{t("resultStatuses.negative")}</SelectItem>
+                                    <SelectItem value="neutral">{t("resultStatuses.neutral")}</SelectItem>
                                 </SelectContent>
                             </Select>
                         )}
@@ -1311,7 +1314,7 @@ export default function CandidateForm({
 
             <div className="space-y-4">
                 <div className="flex justify-between items-center border-t pt-4 mt-4">
-                    <Label className="text-lg font-bold">Образование</Label>
+                    <Label className="text-lg font-bold">{t("sections.education")}</Label>
                     <Button
                         type="button"
                         variant={showEducationForm ? "outline" : "default"}
@@ -1319,7 +1322,7 @@ export default function CandidateForm({
                         onClick={() => setShowEducationForm(!showEducationForm)}
                         className="flex items-center gap-2"
                     >
-                        {showEducationForm ? "Скрыть форму" : `Добавить образование ${educations.length > 0 ? `(${educations.length})` : ''}`}
+                        {showEducationForm ? t("hideForm") : t("addEducation", { suffix: educations.length > 0 ? `(${educations.length})` : '' })}
                     </Button>
                 </div>
 
@@ -1338,7 +1341,7 @@ export default function CandidateForm({
                 {/* Отображаем список добавленных записей даже если форма скрыта */}
                 {educations.length > 0 && !showEducationForm && (
                     <div className="mt-2 p-4 border rounded-md">
-                        <p className="font-medium mb-2">Добавленные записи об образовании: {educations.length}</p>
+                        <p className="font-medium mb-2">{t("educationAddedCount", { count: educations.length })}</p>
                         <ul className="list-disc pl-5">
                             {educations.map((edu, index) => (
                                 <li key={index} className="mb-1">
@@ -1353,7 +1356,7 @@ export default function CandidateForm({
                                         }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
-                                        Удалить
+                                        {tc("delete")}
                                     </Button>
                                 </li>
                             ))}
@@ -1365,7 +1368,7 @@ export default function CandidateForm({
             {/* Добавляем секцию для последнего места работы */}
             <div className="space-y-4">
                 <div className="flex justify-between items-center border-t pt-4 mt-4">
-                    <Label className="text-lg font-bold">Места работы</Label>
+                    <Label className="text-lg font-bold">{t("sections.workPlaces")}</Label>
                     <div className="flex items-center gap-4">
                         <div className="flex items-center space-x-2">
                             <input
@@ -1383,7 +1386,7 @@ export default function CandidateForm({
                                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                             />
                             <Label htmlFor="isFirstJob" className="text-sm font-medium">
-                                Это первое место работы
+                                {t("firstJob")}
                             </Label>
                         </div>
                         {!isFirstJob && (
@@ -1394,7 +1397,7 @@ export default function CandidateForm({
                                 onClick={() => setShowLastWorkPlaceForm(!showLastWorkPlaceForm)}
                                 className="flex items-center gap-2"
                             >
-                                {showLastWorkPlaceForm ? "Скрыть форму" : `Добавить место работы ${lastWorkPlaces.length > 0 ? `(${lastWorkPlaces.length})` : ''}`}
+                                {showLastWorkPlaceForm ? t("hideForm") : t("addWorkPlace", { suffix: lastWorkPlaces.length > 0 ? `(${lastWorkPlaces.length})` : '' })}
                             </Button>
                         )}
                     </div>
@@ -1415,7 +1418,7 @@ export default function CandidateForm({
                 {/* Отображаем список добавленных записей даже если форма скрыта */}
                 {!isFirstJob && lastWorkPlaces.length > 0 && !showLastWorkPlaceForm && (
                     <div className="mt-2 p-4 border rounded-md">
-                        <p className="font-medium mb-2">Добавленные записи о местах работы: {lastWorkPlaces.length}</p>
+                        <p className="font-medium mb-2">{t("workPlacesAddedCount", { count: lastWorkPlaces.length })}</p>
                         <ul className="list-disc pl-5">
                             {lastWorkPlaces.map((work, index) => (
                                 <li key={index} className="mb-1">
@@ -1430,7 +1433,7 @@ export default function CandidateForm({
                                         }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
-                                        Удалить
+                                        {tc("delete")}
                                     </Button>
                                 </li>
                             ))}
@@ -1441,7 +1444,7 @@ export default function CandidateForm({
                 {isFirstJob && (
                     <div className="mt-2 p-4 border rounded-md bg-gray-50">
                         <p className="text-gray-600 italic">
-                            Информация о предыдущих местах работы не требуется, так как это первое место работы кандидата.
+                            {t("firstJobNote")}
                         </p>
                     </div>
                 )}
@@ -1450,7 +1453,7 @@ export default function CandidateForm({
             {/* После секции с местами работы добавляем секцию для родственников */}
             <div className="space-y-4">
                 <div className="flex justify-between items-center border-t pt-4 mt-4">
-                    <Label className="text-lg font-bold">Ближайшие родственники</Label>
+                    <Label className="text-lg font-bold">{t("sections.relatives")}</Label>
                     <Button
                         type="button"
                         variant={showFamilyListForm ? "outline" : "default"}
@@ -1458,7 +1461,7 @@ export default function CandidateForm({
                         onClick={() => setShowFamilyListForm(!showFamilyListForm)}
                         className="flex items-center gap-2"
                     >
-                        {showFamilyListForm ? "Скрыть форму" : `Добавить родственника ${familyLists.length > 0 ? `(${familyLists.length})` : ''}`}
+                        {showFamilyListForm ? t("hideForm") : t("addRelative", { suffix: familyLists.length > 0 ? `(${familyLists.length})` : '' })}
                     </Button>
                 </div>
 
@@ -1477,7 +1480,7 @@ export default function CandidateForm({
                 {/* Отображаем список добавленных родственников даже если форма скрыта */}
                 {familyLists.length > 0 && !showFamilyListForm && (
                     <div className="mt-2 p-4 border rounded-md">
-                        <p className="font-medium mb-2">Добавленные родственники: {familyLists.length}</p>
+                        <p className="font-medium mb-2">{t("relativesAddedCount", { count: familyLists.length })}</p>
                         <ul className="list-disc pl-5">
                             {familyLists.map((family, index) => (
                                 <li key={index} className="mb-1">
@@ -1493,7 +1496,7 @@ export default function CandidateForm({
                                         }}
                                         className="ml-2 h-6 text-red-500 hover:text-red-700"
                                     >
-                                        Удалить
+                                        {tc("delete")}
                                     </Button>
                                 </li>
                             ))}
@@ -1507,9 +1510,9 @@ export default function CandidateForm({
                     type="button"
                     variant="outline"
                     onClick={closeForm}
-                    aria-label="Отменить форму"
+                    aria-label={t("cancelFormAria")}
                 >
-                    Отмена
+                    {tc("cancel")}
                 </Button>
                 
                 {recordId && (
@@ -1518,30 +1521,30 @@ export default function CandidateForm({
                             <Button
                                 type="button"
                                 variant="destructive"
-                                aria-label="Удалить кандидата"
+                                aria-label={t("deleteAria")}
                                 className="mr-auto"
                             >
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Удалить
+                                {tc("delete")}
                             </Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                             <AlertDialogHeader>
-                                <AlertDialogTitle>Вы уверены?</AlertDialogTitle>
+                                <AlertDialogTitle>{t("deleteDialog.title")}</AlertDialogTitle>
                                 <AlertDialogDescription>
-                                    Это действие нельзя отменить. Кандидат и все связанные данные (образование, опыт работы, родственники) будут удалены.
+                                    {t("deleteDialog.description")}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
-                                <AlertDialogCancel>Отмена</AlertDialogCancel>
+                                <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                                 <AlertDialogAction onClick={handleDelete} className="bg-red-600 hover:bg-red-700">
                                     {deleteMutation.isPending ? (
                                         <>
                                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Удаление...
+                                            {t("deleting")}
                                         </>
                                     ) : (
-                                        "Удалить"
+                                        tc("delete")
                                     )}
                                 </AlertDialogAction>
                             </AlertDialogFooter>
@@ -1552,12 +1555,12 @@ export default function CandidateForm({
                 <Button
                     type="submit"
                     disabled={createMutation.isPending || updateMutation.isPending}
-                    aria-label={recordId ? "Обновить кандидата" : "Отправить нового кандидата"}
+                    aria-label={recordId ? t("submitAriaUpdate") : t("submitAriaCreate")}
                 >
                     {(createMutation.isPending || updateMutation.isPending) && (
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     )}
-                    {recordId ? "Обновить" : "Отправить"}
+                    {recordId ? t("update") : t("submit")}
                 </Button>
             </div>
         </form>
