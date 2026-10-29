@@ -1,0 +1,1 @@
+ALTER TABLE "inventory_counts" DROP COLUMN "unlocked_until";

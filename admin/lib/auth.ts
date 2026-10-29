@@ -1,22 +1,26 @@
 import { apiClient } from "../utils/eden";
+import { loginErrorMessage } from "./auth-errors";
 
 
+// A failed login is an expected outcome, not a crash: the reason is thrown as
+// a readable message for the form and NOT console.error'ed, because in dev
+// every console.error pops the Next.js error overlay over the login page.
 export async function login(username: string, password: string) {
+    let response;
     try {
-        const { data, status } = await apiClient.api.users.login.post({
+        response = await apiClient.api.users.login.post({
             login: username,
             password
         });
-
-        if (status === 200 && data && 'user' in data) {
-            return data.user;
-        } else {
-            throw new Error("Invalid credentials");
-        }
-    } catch (error) {
-        console.error("Login error:", error);
-        throw new Error("Login failed");
+    } catch {
+        throw new Error(loginErrorMessage(undefined, undefined));
     }
+
+    const { data, error, status } = response;
+    if (status === 200 && data && 'user' in data) {
+        return data.user;
+    }
+    throw new Error(loginErrorMessage(status, error?.value));
 }
 
 export async function getCurrentUser() {

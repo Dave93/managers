@@ -197,6 +197,97 @@
       "when": 1791026152833,
       "tag": "0027_store_product_links",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1791027129152,
+      "tag": "0028_inventory",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1791289929153,
+      "tag": "0029_inventory_reconciliation",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1791351646786,
+      "tag": "0030_inventory_drop_unlocked_until",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791354080853,
+      "tag": "0031_inventory_reconciliation_line_marks",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791458581879,
+      "tag": "0032_inventory_interim_book",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791524272987,
+      "tag": "0033_inventory_count_book_marks",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791970084645,
+      "tag": "0034_inventory_turnover",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792899337599,
+      "tag": "0035_hanging_orders_sync",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792899411885,
+      "tag": "0036_kpi_core",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792917763109,
+      "tag": "0037_kpi_attendance",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792922078535,
+      "tag": "0038_kpi_telegram",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792926678670,
+      "tag": "0039_kpi_branch",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1793010443424,
+      "tag": "0040_kpi_tg_dual",
+      "breakpoints": true
     }
   ]
 }

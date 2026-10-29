@@ -1,7 +1,11 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
+import { Boxes, CalendarCheck, ClipboardCheck, ClipboardList, Gauge, ListChecks, MessageSquareWarning, Sheet, TrendingUp, TriangleAlert } from "lucide-react";
+import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
+import { canOpen } from "@admin/lib/kpi/access";
+import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 
 const itemClass =
   "inline-flex flex-col items-center justify-center px-2 hover:bg-gray-50 dark:hover:bg-gray-800 group";
@@ -13,6 +17,11 @@ const labelClass =
 // Secondary destinations live in the "Ещё" dropdown so the bar itself never
 // overflows on narrow screens.
 function MoreMenu() {
+  const t = useTranslations("inventory");
+  const tStock = useTranslations("inventory.stock");
+  const tDaily = useTranslations("inventory.reconcile.interim");
+  const tTurnover = useTranslations("inventory.turnover");
+  const perms = useMyPermissions();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -72,6 +81,48 @@ function MoreMenu() {
             </svg>
             Asrabox
           </Link>
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {t("title")}
+            </Link>
+          </CanAccess>
+          {/* «Остатки склада» — только офис: филиалу учёт iiko не показываем (слепой пересчёт). */}
+          <CanAccess permission="inventory.templates">
+            <Link
+              href="/inventory/stock"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Boxes aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tStock("title")}
+            </Link>
+          </CanAccess>
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory/daily"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ListChecks aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tDaily("title")}
+            </Link>
+          </CanAccess>
+          {/* Оборотная ведомость: филиалу — свой склад, только количество и только закрытые месяцы (spec 2026-10-14). */}
+          <CanAccess permission="inventory.count">
+            <Link
+              href="/inventory/turnover"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Sheet aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tTurnover("title")}
+            </Link>
+          </CanAccess>
           <CanAccess permission="medical.list">
             <Link
               href="/medical"
@@ -96,6 +147,77 @@ function MoreMenu() {
               Медосмотр
             </Link>
           </CanAccess>
+          {/* KPI: CanAccess принимает одно право, а тут «kpi_layout и любое из» — то же правило, что в меню (canOpen). */}
+          {canOpen(perms, "reviews") && (
+            <Link
+              href="/kpi/reviews"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ClipboardCheck aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Оценки
+            </Link>
+          )}
+          {canOpen(perms, "violations") && (
+            <Link
+              href="/kpi/violations"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <TriangleAlert aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Нарушения
+            </Link>
+          )}
+          {canOpen(perms, "disputes") && (
+            <Link
+              href="/kpi/disputes"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <MessageSquareWarning aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Споры
+            </Link>
+          )}
+          {canOpen(perms, "month") && (
+            <Link
+              href="/kpi/month"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <CalendarCheck aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Месяц
+            </Link>
+          )}
+          {canOpen(perms, "raises") && (
+            <Link
+              href="/kpi/raises"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <TrendingUp aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Повышения
+            </Link>
+          )}
+          {canOpen(perms, "network") && (
+            <Link
+              href="/kpi/network"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <Gauge aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Балл филиала
+            </Link>
+          )}
+          {canOpen(perms, "sanitary") && (
+            <Link
+              href="/kpi/sanitary/new"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              Санитария
+            </Link>
+          )}
         </div>
       )}
     </div>
@@ -108,7 +230,8 @@ export default function ManagerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="md:container">
+    // pb-20: нижнее меню закреплено (h-16) и иначе закрывает конец длинных страниц.
+    <div className="md:container pb-20">
       {children}
       <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid h-full max-w-lg grid-cols-6 mx-auto font-medium">

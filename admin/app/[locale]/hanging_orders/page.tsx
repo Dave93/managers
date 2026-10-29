@@ -269,7 +269,7 @@ function HangingOrdersContent() {
             <div className="flex justify-between items-start gap-2">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">
-                        Висячие заказы
+                        Незакрытые заказы
                     </h1>
                     <p className="text-muted-foreground mt-2">
                         Управление и отслеживание проблемных заказов

@@ -1,6 +1,6 @@
 "use client";
 import { usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -8,19 +8,20 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@components/ui/breadcrumb";
-import { buildNav } from "./nav-config";
+import { buildNav, leafPaths } from "./nav-config";
 
 // Longest-prefix match of the current path against the nav config.
 export function AdminBreadcrumbs() {
   const pathname = usePathname();
   const locale = useLocale();
+  const tTickets = useTranslations("tickets.nav");
   let group: string | null = null;
   let page: string | null = null;
   let bestLen = 0;
   const match = (href: string) =>
     (pathname === href || pathname.startsWith(href + "/")) &&
     href.length > bestLen;
-  for (const e of buildNav(locale)) {
+  for (const e of buildNav(locale, tTickets)) {
     if (e.kind === "link") {
       if (match(e.href)) {
         group = null;
@@ -29,10 +30,12 @@ export function AdminBreadcrumbs() {
       }
     } else {
       for (const it of e.items) {
-        if (match(it.href)) {
-          group = e.title;
-          page = it.title;
-          bestLen = it.href.length;
+        for (const href of leafPaths(it)) {
+          if (match(href)) {
+            group = e.title;
+            page = it.title;
+            bestLen = href.length;
+          }
         }
       }
     }

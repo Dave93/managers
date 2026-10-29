@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Мой KPI</title>
+  <!-- Стили ссылкой, а не импортом из main.ts: модуль ждёт SDK (defer идёт раньше),
+       и скелетон с подсказкой должны быть оформлены, пока telegram.org не ответил. -->
+  <link rel="stylesheet" href="/src/style.css" />
+  <!-- SDK через defer и без integrity: Telegram отдаёт меняющийся файл по
+       одному адресу, закреплённый хеш сломал бы приложение при их обновлении. -->
+  <script defer src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+  <!-- Скелетон старта: виден, пока грузятся SDK и вход. Повторяет skeleton("home") из
+       src/ui.ts — их держать одинаковыми. Снимается первым mount(). -->
+  <div id="boot">
+    <div class="screen" data-skeleton="home" aria-hidden="true">
+      <div class="sk-who"><span class="sk sk-avatar"></span><span class="sk-who-text"><span class="sk sk-name"></span><span class="sk sk-sub"></span></span><span class="sk sk-lang"></span></div>
+      <div class="card"><div class="sk-head"><span class="sk sk-label"></span><span class="sk sk-chip"></span></div><span class="sk sk-score"></span><span class="sk sk-line"></span><div class="sk-lost"><span class="sk sk-lost-title"></span><div class="sk-lost-row"><span class="sk sk-text"></span><span class="sk sk-num"></span></div><div class="sk-lost-row"><span class="sk sk-text sk-w2"></span><span class="sk sk-num"></span></div></div><span class="sk sk-btn"></span></div>
+      <div class="card"><div class="sk-head"><span class="sk sk-label sk-w2"></span><span class="sk sk-chip"></span></div><div class="sk-scale"><span class="sk sk-track"></span><div class="sk-ticks"><span class="sk sk-tick"></span><span class="sk sk-tick"></span><span class="sk sk-tick"></span></div></div><div class="sk-tiles"><span class="sk sk-tile"></span><span class="sk sk-tile"></span><span class="sk sk-tile"></span></div><div class="sk-hint"><span class="sk sk-line"></span><span class="sk sk-line"></span></div></div>
+      <div class="card sk-rows"><div class="sk-rowline"><span class="sk sk-text"></span></div><div class="sk-rowline"><span class="sk sk-text sk-w3"></span></div></div>
+    </div>
+    <!-- Урок F1: если telegram.org или вход молчат, через 8 с проявляется эта строка (CSS,
+         без скрипта). Язык ещё неизвестен — обе строки. -->
+    <p id="slow-hint" class="slow slow-later" role="status"><span class="slow-dots" aria-hidden="true"><i></i><i></i><i></i></span><span class="slow-text"><span lang="ru">Связь плохая, ещё пробуем</span><span lang="uz">Aloqa yomon, yana urinib koʻryapmiz</span></span></p>
+  </div>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

@@ -1,0 +1,213 @@
+// Клиент iiko resto API для сверки — ТОЛЬКО ЧТЕНИЕ (spec 2026-10-06, §3).
+// Методы: storeOperations (документы с комментарием), OLAP TRANSACTIONS
+// (корректировки), balance/stores (учёт); для ОСВ — остатки всех складов и обороты с суммами. Токен занимает лицензионный слот
+// iiko, поэтому один токен на вызов withIikoClient и logout в finally.
+import { createHash } from "node:crypto";
+import type { Movement } from "../book/pure";
+import type { IikoBal, IikoTx } from "../turnover/pure";
+import {
+  inventoryDocs,
+  nextDay,
+  parseOlapCorrections,
+  parseStoreOperations,
+  toIikoDate,
+  type BookRow,
+  type Correction,
+  type IikoDoc,
+} from "./pure";
+
+export interface IikoClient {
+  /** Проведённые документы инвентаризации за день (YYYY-MM-DD), все склады. */
+  inventoryDocs(date: string): Promise<IikoDoc[]>;
+  /** Корректировки инвентаризаций за [period, period + 1 день), все склады. */
+  corrections(period: string): Promise<Correction[]>;
+  /** Учётный остаток склада на момент at (YYYY-MM-DDTHH:mm:ss, местное время iiko). */
+  balance(storeId: string, at: string): Promise<BookRow[]>;
+  /** Движение склада по товару и типу проводки за даты [from, toInclusive], без INVENTORY_CORRECTION. */
+  movements(storeId: string, from: string, toInclusive: string): Promise<Movement[]>;
+}
+
+/** Оборотно-сальдовая ведомость (spec 2026-10-14, §3). */
+export interface TurnoverSource {
+  /** balance/stores на момент at; без storeId — все склады. */
+  balances(at: string, storeId?: string): Promise<IikoBal[]>;
+  /** OLAP TRANSACTIONS склада за даты [from, toInclusive], все типы, с суммами. */
+  turnover(storeId: string, from: string, toInclusive: string): Promise<IikoTx[]>;
+}
+
+export type IikoClientOptions = {
+  base?: string;
+  login?: string;
+  password?: string;
+  fetch?: typeof fetch;
+  retries?: number;
+  /** logout не должен держать задачу, если iiko завис. */
+  logoutTimeoutMs?: number;
+  /** Тайм-аут одного запроса; для экранов — короткий. */
+  timeoutMs?: number;
+};
+
+export class IikoError extends Error {}
+
+const DEFAULT_BASE = "https://les-ailes-co-co.iiko.it/resto/api";
+const TIMEOUT_MS = 120_000;
+
+/** iiko принимает sha1 пароля; в .env бывает и готовый хэш. */
+export function passwordHash(p: string): string {
+  return /^[0-9a-f]{40}$/i.test(p) ? p.toLowerCase() : createHash("sha1").update(p).digest("hex");
+}
+
+export async function withIikoClient<T>(fn: (c: IikoClient & TurnoverSource) => Promise<T>, opts: IikoClientOptions = {}): Promise<T> {
+  const base = opts.base ?? DEFAULT_BASE;
+  const f = opts.fetch ?? fetch;
+  const login = opts.login ?? process.env.IIKO_LOGIN;
+  // В backend/.env на проде пароль исторически лежит как IIKO_PASS (его читает cache_control), в cron/.env — IIKO_PASSWORD.
+  const password = opts.password ?? process.env.IIKO_PASSWORD ?? process.env.IIKO_PASS;
+  const retries = opts.retries ?? 2;
+  if (!login || !password) throw new IikoError("IIKO_LOGIN / IIKO_PASSWORD are not set");
+
+  async function request(url: string, init?: RequestInit): Promise<Response> {
+    for (let attempt = 0; ; attempt++) {
+      let res: Response;
+      try {
+        res = await f(url, { ...init, signal: AbortSignal.timeout(opts.timeoutMs ?? TIMEOUT_MS) });
+      } catch (e) {
+        if (attempt >= retries) throw new IikoError(`iiko: ${(e as Error).message}`);
+        continue;
+      }
+      if (res.status >= 500 && attempt < retries) continue;
+      if (!res.ok) throw new IikoError(`iiko ${res.status}: ${(await res.text()).slice(0, 300)}`);
+      return res;
+    }
+  }
+
+  const auth = await request(`${base}/auth?login=${encodeURIComponent(login)}&pass=${passwordHash(password)}`);
+  const key = (await auth.text()).trim();
+
+  const client: IikoClient & TurnoverSource = {
+    async inventoryDocs(date) {
+      const d = toIikoDate(date);
+      const res = await request(
+        `${base}/reports/storeOperations?key=${key}&dateFrom=${d}&dateTo=${d}&documentTypes=INCOMING_INVENTORY&productDetalization=false`
+      );
+      return inventoryDocs(parseStoreOperations(await res.text()));
+    },
+    async corrections(period) {
+      const body = {
+        reportType: "TRANSACTIONS",
+        buildSummary: "false",
+        groupByRowFields: ["Account.Id", "Document", "DateTime.Typed", "Product.Id", "Product.Name"],
+        aggregateFields: ["Amount", "Sum.ResignedSum"],
+        filters: {
+          "DateTime.DateTyped": {
+            filterType: "DateRange",
+            periodType: "CUSTOM",
+            from: period,
+            to: nextDay(period),
+            includeLow: true,
+            includeHigh: false,
+          },
+          TransactionType: { filterType: "IncludeValues", values: ["INVENTORY_CORRECTION"] },
+        },
+      };
+      const res = await request(`${base}/v2/reports/olap?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { data?: Record<string, unknown>[] };
+      return parseOlapCorrections(j.data ?? []);
+    },
+    async movements(storeId, from, toInclusive) {
+      const body = {
+        reportType: "TRANSACTIONS",
+        buildSummary: "false",
+        groupByRowFields: ["Product.Id", "TransactionType"],
+        aggregateFields: ["Amount.In", "Amount.Out"],
+        filters: {
+          "DateTime.DateTyped": {
+            filterType: "DateRange",
+            periodType: "CUSTOM",
+            from,
+            to: nextDay(toInclusive),
+            includeLow: true,
+            includeHigh: false,
+          },
+          "Account.Id": { filterType: "IncludeValues", values: [storeId] },
+          // Документ инвентаризации в 23:59 не входит в книжное на 23:58 (spec 2026-10-08, §4).
+          TransactionType: { filterType: "ExcludeValues", values: ["INVENTORY_CORRECTION"] },
+        },
+      };
+      const res = await request(`${base}/v2/reports/olap?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { data?: Record<string, unknown>[] };
+      return (j.data ?? [])
+        .filter((r) => r["Product.Id"])
+        .map((r) => ({
+          product_id: String(r["Product.Id"]),
+          type: String(r["TransactionType"] ?? ""),
+          in: Number(r["Amount.In"] ?? 0),
+          out: Number(r["Amount.Out"] ?? 0),
+        }));
+    },
+    async balance(storeId, at) {
+      const res = await request(
+        `${base}/v2/reports/balance/stores?key=${key}&timestamp=${encodeURIComponent(at)}&store=${storeId}`
+      );
+      const j = (await res.json()) as { product: string; amount: number; sum: number }[];
+      return j.map((x) => ({ product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
+    },
+    async balances(at, storeId) {
+      const store = storeId ? `&store=${storeId}` : "";
+      const res = await request(`${base}/v2/reports/balance/stores?key=${key}&timestamp=${encodeURIComponent(at)}${store}`);
+      const j = (await res.json()) as { store?: string; product: string; amount: number; sum: number }[];
+      // С фильтром &store= поле store не гарантировано: без него снимок склада вышел бы пустым (всё нули).
+      return j.map((x) => ({ store_id: x.store ?? storeId ?? "", product_id: x.product, amount: Number(x.amount), sum: Number(x.sum) }));
+    },
+    // ОСВ (spec 2026-10-14, §3): все типы, включая INVENTORY_CORRECTION, — начало 1-го + обороты = конец.
+    async turnover(storeId, from, toInclusive) {
+      const body = {
+        reportType: "TRANSACTIONS",
+        buildSummary: "false",
+        groupByRowFields: ["Product.Id", "TransactionType"],
+        aggregateFields: ["Amount.In", "Amount.Out", "Sum.Incoming", "Sum.Outgoing"],
+        filters: {
+          "DateTime.DateTyped": {
+            filterType: "DateRange", periodType: "CUSTOM", from, to: nextDay(toInclusive), includeLow: true, includeHigh: false,
+          },
+          "Account.Id": { filterType: "IncludeValues", values: [storeId] },
+        },
+      };
+      const res = await request(`${base}/v2/reports/olap?key=${key}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const j = (await res.json()) as { data?: Record<string, unknown>[] };
+      return (j.data ?? [])
+        .filter((r) => r["Product.Id"])
+        .map((r) => ({
+          store_id: storeId,
+          product_id: String(r["Product.Id"]),
+          type: String(r["TransactionType"] ?? ""),
+          qty_in: Number(r["Amount.In"] ?? 0),
+          qty_out: Number(r["Amount.Out"] ?? 0),
+          sum_in: Number(r["Sum.Incoming"] ?? 0),
+          sum_out: Number(r["Sum.Outgoing"] ?? 0),
+        }));
+    },
+  };
+
+  try {
+    return await fn(client);
+  } finally {
+    try {
+      await f(`${base}/logout?key=${key}`, { signal: AbortSignal.timeout(opts.logoutTimeoutMs ?? 10_000) });
+    } catch {
+      // слот освободится по таймауту токена iiko
+    }
+  }
+}

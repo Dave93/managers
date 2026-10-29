@@ -12,20 +12,32 @@ import { networkMapController } from "./modules/terminals/network-map";
 import { staffBoardController } from "./modules/terminals/staff-board";
 import { ticketsController } from "./modules/tickets/controller";
 import { ticketsBotController } from "./modules/tickets/bot-controller";
+import { inventoryController } from "./modules/inventory/controller";
+import { kpiController } from "./modules/kpi/controller";
 import { openapi } from '@elysiajs/openapi'
 import { cors } from "@elysiajs/cors";
+import { corsOrigins, isDbError } from "./lib/security";
 
 const app = new Elysia()
 
 .use(
-  cors()
+  cors({ origin: corsOrigins(), credentials: true })
 )
+  // Глобально и до контроллеров: хуки Elysia действуют только на маршруты, объявленные после них.
+  // Текст ошибки базы содержит SQL — в журнал, а пользователю только «ошибка сервера».
+  .onError({ as: "global" }, ({ error, set }) => {
+    if (!isDbError(error)) return;
+    console.error("[db error]", error);
+    set.status = 500;
+    return { message: "Internal server error" };
+  })
   .get("/", () => '', {
     detail: {
       hide: true,
     },
   })
-  .use(openapi())
+  // Карта всех маршрутов API — только для разработки, не для всего интернета.
+  .use(openapi({ enabled: process.env.ENV === "development" }))
   // Widened-type controllers go first: after apiController the accumulated
   // route type is near TS's instantiation-depth limit and any extra .use()
   // beyond medicalController overflows it (TS2589). creditAdminController
@@ -42,6 +54,8 @@ const app = new Elysia()
   .use(staffBoardController)
   .use(ticketsController)
   .use(ticketsBotController)
+  .use(inventoryController)
+  .use(kpiController)
   .use(apiController)
   .use(medicalController);
 

@@ -158,7 +158,7 @@ describe("startInternalCreditApp", () => {
     fs.rmSync(STARTED_DIR, { recursive: true, force: true });
   });
 
-  test("chmods an existing run dir to 0750, unlinks a stale socket file, and chmods the socket 0660", async () => {
+  test("chmods an existing run dir to 2750 (setgid kept), unlinks a stale socket file, and chmods the socket 0660", async () => {
     const dir = path.dirname(STARTED_SOCK);
     // pre-create the dir at a permissive default mode so the assertion below can
     // only pass if startInternalCreditApp's explicit chmodSync actually ran —
@@ -170,7 +170,7 @@ describe("startInternalCreditApp", () => {
 
     startedServer = startInternalCreditApp(db, STARTED_SOCK);
 
-    expect(fs.statSync(dir).mode & 0o777).toBe(0o750);
+    expect(fs.statSync(dir).mode & 0o7777).toBe(0o2750);
     expect(fs.statSync(STARTED_SOCK).mode & 0o777).toBe(0o660);
   });
 });

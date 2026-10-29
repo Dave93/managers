@@ -1,13 +1,16 @@
 "use client";
 import * as React from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@admin/utils/eden";
+import { KPI_SCREEN_PERMS, KPI_SCREEN_TITLE } from "@admin/lib/kpi/access";
 import {
+  Award,
   Ban,
   Banknote,
   Baby,
   Building2,
+  ClipboardList,
   Clock,
   FileText,
   GraduationCap,
@@ -24,25 +27,43 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export type NavLeaf = { title: string; href: string; permission?: string };
+// Один слаг или список: список означает «нужны все». Экран «К оплате» и планшет
+// филиала сами требуют по два права, и пункт меню, который ведёт на панель
+// отказа, хуже отсутствующего пункта. `{ any: [...] }` — хватает любого из прав:
+// экраны KPI открываются оценщику или наблюдателю.
+export type NavPermission = string | string[] | { any: readonly string[] };
+
+// Переводчик раздела tickets.nav (useTranslations("tickets.nav")). Остальное меню
+// пока жёстко по-русски, поэтому buildNav принимает переводчик только для заявок.
+export type TicketsNavT = (
+  key: "group" | "list" | "payments" | "contractors" | "types" | "branch"
+) => string;
+
+// also — пути дочерних экранов вне href, на которых пункт тоже считается активным
+// (подсветка в меню и хлебные крошки), например /kpi/branch/<id> для «Сети».
+export type NavLeaf = { title: string; href: string; permission?: NavPermission; also?: string[] };
+
+export function leafPaths(it: NavLeaf): string[] {
+  return [it.href, ...(it.also ?? [])];
+}
 export type NavEntry =
   | {
       kind: "link";
       title: string;
       href: string;
       icon: LucideIcon;
-      permission?: string;
+      permission?: NavPermission;
     }
   | {
       kind: "group";
       title: string;
       icon: LucideIcon;
-      permission?: string;
+      permission?: NavPermission;
       items: NavLeaf[];
     };
 
 // Mirrors the prod main-nav data (single source for sidebar + breadcrumbs).
-export function buildNav(locale: string): NavEntry[] {
+export function buildNav(locale: string, tTickets: TicketsNavT): NavEntry[] {
   const p = (path: string) => `/${locale}${path}`;
   return [
     {
@@ -71,6 +92,19 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Сотрудники", href: p("/employees"), icon: Users, permission: "employees.list" },
     { kind: "link", title: "Карта сети", href: p("/network-map"), icon: MapPinned, permission: "employees.list" },
     { kind: "link", title: "Состав филиалов", href: p("/staff-board"), icon: UsersRound, permission: "employees.list" },
+    {
+      kind: "group",
+      title: "Инвентаризация",
+      icon: ClipboardList,
+      permission: "inventory.count",
+      items: [
+        { title: "Инвентаризации", href: p("/inventory"), permission: "inventory.count" },
+        { title: "Остатки склада", href: p("/inventory/stock"), permission: "inventory.templates" },
+        { title: "Оборотная ведомость", href: p("/inventory/turnover"), permission: "inventory.count" },
+        { title: "Шаблоны инвентаризаций", href: p("/inventory/templates"), permission: "inventory.templates" },
+        { title: "Сверка с iiko", href: p("/inventory/reconciliation"), permission: "inventory.reconcile" },
+      ],
+    },
     {
       kind: "group",
       title: "Аттестация",
@@ -102,6 +136,43 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Медосмотр", href: p("/medical"), icon: Stethoscope, permission: "medical_layout" },
     {
       kind: "group",
+      title: "KPI сотрудников",
+      icon: Award,
+      permission: "kpi_layout",
+      items: [
+        { title: KPI_SCREEN_TITLE.reviews, href: p("/kpi/reviews"), permission: { any: KPI_SCREEN_PERMS.reviews } },
+        { title: KPI_SCREEN_TITLE.violations, href: p("/kpi/violations"), permission: { any: KPI_SCREEN_PERMS.violations } },
+        { title: KPI_SCREEN_TITLE.disputes, href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
+        { title: KPI_SCREEN_TITLE.month, href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
+        { title: KPI_SCREEN_TITLE.raises, href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
+        { title: KPI_SCREEN_TITLE.attendance, href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
+        { title: KPI_SCREEN_TITLE.network, href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
+        { title: KPI_SCREEN_TITLE.revenue_plans, href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
+        { title: KPI_SCREEN_TITLE.sanitary, href: p("/kpi/sanitary/new"), permission: { any: KPI_SCREEN_PERMS.sanitary } },
+        { title: KPI_SCREEN_TITLE.settings, href: p("/kpi/settings"), permission: { any: KPI_SCREEN_PERMS.settings } },
+      ],
+    },
+    // Заявки. Право пункта берётся с самого экрана, а не с плана. Офисный
+    // список читает GET /tickets, а он проверяет tickets.list; но сессия без
+    // филиалов и без tickets.list_all получает там 200 с пустым списком, то есть
+    // «нет заявок» вместо «нет филиалов». Поэтому пункт показывается только тем,
+    // у кого есть оба права; менеджеру филиала достаточно «Заявок филиала».
+    // «К оплате» и «Заявки филиала» тоже требуют по два права. Группа без
+    // своего permission: useFilteredNav прячет её, когда не осталось пунктов.
+    {
+      kind: "group",
+      title: tTickets("group"),
+      icon: Wrench,
+      items: [
+        { title: tTickets("list"), href: p("/tickets"), permission: ["tickets.list_all", "tickets.list"] },
+        { title: tTickets("payments"), href: p("/tickets/payments"), permission: ["tickets.payment.approve", "tickets.list"] },
+        { title: tTickets("contractors"), href: p("/tickets/contractors"), permission: "tickets.contractors.manage" },
+        { title: tTickets("types"), href: p("/tickets/types"), permission: "tickets.types.manage" },
+      ],
+    },
+    { kind: "link", title: tTickets("branch"), href: p("/branch-tickets"), icon: Wrench, permission: ["tickets.create", "tickets.list"] },
+    {
+      kind: "group",
       title: "Детская площадка",
       icon: Baby,
       permission: "playground_tickets.list",
@@ -123,7 +194,7 @@ export function buildNav(locale: string): NavEntry[] {
     { kind: "link", title: "Стоп-лист", href: p("/admin/stoplist"), icon: Ban, permission: "stoplist.list" },
     { kind: "link", title: "Конфиги", href: p("/settings"), icon: Wrench, permission: "settings.list" },
     { kind: "link", title: "Дашборд", href: p("/dashboard"), icon: LayoutDashboard, permission: "charts.list" },
-    { kind: "link", title: "Висячие заказы", href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
+    { kind: "link", title: "Незакрытые заказы", href: p("/hanging_orders"), icon: Clock, permission: "hanging_orders.list" },
     {
       kind: "group",
       title: "Отчеты",
@@ -156,6 +227,7 @@ export function buildNav(locale: string): NavEntry[] {
 // Permission-filtered nav; same my_permissions query CanAccess uses.
 export function useFilteredNav(): NavEntry[] {
   const locale = useLocale();
+  const tTickets = useTranslations("tickets.nav");
   const { data } = useQuery({
     queryKey: ["my_permissions"],
     queryFn: async () => {
@@ -166,9 +238,15 @@ export function useFilteredNav(): NavEntry[] {
   return React.useMemo(() => {
     const perms: string[] | undefined = (data as any)?.permissions;
     if (!perms) return [];
-    const has = (p?: string) => !p || perms.includes(p);
+    const has = (p?: NavPermission) =>
+      !p ||
+      (typeof p === "string"
+        ? perms.includes(p)
+        : Array.isArray(p)
+          ? p.every((x) => perms.includes(x))
+          : p.any.some((x) => perms.includes(x)));
     const out: NavEntry[] = [];
-    for (const e of buildNav(locale)) {
+    for (const e of buildNav(locale, tTickets)) {
       if (e.kind === "link") {
         if (has(e.permission)) out.push(e);
       } else {
@@ -179,5 +257,5 @@ export function useFilteredNav(): NavEntry[] {
       }
     }
     return out;
-  }, [data, locale]);
+  }, [data, locale, tTickets]);
 }

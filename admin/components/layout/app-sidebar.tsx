@@ -28,7 +28,7 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "@components/ui/sidebar";
-import { useFilteredNav } from "./nav-config";
+import { leafPaths, useFilteredNav } from "./nav-config";
 import { NavUser } from "./nav-user";
 
 export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
@@ -81,7 +81,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                   <SidebarMenuItem>
                     <HoverCardTrigger asChild>
                       <SidebarMenuButton
-                        isActive={e.items.some((it) => isActive(it.href))}
+                        isActive={e.items.some((it) => leafPaths(it).some(isActive))}
                         onClick={toggleSidebar}
                       >
                         <e.icon />
@@ -103,7 +103,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                           <SidebarMenuItem key={it.href}>
                             <SidebarMenuButton
                               asChild
-                              isActive={isActive(it.href)}
+                              isActive={leafPaths(it).some(isActive)}
                               className="h-auto [&>span:last-child]:whitespace-normal [&>span:last-child]:overflow-visible [&>span:last-child]:text-clip"
                             >
                               <Link href={it.href}>
@@ -120,14 +120,14 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                 <Collapsible
                   key={e.title}
                   asChild
-                  defaultOpen={e.items.some((it) => isActive(it.href))}
+                  defaultOpen={e.items.some((it) => leafPaths(it).some(isActive))}
                   className="group/collapsible"
                 >
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton
                         tooltip={e.title}
-                        isActive={e.items.some((it) => isActive(it.href))}
+                        isActive={e.items.some((it) => leafPaths(it).some(isActive))}
                       >
                         <e.icon />
                         <span>{e.title}</span>
@@ -140,7 +140,7 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
                           <SidebarMenuSubItem key={it.href}>
                             <SidebarMenuSubButton
                               asChild
-                              isActive={isActive(it.href)}
+                              isActive={leafPaths(it).some(isActive)}
                             >
                               <Link href={it.href}>
                                 <span>{it.title}</span>

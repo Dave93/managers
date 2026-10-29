@@ -1,7 +1,9 @@
 import Elysia, { t } from "elysia";
 import { sql } from "drizzle-orm";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import {
   authorize, capture, voidHold, refund, amendHold,
   resolveCompanyByPhone, ensureAccount, dayKey, monthKey,
@@ -122,15 +124,114 @@ export function buildInternalCreditApp(db: DrizzleDb) {
     }, { body: orderRef });
 }
 
+// CREDIT_SOCKET_GROUP: a numeric gid (0..2^31-1), or a group name looked up in
+// /etc/group (falling back to `getent group` for NSS-backed groups). Dependency-
+// free on purpose. Throws on anything it cannot resolve; the caller decides what
+// that means (see startInternalCreditApp: it serves without the chown).
+export function resolveGroupGid(spec: string): number {
+  const name = spec.trim();
+  if (/^\d+$/.test(name)) {
+    const n = Number(name);
+    // 4294967295 is (gid_t)-1: chown treats it as "leave unchanged", silently.
+    if (!Number.isSafeInteger(n) || n > 0x7fffffff) {
+      throw new Error(`CREDIT_SOCKET_GROUP=${JSON.stringify(spec)}: numeric gid out of range`);
+    }
+    return n;
+  }
+  const fromLine = (line: string) => {
+    const [n, , gid] = line.split(":");
+    return n === name && /^\d+$/.test(gid ?? "") ? Number(gid) : undefined;
+  };
+  try {
+    for (const line of fs.readFileSync("/etc/group", "utf8").split("\n")) {
+      const gid = fromLine(line);
+      if (gid !== undefined) return gid;
+    }
+  } catch {}
+  try {
+    // "--" so a name starting with "-" is never parsed as a getent option; the
+    // timeout keeps a hung NSS/LDAP backend from stalling boot.
+    const out = spawnSync("getent", ["group", "--", name], { encoding: "utf8", timeout: 2000 });
+    if (out.status === 0) {
+      const gid = fromLine(out.stdout.trim());
+      if (gid !== undefined) return gid;
+    }
+  } catch {}
+  throw new Error(`CREDIT_SOCKET_GROUP=${JSON.stringify(spec)}: unknown group (not a numeric gid, not in /etc/group or getent)`);
+}
+
+// startInternalCreditApp chmods (and, with CREDIT_SOCKET_GROUP, chowns) the
+// socket's parent directory. Pointed at a shared directory such as /tmp that
+// would lock it down for everyone (it once broke MariaDB temp tables and with
+// them every OTP login). So the dir must be a dedicated one: not a symlink, not
+// sticky or world-writable, owned by this process, not on the deny list, and
+// (when others can traverse it) holding nothing but our own socket. That last
+// rule keeps a root-owned 0755 system dir such as /run from being narrowed, while
+// a hand-made 0755 run/ that only holds the stale socket is still narrowed.
+// `euid` is a parameter only so tests can exercise the ownership branch;
+// `ownEntry` is the socket's file name.
+export function assertDedicatedSocketDir(
+  dir: string,
+  euid: number | undefined = process.geteuid?.(),
+  ownEntry?: string,
+): void {
+  const real = (p: string) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+  // path.resolve drops a trailing slash: lstat("link/") follows the link.
+  const abs = path.resolve(dir);
+  const resolved = real(abs);
+  const st = fs.lstatSync(abs);
+  const shared = ["/", "/tmp", "/var/tmp", "/dev/shm", os.tmpdir()].map(real);
+  let why: string | undefined;
+  if (st.isSymbolicLink()) why = "it is a symlink";
+  else if (shared.includes(resolved)) why = "it is a shared system directory";
+  else if (st.mode & 0o1000) why = "it has the sticky bit";
+  else if (st.mode & 0o002) why = "it is world-writable";
+  else if (euid !== undefined && st.uid !== euid) why = `it is owned by uid ${st.uid}, not this process (uid ${euid})`;
+  else if (st.mode & 0o007) {
+    const foreign = fs.readdirSync(abs).filter((e) => e !== ownEntry);
+    if (foreign.length) {
+      why = `others can traverse it and it holds entries that are not ours (${foreign.slice(0, 3).join(", ")})`;
+    }
+  }
+  if (why) {
+    throw new Error(
+      `credit socket dir ${abs} refused: ${why}; put CREDIT_SOCKET_PATH in a dedicated directory owned by this process`,
+    );
+  }
+}
+
+const fmtMode = (m: number, mask: number) => (m & mask).toString(8).padStart(4, "0");
+
 export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
-  const dir = path.dirname(socketPath);
+  const dir = path.resolve(path.dirname(socketPath));
+  // An unresolvable group must not take the credit socket down: index.ts catches
+  // a throw from here and carries on without a socket, so Laravel (the live
+  // consumer) would get ECONNREFUSED because of a typo. Serving without the
+  // chown is strictly narrower than intended, never wider, so log loudly and go on.
+  let gid: number | undefined;
+  const wantGroup = process.env.CREDIT_SOCKET_GROUP;
+  if (wantGroup) {
+    try {
+      gid = resolveGroupGid(wantGroup);
+    } catch (e) {
+      console.error(`credit internal socket: ${(e as Error).message}; serving WITHOUT the group chown`);
+    }
+  }
   // mkdirSync's `mode` only applies to directories it actually creates — it does
   // NOT chmod an already-existing dir, so the explicit chmodSync below is not
   // redundant: unix filesystem permissions are the entire auth boundary for this
   // socket (no app-level secret), so the run/ dir must never be left wider than
-  // 0750 from a previous deploy or manual `mkdir`.
-  fs.mkdirSync(dir, { recursive: true, mode: 0o750 });
-  fs.chmodSync(dir, 0o750);
+  // 2750 from a previous deploy or manual `mkdir`. The setgid bit (the leading 2)
+  // is part of that mode on purpose: the owner sets `chmod 2750 run/` so the
+  // socket inherits the run/ dir's group, and a plain chmod 0750 on every start
+  // would strip it again. (On Linux a non-root caller outside the dir's group
+  // gets the bit dropped silently; the verification below reports that.)
+  fs.mkdirSync(dir, { recursive: true, mode: 0o2750 });
+  assertDedicatedSocketDir(dir, process.geteuid?.(), path.basename(socketPath)); // before ANY chmod/chown
+  // The group first: a client needs x on run/ through its group, so the dir's
+  // group is as much part of the contract as the socket's.
+  if (gid !== undefined) fs.chownSync(dir, -1, gid);
+  fs.chmodSync(dir, 0o2750);
   try { fs.unlinkSync(socketPath); } catch {}
   // Narrow the listen()->chmod() window so the socket is never briefly
   // world-or-group-writable at creation: 0o117 makes the OS create it at exactly
@@ -144,7 +245,28 @@ export function startInternalCreditApp(db: DrizzleDb, socketPath: string) {
   } finally {
     process.umask(prevUmask);
   }
-  fs.chmodSync(socketPath, 0o660);
-  console.log(`credit internal API on unix:${socketPath}`);
+  let dirSt: fs.Stats, sockSt: fs.Stats;
+  try {
+    // Group first, mode second, so 0660 is the last word on the socket's permissions.
+    if (gid !== undefined) fs.chownSync(socketPath, -1, gid);
+    fs.chmodSync(socketPath, 0o660);
+    dirSt = fs.statSync(dir);
+    sockSt = fs.statSync(socketPath);
+  } catch (e) {
+    // Never leave a live listener behind a "failed to start" log.
+    try { void app.stop(true).catch(() => {}); } catch {}
+    try { fs.unlinkSync(socketPath); } catch {}
+    throw e;
+  }
+  const problems: string[] = [];
+  if ((dirSt.mode & 0o7777) !== 0o2750) problems.push(`dir mode ${fmtMode(dirSt.mode, 0o7777)} (want 2750)`);
+  if ((sockSt.mode & 0o777) !== 0o660) problems.push(`socket mode ${fmtMode(sockSt.mode, 0o777)} (want 0660)`);
+  if (gid !== undefined && dirSt.gid !== gid) problems.push(`dir gid ${dirSt.gid} (want ${gid})`);
+  if (gid !== undefined && sockSt.gid !== gid) problems.push(`socket gid ${sockSt.gid} (want ${gid})`);
+  if (problems.length) console.error(`credit internal socket permissions differ from expected: ${problems.join(", ")}`);
+  console.log(
+    `credit internal API on unix:${socketPath} (group ${sockSt.gid}, sock ${fmtMode(sockSt.mode, 0o777)}, ` +
+    `dir ${fmtMode(dirSt.mode, 0o7777)} gid ${dirSt.gid})`,
+  );
   return app;
 }

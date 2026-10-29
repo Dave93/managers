@@ -532,5 +532,383 @@
       "traineeOfRequired": "State what the trainee trains for",
       "codeFormat": "Code: lowercase latin, digits and underscore, 2–50 characters"
     }
+  },
+  "tickets": {
+    "nav": {
+      "group": "Tickets",
+      "list": "Tickets",
+      "payments": "Awaiting payment",
+      "contractors": "Contractors",
+      "types": "Ticket types",
+      "branch": "Branch tickets"
+    },
+    "screens": {
+      "office": "Tickets",
+      "payments": "Awaiting payment",
+      "contractors": "Firms and executors",
+      "types": "Ticket types",
+      "branch": "Branch tickets",
+      "newTicket": "New ticket"
+    }
+  },
+  "inventory": {
+    "title": "Stock count",
+    "store": "Store",
+    "chooseStore": "Choose a store",
+    "noStores": "You are not assigned to any store. Contact the administrator.",
+    "start": "Start a stock count",
+    "template": "Template",
+    "period": "Period",
+    "create": "Start",
+    "noTemplates": "No active templates for this store",
+    "empty": "No stock counts yet",
+    "progress": "{done} of {total}",
+    "participants": "Counting: {names}",
+    "submittedBy": "Submitted by: {name}",
+    "readOnly": "Read only",
+    "back": "Back",
+    "status": {
+      "draft": "Draft",
+      "submitted": "Submitted",
+      "cancelled": "Cancelled"
+    },
+    "tabs": {
+      "mine": "My stores",
+      "overview": "Overview"
+    },
+    "overview": {
+      "notStarted": "Not started",
+      "organization": "Organization",
+      "all": "All",
+      "open": "Open",
+      "noExord": "no exord"
+    },
+    "table": {
+      "product": "Item",
+      "unit": "Unit",
+      "fact": "Counted",
+      "search": "Search by name",
+      "filterAll": "All",
+      "filterTodo": "Not counted",
+      "filterMine": "Mine",
+      "enter": "+ enter",
+      "added": "added",
+      "skipped": "not counted",
+      "nothing": "Nothing found"
+    },
+    "line": {
+      "skip": "Not counted",
+      "unskip": "Count again",
+      "entries": "Entries",
+      "delete": "Delete",
+      "you": "You",
+      "pending": "not sent",
+      "rejected": "not accepted",
+      "skipConfirm": "This item has entries. Mark it as “not counted”? These entries will not be included in the result."
+    },
+    "addProduct": {
+      "button": "+ item not in the list",
+      "title": "Add an item",
+      "search": "Item name (2+ letters)",
+      "nothing": "Nothing found",
+      "offline": "Cannot add while offline",
+      "notInExord": "not in exord"
+    },
+    "sync": {
+      "online": "online",
+      "offline": "offline",
+      "pending": "not sent: {count}",
+      "rejected": "Entries not accepted: {count}. The count was already submitted — ask the manager to reopen it.",
+      "dismiss": "Hide",
+      "rejectedDraft": "Entries not accepted: {count}. The count is a draft again — you can send them again.",
+      "resend": "Send again",
+      "auth": "Session expired — sign in again. Entries are kept on this device and will be sent after you sign in."
+    },
+    "submit": {
+      "button": "Submit",
+      "title": "Submit the stock count?",
+      "counted": "Counted: {count}",
+      "skipped": "Not counted: {count}",
+      "incomplete": "Empty: {count}",
+      "skipAll": "Mark empty items as “not counted” and submit",
+      "confirm": "Submit",
+      "cancel": "Go back",
+      "pendingBlock": "Wait until all entries from this device are sent",
+      "done": "Stock count submitted"
+    },
+    "reopen": "Reopen as draft",
+    "reopened": "The stock count is a draft again",
+    "cancelCount": "Cancel the stock count",
+    "cancelConfirm": "Cancel this draft? Entries stay in the history.",
+    "cancelled": "Stock count cancelled",
+    "errors": {
+      "invalidQty": "Enter a number, e.g. 2.5 or 2.5+3",
+      "generic": "Error: {message}"
+    },
+    "templates": {
+      "title": "Stock count templates",
+      "new": "New template",
+      "name": "Name",
+      "active": "Active",
+      "items": "Items",
+      "organization": "Organization",
+      "save": "Save",
+      "saved": "Saved",
+      "selected": "Selected: {count}",
+      "search": "Search item",
+      "suggestions": "Added during counts",
+      "addToTemplate": "Add to template",
+      "times": "{count} times",
+      "delete": "Delete",
+      "deleted": "Template deleted",
+      "inUse": "The template has been used — it can only be deactivated",
+      "back": "Back to templates",
+      "noSuggestions": "Nothing added yet"
+    },
+    "noExord": "No exord data — the list is not filtered by the branch's products",
+    "itemsCount": "{count} items",
+    "branchAll": "All branch products",
+    "branchUnavailable": "no exord data",
+    "reconcile": {
+      "title": "iiko reconciliation",
+      "period": "Month",
+      "fetch": "Load from iiko",
+      "refresh": "Reload from iiko",
+      "allStores": "All stores",
+      "storeScope": "Store: {store}",
+      "storeQueued": "{store}: queued for loading from iiko",
+      "storeFailed": "{store}: loading from iiko failed — {error}",
+      "storesRunning": "stores in queue: {count}",
+      "alreadyRunning": "A load for this month is already running",
+      "state": {
+        "idle": "Not loaded yet",
+        "queued": "Queued",
+        "stage1": "Loading iiko documents…",
+        "stage2": "Calculating book stock and differences…",
+        "done": "Done",
+        "failed": "Error: {error}"
+      },
+      "saved": "iiko data saved: received {received}, missing {missing}",
+      "missingTitle": "No posted document",
+      "empty": "No reconciliation for this month yet — press “Load from iiko”",
+      "col": {
+        "store": "Store",
+        "admin": "Admin count",
+        "document": "iiko document",
+        "status": "Status",
+        "mismatch": "Rows A ≠ B",
+        "reopens": "Resubmissions"
+      },
+      "admin": {
+        "submitted": "Submitted",
+        "draft": "Draft",
+        "none": "No count"
+      },
+      "status": {
+        "waiting_iiko": "Waiting for iiko document",
+        "needs_choice": "Choose a document",
+        "ready": "Ready for review",
+        "in_review": "Under review",
+        "accepted": "Accepted"
+      },
+      "unposted": "unposted after load",
+      "changedAfterAccept": "changed after acceptance",
+      "all": "All",
+      "organization": "Organization",
+      "open": "Open",
+      "back": "Back to reconciliation",
+      "fetchedAt": "Loaded {at}",
+      "tabs": {
+        "lines": "Differences",
+        "log": "Log"
+      },
+      "onlyMismatch": "Only A ≠ B",
+      "line": {
+        "product": "Product",
+        "a": "Branch admin (A)",
+        "b": "iiko inventory (B)",
+        "diff": "± difference",
+        "checked": "Checked"
+      },
+      "flag": {
+        "skipped": "not counted",
+        "absent": "not counted in admin",
+        "multi": "in several counts"
+      },
+      "choose": {
+        "title": "Choose the iiko document",
+        "hint": "There are several “Месяц” documents or none — pick the one to reconcile",
+        "pick": "Use this one"
+      },
+      "review": {
+        "toReview": "Under review",
+        "accept": "Accept",
+        "comment": "Comment",
+        "commentRequired": "A comment is required for “Under review”",
+        "reviewedBy": "{name}, {at}"
+      },
+      "event": {
+        "fetched": "Document #{num} loaded",
+        "changed": "rows changed: {count}",
+        "doc_missing": "Document #{num} disappeared from iiko (unposted)",
+        "doc_chosen": "Document #{num} chosen",
+        "calculated": "Recalculated",
+        "status_changed": "Status → {to}"
+      },
+      "edits": {
+        "title": "Branch edits after submission",
+        "entry_added": "added {qty}",
+        "entry_deleted": "deleted {qty}",
+        "reopened": "returned to draft",
+        "none": "No edits after submission"
+      },
+      "counts": {
+        "title": "Admin counts"
+      },
+      "checkedBy": "Checked by {name}, {at}",
+      "checkedCount": "Checked {done} of {total} differences",
+      "reopenRule": {
+        "label": "A branch can return a submitted count to draft:",
+        "until_iiko": "while no iiko document is loaded and the reconciliation isn't accepted",
+        "until_accept": "until the office accepts the reconciliation",
+        "office_only": "never — only the office can",
+        "saved": "Rule saved"
+      },
+      "mode": {
+        "monthly": "Monthly",
+        "daily": "By day"
+      },
+      "interim": {
+        "refreshAll": "Reload book quantity from iiko",
+        "refreshOne": "Reload book quantity from iiko",
+        "refreshQueued": "Queued: {queued} of {total}",
+        "refreshNothing": "No submitted interim counts",
+        "empty": "No interim counts this month",
+        "loading": "iiko book stock is loading…",
+        "fetchedAt": "iiko book stock loaded {at}",
+        "onlyMismatch": "Only A ≠ iiko",
+        "iikoCol": "iiko (book qty at day end)",
+        "excel": "Download Excel",
+        "col": {
+          "store": "Store",
+          "date": "Date",
+          "template": "Template",
+          "status": "Status",
+          "mismatch": "A ≠ iiko",
+          "checked": "Checked",
+          "code": "Code",
+          "unit": "Unit"
+        },
+        "title": "Daily reconciliation",
+        "hidden": "opens once the count is closed",
+        "hiddenMonthEnd": "after the 25th — office only",
+        "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
+        "hiddenMonthEndDetail": "Counts dated after the 25th are reconciled by the office only",
+        "checkedByOffice": "Checked by office"
+      },
+      "worker": {
+        "title": "The worker is not running",
+        "hint": "An iiko load has been waiting in the queue since {since}, but nothing is processing it. Start inventory_reconcile_worker (in PM2 on the server)."
+      }
+    },
+    "kind": {
+      "label": "Count type",
+      "monthly": "Monthly",
+      "interim": "Interim",
+      "date": "Count date",
+      "dateHint": "Yesterday only: stock at the end of yesterday"
+    },
+    "book": {
+      "tab": "Compare with book stock",
+      "inputTab": "Input",
+      "loading": "Loading book stock from iiko…",
+      "refresh": "Reload book stock",
+      "queued": "iiko load queued",
+      "fetchedAt": "iiko book stock loaded {at}",
+      "onlyDiff": "Only with difference",
+      "notInCount": "not in the count",
+      "notCounted": "not counted",
+      "inconsistent": "breakdown doesn't add up",
+      "col": {
+        "n": "#",
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "fact": "Actual",
+        "book": "Book qty",
+        "diff": "Difference"
+      },
+      "breakdown": {
+        "start": "Stock on {date}",
+        "invoice": "Received",
+        "sales": "Sales",
+        "transferIn": "Transfer in",
+        "transferOut": "Transfer out",
+        "writeoff": "Write-off",
+        "other": "Other",
+        "book": "Book quantity"
+      },
+      "alreadyQueued": "An iiko load is already queued"
+    },
+    "stock": {
+      "title": "Warehouse stock",
+      "at": "iiko book stock at {at}",
+      "onlyNegative": "Negative only",
+      "empty": "No stock",
+      "search": "Search by name",
+      "movement": "Movement since {from}",
+      "col": {
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "qty": "Stock"
+      }
+    },
+    "turnover": {
+      "title": "Stock turnover",
+      "month": "Month",
+      "store": "Store",
+      "allStores": "All stores",
+      "mode": {
+        "qty": "Quantity",
+        "sum": "Amount"
+      },
+      "search": "Search by name or code",
+      "through": "Data through {date}",
+      "fetched": "loaded {at}",
+      "noData": "No data for this month yet",
+      "refresh": "Refresh from iiko",
+      "loading": "Loading from iiko: {done} / {total}",
+      "failedStores": "Stores not loaded: {stores}",
+      "closed": {
+        "current": "current month unavailable",
+        "not_fixed": "opens after the count is locked"
+      },
+      "inconsistent": "does not add up",
+      "inconsistentCount": "does not add up: {n}",
+      "excel": "Download Excel",
+      "transferHint": "In {in} · out {out}",
+      "total": "Total",
+      "empty": "No stock and no movement",
+      "col": {
+        "code": "Code",
+        "product": "Product",
+        "unit": "Unit",
+        "store": "Store",
+        "start": "Opening",
+        "invoice": "Received (invoices)",
+        "sales": "Sales",
+        "transfer": "Transfers ±",
+        "writeoff": "Write-offs",
+        "inventory": "Inventory ±",
+        "outgoing_invoice": "Outgoing invoices",
+        "returned_invoice": "Returns to supplier",
+        "transformation": "Processing ±",
+        "production": "Production ±",
+        "cost_correction": "Cost correction",
+        "other": "Other ±",
+        "end": "Closing"
+      }
+    }
   }
 }
