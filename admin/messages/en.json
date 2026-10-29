@@ -1018,7 +1018,19 @@
     "delete": "Delete",
     "deleteConfirm": "Are you sure you want to delete this record?",
     "logout": "Log out",
-    "datePlaceholder": "dd.mm.yyyy"
+    "datePlaceholder": "dd.mm.yyyy",
+    "pager": {
+      "range": "Showing {from}–{to} of {total}",
+      "rowsPerPage": "Rows per page",
+      "nav": "Pagination",
+      "first": "First page",
+      "prev": "Previous page",
+      "next": "Next page",
+      "last": "Last page",
+      "pageN": "Page {page}",
+      "compact": "{page} / {count}",
+      "goTo": "Go to page"
+    }
   },
   "layoutUi": {
     "noAccess": {

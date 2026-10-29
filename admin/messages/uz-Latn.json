@@ -1018,7 +1018,19 @@
     "delete": "O'chirish",
     "deleteConfirm": "Haqiqatan ham bu yozuvni o'chirmoqchimisiz?",
     "logout": "Chiqish",
-    "datePlaceholder": "kk.oo.yyyy"
+    "datePlaceholder": "kk.oo.yyyy",
+    "pager": {
+      "range": "{from}–{to} / {total} ta yozuv",
+      "rowsPerPage": "Sahifadagi qatorlar",
+      "nav": "Sahifalar bo'yicha navigatsiya",
+      "first": "Birinchi sahifa",
+      "prev": "Oldingi sahifa",
+      "next": "Keyingi sahifa",
+      "last": "Oxirgi sahifa",
+      "pageN": "{page}-sahifa",
+      "compact": "{page} / {count}",
+      "goTo": "Sahifaga o'tish"
+    }
   },
   "layoutUi": {
     "noAccess": {

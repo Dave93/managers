@@ -1018,7 +1018,19 @@
     "delete": "Удалить",
     "deleteConfirm": "Вы действительно хотите удалить эту запись?",
     "logout": "Выйти",
-    "datePlaceholder": "дд.мм.гггг"
+    "datePlaceholder": "дд.мм.гггг",
+    "pager": {
+      "range": "Записи {from}–{to} из {total}",
+      "rowsPerPage": "Строк на странице",
+      "nav": "Навигация по страницам",
+      "first": "Первая страница",
+      "prev": "Предыдущая страница",
+      "next": "Следующая страница",
+      "last": "Последняя страница",
+      "pageN": "Страница {page}",
+      "compact": "{page} / {count}",
+      "goTo": "Перейти на стр."
+    }
   },
   "layoutUi": {
     "noAccess": {

@@ -1018,7 +1018,19 @@
     "delete": "Ўчириш",
     "deleteConfirm": "Ҳақиқатан ҳам бу ёзувни ўчирмоқчимисиз?",
     "logout": "Чиқиш",
-    "datePlaceholder": "кк.оо.йййй"
+    "datePlaceholder": "кк.оо.йййй",
+    "pager": {
+      "range": "{from}–{to} / {total} та ёзув",
+      "rowsPerPage": "Саҳифадаги қаторлар",
+      "nav": "Саҳифалар бўйича навигация",
+      "first": "Биринчи саҳифа",
+      "prev": "Олдинги саҳифа",
+      "next": "Кейинги саҳифа",
+      "last": "Охирги саҳифа",
+      "pageN": "{page}-саҳифа",
+      "compact": "{page} / {count}",
+      "goTo": "Саҳифага ўтиш"
+    }
   },
   "layoutUi": {
     "noAccess": {

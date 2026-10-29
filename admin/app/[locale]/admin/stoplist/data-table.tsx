@@ -23,12 +23,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@admin/components/ui/select";
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DoubleArrowLeftIcon,
-  DoubleArrowRightIcon,
-} from "@radix-ui/react-icons";
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
@@ -42,6 +36,7 @@ import {
   useStoplistStatusFilter,
 } from "./filters.hook";
 import type { StoplistRow } from "./columns";
+import { TablePager } from "@admin/components/ui/table-pager";
 
 // The stoplist endpoints live on a widened (non-Eden) controller, so this page
 // talks to them with plain same-origin fetch — Next.js rewrites proxy /api/*
@@ -239,66 +234,14 @@ export function DataTable<TValue>({ columns }: DataTableProps<TValue>) {
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-between px-2">
-        <div className="flex-1 text-sm text-muted-foreground">
-          {data?.total != null ? t("records", { count: data.total.toLocaleString("ru-RU") }) : ""}
-        </div>
-        <div className="flex items-center space-x-2">
-          <p className="text-sm font-medium">{t("rowsPerPage")}</p>
-          <Select
-            value={`${pageSize}`}
-            onValueChange={(value) => table.setPageSize(Number(value))}
-          >
-            <SelectTrigger className="h-8 w-[70px]">
-              <SelectValue placeholder={pageSize} />
-            </SelectTrigger>
-            <SelectContent side="top">
-              {[10, 20, 50, 100].map((s) => (
-                <SelectItem key={s} value={`${s}`}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex w-[120px] items-center justify-center text-sm font-medium">
-          {t("pageOf", { page: pageIndex + 1, total: Math.max(table.getPageCount(), 1) })}
-        </div>
-        <div className="flex items-center space-x-2">
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(0)}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <DoubleArrowLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.previousPage()}
-            disabled={!table.getCanPreviousPage()}
-          >
-            <ChevronLeftIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="h-8 w-8 p-0"
-            onClick={() => table.nextPage()}
-            disabled={!table.getCanNextPage()}
-          >
-            <ChevronRightIcon className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            className="hidden h-8 w-8 p-0 lg:flex"
-            onClick={() => table.setPageIndex(table.getPageCount() - 1)}
-            disabled={!table.getCanNextPage()}
-          >
-            <DoubleArrowRightIcon className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
+      <TablePager
+        pageIndex={pageIndex}
+        pageCount={table.getPageCount()}
+        pageSize={pageSize}
+        total={data?.total}
+        onPageChange={(i) => setPagination((p) => ({ ...p, pageIndex: i }))}
+        onPageSizeChange={(size) => table.setPageSize(size)}
+      />
     </div>
   );
 }
