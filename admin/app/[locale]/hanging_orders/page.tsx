@@ -219,10 +219,11 @@ function HangingOrdersContent() {
                 order.comments || "",
                 order.problem || "",
                 order.phoneNumber ? `'${order.phoneNumber}` : "",
-                order.amount ? `${Number(order.amount).toLocaleString('ru-RU', {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2
-                }).replace(/,/g, ' ')} сум` : "",
+                // Число без разделителей и «сум», чтобы Excel считал ячейку числом.
+                // Десятичная запятая — для русской локали Excel.
+                order.amount !== null && order.amount !== undefined && order.amount !== "" && Number.isFinite(Number(order.amount))
+                    ? String(Math.round(Number(order.amount) * 100) / 100).replace('.', ',')
+                    : "",
                 order.composition || "",
                 getStatusLabel(order.status || ""),
                 order.comment || ""
