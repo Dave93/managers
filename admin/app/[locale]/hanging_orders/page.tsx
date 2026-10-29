@@ -187,6 +187,9 @@ function HangingOrdersContent() {
         return statusLabels[status] || status;
     };
 
+    const brandLabel = (brand?: string | null) =>
+        brand === "les_ailes" ? "Les Ailes" : brand === "chopar" ? "Chopar" : brand || "";
+
     const exportToCSV = useCallback(async () => {
         toast.loading("Загрузка данных...");
         const { data: freshData } = await refetch();
@@ -207,7 +210,7 @@ function HangingOrdersContent() {
             ];
 
             const rows = freshData.data.map((order: any) => [
-                order.brand || "",
+                brandLabel(order.brand),
                 order.date ? dayjs(order.date).format('DD.MM.YYYY') : "",
                 order.orderId || "",
                 order.conception || "",
@@ -244,7 +247,7 @@ function HangingOrdersContent() {
             ].join('\r\n');
             
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            saveAs(blob, `hanging-orders-${dayjs().format('YYYY-MM-DD')}.csv`);
+            saveAs(blob, `Незакрытые заказы ${dayjs().format('YYYY-MM-DD')}.csv`);
             
             toast.success("Экспорт выполнен успешно");
         } catch (error) {
