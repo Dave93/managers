@@ -7,6 +7,7 @@ import CanAccess from "@admin/components/can-access";
 import { canOpen } from "@admin/lib/kpi/access";
 import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 
+import LanguageSwitcher from "@admin/components/ui/language-switcher";
 const itemClass =
   "inline-flex flex-col items-center justify-center px-2 hover:bg-gray-50 dark:hover:bg-gray-800 group";
 const iconClass =
@@ -234,6 +235,9 @@ export default function ManagerLayout({
   return (
     // pb-20: нижнее меню закреплено (h-16) и иначе закрывает конец длинных страниц.
     <div className="md:container pb-20">
+      <div className="fixed right-2 top-2 z-40">
+        <LanguageSwitcher />
+      </div>
       {children}
       <div className="fixed bottom-0 left-0 z-50 w-full h-16 bg-white border-t border-gray-200 dark:bg-gray-700 dark:border-gray-600">
         <div className="grid h-full max-w-lg grid-cols-6 mx-auto font-medium">

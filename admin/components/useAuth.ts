@@ -10,6 +10,13 @@ interface AuthUser {
     name?: string | null;
 }
 
+// Сохраняем язык из адреса: «/» без префикса отправил бы пользователя на язык по умолчанию.
+const LOCALES = ["en", "ru", "uz-Latn", "uz-Cyrl"];
+function localePath(path: string) {
+    const first = window.location.pathname.split("/")[1];
+    return LOCALES.includes(first) ? `/${first}${path === "/" ? "" : path}` : path;
+}
+
 export function useAuth() {
     const queryClient = useQueryClient();
     // Query to fetch current user
@@ -35,7 +42,7 @@ export function useAuth() {
                 // 200/401, the layout never settles, and the header stays hidden
                 // until a manual refresh. A hard navigation makes login behave
                 // exactly like that refresh.
-                window.location.href = "/";
+                window.location.href = localePath("/");
             }
         },
     });
@@ -49,7 +56,7 @@ export function useAuth() {
             // authenticated layout/header is gone and avoids the same post-auth
             // client-side race that affected login.
             queryClient.clear();
-            window.location.href = "/login";
+            window.location.href = localePath("/login");
         },
     });
 

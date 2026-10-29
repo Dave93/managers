@@ -1041,7 +1041,9 @@
       "notOutage": "Bu tizim nosozligi yoki deploy buzilishi emas — sahifa odatdagidek yuklandi. Office-admin administratoriga (HR yoki IT bo'limi) murojaat qilib, ko'rsatilgan ruxsatni rolingizga qo'shishni so'rang. Ruxsat berilgandan keyin sahifani shunchaki qayta yuklash kifoya."
     },
     "noRole": {
-      "message": "Sizda bu sahifaga kirish uchun yetarli huquq yo'q, iltimos, administratorga murojaat qiling"
+      "message": "Sizda bu sahifaga kirish uchun yetarli huquq yo'q, iltimos, administratorga murojaat qiling",
+      "goHome": "Bosh sahifaga",
+      "logout": "Chiqish"
     },
     "playground": {
       "title": "Bolalar maydonchasi",
@@ -1069,7 +1071,8 @@
       "raises": "Oshirishlar",
       "branchScore": "Filial bali",
       "sanitary": "Sanitariya"
-    }
+    },
+    "homePlaceholder": "Bosh sahifa"
   },
   "playgroundUi": {
     "columns": {
@@ -4904,5 +4907,17 @@
       "prepareFailed": "{label}: fotosuratni yuborishga tayyorlab bo'lmadi. Qayta suratga oling yoki boshqa fayl tanlang",
       "tooBigAfter": "{label}: siqilgandan keyin ham {mb} MB dan katta"
     }
+  },
+  "login": {
+    "welcome": "Xush kelibsiz",
+    "subtitle": "Davom etish uchun hisobingizga kiring",
+    "title": "Kirish",
+    "description": "Hisobingizga kirish uchun login va parolni kiriting",
+    "loginPlaceholder": "Login",
+    "passwordPlaceholder": "Parol",
+    "signingIn": "Kirilmoqda…",
+    "loginRequired": "Loginni kiriting",
+    "passwordMin": "Parol kamida 6 belgidan iborat bo'lishi kerak",
+    "failed": "Kirish amalga oshmadi"
   }
 }

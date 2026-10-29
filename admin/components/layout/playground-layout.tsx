@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { UserNav } from "./user-nav";
 
+import LanguageSwitcher from "@admin/components/ui/language-switcher";
 export default function PlaygroundLayout({
   children,
 }: {
@@ -69,7 +70,10 @@ export default function PlaygroundLayout({
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex h-14 items-center justify-between px-4">
           <span className="text-lg font-semibold">{t("title")}</span>
-          <UserNav />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <UserNav />
+          </div>
         </div>
       </header>
 

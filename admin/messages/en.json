@@ -1041,7 +1041,9 @@
       "notOutage": "This is not a system failure or a broken deploy — the page loaded normally. Contact the office admin administrator (HR or IT department) and ask them to add the listed permission to your role. After the permission is granted, simply reload the page."
     },
     "noRole": {
-      "message": "You do not have sufficient permissions to access this page, please contact the administrator"
+      "message": "You do not have sufficient permissions to access this page, please contact the administrator",
+      "goHome": "Go home",
+      "logout": "Logout"
     },
     "playground": {
       "title": "Playground",
@@ -1069,7 +1071,8 @@
       "raises": "Raises",
       "branchScore": "Branch score",
       "sanitary": "Sanitation"
-    }
+    },
+    "homePlaceholder": "This is the home page"
   },
   "playgroundUi": {
     "columns": {
@@ -4904,5 +4907,17 @@
       "prepareFailed": "{label}: could not prepare the photo for sending. Take it again or choose another file",
       "tooBigAfter": "{label}: still larger than {mb} MB after compression"
     }
+  },
+  "login": {
+    "welcome": "Welcome back",
+    "subtitle": "Sign in to your account to continue",
+    "title": "Sign in",
+    "description": "Enter your login and password to access your account",
+    "loginPlaceholder": "Login",
+    "passwordPlaceholder": "Password",
+    "signingIn": "Signing in...",
+    "loginRequired": "Please enter a valid login",
+    "passwordMin": "Password must be at least 6 characters",
+    "failed": "Login failed"
   }
 }

@@ -12,16 +12,22 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../components/useAuth";
 import { useEffect } from "react";
 import {toast} from "sonner";
-// Define the form schema with Zod
-const loginSchema = z.object({
-    login: z.string().min(1, { message: "Please enter a valid login" }),
-    password: z.string().min(6, { message: "Password must be at least 6 characters" }),
-});
+import { useMemo } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import LanguageSwitcher from "@admin/components/ui/language-switcher";
+// Схема строится внутри компонента: сообщения зависят от языка.
+const makeLoginSchema = (t: (key: string) => string) =>
+    z.object({
+        login: z.string().min(1, { message: t("loginRequired") }),
+        password: z.string().min(6, { message: t("passwordMin") }),
+    });
 
-// Infer the type from the schema
-type LoginFormValues = z.infer<typeof loginSchema>;
+type LoginFormValues = z.infer<ReturnType<typeof makeLoginSchema>>;
 
 export default function LoginPage() {
+    const t = useTranslations("login");
+    const locale = useLocale();
+    const loginSchema = useMemo(() => makeLoginSchema(t), [t]);
     const router = useRouter();
     const { user, loading, signIn, isLoggingIn, loginError } = useAuth();
 
@@ -30,9 +36,9 @@ export default function LoginPage() {
         console.log("user", user);
         console.log("loading", loading);
         if (!loading && user) {
-            router.push("/");
+            router.push(`/${locale}`);
         }
-    }, [user, loading, router]);
+    }, [user, loading, router, locale]);
 
     // Initialize react-hook-form with zod resolver
     const {
@@ -55,7 +61,7 @@ export default function LoginPage() {
         } catch (error) {
             // Expected failure (see lib/auth.ts): show it, don't console.error —
             // that would pop the Next.js dev error overlay.
-            toast.error(error instanceof Error ? error.message : "Login failed");
+            toast.error(error instanceof Error ? error.message : t("failed"));
         }
     };
 
@@ -69,19 +75,22 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="flex min-h-screen items-center min-w-5xl justify-center bg-gradient-to-br from-background to-secondary/20 p-4">
+        <div className="relative flex min-h-screen items-center min-w-5xl justify-center bg-gradient-to-br from-background to-secondary/20 p-4">
+            <div className="absolute right-4 top-4">
+                <LanguageSwitcher />
+            </div>
             <div className="w-full max-w-md space-y-8">
                 <div className="text-center">
-                    <h1 className="text-4xl font-bold tracking-tight text-primary">Welcome back</h1>
-                    <p className="mt-2 text-muted-foreground">Sign in to your account to continue</p>
+                    <h1 className="text-4xl font-bold tracking-tight text-primary">{t("welcome")}</h1>
+                    <p className="mt-2 text-muted-foreground">{t("subtitle")}</p>
                 </div>
 
                 <Card className="border-border/40 shadow-lg">
                     <form onSubmit={handleSubmit(onSubmit)}>
                         <CardHeader className="space-y-1">
-                            <CardTitle className="text-2xl font-semibold">Sign in</CardTitle>
+                            <CardTitle className="text-2xl font-semibold">{t("title")}</CardTitle>
                             <CardDescription>
-                                Enter your login and password to access your account
+                                {t("description")}
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4 mt-2">
@@ -98,7 +107,7 @@ export default function LoginPage() {
                                     <Input
                                         {...register("login")}
                                         type="text"
-                                        placeholder="Login"
+                                        placeholder={t("loginPlaceholder")}
                                         className={`pl-10 ${errors.login ? "border-destructive ring-destructive/20" : ""}`}
                                     />
                                 </div>
@@ -114,7 +123,7 @@ export default function LoginPage() {
                                     <Input
                                         {...register("password")}
                                         type="password"
-                                        placeholder="Password"
+                                        placeholder={t("passwordPlaceholder")}
                                         className={`pl-10 ${errors.password ? "border-destructive ring-destructive/20" : ""}`}
                                     />
                                 </div>
@@ -133,11 +142,11 @@ export default function LoginPage() {
                                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                         </svg>
-                                        Signing in...
+                                        {t("signingIn")}
                                     </span>
                                 ) : (
                                     <>
-                                        Sign in
+                                        {t("title")}
                                         <ArrowRightIcon className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                                     </>
                                 )}
