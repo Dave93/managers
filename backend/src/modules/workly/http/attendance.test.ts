@@ -560,5 +560,89 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await daysOf(eGone)).map((d) => [d.day, d.absent, d.import_id])).toEqual([["2026-10-01", true, importOf(second.run)]]);
       expect(await daysOf(eA)).toEqual([]);
     });
+
+    // ---------- перенос и граница организаций ----------
+    // Три расстановки держат по отдельности оба условия выборки переносимых дней:
+    // организация импорта (kpi_attendance_imports.organization_id) и нынешняя организация
+    // сотрудника (terminals.organization_id). Во всех трёх сотрудник связан с компанией
+    // организации A, а его workly_id в отчётах A нет, так что фильтр компании его не отсекает.
+
+    // Файловый импорт организации за месяц с одним днём сотрудника.
+    const fileImport = (org: string, employee_id: string, terminal_id: string, day: string) =>
+      db.transaction((tx) =>
+        writeAttendanceImport(tx, {
+          period: P,
+          organization_id: org,
+          file_name: "workly.xlsx",
+          uploaded_by: null,
+          mapping: { sheet: "Лист1", header_row: 1, mapping: { external_id: 0, date: 1 }, totals: { days_present: 1, days_late: 0, days_absent: 0 } },
+          days: [{ employee_id, day, terminal_id, check_in: null, check_out: null, late_minutes: 0, absent: false }],
+          rows_total: 1,
+          rows_unmatched: 0,
+          unmatched: [],
+        })
+      );
+    // Обычный человек организации A, чтобы прогон не был пустым.
+    const presentA = (company: number) =>
+      fakeClient(company, { employees: [wEmp(1)], t12: [t12(1, [tday("2026-10-01", { work_time: "08:00" })])] });
+    const importDaysOf = async (importId: string) =>
+      (await db.select().from(kpi_attendance).where(eq(kpi_attendance.import_id, importId))).map((d) => d.employee_id);
+
+    it("перенос: сотрудник другой организации со связью на ту же компанию не переносится и сохраняет свой импорт", async () => {
+      const a = await world();
+      const b = await world();
+      const eA = await mkEmp(a.t, { company: a.company, id: 1 });
+      // Сотрудник B связан с компанией A id, которого в отчётах A нет
+      const eB = await mkEmp(b.t, { company: a.company, id: 88 });
+      const impB = await fileImport(b.org, eB, b.t, "2026-10-02");
+      const before = await daysOf(eB);
+      expect(before.map((d) => d.import_id)).toEqual([impB.id]);
+
+      const runA = await sync(a.org, presentA(a.company));
+      expect(runA.run).toMatchObject({ status: "applied", counts: { days: 1, carried: 0 } });
+      expect(await daysOf(eB)).toEqual(before);
+      expect((await importsOf(b.org, P)).map((i) => [i.id, i.status])).toEqual([[impB.id, "committed"]]);
+      expect(await importDaysOf(importOf(runA.run))).toEqual([eA]);
+    });
+
+    it("перенос: день из импорта другой организации не переносится, даже если сотрудник теперь в этой организации", async () => {
+      const a = await world();
+      const b = await world();
+      const eA = await mkEmp(a.t, { company: a.company, id: 1 });
+      // День записан импортом B, пока сотрудник был в B; теперь он в A и связан с компанией A
+      const eX = await mkEmp(b.t, { company: a.company, id: 90 });
+      const impB = await fileImport(b.org, eX, b.t, "2026-10-02");
+      await db.update(employees).set({ terminal_id: a.t }).where(eq(employees.id, eX));
+      const before = await daysOf(eX);
+      expect(before.map((d) => d.import_id)).toEqual([impB.id]);
+
+      const runA = await sync(a.org, presentA(a.company));
+      expect(runA.run).toMatchObject({ status: "applied", counts: { days: 1, carried: 0 } });
+      expect(await daysOf(eX)).toEqual(before);
+      expect((await importsOf(b.org, P)).map((i) => [i.id, i.status])).toEqual([[impB.id, "committed"]]);
+      expect(await importDaysOf(importOf(runA.run))).toEqual([eA]);
+    });
+
+    it("перенос: сотрудник, ушедший в другую организацию, не переносится из прежнего импорта этой организации", async () => {
+      const a = await world();
+      const b = await world();
+      const eA = await mkEmp(a.t, { company: a.company, id: 1 });
+      const eMoved = await mkEmp(a.t, { company: a.company, id: 89 });
+      const first = await sync(
+        a.org,
+        fakeClient(a.company, {
+          employees: [wEmp(1), wEmp(89)],
+          t12: [t12(1, [tday("2026-10-01", { work_time: "08:00" })]), t12(89, [tday("2026-10-01", { work_time: "08:00" })])],
+        })
+      );
+      expect((await daysOf(eMoved)).map((d) => d.import_id)).toEqual([importOf(first.run)]);
+      // Сотрудник ушёл в B; в отчётах A его больше нет
+      await db.update(employees).set({ terminal_id: b.t }).where(eq(employees.id, eMoved));
+
+      const second = await sync(a.org, presentA(a.company));
+      expect(second.run).toMatchObject({ status: "applied", counts: { days: 1, carried: 0 } });
+      expect(await importDaysOf(importOf(second.run))).toEqual([eA]);
+      expect(await daysOf(eMoved)).toEqual([]);
+    });
   });
 }
