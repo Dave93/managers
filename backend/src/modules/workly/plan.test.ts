@@ -121,6 +121,45 @@ describe("workly/plan: link и relink", () => {
     expect(p.report).toEqual({ ambiguous: [], not_found: [], no_branch: [] });
   });
 
+  it("link: before хранит текущее значение каждого поля из after", () => {
+    const e = ours({
+      workly_tab_number: "OLD",
+      position: "Старое",
+      staff_role_id: "role-x",
+      grade: 1,
+      shift: "night",
+      is_trainee: true,
+    });
+    const p = run({ ours: [e], active: [w({ id: 10 })] });
+    expect(kinds(p)).toEqual(["link"]);
+    expect(p.items[0]!.before).toEqual({
+      workly_id: null,
+      workly_company_id: null,
+      workly_tab_number: "OLD",
+      position: "Старое",
+      staff_role_id: "role-x",
+      grade: 1,
+      shift: "night",
+      is_trainee: true,
+      active: true,
+    });
+  });
+
+  it("link: поля, которых загрузчик не передал, попадают в before как null", () => {
+    const p = run({ ours: [ours()], active: [w({ id: 10 })] });
+    expect(p.items[0]!.before).toEqual({
+      workly_id: null,
+      workly_company_id: null,
+      workly_tab_number: null,
+      position: "Повар",
+      staff_role_id: null,
+      grade: null,
+      shift: null,
+      is_trainee: null,
+      active: true,
+    });
+  });
+
   it("link: имя сотрудника в плане не меняется", () => {
     const p = run({ ours: [ours({ first_name: "ALI", last_name: "VALIYEV" })], active: [w({ id: 10, first_name: "Ali", last_name: "Valiyev" })] });
     expect("first_name" in p.items[0]!.after).toBe(false);
@@ -451,7 +490,16 @@ describe("workly/plan: update, move, reactivate", () => {
     expect(kinds(p)).toEqual(["update"]);
     const it = p.items[0]!;
     expect(it.key).toBe(`update:${e.id}`);
-    expect(it.before).toEqual({ position: "Повар" });
+    // before хранит текущие значения всего, что меняет after, и закрепляет связь с Workly.
+    expect(it.before).toEqual({
+      position: "Повар",
+      staff_role_id: null,
+      grade: null,
+      shift: null,
+      is_trainee: null,
+      workly_company_id: CO,
+      workly_id: 10,
+    });
     expect(it.after).toMatchObject({ position: "Кассир", staff_role_id: null, grade: null, shift: null, is_trainee: null });
     expect("workly_tab_number" in it.after).toBe(false);
     expect("terminal_id" in it.after).toBe(false);
@@ -463,8 +511,30 @@ describe("workly/plan: update, move, reactivate", () => {
       active: [w({ id: 10, tab_number: "NEW" })],
     });
     expect(kinds(p)).toEqual(["update"]);
-    expect(p.items[0]!.before).toEqual({ workly_tab_number: "OLD" });
+    expect(p.items[0]!.before).toEqual({ workly_tab_number: "OLD", workly_company_id: CO, workly_id: 10 });
     expect(p.items[0]!.after).toEqual({ workly_tab_number: "NEW" });
+  });
+
+  it("update: before хранит текущую структуру должности, а не только строку", () => {
+    const e = ours({
+      workly_id: 10,
+      workly_tab_number: "T-1",
+      position: "Повар 2 разряд",
+      staff_role_id: "role-cook",
+      grade: 2,
+      shift: "day",
+      is_trainee: false,
+    });
+    const p = run({ ours: [e], active: [w({ id: 10, positions: [{ id: 2, title: "Кассир" }] })] });
+    expect(p.items[0]!.before).toEqual({
+      position: "Повар 2 разряд",
+      staff_role_id: "role-cook",
+      grade: 2,
+      shift: "day",
+      is_trainee: false,
+      workly_company_id: CO,
+      workly_id: 10,
+    });
   });
 
   it("update: у нас табельного нет, в Workly появился", () => {
@@ -787,6 +857,41 @@ describe("workly/plan: идемпотентность и счётчики", () =
     // На одного сотрудника не больше одного основного пункта.
     const main = p.items.filter((i) => i.kind !== "move" && i.employee_id).map((i) => i.employee_id);
     expect(new Set(main).size).toBe(main.length);
+  });
+
+  it("before каждого пункта, кроме create, хранит все поля after; у связанных — и пару Workly", () => {
+    const { list, input } = scenario();
+    const p = run(input);
+    const byId = new Map(list.map((e) => [e.id, e]));
+    for (const it of p.items) {
+      if (it.kind === "create") continue;
+      const e = byId.get(it.employee_id!)!;
+      const cur = e as unknown as Record<string, unknown>;
+      for (const k of Object.keys(it.after)) {
+        expect(`${it.key}.${k} in before: ${k in it.before!}`).toBe(`${it.key}.${k} in before: true`);
+        expect((it.before as Record<string, unknown>)[k]).toEqual(cur[k] ?? null);
+      }
+    }
+    // Связанные с активной записью (update, reactivate, их move) и деактивация закрепляют пару.
+    for (const key of ["update:update", "reactivate:reactivate", "deactivate:dismissed-linked"]) {
+      const it = p.items.find((i) => i.key === key)!;
+      const e = byId.get(it.employee_id!)!;
+      expect(it.before).toMatchObject({ workly_company_id: e.workly_company_id, workly_id: e.workly_id });
+    }
+    // Перенос при связи по имени пару не закрепляет: связь меняет её раньше переноса.
+    const move = p.items.find((i) => i.key === "move:link-move")!;
+    expect(move.before).toEqual({ terminal_id: byId.get("link-move")!.terminal_id });
+  });
+
+  it("move уже связанного сотрудника закрепляет пару Workly", () => {
+    const e = ours({ workly_id: 10, terminal_id: "T0" });
+    const p = run({
+      ours: [e],
+      active: [w({ id: 10, locations: [loc(7)] })],
+      terminalByLocation: new Map([[7, "T1"]]),
+    });
+    expect(kinds(p)).toEqual(["move"]);
+    expect(p.items[0]!.before).toEqual({ terminal_id: "T0", workly_company_id: CO, workly_id: 10 });
   });
 
   it("второй проход после применения пуст", () => {

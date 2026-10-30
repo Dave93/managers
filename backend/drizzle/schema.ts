@@ -3306,7 +3306,8 @@ export const workly_locations = pgTable(
 // workly_company_id заполняется, когда запуск узнаёт компанию. period — месяц, только для attendance.
 // counts — итог применения (у attendance: { days, unknown, carried, import_id }); plan — { items, report },
 // пока запуск идёт, пуст. block_reason — почему запуск заблокирован; error — код сбоя:
-// client_invalid | force_update | auth_failed | not_configured | crawl_failed | stale.
+// client_invalid | force_update | auth_failed | http_error | not_configured | crawl_failed | empty_crawl |
+// stale | apply_failed (ночное применение упало, applyRun всё откатил).
 // Одновременно на (организация, вид) допускается один запуск в статусе running.
 export const workly_sync_runs = pgTable(
   "workly_sync_runs",

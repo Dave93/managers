@@ -6,9 +6,13 @@
 // обходит Workly и сохраняет план со статусом planned. applyRun применяет план:
 // каждый пункт отдельно и только если сотрудник не изменился с момента построения.
 // Ничего сверх перечисленного в плане applyRun не меняет.
+//
+// Коды в workly_sync_runs.error: client_invalid, force_update, auth_failed, http_error,
+// not_configured (WorklyError), crawl_failed, empty_crawl (executeRun), stale (startRun),
+// apply_failed (syncAuto: ночное применение упало).
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, staff_roles, terminals, workly_sync_runs } from "backend/drizzle/schema";
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import type { DbLike } from "../kpi/access";
 import { UUID_RE } from "../kpi/employees";
@@ -144,6 +148,11 @@ async function loadOurs(db: DbLike, organizationId: string): Promise<OurEmployee
       workly_company_id: employees.workly_company_id,
       // Без табельного номера его смена в Workly никогда не дошла бы до нас.
       workly_tab_number: employees.workly_tab_number,
+      // Структура должности нужна для before: пункт хранит всё, что меняет.
+      staff_role_id: employees.staff_role_id,
+      grade: employees.grade,
+      shift: employees.shift,
+      is_trainee: employees.is_trainee,
     })
     .from(employees)
     .innerJoin(terminals, eq(terminals.id, employees.terminal_id))
@@ -274,7 +283,11 @@ async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Pr
     return { createdId: row.id };
   }
 
-  if (!item.employee_id || !item.before) throw new Error(`workly: пункт ${item.kind} без сотрудника или before`);
+  // Без сотрудника или без полного before пункт не применяется никогда: проверять нечего,
+  // а откат не узнал бы, что вернуть. before обязан хранить каждое поле из after.
+  const before = item.before;
+  if (!item.employee_id || !before || Object.keys(before).length === 0) return null;
+  if (Object.keys(item.after).some((k) => !(k in before))) return null;
   // Сотрудник под замком до конца применения; ушедший в другую организацию считается изменившимся.
   const [cur] = await db
     .select({
@@ -298,7 +311,7 @@ async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Pr
     .for("update", { of: employees });
   if (!cur) return null;
   const current = cur as Record<string, unknown>;
-  for (const [k, v] of Object.entries(item.before)) {
+  for (const [k, v] of Object.entries(before)) {
     // Поле, которого мы не знаем, сравнить нельзя: пункт пропускается.
     if (!(WRITABLE as readonly string[]).includes(k) || !sameValue(current[k], v)) return null;
   }
@@ -312,12 +325,15 @@ async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Pr
 
 /**
  * Применяет сохранённый план (только статус planned, иначе 409 run_not_planned).
+ * План, у которого есть более новый прогон той же организации и вида в статусе planned,
+ * applied или blocked, устарел целиком: 409 run_superseded, нужно построить план заново.
  * Каждый пункт идёт в своей точке сохранения (вложенная транзакция): пункт применяется,
  * только если текущие значения полей из before совпадают с before (иначе stale);
  * занятый workly_id даёт conflict, остальные пункты продолжаются. Перенос сотрудника,
  * чья связь link/relink не применилась, пропускается с той же причиной. Строка журнала
- * заперта на всё время применения, и статус applied с plan.applied фиксируется одной
- * транзакцией с изменениями сотрудников: откат (Task 13) видит ровно то, что записано.
+ * заперта на всё время применения, и статус applied с plan.applied и plan.skipped
+ * фиксируется одной транзакцией с изменениями сотрудников: откат (Task 13) видит ровно
+ * то, что записано. Любая ошибка, кроме конфликта, откатывает всё, прогон остаётся planned.
  */
 export async function applyRun(
   db: DrizzleDB,
@@ -335,6 +351,23 @@ export async function applyRun(
       .for("update");
     if (!run) throw new KpiError(404, "run_not_found");
     if (run.status !== "planned" || run.kind !== "employees" || !run.plan) throw new KpiError(409, "run_not_planned");
+
+    // Более новый план видел более свежий Workly: например, увольнение, которое потом
+    // отменили. Старый план по нему деактивировал бы живого человека, хотя его before
+    // ещё совпадает с базой. «Новее» — по created_at в базе, а не по часам процесса.
+    const [newer] = await tx
+      .select({ id: workly_sync_runs.id })
+      .from(workly_sync_runs)
+      .where(
+        and(
+          eq(workly_sync_runs.organization_id, run.organization_id),
+          eq(workly_sync_runs.kind, run.kind),
+          inArray(workly_sync_runs.status, ["planned", "applied", "blocked"]),
+          sql`${workly_sync_runs.created_at} > (SELECT r.created_at FROM workly_sync_runs r WHERE r.id = ${run.id})`
+        )
+      )
+      .limit(1);
+    if (newer) throw new KpiError(409, "run_superseded");
 
     const plan = run.plan as SyncPlan;
     const excluded = new Set(exclude);
@@ -380,7 +413,8 @@ export async function applyRun(
       if (res.createdId) items[k] = { ...item, employee_id: res.createdId };
     }
 
-    const next: SyncPlan = { ...plan, items, applied };
+    // Пропущенные с причинами остаются в журнале: отчёт о прогоне их показывает (спека 5.5).
+    const next: SyncPlan = { ...plan, items, applied, skipped };
     await tx
       .update(workly_sync_runs)
       .set({ status: "applied", applied_at: sql`now()`, plan: next })
@@ -446,6 +480,8 @@ async function guardInput(db: DrizzleDB, run: RunRow): Promise<GuardInput | null
 /**
  * Ночная сверка сотрудников: строит план и применяет его сам, только если план
  * проходит предохранители (checkGuards); иначе план сохраняется со статусом blocked.
+ * Сбой самого применения — тревога: строка уходит в failed с кодом apply_failed
+ * (applyRun уже откатил всё). План, который успели применить или вытеснить, не трогается.
  */
 export async function syncAuto(
   db: DrizzleDB,
@@ -469,7 +505,20 @@ export async function syncAuto(
     await db.update(workly_sync_runs).set({ status: "blocked", block_reason: guard.reason }).where(runIs(run_id, "planned"));
     return getRun(db, run_id);
   }
-  await applyRun(db, run_id, [], null);
+  try {
+    await applyRun(db, run_id, [], null);
+  } catch (e) {
+    // Применили раньше нас или план вытеснен более новым: строку не трогаем.
+    if (e instanceof KpiError && (e.code === "run_not_planned" || e.code === "run_superseded")) return getRun(db, run_id);
+    // Иначе без тревоги прогон навсегда остался бы planned. Текст ошибки не сохраняем и не логируем.
+    console.error(`workly: прогон ${run_id} завершился ошибкой apply_failed`);
+    try {
+      await db.update(workly_sync_runs).set({ status: "failed", error: "apply_failed" }).where(runIs(run_id, "planned"));
+    } catch {
+      console.error(`workly: прогон ${run_id}: не удалось записать статус failed`);
+      throw e;
+    }
+  }
   return getRun(db, run_id);
 }
 

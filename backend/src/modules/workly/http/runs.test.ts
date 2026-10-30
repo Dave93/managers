@@ -33,6 +33,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   type RunClient = import("../runs").RunClient;
   type WorklyEmployee = import("../types").WorklyEmployee;
   type WorklyDismissed = import("../types").WorklyDismissed;
+  type SyncPlan = import("../plan").SyncPlan;
 
   type Db = Awaited<ReturnType<typeof setup>>["db"];
   let db: Db;
@@ -133,6 +134,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     link?: { company: number; id: number };
     tab?: string | null;
     role_code?: string;
+    grade?: number | null;
+    shift?: string | null;
+    is_trainee?: boolean | null;
   }): Promise<string> => {
     const p = o.p ?? person();
     const [row] = await db
@@ -147,6 +151,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         workly_id: o.link?.id ?? null,
         workly_tab_number: o.tab ?? null,
         staff_role_id: o.role_code ? await ensureStaffRole(db, o.role_code) : null,
+        grade: o.grade ?? null,
+        shift: o.shift ?? null,
+        is_trainee: o.is_trainee ?? null,
       })
       .returning({ id: employees.id });
     return row.id;
@@ -156,6 +163,19 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const snap = async (ids: string[]) =>
     db.select().from(employees).where(inArray(employees.id, ids)).orderBy(asc(employees.id));
   const rawRun = async (id: string) => (await db.select().from(workly_sync_runs).where(eq(workly_sync_runs.id, id)))[0];
+
+  // Правка сохранённого плана в обход построителя: так тест получает пункт, которого
+  // построитель не выдаёт (пустой before, нарушение внешнего ключа).
+  const tamperPlan = async (runId: string, f: (plan: SyncPlan) => void) => {
+    const plan = (await rawRun(runId)).plan as SyncPlan;
+    f(plan);
+    await db.update(workly_sync_runs).set({ plan }).where(eq(workly_sync_runs.id, runId));
+  };
+  const itemOf = (plan: SyncPlan, key: string) => {
+    const it = plan.items.find((i) => i.key === key);
+    if (!it) throw new Error(`нет пункта ${key}`);
+    return it;
+  };
 
   let structure: (title: string) => ReturnType<typeof structureFrom>;
 
@@ -360,6 +380,19 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(run.plan!.report.not_found.map((x) => x.employee_id)).toEqual([w.eGone]);
       expect(run.plan!.report.no_branch.map((x) => x.workly_id)).toEqual([6]);
       expect(run.plan!.applied).toBeUndefined();
+      expect(run.plan!.skipped).toBeUndefined();
+      // before пункта link хранит текущее значение каждого поля, которое пункт меняет.
+      expect(run.plan!.items.find((i) => i.key === `link:${w.eLink}`)!.before).toEqual({
+        workly_id: null,
+        workly_company_id: null,
+        workly_tab_number: null,
+        position: null,
+        staff_role_id: null,
+        grade: null,
+        shift: null,
+        is_trainee: null,
+        active: true,
+      });
       const raw = await rawRun(run_id);
       expect(raw.workly_company_id).toBe(w.company);
       expect(raw.active_fetched).toBe(5);
@@ -526,6 +559,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(run.status).toBe("applied");
       expect(run.applied_at).not.toBeNull();
       expect([...run.plan!.applied!].sort()).toEqual(run.plan!.items.map((i) => i.key).sort());
+      expect(run.plan!.skipped).toEqual([]);
       expect(run.plan!.items.find((i) => i.kind === "create")!.employee_id).toBe(created.id);
 
       const again = await plan(w.org, w.client);
@@ -671,6 +705,178 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await db.select().from(employees).where(sql`${employees.workly_company_id} = ${w.company} AND ${employees.workly_id} = 5`)).length).toBe(1);
     });
 
+    // ---------- устаревший план (A) ----------
+
+    it("A: при более новом planned прогоне той же организации и вида — run_superseded, сотрудники не изменились; новый применяется", async () => {
+      const w = await buildWorld();
+      const a = await plan(w.org, w.client);
+      const b = await plan(w.org, w.client);
+      const before = await snap(w.ids);
+      const err = await runs.applyRun(db, a.run_id, [], null).catch((e) => e);
+      expect(err).toBeInstanceOf(KpiError);
+      expect(err).toMatchObject({ status: 409, code: "run_superseded" });
+      expect(await snap(w.ids)).toEqual(before);
+      expect(await createdBy(w.company, 5)).toBeUndefined();
+      expect(await runs.getRun(db, a.run_id)).toMatchObject({ status: "planned", applied_at: null });
+      expect((await runs.applyRun(db, b.run_id, [], null)).applied).toBe(6);
+    });
+
+    it("A: более новые applied и blocked тоже вытесняют план", async () => {
+      for (const status of ["applied", "blocked"]) {
+        const w = await buildWorld();
+        const a = await plan(w.org, w.client);
+        await insertRun(w.org, { status });
+        await expect(runs.applyRun(db, a.run_id, [], null)).rejects.toMatchObject({ status: 409, code: "run_superseded" });
+        expect((await emp(w.eDeact)).active).toBe(true);
+      }
+    });
+
+    it("A: более новые failed, rolled_back и running не вытесняют план", async () => {
+      const w = await buildWorld();
+      const a = await plan(w.org, w.client);
+      await insertRun(w.org, { status: "failed" });
+      await insertRun(w.org, { status: "rolled_back" });
+      await insertRun(w.org, { status: "running" });
+      expect((await runs.applyRun(db, a.run_id, [], null)).applied).toBe(6);
+    });
+
+    it("A: более новый прогон другой организации или другого вида не вытесняет план", async () => {
+      const w = await buildWorld();
+      const a = await plan(w.org, w.client);
+      const other = await makeOrg();
+      await insertRun(other, { status: "planned" });
+      await insertRun(other, { status: "applied" });
+      await insertRun(w.org, { kind: "attendance", status: "applied" });
+      await insertRun(w.org, { kind: "attendance", status: "planned" });
+      expect((await runs.applyRun(db, a.run_id, [], null)).applied).toBe(6);
+    });
+
+    // ---------- причины пропуска в журнале (C) ----------
+
+    it("C: plan.skipped хранит исключённые и устаревшие пункты с причинами", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, w.client);
+      await db.update(employees).set({ active: true }).where(eq(employees.id, w.eReact));
+      const res = await runs.applyRun(db, run_id, [`update:${w.eUpd}`], null);
+      const expected: { key: string; reason: "excluded" | "stale" | "conflict" }[] = [
+        { key: `update:${w.eUpd}`, reason: "excluded" },
+        { key: `reactivate:${w.eReact}`, reason: "stale" },
+      ];
+      expect(res.skipped).toEqual(expected);
+      const run = await runs.getRun(db, run_id);
+      expect(run.plan!.skipped).toEqual(expected);
+      expect(run.plan!.applied).not.toContain(`update:${w.eUpd}`);
+      expect(run.plan!.applied).not.toContain(`reactivate:${w.eReact}`);
+    });
+
+    // ---------- полнота before (D) ----------
+
+    it("D: загрузчик передаёт структуру должности, before пункта update её хранит", async () => {
+      const org = await makeOrg();
+      const company = newCompany();
+      const t = (await makeTerminal(db, { organization_id: org })).id;
+      const p = person();
+      const e = await mkEmp({ p, terminal_id: t, position: "Повар 2 разряд день", role_code: "cook", grade: 2, shift: "day", is_trainee: false, link: { company, id: 1 }, tab: "T1" });
+      const client = fakeClient(company, [wEmp(1, p, { title: "Кассир" })], [], []);
+      const { run } = await plan(org, client);
+      expect(run.plan!.items.map((i) => i.key)).toEqual([`update:${e}`]);
+      expect(run.plan!.items[0].before).toEqual({
+        position: "Повар 2 разряд день",
+        staff_role_id: (await emp(e)).staff_role_id,
+        grade: 2,
+        shift: "day",
+        is_trainee: false,
+        workly_company_id: company,
+        workly_id: 1,
+      });
+    });
+
+    it("D: роль, изменённая вручную после плана, делает пункт update устаревшим", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, w.client);
+      const role = await ensureStaffRole(db, "cook");
+      await db.update(employees).set({ staff_role_id: role }).where(eq(employees.id, w.eUpd));
+      const before = await emp(w.eUpd);
+      const res = await runs.applyRun(db, run_id, [], null);
+      expect(res.skipped).toEqual([{ key: `update:${w.eUpd}`, reason: "stale" }]);
+      expect(await emp(w.eUpd)).toEqual(before);
+    });
+
+    it("D: перепривязка сотрудника к другой записи Workly после плана делает его update устаревшим", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, w.client);
+      await db.update(employees).set({ workly_id: 200 }).where(eq(employees.id, w.eUpd));
+      const res = await runs.applyRun(db, run_id, [], null);
+      expect(res.skipped).toEqual([{ key: `update:${w.eUpd}`, reason: "stale" }]);
+      expect((await emp(w.eUpd)).position).toBe("Старая должность");
+    });
+
+    it("D: пункт с пустым before или с before без поля из after не применяется (stale)", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, w.client);
+      await tamperPlan(run_id, (p) => {
+        itemOf(p, `update:${w.eUpd}`).before = {};
+        delete itemOf(p, `reactivate:${w.eReact}`).before!.active;
+      });
+      const upd = await emp(w.eUpd);
+      const res = await runs.applyRun(db, run_id, [], null);
+      expect(res.skipped).toEqual([
+        { key: `update:${w.eUpd}`, reason: "stale" },
+        { key: `reactivate:${w.eReact}`, reason: "stale" },
+      ]);
+      expect(await emp(w.eUpd)).toEqual(upd);
+      expect((await emp(w.eReact)).active).toBe(false);
+    });
+
+    // ---------- страховки применения (E) ----------
+
+    it("E: ошибка пункта, отличная от конфликта, откатывает всё применение: прогон planned, никто не изменился", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, w.client);
+      // Последний основной пункт (deactivate) ссылается на несуществующую роль: внешний ключ.
+      await tamperPlan(run_id, (p) => {
+        const it = itemOf(p, `deactivate:${w.eDeact}`);
+        it.after.staff_role_id = randomUUID();
+        it.before!.staff_role_id = null;
+      });
+      const before = await snap(w.ids);
+      const err = await runs.applyRun(db, run_id, [], null).catch((e) => e);
+      expect(err).toBeInstanceOf(Error);
+      expect(err).not.toBeInstanceOf(KpiError);
+      // Пункты link, update, reactivate и create шли раньше и тоже откатились.
+      expect(await snap(w.ids)).toEqual(before);
+      expect(await createdBy(w.company, 5)).toBeUndefined();
+      const run = await runs.getRun(db, run_id);
+      expect(run).toMatchObject({ status: "planned", applied_at: null });
+      expect(run.plan!.applied).toBeUndefined();
+    });
+
+    it("E: перенос и создание в филиал другой организации не применяются (stale)", async () => {
+      const org = await makeOrg();
+      const company = newCompany();
+      const tA = (await makeTerminal(db, { organization_id: org })).id;
+      const tForeign = (await makeTerminal(db, { organization_id: await makeOrg() })).id;
+      // Испорченная карта: локация этой организации указывает на чужой филиал.
+      await mapLocation(org, company, 9, tForeign);
+      const p = person();
+      const e = await mkEmp({ p, terminal_id: tA, link: { company, id: 1 }, tab: "T1" });
+      const pNew = person();
+      const client = fakeClient(company, [wEmp(1, p, { loc: 9 }), wEmp(2, pNew, { loc: 9 })], [], [{ id: 9, title: "L9" }]);
+      const { run_id, run } = await plan(org, client);
+      expect(run.plan!.items.map((i) => i.key)).toEqual([`move:${e}`, "create:w2"]);
+      const before = await emp(e);
+      const res = await runs.applyRun(db, run_id, [], null);
+      expect(res).toEqual({
+        applied: 0,
+        skipped: [
+          { key: "create:w2", reason: "stale" },
+          { key: `move:${e}`, reason: "stale" },
+        ],
+      });
+      expect(await emp(e)).toEqual(before);
+      expect(await createdBy(company, 2)).toBeUndefined();
+    });
+
     // ---------- syncAuto и hasAppliedRun ----------
 
     it("hasAppliedRun: только применённый прогон сотрудников этой организации", async () => {
@@ -743,6 +949,104 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         spy.mockRestore();
       }
       expect(await snap(w.ids)).toEqual(before);
+    });
+
+    // Должность из Workly длиннее employees.position (varchar 150): запись пункта падает
+    // ошибкой базы, а не конфликтом.
+    const LONG_TITLE = "Тестовая должность ".repeat(10);
+    const longTitleClient = (w: Awaited<ReturnType<typeof buildWorld>>) =>
+      fakeClient(
+        w.company,
+        w.active.map((x) => (x.id === 2 ? { ...x, positions: [{ id: 9, title: LONG_TITLE }] } : x)),
+        w.dismissed,
+        w.locations
+      );
+
+    it("B: ночное применение упало не на конфликте — failed/apply_failed, сотрудники не изменились, текста ошибки нет", async () => {
+      const w = await buildWorld();
+      await insertRun(w.org, { status: "applied", active_fetched: 5 });
+      const before = await snap(w.ids);
+      const logged: string[] = [];
+      const spy = spyOn(console, "error").mockImplementation((...args: unknown[]) => {
+        logged.push(args.map(String).join(" "));
+      });
+      let row: Awaited<ReturnType<typeof runs.syncAuto>>;
+      try {
+        row = await runs.syncAuto(db, redis, { id: w.org, key: "LES" }, () => longTitleClient(w));
+      } finally {
+        spy.mockRestore();
+      }
+      expect(row).toMatchObject({ trigger: "schedule", status: "failed", error: "apply_failed", applied_at: null });
+      expect(row.plan!.applied).toBeUndefined();
+      expect(JSON.stringify(await rawRun(row.id))).not.toContain("too long");
+      expect(logged.join("\n")).not.toContain("too long");
+      expect(logged.join("\n")).toContain("apply_failed");
+      expect(await snap(w.ids)).toEqual(before);
+      expect(await createdBy(w.company, 5)).toBeUndefined();
+    });
+
+    it("B: тот же план через ручной applyRun — ошибка, прогон остаётся planned, сотрудники не изменились", async () => {
+      const w = await buildWorld();
+      const { run_id } = await plan(w.org, longTitleClient(w));
+      const before = await snap(w.ids);
+      await expect(runs.applyRun(db, run_id, [], null)).rejects.toBeInstanceOf(Error);
+      expect(await runs.getRun(db, run_id)).toMatchObject({ status: "planned", error: null, applied_at: null });
+      expect(await snap(w.ids)).toEqual(before);
+    });
+
+    it("B: план вытеснен более новым во время ночного прогона — строка остаётся planned, ничего не применено", async () => {
+      const w = await buildWorld();
+      await insertRun(w.org, { status: "applied", active_fetched: 5 });
+      const before = await snap(w.ids);
+      // Пока ночной прогон обходит Workly, человек успел построить новый план.
+      const client = fakeClient(w.company, w.active, w.dismissed, w.locations);
+      const dismissed = client.dismissed;
+      let newer = "";
+      client.dismissed = async () => {
+        newer = await insertRun(w.org, { status: "planned" });
+        return dismissed();
+      };
+      const row = await runs.syncAuto(db, redis, { id: w.org, key: "LES" }, () => client);
+      expect(newer).not.toBe("");
+      expect(row).toMatchObject({ status: "planned", error: null, applied_at: null });
+      expect(await snap(w.ids)).toEqual(before);
+    });
+
+    it("E: нецелый счётчик для предохранителей — failed/crawl_failed, ничего не применено", async () => {
+      const w = await buildWorld();
+      await insertRun(w.org, { status: "applied", active_fetched: 5 });
+      const before = await snap(w.ids);
+      if (!/^[0-9a-f-]{36}$/.test(w.org)) throw new Error("org id не uuid");
+      // Триггер только для этой организации портит counts.deactivate при записи planned.
+      const drop = async () => {
+        await db.execute(sql.raw("DROP TRIGGER IF EXISTS wl_test_bad_counts ON workly_sync_runs"));
+        await db.execute(sql.raw("DROP FUNCTION IF EXISTS wl_test_bad_counts()"));
+      };
+      await drop();
+      await db.execute(
+        sql.raw(
+          "CREATE FUNCTION wl_test_bad_counts() RETURNS trigger LANGUAGE plpgsql AS " +
+            "$f$ BEGIN NEW.counts := jsonb_set(NEW.counts, '{deactivate}', '1.5'::jsonb); RETURN NEW; END $f$"
+        )
+      );
+      await db.execute(
+        sql.raw(
+          "CREATE TRIGGER wl_test_bad_counts BEFORE UPDATE ON workly_sync_runs FOR EACH ROW " +
+            `WHEN (NEW.organization_id = '${w.org}'::uuid AND NEW.status = 'planned') EXECUTE FUNCTION wl_test_bad_counts()`
+        )
+      );
+      const spy = spyOn(console, "error").mockImplementation(() => {});
+      let row: Awaited<ReturnType<typeof runs.syncAuto>>;
+      try {
+        row = await runs.syncAuto(db, redis, { id: w.org, key: "LES" }, () => w.client);
+      } finally {
+        spy.mockRestore();
+        await drop();
+      }
+      expect(row.counts.deactivate).toBe(1.5);
+      expect(row).toMatchObject({ status: "failed", error: "crawl_failed", block_reason: null });
+      expect(await snap(w.ids)).toEqual(before);
+      expect(await createdBy(w.company, 5)).toBeUndefined();
     });
 
     // ---------- linkManually ----------

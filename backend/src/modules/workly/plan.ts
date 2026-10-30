@@ -25,6 +25,15 @@ export interface OurEmployee {
    * не создаётся. null означает «у нас пусто».
    */
   workly_tab_number?: string | null;
+  /**
+   * Структура должности, как она записана у нас. Нужна только для before: пункт
+   * хранит текущие значения всего, что меняет. undefined (загрузчик поле не передал)
+   * пишется в before как null: при расхождении с базой пункт устареет, а не перезапишет.
+   */
+  staff_role_id?: string | null;
+  grade?: number | null;
+  shift?: string | null;
+  is_trainee?: boolean | null;
 }
 
 export interface EmployeeFields {
@@ -68,6 +77,8 @@ export interface SyncPlan {
    * конфликтные) сюда не входят: откат прогона трогает только эти пункты.
    */
   applied?: string[];
+  /** Пропущенные при применении пункты и причины; пишет applyRun вместе с applied. */
+  skipped?: { key: string; reason: "excluded" | "stale" | "conflict" }[];
 }
 
 export interface PlanInput {
@@ -95,6 +106,22 @@ const normTab = (t: string | null | undefined): string | null => (t ?? "").trim(
 
 const itemKey = (kind: PlanKind, employeeId: string | null, worklyId: number): string =>
   `${kind}:${employeeId ?? "w" + worklyId}`;
+
+/**
+ * before пункта: текущее значение каждого поля, которое меняет after (откат вернёт ровно
+ * их, а правка после построения плана сделает пункт устаревшим). undefined пишется как null.
+ * pinLink дополнительно закрепляет пару Workly у сотрудника, уже связанного с активной записью.
+ */
+function beforeOf(e: OurEmployee, after: Partial<EmployeeFields>, pinLink: boolean): Partial<EmployeeFields> {
+  const cur = e as unknown as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  for (const k of Object.keys(after)) out[k] = cur[k] ?? null;
+  if (pinLink) {
+    out.workly_company_id = e.workly_company_id ?? null;
+    out.workly_id = e.workly_id ?? null;
+  }
+  return out as Partial<EmployeeFields>;
+}
 
 function structFields(s: StructuredPosition): Partial<EmployeeFields> {
   return {
@@ -237,46 +264,47 @@ export function buildPlan(i: PlanInput): SyncPlan {
   });
 
   // --- Сборка пунктов -------------------------------------------------------------
-  const moveItem = (m: Emp, w: WorklyEmployee) => {
+  // pinLink: сотрудник уже связан с этой активной записью, и перенос закрепляет пару Workly.
+  // При связи по имени (link/relink) не закрепляет: связь меняет пару раньше переноса.
+  const moveItem = (m: Emp, w: WorklyEmployee, pinLink: boolean) => {
     const t = terminalOf(w);
     if (!t || t === m.e.terminal_id) return;
+    const after: Partial<EmployeeFields> = { terminal_id: t };
     items.push({
       key: itemKey("move", m.e.id, w.id),
       kind: "move",
       employee_id: m.e.id,
       workly_id: w.id,
       label: fullName(m.e),
-      before: { terminal_id: m.e.terminal_id },
-      after: { terminal_id: t },
+      before: beforeOf(m.e, after, pinLink),
+      after,
     });
   };
 
   // Правило 2: запись уже связана с нашим сотрудником.
   const existing = (m: Emp, w: WorklyEmployee) => {
     const e = m.e;
-    const before: Partial<EmployeeFields> = {};
     const after: Partial<EmployeeFields> = {};
     const tab = normTab(w.tab_number);
     if (e.workly_tab_number !== undefined && normTab(e.workly_tab_number) !== tab) {
-      before.workly_tab_number = e.workly_tab_number;
       after.workly_tab_number = tab;
     }
     // Если в Workly должности нет, наша остаётся: пустое значение не стирает данные.
     const st = structOf(w);
     if (st && st.position != null && st.position !== (e.position ?? null)) {
-      before.position = e.position;
       Object.assign(after, structFields(st));
     }
     const changed = Object.keys(after).length > 0;
     if (!e.active) {
+      const afterR: Partial<EmployeeFields> = { active: true, ...after };
       items.push({
         key: itemKey("reactivate", e.id, w.id),
         kind: "reactivate",
         employee_id: e.id,
         workly_id: w.id,
         label: fullName(e),
-        before: { active: false, ...before },
-        after: { active: true, ...after },
+        before: beforeOf(e, afterR, true),
+        after: afterR,
       });
     } else if (changed) {
       items.push({
@@ -285,11 +313,11 @@ export function buildPlan(i: PlanInput): SyncPlan {
         employee_id: e.id,
         workly_id: w.id,
         label: fullName(e),
-        before,
+        before: beforeOf(e, after, true),
         after,
       });
     }
-    moveItem(m, w);
+    moveItem(m, w, true);
   };
 
   // Правило 1, один кандидат: связать (workly_id пуст) или перепривязать (был на уволенную).
@@ -297,31 +325,26 @@ export function buildPlan(i: PlanInput): SyncPlan {
     const e = m.e;
     const kind: PlanKind = e.workly_id == null ? "link" : "relink";
     const st = structOf(w);
-    const before: Partial<EmployeeFields> = {
-      workly_id: e.workly_id,
-      workly_company_id: e.workly_company_id,
-      active: e.active,
+    const after: Partial<EmployeeFields> = {
+      workly_company_id: i.companyId,
+      workly_id: w.id,
+      workly_tab_number: normTab(w.tab_number),
+      ...(st ? structFields(st) : {}),
+      active: true,
     };
-    if (st) before.position = e.position;
-    if (e.workly_tab_number !== undefined) before.workly_tab_number = e.workly_tab_number;
     items.push({
       key: itemKey(kind, e.id, w.id),
       kind,
       employee_id: e.id,
       workly_id: w.id,
       label: fullName(e),
-      before,
-      after: {
-        workly_company_id: i.companyId,
-        workly_id: w.id,
-        workly_tab_number: normTab(w.tab_number),
-        ...(st ? structFields(st) : {}),
-        active: true,
-      },
+      // Пара Workly и так в after, поэтому её прежнее значение попадает в before.
+      before: beforeOf(e, after, false),
+      after,
     });
     // Терминал меняется отдельным пунктом, иначе после применения плана второй
     // проход нашёл бы его снова.
-    moveItem(m, w);
+    moveItem(m, w, false);
   };
 
   const createOne = (w: WorklyEmployee) => {
