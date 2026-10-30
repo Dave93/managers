@@ -3307,7 +3307,10 @@ export const workly_locations = pgTable(
 // counts — итог применения (у attendance: { days, unknown, carried, import_id }); plan — { items, report },
 // пока запуск идёт, пуст. block_reason — почему запуск заблокирован; error — код сбоя:
 // client_invalid | force_update | auth_failed | http_error | not_configured | crawl_failed | empty_crawl |
-// stale | apply_failed (ночное применение упало, applyRun всё откатил).
+// stale | apply_failed (ночное применение упало, applyRun всё откатил) | period_closed | period_not_started
+// (посещаемость) | enqueue_failed (маршрут создал строку, но не смог поставить задачу в очередь).
+// Коды ответов API Workly, которые в error не пишутся: queue_unavailable, organization_not_connected,
+// employee_not_found, workly_employee_not_found.
 // Одновременно на (организация, вид) допускается один запуск в статусе running.
 export const workly_sync_runs = pgTable(
   "workly_sync_runs",
