@@ -2308,6 +2308,13 @@
       "fallbackLabel": "Comment if the order has no note",
       "fallbackPlaceholder": "For each order, its \"Note\" is sent to iiko. This text is only for orders without one.",
       "confirm": "Cancel {count}"
+    },
+    "reminder": {
+      "title": "Statuses haven't been refreshed from iiko today",
+      "body": "Press “Refresh from iiko”, otherwise orders closed overnight will stay in the list as unclosed.",
+      "action": "Refresh now",
+      "last": "Last refreshed: {when}, {who}.",
+      "never": "Not refreshed yet."
     }
   },
   "stoplistPage": {

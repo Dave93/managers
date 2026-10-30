@@ -2308,6 +2308,13 @@
       "fallbackLabel": "Buyurtmada qayd bo'lmasa izoh",
       "fallbackPlaceholder": "Har bir buyurtma bo'yicha iikoga uning «Qayd» maydoni yuboriladi. Bu matn faqat qaydi yo'q buyurtmalar uchun.",
       "confirm": "{count} ta bekor qilish"
+    },
+    "reminder": {
+      "title": "Bugun holatlar iikodan hali yangilanmadi",
+      "body": "«iikodan yangilash» tugmasini bosing, aks holda tunda yopilgan buyurtmalar ro'yxatda yopilmagan bo'lib qoladi.",
+      "action": "Hozir yangilash",
+      "last": "Oxirgi yangilanish: {when}, {who}.",
+      "never": "Hali yangilanmagan."
     }
   },
   "stoplistPage": {
