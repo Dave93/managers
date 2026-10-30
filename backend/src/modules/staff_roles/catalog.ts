@@ -1,5 +1,5 @@
 import type { staff_roles } from "backend/drizzle/schema";
-import { parsePosition, type Group, type Shift } from "../terminals/network-map";
+import { parsePosition, type Group, type Shift } from "../terminals/position";
 
 // Справочник ролей и сборка канонической строки должности.
 //
@@ -16,7 +16,7 @@ import { parsePosition, type Group, type Shift } from "../terminals/network-map"
 //      строка. Единый шаблон, чтобы новые записи перестали ломать разбор.
 //
 // Разбор строки НЕ дублируется: parsePosition остаётся единственным, он
-// импортируется из terminals/network-map.
+// импортируется из terminals/position (network-map его переэкспортирует).
 
 export interface SeedRole {
   code: string;
