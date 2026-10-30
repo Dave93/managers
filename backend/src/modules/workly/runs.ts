@@ -7,9 +7,13 @@
 // каждый пункт отдельно и только если сотрудник не изменился с момента построения.
 // Ничего сверх перечисленного в плане applyRun не меняет.
 //
+// Посещаемость (kind attendance) плана не строит: executeRun сразу пишет импорт месяца
+// (runAttendance) и закрывает строку статусом applied со счётчиками в counts.
+//
 // Коды в workly_sync_runs.error: client_invalid, force_update, auth_failed, http_error,
 // not_configured (WorklyError), crawl_failed, empty_crawl (executeRun), stale (startRun),
-// apply_failed (syncAuto: ночное применение упало).
+// apply_failed (syncAuto: ночное применение упало), period_closed и period_not_started
+// (посещаемость: месяц закрыт или в нём нет прошедших дней).
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, staff_roles, terminals, workly_sync_runs } from "backend/drizzle/schema";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
@@ -18,8 +22,9 @@ import type { DbLike } from "../kpi/access";
 import { UUID_RE } from "../kpi/employees";
 import { KpiError } from "../kpi/errors";
 import { iso } from "../kpi/iso";
-import type { Period } from "../kpi/time";
+import { isPeriod, type Period } from "../kpi/time";
 import { structureFrom } from "../staff_roles/catalog";
+import { runAttendance } from "./attendance";
 import { clientFor, WorklyError, type WorklyClient } from "./client";
 import { connKeyOf } from "./config";
 import { checkGuards, type BlockReason, type GuardInput } from "./guards";
@@ -54,6 +59,15 @@ class RunFailed extends Error {
   constructor(public code: "empty_crawl" | "crawl_failed") {
     super(code);
   }
+}
+
+// Отказы записи посещаемости (KpiError), которые журнал хранит своим кодом; прочие KpiError — crawl_failed.
+const ATTENDANCE_CODES: ReadonlySet<string> = new Set(["period_closed", "period_not_started"]);
+
+function errorCode(e: unknown): string {
+  if (e instanceof WorklyError || e instanceof RunFailed) return e.code;
+  if (e instanceof KpiError && ATTENDANCE_CODES.has(e.code)) return e.code;
+  return "crawl_failed";
 }
 
 // Подключение организации по строке журнала. Подмена только для тестов: тестовые
@@ -185,11 +199,33 @@ async function planEmployees(db: DrizzleDB, runId: string, organizationId: strin
     .where(runIs(runId, "running"));
 }
 
+// Посещаемость: месяц и автор — из строки журнала; локации и план не участвуют.
+async function syncAttendance(
+  db: DrizzleDB,
+  run: typeof workly_sync_runs.$inferSelect,
+  client: RunClient,
+  companyId: number
+): Promise<void> {
+  if (!isPeriod(run.period)) throw new RunFailed("crawl_failed");
+  const res = await runAttendance(db, client, { id: run.organization_id }, run.period, run.created_by);
+  await db
+    .update(workly_sync_runs)
+    .set({
+      status: "applied",
+      applied_at: sql`now()`,
+      counts: { days: res.days, unknown: res.unknown, carried: res.carried, import_id: res.import_id },
+      workly_company_id: companyId,
+    })
+    .where(runIs(run.id, "running"));
+}
+
 /**
  * Выполняет прогон по строке журнала (задача очереди). Строка не в статусе running —
- * ничего не делает. Любой сбой завершает прогон статусом failed с кодом: код WorklyError,
- * empty_crawl или crawl_failed. Текст исключения не пишется ни в строку, ни в лог.
- * Если не удалось записать и сам failed, пробрасывается исходная ошибка.
+ * ничего не делает. Сотрудники: план со статусом planned. Посещаемость: импорт месяца
+ * и статус applied. Любой сбой завершает прогон статусом failed с кодом: код WorklyError,
+ * empty_crawl, period_closed, period_not_started или crawl_failed. Текст исключения
+ * не пишется ни в строку, ни в лог. Если не удалось записать и сам failed,
+ * пробрасывается исходная ошибка.
  */
 export async function executeRun(
   db: DrizzleDB,
@@ -209,10 +245,10 @@ export async function executeRun(
     await db.update(workly_sync_runs).set({ workly_company_id: companyId }).where(runIs(runId, "running"));
 
     if (run.kind === "employees") await planEmployees(db, runId, run.organization_id, client, companyId);
-    // Ветка посещаемости появится вместе с runAttendance; до тех пор такой прогон — сбой.
+    else if (run.kind === "attendance") await syncAttendance(db, run, client, companyId);
     else throw new RunFailed("crawl_failed");
   } catch (e) {
-    const code = e instanceof WorklyError || e instanceof RunFailed ? e.code : "crawl_failed";
+    const code = errorCode(e);
     console.error(`workly: прогон ${runId} завершился ошибкой ${code}`);
     try {
       await db.update(workly_sync_runs).set({ status: "failed", error: code }).where(runIs(runId, "running"));
