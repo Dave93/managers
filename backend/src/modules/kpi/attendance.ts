@@ -66,20 +66,24 @@ export type ImportDbRow = typeof kpi_attendance_imports.$inferSelect;
 
 // В mapping лежат и итоги по дням: отдельных колонок под них в таблице нет (миграция 0037 одна).
 // Пропущенные строки найденных сотрудников там же: у прежних импортов их нет, они читаются как 0.
-// source: "api" ставит синхронизация с Workly; у такого импорта листа, строки заголовков и сопоставления колонок нет.
+// source: "api" ставит синхронизация с Workly; у такого импорта листа, строки заголовков и сопоставления колонок нет,
+// зато есть окно отчётов и число плановых дней без данных (unknown).
 type StoredMapping = {
-  sheet: string;
-  header_row: number;
-  mapping: AttendanceMapping;
+  sheet?: string;
+  header_row?: number;
+  mapping?: AttendanceMapping;
   totals?: AttendanceTotals;
   skipped?: { count: number; rows: UnmatchedRow[] };
   source?: "api";
+  window?: { from: string; to: string };
+  unknown?: number;
 };
 const NO_TOTALS: AttendanceTotals = { days_present: 0, days_late: 0, days_absent: 0 };
 
 function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImportRow {
   const m = r.mapping as StoredMapping;
   const t = m.totals ?? NO_TOTALS;
+  const api = m.source === "api";
   return {
     id: r.id,
     period: r.period,
@@ -87,10 +91,10 @@ function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImpo
     uploaded_by: r.uploaded_by,
     uploaded_by_name: r.uploaded_by ? names.get(r.uploaded_by) ?? null : null,
     organization_id: r.organization_id,
-    source: m.source === "api" ? "api" : "file",
-    sheet: m.sheet,
-    header_row: m.header_row,
-    mapping: m.mapping,
+    source: api ? "api" : "file",
+    sheet: api ? null : m.sheet ?? null,
+    header_row: api ? null : m.header_row ?? null,
+    mapping: api ? null : m.mapping ?? null,
     rows_total: r.rows_total,
     rows_matched: r.rows_matched,
     rows_unmatched: r.rows_unmatched,

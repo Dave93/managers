@@ -439,6 +439,38 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect((await daysOf(e.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-07-03", second.id]]);
       });
 
+      it("listImports отдаёт api-импорт с null вместо sheet/header_row/mapping и uploaded_by: null", async () => {
+        const P5 = "2025-05-01";
+        const hr = await hrSession();
+        const org = await makeOrganization(db);
+        const x = ext();
+        const e = await makeEmployee(db, { external_id: x, organization_id: org });
+        const other = await makeOrganization(db);
+        const o = await makeEmployee(db, { external_id: ext(), organization_id: other });
+        // Файловый импорт одной организации и api-импорт другой за тот же месяц
+        const file = await importAttendance(hr, [[x, 45778, "09:00", "18:00", 0, ""]], P5, ATT_MAP, org); // 45778 = 2025-05-01
+        expect(file.status).toBe(200);
+        const apiImp = await db.transaction((tx) =>
+          writeAttendanceImport(tx, {
+            period: P5, organization_id: other, file_name: "Workly API", uploaded_by: null,
+            mapping: { source: "api", totals: { days_present: 0, days_late: 0, days_absent: 1 }, window: { from: P5, to: "2025-05-31" }, unknown: 3 },
+            days: [{ employee_id: o.id, day: "2025-05-02", terminal_id: o.terminal_id, check_in: null, check_out: null, late_minutes: 0, absent: true }],
+            rows_total: 1, rows_unmatched: 0, unmatched: [],
+          })
+        );
+        const byId = new Map((await importsOf(hr, P5)).map((i: any) => [i.id, i]));
+        expect(byId.get(apiImp.id)).toMatchObject({
+          source: "api", organization_id: other, file_name: "Workly API", status: "committed",
+          sheet: null, header_row: null, mapping: null, uploaded_by: null, uploaded_by_name: null,
+          rows_matched: 1, days_absent: 1,
+        });
+        // Файловый импорт — как раньше
+        expect(byId.get(file.body.id)).toMatchObject({
+          source: "file", organization_id: org, sheet: "Лист1", header_row: 1, mapping: ATT_MAP, uploaded_by: hr.userId,
+        });
+        expect(await daysOf(e.id)).toHaveLength(1);
+      });
+
       it("lockAttendancePeriod: закрытый месяц — 409 period_closed, запись ничего не оставляет; повторный вызов в транзакции безвреден", async () => {
         const org = await makeOrganization(db);
         const e = await makeEmployee(db, { external_id: ext(), organization_id: org });
