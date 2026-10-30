@@ -28,8 +28,9 @@ module.exports = {
       name: "office_kpi_worker",
       script: "kpi_worker.ts",
       interpreter: "bun",
-      // Как у office_tickets_worker: SIGTERM должен успеть дождаться вызова Telegram.
-      kill_timeout: 10000,
+      // SIGTERM должен успеть дождаться вызова Telegram и обхода Workly: один обход идёт до ~100 секунд,
+      // иначе pm2 оборвёт его kill -9, и строка прогона останется running до закрытия как stale (15 минут).
+      kill_timeout: 130000,
     },
   ],
 };

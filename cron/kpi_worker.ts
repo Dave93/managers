@@ -1,5 +1,6 @@
 // Воркер KPI-уведомлений: доставка в Telegram, подметалка, ежедневные напоминания в 10:00 по Ташкенту.
-// Вся логика живёт в backend/src/modules/kpi/worker; здесь только процесс и расписание.
+// Вторым Worker в этом же процессе идёт очередь Workly (прогоны сверки и посещаемости, ночной прогон в 03:30).
+// Вся логика живёт в backend/src/modules/kpi/worker и backend/src/modules/workly; здесь только процесс и расписание.
 // drizzle-orm здесь не импортируем: у cron другая версия, чем у backend, а база приходит из @backend/lib/db.
 // После деплоя бэкенда процесс нужно перезапускать отдельно: он исполняет тексты и правила из backend.
 import { DelayedError, Worker, type Job } from "bullmq";
@@ -18,11 +19,15 @@ import { deliverOne, stuckReporter, stuckSendingCount, sweepPending } from "@bac
 import { startScheduling } from "@backend/modules/kpi/worker/boot";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
 import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
+import { WORKLY_NIGHTLY_JOB, failedJobCode, handleWorklyJob, jobFailureCode, runNightly } from "@backend/modules/workly/nightly";
+import { getWorklyQueue, worklyQueueName } from "@backend/modules/workly/queue";
+import { executeRun } from "@backend/modules/workly/runs";
 
 const api = botApi();
 if (!api) console.warn("kpi worker: KPI_BOT_TOKEN не задан — уведомления получают статус skipped (no_token)");
 
 const queue = getKpiQueue();
+const worklyQueue = getWorklyQueue();
 
 async function registerSchedulers() {
   await queue.upsertJobScheduler(
@@ -34,6 +39,12 @@ async function registerSchedulers() {
     KPI_DAILY_JOB,
     { pattern: "0 10 * * *", tz: "Asia/Tashkent" },
     { name: KPI_DAILY_JOB, opts: schedulerJobOptions }
+  );
+  // Ночная сверка Workly: 03:30 по Ташкенту (время выбрано при планировании).
+  await worklyQueue.upsertJobScheduler(
+    WORKLY_NIGHTLY_JOB,
+    { pattern: "30 3 * * *", tz: "Asia/Tashkent" },
+    { name: WORKLY_NIGHTLY_JOB, opts: schedulerJobOptions }
   );
 }
 
@@ -92,6 +103,31 @@ worker.on("error", (e) => console.error("kpi worker error", e));
 worker.on("failed", (job, e) => console.error("kpi job failed", job?.name, job?.id, e?.message));
 console.log(`kpi worker started (queue ${kpiQueueName()}, token: ${api ? "есть" : "нет"})`);
 
+// Очередь Workly: обход 70–100 секунд, поэтому отдельный Worker без limiter и по одной задаче за раз
+// (обходы одного клиента не должны идти параллельно, см. client.ts). Слоты доставки Telegram он не занимает.
+// Сообщения исключений ни в лог, ни в BullMQ не попадают: handleWorklyJob отдаёт только код (в базе у
+// DrizzleQueryError параметры запроса с именами сотрудников, а failedReason хранится в Redis).
+const worklyWorker = new Worker(
+  worklyQueueName(),
+  async (job) => {
+    const redis = (await worklyQueue.client) as unknown as Parameters<typeof executeRun>[1];
+    return handleWorklyJob(job, {
+      run: (runId) => executeRun(drizzleDb, redis, runId),
+      nightly: async () => {
+        const result = await runNightly(drizzleDb, redis);
+        // Ключи и статусы, без текста ошибок.
+        console.log("workly nightly", JSON.stringify(result));
+        return result;
+      },
+    });
+  },
+  { connection: redisConnection(), concurrency: 1 }
+);
+
+worklyWorker.on("error", (e) => console.error("workly worker error", jobFailureCode(e)));
+worklyWorker.on("failed", (job, e) => console.error("workly job failed", job?.name, job?.id, failedJobCode(e)));
+console.log(`workly worker started (queue ${worklyQueueName()})`);
+
 // Без расписаний процесс ничего не делает по времени: при провале регистрации выходим, PM2 перезапустит.
 void startScheduling({
   register: registerSchedulers,
@@ -106,9 +142,18 @@ async function shutdown(signal: string) {
   shuttingDown = true;
   console.log(`kpi worker: получен ${signal}, закрываем worker и queue...`);
   try {
-    // close() без force ждёт уже начатые задачи: вызов Telegram успеет завершиться (см. kill_timeout в pm2.config.js).
-    await worker.close();
-    await queue.close();
+    // close() без force ждёт уже начатые задачи: вызов Telegram и обход Workly успеют завершиться
+    // (см. kill_timeout в pm2.config.js). Очереди закрываем только после воркеров: обход берёт
+    // Redis-клиент очереди Workly (токен), под идущим обходом его закрывать нельзя.
+    const [kpiClosed, worklyClosed] = await Promise.allSettled([worker.close(), worklyWorker.close()]);
+    const [kpiQueueClosed, worklyQueueClosed] = await Promise.allSettled([queue.close(), worklyQueue.close()]);
+    for (const r of [kpiClosed, kpiQueueClosed]) {
+      if (r.status === "rejected") console.error("kpi worker: ошибка при graceful shutdown", r.reason);
+    }
+    // Очередь и воркер Workly: только код, без текста исключения.
+    for (const r of [worklyClosed, worklyQueueClosed]) {
+      if (r.status === "rejected") console.error("workly worker: ошибка при graceful shutdown", jobFailureCode(r.reason));
+    }
   } catch (e) {
     console.error("kpi worker: ошибка при graceful shutdown", e);
   } finally {
