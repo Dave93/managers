@@ -221,13 +221,14 @@ describe("workly/plan: link и relink", () => {
 
 describe("workly/plan: неоднозначность", () => {
   it("тёзки в Workly: две активные записи с одним ключом и один наш", () => {
-    const p = run({ ours: [ours()], active: [w({ id: 11 }), w({ id: 10 })] });
+    const e = ours({ id: "only" });
+    const p = run({ ours: [e], active: [w({ id: 11 }), w({ id: 10 })] });
     expect(p.items).toEqual([]);
     expect(p.report.ambiguous.length).toBe(1);
     expect(p.report.ambiguous[0]!.workly_id).toBe(10);
     expect(p.report.ambiguous[0]!.label).toContain("11");
-    // Неоднозначна только сторона Workly: список сотрудников пуст.
-    expect(p.report.ambiguous[0]!.employee_ids).toEqual([]);
+    // Единственный наш кандидат назван в отчёте: иначе он не попал бы ни в одну корзину.
+    expect(p.report.ambiguous[0]!.employee_ids).toEqual(["only"]);
     expect(p.report.not_found).toEqual([]);
   });
 
@@ -239,6 +240,8 @@ describe("workly/plan: неоднозначность", () => {
     });
     expect(p.items).toEqual([]);
     expect(p.report.ambiguous.length).toBe(1);
+    // Наших кандидатов нет вовсе: запись в отчёте остаётся, список пуст.
+    expect(p.report.ambiguous[0]!.employee_ids).toEqual([]);
     expect(p.report.no_branch).toEqual([]);
   });
 
@@ -622,6 +625,22 @@ describe("workly/plan: deactivate и not_found", () => {
     const p = run({ ours: [e], active: [w({ first_name: "Other", last_name: "Person" })], dismissed: [d({ first_name: "Third", last_name: "One" })] });
     expect(kinds(p)).not.toContain("deactivate");
     expect(p.report.not_found).toEqual([{ employee_id: e.id, label: "Ali Valiyev" }]);
+  });
+
+  it("отчество только у уволенной записи, у активной без отчества: deactivate нет", () => {
+    // Наш сотрудник хранит отчество внутри first_name (спека 5.3), в Workly старая
+    // запись с отчеством уволена, а новая активная записана без него.
+    const e = ours({ id: "karim", first_name: "Ali Karim", last_name: "Valiyev" });
+    const p = run({
+      ours: [e],
+      active: [w({ id: 10, first_name: "Ali", last_name: "Valiyev", patronymic: "" })],
+      dismissed: [d({ id: 5, first_name: "Ali", last_name: "Valiyev", patronymic: "Karim" })],
+    });
+    expect(kinds(p)).not.toContain("deactivate");
+    expect(p.items).toEqual([]);
+    expect(p.report.not_found).toEqual([{ employee_id: "karim", label: "Ali Karim Valiyev" }]);
+    // Активная запись без кандидата и без филиала: сообщается, а не создаётся вслепую.
+    expect(p.report.no_branch.map((n) => n.workly_id)).toEqual([10]);
   });
 
   it("имя в обоих списках: link на активную запись, deactivate нет", () => {

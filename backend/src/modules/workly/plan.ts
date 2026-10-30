@@ -349,14 +349,15 @@ export function buildPlan(i: PlanInput): SyncPlan {
   };
 
   // Одна строка отчёта на группу. workly_id — наименьший в группе, остальные id
-  // в подписи. Список сотрудников заполняется, только если неоднозначна и наша сторона.
+  // в подписи. employee_ids — все наши кандидаты группы (чтобы HR мог связать вручную);
+  // пуст, только если у группы нет ни одного нашего кандидата.
   const reportAmbiguous = (g: Group) => {
     if (g.reported) return;
     g.reported = true;
     const recs = g.ws.map((k) => unpointed[k]!).sort((a, b) => a.id - b.id);
     const head = recs[0]!;
     const label = recs.length > 1 ? `${fullName(head)} (Workly: ${recs.map((r) => r.id).join(", ")})` : fullName(head);
-    const employee_ids = g.es.length > 1 ? g.es.map((k) => mine[k]!.e.id).sort() : [];
+    const employee_ids = g.es.map((k) => mine[k]!.e.id).sort();
     report.ambiguous.push({ workly_id: head.id, label, employee_ids });
   };
 
@@ -388,7 +389,13 @@ export function buildPlan(i: PlanInput): SyncPlan {
     if (!ids || ids.size !== 1) return null;
     const id = [...ids][0]!;
     if (pointedBy.has(id) || (eligibleCount.get(m.key) ?? 0) !== 1) return null;
-    return dismissedById.get(id) ?? null;
+    const dd = dismissedById.get(id) ?? null;
+    // Ключи совпадают несимметрично: наш ключ (имя+фамилия) мог не встретиться среди
+    // активных, а у уволенной записи есть второй ключ с отчеством. Если любой ключ
+    // этой записи есть у активной (новая запись без отчества рядом со старой с ним,
+    // типичный повторный приём), человек, скорее всего, жив: не деактивируем.
+    if (dd && worklyNameKeys(dd).some((k) => k && activeKeys.has(k))) return null;
+    return dd;
   };
 
   mine.forEach((m, k) => {
