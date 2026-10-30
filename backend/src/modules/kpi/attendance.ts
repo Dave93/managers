@@ -82,7 +82,7 @@ function toImportRow(r: ImportDbRow, names: Map<string, string>): AttendanceImpo
     period: r.period,
     file_name: r.file_name,
     uploaded_by: r.uploaded_by,
-    uploaded_by_name: names.get(r.uploaded_by) ?? null,
+    uploaded_by_name: r.uploaded_by ? names.get(r.uploaded_by) ?? null : null,
     sheet: m.sheet,
     header_row: m.header_row,
     mapping: m.mapping,
@@ -222,7 +222,7 @@ export async function commitImport(
     }
     return imp;
   });
-  return toImportRow(saved, await userNames(db, [saved.uploaded_by]));
+  return toImportRow(saved, await userNames(db, saved.uploaded_by ? [saved.uploaded_by] : []));
 }
 
 export async function listImports(db: DbLike, period: Period): Promise<AttendanceImportRow[]> {
@@ -231,7 +231,7 @@ export async function listImports(db: DbLike, period: Period): Promise<Attendanc
     .from(kpi_attendance_imports)
     .where(eq(kpi_attendance_imports.period, period))
     .orderBy(desc(kpi_attendance_imports.created_at), desc(kpi_attendance_imports.id));
-  const names = await userNames(db, rows.map((r) => r.uploaded_by));
+  const names = await userNames(db, rows.flatMap((r) => (r.uploaded_by ? [r.uploaded_by] : [])));
   return rows.map((r) => toImportRow(r, names));
 }
 
