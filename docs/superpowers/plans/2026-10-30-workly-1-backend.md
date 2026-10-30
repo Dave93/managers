@@ -4,7 +4,7 @@
 
 **Goal:** Подтягивать сотрудников и посещаемость из двух компаний Workly (Les Ailes, Chopar) в `employees` и `kpi_attendance`, с предпросмотром, журналом, откатом и ночным прогоном.
 
-**Architecture:** Новый модуль `backend/src/modules/workly/`: клиент API, чистый построитель плана сверки, применение плана с журналом, карта локаций, посещаемость. Запись посещаемости идёт через общую функцию в `modules/kpi/attendance.ts`, которую делят файловая загрузка и API. Ночной прогон ставится в существующем `office_kpi_worker`.
+**Architecture:** Новый модуль `backend/src/modules/workly/`: клиент API, чистый построитель плана сверки, применение плана с журналом, карта локаций, посещаемость. Запись посещаемости идёт через общую функцию в `modules/kpi/attendance.ts`, которую делят файловая загрузка и API. Обход Workly занимает 70–100 секунд (замер 2026-10-30), а у nginx для `api.office.lesailes.uz` нет `proxy_read_timeout`, то есть действует 60 секунд. Поэтому «Проверить» и «Синхронизировать» не работают внутри HTTP-запроса: маршрут заводит строку журнала со статусом `running`, ставит задачу в отдельную очередь BullMQ `workly-sync`, а исполняет её второй `Worker` в процессе `office_kpi_worker`. Админка опрашивает строку журнала. Применение плана (только база) остаётся синхронным.
 
 **Tech Stack:** Bun, Elysia, Drizzle (PostgreSQL), ioredis, BullMQ, `bun:test`.
 
@@ -19,6 +19,9 @@
 - Деактивация только при положительном признаке «уволен» (список уволенных Workly); «нет нигде» уходит в отчёт.
 - Окно посещаемости: с 1-го числа месяца по вчерашний день по Asia/Tashkent; ночью текущий месяц и предыдущий, если он не закрыт. Плановый день: `is_work_day` и не `is_holiday`. Прогул: только из absence при пустом `timeoff_id`. Времена Workly местные (+05:00).
 - Права всех маршрутов: `kpi.manage`. Миграция 0041; SQL проверяется глазами до применения.
+- Выкат: бэкенд и админка выходят одним релизом (одна ветка `feature/workly-sync`, один PR). Задача 8 делает `organization_id` обязательным в `commitImport`, а мастер загрузки отправляет его только после задачи 5 плана админки; порознь файловая загрузка получила бы 422.
+- Замеры 2026-10-30 (Les Ailes): сотрудники 8 запросов, 26 с; уволенные 80 запросов, 45 с; T12 за месяц 7 запросов, 10 с; late-in 50 запросов, 30 с; absence 36 запросов, 32 с. Заголовок `limit: 100` тоже принимается, но в документации максимум 50, поэтому остаёмся на 50.
+- Идентификаторы: `id` уволенных, `employee.id` в отчётах и `id` активных это одно пространство и не пересекаются между списками активных и уволенных (проверено). T12 содержит только активных сотрудников; уволенные в течение месяца встречаются в late-in, но не в T12.
 - Секреты (`client_secret`, пароль, ключи доступа) не попадают в логи, ответы API и репозиторий.
 - Комментарии и тексты ошибок по-русски, коды ошибок snake_case, как в `modules/kpi`. Тесты с базой идут только на `managers_tickets_test` (`TEST_DATABASE_URL`), локальную `managers` не мигрировать. Не заявлять «тесты прошли» без реального запуска. Прод не трогать.
 
@@ -27,8 +30,9 @@
 1. Workly вернул пустой или короткий список (сбой, чужая компания): никого не деактивировать и не создавать (Task 4, 5).
 2. Тёзки: две записи Workly или два наших сотрудника с одним именем в организации: «неоднозначно», связь не ставится (Task 4).
 3. Ключ доступа истёк посреди обхода страниц (7008 на странице 5): один повтор с новым ключом, обход продолжается без дублей (Task 3).
-4. Месяц закрыт для KPI: синхронизация посещаемости отвечает 409 `period_closed` и ничего не стирает (Task 8, 9).
+4. Месяц закрыт для KPI: синхронизация посещаемости отвечает 409 `period_closed` до постановки задачи и ничего не стирает (Task 8, 9, 11).
 5. Нестандартные значения: `report: null` в T12, `late_in: null`, `work_time` `"280:00"` и `"00:00"`, `last_out` раньше `first_in` (Task 9).
+6. Воркер упал или перезапущен посреди обхода: строка `running` не блокирует организацию навсегда, а повторный запуск после 15 минут её закрывает как `failed` (Task 7). Второй запуск, пока первый идёт, отвечает 409 `run_in_progress`.
 
 ## File Structure
 
@@ -42,11 +46,12 @@
 | `modules/workly/plan.ts` | чистый построитель плана, счётчики |
 | `modules/workly/guards.ts` | предохранители |
 | `modules/workly/locations.ts` | карта локаций и терминалов |
-| `modules/workly/runs.ts` | журнал, `planRun`, `applyRun`, `syncAuto`, `rollbackRun` |
-| `modules/workly/attendance.ts` | правила дней, `syncAttendance` |
+| `modules/workly/queue.ts` | очередь `workly-sync`, `enqueueRun` |
+| `modules/workly/runs.ts` | журнал, `startRun`, `executeRun`, `applyRun`, `syncAuto`, `rollbackRun` |
+| `modules/workly/attendance.ts` | правила дней, `runAttendance` |
 | `modules/workly/quality.ts` | блок качества данных |
 | `modules/workly/routes.ts` | Elysia-маршруты |
-| `modules/workly/nightly.ts` | ночные шаги |
+| `modules/workly/nightly.ts` | ночные шаги и обработчик задач очереди |
 | `modules/workly/rollback-run.ts` | CLI отката |
 | `modules/kpi/attendance.ts` | общая запись импорта по организации |
 
@@ -63,7 +68,7 @@
   - `employees` + `workly_company_id integer`, `workly_id integer`, `workly_tab_number varchar(32)`; частичный уникальный индекс `employees_workly_uq` по `(workly_company_id, workly_id)` where `workly_id is not null`.
   - `kpi_attendance_imports` + `organization_id uuid` (nullable); у `uploaded_by` снимается `NOT NULL` (ночной прогон идёт без пользователя; тип `AttendanceImportRow.uploaded_by` становится `string | null`).
   - `workly_locations`: `id uuid pk`, `workly_company_id integer not null`, `workly_location_id integer not null`, `title varchar(120) not null`, `terminal_id uuid null`, `created_at`, `updated_at`; unique `(workly_company_id, workly_location_id)`.
-  - `workly_sync_runs`: `id uuid pk`, `organization_id uuid not null`, `workly_company_id integer not null`, `trigger varchar(16)` (`manual`|`schedule`), `status varchar(16)` (`planned`|`applied`|`blocked`|`failed`|`rolled_back`), `block_reason varchar(32) null`, `counts jsonb default {}`, `active_fetched integer default 0`, `plan jsonb` (`{items, report}`), `error text null`, `created_by uuid null`, `created_at`, `applied_at null`; индекс `(organization_id, created_at)`.
+  - `workly_sync_runs`: `id uuid pk`, `organization_id uuid not null`, `workly_company_id integer not null`, `kind varchar(16) not null` (`employees`|`attendance`), `period date null` (для `attendance`), `trigger varchar(16)` (`manual`|`schedule`), `status varchar(16)` (`running`|`planned`|`applied`|`blocked`|`failed`|`rolled_back`), `block_reason varchar(32) null`, `counts jsonb default {}` (у `attendance` сюда пишется итог `{days, unknown, carried, import_id}`), `active_fetched integer default 0`, `plan jsonb null` (`{items, report}`, пока `running` пуст), `error text null` (код: `client_invalid`, `force_update`, `auth_failed`, `not_configured`, `crawl_failed`, `stale`), `created_by uuid null`, `created_at`, `applied_at null`; индекс `(organization_id, created_at)`; частичный уникальный индекс `workly_sync_runs_running_uq` по `(organization_id, kind)` where `status = 'running'`.
 
 - [ ] **Step 1: Добавить колонки и таблицы в `schema.ts`** в стиле соседних таблиц (`uuid().defaultRandom()`, `timestamp(..., { withTimezone: true, mode: "string" })`).
 - [ ] **Step 2: Сгенерировать миграцию:** `cd backend && bunx drizzle-kit generate --name workly_sync`. Ожидается файл `0041_workly_sync.sql` и запись `idx 41` в `meta/_journal.json`.
@@ -266,42 +271,57 @@
 
 ---
 
-### Task 7: Журнал и применение плана
+### Task 7: Журнал, очередь и применение плана
 
 **Files:**
-- Create: `backend/src/modules/workly/runs.ts`
+- Create: `backend/src/modules/workly/runs.ts`, `backend/src/modules/workly/queue.ts`
 - Test: `backend/src/modules/workly/http/runs.test.ts`
 - Modify: `backend/src/modules/kpi/http/fixtures.ts` (`cleanupKpi`: удалять строки `workly_sync_runs`, `workly_locations` тестовых организаций и тестовых сотрудников с `workly_id`)
 
 **Interfaces:**
-- Consumes: `buildPlan`, `countsOf`, `checkGuards`, `terminalMap`, `refreshLocations`, `WorklyClient`, `structureFrom` и `staff_roles` для `structure`.
-- Produces:
+- Consumes: `buildPlan`, `countsOf`, `checkGuards`, `terminalMap`, `refreshLocations`, `clientFor`, `WorklyClient`, `structureFrom` и `staff_roles` для `structure`, `getKpiQueue`-подобные `redisConnection` из `modules/kpi/queue`.
+- Produces (`queue.ts`):
   ```ts
-  export type RunClient = Pick<WorklyClient, "companyId" | "employees" | "dismissed" | "locations">;
-  export interface RunSummary { run_id: string; status: "planned" | "applied" | "blocked" | "failed"; counts: ReturnType<typeof countsOf>; plan: SyncPlan; block_reason: BlockReason | null }
-  export async function planRun(db: DrizzleDB, redis: Redis, client: RunClient, org: { id: string; key: ConnKey }, trigger: "manual" | "schedule", userId: string | null): Promise<RunSummary>;
+  export const WORKLY_RUN_JOB = "workly-run";
+  export function worklyQueueName(): string;  // process.env.WORKLY_QUEUE || "workly-sync", читается при вызове (как kpiQueueName)
+  export function getWorklyQueue(): Queue;    // как getKpiQueue: обработчик 'error', redisConnection()
+  export function enqueueRun(runId: string): Promise<void>; // add(WORKLY_RUN_JOB, { runId }, { attempts: 1, removeOnComplete: { age: 3600, count: 100 }, removeOnFail: { age: 86400 } })
+  export function setRunEnqueuer(f: ((runId: string) => Promise<void>) | null): void; // подмена в тестах: enqueueRun вызывает её, если задана
+  ```
+- Produces (`runs.ts`):
+  ```ts
+  export type RunKind = "employees" | "attendance";
+  export type RunClient = Pick<WorklyClient, "companyId" | "employees" | "dismissed" | "locations" | "t12" | "lateIn" | "absence">;
+  export interface RunRow { id: string; organization_id: string; kind: RunKind; trigger: "manual" | "schedule"; status: "running" | "planned" | "applied" | "blocked" | "failed" | "rolled_back"; block_reason: BlockReason | null; counts: Record<string, number | string>; period: string | null; plan: SyncPlan | null; error: string | null; created_at: string; applied_at: string | null }
+  export async function startRun(db: DrizzleDB, org: { id: string; key: ConnKey }, kind: RunKind, trigger: "manual" | "schedule", userId: string | null, period?: Period): Promise<{ run_id: string }>;
+  export async function getRun(db: DbLike, runId: string): Promise<RunRow>; // KpiError(404, "run_not_found")
+  export async function executeRun(db: DrizzleDB, redis: Redis, runId: string, clientOf?: (key: ConnKey) => RunClient): Promise<void>; // clientOf по умолчанию clientFor(key, redis)
   export async function applyRun(db: DrizzleDB, runId: string, exclude: string[], userId: string | null): Promise<{ applied: number; skipped: { key: string; reason: "excluded" | "stale" | "conflict" }[] }>;
-  export async function syncAuto(db: DrizzleDB, redis: Redis, client: RunClient, org: { id: string; key: ConnKey }): Promise<RunSummary>; // план по расписанию, применяет сам, если checkGuards ok, иначе status "blocked"
+  export async function syncAuto(db: DrizzleDB, redis: Redis, org: { id: string; key: ConnKey }, clientOf?: (key: ConnKey) => RunClient): Promise<RunRow>; // startRun("schedule") → executeRun → применяет, если checkGuards ok, иначе status "blocked"
   export async function hasAppliedRun(db: DbLike, organizationId: string): Promise<boolean>;
   export async function linkManually(db: DrizzleDB, a: { organizationId: string; companyId: number; employeeId: string; worklyId: number; tabNumber: string }, userId: string | null): Promise<void>; // 409 workly_id_taken
   ```
-  `planRun`: блокировка в Redis `${PROJECT_PREFIX}workly_run_lock:${org.id}` (`SET NX EX 600`, занято: `KpiError(409, "run_in_progress")`), `refreshLocations`, загрузка наших сотрудников только этой организации (join `terminals.organization_id`), `buildPlan`, запись строки `workly_sync_runs` со статусом `planned` и `active_fetched`. `applyRun`: только для `planned` (иначе `KpiError(409, "run_not_planned")`); каждый пункт в своей транзакции, применяется, только если текущие значения полей из `before` совпадают (иначе `stale`); нарушение `employees_workly_uq` даёт `conflict`; в конце `status = "applied"`, `applied_at`. `create` вставляет `employees` с `terminal_id`, именами и структурой.
+  `startRun`: сначала закрывает «зависшие» строки этой организации и вида (`running` старше 15 минут → `failed`, `error: "stale"`), затем вставляет строку `running`; нарушение `workly_sync_runs_running_uq` превращается в `KpiError(409, "run_in_progress")`. Redis-блокировки нет: одновременность охраняет индекс.
+  `executeRun`: загружает строку (не `running`: ничего не делает), собирает клиент, для `kind: "employees"` делает `refreshLocations`, загружает наших сотрудников только этой организации (join `terminals.organization_id`), строит план, пишет `plan`, `counts`, `active_fetched`, статус `planned`; ветка `attendance` добавляется в Task 9. Любое исключение: статус `failed`, `error` равен коду `WorklyError` или `crawl_failed`, текст исключения в таблицу не пишется, в `console.error` идёт без секретов. Ошибка при записи статуса не маскирует исходную.
+  `applyRun`: только для `planned` (иначе `KpiError(409, "run_not_planned")`); каждый пункт в своей транзакции, применяется, только если текущие значения полей из `before` совпадают (иначе `stale`); нарушение `employees_workly_uq` даёт `conflict`; в конце `status = "applied"`, `applied_at`. `create` вставляет `employees` с `terminal_id`, именами и структурой.
 
-- [ ] **Step 1: Тесты с базой и подставным клиентом** (`fakeClient(active, dismissed, locations)` возвращает фиксированные списки):
-  - `planRun` пишет строку `planned` с `counts` и не меняет `employees`.
+- [ ] **Step 1: Тесты с базой и подставным клиентом** (`fakeClient(active, dismissed, locations)` возвращает фиксированные списки; очередь подменена `setRunEnqueuer`, задачи выполняются вызовом `executeRun` напрямую):
+  - `startRun` пишет строку `running`; второй `startRun` той же организации и вида → `run_in_progress`; другой вид или другая организация допускаются.
+  - `startRun` закрывает зависшую: строка `running` с `created_at` двадцатиминутной давности получает `failed`/`stale`, новая вставляется.
+  - `executeRun` пишет `planned` с `counts` и не меняет `employees`.
   - `в план попадают только сотрудники своей организации`: сотрудник другой организации с совпавшим именем не связывается и не деактивируется.
-  - `applyRun` применяет, второй `planRun` даёт пустой `plan.items`.
+  - `клиент бросает WorklyError("client_invalid")` → `failed`, `error: "client_invalid"`; `клиент бросает Error("boom secret-xyz")` → `failed`, `error: "crawl_failed"`, и `expect(JSON.stringify(row)).not.toContain("secret-xyz")`.
+  - `applyRun` применяет, затем новая пара `startRun`+`executeRun` даёт пустой `plan.items`.
   - `exclude` пропускает пункт: `skipped` содержит `{ key, reason: "excluded" }`, сотрудник не изменился.
-  - `stale`: после `planRun` изменить `position` сотрудника, `applyRun` пропускает его пункт с `stale`.
+  - `stale`: после `executeRun` изменить `position` сотрудника, `applyRun` пропускает его пункт с `stale`.
   - `conflict`: `workly_id` уже занят другим сотрудником → пункт в `skipped` с `conflict`, остальные применены.
-  - `applyRun` второй раз по тому же `run_id` → `run_not_planned`.
-  - `второй planRun при занятой блокировке` → `run_in_progress`.
+  - `applyRun` по `applied` и по `running` → `run_not_planned`.
   - `syncAuto` без применённого прогона → `status: "blocked"`, `block_reason: "first_run"`, в `employees` ничего не изменилось; при применённом прогоне и плане из 11 деактиваций у организации с 20 активными сотрудниками → `blocked`, `block_reason: "too_many_deactivations"`, сотрудники не изменились.
   - `linkManually` ставит связь; тот же `workly_id` у второго сотрудника → `workly_id_taken`.
   - `деактивированный сотрудник с оценкой за период остаётся в списке оценки KPI, без оценки скрыт`: после `applyRun` с `deactivate` вызвать `listEmployeeRows` из `modules/kpi/employees.ts` для периода (оценка заводится фикстурой `makeReview`/аналогом из `kpi/http/fixtures.ts`).
 - [ ] **Step 2: Запустить `bun run test:http:workly`, ожидается FAIL.**
-- [ ] **Step 3: Реализовать `runs.ts`.** Ошибки через `KpiError` из `../kpi/errors`.
-- [ ] **Step 4: Тесты проходят. Step 5: Commit** `feat(workly): журнал прогонов, применение плана, автопрогон`.
+- [ ] **Step 3: Реализовать `queue.ts` и `runs.ts`.** Ошибки через `KpiError` из `../kpi/errors`.
+- [ ] **Step 4: Тесты проходят. Step 5: Commit** `feat(workly): журнал прогонов, очередь, применение плана, автопрогон`.
 
 ---
 
@@ -335,10 +355,11 @@
 
 **Files:**
 - Create: `backend/src/modules/workly/attendance.ts`
+- Modify: `backend/src/modules/workly/runs.ts` (ветка `kind: "attendance"` в `executeRun`)
 - Test: `backend/src/modules/workly/attendance.test.ts` (чистые), `backend/src/modules/workly/http/attendance.test.ts`
 
 **Interfaces:**
-- Consumes: `WorklyClient.t12/lateIn/absence/employees`, `writeAttendanceImport`, `AttendanceDayRow`, `importTotals` из `modules/kpi/attendance-parse.ts`, `isPeriodClosed`, `periodOf`, `addMonths`, `tashkentDay` из `modules/kpi/time.ts`, `now` из `modules/kpi/clock.ts`.
+- Consumes: `WorklyClient.t12/lateIn/absence/employees`, `writeAttendanceImport`, `AttendanceDayRow`, `importTotals` из `modules/kpi/attendance-parse.ts`, `isPeriodClosed`, `periodOf`, `addMonths`, `tashkentDay` из `modules/kpi/time.ts`, `now` из `modules/kpi/clock.ts`, `startRun`/`executeRun` (Task 7).
 - Produces:
   ```ts
   export function hhmmToMinutes(s: string | null | undefined): number | null; // "01:05" → 65, "280:00" → 16800, "00:00" → 0, null/""/"x" → null
@@ -346,16 +367,19 @@
   export function attendanceWindow(period: Period, today: string): { from: string; to: string } | null; // to = min(последний день месяца, вчера); null, если to < from
   export interface Person { employee_id: string; terminal_id: string; start_date: string | null }
   export function buildDays(i: { from: string; to: string; people: ReadonlyMap<number, Person>; t12: T12Item[]; lateIn: LateInItem[]; absence: AbsenceItem[] }): { days: AttendanceDayRow[]; unknown: number };
-  export async function syncAttendance(db: DrizzleDB, client: Pick<WorklyClient, "employees" | "t12" | "lateIn" | "absence">, org: { id: string }, period: Period, userId: string | null): Promise<{ import_id: string; days: number; unknown: number; carried: number }>;
+  export async function assertAttendanceSyncable(db: DbLike, period: Period): Promise<void>; // KpiError(409, "period_closed") | KpiError(422, "period_not_started"); маршрут вызывает до постановки задачи
+  export async function runAttendance(db: DrizzleDB, client: Pick<WorklyClient, "employees" | "t12" | "lateIn" | "absence">, org: { id: string }, period: Period, userId: string | null): Promise<{ import_id: string; days: number; unknown: number; carried: number }>;
   ```
-  Правила `buildDays`: прогул из absence (`timeoff_id` пуст и `scheduled.is_work_day !== false`, человек известен, день в окне и не раньше `start_date`); присутствие: `hhmmToMinutes(work_time) > 0` или есть строка `late-in` с `first_in` (плановый день по T12: `is_work_day && !is_holiday`); день и прогул, и работа: считается присутствием; плановый день без работы и без absence не пишется и увеличивает `unknown`; `late_minutes = hhmmToMinutes(late_in) ?? 0`; `check_in`/`check_out` из `late-in` (`check_out` на следующие сутки, если `last_out` раньше `first_in`); элементы T12 с `report: null` пропускаются. `syncAttendance`: окно, `people` из связанных сотрудников организации (`workly_id` не пуст) плюс `start_date` из `client.employees()`; перенос (`carried`): дни месяца сотрудников организации, чьего `workly_id` нет ни среди записей `client.employees()`, ни в элементах T12 (уволенные посреди месяца пропадают из отчётов Workly), копируются из прошлого импорта в новый; сотрудник, который в отчётах есть, не переносится, его прежние дни полностью заменяются свежими, чтобы исправления Workly доходили; запись через `writeAttendanceImport` (`file_name: "Workly API"`, `mapping: { source: "api", totals, window, unknown }`, `organization_id: org.id`); закрытый месяц: `KpiError(409, "period_closed")` до любого изменения; месяц без прошедших дней: `KpiError(422, "period_not_started")`.
+  Правила `buildDays`: человек из `people` участвует, только если он есть в T12 (T12 содержит только активных; уволенные в течение месяца в нём отсутствуют, и их дни берутся переносом, см. `runAttendance`); строки late-in и absence про людей, которых нет в T12, игнорируются. Прогул из absence (`timeoff_id` пуст и `scheduled.is_work_day !== false`, день в окне и не раньше `start_date`); присутствие: `hhmmToMinutes(work_time) > 0` или есть строка `late-in` с `first_in` (плановый день по T12: `is_work_day && !is_holiday`); день и прогул, и работа: присутствие; плановый день без работы и без absence не пишется и увеличивает `unknown`; `late_minutes = hhmmToMinutes(late_in) ?? 0`; `check_in`/`check_out` из `late-in` (`check_out` на следующие сутки, если `last_out` раньше `first_in`); элементы T12 с `report: null` пропускаются.
+  `runAttendance`: окно, `people` из связанных сотрудников организации (`workly_id` не пуст, в том числе неактивные) плюс `start_date` из `client.employees()`; перенос (`carried`): дни месяца сотрудников организации, чьего `workly_id` нет ни среди записей `client.employees()`, ни в элементах T12, копируются из прошлого импорта в новый; сотрудник, который в отчётах есть, не переносится, его прежние дни полностью заменяются свежими, чтобы исправления Workly доходили; ограничение: уволенный до первой синхронизации месяца остаётся без дней, переносить нечего; запись через `writeAttendanceImport` (`file_name: "Workly API"`, `mapping: { source: "api", totals, window, unknown }`, `organization_id: org.id`).
+  Ветка `attendance` в `executeRun`: вызывает `runAttendance`, пишет итог в `counts` (`days`, `unknown`, `carried`, `import_id`), статус `applied`, `applied_at`.
 
 - [ ] **Step 1: Чистые тесты:**
   - `hhmmToMinutes("280:00") === 16800`, `("00:00") === 0`, `(null) === null`, `("abc") === null`.
   - `tashkentTimestamp("2026-10-20","06:05") === "2026-10-20T06:05:00+05:00"`; с `nextDay` дата 21-е.
   - `attendanceWindow("2026-10-01", "2026-10-29")` даёт `{from:"2026-10-01", to:"2026-10-28"}`; `("2026-10-01","2026-10-01")` даёт `null`; `("2026-09-01","2026-10-29")` даёт `to: "2026-09-30"`.
-  - `buildDays` на синтетических данных: (а) прогул только из absence; (б) плановый день без работы и без absence даёт `unknown: 1`, строки нет; (в) опоздание 01:05 даёт `late_minutes: 65`; (г) `late_in: null` даёт `0`; (д) `report: null` пропускается без ошибки; (е) праздник и день до `start_date` пропускаются; (ж) `last_out: "01:00"` при `first_in: "22:00"` даёт `check_out` на следующие сутки; (з) `timeoff_id` не пуст: не прогул; (и) день и в absence, и с `work_time "08:00"`: присутствие.
-- [ ] **Step 2: Тесты с базой (подставной клиент):** запись создаёт импорт `committed` с `source: "api"` и `organization_id`; повторный вызов заменяет; закрытый месяц (`kpi_periods` со статусом закрытия, как в существующих тестах) даёт `period_closed` и старые дни целы; перенос: сотрудник с днями от прошлой синхронизации, которого нет в новых данных, остаётся с прежними строками (`carried > 0`); сотрудник, который есть в T12, а его прежний прогул в absence больше не числится, теряет эту строку (не переносится); импорт организации B не затронут.
+  - `buildDays` на синтетических данных: (а) прогул только из absence; (б) плановый день без работы и без absence даёт `unknown: 1`, строки нет; (в) опоздание 01:05 даёт `late_minutes: 65`; (г) `late_in: null` даёт `0`; (д) `report: null` пропускается без ошибки; (е) праздник и день до `start_date` пропускаются; (ж) `last_out: "01:00"` при `first_in: "22:00"` даёт `check_out` на следующие сутки; (з) `timeoff_id` не пуст: не прогул; (и) день и в absence, и с `work_time "08:00"`: присутствие; (к) сотрудник есть в absence и late-in, но нет в T12: строк по нему нет.
+- [ ] **Step 2: Тесты с базой (подставной клиент):** `assertAttendanceSyncable` на закрытый месяц даёт `period_closed` (`kpi_periods` со статусом закрытия, как в существующих тестах), на месяц без прошедших дней `period_not_started`; `startRun`+`executeRun` для `attendance` создают импорт `committed` с `source: "api"` и `organization_id`, в строке журнала `counts.days`; повторный запуск заменяет; перенос: сотрудник с днями от прошлой синхронизации, которого нет в новых данных, остаётся с прежними строками (`carried > 0`); сотрудник, который есть в T12, а его прежний прогул в absence больше не числится, теряет эту строку (не переносится); импорт организации B не затронут; старые дни целы, если месяц закрыли между постановкой и выполнением задачи (`period_closed` приходит из `writeAttendanceImport`, строка журнала `failed`).
 - [ ] **Step 3: Запустить, FAIL. Step 4: Реализовать. Step 5: PASS.**
 - [ ] **Step 6: Commit** `feat(workly): посещаемость из отчётов T12, late-in и absence`.
 
@@ -390,55 +414,61 @@
 - Modify: `backend/src/controllers.ts` или `backend/src/app.ts` (по образцу `kpiController`: `.use(worklyController)` рядом с `.use(kpiController)`)
 
 **Interfaces:**
-- Consumes: всё из Task 2–10; `ctx`, `run`, `KpiError`, `clientFor`/`setClientFactory`.
-- Produces: `export const worklyController = worklyControllerImpl as unknown as Elysia;` (префикс `/api`, `permission: "kpi.manage"` на каждом маршруте). Все ответы JSON, ошибки через `run(set, ...)`.
-  - `GET /workly/status`: по каждому подключению `{ key, organization_id, organization_name, configured, company_id | null, last_run: { id, status, trigger, block_reason, counts, created_at, applied_at } | null, error: string | null }`; ошибка входа Workly выдаётся строкой кода (`client_invalid`, `force_update`, `auth_failed`), не секретами.
-  - `POST /workly/sync/plan` body `{ organization_id }` → `RunSummary`.
-  - `GET /workly/sync/runs/:id` → строка журнала с `plan`.
-  - `POST /workly/sync/apply` body `{ run_id, exclude: string[] }` → `{ applied, skipped }`.
-  - `GET /workly/employees?organization_id&q` → активные сотрудники Workly (`id`, `full name`, `tab_number`, `locations`), не более 50, поиск по подстроке имени (`searchWords`/`matchesName` из `modules/kpi/name-search.ts`).
+- Consumes: всё из Task 2–10; `ctx`, `run`, `KpiError`, `clientFor`/`setClientFactory`, `startRun`, `enqueueRun`.
+- Produces: `export const worklyController = worklyControllerImpl as unknown as Elysia;` (префикс `/api`, `permission: "kpi.manage"` на каждом маршруте). Все ответы JSON, ошибки через `run(set, ...)`. Тяжёлые обходы в запросе не выполняются.
+  - `GET /workly/status`: по каждому подключению `{ key, organization_id, organization_name, configured, last_run: RunRow-без-плана | null (любого вида, включая running), error: string | null }`. Список организаций не зависит от доступности Workly (он нужен мастеру файловой загрузки), `company_id` в ответ не входит.
+  - `POST /workly/sync/plan` body `{ organization_id }` → HTTP 202 `{ run_id, status: "running" }`: `startRun(kind "employees", "manual")`, затем `enqueueRun`. Не настроено: `KpiError(422, "not_configured")`.
+  - `GET /workly/sync/runs/:id` → `RunRow` (`plan` пуст, пока `running`).
+  - `POST /workly/sync/apply` body `{ run_id, exclude: string[] }` → `{ applied, skipped }` (синхронно, только база).
+  - `GET /workly/employees?organization_id&q` → активные сотрудники Workly (`id`, `full_name`, `tab_number`, `locations`), не более 50, поиск по подстроке имени (`searchWords`/`matchesName` из `modules/kpi/name-search.ts`); обход списка один (8 запросов, ~26 с), поэтому результат кэшируется в Redis на 10 минут под `${PROJECT_PREFIX}workly_emp_cache:${organization_id}`.
   - `POST /workly/sync/link` body `{ organization_id, employee_id, workly_id }` → `{ ok: true }`.
-  - `GET /workly/locations?organization_id` → `[{ id, workly_location_id, title, terminal_id, terminal_name | null }]` (до выдачи запускается `refreshLocations`); `PUT /workly/locations/:id` body `{ terminal_id: string | null }`.
-  - `POST /workly/attendance/sync` body `{ organization_id, period }` → результат `syncAttendance`.
+  - `GET /workly/locations?organization_id` → `[{ id, workly_location_id, title, terminal_id, terminal_name | null }]` из таблицы без обращения к Workly; пустая таблица заполняется первым прогоном `plan` (ручное обновление: `POST /workly/locations/refresh` body `{ organization_id }`, один запрос `/v1/locations`, синхронно); `PUT /workly/locations/:id` body `{ terminal_id: string | null }`.
+  - `POST /workly/attendance/sync` body `{ organization_id, period }` → HTTP 202 `{ run_id, status: "running" }` после `assertAttendanceSyncable` (закрытый месяц: 409 `period_closed` сразу, без постановки задачи).
   - `GET /workly/quality?organization_id&period` → результат `qualityReport` с названиями.
   - Организация должна быть одной из `CONNECTIONS` (иначе `KpiError(404, "organization_not_connected")`).
 
-- [ ] **Step 1: HTTP-тесты** (`setClientFactory` с подставным клиентом; шаблон файла и охранный блок как в `modules/kpi/http/attendance.test.ts`):
+- [ ] **Step 1: HTTP-тесты** (`setClientFactory` с подставным клиентом, `setRunEnqueuer` собирает `runId` без выполнения; шаблон файла и охранный блок как в `modules/kpi/http/attendance.test.ts`):
   - без сессии 401, с сессией без `kpi.manage` 403 на каждом из маршрутов (цикл по списку).
-  - `plan` → `apply` → `GET /workly/sync/runs/:id` показывает `applied`; сотрудники изменены как в плане.
-  - `apply` с `exclude` оставляет пункт нетронутым; повторный `apply` даёт 409 `run_not_planned`.
-  - `link` + `employees?q=` находят запись, `link` ставит `workly_id`; чужая организация даёт 404 `organization_not_connected`.
-  - `locations`: `PUT` с терминалом другой организации даёт 422 `terminal_other_org`.
-  - `status` при фабрике клиента, чьи вызовы бросают `WorklyError("not_configured")` или сетевую ошибку: в ответе обе организации, у проблемной `error` с кодом, ответ 200. Список организаций не зависит от доступности Workly: он нужен мастеру файловой загрузки как запасному пути.
-  - `attendance/sync` на закрытый месяц даёт 409 `period_closed`.
+  - `plan` отвечает 202 и `status: "running"` сразу, не дожидаясь клиента (поддельный клиент ждёт `Promise`, который тест не завершает); затем тест вызывает `executeRun` с готовым клиентом, `GET /workly/sync/runs/:id` показывает `planned` с `plan`.
+  - второй `plan`, пока первый `running` → 409 `run_in_progress`.
+  - упавший клиент: `GET .../runs/:id` → `failed`, `error: "client_invalid"`.
+  - `apply` → `applied`; сотрудники изменены как в плане; `apply` с `exclude` оставляет пункт нетронутым; повторный `apply` даёт 409 `run_not_planned`.
+  - `link` и `employees?q=` (клиент вызывается один раз за два запроса: второй берётся из кэша) находят запись, `link` ставит `workly_id`; чужая организация даёт 404 `organization_not_connected`.
+  - `locations`: `PUT` с терминалом другой организации даёт 422 `terminal_other_org`; `GET` не вызывает клиента.
+  - `status` при фабрике клиента, чьи вызовы бросают `WorklyError("not_configured")` или сетевую ошибку: в ответе обе организации, у проблемной `error` с кодом, ответ 200.
+  - `attendance/sync` на закрытый месяц даёт 409 `period_closed`, строка в журнале не создаётся.
   - Ответ `status` и тело ошибки не содержат значения пароля и `client_secret` из env теста.
 - [ ] **Step 2: Запустить `bun run test:http:workly`, FAIL. Step 3: Реализовать маршруты и подключить контроллер. Step 4: PASS.**
 - [ ] **Step 5: Commit** `feat(workly): маршруты API`.
 
 ---
 
-### Task 12: Ночной прогон
+### Task 12: Исполнитель очереди и ночной прогон
 
 **Files:**
 - Create: `backend/src/modules/workly/nightly.ts`
 - Test: `backend/src/modules/workly/nightly.test.ts`
-- Modify: `cron/kpi_worker.ts` (расписание и обработчик), `cron/pm2.config.js` не меняется
+- Modify: `cron/kpi_worker.ts` (второй `Worker`, расписание, остановка), `cron/pm2.config.js` (`kill_timeout` для `office_kpi_worker`)
 
 **Interfaces:**
 - Produces:
   ```ts
-  export const WORKLY_SYNC_JOB = "workly-sync";
+  export const WORKLY_NIGHTLY_JOB = "workly-nightly";
   export function nightlySteps(env: Record<string, string | undefined>, connections: { key: ConnKey; hasApplied: boolean; configured: boolean }[]): { key: ConnKey; employees: boolean; attendance: boolean; misconfigured: boolean }[];
   // employees: настроено и есть применённый прогон; attendance: настроено и WORKLY_ATTENDANCE_NIGHTLY === "1";
   // misconfigured: не настроено, но шаг ожидался (есть применённый прогон или WORKLY_ATTENDANCE_NIGHTLY === "1")
-  export async function runNightly(db: DrizzleDB, redis: Redis): Promise<{ key: ConnKey; employees: RunSummary["status"] | "skipped" | "error"; attendance: "ok" | "skipped" | "error" }[]>;
+  export async function runNightly(db: DrizzleDB, redis: Redis): Promise<{ key: ConnKey; employees: RunRow["status"] | "skipped" | "error"; attendance: "ok" | "skipped" | "error" }[]>;
   ```
-  Окно посещаемости ночью: текущий месяц и предыдущий, если `!(await isPeriodClosed(db, prev))`. Для `misconfigured` пишутся `console.error` и строка `workly_sync_runs` со статусом `failed`, `error: "not_configured"` (не тихий пропуск). Воркер читает **`cron/.env`** (см. `docs/superpowers/kpi-deploy.md`, раздел про `cron/.env`), а не `backend/.env`: `WORKLY_BASE_URL`, оба набора `WORKLY_LES_*` и `WORKLY_CHOPAR_*`, `WORKLY_ATTENDANCE_NIGHTLY` и `PROJECT_PREFIX` должны лежать в `cron/.env`; те же ключи нужны и в `backend/.env` для маршрутов API. Ошибка одного подключения не останавливает другое; ошибка клиента (`client_invalid`, `force_update`) пишется в журнал прогона со статусом `failed` и `error`.
-- В `cron/kpi_worker.ts`: `upsertJobScheduler(WORKLY_SYNC_JOB, { pattern: "30 3 * * *", tz: "Asia/Tashkent" }, ...)` в `registerSchedulers`, ветка `if (job.name === WORKLY_SYNC_JOB) return runNightly(drizzleDb, redis)` в обработчике. Время 03:30 выбрано при планировании.
+  `runNightly`: для каждого подключения по `nightlySteps`: сверка через `syncAuto`, затем посещаемость текущего месяца и предыдущего (если `!(await isPeriodClosed(db, prev))`) через `startRun` + `executeRun` с `trigger: "schedule"`. Для `misconfigured` пишутся `console.error` и строка `workly_sync_runs` со статусом `failed`, `error: "not_configured"` (не тихий пропуск). Ошибка одного подключения не останавливает другое; ошибка клиента (`client_invalid`, `force_update`) уже записывается `executeRun` в строку журнала.
+- В `cron/kpi_worker.ts`:
+  - второй `Worker(worklyQueueName(), …)` с `concurrency: 1` и без `limiter`: задача `WORKLY_RUN_JOB` вызывает `executeRun(drizzleDb, redis, job.data.runId)`, задача `WORKLY_NIGHTLY_JOB` вызывает `runNightly`; очередь отдельная, поэтому обход в 100 секунд не занимает слоты доставки Telegram;
+  - `getWorklyQueue().upsertJobScheduler(WORKLY_NIGHTLY_JOB, { pattern: "30 3 * * *", tz: "Asia/Tashkent" }, { name: WORKLY_NIGHTLY_JOB, opts: schedulerJobOptions })` рядом с остальными расписаниями (время 03:30 выбрано при планировании);
+  - `shutdown()` закрывает оба `Worker` и обе очереди; `kill_timeout` процесса вырастает до 130000 в `cron/pm2.config.js` (иначе SIGTERM оборвёт обход, строка останется `running` до закрытия как `stale`).
+- Воркер читает **`cron/.env`** (см. `docs/superpowers/kpi-deploy.md`, раздел про `cron/.env`), а не `backend/.env`: `WORKLY_BASE_URL`, оба набора `WORKLY_LES_*` и `WORKLY_CHOPAR_*`, `WORKLY_ATTENDANCE_NIGHTLY` и `PROJECT_PREFIX` лежат в `cron/.env`; те же ключи нужны в `backend/.env` для маршрутов API (в API клиент нужен лишь для `employees?q` и `locations/refresh`).
 
 - [ ] **Step 1: Тесты `nightlySteps`:** подключение не настроено и ничего не ожидалось → все три флага `false`; не настроено при применённом прогоне или `WORKLY_ATTENDANCE_NIGHTLY: "1"` → `misconfigured: true`; настроено без применённого прогона → `employees: false`; применённый прогон → `employees: true`; `attendance` только при `WORKLY_ATTENDANCE_NIGHTLY: "1"` (значения `"0"`, `""`, `undefined` дают `false`).
-- [ ] **Step 2: FAIL. Step 3: Реализовать `nightly.ts` и подключить в воркере** (по образцу `KPI_DAILY_JOB`, который уже зарегистрирован там же). **Step 4: PASS; `bun build` импорта проверяется командой `cd cron && bun build kpi_worker.ts --target bun --outfile /dev/null`** (ожидается без ошибок разрешения модулей).
-- [ ] **Step 5: Commit** `feat(workly): ночной прогон в office_kpi_worker`.
+- [ ] **Step 2: FAIL. Step 3: Реализовать `nightly.ts` и подключить в воркере** (по образцу существующих `KPI_DAILY_JOB` и обработчика в том же файле). **Step 4: PASS; проверка сборки: `cd cron && bun build kpi_worker.ts --target bun --outfile /dev/null`** (ожидается без ошибок разрешения модулей).
+- [ ] **Step 5: Commit** `feat(workly): исполнитель очереди и ночной прогон в office_kpi_worker`.
 
 ---
 
@@ -455,5 +485,5 @@
 
 - [ ] **Step 1: Тесты:** после `applyRun` с `link`, `deactivate`, `move` и `create` откат возвращает прежние `terminal_id`, `active` и пустой `workly_id`; созданный сотрудник без ссылок удалён; созданный сотрудник с записью в `medical_exams` остался с `active = false`; повторный откат → `run_not_applied`; откат прогона N после применённого прогона N+1, изменившего те же поля, пропускает эти пункты с `changed_since` и не затирает новые значения.
 - [ ] **Step 2: FAIL. Step 3: Реализовать `rollbackRun` и CLI. Step 4: PASS.**
-- [ ] **Step 5: Написать `docs/superpowers/workly-deploy.md`:** переменные окружения (имена из Global Constraints), порядок запуска из раздела 7 спеки (резервная копия, миграция 0041, `office_api`, `office_kpi_worker`, карта локаций, «Проверить», явное «применить», блок качества, `WORKLY_ATTENDANCE_NIGHTLY=1`), откат командой CLI. Ключи `WORKLY_*` и `WORKLY_ATTENDANCE_NIGHTLY` вносятся в оба файла: `backend/.env` (маршруты `office_api`) и `cron/.env` (ночной прогон `office_kpi_worker`); после правки `cron/.env` воркер перезапускается. Команды деплоя по `managers-deploy-workflow`: `.env` не подключать в оболочку, читать отдельные переменные.
+- [ ] **Step 5: Написать `docs/superpowers/workly-deploy.md`:** переменные окружения (имена из Global Constraints), порядок запуска из раздела 7 спеки (резервная копия, миграция 0041, `office_api`, `office_kpi_worker`, карта локаций, «Проверить», явное «применить», блок качества, `WORKLY_ATTENDANCE_NIGHTLY=1`), откат командой CLI. Очередь `workly-sync` создаёт сам воркер; после выката воркер перезапускается. Ключи `WORKLY_*` и `WORKLY_ATTENDANCE_NIGHTLY` вносятся в оба файла: `backend/.env` (маршруты `office_api`) и `cron/.env` (ночной прогон `office_kpi_worker`); после правки `cron/.env` воркер перезапускается. Команды деплоя по `managers-deploy-workflow`: `.env` не подключать в оболочку, читать отдельные переменные.
 - [ ] **Step 6: Commit** `feat(workly): откат прогона и документ по запуску`.

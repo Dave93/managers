@@ -17,6 +17,8 @@
 - Пароли, `client_secret`, ключи доступа в интерфейсе не показываются; ошибки подключения выводятся по коду (`client_invalid`, `force_update`, `auth_failed`, `not_configured`).
 - Кнопка «Применить» запрашивает подтверждение с числами плана (связать, создать, деактивировать, перенести). Первый прогон организации всегда ручной (бэкенд не даст применить иначе).
 - Типы ответов берутся из бэкенда через алиас `@backend/*`, как в `admin/lib/kpi-api.ts`.
+- Выкат: админка выходит вместе с бэкендом одним релизом (одна ветка `feature/workly-sync`, один PR): задача 5 нужна, чтобы файловая загрузка продолжила работать после того, как бэкенд сделал `organization_id` обязательным.
+- «Проверить» и «Синхронизировать» работают в фоне 70–100 секунд (бэкенд отдаёт `202 { run_id, status: "running" }`); экран опрашивает `GET /api/workly/sync/runs/:id` каждые 2 секунды, пока статус `running`, и возобновляет опрос после перезагрузки страницы, если последний прогон в `status` ещё `running`.
 - Проверки: `cd admin && bun test ./lib/kpi`, `bun lint`, `admin/node_modules/.bin/tsc --noEmit` (в базе три известные ошибки, новых быть не должно).
 
 ## Review Focus
@@ -24,6 +26,7 @@
 1. Тысячи записей в плане (Les Ailes: сотни деактиваций и созданий): таблица не должна зависать, группы свёрнуты и показывают первые 50 строк с «показать все» (Task 3).
 2. Подключение не настроено или Workly недоступен: экран показывает понятное состояние, а не пустую страницу и не 500 (Task 3).
 3. Применённый или устаревший прогон: кнопка «Применить» недоступна, показан итог с `skipped` (Task 2, 3).
+   Перезагрузка страницы посреди обхода: опрос возобновляется, а не показывается пустой экран (Task 3). Прогон упал: показан код ошибки по-русски, кнопку можно нажать снова (Task 3).
 4. Организация в мастере файловой загрузки не выбрана: «Загрузить» недоступна, сервер не получает запрос без `organization_id` (Task 5).
 5. У человека нет `kpi.manage`: экран показывает `NoAccessNotice`, меню пункт скрыт (Task 1).
 
@@ -59,16 +62,19 @@
   export function toggleExclusion(excluded: ReadonlySet<string>, key: string): Set<string>;
   export function effectiveCounts(items: PlanItem[], excluded: ReadonlySet<string>): Record<PlanKind, number>; // без исключённых
   export function canApply(run: { status: string } | null): boolean; // только "planned"
-  export function connectionErrorKey(code: string | null): string | null; // "client_invalid" → "workly.errors.client_invalid" и т.д.; неизвестный код → "workly.errors.unknown"; null → null
+  export function connectionErrorKey(code: string | null): string | null; // "client_invalid", "force_update", "auth_failed", "not_configured", "crawl_failed", "stale" → "workly.errors.<код>"; неизвестный код → "workly.errors.unknown"; null → null
+  export function isRunning(run: { status: string } | null | undefined): boolean; // status === "running"
+  export function pollInterval(run: { status: string } | null | undefined): number | false; // 2000, пока isRunning, иначе false (для refetchInterval)
   ```
-- Produces (`kpi-api.ts`): `kpiApi.workly = { status(), plan(organization_id), run(id), apply(run_id, exclude), employees(organization_id, q), link(b), locations(organization_id), setLocation(id, terminal_id), attendanceSync(organization_id, period), quality(organization_id, period) }` поверх `(apiClient.api as any).workly` в стиле соседних групп; `qk.worklyStatus`, `qk.worklyRun(id)`, `qk.worklyLocations(orgId)`, `qk.worklyQuality(orgId, period)`.
+- Produces (`kpi-api.ts`): `kpiApi.workly = { status(), plan(organization_id) → { run_id, status }, run(id), apply(run_id, exclude), employees(organization_id, q), link(b), locations(organization_id), setLocation(id, terminal_id), attendanceSync(organization_id, period), quality(organization_id, period) }` поверх `(apiClient.api as any).workly` в стиле соседних групп; `qk.worklyStatus`, `qk.worklyRun(id)`, `qk.worklyLocations(orgId)`, `qk.worklyQuality(orgId, period)`.
 
 - [ ] **Step 1: Тесты `workly.test.ts`:**
   - `groupPlan` на пунктах `create`, `deactivate`, `link` возвращает порядок `deactivate, link, create` и пропускает пустые группы.
   - `toggleExclusion` добавляет и снимает ключ, не мутируя исходное множество.
   - `effectiveCounts` не считает исключённые.
   - `canApply({status:"planned"}) === true`; для `applied`, `blocked`, `failed`, `null` `false`.
-  - `connectionErrorKey("force_update") === "workly.errors.force_update"`, `("xyz") === "workly.errors.unknown"`, `(null) === null`.
+  - `connectionErrorKey("force_update") === "workly.errors.force_update"`, `("stale") === "workly.errors.stale"`, `("xyz") === "workly.errors.unknown"`, `(null) === null`.
+  - `isRunning({status:"running"}) === true`; для `planned`, `null`, `undefined` `false`; `pollInterval({status:"running"}) === 2000`, `pollInterval({status:"planned"}) === false`, `pollInterval(undefined) === false`.
 - [ ] **Step 2: FAIL. Step 3: реализовать `workly.ts`, группу `workly` в `kpi-api.ts` и ключи `qk`. Step 4: `bun test ./lib/kpi` PASS.**
 - [ ] **Step 5: Commit** `feat(admin): логика плана Workly и API-обёртка`.
 
@@ -84,7 +90,7 @@
 - Produces: страница `WorklyPage` (по образцу `kpi/attendance/page.tsx`), секции в таком порядке: «Подключения» (по одной карточке на организацию), «Сверка сотрудников», «Локации» (Task 4), «Посещаемость» (Task 4).
 
 Поведение:
-- Карточка подключения: название организации, `configured`, id компании Workly, последний прогон (статус, источник, время), ошибка подключения по `connectionErrorKey`; кнопка «Проверить» (`plan`), при успехе открывается `PlanReview`.
+- Карточка подключения: название организации, `configured`, последний прогон (статус, источник, время), ошибка по `connectionErrorKey`; кнопка «Проверить» (`plan` → `run_id`) затем `useQuery(qk.worklyRun(run_id))` с `refetchInterval: (q) => pollInterval(q.state.data)` и надписью «Идёт обход Workly, около двух минут»; кнопка недоступна, пока идёт обход. Если `last_run.status === "running"` при загрузке, опрос запускается сам. `planned` открывает `PlanReview`; `failed` показывает текст ошибки по `connectionErrorKey(run.error)`, кнопку можно нажать снова.
 - `PlanReview`: счётчики плана, группы по `groupPlan` (заголовок группы, число, свёрнуто; первые 50 строк и «Показать все»), у каждой строки флажок «исключить» (`toggleExclusion`), блоки отчёта «Неоднозначно», «Не найден», «Не привязан к филиалу»; кнопка «Применить» активна при `canApply`, открывает подтверждение с `effectiveCounts`; после применения показывает `applied` и список `skipped` (причины `excluded`, `stale`, `conflict`) и обновляет статус.
 - `ManualLinkDialog`: открывается из строк «Неоднозначно» и «Не найден»; поле поиска (`workly.employees?q`, не более 50 результатов, с задержкой ввода), выбор записи, `link`; ошибка `workly_id_taken` показывается текстом.
 
@@ -106,7 +112,7 @@
 
 Поведение:
 - `LocationsTable`: для выбранной организации строки «локация Workly → терминал» с выбором терминала (`Select`, только терминалы своей организации, опция «не привязан»), изменение сразу вызывает `setLocation`; несопоставленные подсвечены.
-- `AttendanceSync`: выбор месяца и организации, кнопка «Синхронизировать» (`attendanceSync`), итог (`days`, `unknown`, `carried`), ошибки `period_closed` и `period_not_started` текстом; ниже блок качества (`quality`): таблица филиалов (доля прогулов, пометка `flagged`) и список «прогулы более чем в 90% дней» с именами из `employee_names`.
+- `AttendanceSync`: выбор месяца и организации, кнопка «Синхронизировать» (`attendanceSync` → `run_id`, опрос как в «Проверить»), итог из `run.counts` (`days`, `unknown`, `carried`), ошибки `period_closed` и `period_not_started` текстом сразу после нажатия (они приходят до постановки задачи), `failed` по `connectionErrorKey(run.error)`; ниже блок качества (`quality`): таблица филиалов (доля прогулов, пометка `flagged`) и список «прогулы более чем в 90% дней» с именами из `employee_names`.
 
 - [ ] **Step 1: Реализовать. Step 2: `tsc` и `bun lint` без новых замечаний.**
 - [ ] **Step 3: Ручная проверка** на том же smoke-стенде: карта локаций сохраняется и переживает перезагрузку страницы; блок качества отображается для месяца с данными (после ручной синхронизации на стенде).
@@ -137,7 +143,7 @@
 - Modify: `admin/messages/ru.json`, `en.json`, `uz-Latn.json`, `uz-Cyrl.json`
 
 **Interfaces:**
-- Produces: ключи `nav.kpi.workly`, `kpiScreens.workly.*` (заголовки секций, кнопки, подписи групп плана по `PlanKind`, причины `skipped`, отчёт, подтверждение, ошибки `workly.errors.{client_invalid,force_update,auth_failed,not_configured,unknown}`, локации, качество данных), `kpiScreens.attendance.wizard.organization`, колонка «Источник». Набор ключей одинаков во всех четырёх файлах.
+- Produces: ключи `nav.kpi.workly`, `kpiScreens.workly.*` (заголовки секций, кнопки, надпись «идёт обход», подписи групп плана по `PlanKind`, причины `skipped`, отчёт, подтверждение, ошибки `workly.errors.{client_invalid,force_update,auth_failed,not_configured,crawl_failed,stale,unknown}`, локации, качество данных), `kpiScreens.attendance.wizard.organization`, колонка «Источник». Набор ключей одинаков во всех четырёх файлах.
 
 - [ ] **Step 1: Проверочный скрипт** (одноразовый, не коммитится): собрать плоские ключи `nav.kpi.workly`, `kpiScreens.workly.*`, `kpiScreens.attendance.wizard.organization` из `ru.json` и убедиться, что каждый присутствует в трёх остальных файлах. Запуск до перевода показывает недостающие ключи.
 - [ ] **Step 2: Добавить русские тексты (источник), затем `en`, `uz-Latn`, `uz-Cyrl`.**
