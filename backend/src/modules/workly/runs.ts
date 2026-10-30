@@ -14,7 +14,8 @@
 // not_configured (WorklyError), crawl_failed, empty_crawl (executeRun; у посещаемости — пустой
 // T12 или ни одного дня к записи), stale (startRun),
 // apply_failed (syncAuto: ночное применение упало), period_closed и period_not_started
-// (посещаемость: месяц закрыт или в нём нет прошедших дней).
+// (посещаемость: месяц закрыт или в нём нет прошедших дней), enqueue_failed (маршрут
+// создал строку, но задача не встала в очередь; см. routes.ts).
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, staff_roles, terminals, workly_sync_runs } from "backend/drizzle/schema";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
@@ -78,6 +79,11 @@ let connKeyResolver: ConnKeyResolver | null = null;
 
 export function setConnKeyResolver(f: ConnKeyResolver | null): void {
   connKeyResolver = f;
+}
+
+// Подключение организации с учётом подмены: им пользуются executeRun и маршруты.
+export function resolveConnKey(db: DbLike, organizationId: string): Promise<ConnKey | null> {
+  return (connKeyResolver ?? connKeyOf)(db, organizationId);
 }
 
 // Нарушение конкретного уникального индекса. drizzle 0.44 заворачивает ошибку pg в cause.
@@ -239,7 +245,7 @@ export async function executeRun(
   if (!run || run.status !== "running") return;
 
   try {
-    const key = await (connKeyResolver ?? connKeyOf)(db, run.organization_id);
+    const key = await resolveConnKey(db, run.organization_id);
     if (!key) throw new WorklyError("not_configured", "Организация не подключена к Workly");
     const client = clientOf(key);
     const companyId = await client.companyId();

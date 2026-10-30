@@ -32,6 +32,19 @@ export async function organizationIdOf(db: DbLike, key: ConnKey): Promise<string
   return row?.id ?? null;
 }
 
+// Организация подключения для маршрутов. Подмена только для тестов (как setConnKeyResolver
+// в runs.ts): тестовые организации называются не как подключения. null снимает подмену.
+type OrganizationResolver = (db: DbLike, key: ConnKey) => Promise<string | null>;
+let organizationResolver: OrganizationResolver | null = null;
+
+export function setOrganizationResolver(f: OrganizationResolver | null): void {
+  organizationResolver = f;
+}
+
+export function resolveOrganizationId(db: DbLike, key: ConnKey): Promise<string | null> {
+  return (organizationResolver ?? organizationIdOf)(db, key);
+}
+
 // Обратное соответствие: по организации находим подключение (нужно executeRun по строке журнала).
 export async function connKeyOf(db: DbLike, organizationId: string): Promise<ConnKey | null> {
   const [row] = await db
