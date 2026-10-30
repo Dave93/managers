@@ -63,6 +63,11 @@ export interface PlanReport {
 export interface SyncPlan {
   items: PlanItem[];
   report: PlanReport;
+  /**
+   * Ключи применённых пунктов; пишет applyRun. Пропущенные (исключённые, устаревшие,
+   * конфликтные) сюда не входят: откат прогона трогает только эти пункты.
+   */
+  applied?: string[];
 }
 
 export interface PlanInput {

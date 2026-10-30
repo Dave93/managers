@@ -32,6 +32,7 @@ import {
   kpi_violation_photos,
   kpi_violations,
   orders,
+  organization,
   permissions,
   productCookingTime,
   roles,
@@ -39,6 +40,8 @@ import {
   staff_roles,
   terminals,
   users,
+  workly_locations,
+  workly_sync_runs,
 } from "backend/drizzle/schema";
 import { eq, inArray, like, sql, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
@@ -298,14 +301,15 @@ function credKey(v: string | null | undefined): string | null {
 }
 
 // Филиал «Тест Филиал <hex>» со связками iiko (credentials) для расчёта фактов.
+// organization_id по умолчанию случайный (организации нет); тесты Workly передают свою.
 export async function makeTerminal(
   db: DrizzleDB,
-  o: { active?: boolean; iiko_id?: string | null; store_id?: string | null } = {}
+  o: { active?: boolean; iiko_id?: string | null; store_id?: string | null; organization_id?: string } = {}
 ): Promise<{ id: string; name: string; iiko_id: string | null; store_id: string | null }> {
   const name = TERMINAL_PREFIX + randomUUID().replace(/-/g, "").slice(0, 8);
   const [row] = await db
     .insert(terminals)
-    .values({ name, latitude: 0, longitude: 0, organization_id: randomUUID(), active: o.active ?? true })
+    .values({ name, latitude: 0, longitude: 0, organization_id: o.organization_id ?? randomUUID(), active: o.active ?? true })
     .returning({ id: terminals.id });
   const iiko_id = credKey(o.iiko_id);
   const store_id = credKey(o.store_id);
@@ -479,6 +483,26 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   await db.delete(orders).where(eq(orders.restaurantGroup, BRANCH_MARK));
   await db.delete(productCookingTime).where(eq(productCookingTime.department, BRANCH_MARK));
   await db.delete(inventory_reconciliations).where(eq(inventory_reconciliations.iiko_document_comment, BRANCH_MARK));
+  // Workly: журнал прогонов и карта локаций тестовых организаций (wl_test_*, организации
+  // тестовых филиалов, а также уже удалённые), связанные с Workly сотрудники тестовых филиалов.
+  // Раньше удаления «Тест Филиал %»: строки находятся через эти филиалы.
+  const testOrgIds = sql`(
+    SELECT id FROM organization WHERE name LIKE 'wl\\_test\\_%'
+    UNION SELECT organization_id FROM terminals WHERE name LIKE ${TERMINAL_PREFIX + "%"}
+  )`;
+  await db.delete(workly_sync_runs).where(
+    sql`${workly_sync_runs.organization_id} IN ${testOrgIds}
+      OR NOT EXISTS (SELECT 1 FROM organization o WHERE o.id = ${workly_sync_runs.organization_id})`
+  );
+  await db.delete(workly_locations).where(
+    sql`${workly_locations.organization_id} IN ${testOrgIds}
+      OR NOT EXISTS (SELECT 1 FROM organization o WHERE o.id = ${workly_locations.organization_id})`
+  );
+  await db.delete(employees).where(
+    sql`${employees.workly_id} IS NOT NULL AND ${employees.terminal_id} IN (
+      SELECT id FROM terminals WHERE name LIKE ${TERMINAL_PREFIX + "%"} OR organization_id IN ${testOrgIds}
+    )`
+  );
   // model_id — text, регистр у него бывает любой. Заодно сироты: связки несуществующих филиалов (охранная проверка базы выше).
   await db.delete(credentials).where(
     sql`${credentials.model} = 'terminals' AND (
@@ -487,6 +511,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
     )`
   );
   await db.delete(terminals).where(like(terminals.name, TERMINAL_PREFIX + "%"));
+  // Тестовые организации Workly (их филиалы уже удалены выше).
+  await db.delete(organization).where(sql`${organization.name} LIKE 'wl\\_test\\_%'`);
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);
