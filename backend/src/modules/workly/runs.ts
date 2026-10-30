@@ -11,7 +11,8 @@
 // (runAttendance) и закрывает строку статусом applied со счётчиками в counts.
 //
 // Коды в workly_sync_runs.error: client_invalid, force_update, auth_failed, http_error,
-// not_configured (WorklyError), crawl_failed, empty_crawl (executeRun), stale (startRun),
+// not_configured (WorklyError), crawl_failed, empty_crawl (executeRun; у посещаемости — пустой
+// T12 или ни одного дня к записи), stale (startRun),
 // apply_failed (syncAuto: ночное применение упало), period_closed и period_not_started
 // (посещаемость: месяц закрыт или в нём нет прошедших дней).
 import type { DrizzleDB } from "@backend/lib/db";
@@ -61,8 +62,8 @@ class RunFailed extends Error {
   }
 }
 
-// Отказы записи посещаемости (KpiError), которые журнал хранит своим кодом; прочие KpiError — crawl_failed.
-const ATTENDANCE_CODES: ReadonlySet<string> = new Set(["period_closed", "period_not_started"]);
+// Отказы посещаемости (KpiError из runAttendance), которые журнал хранит своим кодом; прочие KpiError — crawl_failed.
+const ATTENDANCE_CODES: ReadonlySet<string> = new Set(["period_closed", "period_not_started", "empty_crawl"]);
 
 function errorCode(e: unknown): string {
   if (e instanceof WorklyError || e instanceof RunFailed) return e.code;

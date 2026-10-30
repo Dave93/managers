@@ -24,6 +24,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     "backend/drizzle/schema"
   );
   const { iso } = await import("../../kpi/iso");
+  const { writeAttendanceImport } = await import("../../kpi/attendance");
   const { WorklyError } = await import("../client");
   const runs = await import("../runs");
   const att = await import("../attendance");
@@ -473,6 +474,91 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(logged).not.toContain("secret");
       expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
       expect(await daysOf(eA)).toEqual(before);
+    });
+
+    // ---------- пустой обход ----------
+
+    it("empty_crawl: T12 пуст при непустом списке — failed, прежний api-импорт committed, дни целы, нового импорта нет", async () => {
+      const w = await world();
+      const eA = await mkEmp(w.t, { company: w.company, id: 1 });
+      const eB = await mkEmp(w.t, { company: w.company, id: 2 });
+      const first = await sync(
+        w.org,
+        fakeClient(w.company, {
+          employees: [wEmp(1), wEmp(2)],
+          t12: [t12(1, [tday("2026-10-01", { work_time: "08:00" })]), t12(2, [tday("2026-10-02")])],
+          absence: [absent(2, "2026-10-02")],
+        })
+      );
+      expect(first.run).toMatchObject({ status: "applied", counts: { days: 2 } });
+      const before = [await daysOf(eA), await daysOf(eB)];
+
+      const empty = fakeClient(w.company, { employees: [wEmp(1), wEmp(2)], t12: [], absence: [absent(2, "2026-10-03")] });
+      const { value: second, logged } = await quietly(() => sync(w.org, empty));
+      expect(second.run).toMatchObject({ status: "failed", error: "empty_crawl", counts: {}, applied_at: null });
+      expect(logged).toContain("empty_crawl");
+      // Пустой T12 останавливает обход до остальных отчётов
+      expect(empty.calls.map((c) => c.method)).not.toContain("absence");
+      expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
+      expect([await daysOf(eA), await daysOf(eB)]).toEqual(before);
+      // Прямой вызов — тот же отказ
+      await expect(att.runAttendance(db, fakeClient(w.company, { employees: [wEmp(1)] }), { id: w.org }, P, null)).rejects.toMatchObject({
+        status: 422,
+        code: "empty_crawl",
+      });
+    });
+
+    it("empty_crawl: в T12 никого из связанных сотрудников организации и переносить нечего — failed, файловый импорт не заменён", async () => {
+      const w = await world();
+      const eLoose = await mkEmp(w.t, null);
+      // Связан с другой компанией тем же id, что приходит в T12: отфильтрован
+      await mkEmp(w.t, { company: newCompany(), id: 5 });
+      const fileImp = await db.transaction((tx) =>
+        writeAttendanceImport(tx, {
+          period: P,
+          organization_id: w.org,
+          file_name: "workly.xlsx",
+          uploaded_by: null,
+          mapping: { sheet: "Лист1", header_row: 1, mapping: { external_id: 0, date: 1 }, totals: { days_present: 1, days_late: 0, days_absent: 0 } },
+          days: [{ employee_id: eLoose, day: "2026-10-02", terminal_id: w.t, check_in: null, check_out: null, late_minutes: 0, absent: false }],
+          rows_total: 1,
+          rows_unmatched: 0,
+          unmatched: [],
+        })
+      );
+      const before = await daysOf(eLoose);
+
+      const client = fakeClient(w.company, {
+        employees: [wEmp(5)],
+        t12: [t12(5, [tday("2026-10-01", { work_time: "08:00" }), tday("2026-10-02")])],
+        absence: [absent(5, "2026-10-02")],
+      });
+      const { value: run } = await quietly(() => sync(w.org, client));
+      expect(run.run).toMatchObject({ status: "failed", error: "empty_crawl", counts: {} });
+      expect(client.calls.map((c) => c.method)).toContain("absence");
+      expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[fileImp.id, "committed"]]);
+      expect(await daysOf(eLoose)).toEqual(before);
+    });
+
+    it("охрана пустого обхода не мешает обычному прогону и прогону только с переносом", async () => {
+      const w = await world();
+      const eA = await mkEmp(w.t, { company: w.company, id: 1 });
+      const eGone = await mkEmp(w.t, { company: w.company, id: 3 }, false);
+      const first = await sync(
+        w.org,
+        fakeClient(w.company, {
+          employees: [wEmp(1), wEmp(3)],
+          t12: [t12(1, [tday("2026-10-01", { work_time: "08:00" })]), t12(3, [tday("2026-10-01")])],
+          absence: [absent(3, "2026-10-01")],
+        })
+      );
+      expect(first.run).toMatchObject({ status: "applied", counts: { days: 2, carried: 0 } });
+
+      // Свежих дней нет (у единственного человека в T12 report: null), но есть что перенести
+      const second = await sync(w.org, fakeClient(w.company, { employees: [wEmp(1)], t12: [t12(1, null)] }));
+      expect(second.run).toMatchObject({ status: "applied", counts: { days: 1, unknown: 0, carried: 1 } });
+      expect((await daysOf(eGone)).map((d) => [d.day, d.absent, d.import_id])).toEqual([["2026-10-01", true, importOf(second.run)]]);
+      expect(await daysOf(eA)).toEqual([]);
     });
   });
 }

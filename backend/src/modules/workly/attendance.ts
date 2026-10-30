@@ -215,6 +215,11 @@ const startDateOf = (s: unknown): string | null => {
  * импорта как есть. Кто в отчётах есть, не переносится: его дни целиком заменяются свежими,
  * чтобы исправления в Workly доходили. Уволенный до первой синхронизации месяца остаётся без дней.
  *
+ * Первый api-прогон организации заменяет её файловый импорт за месяц: побеждает последняя запись.
+ *
+ * Пустой обход — сбой, а не «в этом месяце никого»: пустой T12 или ни одного дня к записи
+ * (ни свежих, ни перенесённых) дают 422 empty_crawl, и прежний импорт месяца остаётся как был.
+ *
  * Обращения к Workly — до транзакции и строго по одному. В транзакции: блокировка месяца,
  * чтение сотрудников и переносимых дней, запись. Месяц, закрытый во время обхода, даёт 409.
  */
@@ -230,6 +235,8 @@ export async function runAttendance(
   const companyId = await client.companyId();
   const listed = await client.employees();
   const t12 = await client.t12(window.from, window.to);
+  // T12 содержит всех активных (у обеих компаний их сотни): пустой ответ — сбой обхода.
+  if (t12.length === 0) throw new KpiError(422, "empty_crawl");
   const lateIn = await client.lateIn(window.from, window.to);
   const absence = await client.absence(window.from, window.to);
 
@@ -285,6 +292,8 @@ export async function runAttendance(
 
     // Перенесённые и свежие дни не пересекаются: у перенесённого сотрудника нет элемента T12.
     const days = [...built.days, ...carried];
+    // Писать нечего — значит, отчёты не о нас: прежний импорт не заменяем (откат транзакции).
+    if (days.length === 0) throw new KpiError(422, "empty_crawl");
     const imp = await writeAttendanceImport(tx, {
       period,
       organization_id: org.id,
