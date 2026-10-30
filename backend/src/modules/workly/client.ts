@@ -76,6 +76,8 @@ export class WorklyClient {
   private readonly now: () => Date;
   // Параллельные вызовы одного клиента ждут один и тот же вход.
   private inflight: Promise<string> | null = null;
+  // Ключ, который не удалось записать в Redis: работаем с ним в памяти, чтобы не входить заново на каждой странице.
+  private unsaved: StoredToken | null = null;
 
   constructor(
     private readonly creds: WorklyCreds,
@@ -161,7 +163,13 @@ export class WorklyClient {
       if (code === CODE_BAD_TOKEN) {
         if (retried) throw new WorklyError("auth_failed", "Workly не принял новый ключ доступа (код 7008)");
         retried = true;
-        await this.deps.redis.del(this.cacheKey());
+        this.unsaved = null;
+        try {
+          await this.deps.redis.del(this.cacheKey());
+        } catch {
+          // Ошибку Redis не пробрасываем: в её полях (command) может оказаться содержимое запроса.
+          throw new WorklyError("http_error", "Redis недоступен: не удалось сбросить ключ доступа Workly");
+        }
         continue;
       }
       throw httpError(res.status, code);
@@ -223,8 +231,14 @@ export class WorklyClient {
   }
 
   private async readCache(): Promise<StoredToken | null> {
-    const raw = await this.deps.redis.get(this.cacheKey());
-    if (!raw) return null;
+    let raw: string | null;
+    try {
+      raw = await this.deps.redis.get(this.cacheKey());
+    } catch {
+      // Ошибку Redis не пробрасываем: в её полях (command) может оказаться содержимое запроса.
+      throw new WorklyError("http_error", "Redis недоступен: не удалось прочитать ключ доступа Workly");
+    }
+    if (!raw) return this.unsaved;
     try {
       const p = JSON.parse(raw);
       if (typeof p?.access_token === "string" && p.access_token && typeof p.expires_at === "number") {
@@ -256,7 +270,9 @@ export class WorklyClient {
     if (res.status === HTTP_FORCE_UPDATE) throw forceUpdate();
     if (!res.ok) {
       const code = codeOf(res.body);
-      if (code === CODE_BAD_CLIENT || code === CODE_BAD_GRANT) {
+      // 7005 при входе по паролю значит, что клиенту запрещён этот тип авторизации. При обновлении это не приговор:
+      // пробуем вход по паролю, поэтому там 7005 остаётся обычным отказом (http_error).
+      if (code === CODE_BAD_CLIENT || (code === CODE_BAD_GRANT && grant.grant_type === "password")) {
         throw new WorklyError("client_invalid", `Workly отклонил client_id/client_secret (код ${code})`);
       }
       if (code === CODE_WRONG_LOGIN) throw new WorklyError("auth_failed", "Workly: неверный логин или пароль (код 7002)");
@@ -274,8 +290,14 @@ export class WorklyClient {
       refresh_token: typeof refresh === "string" && refresh ? refresh : fallbackRefresh,
       expires_at: this.now().getTime() + expiresIn * 1000,
     };
-    // Ключ живёт в Redis ровно до конца срока.
-    await this.deps.redis.set(this.cacheKey(), JSON.stringify(stored), "EX", Math.ceil(expiresIn));
+    // Ключ живёт в Redis ровно до конца срока. Сбой записи не мешает работе: ключ остаётся в памяти клиента.
+    // Саму ошибку не сохраняем и не логируем: ioredis кладёт в err.command аргументы SET, а в них оба ключа.
+    try {
+      await this.deps.redis.set(this.cacheKey(), JSON.stringify(stored), "EX", Math.ceil(expiresIn));
+      this.unsaved = null;
+    } catch {
+      this.unsaved = stored;
+    }
     return stored;
   }
 }

@@ -1,4 +1,5 @@
-import { afterEach, beforeAll, describe, expect, it } from "bun:test";
+import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { inspect } from "node:util";
 import { clientFor, setClientFactory, WorklyClient, WorklyError, type WorklyDeps } from "./client";
 import type { WorklyCreds } from "./types";
 
@@ -52,6 +53,32 @@ function fakeRedis() {
     },
   } as unknown as WorklyDeps["redis"];
   return { store, ttls, redis };
+}
+
+// Redis, у которого одна из команд падает ошибкой в стиле ioredis: err.command.args несёт аргументы команды.
+const LEAK = "LEAK-MARKER-4711";
+function brokenRedis(op: "get" | "set" | "del") {
+  const base = fakeRedis();
+  const fail = (name: string) => async (...args: unknown[]) => {
+    throw Object.assign(new Error(`MISCONF ${LEAK}`), { command: { name, args: [...args, LEAK] } });
+  };
+  (base.redis as unknown as Record<string, unknown>)[op] = fail(op);
+  return base;
+}
+
+// Ошибка должна быть чистой WorklyError: без command, без cause и без следов исходной ошибки Redis.
+function expectCleanRedisError(err: unknown, tokens: string[] = []) {
+  expect(err).toBeInstanceOf(WorklyError);
+  const e = err as WorklyError;
+  expect(e.code).toBe("http_error");
+  expect(e.message).toContain("Redis");
+  expect("command" in e).toBe(false);
+  expect(e.cause).toBeUndefined();
+  for (const secret of [LEAK, "MISCONF", ...tokens]) {
+    expect(e.message).not.toContain(secret);
+    expect(JSON.stringify(e)).not.toContain(secret);
+    expect(inspect(e)).not.toContain(secret);
+  }
 }
 
 // Поддельный сервер: handler получает разобранный запрос и отдаёт status + body.
@@ -389,6 +416,92 @@ describe("workly/client: ключ доступа", () => {
     now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at + 1000);
     down = true;
     await expect(client.locations()).rejects.toMatchObject({ code: "http_error" });
+  });
+
+  it("7005 при refresh не блокирует: входит по паролю и работает с новым ключом", async () => {
+    let now = T0;
+    const tok = tokenReplier();
+    const { client, srv, r } = makeClient(
+      (c) => {
+        if (c.form?.get("grant_type") === "refresh_token") return { status: 400, body: { message: "grant", code: 7005 } };
+        return tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1);
+      },
+      { now: () => now },
+    );
+    await client.locations();
+    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    now = new Date(expiresAt - 3600_000);
+    expect((await client.locations()).length).toBe(1);
+    expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "refresh_token", "password"]);
+    expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-2");
+  });
+
+  it("7005 при refresh и недоступный вход: используется ещё действующий ключ, а не client_invalid", async () => {
+    let now = T0;
+    let down = false;
+    const tok = tokenReplier();
+    const { client, srv, r } = makeClient(
+      (c) => {
+        if (down && c.form?.get("grant_type") === "refresh_token") return { status: 400, body: { code: 7005 } };
+        if (down && c.path === "/v1/oauth/token") return { status: 503, body: {} };
+        return tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1);
+      },
+      { now: () => now },
+    );
+    await client.locations();
+    now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at - 3600_000);
+    down = true;
+    expect((await client.locations()).length).toBe(1);
+    expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-1");
+  });
+
+  it("сбой записи ключа в Redis не ломает вызов, ключ остаётся в памяти и ничего не логируется", async () => {
+    const spies = (["error", "warn", "log"] as const).map((m) => spyOn(console, m).mockImplementation(() => {}));
+    try {
+      const tok = tokenReplier();
+      const { client, srv } = makeClient((c) => tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1), {
+        redis: brokenRedis("set"),
+      });
+      expect((await client.locations()).length).toBe(1);
+      expect((await client.locations()).length).toBe(1);
+      // второй вызов берёт ключ из памяти, а не входит заново
+      expect(srv.tokenCalls().length).toBe(1);
+      expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-1");
+      for (const spy of spies) expect(spy).not.toHaveBeenCalled();
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
+  });
+
+  it("при сбое записи в Redis ошибка Workly не несёт command с ключами", async () => {
+    const tok = tokenReplier();
+    const { client } = makeClient((c) => tok(c) ?? { status: 500, body: { code: 9 } }, { redis: brokenRedis("set") });
+    const err = await client.employees().catch((e) => e);
+    expect(err).toBeInstanceOf(WorklyError);
+    expect(err.code).toBe("http_error");
+    expect("command" in err).toBe(false);
+    expect(err.cause).toBeUndefined();
+    for (const secret of [LEAK, "tok-1", "ref-1"]) {
+      expect(JSON.stringify(err)).not.toContain(secret);
+      expect(inspect(err)).not.toContain(secret);
+    }
+  });
+
+  it("сбой чтения ключа из Redis даёт чистую WorklyError http_error", async () => {
+    const tok = tokenReplier();
+    const { client, srv } = makeClient((c) => tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1), {
+      redis: brokenRedis("get"),
+    });
+    expectCleanRedisError(await client.locations().catch((e) => e));
+    expect(srv.calls.length).toBe(0);
+  });
+
+  it("сбой сброса ключа в Redis при 7008 даёт чистую WorklyError http_error", async () => {
+    const tok = tokenReplier();
+    const { client } = makeClient((c) => tok(c) ?? { status: 400, body: { message: "Invalid access token", code: 7008 } }, {
+      redis: brokenRedis("del"),
+    });
+    expectCleanRedisError(await client.employees().catch((e) => e), ["tok-1", "ref-1"]);
   });
 
   it("при 7008 на странице 5 берёт новый ключ один раз и продолжает без дублей", async () => {
