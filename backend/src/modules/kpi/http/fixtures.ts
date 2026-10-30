@@ -131,11 +131,27 @@ export async function ensureStaffRole(db: DrizzleDB, code: string): Promise<stri
 }
 
 // Сотрудник с меткой «Тест …» в имени: cleanupKpi находит и удаляет по ней.
+// Без terminal_id филиала у сотрудника нет (случайный uuid). Исключение: с табельным номером или
+// organization_id нужен настоящий филиал без связок iiko, потому что импорт посещаемости
+// сопоставляет строки с сотрудниками филиалов организации; организация по умолчанию — KPI_TEST_ORG_ID.
 export async function makeEmployee(
   db: DrizzleDB,
-  o: { terminal_id?: string; role_code?: string; is_trainee?: boolean; first_name?: string; external_id?: string | null; active?: boolean } = {}
+  o: {
+    terminal_id?: string;
+    organization_id?: string;
+    role_code?: string;
+    is_trainee?: boolean;
+    first_name?: string;
+    external_id?: string | null;
+    active?: boolean;
+  } = {}
 ): Promise<{ id: string; terminal_id: string }> {
-  const terminal_id = o.terminal_id ?? randomUUID();
+  const needsTerminal = Boolean(o.external_id) || o.organization_id !== undefined;
+  const terminal_id =
+    o.terminal_id ??
+    (needsTerminal
+      ? (await makeTerminal(db, { iiko_id: null, store_id: null, organization_id: o.organization_id })).id
+      : randomUUID());
   const staff_role_id = o.role_code ? await ensureStaffRole(db, o.role_code) : null;
   const [row] = await db
     .insert(employees)
@@ -293,6 +309,27 @@ export function fakeBotApi(results: TgResult[] = []): {
 const BRANCH_MARK = "kpi_test";
 const TERMINAL_PREFIX = "Тест Филиал ";
 
+// ---------- организации ----------
+
+// Организация тестов KPI: единственная строка с фиксированным id, вставка идемпотентна.
+// Имена всех тестовых организаций начинаются с kpi_test_org: cleanupKpi удаляет их после филиалов.
+export const KPI_TEST_ORG_ID = "6b1f0a52-9c3e-4d0b-8a57-4c2f1e9d7a10";
+const ORG_PREFIX = "kpi_test_org";
+
+export async function ensureKpiOrg(db: DrizzleDB): Promise<string> {
+  await db.insert(organization).values({ id: KPI_TEST_ORG_ID, name: ORG_PREFIX }).onConflictDoNothing();
+  return KPI_TEST_ORG_ID;
+}
+
+// Ещё одна организация: для тестов, где важна граница между организациями.
+export async function makeOrganization(db: DrizzleDB): Promise<string> {
+  const [row] = await db
+    .insert(organization)
+    .values({ name: `${ORG_PREFIX}_${randomUUID().replace(/-/g, "").slice(0, 8)}` })
+    .returning({ id: organization.id });
+  return row.id;
+}
+
 // ---------- балл филиала ----------
 
 // Ключ credentials: undefined — случайный uuid, null — строки нет, строка — как есть (кривой ключ).
@@ -301,7 +338,8 @@ function credKey(v: string | null | undefined): string | null {
 }
 
 // Филиал «Тест Филиал <hex>» со связками iiko (credentials) для расчёта фактов.
-// organization_id по умолчанию случайный (организации нет); тесты Workly передают свою.
+// organization_id по умолчанию — организация тестов KPI (KPI_TEST_ORG_ID, строка в organization есть),
+// чтобы сотрудники филиала сопоставлялись с импортом посещаемости; тесты Workly передают свою.
 export async function makeTerminal(
   db: DrizzleDB,
   o: { active?: boolean; iiko_id?: string | null; store_id?: string | null; organization_id?: string } = {}
@@ -309,7 +347,7 @@ export async function makeTerminal(
   const name = TERMINAL_PREFIX + randomUUID().replace(/-/g, "").slice(0, 8);
   const [row] = await db
     .insert(terminals)
-    .values({ name, latitude: 0, longitude: 0, organization_id: o.organization_id ?? randomUUID(), active: o.active ?? true })
+    .values({ name, latitude: 0, longitude: 0, organization_id: o.organization_id ?? (await ensureKpiOrg(db)), active: o.active ?? true })
     .returning({ id: terminals.id });
   const iiko_id = credKey(o.iiko_id);
   const store_id = credKey(o.store_id);
@@ -513,6 +551,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   await db.delete(terminals).where(like(terminals.name, TERMINAL_PREFIX + "%"));
   // Тестовые организации Workly (их филиалы уже удалены выше).
   await db.delete(organization).where(sql`${organization.name} LIKE 'wl\\_test\\_%'`);
+  // Организации тестов KPI (по умолчанию и makeOrganization): филиалы удалены выше.
+  await db.delete(organization).where(sql`${organization.name} LIKE ${ORG_PREFIX.replace(/_/g, "\\_") + "%"}`);
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);
@@ -567,14 +607,23 @@ export async function uploadAttendance(s: Session | null, file: File | null): Pr
   return { status: res.status, body };
 }
 
-// ATT_HEAD + строки → parse → commit (лист «Лист1», заголовки в первой строке)
+// ATT_HEAD + строки → parse → commit (лист «Лист1», заголовки в первой строке).
+// organization_id по умолчанию — организация тестов KPI, как у makeTerminal и makeEmployee.
 export async function importAttendance(
   s: Session,
   rows: unknown[][],
   period: string,
-  mapping: AttendanceMapping = ATT_MAP
+  mapping: AttendanceMapping = ATT_MAP,
+  organization_id?: string
 ): Promise<{ status: number; body: any }> {
   const up = await uploadAttendance(s, xlsxFile([ATT_HEAD, ...rows]));
   if (up.status !== 200) return up;
-  return api(s, "POST", "/api/kpi/attendance/commit", { token: up.body.token, sheet: "Лист1", period, header_row: 1, mapping });
+  return api(s, "POST", "/api/kpi/attendance/commit", {
+    token: up.body.token,
+    sheet: "Лист1",
+    period,
+    header_row: 1,
+    mapping,
+    organization_id: organization_id ?? (await ensureKpiOrg(drizzleDb)),
+  });
 }

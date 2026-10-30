@@ -11,9 +11,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { ATT_HEAD, ATT_MAP, api, cleanupKpi, expectIsoTimestamps, importAttendance, makeEmployee, setup, uploadAttendance, xlsxFile } = await import("./fixtures");
-  const { kpi_attendance, kpi_periods } = await import("backend/drizzle/schema");
+  const { ATT_HEAD, ATT_MAP, api, cleanupKpi, ensureKpiOrg, expectIsoTimestamps, importAttendance, makeEmployee, makeOrganization, setup, uploadAttendance, xlsxFile } = await import("./fixtures");
+  const { kpi_attendance, kpi_attendance_imports, kpi_periods } = await import("backend/drizzle/schema");
   const { getRedisClient } = await import("backend/src/lib/shared-instances");
+  const { lockAttendancePeriod, writeAttendanceImport } = await import("../attendance");
   const { asc, eq } = await import("drizzle-orm");
   const XLSX = await import("xlsx");
   type Session = Awaited<ReturnType<typeof withSession>>;
@@ -35,7 +36,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     let db: Awaited<ReturnType<typeof setup>>["db"];
 
     const ext = () => "T-" + randomUUID().slice(0, 8);
-    const commit = (s: Session | null, b: unknown) => api(s, "POST", "/api/kpi/attendance/commit", b);
+    // Тело commit идёт с организацией тестов KPI (в ней же филиалы makeEmployee с табельным номером); b может её переопределить.
+    const commit = async (s: Session | null, b: unknown) =>
+      api(s, "POST", "/api/kpi/attendance/commit", { organization_id: await ensureKpiOrg(db), ...(b as object) });
     const imports = async (s: Session) => (await api(s, "GET", `/api/kpi/attendance/imports?period=${P9}`)).body;
     const hrSession = () => withSession({ permissions: ["kpi.manage"] });
 
@@ -291,6 +294,173 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(rs.map((r) => r.status)).toEqual([200, 200]);
       expect((await imports(hr)).filter((i: any) => i.status === "committed")).toHaveLength(1);
       expect(await db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, e.id))).toHaveLength(1);
+    });
+
+    // Импорт заменяется в пределах (месяц, организация). Свои месяцы у каждого теста ниже:
+    // тесты выше считают все импорты месяца P9 своими (организация тестов KPI).
+    describe("по организациям", () => {
+      const P8 = "2025-08-01"; // 45870 = 2025-08-01
+      const P7 = "2025-07-01";
+      const P6 = "2025-06-01";
+      const row = (x: string, serial = 45870) => [x, serial, "09:00", "18:00", 0, ""];
+      const importsOf = async (s: Session, period: string) => (await api(s, "GET", `/api/kpi/attendance/imports?period=${period}`)).body;
+      const COMMIT = "/api/kpi/attendance/commit";
+      const daysOf = (employeeId: string) => db.select().from(kpi_attendance).where(eq(kpi_attendance.employee_id, employeeId)).orderBy(asc(kpi_attendance.day));
+
+      it("импорт организации A не стирает дни организации B за тот же месяц", async () => {
+        const hr = await hrSession();
+        const orgA = await makeOrganization(db), orgB = await makeOrganization(db);
+        const xa = ext(), xb = ext();
+        const a = await makeEmployee(db, { external_id: xa, organization_id: orgA });
+        const b = await makeEmployee(db, { external_id: xb, organization_id: orgB });
+        const ra = await importAttendance(hr, [row(xa)], P8, ATT_MAP, orgA);
+        const rb = await importAttendance(hr, [row(xb)], P8, ATT_MAP, orgB);
+        expect([ra.status, rb.status]).toEqual([200, 200]);
+        expect(ra.body).toMatchObject({ organization_id: orgA, source: "file", status: "committed" });
+        expect(rb.body).toMatchObject({ organization_id: orgB, source: "file", status: "committed" });
+        const list = (await importsOf(hr, P8)).filter((i: any) => [orgA, orgB].includes(i.organization_id));
+        expect(list.map((i: any) => [i.id, i.organization_id, i.status, i.source])).toEqual([
+          [rb.body.id, orgB, "committed", "file"],
+          [ra.body.id, orgA, "committed", "file"],
+        ]);
+        expect((await daysOf(a.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-08-01", ra.body.id]]);
+        expect((await daysOf(b.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-08-01", rb.body.id]]);
+      });
+
+      it("повторный commit организации A заменяет только свой прошлый импорт", async () => {
+        const hr = await hrSession();
+        const orgA = await makeOrganization(db), orgB = await makeOrganization(db);
+        const xa1 = ext(), xa2 = ext(), xb = ext();
+        const a1 = await makeEmployee(db, { external_id: xa1, organization_id: orgA });
+        const a2 = await makeEmployee(db, { external_id: xa2, organization_id: orgA });
+        const b = await makeEmployee(db, { external_id: xb, organization_id: orgB });
+        const first = await importAttendance(hr, [row(xa1), row(xa2)], P8, ATT_MAP, orgA);
+        const other = await importAttendance(hr, [row(xb)], P8, ATT_MAP, orgB);
+        const second = await importAttendance(hr, [row(xa2, 45871)], P8, ATT_MAP, orgA);
+        expect([first.status, other.status, second.status]).toEqual([200, 200, 200]);
+        const list = (await importsOf(hr, P8)).filter((i: any) => [orgA, orgB].includes(i.organization_id));
+        expect(list.map((i: any) => [i.id, i.organization_id, i.status])).toEqual([
+          [second.body.id, orgA, "committed"],
+          [other.body.id, orgB, "committed"],
+          [first.body.id, orgA, "replaced"],
+        ]);
+        expect(await daysOf(a1.id)).toHaveLength(0);
+        expect((await daysOf(a2.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-08-02", second.body.id]]);
+        expect((await daysOf(b.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-08-01", other.body.id]]);
+      });
+
+      it("commit без organization_id: 422 organization_required", async () => {
+        const hr = await hrSession();
+        const org = await makeOrganization(db);
+        const x = ext();
+        await makeEmployee(db, { external_id: x, organization_id: org });
+        const up = await uploadAttendance(hr, xlsxFile([ATT_HEAD, row(x)]));
+        const base = { token: up.body.token, sheet: "Лист1", period: P8, header_row: 1, mapping: ATT_MAP };
+        expect(await api(hr, "POST", COMMIT, base)).toEqual({ status: 422, body: { error: "organization_required" } });
+        for (const organization_id of [null, 5, {}, ["x"], true]) {
+          expect(await api(hr, "POST", COMMIT, { ...base, organization_id })).toEqual({ status: 422, body: { error: "organization_required" } });
+        }
+        // Отказ ничего не потратил: тот же файл с организацией проходит
+        expect((await api(hr, "POST", COMMIT, { ...base, organization_id: org })).status).toBe(200);
+      });
+
+      it("commit с неизвестной организацией: 422 bad_organization, кривой uuid до базы не доходит", async () => {
+        const hr = await hrSession();
+        const org = await makeOrganization(db);
+        const x = ext();
+        await makeEmployee(db, { external_id: x, organization_id: org });
+        const up = await uploadAttendance(hr, xlsxFile([ATT_HEAD, row(x)]));
+        const base = { token: up.body.token, sheet: "Лист1", period: P8, header_row: 1, mapping: ATT_MAP };
+        const before = (await importsOf(hr, P8)).length;
+        for (const organization_id of [randomUUID(), "не-uuid", "'; drop table organization; --", "00000000-0000-0000-0000-00000000000z"]) {
+          expect(await api(hr, "POST", COMMIT, { ...base, organization_id })).toEqual({ status: 422, body: { error: "bad_organization" } });
+        }
+        expect((await importsOf(hr, P8)).length).toBe(before);
+        expect((await api(hr, "POST", COMMIT, { ...base, organization_id: org })).status).toBe(200);
+      });
+
+      it("со organization_id строки сопоставляются только с активными сотрудниками этой организации", async () => {
+        const hr = await hrSession();
+        const orgA = await makeOrganization(db), orgB = await makeOrganization(db);
+        const xa = ext(), xb = ext(), xi = ext(), xs = ext();
+        const a = await makeEmployee(db, { external_id: xa, organization_id: orgA });
+        await makeEmployee(db, { external_id: xb, organization_id: orgB });
+        await makeEmployee(db, { external_id: xi, organization_id: orgA, active: false });
+        // один табельный номер у сотрудников двух организаций: «неоднозначным» он не становится
+        const s1 = await makeEmployee(db, { external_id: xs, organization_id: orgA });
+        const s2 = await makeEmployee(db, { external_id: xs, organization_id: orgB });
+        const r = await importAttendance(hr, [row(xa), row(xb), row(xi), row(xs)], P8, ATT_MAP, orgA);
+        expect(r.status).toBe(200);
+        expect(r.body).toMatchObject({ organization_id: orgA, rows_total: 4, rows_matched: 2, rows_unmatched: 2, rows_skipped: 0 });
+        expect(r.body.unmatched).toEqual([
+          { row: 3, external_id: xb, reason: "unknown_external_id" },
+          { row: 4, external_id: xi, reason: "unknown_external_id" },
+        ]);
+        expect(await daysOf(a.id)).toHaveLength(1);
+        expect(await daysOf(s1.id)).toHaveLength(1);
+        expect(await daysOf(s2.id)).toHaveLength(0);
+        // Файл целиком из чужой организации: ничего не сопоставлено
+        const alien = await importAttendance(hr, [row(xb)], P8, ATT_MAP, orgA);
+        expect(alien.status).toBe(422);
+        expect(alien.body).toMatchObject({ error: "nothing_matched", rows_total: 1 });
+        expect(alien.body.unmatched).toEqual([{ row: 2, external_id: xb, reason: "unknown_external_id" }]);
+      });
+
+      it("writeAttendanceImport: импорты других организаций и прежние без организации не трогаются, source api", async () => {
+        const hr = await hrSession();
+        const org = await makeOrganization(db), other = await makeOrganization(db);
+        const e = await makeEmployee(db, { external_id: ext(), organization_id: org });
+        const o = await makeEmployee(db, { external_id: ext(), organization_id: other });
+        const legacyEmp = await makeEmployee(db);
+        // Прежний импорт: организации нет (до миграции их ещё не было), дни от него
+        const [legacy] = await db
+          .insert(kpi_attendance_imports)
+          .values({ period: P7, file_name: "legacy.xlsx", uploaded_by: hr.userId, mapping: { sheet: "Лист1", header_row: 1, mapping: ATT_MAP }, rows_total: 1, rows_matched: 1, status: "committed" })
+          .returning({ id: kpi_attendance_imports.id });
+        await db.insert(kpi_attendance).values({ employee_id: legacyEmp.id, day: "2025-07-01", terminal_id: legacyEmp.terminal_id, late_minutes: 0, absent: false, import_id: legacy.id });
+
+        const day = (emp: { id: string; terminal_id: string }, d: string) => ({ employee_id: emp.id, day: d, terminal_id: emp.terminal_id, check_in: null, check_out: null, late_minutes: 0, absent: true });
+        const write = (organization_id: string, days: ReturnType<typeof day>[], mapping: object = { source: "api", totals: { days_present: 0, days_late: 0, days_absent: days.length } }) =>
+          db.transaction((tx) =>
+            writeAttendanceImport(tx, { period: P7, organization_id, file_name: "Workly API", uploaded_by: null, mapping, days, rows_total: days.length, rows_unmatched: 0, unmatched: [] })
+          );
+        const otherImp = await write(other, [day(o, "2025-07-02")]);
+        const first = await write(org, [day(e, "2025-07-02")]);
+        const second = await write(org, [day(e, "2025-07-03")]);
+        expect([first.status, second.status, first.organization_id, second.rows_matched]).toEqual(["committed", "committed", org, 1]);
+
+        const byId = new Map((await importsOf(hr, P7)).map((i: any) => [i.id, i]));
+        expect(byId.get(legacy.id)).toMatchObject({ status: "committed", organization_id: null, source: "file", uploaded_by: hr.userId });
+        expect(byId.get(otherImp.id)).toMatchObject({ status: "committed", organization_id: other, source: "api", uploaded_by: null, uploaded_by_name: null, days_absent: 1 });
+        expect(byId.get(first.id)).toMatchObject({ status: "replaced", organization_id: org, source: "api" });
+        expect(byId.get(second.id)).toMatchObject({ status: "committed", organization_id: org, source: "api" });
+        expect((await daysOf(legacyEmp.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-07-01", legacy.id]]);
+        expect((await daysOf(o.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-07-02", otherImp.id]]);
+        expect((await daysOf(e.id)).map((d) => [d.day, d.import_id])).toEqual([["2025-07-03", second.id]]);
+      });
+
+      it("lockAttendancePeriod: закрытый месяц — 409 period_closed, запись ничего не оставляет; повторный вызов в транзакции безвреден", async () => {
+        const org = await makeOrganization(db);
+        const e = await makeEmployee(db, { external_id: ext(), organization_id: org });
+        await db.insert(kpi_periods).values({ period: P6, status: "closed" });
+        await expect(db.transaction((tx) => lockAttendancePeriod(tx, P6))).rejects.toMatchObject({ status: 409, code: "period_closed" });
+        await expect(
+          db.transaction((tx) =>
+            writeAttendanceImport(tx, {
+              period: P6, organization_id: org, file_name: "Workly API", uploaded_by: null, mapping: { source: "api" },
+              days: [{ employee_id: e.id, day: "2025-06-02", terminal_id: e.terminal_id, check_in: null, check_out: null, late_minutes: 0, absent: true }],
+              rows_total: 1, rows_unmatched: 0, unmatched: [],
+            })
+          )
+        ).rejects.toMatchObject({ status: 409, code: "period_closed" });
+        expect(await db.select().from(kpi_attendance_imports).where(eq(kpi_attendance_imports.period, P6))).toHaveLength(0);
+        // Открытый месяц: двойная блокировка в одной транзакции
+        await db.transaction(async (tx) => {
+          await lockAttendancePeriod(tx, P7);
+          await lockAttendancePeriod(tx, P7);
+        });
+        expect(await daysOf(e.id)).toHaveLength(0);
+      });
     });
   });
 }
