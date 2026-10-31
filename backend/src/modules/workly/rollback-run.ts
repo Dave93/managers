@@ -36,10 +36,11 @@ async function main(): Promise<void> {
     console.error(args.error === "usage" ? USAGE : `error ${args.error}`);
     process.exit(1);
   }
-  // База и runs.ts подгружаются только при запуске: тест чистых функций выше их не трогает.
-  const { drizzleDb } = await import("../../lib/db");
-  const { rollbackRun } = await import("./runs");
   try {
+    // База и runs.ts подгружаются только при запуске: тест чистых функций выше их не трогает.
+    // Импорт внутри try: сбой загрузки модуля тоже печатается одним кодом, без текста.
+    const { drizzleDb } = await import("../../lib/db");
+    const { rollbackRun } = await import("./runs");
     for (const line of resultLines(await rollbackRun(drizzleDb, args.runId))) console.log(line);
   } catch (e) {
     console.error(errorLine(e));
@@ -48,4 +49,9 @@ async function main(): Promise<void> {
   process.exit(0);
 }
 
-if (import.meta.main) void main();
+if (import.meta.main) {
+  main().catch(() => {
+    console.error("error rollback_failed");
+    process.exit(1);
+  });
+}
