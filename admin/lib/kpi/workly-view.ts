@@ -361,6 +361,27 @@ export function fileImportWarning(
   return imports.some((r) => r.source === "file" && r.status === "committed" && r.organization_id === organizationId);
 }
 
+type ImportRef = Pick<AttendanceImportRow, "id" | "organization_id" | "period" | "status" | "created_at" | "rows_total">;
+
+/**
+ * Импорт, который заменила синхронизация посещаемости: последний заменённый (replaced) импорт той же
+ * организации за тот же месяц, созданный раньше нового. Новый — import_id из run.counts. Прежние
+ * импорты без организации синхронизация не трогает. Нового импорта ещё нет в списке (список
+ * перечитывается) или заменять было нечего (первая синхронизация месяца) — null.
+ */
+export function replacedImport<T extends ImportRef>(imports: readonly T[] | null | undefined, importId: unknown): T | null {
+  if (!imports || typeof importId !== "string") return null;
+  const fresh = imports.find((r) => r.id === importId);
+  if (!fresh || fresh.organization_id == null) return null;
+  let best: T | null = null;
+  for (const r of imports) {
+    if (r.id === fresh.id || r.status !== "replaced" || r.organization_id !== fresh.organization_id || r.period !== fresh.period) continue;
+    if (r.created_at > fresh.created_at) continue;
+    if (!best || r.created_at > best.created_at) best = r;
+  }
+  return best;
+}
+
 /**
  * Коды, у которых в блоке посещаемости свой текст (`attendance.errors.<код>`), а не общий
  * `errors.<код>` карточки подключения. empty_crawl у синхронизации чаще всего значит «нечего

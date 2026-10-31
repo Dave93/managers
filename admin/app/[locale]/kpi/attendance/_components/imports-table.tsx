@@ -103,7 +103,12 @@ export function ImportsTable({ period }: { period: string }) {
           <DialogHeader>
             <DialogTitle>{opened?.file_name ?? t("dialogFallbackTitle")}</DialogTitle>
             <DialogDescription>
-              {opened ? t("dialogDescription", { date: formatTashkent(opened.created_at), sheet: opened.sheet ?? "—" }) : ""}
+              {/* У импорта синхронизации Workly (source api) листа нет: только дата. */}
+              {opened == null
+                ? ""
+                : opened.sheet == null
+                  ? formatTashkent(opened.created_at)
+                  : t("dialogDescription", { date: formatTashkent(opened.created_at), sheet: opened.sheet })}
             </DialogDescription>
           </DialogHeader>
           {opened && <ImportResult row={opened} organizationName={orgName(opened.organization_id)} />}

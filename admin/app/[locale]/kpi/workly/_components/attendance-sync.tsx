@@ -8,7 +8,9 @@
 // месяц, нет подключения, уже идёт, очередь недоступна) приходят ответом и показываются сразу.
 // После перезагрузки страницы идущая синхронизация организации подхватывается из статуса
 // вместе со своим месяцем. Перед кнопкой — предупреждение, если у организации за месяц уже есть
-// файловый импорт: синхронизация его заменит (R23). Ниже — качество данных за выбранный месяц.
+// файловый импорт: синхронизация его заменит (R23); пока список импортов грузится, кнопка недоступна,
+// иначе предупреждение могло бы не успеть появиться. Итог показывает, сколько строк было в заменённом
+// импорте. Ниже — качество данных за выбранный месяц.
 
 import React, { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +25,7 @@ import {
   attendanceErrorKey,
   attendanceResultLines,
   fileImportWarning,
+  replacedImport,
   resumeAttendanceRun,
 } from "@admin/lib/kpi/workly-view";
 import { PeriodSelect } from "../../_components/period-select";
@@ -114,11 +117,13 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
     },
   });
 
-  // Синхронизация записала месяц: качество и список импортов (предупреждение о файле) устарели.
+  // Синхронизация записала месяц: качество, список импортов (предупреждение о файле) и формы KPI
+  // (дисциплина считается по посещаемости) устарели.
   const { run, staleness, busy } = useWorklyRun(runId, (r: RunRow) => {
     if (r.status !== "applied") return;
     qc.invalidateQueries({ queryKey: qk.worklyQualityAll });
     qc.invalidateQueries({ queryKey: qk.attendanceImportsAll });
+    qc.invalidateQueries({ queryKey: qk.formAll });
   });
 
   const locked = busy || start.isPending;
@@ -153,7 +158,8 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
       <Button
         type="button"
         className="h-11 w-full sm:w-auto"
-        disabled={locked}
+        // Список импортов месяца ещё грузится: без него не видно предупреждения о замене файла (R23).
+        disabled={locked || imports.isPending}
         aria-label={t("attendance.syncAria", { name: entry.organization_name, month: monthLabel(period, locale) })}
         onClick={sync}
       >
@@ -179,6 +185,16 @@ function RunResult({ run, staleness, loadError }: { run: RunRow | undefined; sta
   const text = useWorklyText();
   const locale = useLocale();
   const month = run?.period ? monthLabel(run.period, locale) : "—";
+  // Импорты месяца самой синхронизации (а не выбранного сейчас): по ним видно, что она заменила.
+  // Ключ тот же, что у списка выше, поэтому за тот же месяц второго запроса нет.
+  const done = run?.status === "applied" && run.period != null;
+  const imports = useQuery<AttendanceImportRow[], Error>({
+    queryKey: qk.attendanceImports(run?.period ?? ""),
+    queryFn: () => kpiApi.attendance.imports(run?.period as string),
+    enabled: done,
+    retry: shouldRetry,
+  });
+  const replaced = done ? replacedImport(imports.data, run.counts.import_id) : null;
   // empty_crawl у синхронизации — «нечего записать» (сотрудники не связаны), а не сбой Workly:
   // для него и ещё нескольких кодов у блока свой текст (attendanceErrorKey).
   const runErrorText = (code: string | null) => {
@@ -229,7 +245,12 @@ function RunResult({ run, staleness, loadError }: { run: RunRow | undefined; sta
         <ul className="space-y-1.5">
           {attendanceResultLines(run.counts).map((line) => (
             <li key={line.key}>
-              <p className="font-medium tabular-nums">{t(line.label, { count: line.value })}</p>
+              <p className="font-medium tabular-nums">
+                {t(line.label, { count: line.value })}
+                {line.key === "days" && replaced && (
+                  <span className="font-normal text-green-900"> · {t("attendance.result.replaced", { count: replaced.rows_total })}</span>
+                )}
+              </p>
               <p className="text-xs text-green-900">{t(line.hint)}</p>
             </li>
           ))}

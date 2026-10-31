@@ -22,6 +22,7 @@ import {
   lastRunLines,
   linkSeed,
   planRowMark,
+  replacedImport,
   plannedRunId,
   resultRunId,
   resumeAttendanceRun,
@@ -722,6 +723,52 @@ describe("fileImportWarning", () => {
     expect(fileImportWarning([], ORG)).toBe(false);
     expect(fileImportWarning(undefined, ORG)).toBe(false);
     expect(fileImportWarning([row({ organization_id: null })], null)).toBe(false);
+  });
+});
+
+describe("replacedImport", () => {
+  const ORG = "6b1f0a52-9c3e-4d0b-8a57-4c2f1e9d7a10";
+  const OTHER = "0d2c5e7a-1b3f-4a6d-9e8c-7f5a3b1d2c4e";
+  type Row = NonNullable<Parameters<typeof replacedImport>[0]>[number];
+  const row = (p: Partial<Row> & Pick<Row, "id" | "created_at">): Row => ({
+    organization_id: ORG,
+    period: "2026-10-01",
+    status: "replaced",
+    rows_total: 0,
+    ...p,
+  });
+  // Список импортов месяца приходит новыми вперёд.
+  const month = [
+    row({ id: "api-3", status: "committed", rows_total: 1310, created_at: "2026-10-31T12:00:00.000Z" }),
+    row({ id: "api-2", rows_total: 1250, created_at: "2026-10-30T12:00:00.000Z" }),
+    row({ id: "file-1", rows_total: 900, created_at: "2026-10-20T12:00:00.000Z" }),
+  ];
+
+  it("три импорта месяца: синхронизация заменила предыдущий импорт своей организации", () => {
+    expect(replacedImport(month, "api-3")?.rows_total).toBe(1250);
+    expect(replacedImport([...month].reverse(), "api-3")?.id).toBe("api-2");
+    expect(replacedImport(month, "api-2")?.id).toBe("file-1");
+  });
+
+  it("первая синхронизация месяца: заменять было нечего", () => {
+    expect(replacedImport([month[0]!], "api-3")).toBeNull();
+  });
+
+  it("импорты другой организации, прежние импорты без организации и другого месяца не считаются", () => {
+    const list = [
+      month[0]!,
+      row({ id: "x", organization_id: OTHER, rows_total: 7, created_at: "2026-10-31T11:00:00.000Z" }),
+      row({ id: "legacy", organization_id: null, rows_total: 8, created_at: "2026-10-31T10:00:00.000Z" }),
+      row({ id: "sep", period: "2026-09-01", rows_total: 9, created_at: "2026-10-31T09:00:00.000Z" }),
+    ];
+    expect(replacedImport(list, "api-3")).toBeNull();
+  });
+
+  it("нового импорта ещё нет в списке, id не строка, списка нет — null", () => {
+    expect(replacedImport(month.slice(1), "api-3")).toBeNull();
+    expect(replacedImport(month, 42)).toBeNull();
+    expect(replacedImport(month, undefined)).toBeNull();
+    expect(replacedImport(undefined, "api-3")).toBeNull();
   });
 });
 

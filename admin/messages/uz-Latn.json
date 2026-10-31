@@ -3328,6 +3328,7 @@
         "result": {
           "days": "Yozilgan kunlar: {count}",
           "daysHint": "Jami yozilgan qatorlar (xodim va kun), ko'chirilganlari bilan birga",
+          "replaced": "almashtirilgan importda edi: {count}",
           "unknown": "Ma'lumotsiz: {count}",
           "unknownHint": "Rejalashtirilgan kunlar: Workly'da na ish, na yo'qlik haqida yozuv bor. Ular yozilmaydi: tasdiqsiz qoldirilgan kun qo'yilmaydi",
           "carried": "Ko'chirilgan: {count}",

@@ -3328,6 +3328,7 @@
         "result": {
           "days": "Days recorded: {count}",
           "daysHint": "Total rows recorded (employee and day), including carried over",
+          "replaced": "the replaced import had: {count}",
           "unknown": "No data: {count}",
           "unknownHint": "Scheduled days where Workly has neither work nor an absence record. They are not recorded: an absence is not set without confirmation",
           "carried": "Carried over: {count}",

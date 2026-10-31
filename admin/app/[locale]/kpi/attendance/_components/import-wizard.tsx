@@ -64,6 +64,7 @@ export function ImportWizard({ period }: { period: string }) {
   // Смена key сбрасывает выбранный файл в поле.
   const [fileKey, setFileKey] = useState(0);
   const commitLatch = useRef(false);
+  // Подсказка «Выберите организацию» стоит у кнопки загрузки; на неё ссылаются и кнопка, и выбор организации.
   const organizationHintId = useId();
 
   // Организации — подключения Workly с найденной в базе организацией (та же загрузка, что на экране Workly).
@@ -72,6 +73,8 @@ export function ImportWizard({ period }: { period: string }) {
   // Выбранная организация, пропавшая из обновлённого списка, считается невыбранной.
   const chosen = options.find((o) => o.id === organizationId) ?? null;
   const commitIssue = commitBodyIssue({ organization_id: chosen?.id });
+  // Без вариантов выбора подсказка не нужна: там своё сообщение «организаций нет».
+  const organizationHint = commitIssue !== null && options.length > 0 ? commitIssue : null;
 
   const imports = useQuery<AttendanceImportRow[], Error>({
     queryKey: qk.attendanceImports(period),
@@ -244,7 +247,7 @@ export function ImportWizard({ period }: { period: string }) {
                   className="h-11 w-full"
                   aria-label={t("organization")}
                   aria-required="true"
-                  aria-describedby={commitIssue ? organizationHintId : undefined}
+                  aria-describedby={organizationHint ? organizationHintId : undefined}
                 >
                   <SelectValue placeholder={t("organizationPlaceholder")} />
                 </SelectTrigger>
@@ -257,11 +260,6 @@ export function ImportWizard({ period }: { period: string }) {
                 </SelectContent>
               </Select>
             </label>
-            {commitIssue && (
-              <p id={organizationHintId} className="text-sm text-destructive">
-                {tk(COMMIT_ISSUE_KEY[commitIssue])}
-              </p>
-            )}
           </>
         ) : status.data === undefined && status.error != null ? (
           <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
@@ -405,9 +403,23 @@ export function ImportWizard({ period }: { period: string }) {
 
       {notice && <p className="text-sm text-amber-700">{notice}</p>}
 
-      <Button type="button" className="h-11" disabled={errors.length > 0 || commitIssue !== null || committing} onClick={commit}>
-        {committing ? t("uploading") : t("uploadFor", { month: monthLabel(period, locale) })}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button
+          type="button"
+          className="h-11"
+          disabled={errors.length > 0 || commitIssue !== null || committing}
+          aria-describedby={organizationHint ? organizationHintId : undefined}
+          onClick={commit}
+        >
+          {committing ? t("uploading") : t("uploadFor", { month: monthLabel(period, locale) })}
+        </Button>
+        {/* Причина недоступной кнопки — рядом с ней, а не у выбора организации далеко выше. */}
+        {organizationHint && (
+          <p id={organizationHintId} className="text-sm text-destructive">
+            {tk(COMMIT_ISSUE_KEY[organizationHint])}
+          </p>
+        )}
+      </div>
 
       {failedRows.length > 0 && (
         <div className="space-y-1" role="alert">
