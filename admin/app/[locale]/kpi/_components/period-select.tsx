@@ -12,17 +12,23 @@ export function PeriodSelect({
   options,
   allowAll,
   className,
+  disabled,
 }: {
   value: string | null;
   onChange: (v: string | null) => void;
   options: string[];
   allowAll?: boolean;
   className?: string;
+  disabled?: boolean;
 }) {
   const t = useTranslations("kpi");
   const locale = useLocale();
   return (
-    <Select value={value ?? (allowAll ? ALL : undefined)} onValueChange={(v) => onChange(v === ALL ? null : v)}>
+    <Select
+      value={value ?? (allowAll ? ALL : undefined)}
+      onValueChange={(v) => onChange(v === ALL ? null : v)}
+      disabled={disabled}
+    >
       <SelectTrigger className={className} aria-label={t("common.period.label")}>
         <SelectValue placeholder={t("common.period.label")} />
       </SelectTrigger>

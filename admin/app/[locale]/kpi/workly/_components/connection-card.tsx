@@ -15,20 +15,19 @@
 // После перезагрузки страницы опрос продолжается сам: если последний прогон в статусе — идущая
 // проверка сотрудников, карточка начинает следить за ним. Готовый план открывается кнопкой.
 
-import React, { useEffect, useId, useRef, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import React, { useId, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Loader2 } from "lucide-react";
 import { Button } from "@admin/components/ui/button";
 import { kpiApi, type RunRow, type WorklyStatusEntry } from "@admin/lib/kpi-api";
-import { shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import type { Tone } from "@admin/lib/kpi/status";
-import { isRunning, pollInterval } from "@admin/lib/kpi/workly";
-import { RUN_STATUSES, plannedRunId, resumeRunId, runStaleness } from "@admin/lib/kpi/workly-view";
+import { RUN_STATUSES, plannedRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { PlanReview } from "./plan-review";
+import { useWorklyRun, type Staleness } from "./use-workly-run";
 import { useWorklyText } from "./workly-text";
 
 const STATUS_TONE: Record<RunRow["status"], Tone> = {
@@ -84,30 +83,10 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
     },
   });
 
-  const run = useQuery<RunRow, Error>({
-    queryKey: qk.worklyRun(runId ?? ""),
-    queryFn: () => kpiApi.workly.run(runId as string),
-    enabled: runId != null,
-    retry: shouldRetry,
-    refetchInterval: (q) => pollInterval(q.state.data),
-  });
-
-  // Прогон вышел из running (план готов, ошибка, применён): статус подключения обновляется один раз.
-  const ended = useRef<string | null>(null);
-  const runKey = run.data ? `${run.data.id}:${run.data.status}` : null;
-  useEffect(() => {
-    if (!runKey || runKey.endsWith(":running") || ended.current === runKey) return;
-    ended.current = runKey;
-    qc.invalidateQueries({ queryKey: qk.worklyStatus });
-  }, [runKey, qc]);
-
-  // Сколько идёт проверка. «Сейчас» — момент последнего ответа опроса: он обновляется каждые
-  // 2 секунды, пока прогон running, так что оценка пересчитывается сама. Зависшая проверка
-  // (воркер не отвечает) снова открывает «Проверить»: новый запуск закроет её на сервере.
-  const shown = run.data;
-  const staleness =
-    shown && isRunning(shown) ? runStaleness(shown.created_at, Math.max(run.dataUpdatedAt, run.errorUpdatedAt)) : "ok";
-  const busy = runId != null && (run.isPending || (isRunning(shown) && staleness !== "stuck"));
+  // Опрос каждые 2 секунды, пока running; конец прогона обновляет статус подключения один раз.
+  // Зависшая проверка (воркер не отвечает) снова открывает «Проверить»: новый запуск закроет
+  // её на сервере (use-workly-run.ts).
+  const { run, staleness, busy } = useWorklyRun(runId);
   const available = entry.configured && orgId != null;
   const canStart = available && !start.isPending && !busy;
   const check = () => {
@@ -224,7 +203,7 @@ function RunBody({
   rechecking,
 }: {
   run: RunRow | undefined;
-  staleness: ReturnType<typeof runStaleness>;
+  staleness: Staleness;
   loadError: Error | null;
   organizationId: string | null;
   organizationName: string;

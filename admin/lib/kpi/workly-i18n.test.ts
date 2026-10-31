@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTranslator } from "next-intl";
 import { PLAN_GROUP_ORDER, WORKLY_BLOCK_REASONS, WORKLY_ERROR_CODES } from "./workly";
-import { CHANGE_TYPES, RUN_STATUSES } from "./workly-view";
+import { CHANGE_TYPES, RUN_STATUSES, attendanceResultLines } from "./workly-view";
 
 // Тексты экрана «Синхронизация Workly» (kpiScreens.workly.*) по локалям. Сейчас проверяется
 // только ru: остальные локали добавит задача 6 (список LOCALES ниже).
@@ -18,6 +18,10 @@ const SCREEN_FILES = [
   "app/[locale]/kpi/workly/_components/connection-card.tsx",
   "app/[locale]/kpi/workly/_components/plan-review.tsx",
   "app/[locale]/kpi/workly/_components/manual-link-dialog.tsx",
+  "app/[locale]/kpi/workly/_components/organization-select.tsx",
+  "app/[locale]/kpi/workly/_components/locations-table.tsx",
+  "app/[locale]/kpi/workly/_components/attendance-sync.tsx",
+  "app/[locale]/kpi/workly/_components/quality-report.tsx",
 ];
 
 function screen(locale: string): Record<string, unknown> {
@@ -72,8 +76,8 @@ for (const locale of LOCALES) {
       expect(missing(t, ["title", "description"])).toEqual([]);
     });
 
-    it("семейства connections, card, plan, report, confirm, link не пустые", () => {
-      for (const family of ["connections", "card", "plan", "report", "confirm", "link"]) {
+    it("семейства connections, card, plan, report, confirm, link, locations, attendance, quality не пустые", () => {
+      for (const family of ["connections", "card", "plan", "report", "confirm", "link", "locations", "attendance", "quality"]) {
         const v = t[family];
         expect(v && typeof v === "object" ? Object.keys(v).length : 0).toBeGreaterThan(0);
       }
@@ -107,6 +111,13 @@ for (const locale of LOCALES) {
 
     it("описание каждого вида изменения в строке плана", () => {
       expect(missing(t, CHANGE_TYPES.map((c) => `plan.change.${c}`))).toEqual([]);
+    });
+
+    it("итог синхронизации посещаемости: подпись с {count} и пояснение у каждой строки", () => {
+      const lines = attendanceResultLines({});
+      expect(lines.map((l) => l.key)).toEqual(["days", "unknown", "carried"]);
+      expect(missing(t, lines.flatMap((l) => [l.label, l.hint]))).toEqual([]);
+      for (const l of lines) expect(at(t, l.label)).toContain("{count}");
     });
 
     it("каждая строка — корректное сообщение ICU и форматируется со своими параметрами", () => {

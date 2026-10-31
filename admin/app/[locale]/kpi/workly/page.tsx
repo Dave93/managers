@@ -7,7 +7,9 @@ import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { ScreenGate } from "../_components/screen-gate";
 import { StaleNote } from "../_components/stale-note";
 import { qk } from "../_components/use-kpi";
+import { AttendanceSection } from "./_components/attendance-sync";
 import { ConnectionCard } from "./_components/connection-card";
+import { LocationsSection } from "./_components/locations-table";
 
 export default function WorklyPage() {
   return (
@@ -18,7 +20,9 @@ export default function WorklyPage() {
 }
 
 // Экран — плоский список секций: «Подключения» (у каждой организации своя проверка
-// и сверка сотрудников), ниже задача 4 добавляет «Локации» и «Посещаемость».
+// и сверка сотрудников), «Локации» (карта локаций Workly → терминал) и «Посещаемость»
+// (синхронизация за месяц и качество данных). В двух последних организация выбирается
+// переключателем раздела.
 function WorklyScreen() {
   const t = useTranslations("kpiScreens.workly");
   return (
@@ -29,6 +33,8 @@ function WorklyScreen() {
       </div>
 
       <ConnectionsSection />
+      <LocationsSection />
+      <AttendanceSection />
     </div>
   );
 }
