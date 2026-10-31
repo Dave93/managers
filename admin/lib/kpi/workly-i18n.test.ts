@@ -6,9 +6,10 @@ import { createTranslator } from "next-intl";
 import { PLAN_GROUP_ORDER, WORKLY_BLOCK_REASONS, WORKLY_ERROR_CODES } from "./workly";
 import { ATTENDANCE_ERROR_CODES, CHANGE_TYPES, RUN_STATUSES, attendanceErrorKey, attendanceResultLines } from "./workly-view";
 
-// Тексты экрана «Синхронизация Workly» (kpiScreens.workly.*) по локалям. Сейчас проверяется
-// только ru: остальные локали добавит задача 6 (список LOCALES ниже).
-const LOCALES = ["ru"] as const;
+// Тексты экрана «Синхронизация Workly» (kpiScreens.workly.*): семейства ключей, которые требует код,
+// проверяются в каждой из четырёх локалей. Паритет переводов с ru.json (ключи, параметры ICU,
+// отсутствие непереведённого текста) проверяет workly-locales.test.ts.
+const LOCALES = ["ru", "en", "uz-Latn", "uz-Cyrl"] as const;
 
 const ADMIN = fileURLToPath(new URL("../../", import.meta.url));
 
