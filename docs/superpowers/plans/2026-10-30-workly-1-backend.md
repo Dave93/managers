@@ -198,7 +198,7 @@
 3. Наш активный сотрудник, которого не затронули правила 1 и 2 (на его запись не указывает активная запись Workly): связан и его `workly_id` в списке уволенных, либо не связан, его ключ имени не совпал ни с одной активной записью Workly (неоднозначное совпадение тоже считается совпадением) и совпал ровно с одной записью списка уволенных: `deactivate` (`after: { active: false, workly_company_id, workly_id: <id уволенной записи> }`). Остальные: `report.not_found`.
 4. Должность: `positions[0]?.title ?? null` через `structure`. Имена сотрудника при связывании не меняются.
 
-- [ ] **Step 1: `names.test.ts`:** `nameKey("ozodbek", "rahimov") === nameKey("rahimov", "ozodbek")`; `nameKey("A", null, "")` игнорирует пустые; `worklyNameKeys({first_name:"A",last_name:"B",patronymic:"C"})` даёт два различных ключа, без отчества один.
+- [ ] **Step 1: `names.test.ts`:** `nameKey("To'lqin", "O’RINBOYEV") === nameKey("orinboyev", "TOLQIN")`; `nameKey("A", null, "")` игнорирует пустые; `worklyNameKeys({first_name:"A",last_name:"B",patronymic:"C"})` даёт два различных ключа, без отчества один.
 - [ ] **Step 2: `plan.test.ts`** с локальными билдерами `ours(over)` и `w(over)` (минимальные валидные объекты) и `structure = (t) => ({ position: t, staff_role_id: null, grade: null, shift: null, is_trainee: null })`. Тесты:
   - `link по уникальному имени`: один наш несвязанный + одна запись Workly → `kinds(plan) = ["link"]`, `after.workly_id` и `after.active === true`.
   - `тёзки в Workly`: две активные записи с одним ключом и один наш → `items: []`, `report.ambiguous.length === 1`.
