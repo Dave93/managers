@@ -10,8 +10,8 @@ import {
   connectionErrorKey,
   effectiveCounts,
   groupPlan,
-  isFailed,
   isRunning,
+  isWorklyErrorCode,
   pollInterval,
   toggleExclusion,
 } from "./workly";
@@ -131,7 +131,7 @@ describe("connectionErrorKey", () => {
   });
 });
 
-describe("isRunning / pollInterval / isFailed", () => {
+describe("isRunning / pollInterval", () => {
   it("isRunning", () => {
     expect(isRunning({ status: "running" })).toBe(true);
     expect(isRunning({ status: "planned" })).toBe(false);
@@ -144,11 +144,16 @@ describe("isRunning / pollInterval / isFailed", () => {
     expect(pollInterval(undefined)).toBe(false);
     expect(pollInterval(null)).toBe(false);
   });
-  it("isFailed: только failed", () => {
-    expect(isFailed({ status: "failed" })).toBe(true);
-    for (const status of ["running", "planned", "applied", "blocked", "rolled_back"]) expect(isFailed({ status })).toBe(false);
-    expect(isFailed(null)).toBe(false);
-    expect(isFailed(undefined)).toBe(false);
+});
+
+describe("isWorklyErrorCode", () => {
+  it("каждый код из WORKLY_ERROR_CODES — код Workly", () => {
+    for (const c of WORKLY_ERROR_CODES) expect(isWorklyErrorCode(c)).toBe(true);
+  });
+  it("прочие коды, служебные имена объекта, пустая строка и null — нет", () => {
+    for (const c of ["forbidden", "network", "server_error", "constructor", "__proto__", "", null, undefined]) {
+      expect(isWorklyErrorCode(c)).toBe(false);
+    }
   });
 });
 

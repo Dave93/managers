@@ -4,13 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
-import { kpiApi, type AttendanceImportRow, type WorklyStatusEntry } from "@admin/lib/kpi-api";
+import { kpiApi, type AttendanceImportRow } from "@admin/lib/kpi-api";
 import { IMPORT_STATUS, organizationOptions } from "@admin/lib/kpi/attendance";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { StaleNote } from "../../_components/stale-note";
 import { qk } from "../../_components/use-kpi";
+import { useWorklyStatus } from "../../workly/_components/use-workly-status";
 import { ImportResult } from "./import-result";
 
 export function ImportsTable({ period }: { period: string }) {
@@ -23,11 +24,7 @@ export function ImportsTable({ period }: { period: string }) {
     retry: shouldRetry,
   });
   // Названия организаций берём из статуса Workly; пока он не пришёл или без организации — прочерк.
-  const status = useQuery<WorklyStatusEntry[], Error>({
-    queryKey: qk.worklyStatus,
-    queryFn: () => kpiApi.workly.status(),
-    retry: shouldRetry,
-  });
+  const status = useWorklyStatus();
   const orgNames = useMemo(() => new Map(organizationOptions(status.data).map((o) => [o.id, o.name])), [status.data]);
   const orgName = (id: string | null) => (id != null ? orgNames.get(id) ?? null : null);
   // Храним id: после повторной загрузки список обновляется, и диалог берёт свежую строку.

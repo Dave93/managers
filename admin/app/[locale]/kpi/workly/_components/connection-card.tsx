@@ -9,13 +9,14 @@
 //     с 4 минут ещё «Занимает дольше обычного»; с 16 минут (runStaleness: stuck) — «Проверка
 //     зависла», «Проверить» снова доступна (новый запуск закрывает брошенную строку на сервере);
 //   planned → PlanReview с исключениями и «Применить»;
-//   applied / rolled_back → PlanReview без «Применить», с итогом;
+//   applied / rolled_back → PlanReview без «Применить», с итогом (после перезагрузки — кнопка «Открыть итог»);
 //   failed → текст по коду ошибки, «Проверить» снова доступна;
 //   blocked → причина остановки (бывает только у ночного прогона).
 // После перезагрузки страницы опрос продолжается сам: если последняя проверка сотрудников в статусе
-// (last_employees_run) ещё идёт, карточка начинает следить за ней. Готовый план открывается кнопкой,
-// даже если после него прошла синхронизация посещаемости. Строка «Последний прогон» — last_run,
-// последний прогон любого вида.
+// (last_employees_run) ещё идёт, карточка начинает следить за ней. Готовый план и итог применённого
+// открываются кнопкой, даже если после них прошла синхронизация посещаемости. «Последний прогон» —
+// две строки, по одной на вид (last_employees_run и last_attendance_run): ночная остановка проверки
+// не пропадает из карточки после синхронизации посещаемости, а упавшая синхронизация — после проверки.
 
 import React, { useId, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -25,7 +26,7 @@ import { Button } from "@admin/components/ui/button";
 import { kpiApi, type RunRow, type WorklyStatusEntry } from "@admin/lib/kpi-api";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import type { Tone } from "@admin/lib/kpi/status";
-import { RUN_STATUSES, lastRunErrorKey, plannedRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
+import { RUN_STATUSES, lastRunLines, plannedRunId, resultRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { PlanReview } from "./plan-review";
@@ -40,7 +41,6 @@ const STATUS_TONE: Record<RunRow["status"], Tone> = {
   failed: "red",
   rolled_back: "gray",
 };
-const RUN_KINDS = ["employees", "attendance"] as const;
 const TRIGGERS = ["manual", "schedule"] as const;
 
 /** Значение из списка или null: так строка из базы сужается до известного типа. */
@@ -97,6 +97,9 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
 
   const planned = plannedRunId(entry);
   const canOpenPlan = planned != null && planned !== runId && !busy && !start.isPending;
+  // Применённый или откатанный план: после перезагрузки его итог открывается отдельной кнопкой.
+  const finished = resultRunId(entry);
+  const canOpenResult = finished != null && finished !== runId && !busy && !start.isPending;
 
   return (
     <article aria-labelledby={headingId} className="space-y-4 rounded-md border p-4">
@@ -123,6 +126,11 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
           {canOpenPlan && (
             <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setRunId(planned)}>
               {t("card.openPlan")}
+            </Button>
+          )}
+          {canOpenResult && (
+            <Button type="button" variant="outline" className="h-11 w-full sm:w-auto" onClick={() => setRunId(finished)}>
+              {t("card.openResult")}
             </Button>
           )}
           <Button
@@ -161,40 +169,40 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
   );
 }
 
-/** Строка последнего прогона из статуса: вид, статус, источник, время и причина остановки или ошибка. */
+/**
+ * «Последний прогон» по видам: проверка сотрудников и синхронизация посещаемости — каждая своей
+ * строкой (статус, источник, время) с причиной остановки или ошибкой (lastRunLines). Упавшая
+ * синхронизация посещаемости получает тексты блока посещаемости, а не проверки сотрудников.
+ */
 function LastRun({ entry, trackedId }: { entry: WorklyStatusEntry; trackedId: string | null }) {
   const t = useTranslations("kpiScreens.workly");
-  const text = useWorklyText();
-  const last = entry.last_run;
-  if (!last) return <p className="text-sm text-muted-foreground">{t("card.noRuns")}</p>;
-  // Ошибку и причину отслеживаемого прогона показывает его блок ниже: не повторяем.
-  const own = last.id === trackedId;
-  // В статусе вид, источник и статус — строки из базы: незнакомое значение показывается как есть.
-  const status = oneOf(RUN_STATUSES, last.status);
-  const kind = oneOf(RUN_KINDS, last.kind);
-  const trigger = oneOf(TRIGGERS, last.trigger);
+  const lines = lastRunLines(entry, trackedId);
+  if (lines.length === 0) return <p className="text-sm text-muted-foreground">{t("card.noRuns")}</p>;
   return (
-    <div className="space-y-1 text-sm">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-muted-foreground">{t("card.lastRun")}</span>
-        <KpiBadge tone={status ? STATUS_TONE[status] : "gray"}>{status ? t(`card.status.${status}`) : last.status}</KpiBadge>
-        <span className="break-words">
-          {t("card.runLine", {
-            kind: kind ? t(`card.kind.${kind}`) : last.kind,
-            trigger: trigger ? t(`card.trigger.${trigger}`) : last.trigger,
-            time: formatTashkent(last.created_at),
-          })}
-        </span>
-      </div>
-      {last.kind === "attendance" && last.status === "running" && (
-        <p className="text-muted-foreground">{t("card.attendanceRunning")}</p>
-      )}
-      {!own && last.status === "blocked" && <p className="text-amber-700">{text.blocked(last.block_reason)}</p>}
-      {/* Упавшая синхронизация посещаемости — тексты блока посещаемости, а не проверки сотрудников. */}
-      {!own && last.status === "failed" && (
-        <p className="text-destructive">{t(lastRunErrorKey(last) ?? "errors.unknown")}</p>
-      )}
-    </div>
+    <ul className="space-y-2 text-sm">
+      {lines.map(({ kind, run, note }) => {
+        // В статусе источник и статус — строки из базы: незнакомое значение показывается как есть.
+        const status = oneOf(RUN_STATUSES, run.status);
+        const trigger = oneOf(TRIGGERS, run.trigger);
+        return (
+          <li key={kind} className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-muted-foreground">{t("card.lastRunOf", { kind: t(`card.kind.${kind}`) })}</span>
+              <KpiBadge tone={status ? STATUS_TONE[status] : "gray"}>{status ? t(`card.status.${status}`) : run.status}</KpiBadge>
+              <span className="break-words">
+                {t("card.runWhen", {
+                  trigger: trigger ? t(`card.trigger.${trigger}`) : run.trigger,
+                  time: formatTashkent(run.created_at),
+                })}
+              </span>
+            </div>
+            {note?.type === "attendanceRunning" && <p className="text-muted-foreground">{t("card.attendanceRunning")}</p>}
+            {note?.type === "blocked" && <p className="text-amber-700">{t(note.key)}</p>}
+            {note?.type === "error" && <p className="text-destructive">{t(note.key)}</p>}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 

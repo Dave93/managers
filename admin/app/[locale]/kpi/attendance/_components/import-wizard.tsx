@@ -13,7 +13,6 @@ import {
   type AttendanceImportRow,
   type AttendanceParseResponse,
   type UnmatchedRow,
-  type WorklyStatusEntry,
 } from "@admin/lib/kpi-api";
 import {
   COMMIT_ISSUE_KEY,
@@ -36,6 +35,7 @@ import { KpiApiError, kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL } from "@admin/lib/kpi/filters";
 import { monthLabel } from "@admin/lib/kpi/periods";
 import { qk } from "../../_components/use-kpi";
+import { useWorklyStatus } from "../../workly/_components/use-workly-status";
 import { ImportResult } from "./import-result";
 
 const MAX_HEADER_ROW = 20;
@@ -67,11 +67,7 @@ export function ImportWizard({ period }: { period: string }) {
   const organizationHintId = useId();
 
   // Организации — подключения Workly с найденной в базе организацией (та же загрузка, что на экране Workly).
-  const status = useQuery<WorklyStatusEntry[], Error>({
-    queryKey: qk.worklyStatus,
-    queryFn: () => kpiApi.workly.status(),
-    retry: shouldRetry,
-  });
+  const status = useWorklyStatus();
   const options = useMemo(() => organizationOptions(status.data), [status.data]);
   // Выбранная организация, пропавшая из обновлённого списка, считается невыбранной.
   const chosen = options.find((o) => o.id === organizationId) ?? null;

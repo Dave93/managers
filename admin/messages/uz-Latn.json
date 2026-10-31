@@ -3120,8 +3120,9 @@
         "noOrganization": "Tashkilot topilmadi",
         "noOrganizationHint": "Bu ulanishning tashkiloti bazada yo'q, tekshirish mavjud emas",
         "lastRun": "Oxirgi ishga tushirish:",
+        "lastRunOf": "Oxirgi ishga tushirish ({kind}):",
         "noRuns": "Hali ishga tushirishlar bo'lmagan",
-        "runLine": "{kind}, {trigger}, {time}",
+        "runWhen": "{trigger}, {time}",
         "kind": {
           "employees": "xodimlar",
           "attendance": "davomat"
@@ -3142,6 +3143,7 @@
         "check": "Tekshirish",
         "checkAria": "Xodimlarni tekshirish: {name}",
         "openPlan": "Rejani ochish",
+        "openResult": "Natijani ochish",
         "running": "Workly'dan ma'lumotlar yig'ilmoqda, taxminan ikki daqiqa",
         "slow": "Odatdagidan uzoqroq davom etmoqda",
         "stuck": "Tekshirish qotib qoldi (worker javob bermayapti). «Tekshirish» tugmasini bosing: qotib qolgan tekshirish o'zi yopiladi",

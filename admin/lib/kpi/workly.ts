@@ -106,10 +106,15 @@ export const WORKLY_ERROR_CODES = [
 
 const ERROR_CODES: ReadonlySet<string> = new Set(WORKLY_ERROR_CODES);
 
+/** Код из WORKLY_ERROR_CODES: у него есть свой текст `workly.errors.<код>`. */
+export function isWorklyErrorCode(code: string | null | undefined): boolean {
+  return code != null && ERROR_CODES.has(code);
+}
+
 /** Ключ текста ошибки подключения или прогона по коду: известный код → `workly.errors.<код>`, прочий → `workly.errors.unknown`, null → null. */
 export function connectionErrorKey(code: string | null | undefined): string | null {
   if (code == null) return null;
-  return ERROR_CODES.has(code) ? `workly.errors.${code}` : "workly.errors.unknown";
+  return isWorklyErrorCode(code) ? `workly.errors.${code}` : "workly.errors.unknown";
 }
 
 // Record<BlockReason, true> привязан к типу бэкенда (guards.ts): новая или удалённая причина там даёт ошибку сборки здесь.
@@ -135,11 +140,6 @@ export function blockReasonKey(reason: string | null | undefined): string | null
 /** Обход Workly ещё идёт (70–100 секунд в фоне). */
 export function isRunning(run: { status: string } | null | undefined): boolean {
   return run?.status === "running";
-}
-
-/** Прогон завершился ошибкой: код лежит в run.error, кнопку можно нажать снова. */
-export function isFailed(run: { status: string } | null | undefined): boolean {
-  return run?.status === "failed";
 }
 
 /** Период опроса прогона в мс для refetchInterval: 2 секунды, пока идёт обход, иначе опрос выключен. */

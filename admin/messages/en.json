@@ -3120,8 +3120,9 @@
         "noOrganization": "Organization not found",
         "noOrganizationHint": "This connection's organization is not in the database, so the check is unavailable",
         "lastRun": "Last run:",
+        "lastRunOf": "Last run ({kind}):",
         "noRuns": "No runs yet",
-        "runLine": "{kind}, {trigger}, {time}",
+        "runWhen": "{trigger}, {time}",
         "kind": {
           "employees": "employees",
           "attendance": "attendance"
@@ -3142,6 +3143,7 @@
         "check": "Check",
         "checkAria": "Check employees: {name}",
         "openPlan": "Open plan",
+        "openResult": "Open result",
         "running": "Crawling Workly, about two minutes",
         "slow": "Taking longer than usual",
         "stuck": "The check is stuck (the worker is not responding). Click \"Check\": the stuck check will close by itself",

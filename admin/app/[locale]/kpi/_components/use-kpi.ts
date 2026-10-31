@@ -54,8 +54,6 @@ export const qk = {
   revenuePlans: (period: string) => ["kpi_revenue_plans", period] as const,
   sanitaryAll: ["kpi_sanitary"] as const,
   sanitaryTemplate: ["kpi_sanitary_template"] as const,
-  /** Всё про Workly — сбрасывается по префиксу. */
-  worklyAll: ["kpi_workly"] as const,
   worklyStatus: ["kpi_workly", "status"] as const,
   worklyRun: (id: string) => ["kpi_workly", "run", id] as const,
   worklyLocations: (orgId: string) => ["kpi_workly", "locations", orgId] as const,

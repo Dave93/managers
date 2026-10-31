@@ -109,8 +109,6 @@ export type {
   WorklyStatusEntry,
   WorklyTerminalRow,
 };
-/** Последний прогон в статусе подключения (без плана). */
-export type WorklyLastRun = NonNullable<WorklyStatusEntry["last_run"]>;
 /** Итог «Применить»: сколько применено и какие пункты пропущены (причины excluded / stale / conflict). */
 export type WorklyApplyResult = Awaited<ReturnType<typeof applyRun>>;
 /** Качество посещаемости за месяц: филиалы с выбросами, прогульщики и имена сотрудников. */

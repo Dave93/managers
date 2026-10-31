@@ -4,12 +4,11 @@
 // раздела: у каждого раздела свой, и обновление статуса его не сбрасывает.
 
 import React, { useId, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
-import { kpiApi, type WorklyStatusEntry } from "@admin/lib/kpi-api";
-import { kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
-import { qk } from "../../_components/use-kpi";
+import type { WorklyStatusEntry } from "@admin/lib/kpi-api";
+import { kpiErrorText } from "@admin/lib/kpi/errors";
+import { useWorklyStatus } from "./use-workly-status";
 
 /** Подключение, организация которого найдена в базе. */
 export type ConnectedEntry = WorklyStatusEntry & { organization_id: string };
@@ -47,11 +46,7 @@ export function WithOrganization({
   const tc = useTranslations("kpiScreens.common");
   const tk = useTranslations("kpi");
   const labelId = useId();
-  const status = useQuery<WorklyStatusEntry[], Error>({
-    queryKey: qk.worklyStatus,
-    queryFn: () => kpiApi.workly.status(),
-    retry: shouldRetry,
-  });
+  const status = useWorklyStatus();
   const entries = useMemo(
     () => (status.data ?? []).filter((e): e is ConnectedEntry => e.organization_id != null),
     [status.data]

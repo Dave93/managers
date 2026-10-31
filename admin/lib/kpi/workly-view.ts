@@ -7,7 +7,7 @@ import type { AttendanceImportRow } from "@backend/modules/kpi/types";
 import type { EmployeeFields, PlanItem, PlanKind } from "@backend/modules/workly/plan";
 import type { RunRow } from "@backend/modules/workly/runs";
 import { KpiApiError } from "./errors";
-import { PLAN_GROUP_ORDER, WORKLY_ERROR_CODES, connectionErrorKey, effectiveCounts } from "./workly";
+import { PLAN_GROUP_ORDER, blockReasonKey, connectionErrorKey, effectiveCounts, isWorklyErrorCode } from "./workly";
 
 /** Сколько строк группы видно до «Показать все»: в группе Les Ailes бывают сотни пунктов. */
 export const GROUP_PAGE = 50;
@@ -223,19 +223,26 @@ export function plannedRunId(entry: EmployeesRunLike): string | null {
   return r && r.kind === "employees" && r.status === "planned" ? r.id : null;
 }
 
+/**
+ * Применённый или откатанный последний прогон сотрудников: его итог открывается кнопкой «Открыть итог»
+ * (после перезагрузки страницы, когда карточка ни за каким прогоном не следит).
+ */
+export function resultRunId(entry: EmployeesRunLike): string | null {
+  const r = entry.last_employees_run;
+  return r && r.kind === "employees" && (r.status === "applied" || r.status === "rolled_back") ? r.id : null;
+}
+
 /** Ключ от `kpiScreens` (`workly.errors.x`, его отдают connectionErrorKey и blockReasonKey) → ключ от `kpiScreens.workly`. */
 export function inWorkly(key: string): string {
   return key.startsWith("workly.") ? key.slice("workly.".length) : key;
 }
-
-const ERROR_CODES: ReadonlySet<string> = new Set(WORKLY_ERROR_CODES);
 
 /**
  * Ключ текста ошибки ответа маршрута /workly/* от `kpiScreens.workly`: известный код → `errors.<код>`.
  * Прочее (сеть, права, 5xx) → null: для них есть общий текст kpiErrorText.
  */
 export function worklyErrorKey(e: unknown): string | null {
-  if (!(e instanceof KpiApiError) || !ERROR_CODES.has(e.code)) return null;
+  if (!(e instanceof KpiApiError) || !isWorklyErrorCode(e.code)) return null;
   const key = connectionErrorKey(e.code);
   return key ? inWorkly(key) : null;
 }
@@ -323,6 +330,39 @@ export function lastRunErrorKey(run: { kind: string; error: string | null } | nu
   if (run?.error == null) return null;
   const own = run.kind === "attendance" ? attendanceErrorKey(run.error) : null;
   return own ?? inWorkly(connectionErrorKey(run.error) ?? "workly.errors.unknown");
+}
+
+/** Пояснение под строкой последнего прогона; key — от `kpiScreens.workly`. */
+export type LastRunNote = { type: "blocked"; key: string } | { type: "error"; key: string } | { type: "attendanceRunning" };
+
+export type LastRunLine<R> = { kind: "employees" | "attendance"; run: R; note: LastRunNote | null };
+
+type LastRunRow = { id: string; kind: string; status: string; error: string | null; block_reason: string | null };
+
+/**
+ * Строки «Последний прогон» карточки подключения: по одной на вид (сначала проверка сотрудников,
+ * затем синхронизация посещаемости), вида без прогонов нет. Каждая строка берётся из своего поля
+ * статуса (R35), поэтому более новый прогон другого вида её не прячет: ночная остановка проверки
+ * (спека 5.8, тревога) видна и после синхронизации посещаемости, и наоборот.
+ * Ошибку и причину остановки проверки, за которой карточка уже следит (trackedId), показывает
+ * её блок ниже: у этой строки пояснения нет.
+ */
+export function lastRunLines<R extends LastRunRow>(
+  entry: { last_employees_run: R | null; last_attendance_run: R | null },
+  trackedId: string | null
+): LastRunLine<R>[] {
+  const out: LastRunLine<R>[] = [];
+  const e = entry.last_employees_run;
+  if (e) out.push({ kind: "employees", run: e, note: e.id === trackedId ? null : runNote(e) });
+  const a = entry.last_attendance_run;
+  if (a) out.push({ kind: "attendance", run: a, note: a.status === "running" ? { type: "attendanceRunning" } : runNote(a) });
+  return out;
+}
+
+function runNote(run: LastRunRow): LastRunNote | null {
+  if (run.status === "blocked") return { type: "blocked", key: inWorkly(blockReasonKey(run.block_reason) ?? "workly.blocked.unknown") };
+  if (run.status === "failed") return { type: "error", key: lastRunErrorKey(run) ?? "errors.unknown" };
+  return null;
 }
 
 export type AttendanceResultKey = "days" | "unknown" | "carried";

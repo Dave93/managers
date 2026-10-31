@@ -1,15 +1,13 @@
 "use client";
 import React from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
-import { kpiApi, type WorklyStatusEntry } from "@admin/lib/kpi-api";
-import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
+import { kpiErrorText, loadErrors } from "@admin/lib/kpi/errors";
 import { ScreenGate } from "../_components/screen-gate";
 import { StaleNote } from "../_components/stale-note";
-import { qk } from "../_components/use-kpi";
 import { AttendanceSection } from "./_components/attendance-sync";
 import { ConnectionCard } from "./_components/connection-card";
 import { LocationsSection } from "./_components/locations-table";
+import { useWorklyStatus } from "./_components/use-workly-status";
 
 export default function WorklyPage() {
   return (
@@ -43,11 +41,7 @@ function ConnectionsSection() {
   const t = useTranslations("kpiScreens.workly");
   const tc = useTranslations("kpiScreens.common");
   const tk = useTranslations("kpi");
-  const status = useQuery<WorklyStatusEntry[], Error>({
-    queryKey: qk.worklyStatus,
-    queryFn: () => kpiApi.workly.status(),
-    retry: shouldRetry,
-  });
+  const status = useWorklyStatus();
   const { blocking, stale } = loadErrors(status);
   const entries = status.data ?? [];
 

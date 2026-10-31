@@ -17,7 +17,9 @@ import {
   formatShare,
   impliedSkips,
   inWorkly,
+  lastRunLines,
   plannedRunId,
+  resultRunId,
   resumeAttendanceRun,
   resumeRunId,
   runStaleness,
@@ -333,6 +335,102 @@ describe("resumeRunId / plannedRunId", () => {
 
   it("RUN_STATUSES — все статусы прогона", () => {
     expect([...RUN_STATUSES].sort()).toEqual(["applied", "blocked", "failed", "planned", "rolled_back", "running"]);
+  });
+});
+
+describe("resultRunId", () => {
+  it("применённый или откатанный последний прогон сотрудников открывается кнопкой «Открыть итог»", () => {
+    expect(resultRunId(statusEntry({ employees: emp("r1", "applied") }))).toBe("r1");
+    expect(resultRunId(statusEntry({ employees: emp("r2", "rolled_back") }))).toBe("r2");
+  });
+
+  it("прочие статусы, одна посещаемость и пустой статус — null", () => {
+    for (const status of ["running", "planned", "failed", "blocked"]) expect(resultRunId(statusEntry({ employees: emp("r3", status) }))).toBeNull();
+    expect(resultRunId(statusEntry({ attendance: att("a1", "applied") }))).toBeNull();
+    expect(resultRunId(statusEntry({}))).toBeNull();
+  });
+
+  it("синхронизация посещаемости новее применённого плана: итог по-прежнему открывается", () => {
+    const e = statusEntry({ employees: emp("r4", "applied"), attendance: att("a4", "failed"), newest: "attendance" });
+    expect(e.last_run?.kind).toBe("attendance");
+    expect(resultRunId(e)).toBe("r4");
+  });
+});
+
+describe("lastRunLines", () => {
+  type Full = {
+    id: string;
+    kind: "employees" | "attendance";
+    status: string;
+    error: string | null;
+    block_reason: string | null;
+    created_at: string;
+  };
+  const run = (p: Partial<Full> & Pick<Full, "id" | "kind" | "status">): Full => ({
+    error: null,
+    block_reason: null,
+    created_at: "2026-10-31T08:00:00.000Z",
+    ...p,
+  });
+  // last_run — новейший прогон любого вида, как в GET /workly/status.
+  const entry = (e: Full | null, a: Full | null) => {
+    const newest = [e, a].filter((r): r is Full => r != null).sort((x, y) => y.created_at.localeCompare(x.created_at))[0] ?? null;
+    return { last_run: newest, last_employees_run: e, last_attendance_run: a };
+  };
+  const nightly = run({ id: "e1", kind: "employees", status: "blocked", block_reason: "too_many_deactivations", created_at: "2026-10-30T22:30:00.000Z" });
+  const synced = run({ id: "a1", kind: "attendance", status: "applied", created_at: "2026-10-31T09:00:00.000Z" });
+
+  it("blocked employees run older than applied attendance run still shown", () => {
+    const ent = entry(nightly, synced);
+    expect(ent.last_run?.id).toBe("a1");
+    const lines = lastRunLines(ent, null);
+    expect(lines.map((l) => [l.kind, l.run.id])).toEqual([
+      ["employees", "e1"],
+      ["attendance", "a1"],
+    ]);
+    expect(lines[0]!.note).toEqual({ type: "blocked", key: "blocked.too_many_deactivations" });
+    expect(lines[1]!.note).toBeNull();
+  });
+
+  it("failed attendance run older than a ready employees plan still shown, with the attendance text", () => {
+    const failed = run({ id: "a2", kind: "attendance", status: "failed", error: "empty_crawl", created_at: "2026-10-31T07:00:00.000Z" });
+    const planned = run({ id: "e2", kind: "employees", status: "planned", created_at: "2026-10-31T10:00:00.000Z" });
+    const lines = lastRunLines(entry(planned, failed), null);
+    expect(lines.map((l) => l.kind)).toEqual(["employees", "attendance"]);
+    expect(lines[0]!.note).toBeNull();
+    expect(lines[1]!.note).toEqual({ type: "error", key: "attendance.errors.empty_crawl" });
+  });
+
+  it("a kind with no run shows nothing for that kind", () => {
+    expect(lastRunLines(entry(null, null), null)).toEqual([]);
+    expect(lastRunLines(entry(null, synced), null).map((l) => l.kind)).toEqual(["attendance"]);
+    expect(lastRunLines(entry(nightly, null), null).map((l) => l.kind)).toEqual(["employees"]);
+  });
+
+  it("ошибку и причину прогона сотрудников, за которым следит карточка, строка не повторяет", () => {
+    const failed = run({ id: "e3", kind: "employees", status: "failed", error: "company_mismatch" });
+    expect(lastRunLines(entry(failed, null), null)[0]!.note).toEqual({ type: "error", key: "errors.company_mismatch" });
+    expect(lastRunLines(entry(failed, null), "e3")[0]!.note).toBeNull();
+    expect(lastRunLines(entry(nightly, null), "e1")[0]!.note).toBeNull();
+    // Карточка следит только за проверкой сотрудников: id чужого вида ничего не прячет.
+    const attFailed = run({ id: "a3", kind: "attendance", status: "failed", error: "stale" });
+    expect(lastRunLines(entry(null, attFailed), "a3")[0]!.note).toEqual({ type: "error", key: "attendance.errors.stale" });
+  });
+
+  it("идущая синхронизация посещаемости, ошибка без кода и незнакомая причина остановки", () => {
+    expect(lastRunLines(entry(null, run({ id: "a4", kind: "attendance", status: "running" })), null)[0]!.note).toEqual({
+      type: "attendanceRunning",
+    });
+    expect(lastRunLines(entry(run({ id: "e4", kind: "employees", status: "failed" }), null), null)[0]!.note).toEqual({
+      type: "error",
+      key: "errors.unknown",
+    });
+    expect(
+      lastRunLines(entry(run({ id: "e5", kind: "employees", status: "blocked", block_reason: "что-то новое" }), null), null)[0]!.note
+    ).toEqual({ type: "blocked", key: "blocked.unknown" });
+    for (const status of ["running", "planned", "applied", "rolled_back"]) {
+      expect(lastRunLines(entry(run({ id: "e6", kind: "employees", status }), null), null)[0]!.note).toBeNull();
+    }
   });
 });
 
