@@ -434,6 +434,13 @@ const worklyRoutes = new Elysia({ name: "@api/workly/routes" })
     { permission: "kpi.manage", query: t.Object({ organization_id: Uuid, period: t.Optional(t.String()) }) }
   );
 
+// Типы ответов для админки (`import type`: в рантайм ничего не попадает). Выведены из самих
+// функций маршрутов, поэтому не расходятся с ответом сервера.
+export type WorklyStatusEntry = Awaited<ReturnType<typeof statusOf>>[number];
+export type WorklyLocationRow = Awaited<ReturnType<typeof locationsOf>>[number];
+export type WorklyPersonRow = Awaited<ReturnType<typeof search>>[number];
+export type WorklyRunStarted = Awaited<ReturnType<typeof startSync>>;
+
 const worklyControllerImpl = new Elysia({ name: "@api/workly", prefix: "/api" })
   .use(ctx)
   .guard({ detail: { hide: true } })
