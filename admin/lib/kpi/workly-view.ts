@@ -40,6 +40,25 @@ export function skippedGroups<T extends { key: string }>(skipped: readonly T[]):
   return [...byTail.values()];
 }
 
+/**
+ * Переносы, которые пропустятся сами, хотя их не исключали: applyRun пропускает move сотрудника,
+ * чья связь по имени (link или relink) не применилась, иначе человек уехал бы в филиал
+ * неподтверждённой записи. Здесь предсказуем только случай «связь исключена вручную».
+ * Пара ищется по employee_id; reactivate и update перенос не тянут. Уже исключённые переносы не входят.
+ */
+export function impliedSkips(items: readonly PlanItem[], excluded: ReadonlySet<string>): Set<string> {
+  const unlinked = new Set<string>();
+  for (const it of items) {
+    if ((it.kind === "link" || it.kind === "relink") && it.employee_id && excluded.has(it.key)) unlinked.add(it.employee_id);
+  }
+  const out = new Set<string>();
+  if (unlinked.size === 0) return out;
+  for (const it of items) {
+    if (it.kind === "move" && it.employee_id && unlinked.has(it.employee_id) && !excluded.has(it.key)) out.add(it.key);
+  }
+  return out;
+}
+
 export type ConfirmSummary = {
   /** Ненулевые виды в порядке PLAN_GROUP_ORDER. */
   lines: { kind: PlanKind; count: number }[];

@@ -7,6 +7,7 @@ import {
   RUN_STATUSES,
   changeSummary,
   confirmSummary,
+  impliedSkips,
   inWorkly,
   plannedRunId,
   resumeRunId,
@@ -85,6 +86,53 @@ describe("skippedGroups", () => {
   it("ключ без двоеточия — отдельная группа; пустой список — пусто", () => {
     expect(skippedGroups([{ key: "odd", reason: "stale" }])).toEqual([[{ key: "odd", reason: "stale" }]]);
     expect(skippedGroups([])).toEqual([]);
+  });
+});
+
+describe("impliedSkips", () => {
+  const A = "emp-A";
+  const B = "emp-B";
+  const pi = (key: string, kind: PlanKind, employee_id: string | null): PlanItem => ({
+    key,
+    kind,
+    employee_id,
+    workly_id: 1,
+    label: key,
+    before: null,
+    after: {},
+  });
+  const items = [
+    pi(`link:${A}`, "link", A),
+    pi(`move:${A}`, "move", A),
+    pi(`link:${B}`, "link", B),
+    pi(`move:${B}`, "move", B),
+  ];
+
+  it("исключённая связь тянет за собой перенос того же сотрудника", () => {
+    expect([...impliedSkips(items, new Set([`link:${A}`]))]).toEqual([`move:${A}`]);
+  });
+
+  it("relink тоже тянет перенос", () => {
+    const list = [pi(`relink:${A}`, "relink", A), pi(`move:${A}`, "move", A)];
+    expect([...impliedSkips(list, new Set([`relink:${A}`]))]).toEqual([`move:${A}`]);
+  });
+
+  it("reactivate и update перенос не тянут (бэкенд связывает перенос только с link/relink)", () => {
+    const list = [pi(`reactivate:${A}`, "reactivate", A), pi(`update:${B}`, "update", B), pi(`move:${A}`, "move", A), pi(`move:${B}`, "move", B)];
+    expect([...impliedSkips(list, new Set([`reactivate:${A}`, `update:${B}`]))]).toEqual([]);
+  });
+
+  it("перенос, уже исключённый вручную, не повторяется", () => {
+    expect([...impliedSkips(items, new Set([`link:${A}`, `move:${A}`]))]).toEqual([]);
+  });
+
+  it("пара ищется по employee_id, а не по ключу", () => {
+    const list = [pi("link:odd-key", "link", A), pi("move:other-key", "move", A), pi("move:x", "move", null)];
+    expect([...impliedSkips(list, new Set(["link:odd-key"]))]).toEqual(["move:other-key"]);
+  });
+
+  it("без исключений — пусто", () => {
+    expect(impliedSkips(items, new Set()).size).toBe(0);
   });
 });
 

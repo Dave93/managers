@@ -26,6 +26,7 @@ import {
   GROUP_PAGE,
   changeSummary,
   confirmSummary,
+  impliedSkips,
   shortId,
   skippedGroups,
   visibleItems,
@@ -71,8 +72,18 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   const latch = useRef(false);
 
   const activeExcluded = editable ? excluded : NO_EXCLUSIONS;
+  // Переносы, которые бэкенд пропустит вместе с исключённой связью: в счётчиках и
+  // подтверждении их нет. В apply уходит только то, что исключил человек.
+  const implied = useMemo(
+    () => (activeExcluded.size > 0 ? impliedSkips(items, activeExcluded) : NO_EXCLUSIONS),
+    [items, activeExcluded]
+  );
+  const notApplied = useMemo(
+    () => (implied.size > 0 ? new Set([...activeExcluded, ...implied]) : activeExcluded),
+    [activeExcluded, implied]
+  );
   const groups = useMemo(() => groupPlan(items), [items]);
-  const counts = useMemo(() => effectiveCounts(items, activeExcluded), [items, activeExcluded]);
+  const counts = useMemo(() => effectiveCounts(items, notApplied), [items, notApplied]);
   const summary = confirmSummary(counts, activeExcluded.size);
   const byKey = useMemo(() => new Map(items.map((it) => [it.key, it])), [items]);
 
@@ -198,7 +209,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
       {groups.length > 0 && (
         <div className="space-y-2">
           {groups.map((g) => {
-            const off = editable ? countExcluded(g.items, excluded) : 0;
+            const off = editable ? countExcluded(g.items, notApplied) : 0;
             return (
               <Group
                 key={g.kind}
@@ -212,6 +223,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
                     item={it}
                     editable={editable}
                     excluded={excluded.has(it.key)}
+                    implied={implied.has(it.key)}
                     onToggle={onToggle}
                     describe={describe}
                   />
@@ -352,6 +364,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
             </p>
           )}
           {summary.excluded > 0 && <p className="text-sm">{t("confirm.excluded", { count: summary.excluded })}</p>}
+          {implied.size > 0 && <p className="text-sm">{t("confirm.implied", { count: implied.size })}</p>}
           {apply.isPending && (
             <p role="status" className="text-sm text-muted-foreground">
               {t("confirm.submitting")}
@@ -456,30 +469,36 @@ const PlanRow = memo(function PlanRow({
   item,
   editable,
   excluded,
+  implied,
   onToggle,
   describe,
 }: {
   item: PlanItem;
   editable: boolean;
   excluded: boolean;
+  /** Перенос пропустится вместе с исключённой связью: флажок отмечен и недоступен. */
+  implied: boolean;
   onToggle: (key: string) => void;
   describe: (part: ChangePart) => string;
 }) {
   const t = useTranslations("kpiScreens.workly");
   const name = item.label || shortId(item.employee_id ?? `w${item.workly_id}`);
   const change = changeSummary(item).map(describe).join("; ");
+  const off = excluded || implied;
   return (
     <li className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
-        <p className={cn("text-sm font-medium break-words", excluded && "text-muted-foreground line-through")}>{name}</p>
+        <p className={cn("text-sm font-medium break-words", off && "text-muted-foreground line-through")}>{name}</p>
         {change && <p className="text-xs text-muted-foreground break-words">{change}</p>}
+        {editable && implied && <p className="text-xs text-amber-700">{t("plan.impliedSkip")}</p>}
       </div>
       {editable && (
-        <label className="flex min-h-11 shrink-0 cursor-pointer items-center gap-2 text-sm">
+        <label className={cn("flex min-h-11 shrink-0 items-center gap-2 text-sm", implied ? "cursor-not-allowed" : "cursor-pointer")}>
           <input
             type="checkbox"
             className="h-4 w-4"
-            checked={excluded}
+            checked={off}
+            disabled={implied}
             aria-label={t("plan.excludeAria", { name })}
             onChange={() => onToggle(item.key)}
           />
