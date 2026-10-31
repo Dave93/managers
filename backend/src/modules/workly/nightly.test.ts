@@ -1,7 +1,7 @@
 import { describe, expect, it, spyOn } from "bun:test";
 import { KpiError } from "../kpi/errors";
 import { WorklyError } from "./client";
-import { failedJobCode, handleWorklyJob, jobFailureCode, nightlySteps, WORKLY_NIGHTLY_JOB } from "./nightly";
+import { failedJobCode, handleWorklyJob, jobFailureCode, nightlySteps, WORKLY_NIGHTLY_JOB, worklyJobProcessor } from "./nightly";
 import { WORKLY_RUN_JOB } from "./queue";
 
 const conn = (key: "LES" | "CHOPAR", hasApplied: boolean, configured: boolean) => ({ key, hasApplied, configured });
@@ -214,6 +214,34 @@ describe("workly: handleWorklyJob", () => {
     const c = await quietly(() => handleWorklyJob({ name: WORKLY_RUN_JOB, data: { runId: 42 } }, h));
     expect(c.error!.message).toBe("bad_job");
     expect(calls).toBe(0);
+  });
+
+  it("worklyJobProcessor: Redis берётся внутри обработчика — сбой Redis уходит только кодом, без текста", async () => {
+    const SECRET = "ECONNREFUSED redis://user:pa55@host секрет";
+    let asked = 0;
+    const redisOf = async () => {
+      asked++;
+      throw Object.assign(new Error(SECRET), { command: { args: [SECRET] } });
+    };
+    // База не нужна: до неё обработчик не доходит.
+    const process = worklyJobProcessor({} as never, redisOf as never);
+    for (const job of [
+      { name: WORKLY_RUN_JOB, data: { runId: RUN_ID } },
+      { name: WORKLY_NIGHTLY_JOB, data: {} },
+    ]) {
+      const r = await quietly(() => process(job));
+      expect(r.error).toBeInstanceOf(Error);
+      expect(r.error!.message).toBe("job_failed");
+      expect(r.error!.stack ?? "").not.toContain("секрет");
+      expect(r.logged).not.toContain("секрет");
+      expect(r.logged).not.toContain("pa55");
+      expect(r.logged).toContain("job_failed");
+    }
+    expect(asked).toBe(2);
+    // Чужая задача отклоняется до обращения к Redis.
+    const u = await quietly(() => process({ name: "что-то-чужое", data: {} }));
+    expect(u.error!.message).toBe("unknown_job");
+    expect(asked).toBe(2);
   });
 
   it("runId не uuid в лог не попадает: прочерк", async () => {

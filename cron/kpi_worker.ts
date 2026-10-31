@@ -19,9 +19,11 @@ import { deliverOne, stuckReporter, stuckSendingCount, sweepPending } from "@bac
 import { startScheduling } from "@backend/modules/kpi/worker/boot";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
 import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
-import { WORKLY_NIGHTLY_JOB, failedJobCode, handleWorklyJob, jobFailureCode, runNightly } from "@backend/modules/workly/nightly";
+import { WORKLY_NIGHTLY_JOB, failedJobCode, jobFailureCode, worklyJobProcessor } from "@backend/modules/workly/nightly";
 import { getWorklyQueue, worklyQueueName } from "@backend/modules/workly/queue";
-import { executeRun } from "@backend/modules/workly/runs";
+
+// Redis, которого ждут прогоны Workly (тип ioredis из backend; у cron своя версия пакета).
+type WorklyRedis = Parameters<typeof worklyJobProcessor>[1] extends () => Promise<infer R> ? R : never;
 
 const api = botApi();
 if (!api) console.warn("kpi worker: KPI_BOT_TOKEN не задан — уведомления получают статус skipped (no_token)");
@@ -107,20 +109,10 @@ console.log(`kpi worker started (queue ${kpiQueueName()}, token: ${api ? "ест
 // (обходы одного клиента не должны идти параллельно, см. client.ts). Слоты доставки Telegram он не занимает.
 // Сообщения исключений ни в лог, ни в BullMQ не попадают: handleWorklyJob отдаёт только код (в базе у
 // DrizzleQueryError параметры запроса с именами сотрудников, а failedReason хранится в Redis).
+// Redis-клиент очереди берётся внутри обработчика (worklyJobProcessor), поэтому и его сбой уходит кодом.
 const worklyWorker = new Worker(
   worklyQueueName(),
-  async (job) => {
-    const redis = (await worklyQueue.client) as unknown as Parameters<typeof executeRun>[1];
-    return handleWorklyJob(job, {
-      run: (runId) => executeRun(drizzleDb, redis, runId),
-      nightly: async () => {
-        const result = await runNightly(drizzleDb, redis);
-        // Ключи и статусы, без текста ошибок.
-        console.log("workly nightly", JSON.stringify(result));
-        return result;
-      },
-    });
-  },
+  worklyJobProcessor(drizzleDb, async () => (await worklyQueue.client) as unknown as WorklyRedis),
   { connection: redisConnection(), concurrency: 1 }
 );
 

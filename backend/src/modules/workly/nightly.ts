@@ -77,6 +77,24 @@ export async function handleWorklyJob(
   }
 }
 
+/**
+ * Обработчик задач очереди Workly для воркера (cron/kpi_worker.ts). Redis-клиент очереди берётся
+ * внутри обработчиков, то есть под handleWorklyJob: его сбой (в ошибке ioredis бывают адрес и
+ * аргументы команды) уходит наружу и в лог только кодом, а не сырым текстом в failedReason BullMQ.
+ */
+export function worklyJobProcessor(db: DrizzleDB, redisOf: () => Promise<Redis>) {
+  return (job: WorklyJobLike): Promise<unknown> =>
+    handleWorklyJob(job, {
+      run: async (runId) => executeRun(db, await redisOf(), runId),
+      nightly: async () => {
+        const result = await runNightly(db, await redisOf());
+        // Ключи и статусы, без текста ошибок.
+        console.log("workly nightly", JSON.stringify(result));
+        return result;
+      },
+    });
+}
+
 // ---------- шаги ночного прогона ----------
 
 // Ночная посещаемость включается только значением "1" (прочее, включая "true", выключено).
