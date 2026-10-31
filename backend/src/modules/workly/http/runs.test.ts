@@ -238,15 +238,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     return { run_id, run: await runs.getRun(db, run_id) };
   }
 
-  const insertRun = async (org: string, o: { kind?: string; status: string; active_fetched?: number }) => {
+  // План применённого прогона сотрудников с непустым applied: только такой прогон включает
+  // ночную сверку организации (hasAppliedRun).
+  const EMPTY_REPORT = { ambiguous: [], not_found: [], no_branch: [] };
+  const appliedPlan = (applied: string[] = ["seed:applied"]) => ({ items: [], report: EMPTY_REPORT, applied, skipped: [] });
+
+  const insertRun = async (org: string, o: { kind?: string; status: string; active_fetched?: number; plan?: unknown }) => {
+    const kind = o.kind ?? "employees";
+    const plan = o.plan !== undefined ? o.plan : o.status === "applied" && kind === "employees" ? appliedPlan() : null;
     const [row] = await db
       .insert(workly_sync_runs)
       .values({
         organization_id: org,
-        kind: o.kind ?? "employees",
+        kind,
         trigger: "manual",
         status: o.status,
         active_fetched: o.active_fetched ?? 0,
+        plan,
         applied_at: o.status === "applied" ? sql`now()` : null,
       })
       .returning({ id: workly_sync_runs.id });
@@ -989,14 +997,21 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
     // ---------- syncAuto и hasAppliedRun ----------
 
-    it("hasAppliedRun: только применённый прогон сотрудников этой организации", async () => {
+    it("hasAppliedRun: только применённый прогон сотрудников этой организации, применивший хоть один пункт", async () => {
       const org = await makeOrg();
       expect(await runs.hasAppliedRun(db, org)).toBe(false);
       await insertRun(org, { kind: "attendance", status: "applied" });
-      await insertRun(org, { status: "rolled_back" });
-      await insertRun(org, { status: "planned" });
+      // Статус не applied: не в счёт, даже со списком применённых в плане.
+      for (const status of ["rolled_back", "planned", "failed", "blocked"]) {
+        await insertRun(org, { status, plan: appliedPlan(["update:x"]) });
+      }
+      // Применение, где всё исключено (applied пуст), и прогоны без списка applied ночной режим не включают.
+      await insertRun(org, { status: "applied", plan: appliedPlan([]) });
+      await insertRun(org, { status: "applied", plan: null });
+      await insertRun(org, { status: "applied", plan: { items: [], report: EMPTY_REPORT } });
+      await insertRun(org, { status: "applied", plan: { items: [], report: EMPTY_REPORT, applied: "update:x" } });
       expect(await runs.hasAppliedRun(db, org)).toBe(false);
-      await insertRun(org, { status: "applied" });
+      await insertRun(org, { status: "applied", plan: appliedPlan(["update:x"]) });
       expect(await runs.hasAppliedRun(db, org)).toBe(true);
       expect(await runs.hasAppliedRun(db, await makeOrg())).toBe(false);
     });
@@ -1033,14 +1048,77 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await snap(ids)).toEqual(before);
     });
 
-    it("syncAuto в пределах предохранителей применяет план сам", async () => {
+    it("syncAuto в пределах предохранителей применяет план сам, кроме связи по имени и её переноса", async () => {
       const w = await buildWorld();
       await insertRun(w.org, { status: "applied", active_fetched: 5 });
+      const linkBefore = await emp(w.eLink);
       const row = await runs.syncAuto(db, redis, { id: w.org, key: "LES" }, () => w.client);
       expect(row).toMatchObject({ trigger: "schedule", status: "applied", block_reason: null });
-      expect(row.plan!.applied).toHaveLength(6);
+      expect(row.plan!.applied).toHaveLength(4);
+      expect(row.plan!.skipped).toEqual([
+        { key: `link:${w.eLink}`, reason: "excluded" },
+        { key: `move:${w.eLink}`, reason: "excluded" },
+      ]);
+      expect(await emp(w.eLink)).toEqual(linkBefore);
       expect((await emp(w.eDeact)).active).toBe(false);
       expect(await createdBy(w.company, 5)).toBeDefined();
+    });
+
+    it("R36: ночью link и relink (и их переносы) ждут человека; update, create, deactivate, reactivate и отдельный move применяются", async () => {
+      const w = await buildWorld();
+      const tB = w.tB;
+      // relink: связан с уволенной записью 20, тёзка — активная запись 21 на локации 2 (филиал tB).
+      const pRe = person();
+      const eRe = await mkEmp({ p: pRe, terminal_id: w.tA, link: { company: w.company, id: 20 }, tab: "T20" });
+      // Отдельный перенос: связан с активной записью 22, её локация 2 ведёт на tB.
+      const pMove = person();
+      const eMove = await mkEmp({ p: pMove, terminal_id: w.tA, link: { company: w.company, id: 22 }, tab: "T22" });
+      const active = [...w.active, wEmp(21, pRe, { loc: 2 }), wEmp(22, pMove, { loc: 2 })];
+      const dismissed = [...w.dismissed, wDis(20, pRe)];
+      const client = fakeClient(w.company, active, dismissed, w.locations);
+      await insertRun(w.org, { status: "applied", active_fetched: active.length });
+      const before = await snap([w.eLink, eRe]);
+
+      const row = await runs.syncAuto(db, redis, { id: w.org, key: "LES" }, () => client);
+      // План содержит все виды пунктов: relink построен, а не деактивация.
+      expect(row.counts).toMatchObject({ link: 1, relink: 1, update: 1, create: 1, deactivate: 1, reactivate: 1, move: 3 });
+      expect(row).toMatchObject({ trigger: "schedule", status: "applied", block_reason: null, error: null });
+      const sorted = (xs: string[]) => [...xs].sort();
+      expect(sorted(row.plan!.applied!)).toEqual(
+        sorted([`update:${w.eUpd}`, "create:w5", `deactivate:${w.eDeact}`, `reactivate:${w.eReact}`, `move:${eMove}`])
+      );
+      const byKey = (a: { key: string }, b: { key: string }) => a.key.localeCompare(b.key);
+      expect([...row.plan!.skipped!].sort(byKey)).toEqual(
+        [`link:${w.eLink}`, `relink:${eRe}`, `move:${w.eLink}`, `move:${eRe}`].map((key) => ({ key, reason: "excluded" as const })).sort(byKey)
+      );
+      expect(await snap([w.eLink, eRe])).toEqual(before);
+      expect(await emp(eMove)).toMatchObject({ terminal_id: tB, workly_id: 22 });
+      expect(await emp(w.eUpd)).toMatchObject({ workly_tab_number: "T2" });
+      expect((await emp(w.eDeact)).active).toBe(false);
+      expect((await emp(w.eReact)).active).toBe(true);
+      expect(await createdBy(w.company, 5)).toBeDefined();
+    });
+
+    it("R36: предохранители считают и связи по имени: при превышении — blocked, ничего не применено", async () => {
+      const org = await makeOrg();
+      const company = newCompany();
+      const t = (await makeTerminal(db, { organization_id: org })).id;
+      const active: WorklyEmployee[] = [];
+      const ids: string[] = [];
+      // 51 новый сотрудник на филиале — too_many_creations, хотя рядом есть связь по имени.
+      await mapLocation(org, company, 1, t);
+      for (let k = 1; k <= 51; k++) active.push(wEmp(k, person(), { loc: 1 }));
+      const p = person();
+      ids.push(await mkEmp({ p, terminal_id: t }));
+      active.push(wEmp(100, p, { loc: 1 }));
+      await insertRun(org, { status: "applied", active_fetched: active.length });
+      const before = await snap(ids);
+      const row = await runs.syncAuto(db, redis, { id: org, key: "LES" }, () => fakeClient(company, active, [], [{ id: 1, title: "L1" }]));
+      expect(row).toMatchObject({ status: "blocked", block_reason: "too_many_creations" });
+      expect(row.counts).toMatchObject({ link: 1, create: 51 });
+      expect(row.plan!.applied).toBeUndefined();
+      expect(await snap(ids)).toEqual(before);
+      expect(await createdBy(company, 1)).toBeUndefined();
     });
 
     it("syncAuto при сбое обхода возвращает failed и ничего не применяет", async () => {
@@ -1474,7 +1552,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         await insertRun(w.org, { status: "blocked" }),
         await insertRun(w.org, { kind: "attendance", status: "applied" }),
         // applied без плана: откатывать нечего.
-        await insertRun(w.org, { status: "applied" }),
+        await insertRun(w.org, { status: "applied", plan: null }),
       ];
       const before = await snap(w.ids);
       for (const id of ids) {

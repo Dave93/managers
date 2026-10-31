@@ -654,6 +654,12 @@ export async function rollbackRun(db: DrizzleDB, runId: string): Promise<Rollbac
 
 // ---------- ночной прогон ----------
 
+/**
+ * Есть ли у организации применённый прогон сотрудников, который применил хоть один пункт
+ * (непустой plan.applied). Только такой включает ночную сверку: применение, где HR исключил
+ * всё, человеком ничего не подтвердило. Выражения jsonb не падают на плане другой формы:
+ * у не-массива `-> 0` даёт NULL.
+ */
 export async function hasAppliedRun(db: DbLike, organizationId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: workly_sync_runs.id })
@@ -662,12 +668,17 @@ export async function hasAppliedRun(db: DbLike, organizationId: string): Promise
       and(
         eq(workly_sync_runs.organization_id, organizationId),
         eq(workly_sync_runs.kind, "employees"),
-        eq(workly_sync_runs.status, "applied")
+        eq(workly_sync_runs.status, "applied"),
+        sql`jsonb_typeof(${workly_sync_runs.plan} -> 'applied') = 'array'`,
+        sql`(${workly_sync_runs.plan} -> 'applied' -> 0) IS NOT NULL`
       )
     )
     .limit(1);
   return !!row;
 }
+
+// Связи по имени, которые ночной прогон не применяет никогда: их подтверждает человек (R36).
+const HUMAN_ONLY: ReadonlySet<PlanItem["kind"]> = new Set(["link", "relink"]);
 
 // Вход предохранителей. null — какое-то из чисел не целое: это сбой, а не «можно применять».
 async function guardInput(db: DrizzleDB, run: RunRow): Promise<GuardInput | null> {
@@ -709,6 +720,9 @@ async function guardInput(db: DrizzleDB, run: RunRow): Promise<GuardInput | null
 /**
  * Ночная сверка сотрудников: строит план и применяет его сам, только если план
  * проходит предохранители (checkGuards); иначе план сохраняется со статусом blocked.
+ * Связи по имени (link, relink) ночью не применяются никогда: их ключи уходят в exclude,
+ * переносы этих сотрудников отпадают вместе с ними (R13), и всё это остаётся в plan.skipped
+ * как excluded до ручного «Проверить» и «Применить». Предохранители считают план целиком.
  * Сбой самого применения — тревога: строка уходит в failed с кодом apply_failed
  * (applyRun уже откатил всё). План, который успели применить или вытеснить, не трогается.
  */
@@ -734,8 +748,9 @@ export async function syncAuto(
     await db.update(workly_sync_runs).set({ status: "blocked", block_reason: guard.reason }).where(runIs(run_id, "planned"));
     return getRun(db, run_id);
   }
+  const humanOnly = (run.plan?.items ?? []).filter((it) => HUMAN_ONLY.has(it.kind)).map((it) => it.key);
   try {
-    await applyRun(db, run_id, [], null);
+    await applyRun(db, run_id, humanOnly, null);
   } catch (e) {
     // Применили раньше нас или план вытеснен более новым: строку не трогаем.
     if (e instanceof KpiError && (e.code === "run_not_planned" || e.code === "run_superseded")) return getRun(db, run_id);

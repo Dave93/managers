@@ -172,15 +172,22 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   let clients: Partial<Record<ConnKey, Fake>>;
 
   // Применённый прогон сотрудников: без него ночная сверка не запускается (первый прогон ручной).
+  // В плане непустой applied: применение, где всё исключено, ночной режим не включает.
   const insertRun = async (org: string, o: { status: string; kind?: string; active_fetched?: number }) => {
+    const kind = o.kind ?? "employees";
+    const plan =
+      o.status === "applied" && kind === "employees"
+        ? { items: [], report: { ambiguous: [], not_found: [], no_branch: [] }, applied: ["seed:applied"], skipped: [] }
+        : null;
     const [row] = await db
       .insert(workly_sync_runs)
       .values({
         organization_id: org,
-        kind: o.kind ?? "employees",
+        kind,
         trigger: "manual",
         status: o.status,
         active_fetched: o.active_fetched ?? 2,
+        plan,
         applied_at: o.status === "applied" ? sql`now()` : null,
       })
       .returning({ id: workly_sync_runs.id });
@@ -272,7 +279,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await emp(worlds.LES.eName)).workly_id).toBeNull();
     });
 
-    it("(2) с применённым прогоном и чистым планом план применяется сам; второе подключение без прогона пропущено", async () => {
+    it("(2) с применённым прогоном план применяется сам, но связь по имени ждёт человека; второе подключение без прогона пропущено", async () => {
       await insertRun(worlds.LES.org, { status: "applied" });
       const { value } = await nightly();
       expect(value).toEqual([
@@ -281,9 +288,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       ]);
       const row = (await runsOf(worlds.LES.org, "employees")).find((r) => r.trigger === "schedule");
       expect(row).toMatchObject({ trigger: "schedule", status: "applied" });
-      const linked = await emp(worlds.LES.eName);
-      expect(linked.workly_id).toBe(1);
-      expect(linked.workly_company_id).toBe(worlds.LES.company);
+      // Связь по имени ночью исключается (R36); остальные пункты применены.
+      const plan = row!.plan as { applied: string[]; skipped: unknown[] };
+      expect(plan.applied).not.toContain(`link:${worlds.LES.eName}`);
+      expect(plan.skipped).toEqual([{ key: `link:${worlds.LES.eName}`, reason: "excluded" }]);
+      expect((await emp(worlds.LES.eName)).workly_id).toBeNull();
       expect((await emp(worlds.CHOPAR.eName)).workly_id).toBeNull();
     });
 
@@ -314,7 +323,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(JSON.stringify(failed)).not.toContain(SECRET);
       expect(out).not.toContain(SECRET);
       expect(out).not.toContain("Иванов");
-      expect((await emp(worlds.LES.eName)).workly_id).toBe(1);
+      // LES применён, но связь по имени ночью не ставится (R36).
+      expect((await emp(worlds.LES.eName)).workly_id).toBeNull();
     });
 
     it("(3b) исключение, вылетевшее из шага подключения, даёт error для него одного; в лог — только ключ и код", async () => {
