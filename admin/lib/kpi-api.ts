@@ -145,7 +145,8 @@ export type RevenuePlanItem = { terminal_id: string; amount: number | null };
 export type SanitaryCreate = { terminal_id: string; items: SanitaryItem[]; comment?: string };
 export type SanitaryQuery = { period: string; terminal_id?: string };
 export type WorklyLinkBody = { organization_id: string; employee_id: string; workly_id: number };
-export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
+// organization_id обязателен: без него бэкенд отвечает 422 organization_required.
+export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping; organization_id: string };
 
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
 // react-query посчитал бы 409/422 успехом.

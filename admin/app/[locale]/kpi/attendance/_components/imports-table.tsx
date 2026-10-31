@@ -1,11 +1,11 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@admin/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
-import { kpiApi, type AttendanceImportRow } from "@admin/lib/kpi-api";
-import { IMPORT_STATUS } from "@admin/lib/kpi/attendance";
+import { kpiApi, type AttendanceImportRow, type WorklyStatusEntry } from "@admin/lib/kpi-api";
+import { IMPORT_STATUS, organizationOptions } from "@admin/lib/kpi/attendance";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { KpiBadge } from "../../_components/kpi-badge";
@@ -22,6 +22,14 @@ export function ImportsTable({ period }: { period: string }) {
     queryFn: () => kpiApi.attendance.imports(period),
     retry: shouldRetry,
   });
+  // Названия организаций берём из статуса Workly; пока он не пришёл или без организации — прочерк.
+  const status = useQuery<WorklyStatusEntry[], Error>({
+    queryKey: qk.worklyStatus,
+    queryFn: () => kpiApi.workly.status(),
+    retry: shouldRetry,
+  });
+  const orgNames = useMemo(() => new Map(organizationOptions(status.data).map((o) => [o.id, o.name])), [status.data]);
+  const orgName = (id: string | null) => (id != null ? orgNames.get(id) ?? null : null);
   // Храним id: после повторной загрузки список обновляется, и диалог берёт свежую строку.
   const [openId, setOpenId] = useState<string | null>(null);
   const rows = list.data ?? [];
@@ -47,6 +55,8 @@ export function ImportsTable({ period }: { period: string }) {
             <TableHeader>
               <TableRow>
                 <TableHead>{t("colUploaded")}</TableHead>
+                <TableHead>{t("colOrganization")}</TableHead>
+                <TableHead>{t("colSource")}</TableHead>
                 <TableHead>{t("colFile")}</TableHead>
                 <TableHead>{t("colSheet")}</TableHead>
                 <TableHead>{t("colWho")}</TableHead>
@@ -72,8 +82,10 @@ export function ImportsTable({ period }: { period: string }) {
                   }}
                 >
                   <TableCell className="whitespace-nowrap">{formatTashkent(r.created_at)}</TableCell>
+                  <TableCell>{orgName(r.organization_id) ?? "—"}</TableCell>
+                  <TableCell>{r.source === "api" ? t("sourceApi") : t("sourceFile")}</TableCell>
                   <TableCell>{r.file_name}</TableCell>
-                  <TableCell>{r.sheet}</TableCell>
+                  <TableCell>{r.sheet ?? "—"}</TableCell>
                   <TableCell>{r.uploaded_by_name ?? "—"}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.rows_total}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.rows_matched}</TableCell>
@@ -94,10 +106,10 @@ export function ImportsTable({ period }: { period: string }) {
           <DialogHeader>
             <DialogTitle>{opened?.file_name ?? t("dialogFallbackTitle")}</DialogTitle>
             <DialogDescription>
-              {opened ? t("dialogDescription", { date: formatTashkent(opened.created_at), sheet: opened.sheet }) : ""}
+              {opened ? t("dialogDescription", { date: formatTashkent(opened.created_at), sheet: opened.sheet ?? "—" }) : ""}
             </DialogDescription>
           </DialogHeader>
-          {opened && <ImportResult row={opened} />}
+          {opened && <ImportResult row={opened} organizationName={orgName(opened.organization_id)} />}
         </DialogContent>
       </Dialog>
     </div>

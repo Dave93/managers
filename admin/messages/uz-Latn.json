@@ -2500,6 +2500,8 @@
         "bad_header_row": "Sarlavhalar qatori — 1 dan 20 gacha",
         "bad_mapping": "Tabel raqami va sana ustunlarini tanlang",
         "nothing_matched": "Birorta qator xodimlarga mos kelmadi. Ustunlar va oyni tekshiring",
+        "organization_required": "Tashkilot tanlanmagan",
+        "bad_organization": "Tashkilot noto'g'ri: sahifani yangilang",
         "external_id_taken": "Bu tabel raqami boshqa xodimda allaqachon bor",
         "bad_external_id": "Tabel raqami — 100 belgigacha qator",
         "bad_target": "Xodim yoki foydalanuvchini ko'rsating",
@@ -2590,6 +2592,7 @@
         },
         "noHeader": "(nomsiz)",
         "issue": {
+          "organizationRequired": "Tashkilotni tanlang",
           "noExternalId": "Tabel raqami ustunini tanlang",
           "noDate": "Sana ustunini tanlang",
           "noLate": "Kechikish ustuni tanlanmagan: kechikishlar nol deb hisoblanadi",
@@ -2615,7 +2618,7 @@
         "rowsCount": "Qatorlar: {total} · mos keldi: {matched} · mos kelmadi: {unmatched} · o'tkazib yuborildi: {skipped}",
         "totals": "Kunlar: {present}, kechikish bilan: {late}, qoldirilgan: {absent}",
         "historyFailed": "Oldingi yuklashlarni tekshirib bo'lmadi",
-        "replace": "{month} uchun «{file}» {date} da yuklangan, mos kelgan qatorlar: {matched}. Yangi yuklash uni almashtiradi. Yangi faylda yo'q xodimlar oy bo'yicha ma'lumotlarini yo'qotadi"
+        "replace": "«{org}» tashkilotining {month} uchun importi almashtiriladi: «{file}», {date} da yuklangan, mos kelgan qatorlar: {matched}. Yangi faylda yo'q xodimlar oy bo'yicha ma'lumotlarini yo'qotadi"
       },
       "indicator": {
         "sales": "Sotuvlar",
@@ -3044,9 +3047,10 @@
     },
     "attendance": {
       "title": "Workly yuklash",
-      "description": "Workly'dan oylik davomat hisobotini yuklab oling: xlsx, xls yoki csv, 5 MB gacha. Butun tarmoq uchun kalendar oyiga bitta fayl. Qatorlar xodimlarga tabel raqami bo'yicha moslashtiriladi. Oy uchun yangi yuklash oldingisini almashtiradi",
+      "description": "Workly'dan oylik davomat hisobotini yuklab oling: xlsx, xls yoki csv, 5 MB gacha. Kalendar oyiga har bir tashkilot uchun bitta fayl. Qatorlar tanlangan tashkilot xodimlariga tabel raqami bo'yicha moslashtiriladi. Tashkilot uchun oyga yangi yuklash uning oldingi yuklashini almashtiradi",
       "importsHeading": "Oy bo'yicha yuklashlar",
       "result": {
+        "organization": "Tashkilot: {name}",
         "row": "Qator",
         "tabNumber": "Tabel raqami",
         "reason": "Sabab",
@@ -3059,6 +3063,10 @@
       "imports": {
         "empty": "Bu oy uchun yuklashlar yo'q",
         "colUploaded": "Yuklangan",
+        "colOrganization": "Tashkilot",
+        "colSource": "Manba",
+        "sourceFile": "Fayl",
+        "sourceApi": "API",
         "colFile": "Fayl",
         "colSheet": "Varaq",
         "colWho": "Kim",
@@ -3083,6 +3091,9 @@
         "sheetOption": "{name} · {count} qator",
         "headerRow": "Sarlavhalar qatori",
         "required": "majburiy",
+        "organization": "Tashkilot",
+        "organizationPlaceholder": "Tashkilotni tanlang",
+        "organizationsEmpty": "Ulangan tashkilotlar yo'q: yuklash mavjud emas",
         "notSelected": "— tanlanmagan —",
         "preview": "Oldindan ko'rish",
         "noDataAfterHeader": "Sarlavhalar qatoridan keyin ma'lumot yo'q",

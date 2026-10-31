@@ -2500,6 +2500,8 @@
         "bad_header_row": "The header row must be from 1 to 20",
         "bad_mapping": "Choose the employee ID and date columns",
         "nothing_matched": "No row matched any employee. Check the columns and the month",
+        "organization_required": "No organization selected",
+        "bad_organization": "Invalid organization: refresh the page",
         "external_id_taken": "This employee ID already belongs to another employee",
         "bad_external_id": "The employee ID must be a string of up to 100 characters",
         "bad_target": "Specify an employee or a user",
@@ -2590,6 +2592,7 @@
         },
         "noHeader": "(untitled)",
         "issue": {
+          "organizationRequired": "Select an organization",
           "noExternalId": "Choose the employee ID column",
           "noDate": "Choose the date column",
           "noLate": "The lateness column is not selected: lateness will be counted as zero",
@@ -2615,7 +2618,7 @@
         "rowsCount": "Rows: {total} · matched: {matched} · unmatched: {unmatched} · skipped: {skipped}",
         "totals": "Days: {present}, late: {late}, absent: {absent}",
         "historyFailed": "Could not check previous uploads",
-        "replace": "«{file}» has already been uploaded for {month} on {date}, matched rows: {matched}. The new upload will replace it. Employees who are not in the new file will lose their data for the month"
+        "replace": "The import of «{org}» for {month} will be replaced: «{file}», uploaded {date}, matched rows: {matched}. Employees who are not in the new file will lose their data for the month"
       },
       "indicator": {
         "sales": "Sales",
@@ -3044,9 +3047,10 @@
     },
     "attendance": {
       "title": "Workly upload",
-      "description": "Export the monthly attendance report from Workly: xlsx, xls or csv, up to 5 MB. One file for the whole network per calendar month. Rows are matched to employees by tab number. A new upload for the month replaces the previous one",
+      "description": "Export the monthly attendance report from Workly: xlsx, xls or csv, up to 5 MB. One file per organization per calendar month. Rows are matched by tab number to the employees of the selected organization. A new upload for an organization replaces its previous one for the month",
       "importsHeading": "Uploads for the month",
       "result": {
+        "organization": "Organization: {name}",
         "row": "Row",
         "tabNumber": "Tab number",
         "reason": "Reason",
@@ -3059,6 +3063,10 @@
       "imports": {
         "empty": "No uploads for this month",
         "colUploaded": "Uploaded",
+        "colOrganization": "Organization",
+        "colSource": "Source",
+        "sourceFile": "File",
+        "sourceApi": "API",
         "colFile": "File",
         "colSheet": "Sheet",
         "colWho": "By",
@@ -3083,6 +3091,9 @@
         "sheetOption": "{name} · {count} rows",
         "headerRow": "Header row",
         "required": "required",
+        "organization": "Organization",
+        "organizationPlaceholder": "Select an organization",
+        "organizationsEmpty": "No connected organizations: upload is unavailable",
         "notSelected": "— not selected —",
         "preview": "Preview",
         "noDataAfterHeader": "No data after the header row",

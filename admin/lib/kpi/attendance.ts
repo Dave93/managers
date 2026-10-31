@@ -159,19 +159,60 @@ export function importTotalsText(r: Pick<AttendanceImportRow, "days_present" | "
 
 export const HISTORY_CHECK_FAILED = ruT("lib.attendance.historyFailed");
 
+/** Организация для выбора в мастере: id уходит в commit, name попадает в тексты. */
+export type OrganizationOption = { id: string; name: string };
+
 /**
- * Предупреждение перед загрузкой: действующий импорт месяца будет заменён целиком.
+ * Организации, из которых можно выбрать при загрузке: подключения статуса Workly, у которых
+ * организация найдена в базе (organization_id не null). Повторы по id отброшены, порядок сохранён.
+ */
+export function organizationOptions(
+  entries: readonly { organization_id: string | null; organization_name: string }[] | null | undefined
+): OrganizationOption[] {
+  const out: OrganizationOption[] = [];
+  for (const e of entries ?? []) {
+    if (e.organization_id == null || out.some((o) => o.id === e.organization_id)) continue;
+    out.push({ id: e.organization_id, name: e.organization_name });
+  }
+  return out;
+}
+
+/** Код проверки тела commit: бэкенд ответил бы на такой запрос 422 organization_required. */
+export type CommitIssue = "organization_required";
+
+/** Ключ подсказки по коду проверки: `t(COMMIT_ISSUE_KEY[issue])`. */
+export const COMMIT_ISSUE_KEY: Record<CommitIssue, string> = {
+  organization_required: "lib.attendance.issue.organizationRequired",
+};
+
+/**
+ * Можно ли отправлять commit: организация обязательна (сервер сам проверит, что это организация).
+ * Пустая строка и пробелы считаются невыбранной организацией. Колонки проверяет `mappingIssues`.
+ */
+export function commitBodyIssue(draft: { organization_id?: string | null }): CommitIssue | null {
+  const id = draft.organization_id;
+  return typeof id === "string" && id.trim() !== "" ? null : "organization_required";
+}
+
+/**
+ * Предупреждение перед загрузкой: действующий импорт ВЫБРАННОЙ организации за месяц будет заменён целиком.
+ * Список содержит импорты всех организаций месяца, поэтому смотрим только на её собственный (любого
+ * источника: commit заменяет и импорт из API). Импорт без организации (прежний, до выбора организации)
+ * commit не трогает, о нём не предупреждаем. Пока организация не выбрана, предупреждения нет.
  * Историю загрузить не удалось и данных нет — так и пишем, а не молчим.
  */
 export function replaceNotice(
   history: { data: readonly AttendanceImportRow[] | undefined; error: unknown },
   period: string,
+  organization: OrganizationOption | null | undefined,
   t: KpiT = ruT,
   locale = "ru"
 ): string | null {
-  const existing = history.data?.find((r) => r.status === "committed");
+  if (!organization) return null;
+  const existing = history.data?.find((r) => r.status === "committed" && r.organization_id === organization.id);
   if (existing) {
     return t("lib.attendance.replace", {
+      org: organization.name,
       month: monthLabel(period, locale),
       file: existing.file_name,
       date: formatTashkent(existing.created_at),
