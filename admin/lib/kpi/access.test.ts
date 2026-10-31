@@ -28,7 +28,7 @@ describe("canOpen", () => {
     expect(canOpen(["kpi.manage"], "workly")).toBe(false);
     expect(canOpen([], "workly")).toBe(false);
     expect(canOpen(undefined, "workly")).toBe(false);
-    expect(KPI_SCREEN_TITLE.workly).toBe("Workly");
+    expect(KPI_SCREEN_TITLE.workly).toBe("Синхронизация Workly");
   });
   it("экраны балла филиала", () => {
     expect(canOpen(["kpi_layout", "kpi.view"], "network")).toBe(true);

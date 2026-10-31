@@ -26,7 +26,7 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   raises: "Повышения",
   settings: "Настройки KPI",
   attendance: "Загрузка Workly",
-  workly: "Workly",
+  workly: "Синхронизация Workly",
   network: "Сеть",
   branch: "Филиал",
   revenue_plans: "План выручки",
