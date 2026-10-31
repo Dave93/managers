@@ -87,9 +87,10 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
   });
   const replacesFile = fileImportWarning(imports.data, orgId);
 
-  // Ошибка старта относится к прогону, который был на экране при нажатии: когда блок переходит
-  // к другому прогону (после 409 run_in_progress — к идущему), ошибка скрывается.
-  const [startError, setStartError] = useState<{ error: unknown; runId: string | null } | null>(null);
+  // Ошибка старта относится к прогону, который был на экране при нажатии, и к месяцу запроса:
+  // когда блок переходит к другому прогону (после 409 run_in_progress — к идущему) или выбран
+  // другой месяц (после period_closed), ошибка скрывается.
+  const [startError, setStartError] = useState<{ error: unknown; runId: string | null; period: string } | null>(null);
   const start = useMutation({
     mutationFn: (v: { period: string; shownRunId: string | null }) => kpiApi.workly.attendanceSync(orgId, v.period),
     onMutate: () => setStartError(null),
@@ -98,7 +99,7 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
       qc.invalidateQueries({ queryKey: qk.worklyStatus });
     },
     onError: (e, v) => {
-      setStartError({ error: e, runId: v.shownRunId });
+      setStartError({ error: e, runId: v.shownRunId, period: v.period });
       // 409 run_in_progress: статус покажет идущую синхронизацию, и блок начнёт следить за ней.
       qc.invalidateQueries({ queryKey: qk.worklyStatus });
     },
@@ -146,7 +147,7 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
         {t("attendance.sync")}
       </Button>
 
-      {startError != null && startError.runId === runId && (
+      {startError != null && startError.runId === runId && startError.period === period && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
           {startErrorText(startError.error)}
         </p>
