@@ -3,7 +3,9 @@ import { nameKey, worklyNameKeys } from "./names";
 
 describe("workly/names: nameKey", () => {
   it("регистр, апострофы и порядок слов не важны", () => {
-    expect(nameKey("ozodbek", "rahimov")).toBe(nameKey("rahimov", "ozodbek"));
+    // Выдуманное имя: прямой апостроф в имени, типографский в фамилии, разный регистр.
+    expect(nameKey("To'lqin", "O’RINBOYEV")).toBe(nameKey("orinboyev", "TOLQIN"));
+    expect(nameKey("To'lqin", "O’RINBOYEV")).toBe("ORINBOYEV TOLQIN");
   });
 
   it("все семь видов апострофа удаляются, а не заменяются пробелом", () => {

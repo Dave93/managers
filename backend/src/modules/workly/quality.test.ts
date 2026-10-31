@@ -36,8 +36,8 @@ describe("workly/quality: qualityOf, филиалы", () => {
   });
 
   it("поля филиала: дни, прогулы, доля, название", () => {
-    const q = qualityOf([...branch("a", 8, 2)], names([["a", "Les Ailes Альфа"]]));
-    expect(q.branches).toEqual([{ terminal_id: "a", terminal_name: "Les Ailes Альфа", days: 8, absent: 2, share: 0.25, flagged: false }]);
+    const q = qualityOf([...branch("a", 8, 2)], names([["a", "Тест Филиал Альфа"]]));
+    expect(q.branches).toEqual([{ terminal_id: "a", terminal_name: "Тест Филиал Альфа", days: 8, absent: 2, share: 0.25, flagged: false }]);
   });
 
   it("название неизвестно: подставляется id терминала", () => {

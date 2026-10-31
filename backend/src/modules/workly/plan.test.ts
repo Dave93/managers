@@ -168,8 +168,8 @@ describe("workly/plan: link и relink", () => {
 
   it("link: регистр, апострофы и порядок слов не важны", () => {
     const p = run({
-      ours: [ours({ first_name: "rahimov", last_name: "ozodbek" })],
-      active: [w({ id: 10, first_name: "ozodbek", last_name: "rahimov" })],
+      ours: [ours({ first_name: "O’RINBOYEV", last_name: "to'lqin" })],
+      active: [w({ id: 10, first_name: "Tolqin", last_name: "Orinboyev" })],
     });
     expect(kinds(p)).toEqual(["link"]);
   });
