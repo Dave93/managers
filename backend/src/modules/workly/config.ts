@@ -41,16 +41,30 @@ export function credsFromEnv(key: ConnKey, env: Record<string, string | undefine
   return { key, baseUrl: baseUrl.replace(/\/+$/, ""), clientId, clientSecret, username, password };
 }
 
-// Организация подключения; null, если её нет или она выключена.
+/**
+ * Выбор организации подключения среди активных строк с её именем: ровно одна — её id. Ни одной —
+ * null. Несколько — тоже null и строка в лог (без id): имя в таблице organization не уникально,
+ * и угадывать, чьих сотрудников сверять, нельзя. Подключение отключено, пока дубль не уберут.
+ */
+export function pickOrganization(key: ConnKey, rows: readonly { id: string }[]): string | null {
+  if (rows.length > 1) {
+    console.error(`workly: организация ${key} не однозначна`);
+    return null;
+  }
+  return rows[0]?.id ?? null;
+}
+
+// Организация подключения; null, если её нет, она выключена или активных с этим именем несколько.
 export async function organizationIdOf(db: DbLike, key: ConnKey): Promise<string | null> {
   const name = CONNECTIONS.find((c) => c.key === key)?.organizationName;
   if (!name) return null;
-  const [row] = await db
+  // Двух строк достаточно, чтобы узнать о неоднозначности.
+  const rows = await db
     .select({ id: organization.id })
     .from(organization)
     .where(and(eq(organization.name, name), eq(organization.active, true)))
-    .limit(1);
-  return row?.id ?? null;
+    .limit(2);
+  return pickOrganization(key, rows);
 }
 
 // Организация подключения для маршрутов. Подмена только для тестов (как setConnKeyResolver

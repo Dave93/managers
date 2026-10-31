@@ -1,5 +1,12 @@
-import { afterEach, describe, expect, it } from "bun:test";
-import { companyMatches, CONNECTIONS, credsFromEnv, expectedCompanyOf, setExpectedCompanyResolver } from "./config";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
+import {
+  companyMatches,
+  CONNECTIONS,
+  credsFromEnv,
+  expectedCompanyOf,
+  pickOrganization,
+  setExpectedCompanyResolver,
+} from "./config";
 
 // Поддельные значения: настоящие ключи Workly в тестах не нужны.
 const full = {
@@ -27,6 +34,26 @@ describe("workly/config", () => {
 
   it("срезает слэш в конце baseUrl", () =>
     expect(credsFromEnv("LES", { ...full, WORKLY_BASE_URL: "https://x.uz/" })!.baseUrl).toBe("https://x.uz"));
+});
+
+describe("workly/config: pickOrganization", () => {
+  it("одна активная организация с именем подключения — её id; ни одной — null", () => {
+    expect(pickOrganization("LES", [{ id: "org-id-1" }])).toBe("org-id-1");
+    expect(pickOrganization("LES", [])).toBeNull();
+  });
+
+  it("несколько активных с тем же именем — null и строка в лог без id: какую выбрать, неизвестно", () => {
+    const logged: string[] = [];
+    const spy = spyOn(console, "error").mockImplementation((...a: unknown[]) => {
+      logged.push(a.map(String).join(" "));
+    });
+    try {
+      expect(pickOrganization("CHOPAR", [{ id: "org-id-1" }, { id: "org-id-2" }])).toBeNull();
+    } finally {
+      spy.mockRestore();
+    }
+    expect(logged).toEqual(["workly: организация CHOPAR не однозначна"]);
+  });
 });
 
 describe("workly/config: ожидаемая компания подключения", () => {
