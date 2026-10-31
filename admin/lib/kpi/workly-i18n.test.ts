@@ -97,7 +97,7 @@ for (const locale of LOCALES) {
     });
 
     it("текст каждого кода ошибки Workly, включая unknown", () => {
-      expect(WORKLY_ERROR_CODES.length).toBeGreaterThanOrEqual(29);
+      expect(WORKLY_ERROR_CODES.length).toBeGreaterThanOrEqual(30);
       expect(missing(t, [...WORKLY_ERROR_CODES, "unknown"].map((c) => `errors.${c}`))).toEqual([]);
     });
 

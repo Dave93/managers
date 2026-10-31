@@ -2499,7 +2499,7 @@
         "bad_sheet": "Faylda bunday varaq yo'q",
         "bad_header_row": "Sarlavhalar qatori — 1 dan 20 gacha",
         "bad_mapping": "Tabel raqami va sana ustunlarini tanlang",
-        "nothing_matched": "Birorta qator xodimlarga mos kelmadi. Ustunlar va oyni tekshiring",
+        "nothing_matched": "Birorta qator tanlangan tashkilot xodimlariga mos kelmadi. Tashkilot, ustunlar va oyni tekshiring",
         "organization_required": "Tashkilot tanlanmagan",
         "bad_organization": "Tashkilot noto'g'ri: sahifani yangilang",
         "external_id_taken": "Bu tabel raqami boshqa xodimda allaqachon bor",
@@ -2605,7 +2605,7 @@
         },
         "unmatched": {
           "no_external_id": "Tabel raqami bo'sh",
-          "unknown_external_id": "Bunday tabel raqamli faol xodim yo'q",
+          "unknown_external_id": "Bu tashkilotda bunday tabel raqamli faol xodim yo'q",
           "ambiguous_external_id": "Tabel raqami bir nechta xodimda bor",
           "bad_date": "Sana aniqlanmadi",
           "outside_period": "Sana tanlangan oydan tashqarida",
@@ -3284,6 +3284,7 @@
         "bad_tab_number": "Xodimning Workly'dagi tabel raqami 32 belgidan uzun: uni Workly'da to'g'rilang",
         "bad_workly_id": "Workly yozuvi noto'g'ri: uni qidiruvdan qaytadan tanlang",
         "bad_period": "Oy noto'g'ri: ro'yxatdan oyni tanlang",
+        "company_mismatch": "Bu tashkilotdagi Workly kalitlari boshqa kompaniyaga tegishli. Ulanishning muhit o'zgaruvchilarini tekshiring va administratorga xabar bering",
         "unknown": "Workly xatoligi. Keyinroq takrorlang"
       },
       "locations": {

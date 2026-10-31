@@ -2499,7 +2499,7 @@
         "bad_sheet": "The file has no such sheet",
         "bad_header_row": "The header row must be from 1 to 20",
         "bad_mapping": "Choose the employee ID and date columns",
-        "nothing_matched": "No row matched any employee. Check the columns and the month",
+        "nothing_matched": "No row matched any employee of the selected organization. Check the organization, the columns and the month",
         "organization_required": "No organization selected",
         "bad_organization": "Invalid organization: refresh the page",
         "external_id_taken": "This employee ID already belongs to another employee",
@@ -2605,7 +2605,7 @@
         },
         "unmatched": {
           "no_external_id": "Empty employee ID",
-          "unknown_external_id": "No active employee with this employee ID",
+          "unknown_external_id": "No active employee with this employee ID in this organization",
           "ambiguous_external_id": "The employee ID belongs to several employees",
           "bad_date": "The date was not recognized",
           "outside_period": "The date is outside the selected month",
@@ -3284,6 +3284,7 @@
         "bad_tab_number": "The employee's tab number in Workly is longer than 32 characters: fix it in Workly",
         "bad_workly_id": "Invalid Workly record: choose it from the search again",
         "bad_period": "Invalid month: choose a month from the list",
+        "company_mismatch": "The Workly keys in this organization belong to another company. Check the connection's environment variables and tell the administrator",
         "unknown": "Workly error. Try again later"
       },
       "locations": {

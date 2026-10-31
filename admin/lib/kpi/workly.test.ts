@@ -106,13 +106,16 @@ describe("connectionErrorKey", () => {
     expect(connectionErrorKey("")).toBe("workly.errors.unknown");
     expect(connectionErrorKey(null)).toBe(null);
   });
+  it("company_mismatch: ключи подключения от другой компании Workly (прогон failed и ответ 422)", () => {
+    expect(connectionErrorKey("company_mismatch")).toBe("workly.errors.company_mismatch");
+  });
   it("служебные имена объекта не считаются кодами", () => {
     for (const c of ["constructor", "toString", "__proto__", "hasOwnProperty"]) {
       expect(connectionErrorKey(c)).toBe("workly.errors.unknown");
     }
   });
   it("каждый код бэкенда (R19 и коды проверки входа) получает свой ключ", () => {
-    expect(WORKLY_ERROR_CODES).toHaveLength(29);
+    expect(WORKLY_ERROR_CODES).toHaveLength(30);
     expect(new Set(WORKLY_ERROR_CODES).size).toBe(WORKLY_ERROR_CODES.length);
     for (const c of WORKLY_ERROR_CODES) expect(connectionErrorKey(c)).toBe(`workly.errors.${c}`);
     for (const c of [
@@ -121,7 +124,7 @@ describe("connectionErrorKey", () => {
       "run_in_progress", "run_not_planned", "run_superseded", "run_not_found", "queue_unavailable",
       "organization_not_connected", "employee_not_found", "workly_employee_not_found", "workly_id_taken",
       "terminal_other_org", "location_not_found", "organization_required", "bad_organization",
-      "bad_tab_number", "bad_workly_id", "bad_period",
+      "bad_tab_number", "bad_workly_id", "bad_period", "company_mismatch",
     ]) {
       expect((WORKLY_ERROR_CODES as readonly string[]).includes(c)).toBe(true);
     }

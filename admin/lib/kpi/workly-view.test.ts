@@ -354,6 +354,10 @@ describe("worklyErrorKey", () => {
     expect(worklyErrorKey(new KpiApiError(422, "bad_tab_number", {}))).toBe("errors.bad_tab_number");
   });
 
+  it("422 company_mismatch (ключи от другой компании Workly) — свой текст", () => {
+    expect(worklyErrorKey(new KpiApiError(422, "company_mismatch", { error: "company_mismatch" }))).toBe("errors.company_mismatch");
+  });
+
   it("сеть, права, 5xx и прочее — null: текст даёт общий kpiErrorText", () => {
     expect(worklyErrorKey(new KpiApiError(0, "network", {}))).toBeNull();
     expect(worklyErrorKey(new KpiApiError(403, "forbidden", {}))).toBeNull();
@@ -596,6 +600,8 @@ describe("lastRunErrorKey", () => {
   });
 
   it("проверка сотрудников — всегда общий текст errors.*", () => {
+    expect(lastRunErrorKey(run("employees", "company_mismatch"))).toBe("errors.company_mismatch");
+    expect(lastRunErrorKey(run("attendance", "company_mismatch"))).toBe("errors.company_mismatch");
     expect(lastRunErrorKey(run("employees", "empty_crawl"))).toBe("errors.empty_crawl");
     expect(lastRunErrorKey(run("employees", "stale"))).toBe("errors.stale");
   });

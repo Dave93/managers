@@ -100,6 +100,8 @@ export const WORKLY_ERROR_CODES = [
   "bad_tab_number",
   "bad_workly_id",
   "bad_period",
+  // ключи подключения принадлежат другой компании Workly: прогон failed, маршрут 422
+  "company_mismatch",
 ] as const;
 
 const ERROR_CODES: ReadonlySet<string> = new Set(WORKLY_ERROR_CODES);
