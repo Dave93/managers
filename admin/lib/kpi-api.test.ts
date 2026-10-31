@@ -95,6 +95,7 @@ const cases: [string, (a: KpiApi) => Promise<unknown>, string, string, unknown][
   ["workly.setLocation: снять привязку", (a) => a.workly.setLocation("l1", null), "PUT", "/api/workly/locations/l1", { terminal_id: null }],
   ["workly.attendanceSync", (a) => a.workly.attendanceSync("o1", "2026-10-01"), "POST", "/api/workly/attendance/sync", { organization_id: "o1", period: "2026-10-01" }],
   ["workly.quality", (a) => a.workly.quality("o1", "2026-10-01"), "GET", "/api/workly/quality?organization_id=o1&period=2026-10-01", null],
+  ["workly.terminals", (a) => a.workly.terminals("o1"), "GET", "/api/workly/terminals?organization_id=o1", null],
 ];
 
 describe("kpiApi: метод, путь, тело", () => {

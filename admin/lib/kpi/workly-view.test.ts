@@ -7,11 +7,15 @@ import {
   RUN_STATUSES,
   SKIPPED_PAGE,
   applyPreview,
+  attendanceResultLines,
   changeSummary,
   confirmSummary,
+  fileImportWarning,
+  formatShare,
   impliedSkips,
   inWorkly,
   plannedRunId,
+  resumeAttendanceRun,
   resumeRunId,
   runStaleness,
   searchSeed,
@@ -442,5 +446,92 @@ describe("shortId / searchSeed", () => {
     expect(searchSeed("Иван Иванов (Workly: 12, 15)")).toBe("Иван Иванов");
     expect(searchSeed("  Анна Петрова  ")).toBe("Анна Петрова");
     expect(searchSeed("без имени (Workly: 3)")).toBe("без имени");
+  });
+});
+
+describe("resumeAttendanceRun", () => {
+  const entry = (last_run: { id: string; kind: string; status: string; period: string | null } | null) => ({ last_run });
+
+  it("идущая синхронизация посещаемости возобновляется вместе со своим месяцем", () => {
+    expect(resumeAttendanceRun(entry({ id: "a1", kind: "attendance", status: "running", period: "2026-10-01" }))).toEqual({
+      id: "a1",
+      period: "2026-10-01",
+    });
+  });
+
+  it("месяца нет — id без месяца", () => {
+    expect(resumeAttendanceRun(entry({ id: "a2", kind: "attendance", status: "running", period: null }))).toEqual({
+      id: "a2",
+      period: null,
+    });
+  });
+
+  it("проверка сотрудников и законченная синхронизация не возобновляются", () => {
+    expect(resumeAttendanceRun(entry({ id: "e1", kind: "employees", status: "running", period: null }))).toBeNull();
+    expect(resumeAttendanceRun(entry({ id: "a3", kind: "attendance", status: "applied", period: "2026-10-01" }))).toBeNull();
+    expect(resumeAttendanceRun(entry({ id: "a4", kind: "attendance", status: "failed", period: "2026-10-01" }))).toBeNull();
+    expect(resumeAttendanceRun(entry(null))).toBeNull();
+  });
+});
+
+describe("formatShare", () => {
+  it("процент с одним знаком после запятой, по-русски, без пробела перед %", () => {
+    expect(formatShare(0.1234)).toBe("12,3%");
+    expect(formatShare(0.25)).toBe("25,0%");
+    expect(formatShare(2 / 3)).toBe("66,7%");
+    expect(formatShare(0)).toBe("0,0%");
+    expect(formatShare(1)).toBe("100,0%");
+  });
+
+  it("явная локаль ru даёт то же, en — точку", () => {
+    expect(formatShare(0.1234, "ru")).toBe("12,3%");
+    expect(formatShare(0.1234, "en")).toBe("12.3%");
+  });
+
+  it("не число — прочерк", () => {
+    expect(formatShare(Number.NaN)).toBe("—");
+    expect(formatShare(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+describe("fileImportWarning", () => {
+  const ORG = "6b1f0a52-9c3e-4d0b-8a57-4c2f1e9d7a10";
+  const OTHER = "0d2c5e7a-1b3f-4a6d-9e8c-7f5a3b1d2c4e";
+  type Row = NonNullable<Parameters<typeof fileImportWarning>[0]>[number];
+  const row = (p: Partial<Row>): Row => ({ source: "file", status: "committed", organization_id: ORG, ...p });
+
+  it("действующий файловый импорт этой организации — предупреждение", () => {
+    expect(fileImportWarning([row({})], ORG)).toBe(true);
+    expect(fileImportWarning([row({ source: "api" }), row({ status: "replaced" }), row({})], ORG)).toBe(true);
+  });
+
+  it("импорт из API, заменённый файл, другая организация или прежний импорт без организации — нет", () => {
+    expect(fileImportWarning([row({ source: "api" })], ORG)).toBe(false);
+    expect(fileImportWarning([row({ status: "replaced" })], ORG)).toBe(false);
+    expect(fileImportWarning([row({ organization_id: OTHER })], ORG)).toBe(false);
+    expect(fileImportWarning([row({ organization_id: null })], ORG)).toBe(false);
+  });
+
+  it("пустой или ещё не загруженный список, организация не выбрана — нет", () => {
+    expect(fileImportWarning([], ORG)).toBe(false);
+    expect(fileImportWarning(undefined, ORG)).toBe(false);
+    expect(fileImportWarning([row({ organization_id: null })], null)).toBe(false);
+  });
+});
+
+describe("attendanceResultLines", () => {
+  it("три строки в порядке days, unknown, carried с ключами текста и пояснения", () => {
+    expect(attendanceResultLines({ days: 412, unknown: 7, carried: 3, import_id: "i1" })).toEqual([
+      { key: "days", label: "attendance.result.days", hint: "attendance.result.daysHint", value: 412 },
+      { key: "unknown", label: "attendance.result.unknown", hint: "attendance.result.unknownHint", value: 7 },
+      { key: "carried", label: "attendance.result.carried", hint: "attendance.result.carriedHint", value: 3 },
+    ]);
+  });
+
+  it("нет поля, не число или нет counts — 0; числовая строка — число", () => {
+    expect(attendanceResultLines({ days: "15", unknown: "мусор" }).map((l) => l.value)).toEqual([15, 0, 0]);
+    expect(attendanceResultLines({}).map((l) => l.value)).toEqual([0, 0, 0]);
+    expect(attendanceResultLines(null).map((l) => l.value)).toEqual([0, 0, 0]);
+    expect(attendanceResultLines(undefined).map((l) => l.value)).toEqual([0, 0, 0]);
   });
 });

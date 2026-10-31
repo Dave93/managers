@@ -45,7 +45,13 @@ import type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 import type { PlanItem, PlanKind, PlanReport, SyncPlan } from "@backend/modules/workly/plan";
 import type { qualityReport } from "@backend/modules/workly/quality";
 import type { applyRun, RunRow } from "@backend/modules/workly/runs";
-import type { WorklyLocationRow, WorklyPersonRow, WorklyRunStarted, WorklyStatusEntry } from "@backend/modules/workly/routes";
+import type {
+  WorklyLocationRow,
+  WorklyPersonRow,
+  WorklyRunStarted,
+  WorklyStatusEntry,
+  WorklyTerminalRow,
+} from "@backend/modules/workly/routes";
 import { applyBody } from "@admin/lib/kpi/workly";
 
 export type {
@@ -91,7 +97,18 @@ export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 export type { KpiTerminal, KpiUserOption } from "@backend/modules/kpi/types";
 export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
 export type { SanitaryTemplate } from "@backend/modules/kpi/types";
-export type { PlanItem, PlanKind, PlanReport, SyncPlan, RunRow, WorklyLocationRow, WorklyPersonRow, WorklyRunStarted, WorklyStatusEntry };
+export type {
+  PlanItem,
+  PlanKind,
+  PlanReport,
+  SyncPlan,
+  RunRow,
+  WorklyLocationRow,
+  WorklyPersonRow,
+  WorklyRunStarted,
+  WorklyStatusEntry,
+  WorklyTerminalRow,
+};
 /** Последний прогон в статусе подключения (без плана). */
 export type WorklyLastRun = NonNullable<WorklyStatusEntry["last_run"]>;
 /** Итог «Применить»: сколько применено и какие пункты пропущены (причины excluded / stale / conflict). */
@@ -182,6 +199,8 @@ function createWorklyApi(workly: any) {
       call<WorklyRunStarted>(workly.attendance.sync.post({ organization_id, period })),
     quality: (organization_id: string, period: string) =>
       call<WorklyQuality>(workly.quality.get({ query: { organization_id, period } })),
+    /** Активные терминалы организации (по названию): выбор терминала в карте локаций. */
+    terminals: (organization_id: string) => call<WorklyTerminalRow[]>(workly.terminals.get({ query: { organization_id } })),
   };
 }
 

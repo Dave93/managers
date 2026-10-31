@@ -1,7 +1,9 @@
 // Чистая логика отображения экрана «Синхронизация Workly»: какая часть группы видна,
-// как сложить пропущенные пункты, что написать в подтверждении и в строке плана.
+// как сложить пропущенные пункты, что написать в подтверждении и в строке плана; для блока
+// посещаемости — итог синхронизации, предупреждение о файловом импорте и доля прогулов.
 // Ни React, ни сети; тексты экран берёт по ключам от `kpiScreens.workly`.
 
+import type { AttendanceImportRow } from "@backend/modules/kpi/types";
 import type { EmployeeFields, PlanItem, PlanKind } from "@backend/modules/workly/plan";
 import type { RunRow } from "@backend/modules/workly/runs";
 import { KpiApiError } from "./errors";
@@ -201,6 +203,17 @@ export function resumeRunId(entry: LastRunLike): string | null {
   return r && r.kind === "employees" && r.status === "running" ? r.id : null;
 }
 
+/**
+ * Синхронизация посещаемости идёт: после перезагрузки страницы блок «Посещаемость» продолжает
+ * опрос этого прогона и сам выбирает его месяц.
+ */
+export function resumeAttendanceRun(entry: {
+  last_run: { id: string; kind: string; status: string; period: string | null } | null;
+}): { id: string; period: string | null } | null {
+  const r = entry.last_run;
+  return r && r.kind === "attendance" && r.status === "running" ? { id: r.id, period: r.period } : null;
+}
+
 /** Последний прогон — готовый, но не применённый план сотрудников: его можно открыть кнопкой «Открыть план». */
 export function plannedRunId(entry: LastRunLike): string | null {
   const r = entry.last_run;
@@ -234,7 +247,6 @@ export function searchSeed(label: string): string {
   return label.replace(/\s*\(Workly:[^)]*\)\s*$/, "").trim();
 }
 
-
 // Пороги «зависания» прогона. Бэкенд закрывает строку running старше 15 минут как failed/stale
 // только при следующем запуске (startRun), поэтому зависшую проверку закрывает лишь новое
 // «Проверить». Минута сверху — на расхождение часов клиента и сервера.
@@ -253,4 +265,53 @@ export function runStaleness(createdAtIso: string, nowMs: number): "ok" | "slow"
   if (age >= STUCK_AFTER_MS) return "stuck";
   if (age >= SLOW_AFTER_MS) return "slow";
   return "ok";
+}
+
+// ---------- посещаемость и качество данных ----------
+
+/**
+ * Доля прогулов процентом с одним знаком после запятой: 0.1234 → «12,3%» (ru), «12.3%» (en).
+ * Знак процента приписывается сам: стиль percent в ru ставит перед ним неразрывный пробел.
+ * Не число — прочерк.
+ */
+export function formatShare(share: number, locale = "ru"): string {
+  if (!Number.isFinite(share)) return "—";
+  const n = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  return `${n.format(share * 100)}%`;
+}
+
+/**
+ * Предупреждение перед «Синхронизировать» (R23): у организации за месяц уже есть действующий
+ * файловый импорт, и синхронизация его заменит. Прежние импорты без организации синхронизация
+ * не трогает, поэтому о них не предупреждаем.
+ */
+export function fileImportWarning(
+  imports: readonly Pick<AttendanceImportRow, "source" | "status" | "organization_id">[] | null | undefined,
+  organizationId: string | null
+): boolean {
+  if (!imports || organizationId == null) return false;
+  return imports.some((r) => r.source === "file" && r.status === "committed" && r.organization_id === organizationId);
+}
+
+export type AttendanceResultKey = "days" | "unknown" | "carried";
+export type AttendanceResultLine = { key: AttendanceResultKey; label: string; hint: string; value: number };
+
+const RESULT_KEYS: readonly AttendanceResultKey[] = ["days", "unknown", "carried"];
+
+/**
+ * Итог синхронизации посещаемости из run.counts: записано дней, без данных, перенесено.
+ * Ключи текстов — от `kpiScreens.workly` (подпись с {count} и пояснение). Поля нет или оно
+ * не число — 0: counts приходит из jsonb как Record<string, number | string>.
+ */
+export function attendanceResultLines(counts: Record<string, number | string> | null | undefined): AttendanceResultLine[] {
+  return RESULT_KEYS.map((key) => {
+    const raw = counts?.[key];
+    const value = raw == null || raw === "" ? 0 : Number(raw);
+    return {
+      key,
+      label: `attendance.result.${key}`,
+      hint: `attendance.result.${key}Hint`,
+      value: Number.isFinite(value) ? value : 0,
+    };
+  });
 }
