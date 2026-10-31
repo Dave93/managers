@@ -97,6 +97,11 @@ export class WorklyClient {
   private inflight: Promise<string> | null = null;
   // Ключ, который не удалось записать в Redis: работаем с ним в памяти, чтобы не входить заново на каждой странице.
   private unsaved: StoredToken | null = null;
+  // Обновление ключа (refresh и вход по паролю) в этом экземпляре уже не удалось, а прежний ключ ещё действовал.
+  // До конца жизни экземпляра (один прогон или один запрос маршрута) не повторяем его, пока прежний ключ
+  // действует: иначе обход в 90 страниц делал бы до 90 пар запросов ко входу по 30 с. Новый экземпляр
+  // пробует снова; путь 7008 сбрасывает ключ, и вход по паролю выполняется как обычно.
+  private renewFailed = false;
 
   constructor(
     private readonly creds: WorklyCreds,
@@ -230,21 +235,30 @@ export class WorklyClient {
     const cached = await this.readCache();
     const nowMs = this.now().getTime();
     if (cached && cached.expires_at - nowMs > REFRESH_BEFORE_MS) return cached.access_token;
+    // Обновление уже не удалось в этом экземпляре, а прежний ключ ещё действует: не повторяем.
+    if (this.renewFailed && cached && cached.expires_at > nowMs) return cached.access_token;
     try {
+      let fresh: StoredToken | null = null;
       if (cached?.refresh_token) {
         try {
-          return (await this.requestToken({ grant_type: "refresh_token", refresh_token: cached.refresh_token }, cached.refresh_token))
-            .access_token;
+          fresh = await this.requestToken({ grant_type: "refresh_token", refresh_token: cached.refresh_token }, cached.refresh_token);
         } catch (e) {
           // Отказ в обновлении лечится входом по паролю; неверный клиент и принудительное обновление приложения не лечатся.
           if (isFatal(e)) throw e;
         }
       }
-      const login = { grant_type: "password", username: this.creds.username, password: this.creds.password };
-      return (await this.requestToken(login, "")).access_token;
+      if (!fresh) {
+        const login = { grant_type: "password", username: this.creds.username, password: this.creds.password };
+        fresh = await this.requestToken(login, "");
+      }
+      this.renewFailed = false;
+      return fresh.access_token;
     } catch (e) {
-      // Workly временно недоступен, а прежний ключ ещё действует: работаем с ним.
-      if (cached && cached.expires_at > nowMs && !isFatal(e)) return cached.access_token;
+      // Workly временно недоступен, а прежний ключ ещё действует: работаем с ним и запоминаем неудачу.
+      if (cached && cached.expires_at > nowMs && !isFatal(e)) {
+        this.renewFailed = true;
+        return cached.access_token;
+      }
       throw e;
     }
   }

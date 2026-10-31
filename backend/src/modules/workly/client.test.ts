@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { inspect } from "node:util";
 import { assertCompany, clientFor, setClientFactory, WorklyClient, WorklyError, type WorklyDeps } from "./client";
 import { setExpectedCompanyResolver } from "./config";
@@ -19,8 +19,16 @@ const T0 = new Date("2026-10-01T10:00:00Z");
 const MONTH_S = 2592000; // 30 суток: срок ключа Workly
 const DAY_MS = 86_400_000;
 
+// Префикс ключей Redis для этого файла; прежнее значение возвращается после него, чтобы
+// не задеть другие тестовые файлы того же процесса.
+const savedPrefix = process.env.PROJECT_PREFIX;
 beforeAll(() => {
   process.env.PROJECT_PREFIX = "test_";
+});
+afterAll(() => {
+  // undefined в process.env записался бы строкой "undefined": такую переменную удаляем.
+  if (savedPrefix === undefined) delete process.env.PROJECT_PREFIX;
+  else process.env.PROJECT_PREFIX = savedPrefix;
 });
 
 afterEach(() => setClientFactory(null));
@@ -435,6 +443,92 @@ describe("workly/client: ключ доступа", () => {
     expect((await client.locations()).length).toBe(1);
     expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "refresh_token", "password"]);
     expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-2");
+  });
+
+  // Обход в 5 страниц при недоступном входе: прежний ключ ещё действует, обновление не удалось.
+  function downDuringCrawl() {
+    let now = T0;
+    let down = false;
+    const tok = tokenReplier();
+    const pages = [1, 2, 3, 4, 5].map((p) => range(p * 10, p * 10 + 2).map(emp));
+    let on7008: ((c: Call) => Reply | null) | null = null;
+    const r = fakeRedis();
+    const { client, srv } = makeClient(
+      (c) => {
+        if (down && c.path === "/v1/oauth/token") return { status: 503, body: {} };
+        const t = tok(c);
+        if (t) return t;
+        const special = on7008?.(c);
+        if (special) return special;
+        return c.path === "/v1/employees" ? pageReply(pages, c.query, 5) : pageReply([[{ id: 1, title: "A" }]], c.query, 1);
+      },
+      { now: () => now, redis: r },
+    );
+    const grants = () => srv.tokenCalls().map((c) => c.form!.get("grant_type"));
+    const auth = (page: string) =>
+      srv
+        .apiCalls("/v1/employees")
+        .filter((c) => c.query.get("page") === page)
+        .map((c) => c.headers.get("authorization"));
+    return {
+      client,
+      srv,
+      r,
+      grants,
+      auth,
+      async loginThenNearExpiry() {
+        await client.locations();
+        now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at - 3600_000);
+        down = true;
+      },
+      set7008(f: (c: Call) => Reply | null) {
+        on7008 = f;
+      },
+      up() {
+        down = false;
+      },
+      now: () => now,
+    };
+  }
+
+  it("неудачное обновление ключа не повторяется на каждой странице того же обхода: одна попытка, дальше прежний ключ", async () => {
+    const s = downDuringCrawl();
+    await s.loginThenNearExpiry();
+    const list = await s.client.employees();
+    expect(list.length).toBe(15);
+    // Вход при первом вызове, затем одна неудачная пара «обновление + вход» на весь обход из 5 страниц.
+    expect(s.grants()).toEqual(["password", "refresh_token", "password"]);
+    for (const page of ["1", "2", "3", "4", "5"]) expect(s.auth(page)).toEqual(["Bearer tok-1"]);
+    // Второй обход тем же экземпляром тоже не стучится во вход: экземпляр помнит неудачу.
+    await s.client.locations();
+    expect(s.grants()).toEqual(["password", "refresh_token", "password"]);
+  });
+
+  it("после неудачного обновления 7008 всё равно даёт один повторный вход, обход продолжается с новым ключом", async () => {
+    const s = downDuringCrawl();
+    await s.loginThenNearExpiry();
+    let fired = false;
+    s.set7008((c) => {
+      if (c.path !== "/v1/employees" || c.query.get("page") !== "3" || fired) return null;
+      fired = true;
+      s.up();
+      return { status: 400, body: { message: "Invalid access token", code: 7008 } };
+    });
+    expect((await s.client.employees()).length).toBe(15);
+    expect(s.grants()).toEqual(["password", "refresh_token", "password", "password"]);
+    expect(s.auth("2")).toEqual(["Bearer tok-1"]);
+    expect(s.auth("3")).toEqual(["Bearer tok-1", "Bearer tok-2"]);
+    expect(s.auth("5")).toEqual(["Bearer tok-2"]);
+  });
+
+  it("новый экземпляр клиента после чужой неудачи пробует обновить ключ снова", async () => {
+    const s = downDuringCrawl();
+    await s.loginThenNearExpiry();
+    await s.client.employees();
+    expect(s.grants()).toHaveLength(3);
+    const fresh = new WorklyClient(CREDS, { redis: s.r.redis, fetch: s.srv.fetch, now: s.now });
+    expect((await fresh.locations()).length).toBe(1);
+    expect(s.grants()).toEqual(["password", "refresh_token", "password", "refresh_token", "password"]);
   });
 
   it("7005 при refresh и недоступный вход: используется ещё действующий ключ, а не client_invalid", async () => {
