@@ -3146,8 +3146,8 @@
         "openResult": "Natijani ochish",
         "running": "Workly'dan ma'lumotlar yig'ilmoqda, taxminan ikki daqiqa",
         "slow": "Odatdagidan uzoqroq davom etmoqda",
-        "stuck": "Tekshirish qotib qoldi (worker javob bermayapti). «Tekshirish» tugmasini bosing: qotib qolgan tekshirish o'zi yopiladi",
-        "loadingRun": "Tekshiruv ma'lumotlari yuklanmoqda…",
+        "stuck": "Tekshirish qotib qoldi (ishlov beruvchi javob bermayapti). «Tekshirish» tugmasini bosing: qotib qolgan tekshirish o'zi yopiladi",
+        "loadingRun": "Yuklanmoqda…",
         "failed": "Tekshirish muvaffaqiyatsiz tugadi",
         "blocked": "Tungi ishga tushirish to'xtatildi",
         "reviewHeading": "Xodimlarni solishtirish",
@@ -3196,7 +3196,7 @@
         "link": "Bog'lash",
         "relink": "Qayta bog'lash",
         "update": "Ma'lumotlarni yangilash",
-        "move": "Boshqa filialga o'tkazish",
+        "move": "Boshqa filialga ko'chirish",
         "reactivate": "Faollashtirish",
         "create": "Yaratish"
       },
@@ -3322,7 +3322,7 @@
         "syncAria": "Davomatni sinxronlash: {name}, {month}",
         "fileWarning": "Sinxronlash shu oy uchun yuklangan faylni almashtiradi",
         "running": "{month} uchun sinxronlash bajarilmoqda, taxminan ikki daqiqa",
-        "stuck": "{month} uchun sinxronlash qotib qoldi (worker javob bermayapti). «Sinxronlash» tugmasini bosing: qotib qolgan sinxronlash o'zi yopiladi",
+        "stuck": "{month} uchun sinxronlash qotib qoldi (ishlov beruvchi javob bermayapti). «Sinxronlash» tugmasini bosing: qotib qolgan sinxronlash o'zi yopiladi",
         "failed": "{month} uchun sinxronlash muvaffaqiyatsiz tugadi",
         "done": "{month} uchun sinxronlash bajarildi",
         "result": {

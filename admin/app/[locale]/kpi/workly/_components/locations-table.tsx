@@ -7,7 +7,8 @@
 // первого «Проверить». Терминалы в выборе — только активные терминалы этой организации.
 // Смена терминала сразу сохраняется (setLocation): у строки своё ожидание, затем таблица
 // перечитывается. Локации без терминала выделены и подписаны: при создании сотрудников они
-// не используются.
+// не используются. На узком экране строка складывается в столбик (локация, под ней выбор
+// терминала), иначе выбор уезжал за край экрана.
 
 import React, { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -133,7 +134,8 @@ function LocationsTable({ entry }: { entry: ConnectedEntry }) {
           </p>
           <div className="overflow-x-auto rounded-md border">
             <Table aria-label={t("locations.tableAria", { name: entry.organization_name })}>
-              <TableHeader>
+              {/* На телефоне ячейки идут столбиком, и шапка из двух колонок не нужна: у выбора своя подпись. */}
+              <TableHeader className="hidden sm:table-header-group">
                 <TableRow>
                   <TableHead>{t("locations.colLocation")}</TableHead>
                   <TableHead>{t("locations.colTerminal")}</TableHead>
@@ -188,17 +190,18 @@ function LocationRow({
   const unmapped = row.terminal_id == null;
 
   return (
-    <TableRow className={cn(unmapped && "bg-amber-50 hover:bg-amber-100/70")}>
-      <TableCell className="align-top">
-        <div className="min-w-[10rem] space-y-0.5">
+    <TableRow className={cn("block sm:table-row", unmapped && "bg-amber-50 hover:bg-amber-100/70")}>
+      {/* Общая ячейка таблицы не переносит строки (whitespace-nowrap): здесь перенос нужен. */}
+      <TableCell className="block whitespace-normal align-top sm:table-cell">
+        <div className="min-w-0 space-y-0.5 sm:min-w-[10rem]">
           <p className="break-words font-medium">{row.title || t("locations.noTitle")}</p>
           <p className="text-xs text-muted-foreground">{t("locations.worklyId", { id: row.workly_location_id })}</p>
           {unmapped && <p className="text-xs font-medium text-amber-800">{t("locations.unmapped")}</p>}
         </div>
       </TableCell>
-      <TableCell className="align-top">
-        <div className="min-w-[14rem] space-y-1">
-          <div className="flex items-center gap-2">
+      <TableCell className="block whitespace-normal pt-0 align-top sm:table-cell sm:pt-2">
+        <div className="min-w-0 space-y-1 sm:min-w-[14rem]">
+          <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
             <Select
               value={current ?? NONE}
               onValueChange={(v) => save.mutate(v === NONE ? null : v)}

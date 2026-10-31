@@ -13,6 +13,16 @@ describe("месяцы по Ташкенту", () => {
     expect(P.periodOptions(new Date("2026-01-15T10:00:00Z"), 2)).toEqual(["2026-01-01", "2025-12-01"]);
   });
   it("monthLabel без «г.»", () => expect(P.monthLabel("2026-10-01")).toBe("октябрь 2026"));
+  it("monthLabel по-узбекски — свои названия месяцев, а не «2026 M10» из Intl", () => {
+    expect(P.monthLabel("2026-10-01", "uz-Latn")).toBe("oktabr 2026");
+    expect(P.monthLabel("2026-10-01", "uz-Cyrl")).toBe("октябр 2026");
+    expect(P.monthLabel("2027-01-01", "uz-Latn")).toBe("yanvar 2027");
+    expect(P.monthLabel("2026-12-01", "uz-Cyrl")).toBe("декабр 2026");
+    expect(P.monthLabel("2026-05-01", "uz-Latn")).toBe("may 2026");
+  });
+  it("monthLabel: прочие локали — по-прежнему через Intl", () => {
+    expect(P.monthLabel("2026-10-01", "en")).toBe("October 2026");
+  });
   it("submitOpen", () => {
     const d = { submit_opens_at: "2026-10-19T19:00:00.000Z" };
     expect(P.submitOpen(new Date("2026-10-19T18:59:59Z"), d)).toBe(false);
