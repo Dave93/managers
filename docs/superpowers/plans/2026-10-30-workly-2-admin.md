@@ -76,7 +76,7 @@
   export function isRunning(run: { status: string } | null | undefined): boolean; // status === "running"
   export function pollInterval(run: { status: string } | null | undefined): number | false; // 2000, пока isRunning, иначе false (для refetchInterval)
   ```
-- Produces (`kpi-api.ts`): `kpiApi.workly = { status(), plan(organization_id) → { run_id, status }, run(id), apply(run_id, exclude), employees(organization_id, q), link(b), locations(organization_id), setLocation(id, terminal_id), attendanceSync(organization_id, period), quality(organization_id, period) }` поверх `(apiClient.api as any).workly` в стиле соседних групп; `qk.worklyStatus`, `qk.worklyRun(id)`, `qk.worklyLocations(orgId)`, `qk.worklyQuality(orgId, period)`.
+- Produces (`kpi-api.ts`): `kpiApi.workly = { status(), plan(organization_id) → { run_id, status }, run(id), locationsRefresh(organization_id), apply(run_id, exclude), employees(organization_id, q), link(b), locations(organization_id), setLocation(id, terminal_id), attendanceSync(organization_id, period), quality(organization_id, period) }` поверх `(apiClient.api as any).workly` в стиле соседних групп; `qk.worklyStatus`, `qk.worklyRun(id)`, `qk.worklyLocations(orgId)`, `qk.worklyQuality(orgId, period)`.
 
 - [ ] **Step 1: Тесты `workly.test.ts`:**
   - `groupPlan` на пунктах `create`, `deactivate`, `link` возвращает порядок `deactivate, link, create` и пропускает пустые группы.
@@ -121,6 +121,7 @@
 - Consumes: `kpiApi.workly.locations/setLocation/attendanceSync/quality`, `PeriodSelect` и `periodOptions` из `kpi/_components` и `@admin/lib/kpi/periods`, терминалы из `qk.terminals` (запрос терминалов KPI уже есть в `use-kpi`).
 
 Поведение:
+- Кнопка «Загрузить локации из Workly» (`locationsRefresh`, один синхронный запрос, R30): таблица локаций читается без обращения к Workly и пуста, пока не выполнены обновление или первый «Проверить», а порядок запуска ставит подтверждение карты ДО «Проверить». Кнопка видна всегда, при пустой таблице подсвечена; ошибки по кодам (`not_configured`, `crawl_failed`, ...). После успеха список перечитывается.
 - `LocationsTable`: для выбранной организации строки «локация Workly → терминал» с выбором терминала (`Select`, только терминалы своей организации, опция «не привязан»), изменение сразу вызывает `setLocation`; несопоставленные подсвечены.
 - `AttendanceSync`: выбор месяца и организации, кнопка «Синхронизировать» (`attendanceSync` → `run_id`, опрос как в «Проверить»), итог из `run.counts` (`days`, `unknown`, `carried`), ошибки `period_closed` и `period_not_started` текстом сразу после нажатия (они приходят до постановки задачи), `failed` по `connectionErrorKey(run.error)`; ниже блок качества (`quality`): таблица филиалов (доля прогулов, пометка `flagged`) и список «прогулы более чем в 90% дней» с именами из `employee_names`.
 
