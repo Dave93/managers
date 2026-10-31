@@ -13,13 +13,23 @@
 ## Global Constraints
 
 - Права экрана: только `kpi.manage` (как у «Загрузки Workly»). Пункт меню в группе KPI (`nav-config.tsx`), перед «Приход и уход».
-- Тексты через `next-intl` во всех четырёх локалях: `ru`, `en`, `uz-Latn`, `uz-Cyrl` (`admin/messages/<locale>.json`). Русский основной; узбекские тексты нужно показать носителю до выката (как отмечено в `kpi-handoff.md`).
+- Тексты через `next-intl` во всех четырёх локалях: `ru`, `en`, `uz-Latn`, `uz-Cyrl` (`admin/messages/<locale>.json`). Русские ключи добавляет каждая задача вместе со своим экраном (иначе экран не запустится), в `ru.json` под `kpiScreens.workly.*`; английский и два узбекских файла заполняет задача 6 и проверяет скриптом паритета ключей. Пункт меню `nav.kpi.workly` добавляет задача 1 сразу во все четыре локали. Русский основной; узбекские тексты нужно показать носителю до выката (как отмечено в `kpi-handoff.md`).
 - Пароли, `client_secret`, ключи доступа в интерфейсе не показываются; ошибки подключения выводятся по коду (`client_invalid`, `force_update`, `auth_failed`, `not_configured`).
 - Кнопка «Применить» запрашивает подтверждение с числами плана (связать, создать, деактивировать, перенести). Первый прогон организации всегда ручной (бэкенд не даст применить иначе).
 - Типы ответов берутся из бэкенда через алиас `@backend/*`, как в `admin/lib/kpi-api.ts`.
 - Выкат: админка выходит вместе с бэкендом одним релизом (одна ветка `feature/workly-sync`, один PR): задача 5 нужна, чтобы файловая загрузка продолжила работать после того, как бэкенд сделал `organization_id` обязательным.
 - «Проверить» и «Синхронизировать» работают в фоне 70–100 секунд (бэкенд отдаёт `202 { run_id, status: "running" }`); экран опрашивает `GET /api/workly/sync/runs/:id` каждые 2 секунды, пока статус `running`, и возобновляет опрос после перезагрузки страницы, если последний прогон в `status` ещё `running`.
 - Проверки: `cd admin && bun test ./lib/kpi`, `bun lint`, `admin/node_modules/.bin/tsc --noEmit` (в базе три известные ошибки, новых быть не должно).
+
+## Факты бэкенда и рулинги (бэкенд готов, коммит fceb1fe9; админка читает его код, а не план)
+
+- Маршруты `/api/workly/*` (файл `backend/src/modules/workly/routes.ts`), права `kpi.manage`. Eden: `(apiClient.api as any).workly`, как `(apiClient.api as any).kpi` в `admin/lib/kpi-api.ts`.
+- `GET /workly/status` → массив по подключению `{ key, organization_id | null, organization_name, configured, last_run | null, error | null }`; `last_run` без плана: `{ id, kind: "employees"|"attendance", status, trigger, block_reason, counts, period, error, created_at, applied_at }`. Статусы прогона: `running`, `planned`, `applied`, `blocked`, `failed`, `rolled_back`. Ночной прогон мог оставить `blocked` (причины `crawl_short`, `too_many_deactivations`, `too_many_creations`, `empty_crawl`): карточка показывает причину текстом.
+- `POST /workly/sync/plan` и `POST /workly/attendance/sync` отвечают HTTP 202 `{ run_id, status: "running" }`. `GET /workly/sync/runs/:id` отдаёт `RunRow` с `plan` (у `kind: attendance` плана нет, итог в `counts`: `days`, `unknown`, `carried`, `import_id`).
+- `POST /workly/sync/apply` body `{ run_id, exclude: string[] }`: `exclude` обязателен, админка ВСЕГДА шлёт массив (пустой `[]`, если исключений нет). Ответ `{ applied, skipped: { key, reason: "excluded"|"stale"|"conflict" }[] }`; тот же `skipped` потом хранится в `plan.skipped`, применённые ключи в `plan.applied`.
+- `SyncPlan = { items: PlanItem[], report: { ambiguous: { workly_id, label, employee_ids }[], not_found: { employee_id, label }[], no_branch: { workly_id, label }[] }, applied?, skipped?, rolled_back? }`; `PlanItem = { key, kind, employee_id | null, workly_id, label, before, after }`; виды пунктов `link`, `relink`, `update`, `move`, `create`, `deactivate`, `reactivate`. Пункт `move` может идти парой к `link`/`relink`/`reactivate` у того же сотрудника: в списке пропущенных они показываются рядом.
+- `GET /workly/employees?organization_id&q` отдаёт не более 50 записей `{ id, full_name, tab_number, locations }`; первый запрос на холодном кэше идёт до ~26 секунд (индикатор загрузки обязателен). `POST /workly/sync/link` body `{ organization_id, employee_id, workly_id }`.
+- Расхождения с первоначальным текстом плана (рулинги): R19 прогон может завершиться кодами ошибок `empty_crawl`, `crawl_failed`, `crawl_short`, `apply_failed`, `client_invalid`, `force_update`, `auth_failed`, `http_error`, `not_configured`, `period_closed`, `period_not_started`, `enqueue_failed`, а маршруты отвечают `run_in_progress`, `run_not_planned`, `run_superseded`, `run_not_found`, `queue_unavailable`, `organization_not_connected`, `employee_not_found`, `workly_employee_not_found`, `workly_id_taken`, `terminal_other_org`, `location_not_found`, `organization_required`, `bad_organization`: у каждого русский текст в `kpiScreens.workly.errors.<код>` (для `run_superseded`: «План устарел, соберите заново»; для `apply_failed`: «Не удалось применить план, изменений нет, соберите заново»). Ночной прогон `blocked first_run` НЕ пишется (шаг сотрудников пропускается без применённого прогона): вытеснить ручной план может только ночной прогон организации, у которой уже есть применённый прогон. R20 у импортов посещаемости `source: "api"` поля `sheet`, `header_row`, `mapping` равны `null`: везде, где экран читает их (`imports-table.tsx`), для `null` выводится прочерк «—». R23 первая синхронизация API организации ЗАМЕНЯЕТ её файловый импорт за месяц: перед нажатием «Синхронизировать» экран показывает предупреждение, если за выбранный месяц у организации уже есть импорт с `source: "file"` (список импортов уже загружается `kpiApi.attendance.imports(period)`; в нём есть `organization_id` и `source`). R24 ночная синхронизация посещаемости выключена на бэкенде; на экране об этом не пишем, только про ручную.
 
 ## Review Focus
 
@@ -94,7 +104,7 @@
 - `PlanReview`: счётчики плана, группы по `groupPlan` (заголовок группы, число, свёрнуто; первые 50 строк и «Показать все»), у каждой строки флажок «исключить» (`toggleExclusion`), блоки отчёта «Неоднозначно», «Не найден», «Не привязан к филиалу»; кнопка «Применить» активна при `canApply`, открывает подтверждение с `effectiveCounts`; после применения показывает `applied` и список `skipped` (причины `excluded`, `stale`, `conflict`) и обновляет статус.
 - `ManualLinkDialog`: открывается из строк «Неоднозначно» и «Не найден»; поле поиска (`workly.employees?q`, не более 50 результатов, с задержкой ввода), выбор записи, `link`; ошибка `workly_id_taken` показывается текстом.
 
-- [ ] **Step 1: Реализовать компоненты и страницу.** Тексты из `useTranslations("kpiScreens.workly")`, ключи добавляются в Task 5.
+- [ ] **Step 1: Реализовать компоненты и страницу.** Тексты из `useTranslations("kpiScreens.workly")`; русские ключи этой задачи (подключения, план, отчёт, пропущенные, ручная связь, тексты ошибок по кодам из раздела «Факты бэкенда») добавляются в `ru.json` здесь же.
 - [ ] **Step 2: Проверка типов и линтера:** `admin/node_modules/.bin/tsc --noEmit` без новых ошибок, `bun lint` чисто.
 - [ ] **Step 3: Ручная проверка** на smoke-стенде (база `managers_kpi_smoke`, `PROJECT_PREFIX=managers_smoke_`, миграция 0041 применена именно к ней; локальную `managers` не мигрировать, `managers_tickets_test` не использовать: её чистят тесты; ключи `WORKLY_*` в `backend/.env`, admin `bun dev`): открыть `/ru/kpi/workly`, нажать «Проверить» для каждой организации (только чтение Workly, пишется лишь строка журнала), убедиться, что группы и отчёт отображаются, «Применить» не нажимать. Скриншот экрана приложить к описанию PR.
 - [ ] **Step 4: Commit** `feat(admin): экран Workly — подключения и сверка сотрудников`.
@@ -114,7 +124,7 @@
 - `LocationsTable`: для выбранной организации строки «локация Workly → терминал» с выбором терминала (`Select`, только терминалы своей организации, опция «не привязан»), изменение сразу вызывает `setLocation`; несопоставленные подсвечены.
 - `AttendanceSync`: выбор месяца и организации, кнопка «Синхронизировать» (`attendanceSync` → `run_id`, опрос как в «Проверить»), итог из `run.counts` (`days`, `unknown`, `carried`), ошибки `period_closed` и `period_not_started` текстом сразу после нажатия (они приходят до постановки задачи), `failed` по `connectionErrorKey(run.error)`; ниже блок качества (`quality`): таблица филиалов (доля прогулов, пометка `flagged`) и список «прогулы более чем в 90% дней» с именами из `employee_names`.
 
-- [ ] **Step 1: Реализовать. Step 2: `tsc` и `bun lint` без новых замечаний.**
+- [ ] **Step 1: Реализовать** (русские ключи этой задачи в `ru.json`). Перед кнопкой «Синхронизировать» показывается предупреждение (R23), если у выбранной организации за выбранный месяц уже есть импорт `source: "file"` (данные из `kpiApi.attendance.imports(period)`): «Синхронизация заменит загруженный файл за этот месяц». **Step 2: `tsc` и `bun lint` без новых замечаний.**
 - [ ] **Step 3: Ручная проверка** на том же smoke-стенде: карта локаций сохраняется и переживает перезагрузку страницы; блок качества отображается для месяца с данными (после ручной синхронизации на стенде).
 - [ ] **Step 4: Commit** `feat(admin): карта локаций и синхронизация посещаемости`.
 
@@ -129,11 +139,11 @@
 **Interfaces:**
 - Consumes: список организаций из `kpiApi.workly.status()` (`organization_id`, `organization_name`); `AttendanceImportRow.organization_id` и `source` (план 1, Task 8).
 
-Поведение: в шаге сопоставления колонок добавляется обязательный `Select` организации; пока не выбрана, «Загрузить» недоступна и в `commit` не уходит запрос; `replaceNotice` говорит, что заменяется импорт выбранной организации за месяц.
+Поведение: `AttendanceImportRow.sheet`, `header_row` и `mapping` теперь `string | null` / `number | null` / `AttendanceMapping | null` (R20, у импортов из API их нет): `imports-table.tsx` и диалог с описанием импорта выводят «—» для `null`, типы остальных читателей поправлены так, чтобы `tsc` проходил. В шаге сопоставления колонок добавляется обязательный `Select` организации (список из `kpiApi.workly.status()`; организации с `organization_id: null` в нём нет); пока не выбрана, «Загрузить» недоступна и в `commit` не уходит запрос; `replaceNotice` говорит, что заменяется импорт выбранной организации за месяц.
 
 - [ ] **Step 1: Тест** на чистой функции в `lib/kpi/attendance.ts`: `commitBodyIssue(draft)` возвращает код `organization_required`, пока `organization_id` пуст, и `null`, когда заполнен (`toMapping` и существующие проверки не меняются).
 - [ ] **Step 2: FAIL. Step 3: Реализовать функцию, `Select` в мастере и колонку «Источник». Step 4: `bun test ./lib/kpi` PASS.**
-- [ ] **Step 5: Commit** `feat(admin): организация в мастере загрузки Workly`.
+- [ ] **Step 5: Русские ключи** (`kpiScreens.attendance.wizard.organization`, колонка «Источник», прочерк) в `ru.json`. **Step 6: Commit** `feat(admin): организация в мастере загрузки Workly`.
 
 ---
 
@@ -143,9 +153,10 @@
 - Modify: `admin/messages/ru.json`, `en.json`, `uz-Latn.json`, `uz-Cyrl.json`
 
 **Interfaces:**
-- Produces: ключи `nav.kpi.workly`, `kpiScreens.workly.*` (заголовки секций, кнопки, надпись «идёт обход», подписи групп плана по `PlanKind`, причины `skipped`, отчёт, подтверждение, ошибки `workly.errors.{client_invalid,force_update,auth_failed,not_configured,crawl_failed,stale,unknown}`, локации, качество данных), `kpiScreens.attendance.wizard.organization`, колонка «Источник». Набор ключей одинаков во всех четырёх файлах.
+- Consumes: русские ключи задач 1, 3, 4, 5 (`ru.json` уже заполнен); задача 6 переводит их в `en`, `uz-Latn`, `uz-Cyrl` и сверяет паритет.
+- Produces: те же ключи `nav.kpi.workly` (уже во всех локалях с задачи 1), `kpiScreens.workly.*` (заголовки секций, кнопки, надпись «идёт обход», подписи групп плана по `PlanKind`, причины `skipped`, отчёт, подтверждение, ошибки `workly.errors.{client_invalid,force_update,auth_failed,not_configured,crawl_failed,stale,unknown}`, локации, качество данных), `kpiScreens.attendance.wizard.organization`, колонка «Источник». Набор ключей одинаков во всех четырёх файлах.
 
 - [ ] **Step 1: Проверочный скрипт** (одноразовый, не коммитится): собрать плоские ключи `nav.kpi.workly`, `kpiScreens.workly.*`, `kpiScreens.attendance.wizard.organization` из `ru.json` и убедиться, что каждый присутствует в трёх остальных файлах. Запуск до перевода показывает недостающие ключи.
-- [ ] **Step 2: Добавить русские тексты (источник), затем `en`, `uz-Latn`, `uz-Cyrl`.**
+- [ ] **Step 2: Перевести ключи из `ru.json` в `en`, `uz-Latn`, `uz-Cyrl`** (русский текст не менять, кроме явных опечаток).
 - [ ] **Step 3: Повторить проверочный скрипт:** недостающих ключей нет. `bun lint` и `tsc --noEmit` без новых замечаний.
 - [ ] **Step 4: Commit** `feat(admin): переводы экрана Workly`. В описании PR указать, что узбекские тексты ждут проверки носителем.
