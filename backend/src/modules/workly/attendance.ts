@@ -18,8 +18,10 @@ import type { WorklyClient } from "./client";
 import type { AbsenceItem, LateInItem, T12Item } from "./types";
 
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
-// Длительность: часы любым целым (суммы за месяц бывают 280:00), минуты 00..59.
-const DURATION_RE = /^(\d+):([0-5]\d)$/;
+// Длительность: часы любым целым (суммы за месяц бывают 280:00), минуты 00..59, секунды
+// 00..59 необязательны и отбрасываются. Без них «00:20:59» в late_in стало бы null, то есть
+// нулём опоздания: сотрудник вышел бы «вовремя».
+const DURATION_RE = /^(\d+):([0-5]\d)(?::[0-5]\d)?$/;
 // Время суток: ЧЧ:ММ, секунды, если вдруг придут, отбрасываются.
 const CLOCK_RE = /^(\d{1,2}):(\d{2})(?::\d{2})?$/;
 
@@ -48,7 +50,7 @@ function clockMinutes(s: string | null | undefined): number | null {
   return h <= 23 && mi <= 59 ? h * 60 + mi : null;
 }
 
-// "01:05" → 65, "280:00" → 16800, "00:00" → 0; null, пусто и мусор → null.
+// "01:05" → 65, "280:00" → 16800, "00:00" → 0, "00:20:59" → 20; null, пусто и мусор → null.
 export function hhmmToMinutes(s: string | null | undefined): number | null {
   if (typeof s !== "string") return null;
   const m = DURATION_RE.exec(s.trim());

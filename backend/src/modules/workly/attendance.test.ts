@@ -17,6 +17,20 @@ describe("hhmmToMinutes", () => {
     expect(hhmmToMinutes("-01:00")).toBeNull();
     expect(hhmmToMinutes("1:5")).toBeNull();
   });
+
+  it("секунды допускаются и отбрасываются: опоздание с секундами не становится нулём", () => {
+    expect(hhmmToMinutes("00:20:59")).toBe(20);
+    expect(hhmmToMinutes("08:00:00")).toBe(480);
+    expect(hhmmToMinutes("1:05:30")).toBe(65);
+    expect(hhmmToMinutes("280:00:00")).toBe(16800);
+    expect(hhmmToMinutes(" 00:05:01 ")).toBe(5);
+    // Неверные секунды и прочий мусор — по-прежнему null.
+    expect(hhmmToMinutes("08:00:60")).toBeNull();
+    expect(hhmmToMinutes("08:00:")).toBeNull();
+    expect(hhmmToMinutes("08:00:5")).toBeNull();
+    expect(hhmmToMinutes("08:60:00")).toBeNull();
+    expect(hhmmToMinutes("08:00:00:00")).toBeNull();
+  });
 });
 
 describe("tashkentTimestamp", () => {
