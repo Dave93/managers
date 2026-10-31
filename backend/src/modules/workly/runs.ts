@@ -1,4 +1,4 @@
-// Журнал прогонов Workly, построение плана в фоне, применение и ночной автопрогон
+// Журнал прогонов Workly, построение плана в фоне, применение, откат и ночной автопрогон
 // (разделы 5.3, 5.5 и 5.9 спеки).
 //
 // Прогон: startRun вставляет строку running (по одной на организацию и вид, это
@@ -31,7 +31,15 @@ import { clientFor, WorklyError, type WorklyClient } from "./client";
 import { connKeyOf } from "./config";
 import { checkGuards, type BlockReason, type GuardInput } from "./guards";
 import { refreshLocations, terminalMap } from "./locations";
-import { buildPlan, countsOf, type EmployeeFields, type OurEmployee, type PlanItem, type SyncPlan } from "./plan";
+import {
+  buildPlan,
+  countsOf,
+  type EmployeeFields,
+  type OurEmployee,
+  type PlanItem,
+  type RollbackResult,
+  type SyncPlan,
+} from "./plan";
 import type { ConnKey } from "./types";
 
 export type RunKind = "employees" | "attendance";
@@ -309,6 +317,32 @@ async function terminalOfOrg(db: DbLike, terminalId: unknown, organizationId: st
   return !!t;
 }
 
+// Текущие значения всех полей, которые пишет план, у сотрудника этой организации (строка под
+// замком до конца транзакции). null — сотрудника нет или он в филиале другой организации.
+async function lockOwnEmployee(db: DbLike, employeeId: string, organizationId: string): Promise<Record<string, unknown> | null> {
+  const [cur] = await db
+    .select({
+      first_name: employees.first_name,
+      last_name: employees.last_name,
+      workly_company_id: employees.workly_company_id,
+      workly_id: employees.workly_id,
+      workly_tab_number: employees.workly_tab_number,
+      position: employees.position,
+      staff_role_id: employees.staff_role_id,
+      grade: employees.grade,
+      shift: employees.shift,
+      is_trainee: employees.is_trainee,
+      terminal_id: employees.terminal_id,
+      active: employees.active,
+    })
+    .from(employees)
+    .innerJoin(terminals, eq(terminals.id, employees.terminal_id))
+    .where(and(eq(employees.id, employeeId), eq(terminals.organization_id, organizationId)))
+    .limit(1)
+    .for("update", { of: employees });
+  return cur ?? null;
+}
+
 // Один пункт внутри своей точки сохранения. null — пункт устарел, ничего не записано.
 async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Promise<{ createdId: string | null } | null> {
   const values = valuesOf(item.after);
@@ -332,28 +366,8 @@ async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Pr
   if (!item.employee_id || !before || Object.keys(before).length === 0) return null;
   if (Object.keys(item.after).some((k) => !(k in before))) return null;
   // Сотрудник под замком до конца применения; ушедший в другую организацию считается изменившимся.
-  const [cur] = await db
-    .select({
-      first_name: employees.first_name,
-      last_name: employees.last_name,
-      workly_company_id: employees.workly_company_id,
-      workly_id: employees.workly_id,
-      workly_tab_number: employees.workly_tab_number,
-      position: employees.position,
-      staff_role_id: employees.staff_role_id,
-      grade: employees.grade,
-      shift: employees.shift,
-      is_trainee: employees.is_trainee,
-      terminal_id: employees.terminal_id,
-      active: employees.active,
-    })
-    .from(employees)
-    .innerJoin(terminals, eq(terminals.id, employees.terminal_id))
-    .where(and(eq(employees.id, item.employee_id), eq(terminals.organization_id, organizationId)))
-    .limit(1)
-    .for("update", { of: employees });
-  if (!cur) return null;
-  const current = cur as Record<string, unknown>;
+  const current = await lockOwnEmployee(db, item.employee_id, organizationId);
+  if (!current) return null;
   for (const [k, v] of Object.entries(before)) {
     // Поле, которого мы не знаем, сравнить нельзя: пункт пропускается.
     if (!(WRITABLE as readonly string[]).includes(k) || !sameValue(current[k], v)) return null;
@@ -463,6 +477,154 @@ export async function applyRun(
       .set({ status: "applied", applied_at: sql`now()`, plan: next })
       .where(eq(workly_sync_runs.id, runId));
     return { applied: applied.length, skipped };
+  });
+}
+
+// ---------- откат ----------
+
+// Колонка другой таблицы, которой та ссылается на сотрудника.
+interface RefColumn {
+  table: string;
+  column: string;
+  uuid: boolean;
+}
+
+/**
+ * Колонки, которыми базовые таблицы схемы public ссылаются на сотрудника: employee_id и
+ * *_employee_id (например, passport_signoffs.actor_employee_id). Список берётся из
+ * information_schema, а не из внешних ключей: на employees их почти нет (medical_exams, KPI
+ * ссылаются без них), и новая таблица видна без правки кода. Представления не берутся:
+ * представление над самой employees «ссылалось» бы на каждого.
+ */
+async function referenceColumns(db: DbLike): Promise<RefColumn[]> {
+  const res = await db.execute(sql`
+    SELECT c.table_name, c.column_name, c.data_type
+    FROM information_schema.columns c
+    JOIN information_schema.tables t ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+    WHERE c.table_schema = 'public'
+      AND t.table_type = 'BASE TABLE'
+      AND c.table_name <> 'employees'
+      AND c.column_name ~ '(^|_)employee_id$'
+    ORDER BY c.table_name, c.column_name`);
+  return (res.rows as { table_name: string; column_name: string; data_type: string }[]).map((r) => ({
+    table: r.table_name,
+    column: r.column_name,
+    uuid: r.data_type === "uuid",
+  }));
+}
+
+// Есть ли хоть одна строка, которая ссылается на сотрудника. Имена таблиц и колонок — только
+// через sql.identifier. Колонка не uuid сравнивается как текст: запрос не падает на чужом типе.
+async function isReferenced(db: DbLike, refs: RefColumn[], employeeId: string): Promise<boolean> {
+  if (refs.length === 0) return false;
+  const checks = refs.map((r) => {
+    const col = sql.identifier(r.column);
+    const cond = r.uuid ? sql`${col} = ${employeeId}::uuid` : sql`${col}::text = ${employeeId}`;
+    return sql`EXISTS (SELECT 1 FROM ${sql.identifier("public")}.${sql.identifier(r.table)} WHERE ${cond})`;
+  });
+  const res = await db.execute(sql`SELECT (${sql.join(checks, sql` OR `)}) AS found`);
+  return (res.rows[0] as { found: boolean } | undefined)?.found === true;
+}
+
+// По этим полям созданный прогоном сотрудник узнаётся как тот самый: имя, филиал и пара Workly.
+const CREATED_IDENTITY: readonly (keyof EmployeeFields)[] = ["first_name", "last_name", "terminal_id", "workly_company_id", "workly_id"];
+
+type Undone = "restored" | "deleted" | "deactivated";
+
+// Откат одного пункта внутри своей точки сохранения. null — пункт изменился после применения
+// (или трогать его нельзя), ничего не записано.
+async function undoItem(db: DbLike, item: PlanItem, organizationId: string, refs: RefColumn[]): Promise<Undone | null> {
+  if (!item.employee_id) return null;
+  // Под замком и только в своей организации: сотрудник в чужом филиале считается изменившимся.
+  const current = await lockOwnEmployee(db, item.employee_id, organizationId);
+  if (!current) return null;
+
+  if (item.kind === "create") {
+    for (const k of CREATED_IDENTITY) {
+      if (!(k in item.after) || !sameValue(current[k], item.after[k])) return null;
+    }
+    // Удаление оставило бы сирот: на кого есть ссылки, того только выключаем.
+    if (await isReferenced(db, refs, item.employee_id)) {
+      await db.update(employees).set({ active: false, updated_at: sql`now()` }).where(eq(employees.id, item.employee_id));
+      return "deactivated";
+    }
+    await db.delete(employees).where(eq(employees.id, item.employee_id));
+    return "deleted";
+  }
+
+  const before = item.before;
+  const changedKeys = Object.keys(item.after) as (keyof EmployeeFields)[];
+  if (!before || changedKeys.length === 0 || changedKeys.some((k) => !(k in before))) return null;
+  // После применения у сотрудника ровно {...before, ...after}: поля из after такие, как их записал
+  // прогон, а закреплённые только в before (пара Workly у update, move, reactivate) прежние.
+  // Любое расхождение значит, что поле с тех пор менял кто-то другой (прогон N+1, HR): не трогаем.
+  for (const [k, v] of Object.entries({ ...before, ...item.after })) {
+    if (!(WRITABLE as readonly string[]).includes(k) || !sameValue(current[k], v)) return null;
+  }
+  // Возвращаются только поля, которые прогон менял; закреплённые и так равны before.
+  const restore: Partial<EmployeeFields> = {};
+  for (const k of changedKeys) Object.assign(restore, { [k]: before[k] ?? null });
+  const values = valuesOf(restore);
+  if ("terminal_id" in values && !(await terminalOfOrg(db, values.terminal_id, organizationId))) return null;
+  await db
+    .update(employees)
+    .set({ ...values, updated_at: sql`now()` })
+    .where(eq(employees.id, item.employee_id));
+  return "restored";
+}
+
+/**
+ * Откатывает применённый прогон сверки сотрудников (только статус applied и вид employees,
+ * иначе 409 run_not_applied; прогоны посещаемости этим не откатываются). Трогает только
+ * пункты из plan.applied, в обратном порядке применения (перенос раньше связи, к которой он
+ * относится), каждый в своей точке сохранения. Пункт возвращается к before, только если
+ * сотрудник с тех пор не менялся (иначе skipped с changed_since: откат прогона N не затирает
+ * прогон N+1 и правки HR). Созданного прогоном сотрудника удаляет, если на него ничего не
+ * ссылается, иначе выключает. Строка журнала заперта на всё время отката; статус rolled_back
+ * и итог в plan.rolled_back пишутся той же транзакцией. Прежняя пара Workly, уже занятая
+ * другим сотрудником, даёт changed_since; любая другая ошибка откатывает весь откат, прогон
+ * остаётся applied.
+ */
+export async function rollbackRun(db: DrizzleDB, runId: string): Promise<RollbackResult> {
+  if (!UUID_RE.test(runId)) throw new KpiError(404, "run_not_found");
+  return db.transaction(async (tx) => {
+    const [run] = await tx
+      .select()
+      .from(workly_sync_runs)
+      .where(eq(workly_sync_runs.id, runId))
+      .limit(1)
+      .for("update");
+    if (!run) throw new KpiError(404, "run_not_found");
+    const plan = run.plan as SyncPlan | null;
+    // Без списка применённых неизвестно, что откатывать: такой прогон не откатываем вовсе.
+    if (run.status !== "applied" || run.kind !== "employees" || !plan || !Array.isArray(plan.applied)) {
+      throw new KpiError(409, "run_not_applied");
+    }
+
+    const refs = await referenceColumns(tx);
+    const byKey = new Map(plan.items.map((it) => [it.key, it]));
+    const out: RollbackResult = { restored: 0, deleted: 0, deactivated: 0, skipped: [] };
+    const seen = new Set<string>();
+    for (const key of [...plan.applied].reverse()) {
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const item = byKey.get(key);
+      let res: Undone | null = null;
+      if (item) {
+        try {
+          res = await tx.transaction((sp) => undoItem(sp, item, run.organization_id, refs));
+        } catch (e) {
+          // Прежнюю пару Workly занял другой сотрудник: вернуть её нельзя, пункт изменился.
+          if (!violates(e, "employees_workly_uq")) throw e;
+        }
+      }
+      if (res) out[res]++;
+      else out.skipped.push({ key, reason: "changed_since" });
+    }
+
+    const next: SyncPlan = { ...plan, rolled_back: out };
+    await tx.update(workly_sync_runs).set({ status: "rolled_back", plan: next }).where(eq(workly_sync_runs.id, runId));
+    return out;
   });
 }
 

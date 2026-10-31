@@ -79,6 +79,20 @@ export interface SyncPlan {
   applied?: string[];
   /** Пропущенные при применении пункты и причины; пишет applyRun вместе с applied. */
   skipped?: { key: string; reason: "excluded" | "stale" | "conflict" }[];
+  /** Итог отката; пишет rollbackRun вместе со статусом rolled_back. */
+  rolled_back?: RollbackResult;
+}
+
+/**
+ * Итог отката прогона. restored — пункты, которым вернули before; deleted и deactivated —
+ * созданные прогоном сотрудники (без ссылок удалены, со ссылками выключены); skipped —
+ * пункты, чьи поля изменились после применения (их откат не трогает).
+ */
+export interface RollbackResult {
+  restored: number;
+  deleted: number;
+  deactivated: number;
+  skipped: { key: string; reason: "changed_since" }[];
 }
 
 export interface PlanInput {
