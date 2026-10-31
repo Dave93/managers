@@ -89,6 +89,7 @@ describe("canApply", () => {
     expect(canApply({ status: "planned" })).toBe(true);
     for (const status of ["applied", "blocked", "failed", "running", "rolled_back"]) expect(canApply({ status })).toBe(false);
     expect(canApply(null)).toBe(false);
+    expect(canApply(undefined)).toBe(false);
   });
 });
 

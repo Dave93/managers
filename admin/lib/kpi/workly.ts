@@ -50,7 +50,7 @@ export function effectiveCounts(items: PlanItem[], excluded: ReadonlySet<string>
 }
 
 /** «Применить» доступно только у спланированного прогона: применённый, заблокированный, упавший и идущий не применяются. */
-export function canApply(run: { status: string } | null): boolean {
+export function canApply(run: { status: string } | null | undefined): boolean {
   return run?.status === "planned";
 }
 
