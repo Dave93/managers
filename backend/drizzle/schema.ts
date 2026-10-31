@@ -3092,10 +3092,12 @@ export const kpi_notifications = pgTable(
   ]
 );
 
-// Импорт посещаемости из Workly за месяц. status: committed | replaced.
-// mapping — { sheet, header_row, mapping }; unmatched — до 500 несопоставленных строк.
-// uploaded_by пуст у ночного прогона синхронизации (он идёт без пользователя);
-// organization_id заполняют только импорты из синхронизации.
+// Импорт посещаемости Workly за месяц и организацию. status: committed | replaced.
+// mapping у файла — { sheet, header_row, mapping, totals, skipped? }, у синхронизации с API —
+// { source: "api", totals, window, unknown, skipped? }; unmatched — до 500 несопоставленных строк.
+// uploaded_by пуст у ночного прогона синхронизации (он идёт без пользователя).
+// organization_id заполняют и синхронизация, и мастер файловой загрузки; пуст он только у прежних
+// файловых импортов (мастер на проде с 2026-10-27 до релиза Workly), их замена по организации не трогает.
 export const kpi_attendance_imports = pgTable(
   "kpi_attendance_imports",
   {
