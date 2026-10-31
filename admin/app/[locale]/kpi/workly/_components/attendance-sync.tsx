@@ -18,7 +18,13 @@ import { Button } from "@admin/components/ui/button";
 import { kpiApi, type AttendanceImportRow, type RunRow } from "@admin/lib/kpi-api";
 import { KpiApiError, shouldRetry } from "@admin/lib/kpi/errors";
 import { calendarPeriod, monthLabel, periodOptions } from "@admin/lib/kpi/periods";
-import { RUN_STATUSES, attendanceResultLines, fileImportWarning, resumeAttendanceRun } from "@admin/lib/kpi/workly-view";
+import {
+  RUN_STATUSES,
+  attendanceErrorKey,
+  attendanceResultLines,
+  fileImportWarning,
+  resumeAttendanceRun,
+} from "@admin/lib/kpi/workly-view";
 import { PeriodSelect } from "../../_components/period-select";
 import { qk, useKpiMe } from "../../_components/use-kpi";
 import { WithOrganization, type ConnectedEntry } from "./organization-select";
@@ -59,8 +65,9 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
   const options = useMemo(() => periodOptions(now, 12), [now]);
 
   // Идущая синхронизация организации (после перезагрузки или запущенная в другой вкладке):
-  // следим за ней и выбираем её месяц. Отслеживаемый id не сбрасывается, когда last_run
-  // меняется, иначе итог пропал бы сразу после конца прогона.
+  // следим за ней и выбираем её месяц. Источник — last_attendance_run: более новая проверка
+  // сотрудников её не прячет. Отслеживаемый id не сбрасывается, когда статус меняется, иначе
+  // итог пропал бы сразу после конца прогона.
   const resumable = resumeAttendanceRun(entry);
   const resumableId = resumable?.id ?? null;
   const [runId, setRunId] = useState<string | null>(resumableId);
@@ -86,6 +93,8 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
     retry: shouldRetry,
   });
   const replacesFile = fileImportWarning(imports.data, orgId);
+  // Список импортов не загрузился: о замене файла сказать нельзя — говорим, что не проверили.
+  const importsUnknown = imports.error != null && imports.data === undefined;
 
   // Ошибка старта относится к прогону, который был на экране при нажатии, и к месяцу запроса:
   // когда блок переходит к другому прогону (после 409 run_in_progress — к идущему) или выбран
@@ -117,8 +126,11 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
     if (!locked) start.mutate({ period, shownRunId: runId });
   };
 
-  const startErrorText = (e: unknown) =>
-    e instanceof KpiApiError && e.code === "run_in_progress" ? t("attendance.inProgress") : text.apiError(e);
+  // Для части кодов у блока свой текст (attendanceErrorKey), остальные — общие тексты errors.*.
+  const startErrorText = (e: unknown) => {
+    const key = e instanceof KpiApiError ? attendanceErrorKey(e.code) : null;
+    return key ? t(key) : text.apiError(e);
+  };
 
   return (
     <div className="space-y-4">
@@ -129,6 +141,8 @@ function AttendanceSync({ entry }: { entry: ConnectedEntry }) {
         className="h-11 w-full sm:w-60"
         disabled={locked}
       />
+
+      {importsUnknown && <p className="text-sm text-muted-foreground">{t("attendance.importsUnknown")}</p>}
 
       {replacesFile && (
         <p className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
@@ -164,6 +178,13 @@ function RunResult({ run, staleness, loadError }: { run: RunRow | undefined; sta
   const t = useTranslations("kpiScreens.workly");
   const text = useWorklyText();
   const locale = useLocale();
+  const month = run?.period ? monthLabel(run.period, locale) : "—";
+  // empty_crawl у синхронизации — «нечего записать» (сотрудники не связаны), а не сбой Workly:
+  // для него и ещё нескольких кодов у блока свой текст (attendanceErrorKey).
+  const runErrorText = (code: string | null) => {
+    const key = attendanceErrorKey(code);
+    return key ? t(key) : text.runError(code);
+  };
 
   if (!run) {
     if (loadError)
@@ -179,14 +200,14 @@ function RunResult({ run, staleness, loadError }: { run: RunRow | undefined; sta
     if (staleness === "stuck")
       return (
         <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          {t("attendance.stuck")}
+          {t("attendance.stuck", { month })}
         </p>
       );
     return (
       <div role="status" className="space-y-1 rounded-md bg-muted p-3 text-sm">
         <p className="flex items-center gap-2">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-          {t("attendance.running", { month: run.period ? monthLabel(run.period, locale) : "—" })}
+          {t("attendance.running", { month })}
         </p>
         {staleness === "slow" && <p className="text-amber-700">{t("card.slow")}</p>}
       </div>
@@ -196,15 +217,15 @@ function RunResult({ run, staleness, loadError }: { run: RunRow | undefined; sta
   if (run.status === "failed")
     return (
       <div role="alert" className="space-y-0.5 rounded-md border border-destructive p-3 text-sm text-destructive">
-        <p className="font-medium">{t("attendance.failed")}</p>
-        <p>{text.runError(run.error)}</p>
+        <p className="font-medium">{t("attendance.failed", { month })}</p>
+        <p>{runErrorText(run.error)}</p>
       </div>
     );
 
   if (run.status === "applied")
     return (
       <div role="status" className="space-y-2 rounded-md border border-green-200 bg-green-50 p-3 text-sm text-green-950">
-        <p className="font-medium">{t("attendance.done", { month: run.period ? monthLabel(run.period, locale) : "—" })}</p>
+        <p className="font-medium">{t("attendance.done", { month })}</p>
         <ul className="space-y-1.5">
           {attendanceResultLines(run.counts).map((line) => (
             <li key={line.key}>

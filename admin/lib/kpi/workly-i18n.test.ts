@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createTranslator } from "next-intl";
 import { PLAN_GROUP_ORDER, WORKLY_BLOCK_REASONS, WORKLY_ERROR_CODES } from "./workly";
-import { CHANGE_TYPES, RUN_STATUSES, attendanceResultLines } from "./workly-view";
+import { ATTENDANCE_ERROR_CODES, CHANGE_TYPES, RUN_STATUSES, attendanceErrorKey, attendanceResultLines } from "./workly-view";
 
 // Тексты экрана «Синхронизация Workly» (kpiScreens.workly.*) по локалям. Сейчас проверяется
 // только ru: остальные локали добавит задача 6 (список LOCALES ниже).
@@ -118,6 +118,15 @@ for (const locale of LOCALES) {
       expect(lines.map((l) => l.key)).toEqual(["days", "unknown", "carried"]);
       expect(missing(t, lines.flatMap((l) => [l.label, l.hint]))).toEqual([]);
       for (const l of lines) expect(at(t, l.label)).toContain("{count}");
+    });
+
+    it("свой текст ошибки блока посещаемости для каждого кода из ATTENDANCE_ERROR_CODES", () => {
+      expect(ATTENDANCE_ERROR_CODES.length).toBe(4);
+      expect(missing(t, ATTENDANCE_ERROR_CODES.map((c) => attendanceErrorKey(c) ?? `attendance.errors.${c}`))).toEqual([]);
+      // Свой текст отличается от общего: иначе переопределение не нужно.
+      for (const c of ATTENDANCE_ERROR_CODES) {
+        if (at(t, `errors.${c}`) !== undefined) expect(at(t, `attendance.errors.${c}`)).not.toBe(at(t, `errors.${c}`));
+      }
     });
 
     it("каждая строка — корректное сообщение ICU и форматируется со своими параметрами", () => {

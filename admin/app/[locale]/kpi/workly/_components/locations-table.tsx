@@ -121,7 +121,7 @@ function LocationsTable({ entry }: { entry: ConnectedEntry }) {
       ) : (
         <div className="space-y-2">
           {stale != null && <StaleNote error={stale} />}
-          {terms.error != null && (
+          {terms.error != null && terms.data === undefined && (
             <p role="alert" className="text-sm text-destructive">
               {t("locations.terminalsError")} {text.apiError(terms.error)}
             </p>
@@ -141,13 +141,7 @@ function LocationsTable({ entry }: { entry: ConnectedEntry }) {
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
-                  <LocationRow
-                    key={r.id}
-                    row={r}
-                    orgId={orgId}
-                    terminals={terms.data}
-                    terminalsLoading={terms.isPending}
-                  />
+                  <LocationRow key={r.id} row={r} orgId={orgId} terminals={terms.data} />
                 ))}
               </TableBody>
             </Table>
@@ -162,12 +156,11 @@ function LocationRow({
   row,
   orgId,
   terminals,
-  terminalsLoading,
 }: {
   row: WorklyLocationRow;
   orgId: string;
+  /** undefined — список терминалов ещё грузится или не загрузился: выбор недоступен. */
   terminals: WorklyTerminalRow[] | undefined;
-  terminalsLoading: boolean;
 }) {
   const t = useTranslations("kpiScreens.workly");
   const text = useWorklyText();
@@ -180,12 +173,15 @@ function LocationRow({
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.worklyLocations(orgId) }),
   });
 
-  // Привязанный терминал может не входить в список активных (выключен или переименован в
-  // другую организацию): показываем его отдельным пунктом, иначе выбор выглядел бы пустым.
+  // Пока списка терминалов нет (грузится или ошибка), выбор закрыт, а привязанный терминал
+  // показывается просто по названию. Когда список есть, привязанный терминал может в него не
+  // входить (выключен или перенесён в другую организацию): тогда он отдельный пункт с пометкой,
+  // иначе выбор выглядел бы пустым.
   const options = useMemo(() => {
-    const list = terminals ?? [];
-    if (row.terminal_id == null || list.some((x) => x.id === row.terminal_id)) return { list, extra: null };
-    return { list, extra: { id: row.terminal_id, name: row.terminal_name ?? shortId(row.terminal_id) } };
+    const current = row.terminal_id == null ? null : { id: row.terminal_id, name: row.terminal_name ?? shortId(row.terminal_id) };
+    if (terminals === undefined) return { list: [], plain: current, extra: null };
+    if (current == null || terminals.some((x) => x.id === current.id)) return { list: terminals, plain: null, extra: null };
+    return { list: terminals, plain: null, extra: current };
   }, [terminals, row.terminal_id, row.terminal_name]);
 
   const current = save.isPending ? save.variables : row.terminal_id;
@@ -206,7 +202,7 @@ function LocationRow({
             <Select
               value={current ?? NONE}
               onValueChange={(v) => save.mutate(v === NONE ? null : v)}
-              disabled={save.isPending || terminalsLoading}
+              disabled={save.isPending || terminals === undefined}
             >
               <SelectTrigger
                 className="h-11 w-full sm:w-72"
@@ -216,6 +212,7 @@ function LocationRow({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={NONE}>{t("locations.none")}</SelectItem>
+                {options.plain && <SelectItem value={options.plain.id}>{options.plain.name}</SelectItem>}
                 {options.extra && (
                   <SelectItem value={options.extra.id}>{t("locations.otherTerminal", { name: options.extra.name })}</SelectItem>
                 )}

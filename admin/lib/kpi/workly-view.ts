@@ -195,11 +195,16 @@ const STATUS_FLAGS: Record<RunRow["status"], true> = {
 /** Все статусы прогона: у каждого есть текст `card.status.<статус>`. */
 export const RUN_STATUSES = Object.keys(STATUS_FLAGS) as RunRow["status"][];
 
-type LastRunLike = { last_run: { id: string; kind: string; status: string } | null };
+type RunRef = { id: string; kind: string; status: string };
+
+// Статус отдаёт последний прогон каждого вида отдельно (R35): синхронизация посещаемости,
+// запущенная после проверки, не прячет готовый план, а проверка — идущую синхронизацию.
+type EmployeesRunLike = { last_employees_run: RunRef | null };
+type AttendanceRunLike = { last_attendance_run: (RunRef & { period: string | null }) | null };
 
 /** Проверка сотрудников идёт: после перезагрузки страницы карточка сама продолжает опрос этого прогона. */
-export function resumeRunId(entry: LastRunLike): string | null {
-  const r = entry.last_run;
+export function resumeRunId(entry: EmployeesRunLike): string | null {
+  const r = entry.last_employees_run;
   return r && r.kind === "employees" && r.status === "running" ? r.id : null;
 }
 
@@ -207,16 +212,14 @@ export function resumeRunId(entry: LastRunLike): string | null {
  * Синхронизация посещаемости идёт: после перезагрузки страницы блок «Посещаемость» продолжает
  * опрос этого прогона и сам выбирает его месяц.
  */
-export function resumeAttendanceRun(entry: {
-  last_run: { id: string; kind: string; status: string; period: string | null } | null;
-}): { id: string; period: string | null } | null {
-  const r = entry.last_run;
+export function resumeAttendanceRun(entry: AttendanceRunLike): { id: string; period: string | null } | null {
+  const r = entry.last_attendance_run;
   return r && r.kind === "attendance" && r.status === "running" ? { id: r.id, period: r.period } : null;
 }
 
-/** Последний прогон — готовый, но не применённый план сотрудников: его можно открыть кнопкой «Открыть план». */
-export function plannedRunId(entry: LastRunLike): string | null {
-  const r = entry.last_run;
+/** Последний прогон проверки — готовый, но не применённый план сотрудников: его можно открыть кнопкой «Открыть план». */
+export function plannedRunId(entry: EmployeesRunLike): string | null {
+  const r = entry.last_employees_run;
   return r && r.kind === "employees" && r.status === "planned" ? r.id : null;
 }
 
@@ -291,6 +294,22 @@ export function fileImportWarning(
 ): boolean {
   if (!imports || organizationId == null) return false;
   return imports.some((r) => r.source === "file" && r.status === "committed" && r.organization_id === organizationId);
+}
+
+/**
+ * Коды, у которых в блоке посещаемости свой текст (`attendance.errors.<код>`), а не общий
+ * `errors.<код>` карточки подключения. empty_crawl у синхронизации чаще всего значит «нечего
+ * записать: сотрудники ещё не связаны», а не сбой Workly, и повтор тут не поможет; stale — это
+ * закрытая зависшая синхронизация; period_not_started в первый день месяца означает, что
+ * завершённых дней ещё нет; run_in_progress — уже идёт синхронизация, а не проверка.
+ */
+export const ATTENDANCE_ERROR_CODES = ["empty_crawl", "stale", "period_not_started", "run_in_progress"] as const;
+
+const ATTENDANCE_OVERRIDES: ReadonlySet<string> = new Set(ATTENDANCE_ERROR_CODES);
+
+/** Ключ своего текста ошибки блока посещаемости (от `kpiScreens.workly`) или null — тогда общий текст. */
+export function attendanceErrorKey(code: string | null | undefined): string | null {
+  return code != null && ATTENDANCE_OVERRIDES.has(code) ? `attendance.errors.${code}` : null;
 }
 
 export type AttendanceResultKey = "days" | "unknown" | "carried";

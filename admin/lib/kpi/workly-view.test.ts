@@ -6,7 +6,9 @@ import {
   GROUP_PAGE,
   RUN_STATUSES,
   SKIPPED_PAGE,
+  ATTENDANCE_ERROR_CODES,
   applyPreview,
+  attendanceErrorKey,
   attendanceResultLines,
   changeSummary,
   confirmSummary,
@@ -284,24 +286,48 @@ describe("changeSummary", () => {
   });
 });
 
-describe("resumeRunId / plannedRunId", () => {
-  const entry = (last_run: { id: string; kind: "employees" | "attendance"; status: string } | null) => ({ last_run });
+// Запись статуса: last_run — последний любого вида, last_employees_run и last_attendance_run —
+// последний своего вида (R35). Время в тестах не нужно: какой прогон новее, видно по last_run.
+type Ref = { id: string; kind: "employees" | "attendance"; status: string; period: string | null };
+const emp = (id: string, status: string): Ref => ({ id, kind: "employees", status, period: null });
+const att = (id: string, status: string, period: string | null = "2026-10-01"): Ref => ({ id, kind: "attendance", status, period });
+const statusEntry = (runs: { employees?: Ref; attendance?: Ref; newest?: "employees" | "attendance" }) => {
+  const e = runs.employees ?? null;
+  const a = runs.attendance ?? null;
+  const newest = runs.newest === "attendance" ? a ?? e : e ?? a;
+  return { last_run: newest, last_employees_run: e, last_attendance_run: a };
+};
 
+describe("resumeRunId / plannedRunId", () => {
   it("идущая проверка сотрудников возобновляется после перезагрузки", () => {
-    expect(resumeRunId(entry({ id: "r1", kind: "employees", status: "running" }))).toBe("r1");
+    expect(resumeRunId(statusEntry({ employees: emp("r1", "running") }))).toBe("r1");
   });
 
-  it("посещаемость и законченные прогоны не опрашиваются", () => {
-    expect(resumeRunId(entry({ id: "r2", kind: "attendance", status: "running" }))).toBeNull();
-    expect(resumeRunId(entry({ id: "r3", kind: "employees", status: "planned" }))).toBeNull();
-    expect(resumeRunId(entry(null))).toBeNull();
+  it("законченные проверки и одна только посещаемость не опрашиваются", () => {
+    expect(resumeRunId(statusEntry({ attendance: att("r2", "running") }))).toBeNull();
+    expect(resumeRunId(statusEntry({ employees: emp("r3", "planned") }))).toBeNull();
+    expect(resumeRunId(statusEntry({}))).toBeNull();
+  });
+
+  it("синхронизация посещаемости новее идущей проверки: проверка всё равно возобновляется", () => {
+    const e = statusEntry({ employees: emp("r6", "running"), attendance: att("a6", "applied"), newest: "attendance" });
+    expect(e.last_run?.id).toBe("a6");
+    expect(resumeRunId(e)).toBe("r6");
   });
 
   it("готовый план сотрудников можно открыть кнопкой", () => {
-    expect(plannedRunId(entry({ id: "r3", kind: "employees", status: "planned" }))).toBe("r3");
-    expect(plannedRunId(entry({ id: "r4", kind: "employees", status: "applied" }))).toBeNull();
-    expect(plannedRunId(entry({ id: "r5", kind: "attendance", status: "planned" }))).toBeNull();
-    expect(plannedRunId(entry(null))).toBeNull();
+    expect(plannedRunId(statusEntry({ employees: emp("r3", "planned") }))).toBe("r3");
+    expect(plannedRunId(statusEntry({ employees: emp("r4", "applied") }))).toBeNull();
+    expect(plannedRunId(statusEntry({ attendance: att("r5", "applied") }))).toBeNull();
+    expect(plannedRunId(statusEntry({}))).toBeNull();
+  });
+
+  it("синхронизация посещаемости новее готового плана: «Открыть план» остаётся", () => {
+    for (const status of ["running", "applied", "failed"]) {
+      const e = statusEntry({ employees: emp("r7", "planned"), attendance: att("a7", status), newest: "attendance" });
+      expect(e.last_run?.kind).toBe("attendance");
+      expect(plannedRunId(e)).toBe("r7");
+    }
   });
 
   it("RUN_STATUSES — все статусы прогона", () => {
@@ -450,27 +476,27 @@ describe("shortId / searchSeed", () => {
 });
 
 describe("resumeAttendanceRun", () => {
-  const entry = (last_run: { id: string; kind: string; status: string; period: string | null } | null) => ({ last_run });
-
   it("идущая синхронизация посещаемости возобновляется вместе со своим месяцем", () => {
-    expect(resumeAttendanceRun(entry({ id: "a1", kind: "attendance", status: "running", period: "2026-10-01" }))).toEqual({
-      id: "a1",
-      period: "2026-10-01",
-    });
+    expect(resumeAttendanceRun(statusEntry({ attendance: att("a1", "running") }))).toEqual({ id: "a1", period: "2026-10-01" });
   });
 
   it("месяца нет — id без месяца", () => {
-    expect(resumeAttendanceRun(entry({ id: "a2", kind: "attendance", status: "running", period: null }))).toEqual({
-      id: "a2",
-      period: null,
-    });
+    expect(resumeAttendanceRun(statusEntry({ attendance: att("a2", "running", null) }))).toEqual({ id: "a2", period: null });
   });
 
-  it("проверка сотрудников и законченная синхронизация не возобновляются", () => {
-    expect(resumeAttendanceRun(entry({ id: "e1", kind: "employees", status: "running", period: null }))).toBeNull();
-    expect(resumeAttendanceRun(entry({ id: "a3", kind: "attendance", status: "applied", period: "2026-10-01" }))).toBeNull();
-    expect(resumeAttendanceRun(entry({ id: "a4", kind: "attendance", status: "failed", period: "2026-10-01" }))).toBeNull();
-    expect(resumeAttendanceRun(entry(null))).toBeNull();
+  it("проверка сотрудников новее идущей синхронизации: синхронизация всё равно возобновляется", () => {
+    const e = statusEntry({ employees: emp("e9", "running"), attendance: att("a9", "running"), newest: "employees" });
+    expect(e.last_run?.id).toBe("e9");
+    expect(resumeAttendanceRun(e)).toEqual({ id: "a9", period: "2026-10-01" });
+    const planned = statusEntry({ employees: emp("e8", "planned"), attendance: att("a8", "running"), newest: "employees" });
+    expect(resumeAttendanceRun(planned)).toEqual({ id: "a8", period: "2026-10-01" });
+  });
+
+  it("одна только проверка сотрудников и законченная синхронизация не возобновляются", () => {
+    expect(resumeAttendanceRun(statusEntry({ employees: emp("e1", "running") }))).toBeNull();
+    expect(resumeAttendanceRun(statusEntry({ attendance: att("a3", "applied") }))).toBeNull();
+    expect(resumeAttendanceRun(statusEntry({ attendance: att("a4", "failed") }))).toBeNull();
+    expect(resumeAttendanceRun(statusEntry({}))).toBeNull();
   });
 });
 
@@ -533,5 +559,23 @@ describe("attendanceResultLines", () => {
     expect(attendanceResultLines({}).map((l) => l.value)).toEqual([0, 0, 0]);
     expect(attendanceResultLines(null).map((l) => l.value)).toEqual([0, 0, 0]);
     expect(attendanceResultLines(undefined).map((l) => l.value)).toEqual([0, 0, 0]);
+  });
+});
+
+describe("attendanceErrorKey", () => {
+  it("коды, у которых в блоке посещаемости свой текст", () => {
+    expect([...ATTENDANCE_ERROR_CODES].sort()).toEqual(["empty_crawl", "period_not_started", "run_in_progress", "stale"]);
+    expect(attendanceErrorKey("empty_crawl")).toBe("attendance.errors.empty_crawl");
+    expect(attendanceErrorKey("stale")).toBe("attendance.errors.stale");
+    expect(attendanceErrorKey("period_not_started")).toBe("attendance.errors.period_not_started");
+    expect(attendanceErrorKey("run_in_progress")).toBe("attendance.errors.run_in_progress");
+  });
+
+  it("прочие коды и пустой код — null: для них общий текст errors.*", () => {
+    expect(attendanceErrorKey("period_closed")).toBeNull();
+    expect(attendanceErrorKey("crawl_failed")).toBeNull();
+    expect(attendanceErrorKey("не код")).toBeNull();
+    expect(attendanceErrorKey(null)).toBeNull();
+    expect(attendanceErrorKey(undefined)).toBeNull();
   });
 });
