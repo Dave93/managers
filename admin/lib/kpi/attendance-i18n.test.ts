@@ -49,6 +49,21 @@ describe("ru.ts совпадает с messages/ru.json (kpi.lib)", () => {
   });
 });
 
+describe("uz-Cyrl: форматы файлов остаются латиницей (kpi.lib)", () => {
+  const lib = messages("uz-Cyrl").kpi.lib;
+
+  it("ни одно значение не содержит «хлсх»: так транслитерация испортила xlsx", () => {
+    expect(leafKeys(lib).filter((k) => String(at(lib, k)).includes("хлсх"))).toEqual([]);
+  });
+
+  it("тексты про тип файла называют xlsx, xls и csv латиницей", () => {
+    for (const key of ["errors.bad_file_type", "attendance.file.type"]) {
+      const text = String(at(lib, key));
+      for (const token of ["xlsx", "xls", "csv"]) expect({ key, has: text.includes(token) }).toEqual({ key, has: true });
+    }
+  });
+});
+
 for (const locale of LOCALES) {
   describe(`загрузка посещаемости: организация (${locale})`, () => {
     const m = messages(locale);
