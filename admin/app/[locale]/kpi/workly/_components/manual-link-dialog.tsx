@@ -13,16 +13,17 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from "@admin/components/ui/input";
 import { kpiApi, type WorklyPersonRow } from "@admin/lib/kpi-api";
 import { shouldRetry } from "@admin/lib/kpi/errors";
-import { searchSeed, shortId } from "@admin/lib/kpi/workly-view";
+import { shortId } from "@admin/lib/kpi/workly-view";
 import { qk } from "../../_components/use-kpi";
 import { useWorklyText } from "./workly-text";
 
 /**
  * Наш сотрудник из строки отчёта: id и подпись этой строки. У строки «Не найден» подпись —
  * имя нашего сотрудника; у «Неоднозначно» — имя записи Workly (иногда с «(Workly: 12, 15)»),
- * имени нашего кандидата в отчёте нет.
+ * имени нашего кандидата в отчёте нет. seed — начальный текст поиска (linkSeed / searchSeed):
+ * без имени он пуст.
  */
-export type LinkTarget = { id: string; label: string; kind: "ambiguous" | "not_found" };
+export type LinkTarget = { id: string; label: string; seed: string; kind: "ambiguous" | "not_found" };
 
 const MIN_SEARCH = 2;
 const SEARCH_DELAY_MS = 400;
@@ -88,8 +89,8 @@ function LinkForm({
   const radioName = useId();
 
   // Поиск начинается с имени из строки отчёта; запрос уходит через 400 мс после ввода.
-  const [searchText, setSearchText] = useState(() => searchSeed(employee.label));
-  const [search, setSearch] = useState(() => searchSeed(employee.label));
+  const [searchText, setSearchText] = useState(employee.seed);
+  const [search, setSearch] = useState(employee.seed);
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchText.trim()), SEARCH_DELAY_MS);
     return () => clearTimeout(timer);

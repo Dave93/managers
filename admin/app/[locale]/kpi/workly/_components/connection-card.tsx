@@ -273,7 +273,11 @@ function RunBody({
   // planned, applied, rolled_back. Ключ — id прогона: новый прогон сбрасывает исключения и итог.
   return (
     <section aria-label={t("card.reviewAria", { name: organizationName })} className="space-y-3 border-t pt-4">
-      <h4 className="text-sm font-semibold">{t("card.reviewHeading")}</h4>
+      <div className="space-y-0.5">
+        <h4 className="text-sm font-semibold">{t("card.reviewHeading")}</h4>
+        {/* Время запуска проверки: другого времени у прогона нет, обход длится около минуты. */}
+        <p className="text-xs text-muted-foreground">{t("plan.builtAt", { time: formatTashkent(run.created_at) })}</p>
+      </div>
       {organizationId != null && (
         <PlanReview
           key={run.id}

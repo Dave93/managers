@@ -4,7 +4,7 @@
 // Ни React, ни сети; тексты экран берёт по ключам от `kpiScreens.workly`.
 
 import type { AttendanceImportRow } from "@backend/modules/kpi/types";
-import type { EmployeeFields, PlanItem, PlanKind } from "@backend/modules/workly/plan";
+import type { EmployeeFields, PlanItem, PlanKind, SyncPlan } from "@backend/modules/workly/plan";
 import type { RunRow } from "@backend/modules/workly/runs";
 import { KpiApiError } from "./errors";
 import { PLAN_GROUP_ORDER, blockReasonKey, connectionErrorKey, effectiveCounts, isWorklyErrorCode } from "./workly";
@@ -252,9 +252,67 @@ export function shortId(id: string): string {
   return id.length > 6 ? `…${id.slice(-6)}` : id;
 }
 
-/** Начальный текст поиска ручной связи: подпись строки отчёта без хвоста «(Workly: 12, 15)». */
+/** Начальный текст поиска ручной связи: подпись строки отчёта без хвоста «(Workly: 12, 15)»; без букв — пусто. */
 export function searchSeed(label: string): string {
-  return label.replace(/\s*\(Workly:[^)]*\)\s*$/, "").trim();
+  const name = label.replace(/\s*\(Workly:[^)]*\)\s*$/, "").trim();
+  return /\p{L}/u.test(name) ? name : "";
+}
+
+type AmbiguousRow = { workly_id: number; label: string; employee_ids: readonly string[] };
+
+/**
+ * Строка «Неоднозначно» о записи Workly без имени: такую запись нельзя ни сопоставить, ни создать
+ * (plan.ts). Её подпись бэкенд пишет по-русски («без имени (Workly: N)»), поэтому узнаём строку
+ * по форме: наших кандидатов нет, а в хвосте подписи ровно один id — её собственный. У группы
+ * тёзок в хвосте несколько id, у строки с кандидатами есть employee_ids.
+ */
+export function isNamelessRecord(row: AmbiguousRow): boolean {
+  if (row.employee_ids.length > 0) return false;
+  const m = /\(Workly: (\d+)\)\s*$/.exec(row.label);
+  return m != null && Number(m[1]) === row.workly_id;
+}
+
+/** Начальный текст поиска ручной связи для строки «Неоднозначно»: у записи без имени пусто. */
+export function linkSeed(row: AmbiguousRow): string {
+  return isNamelessRecord(row) ? "" : searchSeed(row.label);
+}
+
+/**
+ * Пропущенные при применении пункты по ключу, если план уже применён: из ответа «Применить»
+ * этого сеанса или из перечитанного плана (plan.applied есть только после применения, в том числе
+ * у откатанного). Каждый пункт применённого плана либо в applied, либо здесь. До применения — null.
+ */
+export function appliedSkips(
+  plan: Pick<SyncPlan, "applied" | "skipped"> | null | undefined,
+  result: { skipped: readonly SkippedItem[] } | null
+): Map<string, SkipReason> | null {
+  const list = result ? result.skipped : plan?.applied ? plan.skipped ?? [] : null;
+  return list ? new Map(list.map((s) => [s.key, s.reason])) : null;
+}
+
+export type RowMark = { struck: boolean; note: "implied" | SkipReason | null };
+
+/**
+ * Пометка строки плана. Пока видны флажки, зачёркнуты исключённые человеком пункты и переносы,
+ * которые пропустятся вместе с исключённой связью. Флажки скрыты — исключения сеанса больше
+ * ничего не значат: у применённого плана зачёркнуты только пропущенные бэкендом пункты с причиной
+ * (skipped из appliedSkips), у прочих строка обычная.
+ */
+export function planRowMark(
+  key: string,
+  view: {
+    controls: boolean;
+    excluded: ReadonlySet<string>;
+    implied: ReadonlySet<string>;
+    skipped: ReadonlyMap<string, SkipReason> | null;
+  }
+): RowMark {
+  if (view.controls) {
+    if (view.implied.has(key)) return { struck: true, note: "implied" };
+    return { struck: view.excluded.has(key), note: null };
+  }
+  const reason = view.skipped?.get(key);
+  return reason ? { struck: true, note: reason } : { struck: false, note: null };
 }
 
 // Пороги «зависания» прогона. Бэкенд закрывает строку running старше 15 минут как failed/stale

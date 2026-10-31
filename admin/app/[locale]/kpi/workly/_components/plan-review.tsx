@@ -1,10 +1,11 @@
 "use client";
-// Сверка сотрудников по одному прогону: счётчики, группы пунктов (свёрнуты, по 50 строк),
+// Сверка сотрудников по одному прогону: счётчики «в плане», группы пунктов (свёрнуты, по 50 строк),
 // исключения, блоки отчёта с ручной связью и «Применить» с подтверждением.
 // Один компонент на прогон (key = run.id) и для planned, и для applied: ответ «Применить»
-// показывается сразу и не теряется, когда прогон перечитывается уже как applied.
+// показывается сразу и не теряется, когда прогон перечитывается уже как applied. Пока видны флажки,
+// зачёркнуты исключённые строки; у применённого плана — только пропущенные бэкендом (planRowMark).
 
-import React, { memo, useCallback, useId, useMemo, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -22,16 +23,24 @@ import {
 import { Button } from "@admin/components/ui/button";
 import { kpiApi, type PlanItem, type PlanKind, type RunRow, type WorklyApplyResult } from "@admin/lib/kpi-api";
 import { KpiApiError } from "@admin/lib/kpi/errors";
+import { formatTashkent } from "@admin/lib/kpi/format";
 import { PLAN_GROUP_ORDER, canApply, groupPlan, toggleExclusion } from "@admin/lib/kpi/workly";
 import {
   GROUP_PAGE,
   SKIPPED_PAGE,
+  appliedSkips,
   applyPreview,
   changeSummary,
+  isNamelessRecord,
+  linkSeed,
+  planRowMark,
+  searchSeed,
   shortId,
   skippedGroups,
   visibleItems,
   type ChangePart,
+  type RowMark,
+  type SkipReason,
   type SkippedItem,
 } from "@admin/lib/kpi/workly-view";
 import { cn } from "@admin/lib/utils";
@@ -56,6 +65,8 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   const text = useWorklyText();
   const qc = useQueryClient();
   const terminals = useKpiTerminals();
+  const countersId = useId();
+  const excludeHintId = useId();
 
   const plan = run.plan;
   const items = useMemo(() => plan?.items ?? [], [plan]);
@@ -137,6 +148,13 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   // Итог: ответ «Применить» сразу, после перечитывания — из plan.applied / plan.skipped.
   const shownResult: WorklyApplyResult | null =
     result ?? (run.status === "applied" && plan?.applied ? { applied: plan.applied.length, skipped: plan.skipped ?? [] } : null);
+  // Пропущенные при применении пункты: у применённого (и откатанного) плана строки помечаются по ним.
+  const skippedMap = useMemo(() => appliedSkips(plan, result), [plan, result]);
+  const markView = useMemo(
+    () => ({ controls: showControls, excluded: activeExcluded, implied, skipped: skippedMap }),
+    [showControls, activeExcluded, implied, skippedMap]
+  );
+  const builtAt = t("plan.builtAt", { time: formatTashkent(run.created_at) });
 
   const describe = useCallback(
     (part: ChangePart): string => {
@@ -177,24 +195,32 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
       {nothing ? (
         <p className="text-sm text-muted-foreground">{t("plan.empty")}</p>
       ) : (
-        <ul aria-label={t("plan.countersAria")} className="flex flex-wrap gap-2 text-sm">
-          {PLAN_GROUP_ORDER.filter((k) => counts[k] > 0).map((k) => (
-            <li key={k} className="rounded-md border px-2.5 py-1">
-              {t("plan.counter", { kind: t(`kinds.${k}`), count: counts[k] })}
-            </li>
-          ))}
-          {reportCount > 0 && (
-            <li className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-900">
-              {t("plan.counter", { kind: t("report.heading"), count: reportCount })}
-            </li>
-          )}
-          {activeExcluded.size > 0 && (
-            <li className="rounded-md border border-dashed px-2.5 py-1">{t("plan.excludedCount", { count: activeExcluded.size })}</li>
-          )}
-        </ul>
+        // Счётчики — пункты плана (без исключённых, пока видны флажки), а не итог применения:
+        // итог показывает блок ниже.
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span id={countersId} className="text-muted-foreground">
+            {t("plan.inPlan")}
+          </span>
+          <ul aria-labelledby={countersId} className="flex flex-wrap gap-2">
+            {PLAN_GROUP_ORDER.filter((k) => counts[k] > 0).map((k) => (
+              <li key={k} className="rounded-md border px-2.5 py-1">
+                {t("plan.counter", { kind: t(`kinds.${k}`), count: counts[k] })}
+              </li>
+            ))}
+            {reportCount > 0 && (
+              <li className="rounded-md border border-amber-300 bg-amber-50 px-2.5 py-1 text-amber-900">
+                {t("plan.counter", { kind: t("report.heading"), count: reportCount })}
+              </li>
+            )}
+            {activeExcluded.size > 0 && (
+              <li className="rounded-md border border-dashed px-2.5 py-1">{t("plan.excludedCount", { count: activeExcluded.size })}</li>
+            )}
+          </ul>
+        </div>
       )}
 
-      {shownResult && <ApplyResult result={shownResult} byKey={byKey} />}
+      {/* Фокус переходит на итог только после «Применить» в этом сеансе, а не при открытии итога. */}
+      {shownResult && <ApplyResult result={shownResult} byKey={byKey} autoFocus={result != null} />}
 
       {run.status === "rolled_back" && plan.rolled_back && (
         <p className="rounded-md border p-3 text-sm">
@@ -217,27 +243,38 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
 
       {groups.length > 0 && (
         <div className="space-y-2">
+          {/* Одна подсказка на весь план: на неё ссылается каждый флажок «Исключить» (R36). */}
+          {showControls && (
+            <p id={excludeHintId} className="text-xs text-muted-foreground">
+              {t("plan.excludeHint")}
+            </p>
+          )}
           {groups.map((g) => {
-            const off = showControls ? countOff(g.items, activeExcluded, implied) : 0;
+            const off = countStruck(g.items, markView);
+            const note = off === 0 ? null : showControls ? t("plan.excludedCount", { count: off }) : t("plan.skippedCount", { count: off });
             return (
               <Group
                 key={g.kind}
                 title={t(`kinds.${g.kind}`)}
                 count={g.items.length}
-                note={off > 0 ? t("plan.excludedCount", { count: off }) : null}
+                note={note}
                 items={g.items}
-                render={(it) => (
-                  <PlanRow
-                    key={it.key}
-                    item={it}
-                    editable={showControls}
-                    locked={!editable}
-                    excluded={excluded.has(it.key)}
-                    implied={implied.has(it.key)}
-                    onToggle={onToggle}
-                    describe={describe}
-                  />
-                )}
+                render={(it) => {
+                  const mark = planRowMark(it.key, markView);
+                  return (
+                    <PlanRow
+                      key={it.key}
+                      item={it}
+                      editable={showControls}
+                      locked={!editable}
+                      struck={mark.struck}
+                      note={mark.note}
+                      hintId={excludeHintId}
+                      onToggle={onToggle}
+                      describe={describe}
+                    />
+                  );
+                }}
               />
             );
           })}
@@ -253,39 +290,47 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
               count={report.ambiguous.length}
               hint={t("report.ambiguousHint")}
               items={report.ambiguous}
-              render={(r) => (
+              render={(r) => {
                 // Ограничение отчёта: у неоднозначной строки есть только подпись (имя записи Workly)
                 // и id наших кандидатов, имён наших сотрудников в ней нет. Поэтому кнопка каждого
-                // кандидата подписана общей подписью и коротким хвостом его id.
-                <li key={`${r.workly_id}`} className="space-y-2 py-2">
-                  <p className="text-sm font-medium break-words">{r.label}</p>
-                  {r.employee_ids.length === 0 ? (
-                    <p className="text-xs text-muted-foreground">{t("report.noCandidates")}</p>
-                  ) : (
-                    <div className="flex flex-wrap gap-2">
-                      {r.employee_ids.map((id) =>
-                        linked.has(id) ? (
-                          <span key={id} className="inline-flex min-h-11 items-center text-sm text-green-700">
-                            {t("report.linkedCandidate", { id: shortId(id) })}
-                          </span>
-                        ) : (
-                          <Button
-                            key={id}
-                            type="button"
-                            variant="outline"
-                            // На узком экране подпись переносится, а не вылезает за карточку.
-                            className="h-auto min-h-11 max-w-full whitespace-normal text-left"
-                            aria-label={t("report.linkCandidateAria", { id: shortId(id), name: r.label })}
-                            onClick={() => setLinkTarget({ id, label: r.label, kind: "ambiguous" })}
-                          >
-                            {t("report.linkCandidate", { id: shortId(id) })}
-                          </Button>
-                        )
-                      )}
-                    </div>
-                  )}
-                </li>
-              )}
+                // кандидата подписана общей подписью и коротким хвостом его id. Подпись записи без
+                // имени бэкенд пишет по-русски: вместо неё — «Запись Workly № N» на языке экрана.
+                const nameless = isNamelessRecord(r);
+                return (
+                  <li key={`${r.workly_id}`} className="space-y-2 py-2">
+                    <p className="text-sm font-medium break-words">
+                      {nameless ? t("report.worklyRecord", { id: String(r.workly_id) }) : r.label}
+                    </p>
+                    {nameless ? (
+                      <p className="text-xs text-muted-foreground">{t("report.nameless")}</p>
+                    ) : r.employee_ids.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">{t("report.noCandidates")}</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {r.employee_ids.map((id) =>
+                          linked.has(id) ? (
+                            <span key={id} className="inline-flex min-h-11 items-center text-sm text-green-700">
+                              {t("report.linkedCandidate", { id: shortId(id) })}
+                            </span>
+                          ) : (
+                            <Button
+                              key={id}
+                              type="button"
+                              variant="outline"
+                              // На узком экране подпись переносится, а не вылезает за карточку.
+                              className="h-auto min-h-11 max-w-full whitespace-normal text-left"
+                              aria-label={t("report.linkCandidateAria", { id: shortId(id), name: r.label })}
+                              onClick={() => setLinkTarget({ id, label: r.label, seed: linkSeed(r), kind: "ambiguous" })}
+                            >
+                              {t("report.linkCandidate", { id: shortId(id) })}
+                            </Button>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              }}
             />
           )}
           {report.not_found.length > 0 && (
@@ -305,7 +350,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
                       variant="outline"
                       className="h-11 w-full sm:w-auto"
                       aria-label={t("report.linkAria", { name: r.label })}
-                      onClick={() => setLinkTarget({ id: r.employee_id, label: r.label, kind: "not_found" })}
+                      onClick={() => setLinkTarget({ id: r.employee_id, label: r.label, seed: searchSeed(r.label), kind: "not_found" })}
                     >
                       {t("report.link")}
                     </Button>
@@ -363,6 +408,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
             <AlertDialogTitle>{t("confirm.title", { name: organizationName })}</AlertDialogTitle>
             <AlertDialogDescription>{t("confirm.description")}</AlertDialogDescription>
           </AlertDialogHeader>
+          <p className="text-sm text-muted-foreground">{builtAt}</p>
           <ul className="space-y-1 text-sm">
             {preview.lines.map((l) => (
               <li key={l.kind}>{t("plan.counter", { kind: t(`kinds.${l.kind}`), count: l.count })}</li>
@@ -412,10 +458,13 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   );
 }
 
-/** Сколько пунктов группы не уйдёт в применение: исключённые и переносы, пропущенные вместе со связью. */
-function countOff(items: PlanItem[], excluded: ReadonlySet<string>, implied: ReadonlySet<string>): number {
+/**
+ * Сколько строк группы зачёркнуто: пока видны флажки — исключённые и переносы, пропущенные вместе
+ * со связью; у применённого плана — пропущенные при применении.
+ */
+function countStruck(items: PlanItem[], view: Parameters<typeof planRowMark>[1]): number {
   let n = 0;
-  for (const it of items) if (excluded.has(it.key) || implied.has(it.key)) n++;
+  for (const it of items) if (planRowMark(it.key, view).struck) n++;
   return n;
 }
 
@@ -481,8 +530,9 @@ const PlanRow = memo(function PlanRow({
   item,
   editable,
   locked,
-  excluded,
-  implied,
+  struck,
+  note,
+  hintId,
   onToggle,
   describe,
 }: {
@@ -491,22 +541,26 @@ const PlanRow = memo(function PlanRow({
   editable: boolean;
   /** Флажок виден, но недоступен (запускается новая проверка). */
   locked: boolean;
-  excluded: boolean;
-  /** Перенос пропустится вместе с исключённой связью: флажок отмечен и недоступен. */
-  implied: boolean;
+  /** Строка не уйдёт или не ушла в применение (planRowMark). */
+  struck: boolean;
+  /** implied — перенос пропустится вместе с исключённой связью (флажок отмечен и недоступен); иначе причина пропуска при применении. */
+  note: RowMark["note"];
+  /** id подсказки об исключении: на неё ссылается флажок. */
+  hintId: string;
   onToggle: (key: string) => void;
   describe: (part: ChangePart) => string;
 }) {
   const t = useTranslations("kpiScreens.workly");
   const name = item.label || shortId(item.employee_id ?? `w${item.workly_id}`);
   const change = changeSummary(item).map(describe).join("; ");
-  const off = excluded || implied;
+  const implied = note === "implied";
   return (
     <li className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
-        <p className={cn("text-sm font-medium break-words", off && "text-muted-foreground line-through")}>{name}</p>
+        <p className={cn("text-sm font-medium break-words", struck && "text-muted-foreground line-through")}>{name}</p>
         {change && <p className="text-xs text-muted-foreground break-words">{change}</p>}
-        {editable && implied && <p className="text-xs text-amber-700">{t("plan.impliedSkip")}</p>}
+        {implied && <p className="text-xs text-amber-700">{t("plan.impliedSkip")}</p>}
+        {note != null && !implied && <p className="text-xs text-muted-foreground">{t(`skipReasons.${note satisfies SkipReason}`)}</p>}
       </div>
       {editable && (
         <label
@@ -515,9 +569,10 @@ const PlanRow = memo(function PlanRow({
           <input
             type="checkbox"
             className="h-4 w-4"
-            checked={off}
+            checked={struck}
             disabled={implied || locked}
             aria-label={t("plan.excludeAria", { name })}
+            aria-describedby={hintId}
             onChange={() => onToggle(item.key)}
           />
           {t("plan.exclude")}
@@ -527,10 +582,29 @@ const PlanRow = memo(function PlanRow({
   );
 });
 
-/** Итог «Применить»: сколько применено и пропущенные пункты с причинами (пары move рядом). */
-function ApplyResult({ result, byKey }: { result: WorklyApplyResult; byKey: ReadonlyMap<string, PlanItem> }) {
+/**
+ * Итог «Применить»: сколько применено и пропущенные пункты с причинами (пары move рядом).
+ * autoFocus — итог только что пришёл ответом «Применить»: фокус переходит на блок один раз,
+ * и экранный диктор читает его (кнопка «Применить» к этому моменту уже исчезла).
+ */
+function ApplyResult({
+  result,
+  byKey,
+  autoFocus,
+}: {
+  result: WorklyApplyResult;
+  byKey: ReadonlyMap<string, PlanItem>;
+  autoFocus: boolean;
+}) {
   const t = useTranslations("kpiScreens.workly");
   const [all, setAll] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  const focused = useRef(false);
+  useEffect(() => {
+    if (!autoFocus || focused.current) return;
+    focused.current = true;
+    box.current?.focus();
+  }, [autoFocus]);
   const groups = skippedGroups(result.skipped);
   // Строка списка — группа (пара move рядом со связью); видно первые SKIPPED_PAGE строк.
   const shown = visibleItems(groups, all, SKIPPED_PAGE);
@@ -546,10 +620,13 @@ function ApplyResult({ result, byKey }: { result: WorklyApplyResult; byKey: Read
     });
   };
   return (
-    <div className="space-y-2 rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900">
-      <p role="status" className="font-medium">
-        {t("plan.result.applied", { count: result.applied })}
-      </p>
+    <div
+      ref={box}
+      role="status"
+      tabIndex={-1}
+      className="space-y-2 rounded-md border border-green-300 bg-green-50 p-3 text-sm text-green-900 outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <p className="font-medium">{t("plan.result.applied", { count: result.applied })}</p>
       {groups.length === 0 ? (
         <p>{t("plan.result.noSkipped")}</p>
       ) : (

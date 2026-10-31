@@ -16,8 +16,12 @@ import {
   fileImportWarning,
   formatShare,
   impliedSkips,
+  appliedSkips,
   inWorkly,
+  isNamelessRecord,
   lastRunLines,
+  linkSeed,
+  planRowMark,
   plannedRunId,
   resultRunId,
   resumeAttendanceRun,
@@ -574,7 +578,80 @@ describe("shortId / searchSeed", () => {
   it("подпись неоднозначной строки без хвоста «(Workly: …)»", () => {
     expect(searchSeed("Иван Иванов (Workly: 12, 15)")).toBe("Иван Иванов");
     expect(searchSeed("  Анна Петрова  ")).toBe("Анна Петрова");
-    expect(searchSeed("без имени (Workly: 3)")).toBe("без имени");
+  });
+
+  it("подпись без букв — пустой поиск", () => {
+    expect(searchSeed("— (Workly: 3)")).toBe("");
+    expect(searchSeed("  ")).toBe("");
+  });
+});
+
+describe("isNamelessRecord / linkSeed", () => {
+  // Подпись записи без имени бэкенд пишет по-русски (plan.ts): «без имени (Workly: N)».
+  const nameless = { workly_id: 3, label: "без имени (Workly: 3)", employee_ids: [] as string[] };
+
+  it("запись Workly без имени узнаётся по форме строки, а не по тексту", () => {
+    expect(isNamelessRecord(nameless)).toBe(true);
+    expect(isNamelessRecord({ ...nameless, label: "no name (Workly: 3)" })).toBe(true);
+    expect(isNamelessRecord({ workly_id: 9, label: ". (Workly: 9)", employee_ids: [] })).toBe(true);
+  });
+
+  it("группа тёзок и строка с нашими кандидатами — не безымянные", () => {
+    expect(isNamelessRecord({ workly_id: 12, label: "Иван Иванов (Workly: 12, 15)", employee_ids: [] })).toBe(false);
+    expect(isNamelessRecord({ workly_id: 12, label: "Иван Иванов", employee_ids: [E1, E2] })).toBe(false);
+    expect(isNamelessRecord({ ...nameless, employee_ids: [E1] })).toBe(false);
+    // Хвост с чужим id — не подпись этой записи.
+    expect(isNamelessRecord({ ...nameless, workly_id: 4 })).toBe(false);
+  });
+
+  it("поиск ручной связи: у безымянной записи пустой, у прочих — имя без хвоста", () => {
+    expect(linkSeed(nameless)).toBe("");
+    expect(linkSeed({ workly_id: 12, label: "Иван Иванов (Workly: 12, 15)", employee_ids: [E1, E2] })).toBe("Иван Иванов");
+    expect(linkSeed({ workly_id: 12, label: "Анна Петрова", employee_ids: [E1, E2] })).toBe("Анна Петрова");
+  });
+});
+
+describe("appliedSkips / planRowMark", () => {
+  const skipped = [
+    { key: "create:w1", reason: "excluded" as const },
+    { key: "move:e2", reason: "stale" as const },
+  ];
+
+  it("до применения итога нет: null", () => {
+    expect(appliedSkips({}, null)).toBeNull();
+    expect(appliedSkips(null, null)).toBeNull();
+  });
+
+  it("ответ «Применить» этого сеанса и перечитанный план дают одни и те же пропуски", () => {
+    const fromResult = appliedSkips({}, { skipped });
+    const fromPlan = appliedSkips({ applied: ["create:w2"], skipped }, null);
+    expect(fromResult && [...fromResult]).toEqual([
+      ["create:w1", "excluded"],
+      ["move:e2", "stale"],
+    ]);
+    expect(fromPlan && [...fromPlan]).toEqual(fromResult && [...fromResult]);
+    // Применено всё: пропусков нет, но итог есть.
+    expect(appliedSkips({ applied: ["create:w1"] }, null)?.size).toBe(0);
+  });
+
+  it("пока видны флажки: зачёркнуты исключённые и переносы, пропущенные вместе со связью", () => {
+    const view = { controls: true, excluded: new Set(["create:w1"]), implied: new Set(["move:e2"]), skipped: null };
+    expect(planRowMark("create:w1", view)).toEqual({ struck: true, note: null });
+    expect(planRowMark("move:e2", view)).toEqual({ struck: true, note: "implied" });
+    expect(planRowMark("create:w3", view)).toEqual({ struck: false, note: null });
+  });
+
+  it("флажки скрыты: исключения сеанса больше ничего не зачёркивают", () => {
+    const view = { controls: false, excluded: new Set(["create:w1"]), implied: new Set(["move:e2"]), skipped: null };
+    expect(planRowMark("create:w1", view)).toEqual({ struck: false, note: null });
+    expect(planRowMark("move:e2", view)).toEqual({ struck: false, note: null });
+  });
+
+  it("применённый план: зачёркнуты только пропущенные бэкендом, причина рядом", () => {
+    const view = { controls: false, excluded: new Set(["create:w3"]), implied: new Set<string>(), skipped: appliedSkips({}, { skipped }) };
+    expect(planRowMark("create:w1", view)).toEqual({ struck: true, note: "excluded" });
+    expect(planRowMark("move:e2", view)).toEqual({ struck: true, note: "stale" });
+    expect(planRowMark("create:w3", view)).toEqual({ struck: false, note: null });
   });
 });
 
