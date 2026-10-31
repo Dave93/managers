@@ -2,6 +2,8 @@
 // Ручная связь нашего сотрудника с записью Workly: поиск по имени среди сотрудников Workly
 // организации (не больше 50 результатов), выбор записи и «Связать». Первый поиск на холодном
 // кэше сервера идёт до ~30 секунд, поэтому индикатор загрузки с этой подсказкой обязателен.
+// Enter в форме только запускает поиск сразу; связь пишет одна кнопка «Связать», иначе Enter
+// после правки запроса связал бы запись, выбранную по прежнему запросу.
 
 import React, { useEffect, useId, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -126,13 +128,17 @@ function LinkForm({
     onSettled: () => onBusy(false),
   });
 
-  const submit = (e: React.FormEvent) => {
+  // Enter: искать сейчас, не дожидаясь паузы после ввода.
+  const searchNow = (e: React.FormEvent) => {
     e.preventDefault();
+    setSearch(searchText.trim());
+  };
+  const linkChosen = () => {
     if (chosen && !link.isPending) link.mutate(chosen.id);
   };
 
   return (
-    <form onSubmit={submit} className="space-y-4">
+    <form onSubmit={searchNow} className="space-y-4">
       <DialogHeader>
         <DialogTitle>{t("link.title")}</DialogTitle>
         <DialogDescription>
@@ -213,7 +219,7 @@ function LinkForm({
         <Button type="button" variant="outline" className="h-11" disabled={link.isPending} onClick={onCancel}>
           {tc("cancel")}
         </Button>
-        <Button type="submit" className="h-11" disabled={!chosen || link.isPending}>
+        <Button type="button" className="h-11" disabled={!chosen || link.isPending} onClick={linkChosen}>
           {link.isPending && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
           {t("link.submit")}
         </Button>
