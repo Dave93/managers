@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { KpiError } from "../kpi/errors";
-import { errorLine, parseRollbackArgs, resultLines } from "./rollback-run";
+import { errorLine, failedItemLine, parseRollbackArgs, resultLines } from "./rollback-run";
 
 // Чистые части CLI отката: разбор аргументов и строки вывода. Процесс не запускается, база не нужна.
 describe("workly: CLI отката прогона", () => {
@@ -46,5 +46,23 @@ describe("workly: CLI отката прогона", () => {
     expect(line).toBe("error rollback_failed");
     expect(line).not.toContain("secret-xyz");
     expect(errorLine("строка")).toBe("error rollback_failed");
+  });
+
+  // Тот же вид, что у RollbackItemError в runs.ts: имя и ключ, сообщение без текста исходной ошибки.
+  const itemError = (key: string) => Object.assign(new Error("rollback_item_failed"), { name: "RollbackItemError", key });
+
+  it("ошибка пункта: в stderr только ключ пункта, общая строка ошибки прежняя", () => {
+    const e = itemError("link:0b5f4c2e-8a51-4c7e-9a43-2f1d6c3b7e90");
+    expect(errorLine(e)).toBe("error rollback_failed");
+    expect(failedItemLine(e)).toBe("failed_item link:0b5f4c2e-8a51-4c7e-9a43-2f1d6c3b7e90");
+    expect(failedItemLine(itemError("create:w5"))).toBe("failed_item create:w5");
+  });
+
+  it("ключ, не похожий на ключ плана, не печатается; прочие ошибки строки failed_item не дают", () => {
+    expect(failedItemLine(itemError("link:Иван Иванов"))).toBe("failed_item -");
+    expect(failedItemLine(itemError("x\nsecret"))).toBe("failed_item -");
+    expect(failedItemLine(new Error("duplicate key secret-xyz"))).toBeNull();
+    expect(failedItemLine(new KpiError(409, "run_not_applied"))).toBeNull();
+    expect(failedItemLine({ name: "RollbackItemError", key: "link:x" })).toBeNull();
   });
 });

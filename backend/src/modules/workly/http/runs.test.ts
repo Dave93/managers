@@ -259,24 +259,34 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const shape = (p: SyncPlan) => ({ items: [...p.items].sort((a, b) => a.key.localeCompare(b.key)), report: p.report });
   const changed = (...keys: string[]) => keys.map((key) => ({ key, reason: "changed_since" as const }));
 
-  // В тестовой базе medical_exams может не быть (миграция 0010 туда не доходила). Тогда тест
-  // создаёт таблицу той же формы (без enum и необязательных колонок) и удаляет её сам.
-  const ensureMedicalExams = async (): Promise<boolean> => {
-    const r = await db.execute(sql`SELECT to_regclass('public.medical_exams') IS NOT NULL AS ok`);
-    if ((r.rows[0] as { ok: boolean }).ok) return false;
-    await db.execute(
-      sql.raw(
-        "CREATE TABLE public.medical_exams (id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL, " +
-          "schedule_id uuid NOT NULL, employee_id uuid NOT NULL, planned_due_date date NOT NULL)"
-      )
-    );
-    return true;
+  // Таблица-ссылка на сотрудника только для теста: откат ищет ссылки по имени колонки
+  // (employee_id и *_employee_id в public), поэтому своя таблица равнозначна medical_exams и прочим.
+  // Имя уникально (wl_test_refs_<hex>), таблица удаляется в finally; остатки упавших прогонов
+  // удаляет beforeAll.
+  const REF_PREFIX = "wl_test_refs_";
+  const dropRefTables = async () => {
+    const r = await db.execute(sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE ${"wl\\_test\\_refs\\_%"}`);
+    for (const row of r.rows as { tablename: string }[]) {
+      await db.execute(sql`DROP TABLE IF EXISTS ${sql.identifier("public")}.${sql.identifier(row.tablename)}`);
+    }
   };
+  async function withRefTable(column: string, type: "uuid" | "text", employeeId: string, fn: () => Promise<void>) {
+    const table = REF_PREFIX + hex();
+    const t = sql`${sql.identifier("public")}.${sql.identifier(table)}`;
+    await db.execute(sql`CREATE TABLE ${t} (id serial PRIMARY KEY, ${sql.identifier(column)} ${sql.raw(type)} NOT NULL)`);
+    try {
+      await db.execute(sql`INSERT INTO ${t} (${sql.identifier(column)}) VALUES (${employeeId})`);
+      await fn();
+    } finally {
+      await db.execute(sql`DROP TABLE IF EXISTS ${t}`);
+    }
+  }
 
   describe("workly: журнал прогонов и применение плана", () => {
     beforeAll(async () => {
       ({ db } = await setup());
       await cleanupKpi(db);
+      await dropRefTables();
       const roles = await db.select().from(staff_roles);
       structure = (title: string) => structureFrom(roles, { position: title }, false);
       // Тестовые организации названы не как подключения: ключ подключения подставляем.
@@ -286,6 +296,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     afterAll(async () => {
       runs.setConnKeyResolver(null);
       queue.setRunEnqueuer(null);
+      await dropRefTables();
       await cleanupKpi(db);
     });
 
@@ -752,13 +763,28 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("A: более новые failed, rolled_back и running не вытесняют план", async () => {
+    it("A: более новые failed и running не вытесняют план", async () => {
       const w = await buildWorld();
       const a = await plan(w.org, w.client);
       await insertRun(w.org, { status: "failed" });
-      await insertRun(w.org, { status: "rolled_back" });
       await insertRun(w.org, { status: "running" });
       expect((await runs.applyRun(db, a.run_id, [], null)).applied).toBe(6);
+    });
+
+    it("A (R29): более новый прогон применён и откатан — старый план по-прежнему run_superseded", async () => {
+      const w = await buildWorld();
+      const p = await plan(w.org, w.client);
+      const b = await plan(w.org, w.client);
+      await runs.applyRun(db, b.run_id, [], null);
+      await runs.rollbackRun(db, b.run_id);
+      expect((await runs.getRun(db, b.run_id)).status).toBe("rolled_back");
+      const before = await snap(w.ids);
+      const err = await runs.applyRun(db, p.run_id, [], null).catch((e) => e);
+      expect(err).toBeInstanceOf(KpiError);
+      expect(err).toMatchObject({ status: 409, code: "run_superseded" });
+      expect(await snap(w.ids)).toEqual(before);
+      expect(await createdBy(w.company, 5)).toBeUndefined();
+      expect(await runs.getRun(db, p.run_id)).toMatchObject({ status: "planned", applied_at: null });
     });
 
     it("A: более новый прогон другой организации или другого вида не вытесняет план", async () => {
@@ -1112,19 +1138,18 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await runs.getRun(db, first.run_id)).plan!.rolled_back).toEqual(res);
     });
 
-    it("откат: созданный сотрудник, на которого ссылается medical_exams, остаётся с active = false", async () => {
+    // Применённый прогон buildWorld и созданный им сотрудник (w5).
+    async function appliedWorld() {
       const w = await buildWorld();
       const first = await plan(w.org, w.client);
       await runs.applyRun(db, first.run_id, [], null);
       const created = await createdBy(w.company, 5);
-      const made = await ensureMedicalExams();
-      let examId: string | null = null;
-      try {
-        const ins = await db.execute(
-          sql`INSERT INTO medical_exams (schedule_id, employee_id, planned_due_date) VALUES (${randomUUID()}, ${created.id}, '2026-11-01') RETURNING id`
-        );
-        examId = (ins.rows[0] as { id: string }).id;
+      return { w, first, created };
+    }
 
+    it("откат: созданный сотрудник со ссылкой из другой таблицы (employee_id uuid) остаётся с active = false", async () => {
+      const { w, first, created } = await appliedWorld();
+      await withRefTable("employee_id", "uuid", created.id, async () => {
         const res = await runs.rollbackRun(db, first.run_id);
         expect(res).toEqual({ restored: 5, deleted: 0, deactivated: 1, skipped: [] });
         expect(await emp(created.id)).toMatchObject({
@@ -1139,10 +1164,52 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const again = await plan(w.org, w.client);
         const expected = first.run.plan!.items.map((i) => (i.key === "create:w5" ? `reactivate:${created.id}` : i.key));
         expect(again.run.plan!.items.map((i) => i.key).sort()).toEqual(expected.sort());
-      } finally {
-        if (examId) await db.execute(sql`DELETE FROM medical_exams WHERE id = ${examId}`);
-        if (made) await db.execute(sql.raw("DROP TABLE public.medical_exams"));
-      }
+      });
+    });
+
+    it("откат: ссылка через колонку *_employee_id (actor_employee_id) тоже держит созданного: active = false", async () => {
+      const { first, created } = await appliedWorld();
+      await withRefTable("actor_employee_id", "uuid", created.id, async () => {
+        expect(await runs.rollbackRun(db, first.run_id)).toEqual({ restored: 5, deleted: 0, deactivated: 1, skipped: [] });
+        expect((await emp(created.id)).active).toBe(false);
+      });
+    });
+
+    it("откат: колонка employee_id не uuid (text) сравнивается как текст: ссылка найдена, active = false", async () => {
+      const { first, created } = await appliedWorld();
+      await withRefTable("employee_id", "text", created.id, async () => {
+        expect(await runs.rollbackRun(db, first.run_id)).toEqual({ restored: 5, deleted: 0, deactivated: 1, skipped: [] });
+        expect((await emp(created.id)).active).toBe(false);
+      });
+    });
+
+    it("откат: созданный сотрудник, которого HR выключил после применения, не удаляется (changed_since)", async () => {
+      const { first, created } = await appliedWorld();
+      await db.update(employees).set({ active: false }).where(eq(employees.id, created.id));
+      const kept = await emp(created.id);
+      const rb = await runs.rollbackRun(db, first.run_id);
+      expect(rb).toEqual({ restored: 5, deleted: 0, deactivated: 0, skipped: changed("create:w5") });
+      expect(await emp(created.id)).toEqual(kept);
+    });
+
+    it("откат N после N+1, сменившего должность созданного: create changed_since, строка цела, никто не удалён", async () => {
+      const { w, first, created } = await appliedWorld();
+      // В Workly у w5 другая должность: прогон N+1 обновляет созданного сотрудника.
+      const client2 = fakeClient(
+        w.company,
+        w.active.map((x) => (x.id === 5 ? { ...x, positions: [{ id: 1, title: "Кассир" }] } : x)),
+        w.dismissed,
+        w.locations
+      );
+      const n1 = await plan(w.org, client2);
+      expect(n1.run.plan!.items.map((i) => i.key)).toEqual([`update:${created.id}`]);
+      await runs.applyRun(db, n1.run_id, [], null);
+      const kept = await emp(created.id);
+      expect(kept.position).toBe(structure("Кассир").position);
+
+      const rb = await runs.rollbackRun(db, first.run_id);
+      expect(rb).toEqual({ restored: 5, deleted: 0, deactivated: 0, skipped: changed("create:w5") });
+      expect(await emp(created.id)).toEqual(kept);
     });
 
     it("откат: созданный сотрудник, которого после применения перевели в другой филиал, не удаляется (changed_since)", async () => {
@@ -1322,8 +1389,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       });
       const mid = await snap([...w.ids, created.id]);
       const err = await runs.rollbackRun(db, run_id).catch((e) => e);
-      expect(err).toBeInstanceOf(Error);
+      expect(err).toBeInstanceOf(runs.RollbackItemError);
       expect(err).not.toBeInstanceOf(KpiError);
+      // Наружу только ключ пункта, без текста ошибки базы (в нём параметры запроса).
+      expect(err).toMatchObject({ name: "RollbackItemError", key: `link:${w.eLink}`, message: "rollback_item_failed" });
+      expect(JSON.stringify(err)).not.toContain("foreign key");
+      expect((err as Error).cause).toBeUndefined();
       // Перенос, деактивация, удаление созданного и прочее шли раньше и тоже откатились.
       expect(await snap([...w.ids, created.id])).toEqual(mid);
       const run = await runs.getRun(db, run_id);

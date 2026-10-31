@@ -383,7 +383,8 @@ async function applyItem(db: DbLike, item: PlanItem, organizationId: string): Pr
 /**
  * Применяет сохранённый план (только статус planned, иначе 409 run_not_planned).
  * План, у которого есть более новый прогон той же организации и вида в статусе planned,
- * applied или blocked, устарел целиком: 409 run_superseded, нужно построить план заново.
+ * applied, blocked или rolled_back, устарел целиком: 409 run_superseded, нужно построить
+ * план заново. Откат более нового прогона не делает старый план снова применимым (R29).
  * Каждый пункт идёт в своей точке сохранения (вложенная транзакция): пункт применяется,
  * только если текущие значения полей из before совпадают с before (иначе stale);
  * занятый workly_id даёт conflict, остальные пункты продолжаются. Перенос сотрудника,
@@ -412,6 +413,7 @@ export async function applyRun(
     // Более новый план видел более свежий Workly: например, увольнение, которое потом
     // отменили. Старый план по нему деактивировал бы живого человека, хотя его before
     // ещё совпадает с базой. «Новее» — по created_at в базе, а не по часам процесса.
+    // Откатанный более новый прогон тоже вытесняет: его данные Workly свежее этого плана.
     const [newer] = await tx
       .select({ id: workly_sync_runs.id })
       .from(workly_sync_runs)
@@ -419,7 +421,7 @@ export async function applyRun(
         and(
           eq(workly_sync_runs.organization_id, run.organization_id),
           eq(workly_sync_runs.kind, run.kind),
-          inArray(workly_sync_runs.status, ["planned", "applied", "blocked"]),
+          inArray(workly_sync_runs.status, ["planned", "applied", "blocked", "rolled_back"]),
           sql`${workly_sync_runs.created_at} > (SELECT r.created_at FROM workly_sync_runs r WHERE r.id = ${run.id})`
         )
       )
@@ -526,8 +528,20 @@ async function isReferenced(db: DbLike, refs: RefColumn[], employeeId: string): 
   return (res.rows[0] as { found: boolean } | undefined)?.found === true;
 }
 
-// По этим полям созданный прогоном сотрудник узнаётся как тот самый: имя, филиал и пара Workly.
+// Без этих полей в after пункт create не узнать: имя, филиал и пара Workly обязаны быть.
 const CREATED_IDENTITY: readonly (keyof EmployeeFields)[] = ["first_name", "last_name", "terminal_id", "workly_company_id", "workly_id"];
+
+/**
+ * Непредвиденная ошибка пункта при откате (не конфликт пары): весь откат отменён. Несёт только
+ * ключ пункта (вид:id), без исходного сообщения: в нём бывают параметры запроса, то есть имена.
+ */
+export class RollbackItemError extends Error {
+  constructor(public key: string) {
+    super("rollback_item_failed");
+    // По имени CLI узнаёт ошибку, не импортируя runs.ts.
+    this.name = "RollbackItemError";
+  }
+}
 
 type Undone = "restored" | "deleted" | "deactivated";
 
@@ -540,8 +554,12 @@ async function undoItem(db: DbLike, item: PlanItem, organizationId: string, refs
   if (!current) return null;
 
   if (item.kind === "create") {
-    for (const k of CREATED_IDENTITY) {
-      if (!(k in item.after) || !sameValue(current[k], item.after[k])) return null;
+    // Созданный удаляется или выключается, только если с тех пор не менялось ни одно поле,
+    // которое записал прогон: должность, табельный, роль, active и прочие. Правка прогона N+1
+    // или HR делает пункт changed_since, и сотрудник остаётся как есть.
+    if (CREATED_IDENTITY.some((k) => !(k in item.after))) return null;
+    for (const [k, v] of Object.entries(item.after)) {
+      if (!(WRITABLE as readonly string[]).includes(k) || !sameValue(current[k], v)) return null;
     }
     // Удаление оставило бы сирот: на кого есть ссылки, того только выключаем.
     if (await isReferenced(db, refs, item.employee_id)) {
@@ -582,8 +600,8 @@ async function undoItem(db: DbLike, item: PlanItem, organizationId: string, refs
  * прогон N+1 и правки HR). Созданного прогоном сотрудника удаляет, если на него ничего не
  * ссылается, иначе выключает. Строка журнала заперта на всё время отката; статус rolled_back
  * и итог в plan.rolled_back пишутся той же транзакцией. Прежняя пара Workly, уже занятая
- * другим сотрудником, даёт changed_since; любая другая ошибка откатывает весь откат, прогон
- * остаётся applied.
+ * другим сотрудником, даёт changed_since; любая другая ошибка пункта откатывает весь откат
+ * (RollbackItemError с ключом пункта), прогон остаётся applied.
  */
 export async function rollbackRun(db: DrizzleDB, runId: string): Promise<RollbackResult> {
   if (!UUID_RE.test(runId)) throw new KpiError(404, "run_not_found");
@@ -615,7 +633,8 @@ export async function rollbackRun(db: DrizzleDB, runId: string): Promise<Rollbac
           res = await tx.transaction((sp) => undoItem(sp, item, run.organization_id, refs));
         } catch (e) {
           // Прежнюю пару Workly занял другой сотрудник: вернуть её нельзя, пункт изменился.
-          if (!violates(e, "employees_workly_uq")) throw e;
+          // Любая другая ошибка отменяет весь откат; наружу уходит только ключ пункта.
+          if (!violates(e, "employees_workly_uq")) throw new RollbackItemError(key);
         }
       }
       if (res) out[res]++;

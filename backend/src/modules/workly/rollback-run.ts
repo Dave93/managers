@@ -1,8 +1,9 @@
 // Откат применённого прогона сверки сотрудников Workly (раздел 5.5 спеки). Запуск из backend/:
 //   bun run src/modules/workly/rollback-run.ts <run_id>
 // Печатает «restored=… deleted=… deactivated=… skipped=…» и по строке на каждый пропущенный пункт.
-// Ошибка — одна строка «error <код>» и код выхода 1. Текст исключения не печатается никогда:
-// в нём бывают параметры запроса (имена сотрудников) и строка подключения.
+// Ошибка — одна строка «error <код>» в stdout и код выхода 1. Если откат отменён ошибкой
+// пункта, в stderr дополнительно идёт «failed_item <ключ пункта>». Текст исключения не печатается
+// никогда: в нём бывают параметры запроса (имена сотрудников) и строка подключения.
 // Вся логика в rollbackRun (runs.ts); здесь только аргументы и вывод.
 import { UUID_RE } from "../kpi/employees";
 import { KpiError } from "../kpi/errors";
@@ -30,10 +31,20 @@ export function errorLine(e: unknown): string {
   return `error ${e instanceof KpiError ? e.code : "rollback_failed"}`;
 }
 
+// Ключ пункта, на котором откат отменён (RollbackItemError из runs.ts; класс не импортируется,
+// чтобы тест не тянул runs.ts). Печатается, только если похож на ключ плана (вид:id).
+const ITEM_KEY_RE = /^[a-z]+:[A-Za-z0-9-]{1,64}$/;
+export function failedItemLine(e: unknown): string | null {
+  const x = e as { name?: unknown; key?: unknown } | null;
+  if (!(e instanceof Error) || x?.name !== "RollbackItemError" || typeof x.key !== "string") return null;
+  return `failed_item ${ITEM_KEY_RE.test(x.key) ? x.key : "-"}`;
+}
+
 async function main(): Promise<void> {
   const args = parseRollbackArgs(process.argv.slice(2));
   if ("error" in args) {
-    console.error(args.error === "usage" ? USAGE : `error ${args.error}`);
+    if (args.error === "usage") console.error(USAGE);
+    else console.log(`error ${args.error}`);
     process.exit(1);
   }
   try {
@@ -43,7 +54,9 @@ async function main(): Promise<void> {
     const { rollbackRun } = await import("./runs");
     for (const line of resultLines(await rollbackRun(drizzleDb, args.runId))) console.log(line);
   } catch (e) {
-    console.error(errorLine(e));
+    console.log(errorLine(e));
+    const item = failedItemLine(e);
+    if (item) console.error(item);
     process.exit(1);
   }
   process.exit(0);
@@ -51,7 +64,7 @@ async function main(): Promise<void> {
 
 if (import.meta.main) {
   main().catch(() => {
-    console.error("error rollback_failed");
+    console.log("error rollback_failed");
     process.exit(1);
   });
 }
