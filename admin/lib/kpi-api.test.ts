@@ -22,7 +22,7 @@ function fakeFetch(status: number, payload: unknown, calls: Call[], contentType 
 function setup(status = 200, payload: unknown = {}) {
   const calls: Call[] = [];
   const root: any = (treaty as any)("http://kpi.test", { fetcher: fakeFetch(status, payload, calls) }); // без дженерика: Treaty.Create<any> может упереться в глубину типов
-  return { api: createKpiApi(root.api.kpi), calls };
+  return { api: createKpiApi(root.api.kpi, root.api.workly), calls };
 }
 
 const items = [{ item_id: "i1", score: 50, note: null }];
@@ -81,6 +81,20 @@ const cases: [string, (a: KpiApi) => Promise<unknown>, string, string, unknown][
   ["tg.unbind", (a) => a.tg.unbind("b1"), "DELETE", "/api/kpi/tg/bindings/b1", null],
   ["tiers.get", (a) => a.tiers.get(), "GET", "/api/kpi/raise-tiers", null],
   ["tiers.save", (a) => a.tiers.save([{ min_pct: 95, amount: 500000 }]), "PUT", "/api/kpi/raise-tiers", { tiers: [{ min_pct: 95, amount: 500000 }] }],
+  ["workly.status", (a) => a.workly.status(), "GET", "/api/workly/status", null],
+  ["workly.plan", (a) => a.workly.plan("o1"), "POST", "/api/workly/sync/plan", { organization_id: "o1" }],
+  ["workly.run", (a) => a.workly.run("r1"), "GET", "/api/workly/sync/runs/r1", null],
+  ["workly.locationsRefresh", (a) => a.workly.locationsRefresh("o1"), "POST", "/api/workly/locations/refresh", { organization_id: "o1" }],
+  ["workly.apply без исключений шлёт exclude: []", (a) => a.workly.apply("r1", new Set()), "POST", "/api/workly/sync/apply", { run_id: "r1", exclude: [] }],
+  ["workly.apply с исключениями", (a) => a.workly.apply("r1", ["update:e1", "create:w5"]), "POST", "/api/workly/sync/apply", { run_id: "r1", exclude: ["update:e1", "create:w5"] }],
+  ["workly.employees с поиском", (a) => a.workly.employees("o1", "иван"), "GET", "/api/workly/employees?organization_id=o1&q=%D0%B8%D0%B2%D0%B0%D0%BD", null],
+  ["workly.employees без поиска", (a) => a.workly.employees("o1", ""), "GET", "/api/workly/employees?organization_id=o1", null],
+  ["workly.link", (a) => a.workly.link({ organization_id: "o1", employee_id: "e1", workly_id: 7 }), "POST", "/api/workly/sync/link", { organization_id: "o1", employee_id: "e1", workly_id: 7 }],
+  ["workly.locations", (a) => a.workly.locations("o1"), "GET", "/api/workly/locations?organization_id=o1", null],
+  ["workly.setLocation", (a) => a.workly.setLocation("l1", "t1"), "PUT", "/api/workly/locations/l1", { terminal_id: "t1" }],
+  ["workly.setLocation: снять привязку", (a) => a.workly.setLocation("l1", null), "PUT", "/api/workly/locations/l1", { terminal_id: null }],
+  ["workly.attendanceSync", (a) => a.workly.attendanceSync("o1", "2026-10-01"), "POST", "/api/workly/attendance/sync", { organization_id: "o1", period: "2026-10-01" }],
+  ["workly.quality", (a) => a.workly.quality("o1", "2026-10-01"), "GET", "/api/workly/quality?organization_id=o1&period=2026-10-01", null],
 ];
 
 describe("kpiApi: метод, путь, тело", () => {
@@ -123,8 +137,30 @@ describe("kpiApi: ответы", () => {
   it("обрыв сети в обычном вызове — network", async () => {
     const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
     const root: any = (treaty as any)("http://kpi.test", { fetcher: boom });
-    const e = await createKpiApi(root.api.kpi).me().catch((x) => x);
+    const e = await createKpiApi(root.api.kpi, root.api.workly).me().catch((x) => x);
     expect(e).toBeInstanceOf(KpiApiError);
+    expect([e.status, e.code]).toEqual([0, "network"]);
+  });
+  it("workly: ошибка маршрута — статус и код из тела", async () => {
+    const { api } = setup(409, { error: "run_in_progress" });
+    const e = await api.workly.plan("o1").catch((x) => x);
+    expect(e).toBeInstanceOf(KpiApiError);
+    expect([e.status, e.code]).toEqual([409, "run_in_progress"]);
+  });
+  it("workly: 202 с run_id — данные ответа, а не ошибка", async () => {
+    const { api } = setup(202, { run_id: "r1", status: "running" });
+    expect(await api.workly.plan("o1")).toEqual({ run_id: "r1", status: "running" });
+  });
+  it("workly: даты прогона остаются строками", async () => {
+    const { api } = setup(200, { id: "r1", created_at: "2026-10-30T10:00:00.000Z", applied_at: null, plan: null });
+    const r = (await api.workly.run("r1")) as unknown as Record<string, unknown>;
+    expect(r.created_at).toBe("2026-10-30T10:00:00.000Z");
+    expect(r.applied_at).toBe(null);
+  });
+  it("workly: обрыв сети — network", async () => {
+    const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    const root: any = (treaty as any)("http://kpi.test", { fetcher: boom });
+    const e = await createKpiApi(root.api.kpi, root.api.workly).workly.status().catch((x) => x);
     expect([e.status, e.code]).toEqual([0, "network"]);
   });
   it("photoUrl", () => expect(photoUrl("p1")).toBe("/api/kpi/violation-photos/p1/file"));

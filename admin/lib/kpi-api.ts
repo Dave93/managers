@@ -42,6 +42,11 @@ import type {
   ViolationRow,
 } from "@backend/modules/kpi/types";
 import type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
+import type { PlanItem, PlanKind, PlanReport, SyncPlan } from "@backend/modules/workly/plan";
+import type { qualityReport } from "@backend/modules/workly/quality";
+import type { applyRun, RunRow } from "@backend/modules/workly/runs";
+import type { WorklyLocationRow, WorklyPersonRow, WorklyRunStarted, WorklyStatusEntry } from "@backend/modules/workly/routes";
+import { applyBody } from "@admin/lib/kpi/workly";
 
 export type {
   AttendanceField,
@@ -86,6 +91,13 @@ export type { ItemSource, KpiSettings } from "@backend/modules/kpi/rules";
 export type { KpiTerminal, KpiUserOption } from "@backend/modules/kpi/types";
 export type { KpiInvite, TgBindingRow } from "@backend/modules/kpi/types";
 export type { SanitaryTemplate } from "@backend/modules/kpi/types";
+export type { PlanItem, PlanKind, PlanReport, SyncPlan, RunRow, WorklyLocationRow, WorklyPersonRow, WorklyRunStarted, WorklyStatusEntry };
+/** Последний прогон в статусе подключения (без плана). */
+export type WorklyLastRun = NonNullable<WorklyStatusEntry["last_run"]>;
+/** Итог «Применить»: сколько применено и какие пункты пропущены (причины excluded / stale / conflict). */
+export type WorklyApplyResult = Awaited<ReturnType<typeof applyRun>>;
+/** Качество посещаемости за месяц: филиалы с выбросами, прогульщики и имена сотрудников. */
+export type WorklyQuality = Awaited<ReturnType<typeof qualityReport>>;
 
 export type KpiItemInput = { item_id: string; score: number | null; note: string | null };
 export type RowStatusFilter = "none" | "draft" | "submitted" | "disputed";
@@ -115,6 +127,7 @@ export type BranchConfigBody = { indicators?: IndicatorInput[]; settings?: Parti
 export type RevenuePlanItem = { terminal_id: string; amount: number | null };
 export type SanitaryCreate = { terminal_id: string; items: SanitaryItem[]; comment?: string };
 export type SanitaryQuery = { period: string; terminal_id?: string };
+export type WorklyLinkBody = { organization_id: string; employee_id: string; workly_id: number };
 export type AttendanceCommitBody = { token: string; sheet: string; period: string; header_row: number; mapping: AttendanceMapping };
 
 // Eden не бросает на 4xx — он возвращает { data, error }. Без этой проверки
@@ -148,7 +161,31 @@ function q(obj: Record<string, string | number | boolean | null | undefined>): {
   return Object.keys(query).length ? { query } : undefined;
 }
 
-export function createKpiApi(kpi: any) {
+/**
+ * Группа /api/workly/* (синхронизация сотрудников и посещаемости с Workly). Права kpi.manage.
+ * «Проверить» и «Синхронизировать» отвечают 202 и работают в фоне: результат читается через run(id).
+ */
+function createWorklyApi(workly: any) {
+  return {
+    status: () => call<WorklyStatusEntry[]>(workly.status.get()),
+    plan: (organization_id: string) => call<WorklyRunStarted>(workly.sync.plan.post({ organization_id })),
+    run: (id: string) => call<RunRow>(workly.sync.runs({ id }).get()),
+    locationsRefresh: (organization_id: string) => call<WorklyLocationRow[]>(workly.locations.refresh.post({ organization_id })),
+    // exclude уходит ВСЕГДА массивом (пустым, если исключений нет): иначе бэкенд отвечает 422.
+    apply: (run_id: string, exclude: Iterable<string>) => call<WorklyApplyResult>(workly.sync.apply.post(applyBody(run_id, exclude))),
+    employees: (organization_id: string, search: string) =>
+      call<WorklyPersonRow[]>(workly.employees.get({ query: compact({ organization_id, q: search }) })),
+    link: (b: WorklyLinkBody) => call<{ ok: true }>(workly.sync.link.post(b)),
+    locations: (organization_id: string) => call<WorklyLocationRow[]>(workly.locations.get({ query: { organization_id } })),
+    setLocation: (id: string, terminal_id: string | null) => call<{ ok: true }>(workly.locations({ id }).put({ terminal_id })),
+    attendanceSync: (organization_id: string, period: string) =>
+      call<WorklyRunStarted>(workly.attendance.sync.post({ organization_id, period })),
+    quality: (organization_id: string, period: string) =>
+      call<WorklyQuality>(workly.quality.get({ query: { organization_id, period } })),
+  };
+}
+
+export function createKpiApi(kpi: any, workly: any) {
   return {
     me: () => call<MeResponse>(kpi.me.get()),
     terminals: () => call<KpiTerminal[]>(kpi.terminals.get()),
@@ -242,12 +279,13 @@ export function createKpiApi(kpi: any) {
       get: () => call<Tier[]>(kpi["raise-tiers"].get()),
       save: (tiers: Tier[]) => call<Tier[]>(kpi["raise-tiers"].put({ tiers })),
     },
+    workly: createWorklyApi(workly),
   };
 }
 
 export type KpiApi = ReturnType<typeof createKpiApi>;
 
-export const kpiApi: KpiApi = createKpiApi((apiClient.api as any).kpi);
+export const kpiApi: KpiApi = createKpiApi((apiClient.api as any).kpi, (apiClient.api as any).workly);
 
 export function photoUrl(photoId: string): string {
   return `/api/kpi/violation-photos/${photoId}/file`;
