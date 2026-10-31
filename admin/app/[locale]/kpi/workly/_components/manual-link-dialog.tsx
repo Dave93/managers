@@ -17,8 +17,12 @@ import { searchSeed, shortId } from "@admin/lib/kpi/workly-view";
 import { qk } from "../../_components/use-kpi";
 import { useWorklyText } from "./workly-text";
 
-/** Наш сотрудник из строки отчёта: id и подпись этой строки. */
-export type LinkTarget = { id: string; label: string };
+/**
+ * Наш сотрудник из строки отчёта: id и подпись этой строки. У строки «Не найден» подпись —
+ * имя нашего сотрудника; у «Неоднозначно» — имя записи Workly (иногда с «(Workly: 12, 15)»),
+ * имени нашего кандидата в отчёте нет.
+ */
+export type LinkTarget = { id: string; label: string; kind: "ambiguous" | "not_found" };
 
 const MIN_SEARCH = 2;
 const SEARCH_DELAY_MS = 400;
@@ -130,7 +134,11 @@ function LinkForm({
     <form onSubmit={submit} className="space-y-4">
       <DialogHeader>
         <DialogTitle>{t("link.title")}</DialogTitle>
-        <DialogDescription>{t("link.description", { name: employee.label, id: shortId(employee.id) })}</DialogDescription>
+        <DialogDescription>
+          {employee.kind === "ambiguous"
+            ? t("link.descriptionAmbiguous", { name: employee.label, id: shortId(employee.id) })
+            : t("link.description", { name: employee.label, id: shortId(employee.id) })}
+        </DialogDescription>
       </DialogHeader>
 
       <div className="space-y-1">

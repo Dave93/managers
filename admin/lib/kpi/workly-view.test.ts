@@ -5,12 +5,15 @@ import {
   CHANGE_TYPES,
   GROUP_PAGE,
   RUN_STATUSES,
+  SKIPPED_PAGE,
+  applyPreview,
   changeSummary,
   confirmSummary,
   impliedSkips,
   inWorkly,
   plannedRunId,
   resumeRunId,
+  runStaleness,
   searchSeed,
   shortId,
   skippedGroups,
@@ -49,6 +52,14 @@ describe("visibleItems", () => {
   it("короткий список отдаётся целиком в обоих режимах", () => {
     expect(visibleItems([1, 2, 3], false)).toEqual([1, 2, 3]);
     expect(visibleItems([], false)).toEqual([]);
+  });
+
+  it("свой предел: список пропущенных режется на SKIPPED_PAGE строк", () => {
+    const rows = Array.from({ length: 130 }, (_, i) => i);
+    expect(SKIPPED_PAGE).toBe(100);
+    expect(visibleItems(rows, false, SKIPPED_PAGE).length).toBe(100);
+    expect(visibleItems(rows, true, SKIPPED_PAGE).length).toBe(130);
+    expect(visibleItems(rows.slice(0, 100), false, SKIPPED_PAGE).length).toBe(100);
   });
 });
 
@@ -160,14 +171,24 @@ describe("confirmSummary", () => {
 });
 
 describe("changeSummary", () => {
-  it("deactivate: станет неактивным", () => {
+  it("deactivate связанного: станет неактивным (уволен в Workly)", () => {
     const it0 = item({
       kind: "deactivate",
       workly_id: 501,
-      before: { active: true, workly_id: null, workly_company_id: null },
+      before: { active: true, workly_id: 501, workly_company_id: 9 },
       after: { active: false, workly_company_id: 9, workly_id: 501 },
     });
     expect(changeSummary(it0)).toEqual([{ type: "deactivate" }]);
+  });
+
+  it("deactivate по имени (у нас связи не было): видно, с какой записью Workly совпало имя", () => {
+    const it0 = item({
+      kind: "deactivate",
+      workly_id: 502,
+      before: { active: true, workly_id: null, workly_company_id: null },
+      after: { active: false, workly_company_id: 9, workly_id: 502 },
+    });
+    expect(changeSummary(it0)).toEqual([{ type: "deactivateByName", workly_id: 502 }]);
   });
 
   it("move: смена терминала из before в after", () => {
@@ -245,7 +266,17 @@ describe("changeSummary", () => {
   });
 
   it("у каждого вида части только из CHANGE_TYPES", () => {
-    expect([...CHANGE_TYPES].sort()).toEqual(["activate", "create", "deactivate", "link", "position", "relink", "tab", "terminal"]);
+    expect([...CHANGE_TYPES].sort()).toEqual([
+      "activate",
+      "create",
+      "deactivate",
+      "deactivateByName",
+      "link",
+      "position",
+      "relink",
+      "tab",
+      "terminal",
+    ]);
   });
 });
 
@@ -297,6 +328,107 @@ describe("worklyErrorKey", () => {
     expect(worklyErrorKey(new KpiApiError(403, "forbidden", {}))).toBeNull();
     expect(worklyErrorKey(new Error("boom"))).toBeNull();
     expect(worklyErrorKey(null)).toBeNull();
+  });
+});
+
+describe("runStaleness", () => {
+  const created = "2026-10-31T05:00:00.000Z";
+  const t0 = Date.parse(created);
+  const MIN = 60_000;
+
+  it("до 4 минут — ok", () => {
+    expect(runStaleness(created, t0)).toBe("ok");
+    expect(runStaleness(created, t0 + 4 * MIN - 1)).toBe("ok");
+  });
+
+  it("с 4 минут — slow (дольше обычного)", () => {
+    expect(runStaleness(created, t0 + 4 * MIN)).toBe("slow");
+    expect(runStaleness(created, t0 + 4 * MIN + 1)).toBe("slow");
+    expect(runStaleness(created, t0 + 16 * MIN - 1)).toBe("slow");
+  });
+
+  it("с 16 минут — stuck: бэкенд закрывает брошенную строку после 15 минут, минута на расхождение часов", () => {
+    expect(runStaleness(created, t0 + 16 * MIN)).toBe("stuck");
+    expect(runStaleness(created, t0 + 16 * MIN + 1)).toBe("stuck");
+    expect(runStaleness(created, t0 + 3 * 60 * MIN)).toBe("stuck");
+  });
+
+  it("часы клиента отстают (возраст отрицательный) — ok; непонятная дата — ok", () => {
+    expect(runStaleness(created, t0 - 10 * MIN)).toBe("ok");
+    expect(runStaleness("не дата", t0 + 60 * MIN)).toBe("ok");
+  });
+});
+
+describe("applyPreview", () => {
+  const pi = (key: string, kind: PlanKind, employee_id: string | null): PlanItem => ({
+    key,
+    kind,
+    employee_id,
+    workly_id: 1,
+    label: key,
+    before: null,
+    after: {},
+  });
+  const items = [
+    pi("deactivate:d1", "deactivate", "d1"),
+    pi("deactivate:d2", "deactivate", "d2"),
+    pi("link:A", "link", "A"),
+    pi("move:A", "move", "A"),
+    pi("create:w5", "create", null),
+  ];
+
+  it("связь исключена: её перенос не считается, но в excluded только то, что исключил человек", () => {
+    expect(applyPreview(items, new Set(["link:A"]))).toEqual({
+      counts: { link: 0, relink: 0, update: 0, move: 0, create: 1, deactivate: 2, reactivate: 0 },
+      lines: [
+        { kind: "deactivate", count: 2 },
+        { kind: "create", count: 1 },
+      ],
+      deactivate: 2,
+      excluded: 1,
+      implied: new Set(["move:A"]),
+      total: 3,
+    });
+  });
+
+  it("ничего не исключено: всё идёт в применение, деактивации отдельно", () => {
+    expect(applyPreview(items, new Set())).toEqual({
+      counts: { link: 1, relink: 0, update: 0, move: 1, create: 1, deactivate: 2, reactivate: 0 },
+      lines: [
+        { kind: "deactivate", count: 2 },
+        { kind: "link", count: 1 },
+        { kind: "move", count: 1 },
+        { kind: "create", count: 1 },
+      ],
+      deactivate: 2,
+      excluded: 0,
+      implied: new Set(),
+      total: 5,
+    });
+  });
+
+  it("исключены деактивации: строки деактивации нет, остальное идёт", () => {
+    const out = applyPreview(items, new Set(["deactivate:d1", "deactivate:d2"]));
+    expect(out.deactivate).toBe(0);
+    expect(out.excluded).toBe(2);
+    expect(out.total).toBe(3);
+    expect(out.lines).toEqual([
+      { kind: "link", count: 1 },
+      { kind: "move", count: 1 },
+      { kind: "create", count: 1 },
+    ]);
+  });
+
+  it("всё исключено: применять нечего", () => {
+    const all = new Set(items.map((i) => i.key));
+    expect(applyPreview(items, all)).toEqual({
+      counts: { link: 0, relink: 0, update: 0, move: 0, create: 0, deactivate: 0, reactivate: 0 },
+      lines: [],
+      deactivate: 0,
+      excluded: 5,
+      implied: new Set(),
+      total: 0,
+    });
   });
 });
 

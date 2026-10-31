@@ -5,14 +5,17 @@
 import type { EmployeeFields, PlanItem, PlanKind } from "@backend/modules/workly/plan";
 import type { RunRow } from "@backend/modules/workly/runs";
 import { KpiApiError } from "./errors";
-import { PLAN_GROUP_ORDER, WORKLY_ERROR_CODES, connectionErrorKey } from "./workly";
+import { PLAN_GROUP_ORDER, WORKLY_ERROR_CODES, connectionErrorKey, effectiveCounts } from "./workly";
 
 /** Сколько строк группы видно до «Показать все»: в группе Les Ailes бывают сотни пунктов. */
 export const GROUP_PAGE = 50;
 
-/** Видимая часть группы: первые GROUP_PAGE, пока группа не раскрыта целиком. */
-export function visibleItems<T>(items: readonly T[], expanded: boolean): readonly T[] {
-  return expanded || items.length <= GROUP_PAGE ? items : items.slice(0, GROUP_PAGE);
+/** Сколько строк пропущенных пунктов видно в итоге до «Показать все». */
+export const SKIPPED_PAGE = 100;
+
+/** Видимая часть списка: первые `limit` (по умолчанию GROUP_PAGE), пока список не раскрыт целиком. */
+export function visibleItems<T>(items: readonly T[], expanded: boolean, limit: number = GROUP_PAGE): readonly T[] {
+  return expanded || items.length <= limit ? items : items.slice(0, limit);
 }
 
 export type SkipReason = "excluded" | "stale" | "conflict";
@@ -81,9 +84,29 @@ export function confirmSummary(counts: Record<PlanKind, number>, excludedCount: 
   return { lines, deactivate: counts.deactivate ?? 0, excluded: excludedCount, total };
 }
 
+export type ApplyPreview = ConfirmSummary & {
+  /** Сколько пунктов каждого вида реально уйдёт в применение. */
+  counts: Record<PlanKind, number>;
+  /** Переносы, которые пропустятся вместе с исключённой связью (impliedSkips). */
+  implied: Set<string>;
+};
+
+/**
+ * Что покажут счётчики и окно «Применить план»: не считаются ни исключённые человеком
+ * пункты, ни переносы, которые бэкенд пропустит вместе с исключённой связью.
+ * `excluded` в итоге — только исключения человека: в apply уходят они одни.
+ */
+export function applyPreview(items: readonly PlanItem[], excluded: ReadonlySet<string>): ApplyPreview {
+  const implied = excluded.size > 0 ? impliedSkips(items, excluded) : new Set<string>();
+  const notApplied = implied.size > 0 ? new Set([...excluded, ...implied]) : excluded;
+  const counts = effectiveCounts(items as PlanItem[], notApplied);
+  return { ...confirmSummary(counts, excluded.size), counts, implied };
+}
+
 /** Часть описания изменения в строке плана; текст — `plan.change.<type>`. */
 export type ChangePart =
   | { type: "deactivate" }
+  | { type: "deactivateByName"; workly_id: number }
   | { type: "activate" }
   | { type: "link"; workly_id: number }
   | { type: "relink"; from: number | null; to: number }
@@ -95,6 +118,7 @@ export type ChangePart =
 // Record<ChangePart["type"], true> не даёт забыть текст для нового вида части.
 const CHANGE_FLAGS: Record<ChangePart["type"], true> = {
   deactivate: true,
+  deactivateByName: true,
   activate: true,
   link: true,
   relink: true,
@@ -135,7 +159,9 @@ export function changeSummary(item: PlanItem): ChangePart[] {
   const { before, after } = item;
   switch (item.kind) {
     case "deactivate":
-      return [{ type: "deactivate" }];
+      // У нас связи не было: деактивация держится на совпадении имени с уволенной записью
+      // (plan.ts, правило 3). Номер этой записи — главное свидетельство, его надо видеть.
+      return before?.workly_id == null ? [{ type: "deactivateByName", workly_id: item.workly_id }] : [{ type: "deactivate" }];
     case "move":
       return [{ type: "terminal", from: str(before?.terminal_id), to: str(after.terminal_id) }];
     case "create":
@@ -206,4 +232,25 @@ export function shortId(id: string): string {
 /** Начальный текст поиска ручной связи: подпись строки отчёта без хвоста «(Workly: 12, 15)». */
 export function searchSeed(label: string): string {
   return label.replace(/\s*\(Workly:[^)]*\)\s*$/, "").trim();
+}
+
+
+// Пороги «зависания» прогона. Бэкенд закрывает строку running старше 15 минут как failed/stale
+// только при следующем запуске (startRun), поэтому зависшую проверку закрывает лишь новое
+// «Проверить». Минута сверху — на расхождение часов клиента и сервера.
+const SLOW_AFTER_MS = 4 * 60 * 1000;
+const STUCK_AFTER_MS = 16 * 60 * 1000;
+
+/**
+ * Насколько долго идёт прогон: ok; slow — дольше обычного (с 4 минут); stuck — с 16 минут,
+ * воркер, скорее всего, не отвечает, и «Проверить» снова доступна. created_at — время сервера,
+ * nowMs — часы клиента. Отрицательный возраст и непонятная дата дают ok.
+ */
+export function runStaleness(createdAtIso: string, nowMs: number): "ok" | "slow" | "stuck" {
+  const created = Date.parse(createdAtIso);
+  if (Number.isNaN(created)) return "ok";
+  const age = nowMs - created;
+  if (age >= STUCK_AFTER_MS) return "stuck";
+  if (age >= SLOW_AFTER_MS) return "slow";
+  return "ok";
 }

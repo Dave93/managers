@@ -21,12 +21,13 @@ import {
 } from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/button";
 import { kpiApi, type PlanItem, type PlanKind, type RunRow, type WorklyApplyResult } from "@admin/lib/kpi-api";
-import { PLAN_GROUP_ORDER, canApply, effectiveCounts, groupPlan, toggleExclusion } from "@admin/lib/kpi/workly";
+import { KpiApiError } from "@admin/lib/kpi/errors";
+import { PLAN_GROUP_ORDER, canApply, groupPlan, toggleExclusion } from "@admin/lib/kpi/workly";
 import {
   GROUP_PAGE,
+  SKIPPED_PAGE,
+  applyPreview,
   changeSummary,
-  confirmSummary,
-  impliedSkips,
   shortId,
   skippedGroups,
   visibleItems,
@@ -59,7 +60,6 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   const plan = run.plan;
   const items = useMemo(() => plan?.items ?? [], [plan]);
   const report = plan?.report;
-  const editable = canApply(run);
 
   // Исключённые ключи живут, пока открыт этот прогон (новый прогон — новый key компонента).
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(NO_EXCLUSIONS);
@@ -69,22 +69,23 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   // Сотрудники, связанные вручную из строк отчёта: план это не обновляет до нового «Проверить».
   const [linked, setLinked] = useState<ReadonlySet<string>>(NO_EXCLUSIONS);
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
+  // Сервер ответил, что план больше не применить (409 run_superseded / run_not_planned):
+  // «Применить» гаснет, остаётся «Проверить заново».
+  const [superseded, setSuperseded] = useState(false);
   const latch = useRef(false);
 
-  const activeExcluded = editable ? excluded : NO_EXCLUSIONS;
-  // Переносы, которые бэкенд пропустит вместе с исключённой связью: в счётчиках и
-  // подтверждении их нет. В apply уходит только то, что исключил человек.
-  const implied = useMemo(
-    () => (activeExcluded.size > 0 ? impliedSkips(items, activeExcluded) : NO_EXCLUSIONS),
-    [items, activeExcluded]
-  );
-  const notApplied = useMemo(
-    () => (implied.size > 0 ? new Set([...activeExcluded, ...implied]) : activeExcluded),
-    [activeExcluded, implied]
-  );
+  // Флажки и «Применить» есть у спланированного прогона, пока его не применили и сервер его не отверг.
+  const showControls = canApply(run) && result == null && !superseded;
+  // Пока запускается новая проверка, они видны, но недоступны.
+  const editable = showControls && !rechecking;
+
+  const activeExcluded = showControls ? excluded : NO_EXCLUSIONS;
+  // Что уйдёт в применение: без исключённых и без переносов, которые бэкенд пропустит
+  // вместе с исключённой связью. В apply уходит только то, что исключил человек.
+  const preview = useMemo(() => applyPreview(items, activeExcluded), [items, activeExcluded]);
+  const implied: ReadonlySet<string> = preview.implied;
+  const counts = preview.counts;
   const groups = useMemo(() => groupPlan(items), [items]);
-  const counts = useMemo(() => effectiveCounts(items, notApplied), [items, notApplied]);
-  const summary = confirmSummary(counts, activeExcluded.size);
   const byKey = useMemo(() => new Map(items.map((it) => [it.key, it])), [items]);
 
   const terminalName = useMemo(() => {
@@ -113,6 +114,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
     },
     onError: (e) => {
       setApplyError(e);
+      if (e instanceof KpiApiError && (e.code === "run_superseded" || e.code === "run_not_planned")) setSuperseded(true);
       setConfirmOpen(false);
       refresh();
     },
@@ -122,10 +124,15 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   });
 
   const submit = () => {
-    if (latch.current || !editable || summary.total === 0) return;
+    if (latch.current || !editable || preview.total === 0) return;
     latch.current = true;
     apply.mutate();
   };
+
+  // Прогон перестал быть применимым, пока окно подтверждения открыто (перечитан как applied,
+  // вытеснен, запускается новая проверка): окно закрывается, чтобы не показывать устаревшие числа.
+  // Пока идёт свой запрос «Применить», окно закроет его ответ.
+  if (confirmOpen && !editable && !apply.isPending) setConfirmOpen(false);
 
   // Итог: ответ «Применить» сразу, после перечитывания — из plan.applied / plan.skipped.
   const shownResult: WorklyApplyResult | null =
@@ -136,6 +143,8 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
       switch (part.type) {
         case "deactivate":
           return t("plan.change.deactivate");
+        case "deactivateByName":
+          return t("plan.change.deactivateByName", { id: String(part.workly_id) });
         case "activate":
           return t("plan.change.activate");
         case "link":
@@ -209,7 +218,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
       {groups.length > 0 && (
         <div className="space-y-2">
           {groups.map((g) => {
-            const off = editable ? countExcluded(g.items, notApplied) : 0;
+            const off = showControls ? countOff(g.items, activeExcluded, implied) : 0;
             return (
               <Group
                 key={g.kind}
@@ -221,7 +230,8 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
                   <PlanRow
                     key={it.key}
                     item={it}
-                    editable={editable}
+                    editable={showControls}
+                    locked={!editable}
                     excluded={excluded.has(it.key)}
                     implied={implied.has(it.key)}
                     onToggle={onToggle}
@@ -266,7 +276,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
                             // На узком экране подпись переносится, а не вылезает за карточку.
                             className="h-auto min-h-11 max-w-full whitespace-normal text-left"
                             aria-label={t("report.linkCandidateAria", { id: shortId(id), name: r.label })}
-                            onClick={() => setLinkTarget({ id, label: r.label })}
+                            onClick={() => setLinkTarget({ id, label: r.label, kind: "ambiguous" })}
                           >
                             {t("report.linkCandidate", { id: shortId(id) })}
                           </Button>
@@ -295,7 +305,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
                       variant="outline"
                       className="h-11 w-full sm:w-auto"
                       aria-label={t("report.linkAria", { name: r.label })}
-                      onClick={() => setLinkTarget({ id: r.employee_id, label: r.label })}
+                      onClick={() => setLinkTarget({ id: r.employee_id, label: r.label, kind: "not_found" })}
                     >
                       {t("report.link")}
                     </Button>
@@ -325,15 +335,15 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
         </div>
       )}
 
-      {editable && (
+      {showControls && (
         <div className="space-y-2 border-t pt-4">
-          {summary.total === 0 && (
+          {preview.total === 0 && (
             <p className="text-sm text-muted-foreground">{items.length === 0 ? t("plan.nothingToApply") : t("plan.allExcluded")}</p>
           )}
           <Button
             type="button"
             className="h-11 w-full sm:w-auto"
-            disabled={summary.total === 0 || apply.isPending}
+            disabled={!editable || preview.total === 0 || apply.isPending}
             onClick={() => setConfirmOpen(true)}
           >
             {t("plan.apply")}
@@ -354,16 +364,16 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
             <AlertDialogDescription>{t("confirm.description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <ul className="space-y-1 text-sm">
-            {summary.lines.map((l) => (
+            {preview.lines.map((l) => (
               <li key={l.kind}>{t("plan.counter", { kind: t(`kinds.${l.kind}`), count: l.count })}</li>
             ))}
           </ul>
-          {summary.deactivate > 0 && (
+          {preview.deactivate > 0 && (
             <p className="rounded-md border-2 border-destructive p-3 text-sm font-semibold text-destructive">
-              {t("confirm.deactivate", { count: summary.deactivate })}
+              {t("confirm.deactivate", { count: preview.deactivate })}
             </p>
           )}
-          {summary.excluded > 0 && <p className="text-sm">{t("confirm.excluded", { count: summary.excluded })}</p>}
+          {preview.excluded > 0 && <p className="text-sm">{t("confirm.excluded", { count: preview.excluded })}</p>}
           {implied.size > 0 && <p className="text-sm">{t("confirm.implied", { count: implied.size })}</p>}
           {apply.isPending && (
             <p role="status" className="text-sm text-muted-foreground">
@@ -376,7 +386,7 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
             </AlertDialogCancel>
             <AlertDialogAction
               className="h-11"
-              disabled={apply.isPending || summary.total === 0}
+              disabled={!editable || apply.isPending || preview.total === 0}
               onClick={(e) => {
                 // Окно закрывается само только после ответа сервера.
                 e.preventDefault();
@@ -402,9 +412,10 @@ export function PlanReview({ run, organizationId, organizationName, onRecheck, r
   );
 }
 
-function countExcluded(items: PlanItem[], excluded: ReadonlySet<string>): number {
+/** Сколько пунктов группы не уйдёт в применение: исключённые и переносы, пропущенные вместе со связью. */
+function countOff(items: PlanItem[], excluded: ReadonlySet<string>, implied: ReadonlySet<string>): number {
   let n = 0;
-  for (const it of items) if (excluded.has(it.key)) n++;
+  for (const it of items) if (excluded.has(it.key) || implied.has(it.key)) n++;
   return n;
 }
 
@@ -436,7 +447,8 @@ function Group<T>({
       <button
         type="button"
         aria-expanded={open}
-        aria-controls={bodyId}
+        // Тело группы рендерится только раскрытым: ссылка на него — только тогда.
+        aria-controls={open ? bodyId : undefined}
         className="flex min-h-11 w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium"
         onClick={() => setOpen((o) => !o)}
       >
@@ -468,13 +480,17 @@ function Group<T>({
 const PlanRow = memo(function PlanRow({
   item,
   editable,
+  locked,
   excluded,
   implied,
   onToggle,
   describe,
 }: {
   item: PlanItem;
+  /** Показывать флажок: план ещё можно применить. */
   editable: boolean;
+  /** Флажок виден, но недоступен (запускается новая проверка). */
+  locked: boolean;
   excluded: boolean;
   /** Перенос пропустится вместе с исключённой связью: флажок отмечен и недоступен. */
   implied: boolean;
@@ -493,12 +509,14 @@ const PlanRow = memo(function PlanRow({
         {editable && implied && <p className="text-xs text-amber-700">{t("plan.impliedSkip")}</p>}
       </div>
       {editable && (
-        <label className={cn("flex min-h-11 shrink-0 items-center gap-2 text-sm", implied ? "cursor-not-allowed" : "cursor-pointer")}>
+        <label
+          className={cn("flex min-h-11 shrink-0 items-center gap-2 text-sm", implied || locked ? "cursor-not-allowed" : "cursor-pointer")}
+        >
           <input
             type="checkbox"
             className="h-4 w-4"
             checked={off}
-            disabled={implied}
+            disabled={implied || locked}
             aria-label={t("plan.excludeAria", { name })}
             onChange={() => onToggle(item.key)}
           />
@@ -512,12 +530,17 @@ const PlanRow = memo(function PlanRow({
 /** Итог «Применить»: сколько применено и пропущенные пункты с причинами (пары move рядом). */
 function ApplyResult({ result, byKey }: { result: WorklyApplyResult; byKey: ReadonlyMap<string, PlanItem> }) {
   const t = useTranslations("kpiScreens.workly");
+  const [all, setAll] = useState(false);
   const groups = skippedGroups(result.skipped);
+  // Строка списка — группа (пара move рядом со связью); видно первые SKIPPED_PAGE строк.
+  const shown = visibleItems(groups, all, SKIPPED_PAGE);
   const label = (s: SkippedItem) => {
     const it = byKey.get(s.key);
     const kind = (it?.kind ?? s.key.split(":")[0]) as PlanKind;
+    // Без подписи — короткий хвост id из ключа (`move:<uuid>` → «…6789ab»), а не весь ключ.
+    const id = s.key.slice(s.key.indexOf(":") + 1);
     return t("plan.result.skippedRow", {
-      name: it?.label || s.key,
+      name: it?.label || shortId(id),
       kind: PLAN_GROUP_ORDER.includes(kind) ? t(`kinds.${kind}`) : kind,
       reason: t(`skipReasons.${s.reason}`),
     });
@@ -533,7 +556,7 @@ function ApplyResult({ result, byKey }: { result: WorklyApplyResult; byKey: Read
         <div className="space-y-1">
           <p>{t("plan.result.skipped", { count: result.skipped.length })}</p>
           <ul className="space-y-1">
-            {groups.map((g) => (
+            {shown.map((g) => (
               <li key={g[0]!.key} className={cn(g.length > 1 && "border-l-2 border-green-400 pl-2")}>
                 {g.map((s) => (
                   <p key={s.key} className="break-words">
@@ -543,6 +566,11 @@ function ApplyResult({ result, byKey }: { result: WorklyApplyResult; byKey: Read
               </li>
             ))}
           </ul>
+          {!all && groups.length > SKIPPED_PAGE && (
+            <Button type="button" variant="outline" className="h-11 w-full bg-background sm:w-auto" onClick={() => setAll(true)}>
+              {t("plan.showAll", { count: result.skipped.length })}
+            </Button>
+          )}
         </div>
       )}
     </div>

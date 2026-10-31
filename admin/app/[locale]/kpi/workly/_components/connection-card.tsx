@@ -6,6 +6,8 @@
 //   null → только строка последнего прогона из статуса;
 //   прогон загружается → «Загружаем прогон…»;
 //   running → «Идёт обход Workly», опрос каждые 2 секунды, «Проверить» недоступна;
+//     с 4 минут ещё «Занимает дольше обычного»; с 16 минут (runStaleness: stuck) — «Проверка
+//     зависла», «Проверить» снова доступна (новый запуск закрывает брошенную строку на сервере);
 //   planned → PlanReview с исключениями и «Применить»;
 //   applied / rolled_back → PlanReview без «Применить», с итогом;
 //   failed → текст по коду ошибки, «Проверить» снова доступна;
@@ -23,7 +25,7 @@ import { shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import type { Tone } from "@admin/lib/kpi/status";
 import { isRunning, pollInterval } from "@admin/lib/kpi/workly";
-import { RUN_STATUSES, plannedRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
+import { RUN_STATUSES, plannedRunId, resumeRunId, runStaleness } from "@admin/lib/kpi/workly-view";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { PlanReview } from "./plan-review";
@@ -64,16 +66,19 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
     if (resumable) setRunId(resumable);
   }
 
-  const [startError, setStartError] = useState<unknown>(null);
+  // Ошибка старта относится к прогону, который карточка показывала в момент нажатия: когда
+  // карточка переходит к другому прогону (после 409 run_in_progress — к идущему), ошибка скрывается.
+  const [startError, setStartError] = useState<{ error: unknown; runId: string | null } | null>(null);
   const start = useMutation({
-    mutationFn: () => kpiApi.workly.plan(orgId as string),
+    // Аргумент — прогон, который был на экране при нажатии; запросу он не нужен.
+    mutationFn: (_shownRunId: string | null) => kpiApi.workly.plan(orgId as string),
     onMutate: () => setStartError(null),
     onSuccess: (r) => {
       setRunId(r.run_id);
       qc.invalidateQueries({ queryKey: qk.worklyStatus });
     },
-    onError: (e) => {
-      setStartError(e);
+    onError: (e, shownRunId) => {
+      setStartError({ error: e, runId: shownRunId });
       // 409 run_in_progress: статус покажет идущую проверку, и карточка начнёт следить за ней.
       qc.invalidateQueries({ queryKey: qk.worklyStatus });
     },
@@ -96,15 +101,21 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
     qc.invalidateQueries({ queryKey: qk.worklyStatus });
   }, [runKey, qc]);
 
-  const polling = runId != null && (run.isPending || isRunning(run.data));
+  // Сколько идёт проверка. «Сейчас» — момент последнего ответа опроса: он обновляется каждые
+  // 2 секунды, пока прогон running, так что оценка пересчитывается сама. Зависшая проверка
+  // (воркер не отвечает) снова открывает «Проверить»: новый запуск закроет её на сервере.
+  const shown = run.data;
+  const staleness =
+    shown && isRunning(shown) ? runStaleness(shown.created_at, Math.max(run.dataUpdatedAt, run.errorUpdatedAt)) : "ok";
+  const busy = runId != null && (run.isPending || (isRunning(shown) && staleness !== "stuck"));
   const available = entry.configured && orgId != null;
-  const canStart = available && !start.isPending && !polling;
+  const canStart = available && !start.isPending && !busy;
   const check = () => {
-    if (canStart) start.mutate();
+    if (canStart) start.mutate(runId);
   };
 
   const planned = plannedRunId(entry);
-  const canOpenPlan = planned != null && planned !== runId && !polling && !start.isPending;
+  const canOpenPlan = planned != null && planned !== runId && !busy && !start.isPending;
 
   return (
     <article aria-labelledby={headingId} className="space-y-4 rounded-md border p-4">
@@ -140,7 +151,7 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
             aria-label={t("card.checkAria", { name: entry.organization_name })}
             onClick={check}
           >
-            {(start.isPending || polling) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
+            {(start.isPending || busy) && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}
             {t("card.check")}
           </Button>
         </div>
@@ -148,15 +159,16 @@ export function ConnectionCard({ entry }: { entry: WorklyStatusEntry }) {
 
       <LastRun entry={entry} trackedId={runId} />
 
-      {startError != null && (
+      {startError != null && startError.runId === runId && (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
-          {text.apiError(startError)}
+          {text.apiError(startError.error)}
         </p>
       )}
 
       {runId != null && (
         <RunBody
           run={run.data}
+          staleness={staleness}
           loadError={run.error}
           organizationId={orgId}
           organizationName={entry.organization_name}
@@ -204,6 +216,7 @@ function LastRun({ entry, trackedId }: { entry: WorklyStatusEntry; trackedId: st
 
 function RunBody({
   run,
+  staleness,
   loadError,
   organizationId,
   organizationName,
@@ -211,6 +224,7 @@ function RunBody({
   rechecking,
 }: {
   run: RunRow | undefined;
+  staleness: ReturnType<typeof runStaleness>;
   loadError: Error | null;
   organizationId: string | null;
   organizationName: string;
@@ -230,13 +244,23 @@ function RunBody({
     return <p className="text-sm text-muted-foreground">{t("card.loadingRun")}</p>;
   }
 
-  if (run.status === "running")
+  if (run.status === "running") {
+    if (staleness === "stuck")
+      return (
+        <p role="alert" className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          {t("card.stuck")}
+        </p>
+      );
     return (
-      <p role="status" className="flex items-center gap-2 rounded-md bg-muted p-3 text-sm">
-        <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
-        {t("card.running")}
-      </p>
+      <div role="status" className="space-y-1 rounded-md bg-muted p-3 text-sm">
+        <p className="flex items-center gap-2">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+          {t("card.running")}
+        </p>
+        {staleness === "slow" && <p className="text-amber-700">{t("card.slow")}</p>}
+      </div>
     );
+  }
 
   if (run.status === "failed")
     return (
