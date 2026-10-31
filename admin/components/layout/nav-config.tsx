@@ -144,6 +144,7 @@ export function buildNav(locale: string, t: (key: string) => string, tTickets: T
         { title: t("kpi.disputes"), href: p("/kpi/disputes"), permission: { any: KPI_SCREEN_PERMS.disputes } },
         { title: t("kpi.month"), href: p("/kpi/month"), permission: { any: KPI_SCREEN_PERMS.month } },
         { title: t("kpi.raises"), href: p("/kpi/raises"), permission: { any: KPI_SCREEN_PERMS.raises } },
+        { title: t("kpi.workly"), href: p("/kpi/workly"), permission: { any: KPI_SCREEN_PERMS.workly } },
         { title: t("kpi.attendance"), href: p("/kpi/attendance"), permission: { any: KPI_SCREEN_PERMS.attendance } },
         { title: t("kpi.network"), href: p("/kpi/network"), also: [p("/kpi/branch")], permission: { any: KPI_SCREEN_PERMS.network } },
         { title: t("kpi.revenue_plans"), href: p("/kpi/revenue-plans"), permission: { any: KPI_SCREEN_PERMS.revenue_plans } },
