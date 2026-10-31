@@ -3,6 +3,7 @@
 // (в бандл ничего не попадает), тексты экран берёт по ключам, которые отдают функции здесь.
 // Ключи относительны к пространству `kpiScreens` (`kpiScreens.workly.errors.<код>` и т.д.).
 
+import type { BlockReason } from "@backend/modules/workly/guards";
 import type { PlanItem, PlanKind } from "@backend/modules/workly/plan";
 
 /** Порядок групп в плане: сначала то, что отключает людей, в конце новые сотрудники. */
@@ -62,7 +63,10 @@ export function applyBody(runId: string, exclude: Iterable<string>): { run_id: s
   return { run_id: runId, exclude: Array.from(new Set(exclude)) };
 }
 
-/** Коды, которыми прогон завершается или отвечают маршруты /workly/* (R19). У каждого есть текст `workly.errors.<код>`. */
+/**
+ * Коды, которыми прогон завершается или отвечают маршруты /workly/* (R19 и коды проверки входа).
+ * У каждого есть текст `workly.errors.<код>`.
+ */
 export const WORKLY_ERROR_CODES = [
   // прогон завершился с кодом (workly_sync_runs.error)
   "empty_crawl",
@@ -92,6 +96,10 @@ export const WORKLY_ERROR_CODES = [
   "location_not_found",
   "organization_required",
   "bad_organization",
+  // проверка входа: табельный номер Workly длиннее 32 символов, неверный id, неверный месяц
+  "bad_tab_number",
+  "bad_workly_id",
+  "bad_period",
 ] as const;
 
 const ERROR_CODES: ReadonlySet<string> = new Set(WORKLY_ERROR_CODES);
@@ -102,8 +110,17 @@ export function connectionErrorKey(code: string | null | undefined): string | nu
   return ERROR_CODES.has(code) ? `workly.errors.${code}` : "workly.errors.unknown";
 }
 
+// Record<BlockReason, true> привязан к типу бэкенда (guards.ts): новая или удалённая причина там даёт ошибку сборки здесь.
+const BLOCK_REASON_FLAGS: Record<BlockReason, true> = {
+  crawl_short: true,
+  too_many_deactivations: true,
+  too_many_creations: true,
+  empty_crawl: true,
+  first_run: true,
+};
+
 /** Причины, по которым ночной прогон остановился (workly_sync_runs.block_reason). */
-export const WORKLY_BLOCK_REASONS = ["crawl_short", "too_many_deactivations", "too_many_creations", "empty_crawl", "first_run"] as const;
+export const WORKLY_BLOCK_REASONS: readonly BlockReason[] = Object.keys(BLOCK_REASON_FLAGS) as BlockReason[];
 
 const BLOCK_REASONS: ReadonlySet<string> = new Set(WORKLY_BLOCK_REASONS);
 

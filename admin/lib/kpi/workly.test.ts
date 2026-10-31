@@ -111,8 +111,8 @@ describe("connectionErrorKey", () => {
       expect(connectionErrorKey(c)).toBe("workly.errors.unknown");
     }
   });
-  it("каждый код бэкенда (R19) получает свой ключ", () => {
-    expect(WORKLY_ERROR_CODES).toHaveLength(26);
+  it("каждый код бэкенда (R19 и коды проверки входа) получает свой ключ", () => {
+    expect(WORKLY_ERROR_CODES).toHaveLength(29);
     expect(new Set(WORKLY_ERROR_CODES).size).toBe(WORKLY_ERROR_CODES.length);
     for (const c of WORKLY_ERROR_CODES) expect(connectionErrorKey(c)).toBe(`workly.errors.${c}`);
     for (const c of [
@@ -121,6 +121,7 @@ describe("connectionErrorKey", () => {
       "run_in_progress", "run_not_planned", "run_superseded", "run_not_found", "queue_unavailable",
       "organization_not_connected", "employee_not_found", "workly_employee_not_found", "workly_id_taken",
       "terminal_other_org", "location_not_found", "organization_required", "bad_organization",
+      "bad_tab_number", "bad_workly_id", "bad_period",
     ]) {
       expect((WORKLY_ERROR_CODES as readonly string[]).includes(c)).toBe(true);
     }
