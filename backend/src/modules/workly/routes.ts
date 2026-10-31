@@ -86,27 +86,43 @@ const lastRunColumns = {
   applied_at: workly_sync_runs.applied_at,
 };
 
+type LastRun = ReturnType<typeof lastRunOf>;
+
+// Последний прогон организации (любого вида или только kind), без плана.
+async function lastRun(db: DbLike, organizationId: string, kind?: RunKind): Promise<LastRun | null> {
+  const where = kind
+    ? and(eq(workly_sync_runs.organization_id, organizationId), eq(workly_sync_runs.kind, kind))
+    : eq(workly_sync_runs.organization_id, organizationId);
+  const [r] = await db
+    .select(lastRunColumns)
+    .from(workly_sync_runs)
+    .where(where)
+    .orderBy(desc(workly_sync_runs.created_at), desc(workly_sync_runs.id))
+    .limit(1);
+  return r ? lastRunOf(r) : null;
+}
+
 /**
  * Состояние подключений для экрана HR и мастера файловой загрузки: по строке на подключение
  * в порядке CONNECTIONS. Workly не вызывается, переменные окружения только проверяются на
- * наличие. Последний прогон — любого вида, без плана; error — его код, если он упал.
+ * наличие. last_run — последний прогон любого вида, без плана; error — его код, если он упал.
+ * last_employees_run и last_attendance_run — последний прогон каждого вида: синхронизация
+ * посещаемости не прячет готовый план сотрудников, а проверка — идущую синхронизацию.
  */
 async function statusOf(db: DbLike) {
   const out = [];
   for (const c of CONNECTIONS) {
     const id = await resolveOrganizationId(db, c.key);
     let name = c.organizationName;
-    let last: ReturnType<typeof lastRunOf> | null = null;
+    let last: LastRun | null = null;
+    let lastEmployees: LastRun | null = null;
+    let lastAttendance: LastRun | null = null;
     if (id) {
       const [org] = await db.select({ name: organization.name }).from(organization).where(eq(organization.id, id)).limit(1);
       if (org) name = org.name;
-      const [r] = await db
-        .select(lastRunColumns)
-        .from(workly_sync_runs)
-        .where(eq(workly_sync_runs.organization_id, id))
-        .orderBy(desc(workly_sync_runs.created_at), desc(workly_sync_runs.id))
-        .limit(1);
-      if (r) last = lastRunOf(r);
+      last = await lastRun(db, id);
+      lastEmployees = await lastRun(db, id, "employees");
+      lastAttendance = await lastRun(db, id, "attendance");
     }
     out.push({
       key: c.key,
@@ -114,6 +130,8 @@ async function statusOf(db: DbLike) {
       organization_name: name,
       configured: credsFromEnv(c.key, process.env) !== null,
       last_run: last,
+      last_employees_run: lastEmployees,
+      last_attendance_run: lastAttendance,
       error: last?.status === "failed" ? last.error : null,
     });
   }

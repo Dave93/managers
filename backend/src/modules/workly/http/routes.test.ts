@@ -360,13 +360,24 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         r = await api(hr, "GET", "/api/workly/status");
         expect(r.status).toBe(200);
         expect(r.body).toEqual([
-          { key: "LES", organization_id: w.les, organization_name: await orgName(w.les), configured: false, last_run: null, error: null },
+          {
+            key: "LES",
+            organization_id: w.les,
+            organization_name: await orgName(w.les),
+            configured: false,
+            last_run: null,
+            last_employees_run: null,
+            last_attendance_run: null,
+            error: null,
+          },
           {
             key: "CHOPAR",
             organization_id: w.chopar,
             organization_name: await orgName(w.chopar),
             configured: false,
             last_run: null,
+            last_employees_run: null,
+            last_attendance_run: null,
             error: null,
           },
         ]);
@@ -385,6 +396,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         organization_name: "ChoparPizza",
         configured: true,
         last_run: null,
+        last_employees_run: null,
+        last_attendance_run: null,
         error: null,
       });
       expect(factoryCalls).toEqual([]);
@@ -431,6 +444,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(chopar).toMatchObject({ organization_id: w.chopar, error: null });
       expect(chopar.last_run).toMatchObject({ id: planRunId, status: "planned", error: null });
       expect(chopar.last_run.plan).toBeUndefined();
+      // Последний прогон каждого вида: у LES — тот же упавший, у CHOPAR — новейший план (не упавший).
+      expect(les.last_employees_run).toEqual(les.last_run);
+      expect(les.last_attendance_run).toBeNull();
+      expect(chopar.last_employees_run).toEqual(chopar.last_run);
+      expect(chopar.last_attendance_run).toBeNull();
       expect(JSON.stringify(r.body)).not.toContain("company");
       expect(factoryCalls).toEqual([]);
 
@@ -442,9 +460,64 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const r2 = await api(hr, "GET", "/api/workly/status");
         expect(r2.body[1].last_run).toMatchObject({ id: att.body.run_id, kind: "attendance", status: "running", period: P });
         expect(r2.body[1].error).toBeNull();
+        // Посещаемость не вытесняет готовый план сотрудников.
+        expect(r2.body[1].last_employees_run).toMatchObject({ id: planRunId, kind: "employees", status: "planned" });
+        expect(r2.body[1].last_attendance_run).toEqual(r2.body[1].last_run);
       } finally {
         setNow(null);
       }
+      expect(factoryCalls).toEqual([]);
+    });
+
+    it("status: последний прогон каждого вида отдельно, по created_at, без плана; более новый прогон другого вида его не вытесняет", async () => {
+      reset();
+      const w = await world();
+      // Порядок вставки нарочно не совпадает с created_at.
+      const ins = async (kind: "employees" | "attendance", status: string, created_at: string) => {
+        const [row] = await db
+          .insert(workly_sync_runs)
+          .values({
+            organization_id: w.les,
+            workly_company_id: 123456,
+            kind,
+            trigger: "manual",
+            status,
+            period: kind === "attendance" ? P : null,
+            created_at,
+            plan: kind === "employees" ? { items: [], report: {} } : null,
+          })
+          .returning({ id: workly_sync_runs.id });
+        return row.id;
+      };
+      const e2 = await ins("employees", "planned", "2026-10-02T10:00:00.000Z");
+      await ins("employees", "applied", "2026-10-01T10:00:00.000Z");
+      await ins("attendance", "applied", "2026-10-01T12:00:00.000Z");
+      const a2 = await ins("attendance", "running", "2026-10-03T10:00:00.000Z");
+      await ins("employees", "failed", "2026-09-30T10:00:00.000Z");
+
+      const KEYS = ["applied_at", "block_reason", "counts", "created_at", "error", "id", "kind", "period", "status", "trigger"].sort();
+      const st = async () => (await api(hr, "GET", "/api/workly/status")).body;
+      const [les, chopar] = await st();
+      expect(les.last_run).toMatchObject({ id: a2, kind: "attendance", status: "running", period: P });
+      expect(les.last_employees_run).toMatchObject({ id: e2, kind: "employees", status: "planned", period: null });
+      expect(les.last_attendance_run).toEqual(les.last_run);
+      expect(Object.keys(les.last_employees_run).sort()).toEqual(KEYS);
+      expect(Object.keys(les.last_attendance_run).sort()).toEqual(KEYS);
+      expect(les.error).toBeNull();
+      expect(chopar).toMatchObject({ last_run: null, last_employees_run: null, last_attendance_run: null });
+
+      // Проверка сотрудников новее идущей синхронизации: синхронизация остаётся видна своим полем.
+      const e3 = await ins("employees", "running", "2026-10-04T10:00:00.000Z");
+      const [les2] = await st();
+      expect(les2.last_run).toMatchObject({ id: e3, kind: "employees", status: "running" });
+      expect(les2.last_employees_run).toEqual(les2.last_run);
+      expect(les2.last_attendance_run).toMatchObject({ id: a2, kind: "attendance", status: "running", period: P });
+      // Ни плана, ни компании Workly, ни секретов.
+      const raw = JSON.stringify(les2);
+      expect(raw).not.toContain('"plan"');
+      expect(raw).not.toContain("company");
+      expect(raw).not.toContain("123456");
+      for (const s of SECRETS) expect(raw).not.toContain(s);
       expect(factoryCalls).toEqual([]);
     });
 
