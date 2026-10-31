@@ -146,7 +146,7 @@
   export function clientFor(key: ConnKey, redis: Redis): WorklyClient; // кидает WorklyError("not_configured")
   export function setClientFactory(f: typeof clientFor | null): void;   // подмена в тестах; clientFor вызывает фабрику, если она задана
   ```
-- Ключ доступа хранится в Redis под `${process.env.PROJECT_PREFIX}workly_token:${key}` как JSON `{access_token, refresh_token, expires_at}`; TTL по сроку `expires_in`.
+- Ключ доступа хранится в Redis под `${process.env.PROJECT_PREFIX}workly_token:${key}:${credsTag}` (credsTag: первые 12 символов sha256 от адреса, client_id и логина) как JSON `{access_token, refresh_token, expires_at}`; TTL по сроку `expires_in`.
 
 - [ ] **Step 1: Тесты `client.test.ts` на поддельном `fetch`** (ответы по таблице «путь → страницы»; Redis подменяется `Map`-обёрткой):
   - `it("дедуплицирует и останавливается, когда currentPage не равен запрошенной")`: страница 1 даёт 44 записи, страницы 2 и 3 по 50, запрос страницы 4 возвращает страницу 3 повторно с `currentPage: 3`; `await c.employees()` даёт 144 уникальных `id`, число запросов страниц равно 4.
