@@ -24,7 +24,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     "backend/drizzle/schema"
   );
   const { setClientFactory } = await import("../client");
-  const { setOrganizationResolver } = await import("../config");
+  const { setExpectedCompanyResolver, setOrganizationResolver } = await import("../config");
   const { runNightly } = await import("../nightly");
   const runs = await import("../runs");
   const { and, asc, eq, sql } = await import("drizzle-orm");
@@ -223,6 +223,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         if (!c) throw new Error("в тесте нет подставного клиента");
         return c as unknown as WorklyClient;
       }) as unknown as Parameters<typeof setClientFactory>[0]);
+      // Подставные клиенты отдают случайные номера компаний: сверка компании выключена.
+      setExpectedCompanyResolver(() => null);
       setNow(NOW);
     }, 180000);
 
@@ -238,6 +240,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       setNow(null);
       setClientFactory(null);
       setOrganizationResolver(null);
+      setExpectedCompanyResolver(null);
       runs.setConnKeyResolver(null);
       restoreEnv();
       await cleanupKpi(db);

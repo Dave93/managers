@@ -1,6 +1,7 @@
 import { afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
 import { inspect } from "node:util";
-import { clientFor, setClientFactory, WorklyClient, WorklyError, type WorklyDeps } from "./client";
+import { assertCompany, clientFor, setClientFactory, WorklyClient, WorklyError, type WorklyDeps } from "./client";
+import { setExpectedCompanyResolver } from "./config";
 import type { WorklyCreds } from "./types";
 
 // Все запросы идут в поддельный fetch, Redis подменён Map-обёрткой: сеть и настоящие ключи не нужны.
@@ -734,5 +735,28 @@ describe("workly/client: clientFor", () => {
     withEnv({}, () => {
       expect(() => clientFor("CHOPAR", fakeRedis().redis as never)).toThrow(WorklyError);
     });
+  });
+});
+
+describe("workly/client: assertCompany", () => {
+  afterEach(() => setExpectedCompanyResolver(null));
+
+  it("своя компания проходит; чужая — WorklyError company_mismatch без номеров компаний в тексте", () => {
+    expect(() => assertCompany("LES", 1237)).not.toThrow();
+    expect(() => assertCompany("CHOPAR", 1238)).not.toThrow();
+    let err: unknown;
+    try {
+      assertCompany("CHOPAR", 1237);
+    } catch (e) {
+      err = e;
+    }
+    expect(err).toBeInstanceOf(WorklyError);
+    expect((err as WorklyError).code).toBe("company_mismatch");
+    for (const id of ["1237", "1238"]) expect(String(err)).not.toContain(id);
+  });
+
+  it("подмена, вернувшая null, пропускает проверку", () => {
+    setExpectedCompanyResolver(() => null);
+    expect(() => assertCompany("LES", 999_999)).not.toThrow();
   });
 });

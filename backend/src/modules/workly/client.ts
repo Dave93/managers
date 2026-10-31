@@ -2,7 +2,7 @@
 // В сообщениях ошибок только фиксированный русский текст и числовой код Workly: тела ответов и данные запросов
 // (пароль, client_secret, ключи доступа) в ошибки и логи не попадают.
 import type Redis from "ioredis";
-import { credsFromEnv } from "./config";
+import { companyMatches, credsFromEnv, expectedCompanyOf } from "./config";
 import type {
   AbsenceItem,
   ConnKey,
@@ -14,7 +14,13 @@ import type {
   WorklyLocation,
 } from "./types";
 
-export type WorklyErrorCode = "not_configured" | "client_invalid" | "force_update" | "auth_failed" | "http_error";
+export type WorklyErrorCode =
+  | "not_configured"
+  | "client_invalid"
+  | "force_update"
+  | "auth_failed"
+  | "http_error"
+  | "company_mismatch";
 
 export class WorklyError extends Error {
   constructor(
@@ -63,7 +69,20 @@ function codeOf(body: Reply["body"]): number | null {
 }
 
 // Ошибки, после которых повтор другим способом входа бесполезен.
-const isFatal = (e: unknown) => e instanceof WorklyError && (e.code === "client_invalid" || e.code === "force_update");
+const FATAL: ReadonlySet<WorklyErrorCode> = new Set(["client_invalid", "force_update", "company_mismatch"]);
+const isFatal = (e: unknown) => e instanceof WorklyError && FATAL.has(e.code);
+
+/**
+ * Учётка подключения принадлежит своей компании Workly (спека 5.1). Вызывается сразу после
+ * companyId(), до любого чтения и записи данных: ключи одной компании в переменных другой
+ * иначе записали бы чужие локации и предложили бы деактивации по чужим уволенным.
+ * Текст ошибки фиксированный, номеров компаний в нём нет.
+ */
+export function assertCompany(key: ConnKey, companyId: number): void {
+  if (!companyMatches(expectedCompanyOf(key), companyId)) {
+    throw new WorklyError("company_mismatch", "Учётная запись Workly принадлежит другой компании, чем у подключения");
+  }
+}
 
 const forceUpdate = () => new WorklyError("force_update", "Workly требует обновить приложение (HTTP 426)");
 

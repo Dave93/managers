@@ -3,11 +3,32 @@ import { and, eq } from "drizzle-orm";
 import type { DbLike } from "../kpi/access";
 import type { ConnKey, WorklyCreds } from "./types";
 
-// Подключение Workly → название организации в таблице organization.
-export const CONNECTIONS: readonly { key: ConnKey; organizationName: string }[] = [
-  { key: "LES", organizationName: "Les Ailes" },
-  { key: "CHOPAR", organizationName: "ChoparPizza" },
+// Подключение Workly → название организации в таблице organization и компания Workly, чьи
+// данные это подключение вправе читать (спека 5.1: company_id из /v1/accounts сверяется с ней).
+export const CONNECTIONS: readonly { key: ConnKey; organizationName: string; companyId: number }[] = [
+  { key: "LES", organizationName: "Les Ailes", companyId: 1237 },
+  { key: "CHOPAR", organizationName: "ChoparPizza", companyId: 1238 },
 ];
+
+// Ожидаемая компания подключения. Подмена только для тестов: подставные клиенты отдают
+// случайные номера компаний. Подмена, вернувшая null, отключает проверку; null в сеттере
+// возвращает константы из CONNECTIONS.
+type ExpectedCompanyResolver = (key: ConnKey) => number | null;
+let expectedCompanyResolver: ExpectedCompanyResolver | null = null;
+
+export function setExpectedCompanyResolver(f: ExpectedCompanyResolver | null): void {
+  expectedCompanyResolver = f;
+}
+
+export function expectedCompanyOf(key: ConnKey): number | null {
+  if (expectedCompanyResolver) return expectedCompanyResolver(key);
+  return CONNECTIONS.find((c) => c.key === key)?.companyId ?? null;
+}
+
+// Компания учётки совпадает с ожидаемой. Без ожидания (null) проверка пропускается.
+export function companyMatches(expected: number | null, actual: number): boolean {
+  return expected === null || expected === actual;
+}
 
 // Креды из переменных окружения; null, если нет хотя бы одной из пяти.
 export function credsFromEnv(key: ConnKey, env: Record<string, string | undefined>): WorklyCreds | null {

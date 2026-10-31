@@ -26,6 +26,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { iso } = await import("../../kpi/iso");
   const { writeAttendanceImport } = await import("../../kpi/attendance");
   const { WorklyError } = await import("../client");
+  const config = await import("../config");
   const runs = await import("../runs");
   const att = await import("../attendance");
   const { and, asc, eq } = await import("drizzle-orm");
@@ -198,12 +199,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await cleanupKpi(db);
       // Тестовые организации названы не как подключения: ключ подключения подставляем.
       runs.setConnKeyResolver(async () => "LES");
+      // Подставные клиенты отдают случайные номера компаний: сверка компании выключена,
+      // её проверяет отдельный тест company_mismatch.
+      config.setExpectedCompanyResolver(() => null);
       setNow(NOW);
     }, 180000);
 
     afterAll(async () => {
       setNow(null);
       runs.setConnKeyResolver(null);
+      config.setExpectedCompanyResolver(null);
       await cleanupKpi(db);
     });
 
@@ -472,6 +477,29 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(value[0].run).toMatchObject({ status: "failed", error: "http_error", counts: {} });
       expect(value[1].run).toMatchObject({ status: "failed", error: "crawl_failed", counts: {} });
       expect(logged).not.toContain("secret");
+      expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
+      expect(await daysOf(eA)).toEqual(before);
+    });
+
+    it("company_mismatch: учётка другой компании — failed до обхода отчётов, прежний импорт и дни целы, нового импорта нет", async () => {
+      const w = await world();
+      const eA = await mkEmp(w.t, { company: w.company, id: 1 });
+      const data: Data = { employees: [wEmp(1)], t12: [t12(1, [tday("2026-10-01", { work_time: "08:00" })])] };
+      const first = await sync(w.org, fakeClient(w.company, data));
+      expect(first.run.status).toBe("applied");
+      const before = await daysOf(eA);
+
+      const foreign = fakeClient(w.company + 1, { employees: [wEmp(1)], t12: [t12(1, [tday("2026-10-02", { work_time: "08:00" })])] });
+      config.setExpectedCompanyResolver((key) => (key === "LES" ? w.company : null));
+      let second: Awaited<ReturnType<typeof sync>>;
+      try {
+        second = (await quietly(() => sync(w.org, foreign))).value;
+      } finally {
+        config.setExpectedCompanyResolver(() => null);
+      }
+      expect(second.run).toMatchObject({ status: "failed", error: "company_mismatch", counts: {}, applied_at: null });
+      expect((await rawRun(second.run_id)).workly_company_id).toBeNull();
+      expect(foreign.calls.map((c) => c.method)).toEqual(["companyId"]);
       expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
       expect(await daysOf(eA)).toEqual(before);
     });

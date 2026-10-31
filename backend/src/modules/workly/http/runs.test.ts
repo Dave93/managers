@@ -27,6 +27,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { listEmployeeRows } = await import("../../kpi/employees");
   const { structureFrom } = await import("../../staff_roles/catalog");
   const { WorklyError } = await import("../client");
+  const config = await import("../config");
   const runs = await import("../runs");
   const queue = await import("../queue");
   const { asc, eq, inArray, sql } = await import("drizzle-orm");
@@ -291,10 +292,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       structure = (title: string) => structureFrom(roles, { position: title }, false);
       // Тестовые организации названы не как подключения: ключ подключения подставляем.
       runs.setConnKeyResolver(async () => "LES");
+      // Подставные клиенты отдают случайные номера компаний: сверка компании выключена,
+      // её проверяют отдельные тесты company_mismatch.
+      config.setExpectedCompanyResolver(() => null);
     }, 180000);
 
     afterAll(async () => {
       runs.setConnKeyResolver(null);
+      config.setExpectedCompanyResolver(null);
       queue.setRunEnqueuer(null);
       await dropRefTables();
       await cleanupKpi(db);
@@ -534,6 +539,64 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         spy.mockRestore();
       }
       expect(await snap(w.ids)).toEqual(before);
+    });
+
+    // Учётка другой компании в переменных подключения (спека 5.1): данные чужой компании
+    // не должны попасть ни в карту локаций, ни в план.
+    const companyWorld = async () => {
+      const org = await makeOrg();
+      const company = newCompany();
+      const t = (await makeTerminal(db, { organization_id: org })).id;
+      const p = person();
+      const e = await mkEmp({ p, terminal_id: t, link: { company, id: 1 }, tab: "T1" });
+      const active = [wEmp(1, p, { loc: 1, title: "Кассир" }), wEmp(2, person(), { loc: 1 })];
+      const locations = [{ id: 1, title: "L1" }];
+      return { org, company, t, e, active, locations };
+    };
+    const locationRows = async (org: string) =>
+      db.select().from(workly_locations).where(eq(workly_locations.organization_id, org));
+
+    it("company_mismatch: компания учётки не та, что у подключения — failed до любой записи: ни локаций, ни плана, сотрудники целы", async () => {
+      const w = await companyWorld();
+      const before = await snap([w.e]);
+      const foreign = fakeClient(w.company + 1, w.active, [], w.locations);
+      config.setExpectedCompanyResolver((key) => (key === "LES" ? w.company : null));
+      const logged: string[] = [];
+      const spy = spyOn(console, "error").mockImplementation((...a: unknown[]) => {
+        logged.push(a.map(String).join(" "));
+      });
+      try {
+        const { run_id, run } = await plan(w.org, foreign);
+        expect(run).toMatchObject({ status: "failed", error: "company_mismatch", plan: null, applied_at: null });
+        const raw = await rawRun(run_id);
+        expect(raw.workly_company_id).toBeNull();
+        expect(raw.active_fetched).toBe(0);
+        // После companyId клиент больше не вызывался: ни локаций, ни сотрудников.
+        expect(foreign.calls).toEqual(["companyId"]);
+      } finally {
+        spy.mockRestore();
+        config.setExpectedCompanyResolver(() => null);
+      }
+      expect(await locationRows(w.org)).toEqual([]);
+      expect(await snap([w.e])).toEqual(before);
+      expect(await createdBy(w.company + 1, 2)).toBeUndefined();
+      // В лог — только id прогона и код, номеров компаний там нет.
+      expect(logged.join("\n")).toContain("company_mismatch");
+      expect(logged.join("\n")).not.toContain(String(w.company + 1));
+    });
+
+    it("company_mismatch не мешает своей компании: при совпадении план строится и локации пишутся", async () => {
+      const w = await companyWorld();
+      const own = fakeClient(w.company, w.active, [], w.locations);
+      config.setExpectedCompanyResolver((key) => (key === "LES" ? w.company : null));
+      try {
+        const { run_id, run } = await plan(w.org, own);
+        expect(run).toMatchObject({ status: "planned", error: null });
+        expect((await rawRun(run_id)).workly_company_id).toBe(w.company);
+      } finally {
+        config.setExpectedCompanyResolver(() => null);
+      }
+      expect((await locationRows(w.org)).map((r) => [r.workly_company_id, r.workly_location_id])).toEqual([[w.company, 1]]);
     });
 
     it("executeRun по строке не в статусе running ничего не делает", async () => {

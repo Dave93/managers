@@ -11,7 +11,8 @@
 // (runAttendance) и закрывает строку статусом applied со счётчиками в counts.
 //
 // Коды в workly_sync_runs.error: client_invalid, force_update, auth_failed, http_error,
-// not_configured (WorklyError), crawl_failed, empty_crawl (executeRun; у посещаемости — пустой
+// not_configured, company_mismatch (WorklyError; последний — учётка другой компании Workly),
+// crawl_failed, empty_crawl (executeRun; у посещаемости — пустой
 // T12 или ни одного дня к записи), stale (startRun),
 // apply_failed (syncAuto: ночное применение упало), period_closed и period_not_started
 // (посещаемость: месяц закрыт или в нём нет прошедших дней), enqueue_failed (маршрут
@@ -27,7 +28,7 @@ import { iso } from "../kpi/iso";
 import { isPeriod, type Period } from "../kpi/time";
 import { structureFrom } from "../staff_roles/catalog";
 import { runAttendance } from "./attendance";
-import { clientFor, WorklyError, type WorklyClient } from "./client";
+import { assertCompany, clientFor, WorklyError, type WorklyClient } from "./client";
 import { connKeyOf } from "./config";
 import { checkGuards, type BlockReason, type GuardInput } from "./guards";
 import { refreshLocations, terminalMap } from "./locations";
@@ -237,7 +238,9 @@ async function syncAttendance(
 /**
  * Выполняет прогон по строке журнала (задача очереди). Строка не в статусе running —
  * ничего не делает. Сотрудники: план со статусом planned. Посещаемость: импорт месяца
- * и статус applied. Любой сбой завершает прогон статусом failed с кодом: код WorklyError,
+ * и статус applied. Компания учётки сверяется с подключением сразу после companyId():
+ * чужая компания даёт failed/company_mismatch, и ничего не записывается (даже workly_company_id).
+ * Любой сбой завершает прогон статусом failed с кодом: код WorklyError,
  * empty_crawl, period_closed, period_not_started или crawl_failed. Текст исключения
  * не пишется ни в строку, ни в лог. Если не удалось записать и сам failed,
  * пробрасывается исходная ошибка.
@@ -257,6 +260,8 @@ export async function executeRun(
     if (!key) throw new WorklyError("not_configured", "Организация не подключена к Workly");
     const client = clientOf(key);
     const companyId = await client.companyId();
+    // Учётка чужой компании: прогон падает до карты локаций, обходов и любой записи (спека 5.1).
+    assertCompany(key, companyId);
     await db.update(workly_sync_runs).set({ workly_company_id: companyId }).where(runIs(runId, "running"));
 
     if (run.kind === "employees") await planEmployees(db, runId, run.organization_id, client, companyId);

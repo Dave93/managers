@@ -10,8 +10,9 @@
 //
 // Коды ответов, которые вводят маршруты: organization_not_connected, employee_not_found,
 // workly_employee_not_found, queue_unavailable (в журнал пишется enqueue_failed).
-// Сбой Workly отдаётся только кодом: not_configured — 422, прочие коды WorklyError — 502,
-// любая другая ошибка обхода — 502 crawl_failed. Текст исключения в ответ и лог не попадает.
+// Сбой Workly отдаётся только кодом: not_configured и company_mismatch (учётка другой компании
+// Workly) — 422, прочие коды WorklyError — 502, любая другая ошибка обхода — 502 crawl_failed.
+// Текст исключения в ответ и лог не попадает.
 import { ctx } from "@backend/context";
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, organization, terminals, workly_locations, workly_sync_runs } from "backend/drizzle/schema";
@@ -23,7 +24,7 @@ import { KpiError, run } from "../kpi/errors";
 import { iso } from "../kpi/iso";
 import { matchesName, searchWords } from "../kpi/name-search";
 import { assertAttendanceSyncable } from "./attendance";
-import { clientFor, WorklyError, type WorklyClient } from "./client";
+import { assertCompany, clientFor, WorklyError, type WorklyClient } from "./client";
 import { CONNECTIONS, credsFromEnv, resolveOrganizationId } from "./config";
 import { refreshLocations, setLocationTerminal } from "./locations";
 import { qualityReport } from "./quality";
@@ -56,6 +57,9 @@ async function connected(db: DbLike, organizationId: string): Promise<{ key: Con
 
 // ---------- обращения к Workly ----------
 
+// Ошибки настройки подключения (переменные окружения): 422, их исправляет оператор, а не повтор.
+const CONFIG_ERRORS: ReadonlySet<string> = new Set(["not_configured", "company_mismatch"]);
+
 // Вызов Workly: ошибка становится кодом, текст исключения не уходит ни в ответ, ни в лог.
 async function workly<T>(what: string, f: () => Promise<T>): Promise<T> {
   try {
@@ -63,13 +67,22 @@ async function workly<T>(what: string, f: () => Promise<T>): Promise<T> {
   } catch (e) {
     const code = e instanceof WorklyError ? e.code : "crawl_failed";
     console.error(`workly: ${what}: ошибка ${code}`);
-    throw new KpiError(code === "not_configured" ? 422 : 502, code);
+    throw new KpiError(CONFIG_ERRORS.has(code) ? 422 : 502, code);
   }
 }
 
 // clientFor бросает синхронно (нет переменных окружения): тоже через workly().
 const clientOf = (what: string, key: ConnKey, redis: Redis): Promise<WorklyClient> =>
   workly(what, async () => clientFor(key, redis));
+
+// Компания учётки, сверенная с подключением (спека 5.1). Чужая — 422 company_mismatch
+// до любого чтения данных и любой записи.
+const companyOf = (what: string, key: ConnKey, client: Pick<WorklyClient, "companyId">): Promise<number> =>
+  workly(what, async () => {
+    const id = await client.companyId();
+    assertCompany(key, id);
+    return id;
+  });
 
 // ---------- статус ----------
 
@@ -253,7 +266,7 @@ async function worklyEmployees(redis: Redis, org: { key: ConnKey; id: string }):
   const hit = await readEmployeesCache(redis, org.id);
   if (hit) return hit;
   const client = await clientOf("список сотрудников", org.key, redis);
-  const company_id = await workly("список сотрудников", () => client.companyId());
+  const company_id = await companyOf("список сотрудников", org.key, client);
   const list = await workly("список сотрудников", () => client.employees());
   const items = list.map(personOf).filter((p): p is WorklyPerson => p !== null).sort(byName);
   const value: EmployeesCache = { company_id, items };
@@ -334,7 +347,7 @@ async function locationsOf(db: DbLike, organizationId: string) {
 async function refreshOf(db: DrizzleDB, redis: Redis, organizationId: string) {
   const org = await connected(db, organizationId);
   const client = await clientOf("локации", org.key, redis);
-  const companyId = await workly("локации", () => client.companyId());
+  const companyId = await companyOf("локации", org.key, client);
   await refreshLocations(db, { locations: () => workly("локации", () => client.locations()) }, companyId, org.id);
   return locationsOf(db, org.id);
 }

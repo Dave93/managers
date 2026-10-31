@@ -220,6 +220,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         id === conn.LES ? "LES" : id === conn.CHOPAR ? "CHOPAR" : extraKeys.get(id) ?? null
       );
       config.setOrganizationResolver(async (_db, key) => conn[key]);
+      // Подставные клиенты отдают случайные номера компаний: сверка компании выключена,
+      // её проверяет отдельный тест company_mismatch.
+      config.setExpectedCompanyResolver(() => null);
       setClientFactory(factory);
       queue.setRunEnqueuer(defaultEnqueuer);
       // withSession по одному: кэш ролей пишется через чтение-изменение-запись.
@@ -230,6 +233,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     afterAll(async () => {
       runs.setConnKeyResolver(null);
       config.setOrganizationResolver(null);
+      config.setExpectedCompanyResolver(null);
       setClientFactory(null);
       queue.setRunEnqueuer(null);
       setNow(null);
@@ -854,6 +858,46 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(log).not.toContain("boom");
       expect(log).not.toContain("отклонил");
       for (const s of SECRETS) expect(log).not.toContain(s);
+    });
+
+    it("company_mismatch: учётка другой компании — refresh локаций, поиск и связь отвечают 422, локации и кэш не пишутся", async () => {
+      reset();
+      const w = await world();
+      const company = newCompany();
+      const t = (await makeTerminal(db, { organization_id: w.les })).id;
+      const e = await mkEmp({ terminal_id: t });
+      const before = await emp(e);
+      const cacheKey = `${process.env.PROJECT_PREFIX}workly_emp_cache:${w.les}`;
+      const data = { employees: [wEmp(31, person(), { tab: "T-31" })], locations: [{ id: 1, title: "L1" }] };
+      clients = { LES: fakeClient(company + 1, data) };
+      config.setExpectedCompanyResolver((key) => (key === "LES" ? company : null));
+      const spy = spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const mismatch = { status: 422, body: { error: "company_mismatch" } };
+        expect(await api(hr, "POST", "/api/workly/locations/refresh", { organization_id: w.les })).toEqual(mismatch);
+        expect(await locationsOf(w.les)).toEqual([]);
+        expect(await api(hr, "GET", `/api/workly/employees?organization_id=${w.les}&q=a`)).toEqual(mismatch);
+        expect(await api(hr, "POST", "/api/workly/sync/link", { organization_id: w.les, employee_id: e, workly_id: 31 })).toEqual(mismatch);
+        expect(await getRedisClient().exists(cacheKey)).toBe(0);
+        expect(await emp(e)).toEqual(before);
+        // После companyId ни локации, ни сотрудники не запрашивались.
+        expect(clients.LES!.calls).toEqual(["companyId", "companyId", "companyId"]);
+
+        // Своя компания: те же маршруты работают.
+        clients = { LES: fakeClient(company, data) };
+        const ref = await api(hr, "POST", "/api/workly/locations/refresh", { organization_id: w.les });
+        expect(ref.status).toBe(200);
+        expect(ref.body.map((x: { workly_location_id: number }) => x.workly_location_id)).toEqual([1]);
+        expect(await api(hr, "POST", "/api/workly/sync/link", { organization_id: w.les, employee_id: e, workly_id: 31 })).toEqual({
+          status: 200,
+          body: { ok: true },
+        });
+        expect(await emp(e)).toMatchObject({ workly_company_id: company, workly_id: 31 });
+      } finally {
+        spy.mockRestore();
+        config.setExpectedCompanyResolver(() => null);
+        await getRedisClient().del(cacheKey);
+      }
     });
 
     // ---------- локации ----------
