@@ -19,9 +19,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     );
   }
 
-  const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
+  const { ensureApp, sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { addAttendance, api: rawApi, cleanupKpi, makeTerminal, setNow, setup } = await import("../../kpi/http/fixtures");
-  const { employees, kpi_periods, organization, workly_locations, workly_sync_runs } = await import("backend/drizzle/schema");
+  const { employees, kpi_periods, organization, terminals, workly_locations, workly_sync_runs } = await import("backend/drizzle/schema");
   const { getRedisClient } = await import("backend/src/lib/shared-instances");
   const { WorklyError, setClientFactory } = await import("../client");
   const config = await import("../config");
@@ -207,6 +207,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     ["PUT", `/api/workly/locations/${randomUUID()}`, { terminal_id: null }],
     ["POST", "/api/workly/attendance/sync", { organization_id: org, period: P }],
     ["GET", `/api/workly/quality?organization_id=${org}&period=${P}`],
+    ["GET", `/api/workly/terminals?organization_id=${org}`],
   ];
 
   describe("workly: маршруты API", () => {
@@ -263,6 +264,25 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await locationsOf(w.les)).toEqual([]);
     });
 
+    it("ROUTES перечисляет все маршруты /api/workly: забытый в списке маршрут роняет этот тест", async () => {
+      // Тип приложения слишком глубокий для tsc: берём только то, что нужно.
+      const app = (await ensureApp()) as unknown as { routes: { method: string; path: string }[] };
+      const registered = [...new Set(app.routes.filter((r) => r.path.startsWith("/api/workly/")).map((r) => `${r.method} ${r.path}`))];
+      const listed = ROUTES(randomUUID());
+      expect(registered.length).toBe(listed.length);
+      // Каждый маршрут списка совпадает ровно с одним зарегистрированным (`:id` — любой сегмент).
+      const pattern = (p: string) => new RegExp("^" + p.replace(/:[^/]+/g, "[^/]+") + "$");
+      const matched = listed.map(([method, path]) => {
+        const hits = registered.filter((r) => {
+          const [m, p] = r.split(" ");
+          return m === method && pattern(p).test(path.split("?")[0]);
+        });
+        expect(`${method} ${path} → ${hits.length}`).toBe(`${method} ${path} → 1`);
+        return hits[0];
+      });
+      expect(new Set(matched).size).toBe(registered.length);
+    });
+
     // ---------- схема ----------
 
     it("схема: кривой uuid, urn:uuid, нецелый workly_id и раздутый exclude — 422 без обращения к базе, клиенту и очереди", async () => {
@@ -305,6 +325,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         ["PUT", `/api/workly/locations/${locId}`, {}],
         ["POST", "/api/workly/attendance/sync", { organization_id: bad, period: P }],
         ["GET", `/api/workly/quality?organization_id=${bad}&period=${P}`],
+        ["GET", `/api/workly/terminals?organization_id=${bad}`],
+        ["GET", `/api/workly/terminals?organization_id=${urn}`],
+        ["GET", "/api/workly/terminals"],
       ];
       for (const [method, path, body] of cases) {
         const r = await api(hr, method, path, body);
@@ -814,6 +837,33 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await api(hr, "GET", `/api/workly/locations?organization_id=${w.les}`)).body).toEqual(ref.body);
     });
 
+    it("terminals: только активные терминалы этой организации, по названию; Workly не вызывается", async () => {
+      reset();
+      const w = await world();
+      const h = hex();
+      // Префикс «Тест Филиал » оставляем: по нему cleanupKpi удаляет терминалы.
+      const named = async (organization_id: string, suffix: string, active = true) => {
+        const t = await makeTerminal(db, { organization_id, active });
+        const name = `Тест Филиал ${h} ${suffix}`;
+        await db.update(terminals).set({ name }).where(eq(terminals.id, t.id));
+        return { id: t.id, name };
+      };
+      const tV = await named(w.les, "В");
+      const tA = await named(w.les, "А");
+      await named(w.les, "Аа выключен", false);
+      const tB = await named(w.les, "Б");
+      await named(w.chopar, "А чужой");
+      await named(w.other, "А неподключённый");
+
+      const r = await api(hr, "GET", `/api/workly/terminals?organization_id=${w.les}`);
+      expect(r).toEqual({ status: 200, body: [tA, tB, tV] });
+
+      const c = await api(hr, "GET", `/api/workly/terminals?organization_id=${w.chopar}`);
+      expect(c.status).toBe(200);
+      expect(c.body.map((x: { name: string }) => x.name)).toEqual([`Тест Филиал ${h} А чужой`]);
+      expect(factoryCalls).toEqual([]);
+    });
+
     // ---------- посещаемость и качество ----------
 
     it("attendance/sync: закрытый месяц — 409 period_closed без строки в журнале; мусорный месяц — 422; открытый — 202", async () => {
@@ -902,6 +952,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           ["PUT", `/api/workly/locations/${loc}`, { terminal_id: t }],
           ["POST", "/api/workly/attendance/sync", { organization_id: w.other, period: P }],
           ["GET", `/api/workly/quality?organization_id=${w.other}&period=${P}`],
+          ["GET", `/api/workly/terminals?organization_id=${w.other}`],
           // Несуществующая организация — так же.
           ["POST", "/api/workly/sync/plan", { organization_id: randomUUID() }],
         ];

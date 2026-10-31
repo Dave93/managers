@@ -334,6 +334,21 @@ async function setTerminal(db: DbLike, locationId: string, terminalId: string | 
   return { ok: true };
 }
 
+// ---------- терминалы организации ----------
+
+/**
+ * Активные терминалы подключённой организации для выбора в карте локаций, по названию.
+ * Список терминалов KPI (/kpi/terminals) организацию не отдаёт, поэтому нужен свой.
+ */
+async function terminalsOf(db: DbLike, organizationId: string) {
+  const org = await connected(db, organizationId);
+  return db
+    .select({ id: terminals.id, name: terminals.name })
+    .from(terminals)
+    .where(and(eq(terminals.organization_id, org.id), eq(terminals.active, true)))
+    .orderBy(asc(terminals.name), asc(terminals.id));
+}
+
 // ---------- маршруты ----------
 
 const worklyRoutes = new Elysia({ name: "@api/workly/routes" })
@@ -432,7 +447,11 @@ const worklyRoutes = new Elysia({ name: "@api/workly/routes" })
         return qualityReport(drizzle, org.id, parsePeriod(query.period));
       }),
     { permission: "kpi.manage", query: t.Object({ organization_id: Uuid, period: t.Optional(t.String()) }) }
-  );
+  )
+  .get("/workly/terminals", async ({ query, drizzle, set }) => run(set, () => terminalsOf(drizzle, query.organization_id)), {
+    permission: "kpi.manage",
+    query: t.Object({ organization_id: Uuid }),
+  });
 
 // Типы ответов для админки (`import type`: в рантайм ничего не попадает). Выведены из самих
 // функций маршрутов, поэтому не расходятся с ответом сервера.
@@ -440,6 +459,7 @@ export type WorklyStatusEntry = Awaited<ReturnType<typeof statusOf>>[number];
 export type WorklyLocationRow = Awaited<ReturnType<typeof locationsOf>>[number];
 export type WorklyPersonRow = Awaited<ReturnType<typeof search>>[number];
 export type WorklyRunStarted = Awaited<ReturnType<typeof startSync>>;
+export type WorklyTerminalRow = Awaited<ReturnType<typeof terminalsOf>>[number];
 
 const worklyControllerImpl = new Elysia({ name: "@api/workly", prefix: "/api" })
   .use(ctx)
