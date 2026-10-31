@@ -1,6 +1,7 @@
 // Клиент Workly API: вход и обновление ключа (ключ общий для процессов и лежит в Redis), обход страниц списков и отчётов.
 // В сообщениях ошибок только фиксированный русский текст и числовой код Workly: тела ответов и данные запросов
 // (пароль, client_secret, ключи доступа) в ошибки и логи не попадают.
+import { createHash } from "node:crypto";
 import type Redis from "ioredis";
 import { companyMatches, credsFromEnv, expectedCompanyOf } from "./config";
 import type {
@@ -90,6 +91,13 @@ function httpError(status: number, code: number | null): WorklyError {
   return new WorklyError("http_error", `Workly вернул HTTP ${status}${code !== null ? `, код ${code}` : ""}`);
 }
 
+// Короткий хэш учётки для имени ключа кэша: первые 12 символов sha256 от адреса, client_id и логина
+// через перевод строки (разделитель не даёт склеить «ab»+«c» и «a»+«bc»). Пароль и client_secret
+// в хэш не входят, а сами значения в имени ключа не видны.
+function credsTag(c: WorklyCreds): string {
+  return createHash("sha256").update(`${c.baseUrl}\n${c.clientId}\n${c.username}`).digest("hex").slice(0, 12);
+}
+
 export class WorklyClient {
   private readonly fetchFn: typeof fetch;
   private readonly now: () => Date;
@@ -102,11 +110,14 @@ export class WorklyClient {
   // действует: иначе обход в 90 страниц делал бы до 90 пар запросов ко входу по 30 с. Новый экземпляр
   // пробует снова; путь 7008 сбрасывает ключ, и вход по паролю выполняется как обычно.
   private renewFailed = false;
+  // Учётка в имени ключа кэша (см. cacheKey): хэш адреса, client_id и логина, без секретов.
+  private readonly credsTag: string;
 
   constructor(
     private readonly creds: WorklyCreds,
     private readonly deps: WorklyDeps,
   ) {
+    this.credsTag = credsTag(creds);
     this.fetchFn = deps.fetch ?? fetch;
     this.now = deps.now ?? (() => new Date());
   }
@@ -220,8 +231,11 @@ export class WorklyClient {
 
   // ---- ключ доступа ----
 
+  // Ключ кэша — подключение и учётка: `<префикс>workly_token:<KEY>:<хэш>`. Ключ, полученный другой
+  // учёткой (например, чужой компании до исправления .env), не подхватывается: смена адреса,
+  // client_id или логина сразу ведёт к своему входу. Запись прежней учётки истекает сама по TTL.
   private cacheKey(): string {
-    return `${process.env.PROJECT_PREFIX}workly_token:${this.creds.key}`;
+    return `${process.env.PROJECT_PREFIX}workly_token:${this.creds.key}:${this.credsTag}`;
   }
 
   private token(): Promise<string> {

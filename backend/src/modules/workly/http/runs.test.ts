@@ -1099,7 +1099,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await createdBy(w.company, 5)).toBeDefined();
     });
 
-    it("R36: предохранители считают и связи по имени: при превышении — blocked, ничего не применено", async () => {
+    it("R36: предохранители не изменились: связь по имени в них не участвует, лишние создания дают blocked, ничего не применено", async () => {
       const org = await makeOrg();
       const company = newCompany();
       const t = (await makeTerminal(db, { organization_id: org })).id;

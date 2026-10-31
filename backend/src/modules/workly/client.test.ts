@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, spyOn } from "bun:test";
+import { createHash } from "node:crypto";
 import { inspect } from "node:util";
 import { assertCompany, clientFor, setClientFactory, WorklyClient, WorklyError, type WorklyDeps } from "./client";
 import { setExpectedCompanyResolver } from "./config";
@@ -18,6 +19,12 @@ const CREDS: WorklyCreds = {
 const T0 = new Date("2026-10-01T10:00:00Z");
 const MONTH_S = 2592000; // 30 суток: срок ключа Workly
 const DAY_MS = 86_400_000;
+
+// Ключ кэша токена в Redis: подключение и первые 12 символов sha256 от адреса, client_id и логина
+// (через перевод строки). Секретов в хэше нет; другая учётка — другой ключ кэша.
+const tokenKeyOf = (c: WorklyCreds) =>
+  `test_workly_token:${c.key}:${createHash("sha256").update(`${c.baseUrl}\n${c.clientId}\n${c.username}`).digest("hex").slice(0, 12)}`;
+const TOKEN_KEY = tokenKeyOf(CREDS);
 
 // Префикс ключей Redis для этого файла; прежнее значение возвращается после него, чтобы
 // не задеть другие тестовые файлы того же процесса.
@@ -292,7 +299,7 @@ describe("workly/client: ключ доступа", () => {
       username: CREDS.username,
       password: PASSWORD,
     });
-    const key = "test_workly_token:LES";
+    const key = TOKEN_KEY;
     expect(JSON.parse(r.store.get(key)!)).toEqual({
       access_token: "tok-1",
       refresh_token: "ref-1",
@@ -323,6 +330,52 @@ describe("workly/client: ключ доступа", () => {
     expect(b.srv.apiCalls("/v1/locations")[0]!.headers.get("authorization")).toBe("Bearer tok-1");
   });
 
+  // Ключ кэша зависит от учётки: после исправления ключей в .env прежний токен (например,
+  // учётки чужой компании) не подхватывается, и новый вход идёт сразу.
+  function sharedRedisClients() {
+    const tok = tokenReplier();
+    const r = fakeRedis();
+    const srv = fakeServer((c) => tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1));
+    const mk = (creds: WorklyCreds) => new WorklyClient(creds, { redis: r.redis, fetch: srv.fetch, now: () => T0 });
+    const authOf = (n: number) => srv.apiCalls("/v1/locations")[n]!.headers.get("authorization");
+    return { r, srv, mk, authOf };
+  }
+
+  it("другой client_id или логин того же подключения — свой ключ кэша и свой вход, чужой токен не берётся", async () => {
+    const s = sharedRedisClients();
+    const otherClient = { ...CREDS, clientId: "client-id-2" };
+    const otherUser = { ...CREDS, username: "bot2@example.test" };
+    const otherBase = { ...CREDS, baseUrl: "https://api2.example.test" };
+    await s.mk(CREDS).locations();
+    await s.mk(otherClient).locations();
+    await s.mk(otherUser).locations();
+    await s.mk(otherBase).locations();
+    expect(s.srv.tokenCalls().length).toBe(4);
+    expect([0, 1, 2, 3].map(s.authOf)).toEqual(["Bearer tok-1", "Bearer tok-2", "Bearer tok-3", "Bearer tok-4"]);
+    const expected = [CREDS, otherClient, otherUser, otherBase].map(tokenKeyOf);
+    expect(new Set(expected).size).toBe(4);
+    expect([...s.r.store.keys()].sort()).toEqual([...expected].sort());
+  });
+
+  it("тот же адрес, client_id и логин — тот же ключ кэша: токен переиспользуется, пароль и секрет в ключ не входят", async () => {
+    const s = sharedRedisClients();
+    await s.mk(CREDS).locations();
+    await s.mk({ ...CREDS }).locations();
+    await s.mk({ ...CREDS, password: "pw-другой", clientSecret: "cs-другой" }).locations();
+    expect(s.srv.tokenCalls().length).toBe(1);
+    expect([0, 1, 2].map(s.authOf)).toEqual(["Bearer tok-1", "Bearer tok-1", "Bearer tok-1"]);
+    expect([...s.r.store.keys()]).toEqual([TOKEN_KEY]);
+  });
+
+  it("в имени ключа кэша нет client_id, логина, адреса и секретов в открытом виде", async () => {
+    const s = sharedRedisClients();
+    await s.mk(CREDS).locations();
+    const keys = [...s.r.store.keys()];
+    expect(keys).toHaveLength(1);
+    expect(keys[0]).toMatch(/^test_workly_token:LES:[0-9a-f]{12}$/);
+    for (const v of [CREDS.clientId, CREDS.username, "example.test", SECRET, PASSWORD]) expect(keys[0]).not.toContain(v);
+  });
+
   it("параллельные вызовы входят один раз", async () => {
     const tok = tokenReplier();
     const { client, srv } = makeClient((c) => tok(c) ?? pageReply([[{ id: 1, title: "A" }]], c.query, 1));
@@ -337,7 +390,7 @@ describe("workly/client: ключ доступа", () => {
       now: () => now,
     });
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - 3600_000);
     await client.locations();
     const calls = srv.tokenCalls();
@@ -350,7 +403,7 @@ describe("workly/client: ключ доступа", () => {
     });
     // после обновления запросы идут с новым ключом, срок считается от текущего времени
     expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-2");
-    expect(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at).toBe(now.getTime() + MONTH_S * 1000);
+    expect(JSON.parse(r.store.get(TOKEN_KEY)!).expires_at).toBe(now.getTime() + MONTH_S * 1000);
   });
 
   it("не обновляет ключ раньше чем за сутки до срока", async () => {
@@ -360,7 +413,7 @@ describe("workly/client: ключ доступа", () => {
       now: () => now,
     });
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - DAY_MS - 60_000);
     await client.locations();
     expect(srv.tokenCalls().length).toBe(1);
@@ -377,7 +430,7 @@ describe("workly/client: ключ доступа", () => {
       { now: () => now },
     );
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - 3600_000);
     expect((await client.locations()).length).toBe(1);
     expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "refresh_token", "password"]);
@@ -391,7 +444,7 @@ describe("workly/client: ключ доступа", () => {
       now: () => now,
     });
     await client.locations();
-    now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at + 1000);
+    now = new Date(JSON.parse(r.store.get(TOKEN_KEY)!).expires_at + 1000);
     await client.locations();
     expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "refresh_token"]);
   });
@@ -405,7 +458,7 @@ describe("workly/client: ключ доступа", () => {
       { now: () => now },
     );
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - 3600_000);
     down = true;
     expect((await client.locations()).length).toBe(1);
@@ -422,7 +475,7 @@ describe("workly/client: ключ доступа", () => {
       { now: () => now },
     );
     await client.locations();
-    now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at + 1000);
+    now = new Date(JSON.parse(r.store.get(TOKEN_KEY)!).expires_at + 1000);
     down = true;
     await expect(client.locations()).rejects.toMatchObject({ code: "http_error" });
   });
@@ -438,7 +491,7 @@ describe("workly/client: ключ доступа", () => {
       { now: () => now },
     );
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - 3600_000);
     expect((await client.locations()).length).toBe(1);
     expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "refresh_token", "password"]);
@@ -478,7 +531,7 @@ describe("workly/client: ключ доступа", () => {
       auth,
       async loginThenNearExpiry() {
         await client.locations();
-        now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at - 3600_000);
+        now = new Date(JSON.parse(r.store.get(TOKEN_KEY)!).expires_at - 3600_000);
         down = true;
       },
       set7008(f: (c: Call) => Reply | null) {
@@ -544,7 +597,7 @@ describe("workly/client: ключ доступа", () => {
       { now: () => now },
     );
     await client.locations();
-    now = new Date(JSON.parse(r.store.get("test_workly_token:LES")!).expires_at - 3600_000);
+    now = new Date(JSON.parse(r.store.get(TOKEN_KEY)!).expires_at - 3600_000);
     down = true;
     expect((await client.locations()).length).toBe(1);
     expect(srv.apiCalls("/v1/locations")[1]!.headers.get("authorization")).toBe("Bearer tok-1");
@@ -620,7 +673,7 @@ describe("workly/client: ключ доступа", () => {
     expect(srv.tokenCalls().map((c) => c.form!.get("grant_type"))).toEqual(["password", "password"]);
     const page5 = srv.apiCalls("/v1/employees").filter((c) => c.query.get("page") === "5");
     expect(page5.map((c) => c.headers.get("authorization"))).toEqual(["Bearer tok-1", "Bearer tok-2"]);
-    expect(JSON.parse(r.store.get("test_workly_token:LES")!).access_token).toBe("tok-2");
+    expect(JSON.parse(r.store.get(TOKEN_KEY)!).access_token).toBe("tok-2");
   });
 
   it("7008 дважды подряд превращается в auth_failed", async () => {
@@ -679,7 +732,7 @@ describe("workly/client: ошибки", () => {
       { now: () => now },
     );
     await client.locations();
-    const expiresAt = JSON.parse(r.store.get("test_workly_token:LES")!).expires_at as number;
+    const expiresAt = JSON.parse(r.store.get(TOKEN_KEY)!).expires_at as number;
     now = new Date(expiresAt - 3600_000);
     await expect(client.locations()).rejects.toMatchObject({ code: "client_invalid" });
     expect(srv.tokenCalls().length).toBe(2);
