@@ -260,7 +260,9 @@ async function readEmployeesCache(redis: Redis, organizationId: string): Promise
 /**
  * Активные сотрудники Workly организации из кэша Redis (10 минут). На промахе — один обход
  * (компания, затем список, строго по очереди), результат кладётся в кэш. Неудачный обход
- * не кэшируется. Два запроса на холодном кэше могут обойти Workly оба: блокировки нет.
+ * не кэшируется. Пустой список тоже: у компаний сотни активных, пустой обход скорее сбой,
+ * и десять минут пустого поиска HR не нужны. Два запроса на холодном кэше могут обойти
+ * Workly оба: блокировки нет.
  */
 async function worklyEmployees(redis: Redis, org: { key: ConnKey; id: string }): Promise<EmployeesCache> {
   const hit = await readEmployeesCache(redis, org.id);
@@ -270,6 +272,7 @@ async function worklyEmployees(redis: Redis, org: { key: ConnKey; id: string }):
   const list = await workly("список сотрудников", () => client.employees());
   const items = list.map(personOf).filter((p): p is WorklyPerson => p !== null).sort(byName);
   const value: EmployeesCache = { company_id, items };
+  if (items.length === 0) return value;
   try {
     await redis.set(empCacheKey(org.id), JSON.stringify(value), "EX", EMP_CACHE_TTL_S);
   } catch {

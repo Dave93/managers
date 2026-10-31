@@ -860,6 +860,18 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       for (const s of SECRETS) expect(log).not.toContain(s);
     });
 
+    it("employees: пустой обход Workly не кэшируется — следующий запрос снова идёт в Workly", async () => {
+      reset();
+      const w = await world();
+      const cacheKey = `${process.env.PROJECT_PREFIX}workly_emp_cache:${w.les}`;
+      await getRedisClient().del(cacheKey);
+      clients = { LES: fakeClient(newCompany(), { employees: [] }) };
+      expect(await api(hr, "GET", `/api/workly/employees?organization_id=${w.les}&q=a`)).toEqual({ status: 200, body: [] });
+      expect(await getRedisClient().exists(cacheKey)).toBe(0);
+      expect(await api(hr, "GET", `/api/workly/employees?organization_id=${w.les}`)).toEqual({ status: 200, body: [] });
+      expect(clients.LES!.calls).toEqual(["companyId", "employees", "companyId", "employees"]);
+    });
+
     it("company_mismatch: учётка другой компании — refresh локаций, поиск и связь отвечают 422, локации и кэш не пишутся", async () => {
       reset();
       const w = await world();
