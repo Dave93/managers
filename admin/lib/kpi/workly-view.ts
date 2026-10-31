@@ -312,6 +312,19 @@ export function attendanceErrorKey(code: string | null | undefined): string | nu
   return code != null && ATTENDANCE_OVERRIDES.has(code) ? `attendance.errors.${code}` : null;
 }
 
+/**
+ * Ключ текста ошибки прогона в строке «Последний прогон» карточки (от `kpiScreens.workly`).
+ * У упавшей синхронизации посещаемости — тексты блока посещаемости (attendanceErrorKey): общий
+ * empty_crawl говорит про пустой список сотрудников, а у синхронизации он значит «нечего записать».
+ * Прочие коды и проверка сотрудников — общий `errors.<код>` (неизвестный — `errors.unknown`).
+ * Кода нет — null.
+ */
+export function lastRunErrorKey(run: { kind: string; error: string | null } | null | undefined): string | null {
+  if (run?.error == null) return null;
+  const own = run.kind === "attendance" ? attendanceErrorKey(run.error) : null;
+  return own ?? inWorkly(connectionErrorKey(run.error) ?? "workly.errors.unknown");
+}
+
 export type AttendanceResultKey = "days" | "unknown" | "carried";
 export type AttendanceResultLine = { key: AttendanceResultKey; label: string; hint: string; value: number };
 

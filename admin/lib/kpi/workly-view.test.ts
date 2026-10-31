@@ -10,6 +10,7 @@ import {
   applyPreview,
   attendanceErrorKey,
   attendanceResultLines,
+  lastRunErrorKey,
   changeSummary,
   confirmSummary,
   fileImportWarning,
@@ -577,5 +578,31 @@ describe("attendanceErrorKey", () => {
     expect(attendanceErrorKey("не код")).toBeNull();
     expect(attendanceErrorKey(null)).toBeNull();
     expect(attendanceErrorKey(undefined)).toBeNull();
+  });
+});
+
+describe("lastRunErrorKey", () => {
+  const run = (kind: "employees" | "attendance", error: string | null) => ({ kind, error });
+
+  it("упавшая синхронизация посещаемости — тексты блока посещаемости", () => {
+    expect(lastRunErrorKey(run("attendance", "empty_crawl"))).toBe("attendance.errors.empty_crawl");
+    expect(lastRunErrorKey(run("attendance", "stale"))).toBe("attendance.errors.stale");
+    expect(lastRunErrorKey(run("attendance", "period_not_started"))).toBe("attendance.errors.period_not_started");
+  });
+
+  it("код посещаемости без своего текста — общий текст errors.*", () => {
+    expect(lastRunErrorKey(run("attendance", "client_invalid"))).toBe("errors.client_invalid");
+    expect(lastRunErrorKey(run("attendance", "не код"))).toBe("errors.unknown");
+  });
+
+  it("проверка сотрудников — всегда общий текст errors.*", () => {
+    expect(lastRunErrorKey(run("employees", "empty_crawl"))).toBe("errors.empty_crawl");
+    expect(lastRunErrorKey(run("employees", "stale"))).toBe("errors.stale");
+  });
+
+  it("нет кода или нет прогона — null", () => {
+    expect(lastRunErrorKey(run("attendance", null))).toBeNull();
+    expect(lastRunErrorKey(run("employees", null))).toBeNull();
+    expect(lastRunErrorKey(null)).toBeNull();
   });
 });

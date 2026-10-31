@@ -25,7 +25,7 @@ import { Button } from "@admin/components/ui/button";
 import { kpiApi, type RunRow, type WorklyStatusEntry } from "@admin/lib/kpi-api";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import type { Tone } from "@admin/lib/kpi/status";
-import { RUN_STATUSES, plannedRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
+import { RUN_STATUSES, lastRunErrorKey, plannedRunId, resumeRunId } from "@admin/lib/kpi/workly-view";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
 import { PlanReview } from "./plan-review";
@@ -190,7 +190,10 @@ function LastRun({ entry, trackedId }: { entry: WorklyStatusEntry; trackedId: st
         <p className="text-muted-foreground">{t("card.attendanceRunning")}</p>
       )}
       {!own && last.status === "blocked" && <p className="text-amber-700">{text.blocked(last.block_reason)}</p>}
-      {!own && last.status === "failed" && <p className="text-destructive">{text.runError(last.error)}</p>}
+      {/* Упавшая синхронизация посещаемости — тексты блока посещаемости, а не проверки сотрудников. */}
+      {!own && last.status === "failed" && (
+        <p className="text-destructive">{t(lastRunErrorKey(last) ?? "errors.unknown")}</p>
+      )}
     </div>
   );
 }
