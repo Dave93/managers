@@ -787,6 +787,17 @@ async function runRefresh({
 // До недели сверяем прямо в запросе, дольше — фоновой задачей.
 const INLINE_MAX_DAYS = 7;
 const REFRESH_LOCK = `${process.env.PROJECT_PREFIX}hanging_refresh:lock`;
+// Когда и кто последним сверял статусы с iiko — для напоминания на странице.
+const REFRESH_LAST = `${process.env.PROJECT_PREFIX}hanging_refresh:last`;
+async function markRefreshed(
+  redis: { set: (key: string, value: string) => Promise<unknown> },
+  user: { first_name?: string | null; last_name?: string | null; login?: string | null } | null | undefined,
+) {
+  const by =
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") || user?.login || null;
+  await redis.set(REFRESH_LAST, JSON.stringify({ at: new Date().toISOString(), by }));
+}
+
 const refreshJobKey = (id: string) =>
   `${process.env.PROJECT_PREFIX}hanging_refresh:${id}`;
 
@@ -1687,6 +1698,14 @@ export const hangingOrdersController = new Elysia({
     }
   )
   .get(
+    "/hanging-orders/refresh-status",
+    async ({ redis }) => {
+      const raw = await redis.get(REFRESH_LAST);
+      return { data: raw ? (JSON.parse(raw) as { at: string; by: string | null }) : null };
+    },
+    { permission: "hanging_orders.list" }
+  )
+  .get(
     "/hanging-orders/refresh/:jobId",
     async ({ params: { jobId }, redis, set }) => {
       const raw = await redis.get(refreshJobKey(jobId));
@@ -1703,7 +1722,7 @@ export const hangingOrdersController = new Elysia({
   )
   .post(
     "/hanging-orders/refresh",
-    async ({ body: { brand, days, dateFrom, dateTo }, drizzle, cacheController, redis }) => {
+    async ({ body: { brand, days, dateFrom, dateTo }, drizzle, cacheController, redis, user }) => {
       const brands = brand ? [brand] : Object.keys(BRAND_ORG_CODE);
       // Окно: период из фильтра страницы или последние `days` дней,
       // но не глубже MAX_WINDOW_DAYS.
@@ -1723,6 +1742,7 @@ export const hangingOrdersController = new Elysia({
         const summary = await runRefresh({
           brands, since, until, drizzle, cacheController,
         });
+        await markRefreshed(redis, user);
         return { data: summary, window };
       }
 
@@ -1747,6 +1767,7 @@ export const hangingOrdersController = new Elysia({
             progress: (text) => save({ state: "running", progress: text, window }),
           });
           await save({ state: "done", data: summary, window });
+          await markRefreshed(redis, user);
         } catch (e: any) {
           await save({ state: "error", message: e?.message ?? String(e), window });
         } finally {

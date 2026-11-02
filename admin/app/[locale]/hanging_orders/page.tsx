@@ -167,6 +167,26 @@ function HangingOrdersContent() {
         onError: (e: Error) => toast.error(e.message),
     });
 
+    // Когда последний раз сверяли статусы с iiko (общее для всех, кто нажимает кнопку).
+    // Утром про кнопку забывают: если сегодня сверки ещё не было — напоминаем.
+    const canRefresh = useCanAccess("hanging_orders.edit");
+    const { data: lastRefresh, isSuccess: lastRefreshLoaded } = useQuery({
+        queryKey: ["hanging-orders", "refresh-status"],
+        queryFn: async () => {
+            const { data } = await apiClient.api["hanging-orders"]["refresh-status"].get();
+            return (data as { data: { at: string; by: string | null } | null } | null)?.data ?? null;
+        },
+        refetchInterval: 5 * 60 * 1000,
+    });
+    const refreshStale =
+        canRefresh && lastRefreshLoaded && (!lastRefresh || !dayjs(lastRefresh.at).isSame(dayjs(), "day"));
+    const lastRefreshText = lastRefresh
+        ? t("reminder.last", {
+            when: dayjs(lastRefresh.at).format("DD.MM HH:mm"),
+            who: lastRefresh.by ?? "—",
+        })
+        : t("reminder.never");
+
     // Query for export
     const { data: exportData, refetch } = useQuery({
         queryKey: ["hanging-orders-export"],
@@ -283,12 +303,16 @@ function HangingOrdersContent() {
                     <p className="text-muted-foreground mt-2">
                         {t("subtitle")}
                     </p>
+                    {canRefresh && lastRefreshLoaded && !refreshStale && (
+                        <p className="text-muted-foreground mt-1 text-xs">{lastRefreshText}</p>
+                    )}
                 </div>
                 <div className="flex items-center space-x-2">
                     <CanAccess permission="hanging_orders.edit">
                         <Button
                             variant="outline"
                             size="sm"
+                            className={cn(refreshStale && "border-amber-400 ring-2 ring-amber-400/60")}
                             onClick={() => refreshFromIiko.mutate()}
                             disabled={refreshFromIiko.isPending}
                         >
@@ -306,6 +330,24 @@ function HangingOrdersContent() {
                     </Button>
                 </div>
             </div>
+
+            {refreshStale && (
+                <div className="mt-4 flex flex-wrap items-center gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                    <Info className="h-4 w-4 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                        <div className="font-medium">{t("reminder.title")}</div>
+                        <div>{t("reminder.body")} <span className="opacity-80">{lastRefreshText}</span></div>
+                    </div>
+                    <Button
+                        size="sm"
+                        onClick={() => refreshFromIiko.mutate()}
+                        disabled={refreshFromIiko.isPending}
+                    >
+                        <RefreshCw className={cn("h-4 w-4 mr-2", refreshFromIiko.isPending && "animate-spin")} />
+                        {refreshFromIiko.isPending ? t("refresh.pending") : t("reminder.action")}
+                    </Button>
+                </div>
+            )}
 
             {/* Блок фильтров - компактный */}
             <Card className="mt-4">
