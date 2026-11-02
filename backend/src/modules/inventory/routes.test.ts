@@ -14,7 +14,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { callApi, closeTestRedis, ensureApp, withSession, sweepTestRoles } = await import("../../../tests/helpers/http");
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
-  const { eq, inArray, sql } = await import("drizzle-orm");
+  const { and, eq, inArray, sql } = await import("drizzle-orm");
   const { allowedPeriods, interimDates, lastDayOf } = await import("./rules");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
@@ -489,7 +489,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       op: "add" as const, id: randomUUID(), line_id, qty, client_created_at: new Date().toISOString(),
     });
 
-    it("незаполненные строки блокируют отправку, skip_incomplete их пропускает", async () => {
+    // Месячный (02.11.2026): незаполненное = 0, в строку пишется запись «0» от отправившего.
+    it("месячный: незаполненные блокируют отправку, с подтверждением в них пишется 0", async () => {
       const w = await seedWorld();
       const { m, countId, lineOf } = await startedCount(w);
       try {
@@ -505,8 +506,99 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const p1 = d.body.lines.find((l: any) => l.product_id === w.p1);
         const p2 = d.body.lines.find((l: any) => l.product_id === w.p2);
         expect(Number(p1.fact_qty)).toBe(5.5);
+        expect(p2.skipped).toBe(false);
+        expect(p2.fact_qty).not.toBeNull();
+        expect(Number(p2.fact_qty)).toBe(0);
+        expect(p2.entries.map((e: any) => [Number(e.qty), e.created_by])).toEqual([[0, d.body.viewer_id]]);
+        expect(d.body.lines_done).toBe(2);
+        const [ev] = await drizzleDb
+          .select({ payload: schema.inventory_count_events.payload })
+          .from(schema.inventory_count_events)
+          .where(and(eq(schema.inventory_count_events.count_id, countId), eq(schema.inventory_count_events.type, "submitted")));
+        expect(ev.payload).toEqual({ auto_skipped: 0, auto_skipped_ids: [], auto_zeroed: 1, auto_zeroed_ids: [lineOf(w.p2)] });
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("промежуточный: skip_incomplete по-прежнему отмечает незаполненные «не считали»", async () => {
+      const w = await seedWorld();
+      const m = await manager(w);
+      try {
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
+        const countId = c.body.id as string;
+        const d0 = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const p1Line = d0.body.lines.find((l: any) => l.product_id === w.p1).id;
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(p1Line, 1)] });
+        expect((await api(m, "POST", `/api/inventory/counts/${countId}/submit`, {})).status).toBe(422);
+        expect((await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true })).status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const p2 = d.body.lines.find((l: any) => l.product_id === w.p2);
         expect(p2.skipped).toBe(true);
         expect(p2.fact_qty).toBeNull();
+        expect(p2.entries).toEqual([]);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("месячный: «не считали» поставить нельзя (422), старую пометку снять можно", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        const r = await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: true });
+        expect(r.status).toBe(422);
+        expect(r.body).toEqual({ error: "monthly_skip_forbidden" });
+        // Пометка, поставленная до 02.11.2026.
+        await drizzleDb.update(schema.inventory_count_lines).set({ skipped: true }).where(eq(schema.inventory_count_lines.id, lineOf(w.p2)));
+        const un = await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: false });
+        expect(un.status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.lines.every((l: any) => !l.skipped)).toBe(true);
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("месячный: старая пометка «не считали» при отправке снимается — строка идёт со своими записями или 0", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 4)] });
+        await drizzleDb
+          .update(schema.inventory_count_lines)
+          .set({ skipped: true })
+          .where(inArray(schema.inventory_count_lines.id, [lineOf(w.p1), lineOf(w.p2)]));
+        const blocked = await api(m, "POST", `/api/inventory/counts/${countId}/submit`, {});
+        expect(blocked.body).toEqual({ error: "incomplete", incomplete: 1 });
+        expect((await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true })).status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const p1 = d.body.lines.find((l: any) => l.product_id === w.p1);
+        const p2 = d.body.lines.find((l: any) => l.product_id === w.p2);
+        expect([p1.skipped, Number(p1.fact_qty)]).toEqual([false, 4]);
+        expect([p2.skipped, Number(p2.fact_qty)]).toEqual([false, 0]);
+        expect(p2.fact_qty).not.toBeNull();
+      } finally {
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("месячный: возврат в черновик оставляет записанные нули", async () => {
+      const w = await seedWorld();
+      const { m, countId, lineOf } = await startedCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        expect((await api(await reconciler(w), "POST", `/api/inventory/counts/${countId}/reopen`, {})).status).toBe(200);
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        const p2 = d.body.lines.find((l: any) => l.product_id === w.p2);
+        expect(p2.skipped).toBe(false);
+        expect(p2.entries.map((e: any) => Number(e.qty))).toEqual([0]);
+        expect(d.body.lines_done).toBe(2);
       } finally {
         await m.cleanup();
         await w.cleanup();
@@ -536,8 +628,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const { m, countId, lineOf } = await startedCount(w);
       const h = await helper(w);
       try {
-        await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p2)}`, { skipped: true });
-        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1)] });
+        await api(m, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops: [add(lineOf(w.p1), 1), add(lineOf(w.p2), 1)] });
         const batches = Array.from({ length: 8 }, () => [add(lineOf(w.p1), 1), add(lineOf(w.p1), 1)]);
         await Promise.all([
           ...batches.map((ops) => api(h, "POST", `/api/inventory/counts/${countId}/entries/sync`, { ops })),
@@ -545,7 +636,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         ]);
         const live = await drizzleDb.execute(sql`
           select coalesce(sum(qty), 0)::numeric as s from inventory_count_entries
-          where count_id = ${countId} and deleted_at is null`);
+          where line_id = ${lineOf(w.p1)} and deleted_at is null`);
         const [line] = await drizzleDb
           .select()
           .from(schema.inventory_count_lines)
@@ -586,9 +677,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("возврат в черновик снимает автоматическое «не считали», ручное оставляет", async () => {
+    // Авто-«не считали» осталось только у промежуточного (месячный пишет 0); его возвращает офис.
+    it("промежуточный: возврат в черновик снимает автоматическое «не считали», ручное оставляет", async () => {
       const w = await seedWorld();
-      const { m, countId, lineOf } = await startedCount(w);
+      const m = await manager(w);
+      const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
+      const countId = c.body.id as string;
+      const d0 = await api(m, "GET", `/api/inventory/counts/${countId}`);
+      const lineOf = (pid: string) => d0.body.lines.find((l: any) => l.product_id === pid).id as string;
       try {
         // p1 человек отметил сам, p2 пометит отправка (skip_incomplete).
         await api(m, "PATCH", `/api/inventory/counts/${countId}/lines/${lineOf(w.p1)}`, { skipped: true });

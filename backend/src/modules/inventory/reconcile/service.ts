@@ -212,16 +212,17 @@ async function adminAggregate(db: DbLike, storeId: string, period: string): Prom
   const submitted = counts.filter((c) => c.status === "submitted").map((c) => c.id);
   const state: ReconAdminState = submitted.length ? "submitted" : counts.length ? "draft" : "none";
   if (!submitted.length) return { admin: [], state };
+  // Незаполненное в месячном = 0 (02.11.2026). Отправленные раньше пересчёты хранят такие строки
+  // как «не считали» (fact_qty null) — читаем их тоже как 0.
   const res = await db.execute(sql`
     select l.product_id::text as product_id, max(l.product_name) as product_name, max(l.unit_name) as unit_name,
       max(l.group_name) as group_name,
-      (sum(l.fact_qty) filter (where not l.skipped))::text as qty,
-      bool_and(l.skipped) as all_skipped,
+      sum(coalesce(l.fact_qty, 0))::text as qty,
       count(*)::int as counts_n
     from inventory_count_lines l
     where l.count_id in (${uuidList(submitted)})
     group by l.product_id`);
-  const rows = res.rows as { product_id: string; product_name: string; unit_name: string | null; group_name: string; qty: string | null; all_skipped: boolean; counts_n: number }[];
+  const rows = res.rows as { product_id: string; product_name: string; unit_name: string | null; group_name: string; qty: string; counts_n: number }[];
   return {
     state,
     admin: rows.map((r) => ({
@@ -229,8 +230,8 @@ async function adminAggregate(db: DbLike, storeId: string, period: string): Prom
       product_name: r.product_name,
       unit_name: r.unit_name,
       group_name: r.group_name,
-      qty: r.all_skipped ? null : Number(r.qty ?? 0),
-      state: r.all_skipped ? "skipped" : "counted",
+      qty: Number(r.qty),
+      state: "counted" as const,
       counts_n: r.counts_n,
     })),
   };

@@ -661,6 +661,8 @@
       "skipped": "Sanalmagan: {count}",
       "incomplete": "To‘ldirilmagan: {count}",
       "skipAll": "To‘ldirilmaganlarni «sanalmadi» deb belgilab yuborish",
+      "incompleteZero": "To‘ldirilmagan: {count} — 0 yoziladi",
+      "zeroAll": "To‘ldirilmaganlarga 0 yozib yuborish",
       "confirm": "Yuborish",
       "cancel": "Qaytish",
       "pendingBlock": "Avval bu qurilmadagi barcha yozuvlar yuborilishini kuting",
