@@ -17,7 +17,7 @@ import {
   suggestions,
   updateTemplate,
 } from "./templates";
-import { allowedPeriods, interimDates } from "./rules";
+import { allowedPeriods, defaultPeriod, interimDates } from "./rules";
 import { enqueueBookSafe } from "./book/queue";
 import { bookRoutes } from "./book/routes";
 import { reconcileRoutes } from "./reconcile/routes";
@@ -49,7 +49,10 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
       }),
     { permission: "inventory.count" }
   )
-  .get("/inventory/periods", () => ({ periods: allowedPeriods(new Date()) }), {
+  .get("/inventory/periods", () => {
+    const now = new Date();
+    return { periods: allowedPeriods(now), default: defaultPeriod(now) };
+  }, {
     permission: "inventory.count",
   })
   .get("/inventory/interim-dates", () => interimDates(new Date()), { permission: "inventory.count" })

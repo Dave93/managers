@@ -51,7 +51,8 @@ const inv = (apiClient.api as any).inventory;
 
 export const inventoryApi = {
   stores: () => call<InventoryStore[]>(inv.stores.get()),
-  periods: () => call<{ periods: string[] }>(inv.periods.get()),
+  /** `default` — месяц, выбранный по умолчанию в «Начать» (с 1-го по 7-е — прошлый). */
+  periods: () => call<{ periods: string[]; default: string }>(inv.periods.get()),
   availableTemplates: (storeId: string) =>
     call<InventoryStartOptions>(inv.templates.available.get({ query: { store_id: storeId } })),
   listCounts: (storeId: string) => call<InventoryCountSummary[]>(inv.counts.get({ query: { store_id: storeId } })),

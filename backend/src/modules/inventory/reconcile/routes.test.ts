@@ -95,7 +95,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         await (await reconcileQueue().getJob(id))?.remove();
       }
     }
-    return { storeId, readyId: ready.id, choiceId: choice.id, waitingId: waiting.id, candA, countId: count.id, waterId, cleanup };
+    return { storeId, waitingStore, readyId: ready.id, choiceId: choice.id, waitingId: waiting.id, candA, countId: count.id, waterId, cleanup };
   }
 
   const office = () => withSession({ permissions: ["inventory.count", "inventory.reconcile"] });
@@ -268,6 +268,33 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(nf.status).toBe(404);
       } finally {
         await w.cleanup();
+      }
+    });
+
+    // 02.11.2026: ежедневный «Kunlik», созданный как месячный, в сверку не идёт (см. service.test.ts).
+    it("месячный по шаблону (Kunlik) в сверке не виден: ни в состоянии админки, ни в возвратах, ни в пересчётах", async () => {
+      const w = await seed();
+      const tplId = randomUUID();
+      try {
+        const o = await office();
+        await drizzleDb.insert(schema.inventory_templates).values({ id: tplId, organization_id: randomUUID(), name: "Kunlik" });
+        for (const store of [w.storeId, w.waitingStore]) {
+          const [c] = await drizzleDb
+            .insert(schema.inventory_counts)
+            .values({ store_id: store, template_id: tplId, template_name: "Kunlik", period: PERIOD, count_date: PERIOD, status: "submitted", created_by: randomUUID() })
+            .returning({ id: schema.inventory_counts.id });
+          await drizzleDb.insert(schema.inventory_count_events).values({ count_id: c.id, type: "reopened", user_id: randomUUID() });
+        }
+        const list = await api(o, "GET", `/api/inventory/reconciliations?period=${PERIOD}`);
+        const waiting = list.body.find((x: any) => x.id === w.waitingId);
+        expect(waiting.admin_state).toBe("none");
+        expect(waiting.reopen_count).toBe(0);
+        expect(list.body.find((x: any) => x.id === w.readyId).reopen_count).toBe(0);
+        const r = await api(o, "GET", `/api/inventory/reconciliations/${w.readyId}`);
+        expect(r.body.counts).toEqual([{ id: w.countId, template_name: "Все товары филиала", status: "submitted" }]);
+      } finally {
+        await w.cleanup();
+        await drizzleDb.delete(schema.inventory_templates).where(eq(schema.inventory_templates.id, tplId));
       }
     });
   });

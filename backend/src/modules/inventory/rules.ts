@@ -58,6 +58,16 @@ export function allowedPeriods(now: Date): string[] {
   return [lastDayOfMonth(y, m), previousPeriod(now)];
 }
 
+/** До этого числа включительно «Начать» → «Месячный» по умолчанию предлагает прошлый месяц — как cron сверки (1–7). */
+export const MONTHLY_DEFAULT_PREVIOUS_UNTIL_DAY = 7;
+
+/** Месяц по умолчанию для нового месячного пересчёта (02.11.2026): 1 ноября склад отправил «Все товары»
+ * за ноябрь вместо октября, потому что по умолчанию стоял текущий месяц. */
+export function defaultPeriod(now: Date): string {
+  const { y, m, d } = tashkentParts(now);
+  return d <= MONTHLY_DEFAULT_PREVIOUS_UNTIL_DAY ? previousPeriod(now) : lastDayOfMonth(y, m);
+}
+
 /** Последний день прошлого месяца по Ташкенту — период, который сверяет cron. */
 export function previousPeriod(now: Date): string {
   const { y, m } = tashkentParts(now);

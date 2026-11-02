@@ -846,7 +846,9 @@
       "monthly": "Oylik",
       "interim": "Oraliq",
       "date": "Sanoq sanasi",
-      "dateHint": "Faqat kecha uchun: kechagi kun oxiridagi qoldiq"
+      "dateHint": "Faqat kecha uchun: kechagi kun oxiridagi qoldiq",
+      "monthlyHint": "Oylik — faqat «Filialning barcha mahsulotlari». Shablonlar (Kunlik) — oraliq sanoq uchun.",
+      "monthlyNoExord": "Oylik sanoq faqat filialning barcha mahsulotlari bo‘yicha, bu ombor uchun esa exord ma'lumotlari yo‘q. Ofisga murojaat qiling."
     },
     "book": {
       "tab": "Hisob bilan solishtirish",

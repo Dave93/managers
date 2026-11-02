@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import {
   allowedPeriods,
+  defaultPeriod,
   interimBookHiddenForBranch,
   interimDates,
   isValidInterimDate,
@@ -54,6 +55,28 @@ describe("allowedPeriods (срока ввода нет: текущий и про
   });
   it("переход через год", () => {
     expect(allowedPeriods(new Date("2027-01-20T07:00:00Z"))).toEqual(["2027-01-31", "2026-12-31"]);
+  });
+});
+
+describe("defaultPeriod (с 1-го по 7-е — прошлый месяц, 02.11.2026)", () => {
+  it("1-е число 03:00 +05 (в UTC ещё 31-е) — прошлый месяц", () => {
+    expect(defaultPeriod(new Date("2026-10-31T22:00:00Z"))).toBe("2026-10-31");
+  });
+  it("7-е 23:59 +05 — ещё прошлый, 8-е 00:00 +05 (в UTC 7-е) — уже текущий", () => {
+    expect(defaultPeriod(new Date("2026-11-07T18:59:00Z"))).toBe("2026-10-31");
+    expect(defaultPeriod(new Date("2026-11-07T19:00:00Z"))).toBe("2026-11-30");
+  });
+  it("в конце месяца — текущий", () => {
+    expect(defaultPeriod(new Date("2026-10-31T07:00:00Z"))).toBe("2026-10-31");
+  });
+  it("переход через год", () => {
+    expect(defaultPeriod(new Date("2027-01-03T07:00:00Z"))).toBe("2026-12-31");
+  });
+  it("всегда один из allowedPeriods", () => {
+    for (const iso of ["2026-10-31T22:00:00Z", "2026-11-07T19:00:00Z", "2027-01-03T07:00:00Z"]) {
+      const now = new Date(iso);
+      expect(allowedPeriods(now)).toContain(defaultPeriod(now));
+    }
   });
 });
 
