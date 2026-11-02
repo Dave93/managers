@@ -15,11 +15,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
   const { eq, inArray, sql } = await import("drizzle-orm");
-  const { allowedPeriods, lastDayOf } = await import("./rules");
+  const { allowedPeriods, interimDates, lastDayOf } = await import("./rules");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
 
   const PERIOD = allowedPeriods(new Date())[0];
+  const YESTERDAY = interimDates(new Date()).max;
 
   async function api(s: Session | null, method: string, path: string, body?: unknown) {
     const headers: Record<string, string> = s ? { ...s.headers } : {};
@@ -107,6 +108,15 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
   type World = Awaited<ReturnType<typeof seedWorld>>;
 
+  // Пересчёт по шаблону — только промежуточный (02.11.2026): месячный по шаблону — 422.
+  const tplCount = (w: World, store = w.storeId) => ({ store_id: store, template_id: w.templateId, kind: "interim", count_date: YESTERDAY });
+  // Месячный — «Все товары филиала»; товары склада по exord = состав шаблона мира [p1, p2].
+  // Вызывать до первого запроса к складу: список товаров филиала кэшируется в redis (и null тоже).
+  async function monthlyInput(w: World) {
+    await w.linkBranch([w.p1, w.p2]);
+    return { store_id: w.storeId, period: PERIOD };
+  }
+
   // Роли. bindStore=true кладёт users_stores на склад мира.
   async function sessionFor(w: World, permissions: string[], bindStore = true) {
     const userId = randomUUID();
@@ -190,7 +200,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const w = await seedWorld();
       const s = await manager(w);
       try {
-        const c = await api(s, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(s, "POST", "/api/inventory/counts", tplCount(w));
         expect(c.status).toBe(200);
         expect(c.body.existing).toBe(false);
         const r = await api(s, "GET", `/api/inventory/counts/${c.body.id}`);
@@ -216,7 +226,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const w = await seedWorld();
       const s = await manager(w);
       try {
-        const input = { store_id: w.storeId, template_id: w.templateId, period: PERIOD };
+        const input = tplCount(w);
         const [a, b] = await Promise.all([
           api(s, "POST", "/api/inventory/counts", input),
           api(s, "POST", "/api/inventory/counts", input),
@@ -240,12 +250,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       const h = await helper(w);
       try {
-        const bad = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: "2020-01-31" });
+        const bad = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, period: "2020-01-31" });
         expect(bad.status).toBe(422);
         expect(bad.body.error).toBe("invalid_period");
-        const foreign = await api(m, "POST", "/api/inventory/counts", { store_id: w.otherStoreId, template_id: w.templateId, period: PERIOD });
+        const foreign = await api(m, "POST", "/api/inventory/counts", tplCount(w, w.otherStoreId));
         expect(foreign.status).toBe(403);
-        const noManage = await api(h, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const noManage = await api(h, "POST", "/api/inventory/counts", tplCount(w));
         expect(noManage.status).toBe(403);
       } finally {
         await m.cleanup();
@@ -260,7 +270,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const o = await office(w);
       const stranger = await sessionFor(w, ["inventory.count"], false);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const ro = await api(o, "GET", `/api/inventory/counts/${c.body.id}`);
         expect(ro.status).toBe(200);
         expect(ro.body.access).toBe("read");
@@ -294,7 +304,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const w = await seedWorld();
       const s = await manager(w);
       try {
-        const c = await api(s, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(s, "POST", "/api/inventory/counts", await monthlyInput(w));
         const r = await api(s, "GET", `/api/inventory/counts/${c.body.id}`);
         const text = JSON.stringify(r.body).toLowerCase();
         expect(text.includes("book")).toBe(false);
@@ -308,7 +318,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   describe("inventory: синхронизация записей", () => {
     async function startedCount(w: World) {
       const m = await manager(w);
-      const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+      const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
       const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
       const lineOf = (pid: string) => d.body.lines.find((l: any) => l.product_id === pid).id as string;
       return { m, countId: c.body.id as string, lineOf };
@@ -467,9 +477,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
   });
   describe("inventory: отправка, возврат, отмена", () => {
+    // Возврат филиалом есть только у месячного (промежуточный возвращает офис) — значит, «Все товары филиала».
     async function startedCount(w: World) {
       const m = await manager(w);
-      const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+      const c = await api(m, "POST", "/api/inventory/counts", await monthlyInput(w));
       const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
       const lineOf = (pid: string) => d.body.lines.find((l: any) => l.product_id === pid).id as string;
       return { m, countId: c.body.id as string, lineOf };
@@ -561,7 +572,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(d.body.lines.every((l: any) => l.fact_qty === null)).toBe(true);
         const cancel = await api(m, "POST", `/api/inventory/counts/${countId}/cancel`, {});
         expect(cancel.status).toBe(200);
-        const again = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const again = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, period: PERIOD });
         expect(again.status).toBe(200);
         expect(again.body.id).not.toBe(countId);
         const events = await drizzleDb
@@ -727,7 +738,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       const o = await office(w);
       try {
-        await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const r = await api(o, "DELETE", `/api/inventory/templates/${w.templateId}`);
         expect(r.status).toBe(409);
         expect(r.body.error).toBe("in_use");
@@ -743,7 +754,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       const o = await office(w);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p3 });
         const s = await api(o, "GET", `/api/inventory/templates/${w.templateId}/suggestions`);
         expect(s.status).toBe(200);
@@ -787,7 +798,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       const o = await office(w);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", await monthlyInput(w));
         const r = await api(o, "GET", `/api/inventory/overview?period=${PERIOD}&organization_id=${w.orgId}`);
         expect(r.status).toBe(200);
         const mine = r.body.find((x: any) => x.store_id === w.storeId);
@@ -832,11 +843,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const m = await manager(w);
       try {
         await w.bindUser(m.userId, w.otherStoreId);
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
         expect(d.body.exord_filtered).toBe(true);
         expect(d.body.lines.map((l: any) => l.product_id)).toEqual([w.p1]);
-        const c2 = await api(m, "POST", "/api/inventory/counts", { store_id: w.otherStoreId, template_id: w.templateId, period: PERIOD });
+        const c2 = await api(m, "POST", "/api/inventory/counts", tplCount(w, w.otherStoreId));
         const d2 = await api(m, "GET", `/api/inventory/counts/${c2.body.id}`);
         expect(d2.body.exord_filtered).toBe(false);
         expect(d2.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p2].sort());
@@ -851,7 +862,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await w.linkBranch([w.p3]);
       const m = await manager(w);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         expect(c.status).toBe(200);
         const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
         expect(d.body.exord_filtered).toBe(true);
@@ -870,7 +881,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const a = await api(m, "GET", `/api/inventory/templates/available?store_id=${w.storeId}`);
         expect(a.body.templates.find((t: any) => t.id === w.templateId).exord_filtered).toBe(false);
         expect(a.body.branch).toEqual({ available: false, items_for_store: 0 });
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const d = await api(m, "GET", `/api/inventory/counts/${c.body.id}`);
         expect(d.body.exord_filtered).toBe(false);
         expect(d.body.lines.map((l: any) => l.product_id).sort()).toEqual([w.p1, w.p2].sort());
@@ -885,7 +896,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await w.linkBranch([w.p1, w.p3]);
       const m = await manager(w);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const off = await api(m, "POST", `/api/inventory/counts/${c.body.id}/lines`, { product_id: w.p2 });
         expect(off.status).toBe(200);
         expect(off.body.created).toBe(true);
@@ -904,7 +915,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await w.linkBranch([w.p1, w.p3]);
       const m = await manager(w);
       try {
-        const c = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const c = await api(m, "POST", "/api/inventory/counts", tplCount(w));
         const scoped = await api(m, "GET", `/api/inventory/products?q=${encodeURIComponent(w.tag)}&count_id=${c.body.id}`);
         expect(scoped.status).toBe(200);
         expect(scoped.body.map((p: any) => [p.id, p.in_branch])).toEqual([
@@ -960,7 +971,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("создание без шаблона — все товары филиала, повтор не создаёт дубль, шаблонная живёт рядом", async () => {
+    it("создание без шаблона — все товары филиала, повтор не создаёт дубль; месячный по шаблону — 422", async () => {
       const w = await seedWorld();
       await w.linkBranch([w.p1, w.p3]);
       const m = await manager(w);
@@ -980,11 +991,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         expect(d.body.lines.find((l: any) => l.product_id === w.p1).group_name).toBe("Склад / Мясные продукты");
         const again = await api(m, "POST", "/api/inventory/counts", input);
         expect(again.body).toEqual({ id: x.body.id, existing: true });
+        // 02.11.2026: месячный по шаблону (Kunlik) складывался в сверке с настоящим месячным — запрещён.
         const tpl = await api(m, "POST", "/api/inventory/counts", { ...input, template_id: w.templateId });
-        expect(tpl.status).toBe(200);
-        expect(tpl.body.id).not.toBe(x.body.id);
+        expect(tpl.status).toBe(422);
+        expect(tpl.body.error).toBe("monthly_template_forbidden");
         const list = await api(m, "GET", `/api/inventory/counts?store_id=${w.storeId}`);
-        expect(list.body.length).toBe(2);
+        expect(list.body.length).toBe(1);
       } finally {
         await m.cleanup();
         await w.cleanup();
@@ -1127,6 +1139,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     it("один промежуточный на склад, дату и шаблон; другие даты и месячный за тот же месяц — отдельно", async () => {
       const w = await seedWorld();
       try {
+        const monthlyBody = await monthlyInput(w);
         const m = await manager(w);
         const { body: dates } = await api(m, "GET", "/api/inventory/interim-dates");
         const base = { store_id: w.storeId, template_id: w.templateId, kind: "interim" };
@@ -1143,7 +1156,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           })
           .returning({ id: schema.inventory_counts.id });
         expect(other.id).not.toBe(a.body.id);
-        const monthly = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, template_id: w.templateId, period: PERIOD });
+        const monthly = await api(m, "POST", "/api/inventory/counts", monthlyBody);
         expect(monthly.status).toBe(200);
         expect(monthly.body.existing).toBe(false);
         const md = await api(m, "GET", `/api/inventory/counts/${monthly.body.id}`);

@@ -846,7 +846,9 @@
       "monthly": "Monthly",
       "interim": "Interim",
       "date": "Count date",
-      "dateHint": "Yesterday only: stock at the end of yesterday"
+      "dateHint": "Yesterday only: stock at the end of yesterday",
+      "monthlyHint": "Monthly — all branch products only. Templates (Kunlik) are for interim counts.",
+      "monthlyNoExord": "A monthly count covers all branch products, but this store has no exord data. Contact the office."
     },
     "book": {
       "tab": "Compare with book stock",

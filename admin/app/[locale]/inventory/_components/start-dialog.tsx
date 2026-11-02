@@ -35,6 +35,10 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
 
   const templates = options.data?.templates;
   const branch = options.data?.branch;
+  // Месячный — только «Все товары филиала» (02.11.2026): месячный по шаблону (Kunlik) складывался
+  // в сверке с iiko с настоящим месячным. Шаблоны — только для промежуточного.
+  const monthly = kind === "monthly";
+  const monthlyBlocked = monthly && branch !== undefined && !branch.available;
   // По умолчанию — все товары филиала, если exord есть; иначе единственный шаблон.
   useEffect(() => {
     if (!options.data) return;
@@ -44,15 +48,16 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
       return options.data.templates.length === 1 ? options.data.templates[0].id : "";
     });
   }, [options.data]);
+  const selected = monthly ? (branch?.available ? BRANCH : "") : templateId;
   useEffect(() => {
-    if (periods.data?.periods.length) setPeriod((p) => p || periods.data!.periods[0]);
+    if (periods.data?.periods.length) setPeriod((p) => p || periods.data!.default || periods.data!.periods[0]);
   }, [periods.data]);
 
   const create = useMutation({
     mutationFn: () =>
       inventoryApi.createCount({
         store_id: storeId,
-        ...(templateId === BRANCH ? {} : { template_id: templateId }),
+        ...(selected === BRANCH ? {} : { template_id: selected }),
         ...(kind === "interim" ? { kind, count_date: countDate } : { period }),
       }),
     onSuccess: (r) => {
@@ -88,10 +93,12 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
           </div>
           <div className="space-y-1">
             <div className="text-sm font-medium">{t("template")}</div>
-            {templates && templates.length === 0 && !branch?.available ? (
+            {monthlyBlocked ? (
+              <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">{t("kind.monthlyNoExord")}</div>
+            ) : !monthly && templates && templates.length === 0 && !branch?.available ? (
               <div className="text-sm text-muted-foreground">{t("noTemplates")}</div>
             ) : (
-              <Select value={templateId} onValueChange={setTemplateId}>
+              <Select value={selected} onValueChange={setTemplateId} disabled={monthly}>
                 <SelectTrigger className="h-11">
                   <SelectValue placeholder={t("template")} />
                 </SelectTrigger>
@@ -100,17 +107,19 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
                     {t("branchAll")} ·{" "}
                     {branch?.available ? t("itemsCount", { count: branch.items_for_store }) : t("branchUnavailable")}
                   </SelectItem>
-                  {(templates ?? []).map((tpl) => (
-                    <SelectItem key={tpl.id} value={tpl.id}>
-                      {tpl.name} · {t("itemsCount", { count: tpl.items_for_store })}
-                      {tpl.organization_name ? ` · ${tpl.organization_name}` : ""}
-                    </SelectItem>
-                  ))}
+                  {!monthly &&
+                    (templates ?? []).map((tpl) => (
+                      <SelectItem key={tpl.id} value={tpl.id}>
+                        {tpl.name} · {t("itemsCount", { count: tpl.items_for_store })}
+                        {tpl.organization_name ? ` · ${tpl.organization_name}` : ""}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             )}
+            {monthly && !monthlyBlocked && <div className="text-xs text-muted-foreground">{t("kind.monthlyHint")}</div>}
           </div>
-          {branch && !branch.available && (
+          {!monthly && branch && !branch.available && (
             <div className="rounded border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">{t("noExord")}</div>
           )}
           {kind === "interim" ? (
@@ -144,7 +153,7 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
           <Button
             size="lg"
             onClick={() => create.mutate()}
-            disabled={!templateId || (kind === "interim" ? !countDate : !period) || create.isPending}
+            disabled={!selected || (kind === "interim" ? !countDate : !period) || create.isPending}
           >
             {t("create")}
           </Button>

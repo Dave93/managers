@@ -214,6 +214,9 @@ export async function createCount(
     countDate = input.count_date;
     period = lastDayOf(countDate);
   } else {
+    // Месячный — только «Все товары филиала» (02.11.2026): месячный по шаблону (Kunlik) в сверке с iiko
+    // складывался с настоящим месячным. Проверка до findActive — иначе вернули бы старый такой пересчёт.
+    if (templateId) throw new InventoryError(422, "monthly_template_forbidden");
     if (!input.period || !allowedPeriods(now).includes(input.period)) {
       throw new InventoryError(422, "invalid_period", { allowed: allowedPeriods(now) });
     }

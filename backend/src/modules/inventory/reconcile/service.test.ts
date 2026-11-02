@@ -199,6 +199,54 @@ if (!dbLooksLikeTest) {
       }
     });
 
+    // 02.11.2026: филиалы создавали ежедневный «Kunlik» как месячный, и в конце месяца сверка
+    // складывала его с «Все товары филиала». В сверку идёт только месячный без шаблона.
+    it("месячный по шаблону (Kunlik) в сверку не попадает: ни в A, ни в область, ни в «устарел»", async () => {
+      const w = await seed();
+      const onlyTpl = randomUUID();
+      const tplId = randomUUID();
+      try {
+        await drizzleDb.insert(schema.corporation_store).values({ id: onlyTpl, name: "Только Kunlik месячный", type: "STORE" });
+        await drizzleDb.insert(schema.inventory_templates).values({ id: tplId, organization_id: randomUUID(), name: "Kunlik" });
+        const user = randomUUID();
+        const kunlik: Record<string, string> = {};
+        for (const store of [w.D, onlyTpl]) {
+          const [c] = await drizzleDb
+            .insert(schema.inventory_counts)
+            .values({ store_id: store, template_id: tplId, template_name: "Kunlik", period: PERIOD, count_date: PERIOD, status: "submitted", created_by: user })
+            .returning({ id: schema.inventory_counts.id });
+          kunlik[store] = c.id;
+          await drizzleDb.insert(schema.inventory_count_lines).values({
+            count_id: c.id, product_id: w.p1, product_name: "Вода", group_name: "Склад", source: "template", fact_qty: "100",
+          });
+        }
+
+        const { scope } = await computeScope(drizzleDb, w.iiko, { period: PERIOD });
+        expect(scope).not.toContain(onlyTpl);
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const d = await w.recon(w.D);
+        const [p1] = (await w.lines(d.id)).filter((l) => l.product_id === w.p1);
+        expect(Number(p1.admin_qty)).toBe(5);
+        expect(p1.admin_counts_n).toBe(1);
+
+        // Филиал поправил месячный Kunlik после расчёта — сверка не устарела.
+        await drizzleDb
+          .update(schema.inventory_counts)
+          .set({ updated_at: sql`now() + interval '1 second'` })
+          .where(eq(schema.inventory_counts.id, kunlik[w.D]));
+        expect(await refreshIfStale(drizzleDb, d.id)).toBe(false);
+
+        // Только месячный Kunlik, документа iiko нет: склад вне области, сверки нет.
+        expect(await w.recon(onlyTpl)).toBeUndefined();
+      } finally {
+        await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, onlyTpl));
+        await drizzleDb.delete(schema.inventory_counts).where(inArray(schema.inventory_counts.store_id, [w.D, onlyTpl]));
+        await drizzleDb.delete(schema.inventory_templates).where(eq(schema.inventory_templates.id, tplId));
+        await drizzleDb.delete(schema.corporation_store).where(eq(schema.corporation_store.id, onlyTpl));
+        await w.cleanup();
+      }
+    });
+
     it("склад без документа: waiting_iiko, A − C считается, B пусто", async () => {
       const w = await seed();
       try {
