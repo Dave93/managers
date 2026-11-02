@@ -1,8 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import type { AttendanceImportRow, AttendanceSheetPreview, UnmatchedReason } from "@admin/lib/kpi-api";
 import {
-  HISTORY_CHECK_FAILED, IMPORT_STATUS, MAPPING_FIELDS, UNMATCHED_REASON_TEXT, columnLabel, columnLetter, defaultSheet, fileIssue,
-  guessMapping, headersAt, importTotalsText, mappingIssues, previewBody, replaceNotice, rowsCountText, skippedReasonsText, toMapping,
+  COMMIT_ISSUE_KEY, HISTORY_CHECK_FAILED, IMPORT_STATUS, MAPPING_FIELDS, UNMATCHED_REASON_TEXT, columnLabel, columnLetter, commitBodyIssue,
+  defaultSheet, fileIssue, guessMapping, headersAt, importTotalsText, mappingIssues, organizationOptions, previewBody, replaceNotice,
+  rowsCountText, skippedReasonsText, toMapping,
 } from "./attendance";
 
 describe("колонки", () => {
@@ -77,9 +78,11 @@ describe("проверки", () => {
 });
 
 describe("итоги и прошлые загрузки", () => {
+  const ORG_A = "11111111-1111-4111-8111-111111111111";
+  const ORG_B = "22222222-2222-4222-8222-222222222222";
   const imp = (o: Partial<AttendanceImportRow>): AttendanceImportRow => ({
-    id: "i1", period: "2025-09-01", file_name: "workly.xlsx", uploaded_by: "u1", uploaded_by_name: null, sheet: "Лист1", header_row: 1,
-    mapping: { external_id: 0, date: 1 }, rows_total: 50, rows_matched: 42, rows_unmatched: 8, rows_skipped: 0, skipped: [], days_present: 38, days_late: 5,
+    id: "i1", period: "2025-09-01", file_name: "workly.xlsx", uploaded_by: "u1", uploaded_by_name: null, organization_id: ORG_A, source: "file",
+    sheet: "Лист1", header_row: 1, mapping: { external_id: 0, date: 1 }, rows_total: 50, rows_matched: 42, rows_unmatched: 8, rows_skipped: 0, skipped: [], days_present: 38, days_late: 5,
     days_absent: 4, unmatched: [], status: "committed", created_at: "2025-10-02T05:30:00.000Z", ...o,
   });
   it("importTotalsText", () => {
@@ -96,18 +99,61 @@ describe("итоги и прошлые загрузки", () => {
     expect(skippedReasonsText([r("not_working_day"), r("no_marks"), r("not_working_day")])).toBe("Нерабочий день: 2, Нет отметок прихода и ухода: 1");
     expect(skippedReasonsText([])).toBe("");
   });
-  it("replaceNotice: действующий импорт, сбой истории, ничего", () => {
-    const text = replaceNotice({ data: [imp({ id: "i0", status: "replaced", file_name: "old.xlsx" }), imp({})], error: null }, "2025-09-01");
-    expect(text).toBe(
-      "За сентябрь 2025 уже загружен «workly.xlsx» 02.10.2025 10:30, сопоставлено строк: 42. Новая загрузка заменит его. " +
-        "Сотрудники, которых нет в новом файле, потеряют данные за месяц"
-    );
-    expect(replaceNotice({ data: undefined, error: new Error("сеть") }, "2025-09-01")).toBe(HISTORY_CHECK_FAILED);
+  const ORG = { id: ORG_A, name: "Les Ailes" };
+  const NOTICE_A =
+    "Импорт организации «Les Ailes» за сентябрь 2025 будет заменён: «workly.xlsx», загружен 02.10.2025 10:30, сопоставлено строк: 42. " +
+    "Сотрудники, которых нет в новом файле, потеряют данные за месяц";
+  it("replaceNotice: действующий импорт выбранной организации, сбой истории, ничего", () => {
+    const text = replaceNotice({ data: [imp({ id: "i0", status: "replaced", file_name: "old.xlsx" }), imp({})], error: null }, "2025-09-01", ORG);
+    expect(text).toBe(NOTICE_A);
+    expect(replaceNotice({ data: undefined, error: new Error("сеть") }, "2025-09-01", ORG)).toBe(HISTORY_CHECK_FAILED);
     expect(HISTORY_CHECK_FAILED).toBe("Не удалось проверить прошлые загрузки");
     // Сбой фонового обновления при уже загруженной истории: верим последним данным
-    expect(replaceNotice({ data: [imp({})], error: new Error("сеть") }, "2025-09-01")).toBe(text);
-    expect(replaceNotice({ data: [], error: new Error("сеть") }, "2025-09-01")).toBeNull();
-    expect(replaceNotice({ data: [imp({ status: "replaced" })], error: null }, "2025-09-01")).toBeNull();
-    expect(replaceNotice({ data: undefined, error: null }, "2025-09-01")).toBeNull();
+    expect(replaceNotice({ data: [imp({})], error: new Error("сеть") }, "2025-09-01", ORG)).toBe(text);
+    expect(replaceNotice({ data: [], error: new Error("сеть") }, "2025-09-01", ORG)).toBeNull();
+    expect(replaceNotice({ data: [imp({ status: "replaced" })], error: null }, "2025-09-01", ORG)).toBeNull();
+    expect(replaceNotice({ data: undefined, error: null }, "2025-09-01", ORG)).toBeNull();
+  });
+  it("replaceNotice: заменяется импорт только выбранной организации", () => {
+    // История месяца содержит импорты всех организаций
+    expect(replaceNotice({ data: [imp({ organization_id: ORG_B })], error: null }, "2025-09-01", ORG)).toBeNull();
+    expect(replaceNotice({ data: [imp({ organization_id: ORG_B }), imp({})], error: null }, "2025-09-01", ORG)).toBe(NOTICE_A);
+    // Для другой организации предупреждение про её собственный импорт
+    expect(replaceNotice({ data: [imp({ organization_id: ORG_B, file_name: "chopar.xlsx" })], error: null }, "2025-09-01", { id: ORG_B, name: "Chopar" })).toBe(
+      "Импорт организации «Chopar» за сентябрь 2025 будет заменён: «chopar.xlsx», загружен 02.10.2025 10:30, сопоставлено строк: 42. " +
+        "Сотрудники, которых нет в новом файле, потеряют данные за месяц"
+    );
+    // Прежний импорт без организации коммит не заменяет: не предупреждаем
+    expect(replaceNotice({ data: [imp({ organization_id: null })], error: null }, "2025-09-01", ORG)).toBeNull();
+    // Заменённый импорт выбранной организации уже не действует
+    expect(replaceNotice({ data: [imp({ status: "replaced" }), imp({ organization_id: ORG_B })], error: null }, "2025-09-01", ORG)).toBeNull();
+    // Импорт из API той же организации коммит файла тоже заменяет
+    expect(replaceNotice({ data: [imp({ source: "api", file_name: "Workly API", sheet: null, header_row: null, mapping: null })], error: null }, "2025-09-01", ORG)).toContain(
+      "«Workly API»"
+    );
+  });
+  it("replaceNotice: пока организация не выбрана — без предупреждения, даже при сбое истории", () => {
+    expect(replaceNotice({ data: [imp({})], error: null }, "2025-09-01", null)).toBeNull();
+    expect(replaceNotice({ data: [imp({})], error: null }, "2025-09-01", undefined)).toBeNull();
+    expect(replaceNotice({ data: undefined, error: new Error("сеть") }, "2025-09-01", null)).toBeNull();
+  });
+  it("commitBodyIssue: без организации — organization_required, с организацией — null", () => {
+    expect(commitBodyIssue({ organization_id: "" })).toBe("organization_required");
+    expect(commitBodyIssue({ organization_id: "   " })).toBe("organization_required");
+    expect(commitBodyIssue({ organization_id: undefined })).toBe("organization_required");
+    expect(commitBodyIssue({ organization_id: null })).toBe("organization_required");
+    expect(commitBodyIssue({})).toBe("organization_required");
+    expect(commitBodyIssue({ organization_id: ORG_A })).toBeNull();
+    expect(commitBodyIssue({ organization_id: "o1" })).toBeNull();
+    expect(COMMIT_ISSUE_KEY.organization_required).toBe("lib.attendance.issue.organizationRequired");
+  });
+  it("organizationOptions: только подключения с организацией, без повторов", () => {
+    const e = (key: string, organization_id: string | null, organization_name: string) => ({ key, organization_id, organization_name });
+    expect(
+      organizationOptions([e("les", ORG_A, "Les Ailes"), e("none", null, "Без организации"), e("chopar", ORG_B, "Chopar"), e("les2", ORG_A, "Les Ailes")])
+    ).toEqual([{ id: ORG_A, name: "Les Ailes" }, { id: ORG_B, name: "Chopar" }]);
+    expect(organizationOptions([e("none", null, "Без организации")])).toEqual([]);
+    expect(organizationOptions(undefined)).toEqual([]);
+    expect(organizationOptions([])).toEqual([]);
   });
 });

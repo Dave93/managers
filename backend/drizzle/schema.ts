@@ -1592,13 +1592,22 @@ export const employees = pgTable("employees", {
   pin_hash: text("pin_hash"),
   external_id: varchar("external_id", { length: 100 }),
   active: boolean("active").default(true).notNull(),
+  /** Идентификатор в Workly: пара (компания, сотрудник). Заполняет синхронизация сотрудников. */
+  workly_company_id: integer("workly_company_id"),
+  workly_id: integer("workly_id"),
+  /** Табельный номер из Workly. */
+  workly_tab_number: varchar("workly_tab_number", { length: 32 }),
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
   updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),
-});
+}, (t) => [
+  uniqueIndex("employees_workly_uq")
+    .on(t.workly_company_id, t.workly_id)
+    .where(sql`${t.workly_id} is not null`),
+]);
 
 export const attestation_tests = pgTable("attestation_tests", {
   id: uuid("id").defaultRandom().primaryKey().notNull(),
@@ -3083,15 +3092,20 @@ export const kpi_notifications = pgTable(
   ]
 );
 
-// Импорт посещаемости из Workly за месяц. status: committed | replaced.
-// mapping — { sheet, header_row, mapping }; unmatched — до 500 несопоставленных строк.
+// Импорт посещаемости Workly за месяц и организацию. status: committed | replaced.
+// mapping у файла — { sheet, header_row, mapping, totals, skipped? }, у синхронизации с API —
+// { source: "api", totals, window, unknown, skipped? }; unmatched — до 500 несопоставленных строк.
+// uploaded_by пуст у ночного прогона синхронизации (он идёт без пользователя).
+// organization_id заполняют и синхронизация, и мастер файловой загрузки; пуст он только у прежних
+// файловых импортов (мастер на проде с 2026-10-27 до релиза Workly), их замена по организации не трогает.
 export const kpi_attendance_imports = pgTable(
   "kpi_attendance_imports",
   {
     id: uuid("id").defaultRandom().primaryKey().notNull(),
     period: date("period", { mode: "string" }).notNull(),
     file_name: varchar("file_name", { length: 255 }).notNull(),
-    uploaded_by: uuid("uploaded_by").notNull(),
+    uploaded_by: uuid("uploaded_by"),
+    organization_id: uuid("organization_id"),
     mapping: jsonb("mapping").notNull(),
     rows_total: integer("rows_total").default(0).notNull(),
     rows_matched: integer("rows_matched").default(0).notNull(),
@@ -3269,5 +3283,61 @@ export const kpi_branch_scores = pgTable(
   (t) => [
     uniqueIndex("kpi_branch_scores_uq").on(t.period, t.terminal_id, t.version),
     index("kpi_branch_scores_period_version_idx").on(t.period, t.version),
+  ]
+);
+
+// Точки Workly (локации) компании организации. terminal_id — филиал, к которому точка привязана;
+// null, пока привязку не сделали вручную.
+export const workly_locations = pgTable(
+  "workly_locations",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    workly_company_id: integer("workly_company_id").notNull(),
+    workly_location_id: integer("workly_location_id").notNull(),
+    title: varchar("title", { length: 120 }).notNull(),
+    terminal_id: uuid("terminal_id"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("workly_locations_uq").on(t.workly_company_id, t.workly_location_id)]
+);
+
+// Запуск синхронизации с Workly. kind: employees | attendance; trigger: manual | schedule;
+// status: running | planned | applied | blocked | failed | rolled_back.
+// workly_company_id заполняется, когда запуск узнаёт компанию. period — месяц, только для attendance.
+// counts — итог применения (у attendance: { days, unknown, carried, import_id }); plan — { items, report },
+// пока запуск идёт, пуст. block_reason — почему запуск заблокирован; error — код сбоя:
+// client_invalid | force_update | auth_failed | http_error | not_configured |
+// company_mismatch (учётка подключения от другой компании Workly) | crawl_failed | empty_crawl |
+// stale | apply_failed (ночное применение упало, applyRun всё откатил) | period_closed | period_not_started
+// (посещаемость) | enqueue_failed (маршрут создал строку, но не смог поставить задачу в очередь).
+// Коды ответов API Workly, которые в error не пишутся: queue_unavailable, organization_not_connected,
+// employee_not_found, workly_employee_not_found.
+// Одновременно на (организация, вид) допускается один запуск в статусе running.
+export const workly_sync_runs = pgTable(
+  "workly_sync_runs",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    workly_company_id: integer("workly_company_id"),
+    kind: varchar("kind", { length: 16 }).notNull(),
+    period: date("period", { mode: "string" }),
+    trigger: varchar("trigger", { length: 16 }).notNull(),
+    status: varchar("status", { length: 16 }).notNull(),
+    block_reason: varchar("block_reason", { length: 32 }),
+    counts: jsonb("counts").default(sql`'{}'::jsonb`).notNull(),
+    active_fetched: integer("active_fetched").default(0).notNull(),
+    plan: jsonb("plan"),
+    error: text("error"),
+    created_by: uuid("created_by"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    applied_at: timestamp("applied_at", { withTimezone: true, mode: "string" }),
+  },
+  (t) => [
+    index("workly_sync_runs_org_created_idx").on(t.organization_id, t.created_at),
+    uniqueIndex("workly_sync_runs_running_uq")
+      .on(t.organization_id, t.kind)
+      .where(sql`${t.status} = 'running'`),
   ]
 );

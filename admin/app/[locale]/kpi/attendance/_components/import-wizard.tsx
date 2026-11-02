@@ -1,5 +1,5 @@
 "use client";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useId, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
@@ -15,14 +15,17 @@ import {
   type UnmatchedRow,
 } from "@admin/lib/kpi-api";
 import {
+  COMMIT_ISSUE_KEY,
   MAPPING_FIELDS,
   UNMATCHED_REASON_KEY,
   columnLabel,
+  commitBodyIssue,
   defaultSheet,
   fileIssue,
   guessMapping,
   headersAt,
   mappingIssues,
+  organizationOptions,
   previewBody,
   replaceNotice,
   toMapping,
@@ -32,6 +35,7 @@ import { KpiApiError, kpiErrorText, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL } from "@admin/lib/kpi/filters";
 import { monthLabel } from "@admin/lib/kpi/periods";
 import { qk } from "../../_components/use-kpi";
+import { useWorklyStatus } from "../../workly/_components/use-workly-status";
 import { ImportResult } from "./import-result";
 
 const MAX_HEADER_ROW = 20;
@@ -50,6 +54,8 @@ export function ImportWizard({ period }: { period: string }) {
   const [sheetName, setSheetName] = useState("");
   const [headerRow, setHeaderRow] = useState(1);
   const [draft, setDraft] = useState<MappingDraft>({});
+  // Организация загрузки: пустая строка — не выбрана. По умолчанию ничего не выбрано, выбор осознанный.
+  const [organizationId, setOrganizationId] = useState("");
   const [reading, setReading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [result, setResult] = useState<AttendanceImportRow | null>(null);
@@ -58,13 +64,24 @@ export function ImportWizard({ period }: { period: string }) {
   // Смена key сбрасывает выбранный файл в поле.
   const [fileKey, setFileKey] = useState(0);
   const commitLatch = useRef(false);
+  // Подсказка «Выберите организацию» стоит у кнопки загрузки; на неё ссылаются и кнопка, и выбор организации.
+  const organizationHintId = useId();
+
+  // Организации — подключения Workly с найденной в базе организацией (та же загрузка, что на экране Workly).
+  const status = useWorklyStatus();
+  const options = useMemo(() => organizationOptions(status.data), [status.data]);
+  // Выбранная организация, пропавшая из обновлённого списка, считается невыбранной.
+  const chosen = options.find((o) => o.id === organizationId) ?? null;
+  const commitIssue = commitBodyIssue({ organization_id: chosen?.id });
+  // Без вариантов выбора подсказка не нужна: там своё сообщение «организаций нет».
+  const organizationHint = commitIssue !== null && options.length > 0 ? commitIssue : null;
 
   const imports = useQuery<AttendanceImportRow[], Error>({
     queryKey: qk.attendanceImports(period),
     queryFn: () => kpiApi.attendance.imports(period),
     retry: shouldRetry,
   });
-  const notice = replaceNotice({ data: imports.data, error: imports.error }, period, tk, locale);
+  const notice = replaceNotice({ data: imports.data, error: imports.error }, period, chosen, tk, locale);
 
   const sheet = useMemo(() => parsed?.sheets.find((s) => s.name === sheetName) ?? null, [parsed, sheetName]);
   const rows = useMemo(() => sheet?.rows ?? [], [sheet]);
@@ -79,6 +96,7 @@ export function ImportWizard({ period }: { period: string }) {
     setParsed(null);
     setSheetName("");
     setDraft({});
+    setOrganizationId("");
     setResult(null);
     setFailed(null);
     setFileKey((k) => k + 1);
@@ -135,9 +153,16 @@ export function ImportWizard({ period }: { period: string }) {
     });
   };
 
+  const pickOrganization = (id: string) => {
+    // Причины прошлой неудачи относились к сотрудникам прежней организации.
+    setFailed(null);
+    setOrganizationId(id);
+  };
+
   const commit = async () => {
     const mapping = toMapping(draft);
-    if (!parsed || !mapping || errors.length > 0 || commitLatch.current) return;
+    // Без организации запрос не уходит: сервер ответил бы 422 organization_required.
+    if (!parsed || !mapping || !chosen || commitIssue !== null || errors.length > 0 || commitLatch.current) return;
     commitLatch.current = true;
     setCommitting(true);
     try {
@@ -147,6 +172,7 @@ export function ImportWizard({ period }: { period: string }) {
         period,
         header_row: headerRow,
         mapping,
+        organization_id: chosen.id,
       });
       setResult(row);
       setStep("done");
@@ -171,7 +197,7 @@ export function ImportWizard({ period }: { period: string }) {
     return (
       <section className="space-y-3 rounded-md border p-4">
         <h2 className="text-base font-medium">{t("uploadedFor", { month: monthLabel(result.period, locale) })}</h2>
-        <ImportResult row={result} />
+        <ImportResult row={result} organizationName={options.find((o) => o.id === result.organization_id)?.name ?? chosen?.name ?? null} />
         <Button type="button" variant="outline" className="h-11" onClick={reset}>
           {t("uploadAnother")}
         </Button>
@@ -206,6 +232,46 @@ export function ImportWizard({ period }: { period: string }) {
         <Button type="button" variant="outline" className="h-11" disabled={committing} onClick={reset}>
           {tc("cancel")}
         </Button>
+      </div>
+
+      <div className="space-y-1">
+        {options.length > 0 ? (
+          <>
+            <label className="block space-y-1 text-sm sm:max-w-md">
+              <span>
+                {t("organization")}
+                <span className="ml-1 text-xs text-muted-foreground">{t("required")}</span>
+              </span>
+              <Select value={chosen?.id ?? ""} disabled={committing} onValueChange={pickOrganization}>
+                <SelectTrigger
+                  className="h-11 w-full"
+                  aria-label={t("organization")}
+                  aria-required="true"
+                  aria-describedby={organizationHint ? organizationHintId : undefined}
+                >
+                  <SelectValue placeholder={t("organizationPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.map((o) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+          </>
+        ) : status.data === undefined && status.error != null ? (
+          <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">
+            {kpiErrorText(status.error, tk)}
+          </p>
+        ) : status.isPending ? (
+          <p className="text-sm text-muted-foreground">{tc("loading")}</p>
+        ) : (
+          <p role="alert" className="text-sm text-destructive">
+            {t("organizationsEmpty")}
+          </p>
+        )}
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -337,9 +403,23 @@ export function ImportWizard({ period }: { period: string }) {
 
       {notice && <p className="text-sm text-amber-700">{notice}</p>}
 
-      <Button type="button" className="h-11" disabled={errors.length > 0 || committing} onClick={commit}>
-        {committing ? t("uploading") : t("uploadFor", { month: monthLabel(period, locale) })}
-      </Button>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <Button
+          type="button"
+          className="h-11"
+          disabled={errors.length > 0 || commitIssue !== null || committing}
+          aria-describedby={organizationHint ? organizationHintId : undefined}
+          onClick={commit}
+        >
+          {committing ? t("uploading") : t("uploadFor", { month: monthLabel(period, locale) })}
+        </Button>
+        {/* Причина недоступной кнопки — рядом с ней, а не у выбора организации далеко выше. */}
+        {organizationHint && (
+          <p id={organizationHintId} className="text-sm text-destructive">
+            {tk(COMMIT_ISSUE_KEY[organizationHint])}
+          </p>
+        )}
+      </div>
 
       {failedRows.length > 0 && (
         <div className="space-y-1" role="alert">

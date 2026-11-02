@@ -1,5 +1,5 @@
 import type { staff_roles } from "backend/drizzle/schema";
-import { parsePosition, type Group, type Shift } from "../terminals/network-map";
+import { parsePosition, type Group, type Shift } from "../terminals/position";
 
 // Справочник ролей и сборка канонической строки должности.
 //
@@ -16,7 +16,7 @@ import { parsePosition, type Group, type Shift } from "../terminals/network-map"
 //      строка. Единый шаблон, чтобы новые записи перестали ломать разбор.
 //
 // Разбор строки НЕ дублируется: parsePosition остаётся единственным, он
-// импортируется из terminals/network-map.
+// импортируется из terminals/position (network-map его переэкспортирует).
 
 export interface SeedRole {
   code: string;
@@ -75,7 +75,8 @@ export const SEED_ROLES: SeedRole[] = [
  * Разборное имя роли: ровно та строка, которую возвращает parsePosition().role.
  *
  * Совпадение с сегодняшним name_ru — историческое, а не обязательное. Разбор
- * живёт в network-map.ts на регулярках и о справочнике не знает; эта таблица —
+ * живёт в terminals/position.ts на регулярках (network-map.ts его переэкспортирует)
+ * и о справочнике не знает; эта таблица —
  * единственный мост между ним и кодами ролей, и она принципиально константная:
  * менять её вправе только тот, кто меняет сами регулярки.
  */

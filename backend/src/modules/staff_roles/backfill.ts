@@ -6,11 +6,11 @@ import {
   composePosition,
   roundTrips,
 } from "./catalog";
-import { parsePosition } from "../terminals/network-map";
+import { parsePosition } from "../terminals/position";
 
 // Разбор 386 живых строк должности и проставление новых полей.
 //
-// Разбор здесь не свой: parsePosition импортируется из network-map, третьего
+// Разбор здесь не свой: parsePosition импортируется из terminals/position, третьего
 // парсера в бэкенде нет и не будет. Задача скрипта — решить, что делать с
 // результатом, и решение ровно одно на каждую строку:
 //

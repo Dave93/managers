@@ -43,12 +43,13 @@ function RowsTable({ rows, total }: { rows: UnmatchedRow[]; total: number }) {
   );
 }
 
-export function ImportResult({ row }: { row: AttendanceImportRow }) {
+export function ImportResult({ row, organizationName }: { row: AttendanceImportRow; organizationName?: string | null }) {
   const t = useTranslations("kpiScreens.attendance.result");
   const tk = useTranslations("kpi");
   const showUnknown = row.unmatched.some((u) => u.reason === "unknown_external_id");
   return (
     <div className="space-y-3">
+      {organizationName && <p className="text-sm">{t("organization", { name: organizationName })}</p>}
       <p className="text-sm">{rowsCountText(row, tk)}</p>
       <p className="text-sm">{importTotalsText(row, tk)}</p>
       {row.rows_unmatched > 0 && (

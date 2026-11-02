@@ -54,6 +54,14 @@ export const qk = {
   revenuePlans: (period: string) => ["kpi_revenue_plans", period] as const,
   sanitaryAll: ["kpi_sanitary"] as const,
   sanitaryTemplate: ["kpi_sanitary_template"] as const,
+  worklyStatus: ["kpi_workly", "status"] as const,
+  worklyRun: (id: string) => ["kpi_workly", "run", id] as const,
+  worklyLocations: (orgId: string) => ["kpi_workly", "locations", orgId] as const,
+  worklyQuality: (orgId: string, period: string) => ["kpi_workly", "quality", orgId, period] as const,
+  /** Качество за все месяцы и организации — сбрасывается после синхронизации посещаемости. */
+  worklyQualityAll: ["kpi_workly", "quality"] as const,
+  worklyTerminals: (orgId: string) => ["kpi_workly", "terminals", orgId] as const,
+  worklyEmployees: (orgId: string, q: string) => ["kpi_workly", "employees", orgId, q] as const,
 };
 
 /** Права текущего пользователя. Тот же ключ и queryFn, что у useMyPermissions: один кэш. */

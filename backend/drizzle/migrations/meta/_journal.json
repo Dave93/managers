@@ -288,6 +288,13 @@
       "when": 1793010443424,
       "tag": "0040_kpi_tg_dual",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1793364850851,
+      "tag": "0041_workly_sync",
+      "breakpoints": true
     }
   ]
 }

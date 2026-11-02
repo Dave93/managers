@@ -21,6 +21,15 @@ describe("canOpen", () => {
     expect(canOpen(["kpi_layout", "kpi.manage"], "attendance")).toBe(true);
     expect(canOpen(["kpi_layout", "kpi.view", "kpi.approve", "kpi.evaluate"], "attendance")).toBe(false);
   });
+  it("экран Workly (синхронизация) — только kpi.manage", () => {
+    expect(canOpen(["kpi_layout", "kpi.manage"], "workly")).toBe(true);
+    expect(canOpen(["kpi_layout", "kpi.view", "kpi.approve", "kpi.evaluate"], "workly")).toBe(false);
+    // kpi.manage без kpi_layout экран не открывает: как у остальных экранов KPI.
+    expect(canOpen(["kpi.manage"], "workly")).toBe(false);
+    expect(canOpen([], "workly")).toBe(false);
+    expect(canOpen(undefined, "workly")).toBe(false);
+    expect(KPI_SCREEN_TITLE.workly).toBe("Синхронизация Workly");
+  });
   it("экраны балла филиала", () => {
     expect(canOpen(["kpi_layout", "kpi.view"], "network")).toBe(true);
     expect(canOpen(["kpi_layout", "kpi.evaluate"], "network")).toBe(false);

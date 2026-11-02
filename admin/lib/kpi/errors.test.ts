@@ -67,9 +67,9 @@ describe("тексты ошибок", () => {
     expect(kpiErrorText(new KpiApiError(409, "external_id_taken", { error: "external_id_taken" })))
       .toBe("Этот табельный номер уже у другого сотрудника");
     expect(kpiErrorText(new KpiApiError(422, "nothing_matched", { error: "nothing_matched", rows_total: 12 })))
-      .toBe("Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц (строк в файле: 12)");
+      .toBe("Ни одна строка не сопоставлена с сотрудниками выбранной организации. Проверьте организацию, колонки и месяц (строк в файле: 12)");
     expect(kpiErrorText(new KpiApiError(422, "nothing_matched", { error: "nothing_matched" })))
-      .toBe("Ни одна строка не сопоставлена с сотрудниками. Проверьте колонки и месяц");
+      .toBe("Ни одна строка не сопоставлена с сотрудниками выбранной организации. Проверьте организацию, колонки и месяц");
   });
   it("toKpiError: код из тела, иначе по статусу", () => {
     expect(toKpiError(409, { error: "dispute_exists" }).code).toBe("dispute_exists");

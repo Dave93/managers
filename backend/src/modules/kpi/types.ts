@@ -243,8 +243,12 @@ export interface AttendanceTotals { days_present: number; days_late: number; day
 
 export interface AttendanceParseResponse { token: string; file_name: string; expires_at: string; sheets: AttendanceSheetPreview[] }
 export interface AttendanceImportRow extends AttendanceTotals {
-  id: string; period: string; file_name: string; uploaded_by: string; uploaded_by_name: string | null;
-  sheet: string; header_row: number; mapping: AttendanceMapping;
+  id: string; period: string; file_name: string; uploaded_by: string | null; uploaded_by_name: string | null;
+  // Организация импорта: её нет у прежних файловых импортов (мастер на проде с 2026-10-27 до релиза Workly
+  // организацию не спрашивал). source: file — файл Excel/CSV, api — синхронизация с Workly
+  // (у api-импорта нет листа, строки заголовков и сопоставления колонок: у него они null, у файлового заполнены).
+  organization_id: string | null; source: "file" | "api";
+  sheet: string | null; header_row: number | null; mapping: AttendanceMapping | null;
   rows_total: number; rows_matched: number; rows_unmatched: number; unmatched: UnmatchedRow[];
   // Строки найденных сотрудников, не попавшие в учёт (нерабочий день, нет отметок, дата вне месяца, дубль дня)
   rows_skipped: number; skipped: UnmatchedRow[];

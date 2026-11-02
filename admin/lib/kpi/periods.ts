@@ -32,7 +32,19 @@ export function periodOptions(now: Date, n: number): string[] {
   return Array.from({ length: n }, (_, i) => addMonths(cur, -i));
 }
 
+// Узбекские названия месяцев строчными, как в CLDR (кириллица — «сентябр», «октябр»): Intl в
+// браузерах для uz-Latn даёт то «2026 M10», то «oktabr, 2026», поэтому подпись собирается сама.
+const UZ_MONTHS: Record<"uz-Latn" | "uz-Cyrl", readonly string[]> = {
+  "uz-Latn": ["yanvar", "fevral", "mart", "aprel", "may", "iyun", "iyul", "avgust", "sentabr", "oktabr", "noyabr", "dekabr"],
+  "uz-Cyrl": ["январ", "феврал", "март", "апрел", "май", "июн", "июл", "август", "сентябр", "октябр", "ноябр", "декабр"],
+};
+
 export function monthLabel(p: string, locale = "ru"): string {
+  if (locale === "uz-Latn" || locale === "uz-Cyrl") {
+    const [y, m] = parts(p);
+    const name = UZ_MONTHS[locale][m - 1];
+    if (name) return `${name} ${y}`;
+  }
   return periodLabel(p, locale).replace(/\s*г\.$/, "");
 }
 
