@@ -29,6 +29,7 @@ import { parseFilterFields } from "@backend/lib/parseFilterFields";
 import { createInsertSchema } from "drizzle-typebox";
 import { ctx } from "@backend/context";
 import type { DrizzleDB } from "@backend/lib/db";
+import { fetchIikoCloudToken, pickIikoAuth } from "@backend/lib/iiko-cloud-token";
 import dayjs from "dayjs";
 
 
@@ -154,24 +155,15 @@ async function cloudSession(drizzle: DrizzleDB, brand: string): Promise<CloudSes
       )
     )
     .execute();
-  const apiLogin = creds.find((c) => c.type === "iiko_login")?.key;
+  const auth = pickIikoAuth(creds);
   const iikoOrgId = creds.find((c) => c.type === "iiko_id")?.key;
-  if (!apiLogin || !iikoOrgId) {
+  if (!auth || !iikoOrgId) {
     throw new Error("Нет iiko-кредов организации (iiko_login / iiko_id)");
   }
 
-  const body: any = await (
-    await fetchIikoWithRetry(`${IIKO_URL}access_token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiLogin }),
-    })
-  ).json();
-  if (!body?.token) {
-    throw new Error(`iiko не выдал токен: ${body?.errorDescription ?? "нет описания"}`);
-  }
+  const token = await fetchIikoCloudToken(IIKO_URL, auth, fetchIikoWithRetry);
 
-  return { token: body.token, iikoOrgId };
+  return { token, iikoOrgId };
 }
 
 /** Отправляет команду iikoCloud и ждёт, пока касса её выполнит. */
@@ -519,9 +511,9 @@ async function runRefresh({
       )
       .execute();
 
-    const apiLogin = orgCreds.find((c) => c.type === "iiko_login")?.key;
+    const auth = pickIikoAuth(orgCreds);
     const iikoOrgId = orgCreds.find((c) => c.type === "iiko_id")?.key;
-    if (!apiLogin || !iikoOrgId) {
+    if (!auth || !iikoOrgId) {
       report.errors.push(
         `${currentBrand}: нет iiko-кредов организации (iiko_login / iiko_id)`
       );
@@ -530,22 +522,7 @@ async function runRefresh({
 
     let token: string | undefined;
     try {
-      const tokenBody: any = await (
-        await fetchIikoWithRetry(`${IIKO_URL}access_token`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ apiLogin }),
-        })
-      ).json();
-      token = tokenBody?.token;
-      if (!token) {
-        report.errors.push(
-          `${currentBrand}: iiko не выдал токен — ${
-            tokenBody?.errorDescription ?? "нет описания"
-          }`
-        );
-        continue;
-      }
+      token = await fetchIikoCloudToken(IIKO_URL, auth, fetchIikoWithRetry);
     } catch (e: any) {
       report.errors.push(
         `${currentBrand}: ошибка access_token — ${e.message}`

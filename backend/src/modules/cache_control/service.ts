@@ -7,6 +7,7 @@ import {
   workSchedulesWithRelations,
 } from "./dto/cache.dto";
 import { DrizzleDB } from "@backend/lib/db";
+import { fetchIikoCloudToken, pickIikoAuth } from "@backend/lib/iiko-cloud-token";
 import {
   InferSelectModel,
   and,
@@ -403,9 +404,9 @@ export class CacheControlService {
 
     for (const org of orgs) {
       const creds = credsByOrg[org.id] ?? [];
-      const login = creds.find((c) => c.type === "iiko_login")?.key;
+      const auth = pickIikoAuth(creds);
       const iikoId = creds.find((c) => c.type === "iiko_id")?.key;
-      if (!login || !iikoId) {
+      if (!auth || !iikoId) {
         result.errors.push(`${org.name}: нет iiko-кредов (login/id)`);
         continue;
       }
@@ -435,22 +436,7 @@ export class CacheControlService {
 
       let token: string | undefined;
       try {
-        const tokenBody = await (
-          await fetch(`${iikoUrl}access_token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ apiLogin: login }),
-          })
-        ).json();
-        token = tokenBody?.token;
-        if (!token) {
-          result.errors.push(
-            `${org.name}: iiko авторизация не прошла — ${
-              tokenBody?.errorDescription ?? "нет токена"
-            }`
-          );
-          continue;
-        }
+        token = await fetchIikoCloudToken(iikoUrl, auth);
       } catch (e: any) {
         result.errors.push(`${org.name}: ошибка iiko access_token — ${e.message}`);
         continue;

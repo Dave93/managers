@@ -6,6 +6,7 @@ import {
 import { z } from "zod";
 import Redis from "ioredis/built/Redis";
 import { terminals, credentials } from "@backend/../drizzle/schema";
+import { fetchIikoCloudToken, pickIikoAuth } from "@backend/lib/iiko-cloud-token";
 import { InferSelectModel, and, eq, inArray } from "drizzle-orm";
 
 export class TerminalsService {
@@ -67,21 +68,16 @@ export class TerminalsService {
               }));
           }
 
-          const tokenResponse = await fetch(`${iikoUrl}access_token`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              apiLogin: iikoLogin,
-            }),
-          });
-
-          const tokenBody = await tokenResponse.json();
-          const { token } = tokenBody;
-
-          if (!token) {
+          let token: string;
+          try {
+            token = await fetchIikoCloudToken(
+              iikoUrl,
+              pickIikoAuth(organization.credentials)!
+            );
+          } catch (e: any) {
             console.error(
               `[terminals sync] ${organization.name}: iiko auth failed -`,
-              tokenBody?.errorDescription ?? tokenBody
+              e.message
             );
             continue;
           }

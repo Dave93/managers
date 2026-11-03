@@ -1,4 +1,5 @@
 import { drizzleDb } from "@backend/lib/db";
+import { fetchIikoCloudToken, pickIikoAuth } from "@backend/lib/iiko-cloud-token";
 import {
   organizationWithCredentials,
   terminalsWithCredentials,
@@ -74,19 +75,16 @@ async function syncTerminals() {
           }));
       }
 
-      const tokenResponse = await fetch(`${iikoUrl}access_token`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiLogin: iikoLogin }),
-      });
-
-      const tokenBody = await tokenResponse.json();
-      const { token } = tokenBody;
-
-      if (!token) {
+      let token: string;
+      try {
+        token = await fetchIikoCloudToken(
+          iikoUrl,
+          pickIikoAuth(organization.credentials)!
+        );
+      } catch (e: any) {
         console.error(
           `[terminals sync] org ${organization.id}: iiko auth failed -`,
-          tokenBody?.errorDescription ?? tokenBody
+          e.message
         );
         continue;
       }
