@@ -1,6 +1,6 @@
 // Права экранов KPI. Наборы повторяют права GET-роутов backend/src/modules/kpi.
 
-export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance" | "workly" | "network" | "branch" | "revenue_plans" | "sanitary";
+export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance" | "workly" | "network" | "branch" | "revenue_plans" | "sanitary" | "staff";
 
 export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   // kpi.approve: HR разбирает споры и правит оценки закрытого месяца (hr_adjusted) — нужна форма и журнал.
@@ -16,6 +16,8 @@ export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   branch: ["kpi.view", "kpi.manage", "kpi.approve"],
   revenue_plans: ["kpi.manage"],
   sanitary: ["kpi.evaluate", "kpi.manage"],
+  // Привязка Telegram своих сотрудников: те же права, что у списка сотрудников; кого именно, решает сервер.
+  staff: ["kpi.evaluate", "kpi.view", "kpi.manage"],
 };
 
 export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
@@ -31,6 +33,7 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   branch: "Филиал",
   revenue_plans: "План выручки",
   sanitary: "Санитарная проверка",
+  staff: "Регистрация в Telegram",
 };
 
 export function canOpen(perms: readonly string[] | undefined, screen: KpiScreen): boolean {

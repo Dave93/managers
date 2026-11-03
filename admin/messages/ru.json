@@ -990,7 +990,8 @@
       "network": "Сеть",
       "branch": "Филиал",
       "revenue_plans": "План выручки",
-      "sanitary": "Санитарная проверка"
+      "sanitary": "Санитарная проверка",
+      "staff": "Регистрация в Telegram"
     },
     "playground": "Детская площадка",
     "playgroundScan": "Сканирование",
@@ -1073,7 +1074,8 @@
       "month": "Месяц",
       "raises": "Повышения",
       "branchScore": "Балл филиала",
-      "sanitary": "Санитария"
+      "sanitary": "Санитария",
+      "staff": "Регистрация в Telegram"
     },
     "homePlaceholder": "Главная страница"
   },
@@ -3645,6 +3647,26 @@
         "reasonVisible": "Причину отмены увидит сотрудник",
         "back": "Назад"
       }
+    },
+    "staff": {
+      "title": "Регистрация в Telegram",
+      "hint": "Покажите сотруднику QR: он наводит камеру телефона, открывается бот «Мой KPI», остаётся нажать «Старт».",
+      "loading": "Загрузка…",
+      "empty": "Сотрудников с картой KPI, которых вы видите, нет.",
+      "terminalAria": "Филиал",
+      "allTerminals": "Все филиалы",
+      "searchAria": "Поиск сотрудника",
+      "searchPlaceholder": "Фамилия или имя",
+      "onlyUnbound": "Только без Telegram",
+      "connected": "Привязано {connected} из {total}",
+      "progressAria": "Доля сотрудников с привязанным Telegram",
+      "allConnected": "У всех Telegram уже привязан.",
+      "noMatches": "По выбранным фильтрам никого нет.",
+      "statusUnknownAria": "Статус Telegram неизвестен",
+      "qr": "QR",
+      "newQr": "Новый QR",
+      "qrAria": "Показать QR для {name}",
+      "newQrAria": "Новый QR для {name}"
     }
   },
   "passportUi": {

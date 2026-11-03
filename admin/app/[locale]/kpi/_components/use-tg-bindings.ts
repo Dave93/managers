@@ -5,7 +5,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { kpiApi, type TgBindingRow } from "@admin/lib/kpi-api";
 import { shouldRetry } from "@admin/lib/kpi/errors";
 import { chunkIds, indexBindings } from "@admin/lib/kpi/telegram";
-import { qk } from "../../_components/use-kpi";
+import { qk } from "./use-kpi";
 
 /** Статус привязки в ячейке: пока данных нет или загрузка не удалась, «не привязан» говорить нельзя. */
 export type TgState = "loading" | "error" | "ready";

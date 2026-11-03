@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
@@ -11,13 +11,14 @@ import { kpiApi, type KpiInvite, type TgBindingRow, type TgTarget } from "@admin
 import { kpiErrorText } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { bindingLabel, inviteHint } from "@admin/lib/kpi/telegram";
-import { qk } from "../../_components/use-kpi";
+import { qk } from "./use-kpi";
 
 /**
  * Ссылка-приглашение в бота. Создаётся только по кнопке: новая ссылка гасит прежнюю,
  * и случайное открытие окна не должно сломать уже разосланную. Токен виден только в ссылке и QR;
  * `gcTime: 0` не оставляет ответ в кэше мутаций после закрытия окна.
  * `binding` — текущая привязка из таблицы: когда появляется новая, окно показывает «Telegram подключён» вместо QR и ссылки.
+ * `autoCreate` — экран, где QR показывают сотруднику с руки: ссылка создаётся сразу при открытии окна, а не по кнопке.
  */
 export function InviteDialog({
   target,
@@ -25,19 +26,21 @@ export function InviteDialog({
   binding,
   open,
   onClose,
+  autoCreate = false,
 }: {
   target: TgTarget;
   name: string;
   binding: TgBindingRow | undefined;
   open: boolean;
   onClose: () => void;
+  autoCreate?: boolean;
 }) {
   const [pending, setPending] = useState(false);
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !pending && onClose()}>
       <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
         {/* Тело монтируется только при открытии: закрыли — ссылка из состояния компонента ушла. */}
-        {open && <InviteBody target={target} name={name} binding={binding} onClose={onClose} onPending={setPending} />}
+        {open && <InviteBody target={target} name={name} binding={binding} autoCreate={autoCreate} busy={pending} onClose={onClose} onPending={setPending} />}
       </DialogContent>
     </Dialog>
   );
@@ -50,12 +53,16 @@ function InviteBody({
   target,
   name,
   binding,
+  autoCreate,
+  busy,
   onClose,
   onPending,
 }: {
   target: TgTarget;
   name: string;
   binding: TgBindingRow | undefined;
+  autoCreate: boolean;
+  busy: boolean;
   onClose: () => void;
   onPending: (p: boolean) => void;
 }) {
@@ -79,7 +86,16 @@ function InviteBody({
     onError: (e) => toast.error(kpiErrorText(e, t)),
     onSettled: () => onPending(false),
   });
-  const busy = create.isPending;
+  // Ссылку создаём один раз: повторный запуск эффекта (StrictMode) не должен гасить только что созданную.
+  // «Занято» берём из onMutate/onSettled (busy), а не из create.isPending: при gcTime: 0 наблюдатель, отписанный
+  // повторным запуском эффекта, остаётся в «pending», хотя запрос завершён.
+  const { mutate } = create;
+  const autoStarted = useRef(false);
+  useEffect(() => {
+    if (!autoCreate || autoStarted.current) return;
+    autoStarted.current = true;
+    mutate();
+  }, [autoCreate, mutate]);
 
   const copy = async () => {
     if (!invite) return;

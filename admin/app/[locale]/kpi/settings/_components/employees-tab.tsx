@@ -24,7 +24,7 @@ import {
 import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiMe, useKpiTerminals } from "../../_components/use-kpi";
 import { TgCell } from "./tg-cell";
-import { useTgBindings } from "./use-tg-bindings";
+import { useTgBindings } from "../../_components/use-tg-bindings";
 
 const MIN_SEARCH = 2;
 

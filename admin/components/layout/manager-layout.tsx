@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
-import { Boxes, CalendarCheck, ClipboardCheck, ClipboardList, Gauge, ListChecks, MessageSquareWarning, Sheet, TrendingUp, TriangleAlert } from "lucide-react";
+import { Boxes, CalendarCheck, ClipboardCheck, ClipboardList, Gauge, ListChecks, MessageSquareWarning, QrCode, Sheet, TrendingUp, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import Link from "next/link";
 import CanAccess from "@admin/components/can-access";
@@ -218,6 +218,16 @@ function MoreMenu() {
             >
               <ClipboardList aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
               {tm("sanitary")}
+            </Link>
+          )}
+          {canOpen(perms, "staff") && (
+            <Link
+              href="/kpi/staff"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-3 px-4 py-3 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            >
+              <QrCode aria-hidden="true" className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+              {tm("staff")}
             </Link>
           )}
         </div>

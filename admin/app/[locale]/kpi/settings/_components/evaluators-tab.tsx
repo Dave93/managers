@@ -25,7 +25,7 @@ import { scopeLabel } from "@admin/lib/kpi/settings";
 import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiTerminals } from "../../_components/use-kpi";
 import { TgCell } from "./tg-cell";
-import { useTgBindings } from "./use-tg-bindings";
+import { useTgBindings } from "../../_components/use-tg-bindings";
 
 const MIN_SEARCH = 2;
 const MAX_FOUND = 20;
