@@ -990,7 +990,8 @@
       "network": "Тармоқ",
       "branch": "Филиал",
       "revenue_plans": "Тушум режаси",
-      "sanitary": "Санитария текшируви"
+      "sanitary": "Санитария текшируви",
+      "staff": "Telegram улаш"
     },
     "playground": "Болалар майдончаси",
     "playgroundScan": "Сканерлаш",
@@ -1073,7 +1074,8 @@
       "month": "Ой",
       "raises": "Оширишлар",
       "branchScore": "Филиал бали",
-      "sanitary": "Санитария"
+      "sanitary": "Санитария",
+      "staff": "Telegram улаш"
     },
     "homePlaceholder": "Бош саҳифа"
   },
@@ -3645,6 +3647,26 @@
         "reasonVisible": "Бекор қилиш сабабини ходим кўради",
         "back": "Орқага"
       }
+    },
+    "staff": {
+      "title": "Telegram улаш",
+      "hint": "Ходимга QR кодни кўрсатинг: у телефон камерасини йўналтиради, «Менинг KPI» боти очилади, «Start» тугмасини босиш қолади.",
+      "loading": "Юкланмоқда…",
+      "empty": "Сиз кўра оладиган, KPI картаси бор ходимлар йўқ.",
+      "terminalAria": "Филиал",
+      "allTerminals": "Барча филиаллар",
+      "searchAria": "Ходимни қидириш",
+      "searchPlaceholder": "Фамилия ёки исм",
+      "onlyUnbound": "Telegram уланмаганлар",
+      "connected": "{total} тадан {connected} таси боғланган",
+      "progressAria": "Telegram боғланган ходимлар улуши",
+      "allConnected": "Ҳамма ходимда Telegram аллақачон боғланган.",
+      "noMatches": "Танланган филтрлар бўйича ҳеч ким йўқ.",
+      "statusUnknownAria": "Telegram ҳолати номаълум",
+      "qr": "QR",
+      "newQr": "Янги QR",
+      "qrAria": "{name} учун QR ни кўрсатиш",
+      "newQrAria": "{name} учун янги QR"
     }
   },
   "passportUi": {

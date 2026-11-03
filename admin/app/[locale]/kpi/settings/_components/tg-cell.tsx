@@ -18,8 +18,8 @@ import { kpiErrorText } from "@admin/lib/kpi/errors";
 import { bindingLabel } from "@admin/lib/kpi/telegram";
 import { KpiBadge } from "../../_components/kpi-badge";
 import { qk } from "../../_components/use-kpi";
-import { InviteDialog } from "./invite-dialog";
-import type { TgState } from "./use-tg-bindings";
+import { InviteDialog } from "../../_components/invite-dialog";
+import type { TgState } from "../../_components/use-tg-bindings";
 
 /** Ячейка «Telegram»: статус привязки, ссылка-приглашение и отвязка. */
 export function TgCell({

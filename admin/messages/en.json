@@ -990,7 +990,8 @@
       "network": "Network",
       "branch": "Branch",
       "revenue_plans": "Revenue plan",
-      "sanitary": "Sanitary inspection"
+      "sanitary": "Sanitary inspection",
+      "staff": "Telegram registration"
     },
     "playground": "Playground",
     "playgroundScan": "Scanning",
@@ -1073,7 +1074,8 @@
       "month": "Month",
       "raises": "Raises",
       "branchScore": "Branch score",
-      "sanitary": "Sanitation"
+      "sanitary": "Sanitation",
+      "staff": "Telegram registration"
     },
     "homePlaceholder": "This is the home page"
   },
@@ -3645,6 +3647,26 @@
         "reasonVisible": "The employee will see the cancellation reason",
         "back": "Back"
       }
+    },
+    "staff": {
+      "title": "Telegram registration",
+      "hint": "Show the employee the QR code: they point their phone camera at it, the “My KPI” bot opens, and they tap “Start”.",
+      "loading": "Loading…",
+      "empty": "There are no employees with a KPI card that you can see.",
+      "terminalAria": "Branch",
+      "allTerminals": "All branches",
+      "searchAria": "Search employee",
+      "searchPlaceholder": "Last or first name",
+      "onlyUnbound": "Without Telegram only",
+      "connected": "Linked {connected} of {total}",
+      "progressAria": "Share of employees with Telegram linked",
+      "allConnected": "Everyone already has Telegram linked.",
+      "noMatches": "No one matches the selected filters.",
+      "statusUnknownAria": "Telegram status unknown",
+      "qr": "QR",
+      "newQr": "New QR",
+      "qrAria": "Show QR for {name}",
+      "newQrAria": "New QR for {name}"
     }
   },
   "passportUi": {

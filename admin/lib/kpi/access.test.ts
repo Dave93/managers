@@ -39,6 +39,14 @@ describe("canOpen", () => {
     expect(canOpen(["kpi_layout", "kpi.evaluate"], "sanitary")).toBe(true);
     expect(canOpen(["kpi_layout", "kpi.view"], "sanitary")).toBe(false);
   });
+  it("экран регистрации в Telegram: менеджер филиала и HR, не одно только kpi.approve", () => {
+    expect(canOpen(["kpi_layout", "kpi.view"], "staff")).toBe(true);
+    expect(canOpen(["kpi_layout", "kpi.evaluate"], "staff")).toBe(true);
+    expect(canOpen(["kpi_layout", "kpi.manage"], "staff")).toBe(true);
+    expect(canOpen(["kpi_layout", "kpi.approve"], "staff")).toBe(false);
+    expect(canOpen(["kpi.view"], "staff")).toBe(false);
+    expect(KPI_SCREEN_TITLE.staff).toBe("Регистрация в Telegram");
+  });
   it("заголовки новых экранов", () => {
     expect([KPI_SCREEN_TITLE.network, KPI_SCREEN_TITLE.branch, KPI_SCREEN_TITLE.revenue_plans, KPI_SCREEN_TITLE.sanitary]).toEqual(["Сеть", "Филиал", "План выручки", "Санитарная проверка"]);
   });

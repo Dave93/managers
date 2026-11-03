@@ -1,6 +1,6 @@
 import { employees, kpi_cards, kpi_employee_cards, staff_roles, terminals, users } from "backend/drizzle/schema";
 import { and, eq, inArray } from "drizzle-orm";
-import { has, type Actor, type DbLike, viewsTerminal } from "./access";
+import { has, loadScopes, type Actor, type DbLike, viewsTerminal } from "./access";
 import { matchesName, searchWords } from "./name-search";
 import { effectiveCardId, scopeCovers, type CardLite, type Scope } from "./rules";
 
@@ -78,6 +78,14 @@ export function canEvaluate(actor: Actor, scopes: Scope[], e: Target): boolean {
 
 export function canSeeEmployee(actor: Actor, scopes: Scope[], e: Target): boolean {
   return viewsTerminal(actor, e.terminal_id) || canEvaluate(actor, scopes, e);
+}
+
+// Из ids — активные сотрудники с картой KPI, которых actor видит в списке «Оценок».
+export async function visibleCardedIds(db: DbLike, actor: Actor, ids: string[]): Promise<Set<string>> {
+  if (ids.length === 0) return new Set();
+  const scopes = await loadScopes(db, actor.userId);
+  const dir = await loadDirectory(db, { employeeIds: ids });
+  return new Set(dir.filter((e) => e.card_id !== null && canSeeEmployee(actor, scopes, e)).map((e) => e.id));
 }
 
 // Видимость по текущему положению сотрудника или по снимку (филиал и карта записи на момент события).

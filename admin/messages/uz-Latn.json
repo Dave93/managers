@@ -990,7 +990,8 @@
       "network": "Tarmoq",
       "branch": "Filial",
       "revenue_plans": "Tushum rejasi",
-      "sanitary": "Sanitariya tekshiruvi"
+      "sanitary": "Sanitariya tekshiruvi",
+      "staff": "Telegram ulash"
     },
     "playground": "Bolalar maydonchasi",
     "playgroundScan": "Skanerlash",
@@ -1073,7 +1074,8 @@
       "month": "Oy",
       "raises": "Oshirishlar",
       "branchScore": "Filial bali",
-      "sanitary": "Sanitariya"
+      "sanitary": "Sanitariya",
+      "staff": "Telegram ulash"
     },
     "homePlaceholder": "Bosh sahifa"
   },
@@ -3645,6 +3647,26 @@
         "reasonVisible": "Bekor qilish sababini xodim ko'radi",
         "back": "Orqaga"
       }
+    },
+    "staff": {
+      "title": "Telegram ulash",
+      "hint": "Xodimga QR kodni ko'rsating: u telefon kamerasini yo'naltiradi, «Mening KPI» boti ochiladi, «Start» tugmasini bosish qoladi.",
+      "loading": "Yuklanmoqda…",
+      "empty": "Siz ko'ra oladigan, KPI kartasi bor xodimlar yo'q.",
+      "terminalAria": "Filial",
+      "allTerminals": "Barcha filiallar",
+      "searchAria": "Xodimni qidirish",
+      "searchPlaceholder": "Familiya yoki ism",
+      "onlyUnbound": "Telegram ulanmaganlar",
+      "connected": "{total} tadan {connected} tasi bog'langan",
+      "progressAria": "Telegram bog'langan xodimlar ulushi",
+      "allConnected": "Hamma xodimda Telegram allaqachon bog'langan.",
+      "noMatches": "Tanlangan filtrlar bo'yicha hech kim yo'q.",
+      "statusUnknownAria": "Telegram holati noma'lum",
+      "qr": "QR",
+      "newQr": "Yangi QR",
+      "qrAria": "{name} uchun QR ni ko'rsatish",
+      "newQrAria": "{name} uchun yangi QR"
     }
   },
   "passportUi": {

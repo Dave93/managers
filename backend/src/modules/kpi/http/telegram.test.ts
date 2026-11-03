@@ -11,7 +11,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { api, bindTelegram, cleanupKpi, makeEmployee, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
+  const { api, bindTelegram, cleanupKpi, makeEmployee, makeScope, makeUser, newTelegramId, setNow, setup } = await import("./fixtures");
   const { kpi_tg_bindings } = await import("backend/drizzle/schema");
   const { bindingOf, createInvite, deactivateByTelegramId, hasAnyActiveBinding, recipientOf, redeemInvite, setLang } = await import("../tg/bindings");
   const { employees, kpi_tg_invites, users } = await import("backend/drizzle/schema");
@@ -34,8 +34,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
 
     it("приглашение: права и ввод", async () => {
-      const view = await withSession({ permissions: ["kpi.view"] });
-      expect((await api(view, "POST", "/api/kpi/invites", { employee_id: randomUUID() })).status).toBe(403);
+      const nobody = await withSession({ permissions: ["kpi.approve"] });
+      expect((await api(nobody, "POST", "/api/kpi/invites", { employee_id: randomUUID() })).status).toBe(403);
       const hr = await withSession({ permissions: ["kpi.manage"] });
       for (const body of [{}, { employee_id: randomUUID(), user_id: randomUUID() }, { employee_id: "x" }]) {
         expect((await api(hr, "POST", "/api/kpi/invites", body)).body).toEqual({ error: "bad_target" });
@@ -146,8 +146,70 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await api(hr, "DELETE", `/api/kpi/tg/bindings/${b.id}`)).status).toBe(200);
       expect((await api(hr, "DELETE", `/api/kpi/tg/bindings/${randomUUID()}`)).status).toBe(404);
       expect((await api(hr, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).body).toEqual([]);
-      const view = await withSession({ permissions: ["kpi.view"] });
-      expect((await api(view, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).status).toBe(403);
+      const nobody = await withSession({ permissions: ["kpi.approve"] });
+      expect((await api(nobody, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).status).toBe(403);
+      expect((await api(null, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`)).status).toBe(401);
+    });
+
+    describe("менеджер филиала: только свои сотрудники с картой", () => {
+      const cook = (terminal_id?: string) => makeEmployee(db, { role_code: "cook", terminal_id });
+
+      it("kpi.view + филиал: приглашение и статус своего сотрудника", async () => {
+        const e = await cook();
+        const mgr = await withSession({ permissions: ["kpi.view"], terminals: [e.terminal_id] });
+        const r = await api(mgr, "POST", "/api/kpi/invites", { employee_id: e.id });
+        expect(r.status).toBe(200);
+        expect(r.body.link).toBe(`https://t.me/kpi_test_bot?start=kpi_${r.body.token}`);
+        const b = await bindTelegram(db, { employee_id: e.id });
+        const list = await api(mgr, "GET", `/api/kpi/tg/bindings?employee_ids=${e.id}`);
+        expect(list.body.map((x: TgBindingRow) => x.id)).toEqual([b.id]);
+      });
+
+      it("сотрудник чужого филиала: приглашение — 404, привязка не видна", async () => {
+        const mine = await cook();
+        const other = await cook();
+        await bindTelegram(db, { employee_id: other.id });
+        const mgr = await withSession({ permissions: ["kpi.view"], terminals: [mine.terminal_id] });
+        const r = await api(mgr, "POST", "/api/kpi/invites", { employee_id: other.id });
+        expect([r.status, r.body]).toEqual([404, { error: "not_found" }]);
+        expect((await api(mgr, "GET", `/api/kpi/tg/bindings?employee_ids=${other.id}`)).body).toEqual([]);
+      });
+
+      it("без карты KPI, неактивный и несуществующий — 404", async () => {
+        const e = await makeEmployee(db);
+        const gone = await makeEmployee(db, { role_code: "cook", terminal_id: e.terminal_id, active: false });
+        const mgr = await withSession({ permissions: ["kpi.view"], terminals: [e.terminal_id] });
+        for (const id of [e.id, gone.id, randomUUID()]) {
+          expect((await api(mgr, "POST", "/api/kpi/invites", { employee_id: id })).status).toBe(404);
+        }
+      });
+
+      it("kpi.evaluate: только в своей зоне", async () => {
+        const mine = await cook();
+        const other = await cook();
+        const u = await makeUser(db);
+        await makeScope(db, u.id, { terminal_id: mine.terminal_id });
+        const ev = await withSession({ permissions: ["kpi.evaluate"], userId: u.id });
+        expect((await api(ev, "POST", "/api/kpi/invites", { employee_id: mine.id })).status).toBe(200);
+        expect((await api(ev, "POST", "/api/kpi/invites", { employee_id: other.id })).status).toBe(404);
+      });
+
+      it("пользователи (оценщики) и отвязка — только kpi.manage", async () => {
+        const e = await cook();
+        const b = await bindTelegram(db, { employee_id: e.id });
+        const u = await makeUser(db);
+        const mgr = await withSession({ permissions: ["kpi.view", "kpi.evaluate"], terminals: [e.terminal_id] });
+        expect((await api(mgr, "POST", "/api/kpi/invites", { user_id: u.id })).status).toBe(403);
+        expect((await api(mgr, "GET", `/api/kpi/tg/bindings?user_ids=${u.id}`)).status).toBe(403);
+        expect((await api(mgr, "DELETE", `/api/kpi/tg/bindings/${b.id}`)).status).toBe(403);
+      });
+
+      it("ввод проверяется так же, как у HR", async () => {
+        const mgr = await withSession({ permissions: ["kpi.view"], terminals: [randomUUID()] });
+        expect((await api(mgr, "POST", "/api/kpi/invites", {})).body).toEqual({ error: "bad_target" });
+        expect((await api(mgr, "POST", "/api/kpi/invites", { employee_id: "x" })).body).toEqual({ error: "bad_target" });
+        expect((await api(mgr, "GET", "/api/kpi/tg/bindings?employee_ids=bad")).body).toEqual({ error: "bad_id" });
+      });
     });
     it("в KPI_BOT_USERNAME ведущая @ не попадает в ссылку", async () => {
       const e = await makeEmployee(db);
