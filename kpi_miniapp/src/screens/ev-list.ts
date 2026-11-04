@@ -6,7 +6,7 @@ import { lang, t } from "../i18n";
 import { hashOf } from "../route";
 import { chevron, h } from "../ui";
 import { type EvFilter, evListView } from "../view/ev-list";
-import { inAppLink, linkRow } from "./ev-common";
+import { fill, inAppLink, linkRow } from "./ev-common";
 
 let filter: EvFilter = { terminal_id: null, card_id: null, status: "all", search: "" };
 
@@ -28,13 +28,14 @@ export function renderEvList(d: EvEmployees, nowMs: number): HTMLElement {
 
   const refresh = (): void => {
     const vm = evListView(d, filter, lang(), nowMs);
-    chips.replaceChildren(
-      ...vm.statuses.map((s) =>
+    fill(
+      chips,
+      vm.statuses.map((s) =>
         h("button", { type: "button", class: "ev-st", "aria-pressed": String(filter.status === s.value), onclick: () => { filter = { ...filter, status: s.value }; refresh(); } }, `${s.label} ${s.count}`),
       ),
     );
     counter.textContent = vm.counter;
-    list.replaceChildren(
+    fill(list, [
       vm.empty
         ? h("p", { class: "card ev-empty", role: "status" }, t(vm.empty))
         : h("section", { class: "card rows" }, ...vm.rows.map((r) =>
@@ -47,7 +48,7 @@ export function renderEvList(d: EvEmployees, nowMs: number): HTMLElement {
                 chevron()),
             ),
           )),
-    );
+    ]);
   };
 
   const search = h("input", { class: "ev-field", type: "search", "aria-label": t("ev_search_ph"), placeholder: t("ev_search_ph"), autocomplete: "off", oninput: (e: Event) => { filter = { ...filter, search: (e.target as HTMLInputElement).value }; refresh(); } });
