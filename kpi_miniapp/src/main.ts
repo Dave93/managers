@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvEmployees, EvReviewForm, EvViolationForm } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -27,9 +27,11 @@ import { provideNav } from "./nav";
 import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
 import { hashOf, parseHash, routeAllowed } from "./route";
+import { closeReasonSheet } from "./reason-sheet";
 import { renderEvList } from "./screens/ev-list";
 import { renderEvReview } from "./screens/ev-review";
 import { renderEvViolation } from "./screens/ev-violation";
+import { renderEvViolations } from "./screens/ev-violations";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
@@ -115,8 +117,16 @@ function screenOf(r: Route): Screen {
         render: (d) => renderEvViolation(d as EvViolationForm),
         title: t("ev_btn_violation"),
       };
+    case "ev_violations":
+      return {
+        path: r.period ? `/ev/violations?period=${r.period}` : "/ev/violations",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvViolations(d as EvViolations),
+        title: t("ev_my_violations"),
+      };
     default:
-      // Остальные экраны оценщика подключают задачи 10–11.
+      // Остальные экраны оценщика подключает задача 11.
       return screenOf(HOME);
   }
 }
@@ -207,6 +217,7 @@ async function showAsync(keep: boolean): Promise<void> {
   // Шторка спора живёт вне #app: уход с экрана и перерисовка закрывают её вместе с MainButton
   // и её «назад» — до того, как роутер поставит свой.
   closeDisputeSheet();
+  closeReasonSheet();
   // Просмотр фото тоже ставит свой «назад»: закрыть его до роутера. Уход с экрана освобождает
   // blob-URL фото (решение 13); перерисовка того же экрана их оставляет — превью не мигают.
   closePhoto();
@@ -232,6 +243,7 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
   // можно успеть открыть шторку спора или фото. Новый экран их закрывает — иначе шторка от
   // старых данных («Оспорить» уже сменилась строкой) отправила бы второй спор и получила 409.
   closeDisputeSheet();
+  closeReasonSheet();
   closePhoto();
   // Вместо экрана — отказ, «не найдено» или главный: фото прежнего экрана больше не нужны.
   if (res.kind !== "fresh" && res.kind !== "stale") revokeAll();

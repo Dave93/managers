@@ -18,8 +18,8 @@ const loads = new Map<string, Promise<string | null>>();
 // Созданные здесь и ещё не освобождённые URL.
 const made = new Set<string>();
 
-async function load(id: string, my: number): Promise<string | null> {
-  const blob = await appApi().blob(`/violation-photos/${encodeURIComponent(id)}/file`);
+async function load(id: string, my: number, base: string): Promise<string | null> {
+  const blob = await appApi().blob(`${base}/${encodeURIComponent(id)}/file`);
   // Пока шёл запрос, экран сменили: URL никому не нужен.
   if (my !== gen) return null;
   // Только картинка: тело другого типа (страница прокси с кодом 200) в <img> не пойдёт.
@@ -33,10 +33,10 @@ async function load(id: string, my: number): Promise<string | null> {
   return url;
 }
 
-function urlOf(id: string): Promise<string | null> {
+function urlOf(id: string, base: string): Promise<string | null> {
   let p = loads.get(id);
   if (!p) {
-    p = load(id, gen);
+    p = load(id, gen, base);
     loads.set(id, p);
   }
   return p;
@@ -47,9 +47,10 @@ function failed(): HTMLElement {
 }
 
 /** Превью фото: кнопка с картинкой (нажатие — на весь экран) или заглушка «Фото не загрузилось». */
-export async function photoThumb(id: string): Promise<HTMLElement> {
+// base — путь файла: у сотрудника «/violation-photos», у оценщика «/ev/violation-photos».
+export async function photoThumb(id: string, base = "/violation-photos"): Promise<HTMLElement> {
   const my = gen;
-  const url = await urlOf(id);
+  const url = await urlOf(id, base);
   // URL мог освободиться, пока ждали очереди: такой в <img> не ставим.
   if (url === null || !made.has(url)) return failed();
   const img = h("img", { class: "photo-img", src: url, alt: "" });
