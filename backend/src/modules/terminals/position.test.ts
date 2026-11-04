@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { ROLE_CODE_BY_PARSE_NAME, SEED_ROLES, composePosition } from "../staff_roles/catalog";
+import { ROLE_CODE_BY_PARSE_NAME, SEED_ROLES, composePosition, renameConflicts } from "../staff_roles/catalog";
 import { parsePosition } from "./position";
 
 describe("parsePosition: техничка", () => {
@@ -15,5 +15,6 @@ describe("parsePosition: техничка", () => {
     const r = SEED_ROLES.find((x) => x.code === "cleaner")!;
     expect(r.name_ru).toBe("Техничка");
     expect(ROLE_CODE_BY_PARSE_NAME[parsePosition(composePosition(r.name_ru, 2, "day")).role]).toBe("cleaner");
+    expect(renameConflicts("cleaner", r.name_ru)).toEqual([]);
   });
 });
