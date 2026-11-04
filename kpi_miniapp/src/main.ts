@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
+import type { TgAttendance, TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
 import { appCache } from "./cache";
@@ -25,6 +25,7 @@ import { provideNav } from "./nav";
 import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
 import { hashOf, parseHash } from "./route";
+import { renderAttendance } from "./screens/attendance";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
@@ -33,6 +34,7 @@ import { closeDisputeSheet } from "./sheet";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
+import { attendanceView } from "./view/attendance";
 import { historyView } from "./view/history";
 import { homeView } from "./view/home";
 import { reviewView } from "./view/review";
@@ -82,6 +84,13 @@ function screenOf(r: Route): Screen {
       };
     case "history":
       return { path: "/history", kind: "list", render: (d) => renderHistory(historyView(d as TgHistory, lang())), title: t("link_history") };
+    case "attendance":
+      return {
+        path: r.month ? `/attendance?month=${r.month}` : "/attendance",
+        kind: "list",
+        render: (d) => renderAttendance(attendanceView(d as TgAttendance, lang())),
+        title: t("link_attendance"),
+      };
   }
 }
 
@@ -121,6 +130,12 @@ function guard(r: Route): Route {
 function navigate(r: Route): void {
   const to = guard(r);
   if (same(to, top().route)) return;
+  if (to.name === "attendance" && top().route.name === "attendance") {
+    stack[stack.length - 1] = { route: to, y: 0 };
+    history.replaceState(null, "", hashOf(to));
+    show(false);
+    return;
+  }
   top().y = window.pageYOffset;
   stack.push({ route: to, y: 0 });
   // hashchange от этой записи увидит вершину стека и ничего не сделает.

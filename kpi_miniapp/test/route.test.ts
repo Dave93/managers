@@ -17,3 +17,12 @@ it("hashOf: нарушения и круговой разбор", () => {
   expect(parseHash(hashOf({ name: "violations", period: "2026-12-01" }))).toEqual({ name: "violations", period: "2026-12-01" });
   expect(parseHash("#/review/2026-00")).toEqual({ name: "home" });
 });
+
+it("parseHash и hashOf: посещаемость", () => {
+  expect(parseHash("#/attendance")).toEqual({ name: "attendance", month: null });
+  expect(parseHash("#/attendance/2026-10")).toEqual({ name: "attendance", month: "2026-10" });
+  expect(parseHash("#/attendance/2026-10?tgWebAppData=abc&tgWebAppVersion=7.10")).toEqual({ name: "attendance", month: "2026-10" });
+  for (const h of ["#/attendance/2026-13", "#/attendance/2026-10-01", "#/attendance/26-10", "#/attendance/", "#/attendance/0000-05", "#/attendance/0999-12"]) expect(parseHash(h)).toEqual({ name: "home" });
+  expect([hashOf({ name: "attendance", month: null }), hashOf({ name: "attendance", month: "2026-10" })]).toEqual(["#/attendance", "#/attendance/2026-10"]);
+  for (const month of [null, "2026-10"]) expect(parseHash(hashOf({ name: "attendance", month }))).toEqual({ name: "attendance", month });
+});

@@ -97,6 +97,13 @@ export interface TgHistoryQuarter { quarter_start: string; months: TgMonth[]; av
 // tiers — шкала прибавки по возрастанию min_pct (текущие настройки): защита порога в баллах и средних (решение 6 плана 7).
 export interface TgHistory { quarters: TgHistoryQuarter[]; tiers: TgTier[] } // кварталы новые сверху, не больше 4
 
+// GET /api/kpi/tg/attendance?month=YYYY-MM
+// Месяц здесь везде «YYYY-MM» (запрос, ответ, хеш клиента), а не «YYYY-MM-01» как у остальных экранов.
+// Без month сервер берёт текущий месяц по Ташкенту. Дни новыми сверху, только дни со строкой в kpi_attendance.
+// prev и next — ближайшие месяцы со строками сотрудника (текущий месяц достижим всегда); null — дальше нет.
+export interface TgAttendanceDay { day: string; check_in: string | null; check_out: string | null; late_minutes: number; absent: boolean } // day "YYYY-MM-DD"
+export interface TgAttendance { month: string; prev: string | null; next: string | null; days: TgAttendanceDay[] }
+
 // POST /api/kpi/tg/disputes
 export interface TgDisputeRequest { subject_type: "review" | "violation"; subject_id: string; reason: string }
 export interface TgDisputeCreated { id: string; subject_type: "review" | "violation"; subject_id: string; created_at: string }
