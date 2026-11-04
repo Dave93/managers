@@ -154,8 +154,12 @@ if (!dbLooksLikeTest) {
         expect(Number(p1.iiko_fact_qty)).toBe(24);
         expect(Number(p1.admin_qty)).toBe(20);
         expect(Number(p1.diff_ab_qty)).toBe(-4);
+        // «Не считали» в месячном = 0 (02.11.2026); в iiko по p2 тоже 0 — расхождения нет.
         const p2 = ls.find((l) => l.product_id === w.p2)!;
-        expect(p2.admin_state).toBe("skipped");
+        expect(p2.admin_state).toBe("counted");
+        expect(p2.admin_qty).not.toBeNull();
+        expect(Number(p2.admin_qty)).toBe(0);
+        expect(Number(p2.diff_ab_qty)).toBe(0);
         const p3 = ls.find((l) => l.product_id === w.p3)!;
         expect(p3.admin_state).toBe("absent");
         expect(Number(p3.iiko_fact_qty)).toBe(0);
@@ -165,6 +169,27 @@ if (!dbLooksLikeTest) {
 
         const ev = await w.events(a.id);
         expect(ev.map((e) => e.type).sort()).toEqual(["calculated", "fetched"]);
+      } finally {
+        await w.cleanup();
+      }
+    });
+
+    // 02.11.2026: незаполненное в месячном = 0. Пересчёты, отправленные раньше, хранят такие строки
+    // как «не считали» — сверка читает их как 0, и недостача по ним считается.
+    it("«не считали» в месячном = 0: недостача по строке считается", async () => {
+      const w = await seed();
+      try {
+        // p2 есть в учёте склада A: 4 шт по 100.
+        w.state.balance[w.A].push({ product_id: w.p2, amount: 4, sum: 400 });
+        await runReconcile(drizzleDb, w.iiko, { period: PERIOD });
+        const a = await w.recon(w.A);
+        const p2 = (await w.lines(a.id)).find((l) => l.product_id === w.p2)!;
+        expect(p2.admin_state).toBe("counted");
+        expect(Number(p2.admin_qty)).toBe(0);
+        expect(Number(p2.iiko_fact_qty)).toBe(4);
+        expect(Number(p2.diff_ab_qty)).toBe(-4);
+        expect(Number(p2.diff_ab_sum)).toBe(-400);
+        expect(a.mismatch_ab_count).toBe(2);
       } finally {
         await w.cleanup();
       }

@@ -550,7 +550,9 @@ export async function addLine(db: DbLike, actor: Actor, id: string, productId: s
 export async function setSkipped(db: DbLike, actor: Actor, id: string, lineId: string, skipped: boolean) {
   assertUuid(lineId);
   return db.transaction(async (tx) => {
-    await requireWritableDraft(tx, actor, id);
+    const { row } = await requireWritableDraft(tx, actor, id);
+    // В месячном незаполненное = 0 (02.11.2026), «не считали» там нет; снять старую пометку можно.
+    if (skipped && row.kind === "monthly") throw new InventoryError(422, "monthly_skip_forbidden");
     const updated = await tx
       .update(inventory_count_lines)
       .set({ skipped, skipped_by: skipped ? actor.userId : null })
@@ -620,6 +622,9 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
     const to = nextStatus("submit", row.status);
     if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
 
+    // Месячный (02.11.2026): незаполненное = 0 — в пустую строку пишется запись «0» от отправившего,
+    // старая пометка «не считали» снимается. Промежуточный: незаполненное становится «не считали».
+    const monthly = row.kind === "monthly";
     const l = inventory_count_lines;
     const incomplete = await tx
       .select({ id: l.id })
@@ -627,18 +632,31 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
       .where(
         and(
           eq(l.count_id, id),
-          eq(l.skipped, false),
+          monthly ? undefined : eq(l.skipped, false),
           sql`not exists (select 1 from inventory_count_entries e where e.line_id = ${LINE_ID} and e.deleted_at is null)`
         )
       );
     if (incomplete.length && !skipIncomplete) {
       throw new InventoryError(422, "incomplete", { incomplete: incomplete.length });
     }
-    if (incomplete.length) {
-      await tx
-        .update(l)
-        .set({ skipped: true, skipped_by: actor.userId })
-        .where(inArray(l.id, incomplete.map((x) => x.id)));
+    const incompleteIds = incomplete.map((x) => x.id);
+    if (monthly) {
+      await tx.update(l).set({ skipped: false, skipped_by: null }).where(and(eq(l.count_id, id), eq(l.skipped, true)));
+      if (incompleteIds.length) {
+        const at = new Date().toISOString();
+        await tx.insert(inventory_count_entries).values(
+          incompleteIds.map((lineId) => ({
+            id: crypto.randomUUID(),
+            count_id: id,
+            line_id: lineId,
+            qty: "0",
+            created_by: actor.userId,
+            client_created_at: at,
+          }))
+        );
+      }
+    } else if (incompleteIds.length) {
+      await tx.update(l).set({ skipped: true, skipped_by: actor.userId }).where(inArray(l.id, incompleteIds));
     }
     // Итог фиксируется в SQL: numeric без JS-float.
     await tx.execute(sql`
@@ -652,9 +670,14 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
       .set({ status: to, submitted_by: actor.userId, submitted_at: sql`now()`, updated_at: sql`now()` })
       .where(eq(inventory_counts.id, id));
     // id авто-пропущенных строк — чтобы «Вернуть в черновик» снял с них пометку.
+    // Записанные нули при возврате остаются: это уже значение строки.
+    const autoSkipped = monthly ? [] : incompleteIds;
+    const autoZeroed = monthly ? incompleteIds : [];
     await writeEvent(tx, id, "submitted", actor.userId, {
-      auto_skipped: incomplete.length,
-      auto_skipped_ids: incomplete.map((x) => x.id),
+      auto_skipped: autoSkipped.length,
+      auto_skipped_ids: autoSkipped,
+      auto_zeroed: autoZeroed.length,
+      auto_zeroed_ids: autoZeroed,
     });
     return { ok: true as const };
   });

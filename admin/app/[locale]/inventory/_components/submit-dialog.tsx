@@ -20,8 +20,11 @@ export function SubmitDialog({
   const t = useTranslations("inventory.submit");
   const tRoot = useTranslations("inventory");
   const [open, setOpen] = useState(false);
-  const skipped = detail.lines.filter((l) => l.skipped).length;
-  const counted = detail.lines.filter((l) => !l.skipped && l.entries.length > 0).length;
+  // Месячный (02.11.2026): «не считали» нет — в незаполненные строки при отправке пишется 0
+  // (старая пометка «не считали» тоже снимается, такая строка идёт со своими записями или 0).
+  const monthly = detail.kind === "monthly";
+  const skipped = monthly ? 0 : detail.lines.filter((l) => l.skipped).length;
+  const counted = detail.lines.filter((l) => (monthly || !l.skipped) && l.entries.length > 0).length;
   const incomplete = detail.lines.length - skipped - counted;
 
   const submit = useMutation({
@@ -45,8 +48,10 @@ export function SubmitDialog({
         </DialogHeader>
         <div className="space-y-1 text-sm">
           <div>{t("counted", { count: counted })}</div>
-          <div>{t("skipped", { count: skipped })}</div>
-          <div className={incomplete > 0 ? "text-destructive font-medium" : ""}>{t("incomplete", { count: incomplete })}</div>
+          {!monthly && <div>{t("skipped", { count: skipped })}</div>}
+          <div className={incomplete > 0 ? "text-destructive font-medium" : ""}>
+            {t(monthly ? "incompleteZero" : "incomplete", { count: incomplete })}
+          </div>
           {pendingCount > 0 && <div className="text-orange-600">{t("pendingBlock")}</div>}
         </div>
         <DialogFooter className="flex-col gap-2 sm:flex-row">
@@ -55,7 +60,7 @@ export function SubmitDialog({
           </Button>
           {incomplete > 0 ? (
             <Button size="lg" disabled={pendingCount > 0 || submit.isPending} onClick={() => submit.mutate(true)}>
-              {t("skipAll")}
+              {t(monthly ? "zeroAll" : "skipAll")}
             </Button>
           ) : (
             <Button size="lg" disabled={pendingCount > 0 || submit.isPending} onClick={() => submit.mutate(false)}>

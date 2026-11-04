@@ -35,6 +35,8 @@ export function CountTable({
   const draftsRef = useRef<Record<string, string>>({});
   const inputs = useRef(new Map<string, HTMLInputElement>());
   const editable = detail.status === "draft" && detail.access === "write";
+  // В месячном «не считали» нет (02.11.2026): незаполненное при отправке станет 0. Снять старую пометку можно.
+  const skipAllowed = (line: OverlayLine) => detail.kind !== "monthly" || line.skipped;
 
   const groups = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -192,7 +194,7 @@ export function CountTable({
                     )}
                   </div>
                   <div>
-                    {editable && (
+                    {editable && skipAllowed(line) && (
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="menu">

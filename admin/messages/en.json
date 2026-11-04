@@ -661,6 +661,8 @@
       "skipped": "Not counted: {count}",
       "incomplete": "Empty: {count}",
       "skipAll": "Mark empty items as “not counted” and submit",
+      "incompleteZero": "Empty: {count} — will be saved as 0",
+      "zeroAll": "Save 0 for empty items and submit",
       "confirm": "Submit",
       "cancel": "Go back",
       "pendingBlock": "Wait until all entries from this device are sent",
