@@ -1,6 +1,6 @@
 // «Моя посещаемость»: рисует вид view/attendance.ts. Заголовок, под ним переключатель месяцев
 // (соседи с данными: ссылка «‹ Месяц» слева, «Месяц ›» справа), ниже карточка со строками дней
-// или «Данных за месяц нет». Что показывать и какими словами, решает модель: здесь только разметка.
+// или «Данных за месяц нет». Что показывать, решает модель; здесь разметка и подписи «Приход» и «Уход».
 //
 // У отсутствующего соседа его место в переключателе остаётся пустым той же ширины, поэтому
 // подпись месяца не смещается. Строки дней не ссылки (is-static): слева день и время прихода
@@ -33,7 +33,8 @@ function inAppLink(hash: string, cls: string, aria: string, ...kids: (Node | str
 /** Ссылка на соседний месяц; без соседа — пустое место той же ширины. */
 function slot(n: AttendanceNavVM | null, side: "prev" | "next"): HTMLElement {
   if (n === null) return h("span", { class: "att-slot", "aria-hidden": "true" });
-  return inAppLink(n.hash, "btn btn-quiet att-slot", n.aria, side === "prev" ? `‹ ${n.label}` : `${n.label} ›`);
+  // Имя для чтения с экрана начинается с видимой надписи (WCAG 2.5.3): «Октябрь, Предыдущий месяц».
+  return inAppLink(n.hash, "btn btn-quiet att-slot", `${n.label}, ${n.aria}`, side === "prev" ? `‹ ${n.label}` : `${n.label} ›`);
 }
 
 function rowOf(r: AttendanceRowVM): HTMLElement {
