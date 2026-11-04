@@ -5,9 +5,19 @@ import { run } from "../errors";
 import type { ItemInput } from "../reviews";
 import { kpiTgCtx } from "../tg-app/ctx";
 import { evaluatorActor } from "../tg-app/ev-actor";
+import { evDisputeDetail, evDisputes, evResolve } from "../tg-app/ev-disputes";
 import { evEmployees } from "../tg-app/ev-list";
 import { evForm, evSaveDraft, evSubmit } from "../tg-app/ev-review";
-import type { EvEmployees, EvReviewForm, EvViolation, EvViolationForm, EvViolations } from "../tg-app/ev-types";
+import type {
+  EvDispute,
+  EvDisputeDetail,
+  EvDisputes,
+  EvEmployees,
+  EvReviewForm,
+  EvViolation,
+  EvViolationForm,
+  EvViolations,
+} from "../tg-app/ev-types";
 import { evCancelViolation, evCreateViolation, evViolationForm, evViolations } from "../tg-app/ev-violations";
 import { normalizePhotos, photoFile } from "../violations";
 import { itemsSchema } from "./reviews";
@@ -136,4 +146,45 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
       return Bun.file(r.path);
     },
     { params: t.Object({ id: t.String() }) }
+  )
+  // status проверяет listDisputes: мусор — наш 422 bad_status, а не ответ схемы.
+  .get(
+    "/kpi/tg/ev/disputes",
+    async ({ query, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDisputes> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evDisputes(drizzle, actor, query.status);
+      }),
+    { query: t.Object({ status: t.Optional(t.Any()) }) }
+  )
+  // Чужой спор и несуществующий (в том числе не uuid) — один и тот же 404 not_found.
+  .get(
+    "/kpi/tg/ev/disputes/:id",
+    async ({ params, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDisputeDetail> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evDisputeDetail(drizzle, actor, params.id);
+      }),
+    { params: t.Object({ id: t.String() }) }
+  )
+  // Тело как у админского POST /kpi/disputes/:id/resolve; значения проверяет resolveDispute (bad_decision, comment_required, ...).
+  .post(
+    "/kpi/tg/ev/disputes/:id/resolve",
+    async ({ params, body, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDispute> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evResolve(drizzle, actor, params.id, {
+          decision: body.decision,
+          comment: body.comment,
+          items: body.items as ItemInput[] | undefined,
+        });
+      }),
+    {
+      params: t.Object({ id: t.String() }),
+      body: t.Object({
+        decision: t.Optional(t.Any()),
+        comment: t.Optional(t.Any()),
+        items: t.Optional(itemsSchema),
+      }),
+    }
   );
