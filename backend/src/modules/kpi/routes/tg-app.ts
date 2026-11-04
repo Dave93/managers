@@ -5,11 +5,12 @@ import { KpiError, run } from "../errors";
 import { setLang } from "../tg/bindings";
 import { botApi } from "../tg/bot-api";
 import { syncMenuButton } from "../tg/menu";
+import { attendanceFor } from "../tg-app/attendance";
 import { authenticate } from "../tg-app/auth";
 import { kpiTgCtx, requireEmployee } from "../tg-app/ctx";
 import { historyFor, homeFor } from "../tg-app/home";
 import { disputeFromApp, ownPhoto, reviewFor, violationsOf } from "../tg-app/review";
-import type { TgDisputeCreated, TgLangResponse, TgReview, TgViolations } from "../tg-app/types";
+import type { TgAttendance, TgDisputeCreated, TgLangResponse, TgReview, TgViolations } from "../tg-app/types";
 
 // Роуты мини-приложения «Мой KPI». Ничего здесь не логирует init_data и токены.
 // POST /kpi/tg/auth публичный и объявлен ДО .use(kpiTgCtx): хуки плагина действуют только на роуты,
@@ -41,6 +42,13 @@ export const tgAppRoutes = new Elysia({ name: "@api/kpi/tg-app" })
   .get("/kpi/tg/home", async ({ tg, drizzle, set }) => run(set, async () => homeFor(drizzle, tg, now())))
   // requireEmployee внутри run: 403 not_employee уходит ответом, а не 500.
   .get("/kpi/tg/history", async ({ tg, drizzle, set }) => run(set, async () => historyFor(drizzle, requireEmployee(tg), now())))
+  // month проверяет attendanceFor: кривой или пустой — наш 422 bad_period, а не ответ схемы.
+  .get(
+    "/kpi/tg/attendance",
+    async ({ query, tg, drizzle, set }) =>
+      run(set, async (): Promise<TgAttendance> => attendanceFor(drizzle, requireEmployee(tg), query.month, now())),
+    { query: t.Object({ month: t.Optional(t.Any()) }) }
+  )
   // period проверяет parsePeriod: кривой или пустой — наш 422 bad_period, а не ответ схемы.
   .get(
     "/kpi/tg/review",
