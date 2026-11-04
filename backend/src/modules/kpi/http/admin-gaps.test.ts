@@ -328,7 +328,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("спор по оценке после перевода сотрудника: оценщик нового филиала (без назначения на старый) видит can_resolve=true и принимает спор — 200", async () => {
+    it("спор по оценке после перевода сотрудника: оценщик нового филиала спор видит, но разбирает автор со старым назначением (покрытие по снимку) — 200", async () => {
       const A = randomUUID();
       const B = randomUUID();
       const e = await carded(A);
@@ -347,12 +347,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await db.update(employees).set({ terminal_id: B }).where(eq(employees.id, e.id));
       const evB = await evaluator(B);
 
+      // Оценщик нового филиала спор видит (сотрудник теперь у него), но пока автор покрывает запись по снимку, разбирает автор.
       const list = await api(evB, "GET", "/api/kpi/disputes?status=open");
       expect(list.status).toBe(200);
-      const mine = (list.body as DisputeRow[]).find((d) => d.id === disputeId)!;
+      const seenByB = (list.body as DisputeRow[]).find((d) => d.id === disputeId)!;
+      expect(seenByB.can_resolve).toBe(false);
+      const deniedB = await api(evB, "POST", `/api/kpi/disputes/${disputeId}/resolve`, {
+        decision: "accepted",
+        comment: "Оценка пересмотрена",
+        items: [{ item_id: itemId, score: 50 }],
+      });
+      expect(deniedB.status).toBe(403);
+      expect(deniedB.body).toEqual({ error: "out_of_scope" });
+
+      const mine = ((await api(evA, "GET", "/api/kpi/disputes?status=open")).body as DisputeRow[]).find((d) => d.id === disputeId)!;
       expect(mine.can_resolve).toBe(true);
 
-      const res = await api(evB, "POST", `/api/kpi/disputes/${disputeId}/resolve`, {
+      const res = await api(evA, "POST", `/api/kpi/disputes/${disputeId}/resolve`, {
         decision: "accepted",
         comment: "Оценка пересмотрена",
         items: [{ item_id: itemId, score: 50 }],
