@@ -140,7 +140,7 @@ export const SEED_CARDS: SeedCard[] = [
     code: "cleaner",
     title_ru: "Техничка",
     title_uz: "Farrosh",
-    staff_role_codes: [],
+    staff_role_codes: ["cleaner"],
     sort: 60,
     items: cleanerItems,
   },
