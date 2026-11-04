@@ -2,7 +2,7 @@
 import type { DrizzleDB } from "@backend/lib/db";
 import { kpi_disputes, kpi_review_events, kpi_reviews, kpi_violations } from "backend/drizzle/schema";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
-import { has, loadScopes, parsePeriod, seesNetwork, type Actor, type DbLike } from "./access";
+import { has, loadScopes, loadScopesByUser, parsePeriod, seesNetwork, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
 import { canEvaluate, canSeeEither, loadDirectory, terminalNames, userNames, type DirEmployee } from "./directory";
 import { UUID_RE } from "./employees";
@@ -11,7 +11,7 @@ import { iso } from "./iso";
 import { enqueue } from "./notify";
 import { lockPeriodShared } from "./periods";
 import { changeReviewTx, type ItemInput } from "./reviews";
-import { commentOk, type Scope } from "./rules";
+import { commentOk, scopeCovers, type Scope } from "./rules";
 import { loadSettings } from "./settings";
 import { disputeDeadline } from "./time";
 import type { DisputeRow } from "./types";
@@ -28,12 +28,32 @@ const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> =>
 // Нарушение уникального индекса: код может лежать и в самой ошибке, и в cause.
 const isUniqueViolation = (e: any): boolean => e?.code === "23505" || e?.cause?.code === "23505";
 
-// Право открывать и разбирать спор: kpi.approve или оценщик с назначением,
-// покрывающим сотрудника сейчас или по снимку записи.
+// Право открывать спор: kpi.approve или оценщик с назначением,
+// покрывающим сотрудника сейчас или по снимку записи. Разбор — отдельное правило, mayResolve.
 function mayHandle(actor: Actor, scopes: Scope[], emp: DirEmployee | undefined, snapshot: Subject | null): boolean {
   if (has(actor, "kpi.approve")) return true;
   if (emp && canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) return true;
   return snapshot !== null && canEvaluate(actor, scopes, snapshot);
+}
+
+// Право разбирать спор. Разбирает автор оспариваемой записи, пока его назначение покрывает сотрудника
+// (сейчас или по снимку записи); если не покрывает, спор уходит оценщику, чьё назначение покрывает.
+// kpi.approve разбор не даёт. Права автора (kpi.evaluate) не читаются: проверяем только права actor.
+function mayResolve(a: {
+  actor: Actor;
+  actorScopes: Scope[];
+  authorId: string | null;
+  authorScopes: Scope[];
+  emp: DirEmployee | undefined;
+  snapshot: Subject | null;
+}): boolean {
+  if (!has(a.actor, "kpi.evaluate")) return false;
+  const targets: Subject[] = [];
+  if (a.emp) targets.push({ terminal_id: a.emp.terminal_id, card_id: a.emp.card_id });
+  if (a.snapshot) targets.push(a.snapshot);
+  const covers = (scopes: Scope[]) => targets.some((t) => scopeCovers(scopes, t));
+  if (a.authorId === a.actor.userId) return covers(a.actorScopes);
+  return !covers(a.authorScopes) && covers(a.actorScopes);
 }
 
 type Loaded = {
@@ -82,20 +102,32 @@ async function lockSubject(tx: DbLike, subjectType: string, subjectId: string): 
   }
 }
 
-function canHandle(actor: Actor, scopes: Scope[], d: DRow, l: Loaded): boolean {
-  return mayHandle(actor, scopes, d.employee_id ? l.emps.get(d.employee_id) : undefined, snapshotOf(d, l));
+// Автор записи: оценщик оценки или тот, кто внёс нарушение.
+function authorOf(d: DRow, l: Loaded): string | null {
+  if (d.subject_type === "review") return l.reviews.get(d.subject_id)?.evaluator_user_id ?? null;
+  if (d.subject_type === "violation") return l.violations.get(d.subject_id)?.recorded_by ?? null;
+  return null;
 }
 
 async function toRows(db: DbLike, actor: Actor | null, rows: DRow[], l?: Loaded): Promise<DisputeRow[]> {
   if (rows.length === 0) return [];
   const loaded = l ?? (await loadSubjects(db, rows));
   const scopes = actor ? await loadScopes(db, actor.userId) : [];
+  const authors = rows.map((r) => authorOf(r, loaded));
+  // can_resolve считается только для открытых споров и только для пользователя (не для сотрудника из бота).
+  const authorScopes = actor
+    ? await loadScopesByUser(
+        db,
+        authors.filter((a, i): a is string => a !== null && rows[i].status === "open")
+      )
+    : new Map<string, Scope[]>();
   const names = await userNames(db, rows.map((r) => r.resolved_by).filter((x): x is string => !!x));
   const snaps = rows.map((r) => snapshotOf(r, loaded));
   const tNames = await terminalNames(db, snaps.filter((s): s is Subject => s !== null).map((s) => s.terminal_id));
   return rows.map((r, i) => {
     const emp = r.employee_id ? loaded.emps.get(r.employee_id) : undefined;
     const snap = snaps[i];
+    const authorId = authors[i];
     return {
       id: r.id,
       subject_type: r.subject_type as "review" | "violation",
@@ -111,7 +143,17 @@ async function toRows(db: DbLike, actor: Actor | null, rows: DRow[], l?: Loaded)
       resolved_by_name: r.resolved_by ? (names.get(r.resolved_by) ?? null) : null,
       resolved_at: iso(r.resolved_at),
       created_at: iso(r.created_at),
-      can_resolve: actor !== null && r.status === "open" && canHandle(actor, scopes, r, loaded),
+      can_resolve:
+        actor !== null &&
+        r.status === "open" &&
+        mayResolve({
+          actor,
+          actorScopes: scopes,
+          authorId,
+          authorScopes: (authorId && authorScopes.get(authorId)) || [],
+          emp,
+          snapshot: snap,
+        }),
     };
   });
 }
@@ -252,8 +294,18 @@ export async function resolveDispute(
     // коммита и увидит отказ. Порядок: спор → предмет → месяц (changeReviewTx и cancelViolationTx берут те же).
     await lockSubject(tx, d.subject_type, d.subject_id);
     const l = await loadSubjects(tx, [d]);
-    const scopes = await loadScopes(tx, actor.userId);
-    if (!canHandle(actor, scopes, d, l)) throw new KpiError(403, "out_of_scope");
+    const actorScopes = await loadScopes(tx, actor.userId);
+    const authorId = authorOf(d, l);
+    const authorScopes = authorId ? ((await loadScopesByUser(tx, [authorId])).get(authorId) ?? []) : [];
+    const allowed = mayResolve({
+      actor,
+      actorScopes,
+      authorId,
+      authorScopes,
+      emp: d.employee_id ? l.emps.get(d.employee_id) : undefined,
+      snapshot: snapshotOf(d, l),
+    });
+    if (!allowed) throw new KpiError(403, "out_of_scope");
 
     const settings = await loadSettings(tx);
     if (!commentOk(input.comment, settings.change_comment_min)) {
@@ -343,6 +395,8 @@ export async function listDisputes(
   if (!seesNetwork(actor)) {
     const scopes = await loadScopes(db, actor.userId);
     shown = rows.filter((r) => {
+      // Автор видит свой спор и после снятия назначения: разобрать он тогда не может, но знать должен.
+      if (authorOf(r, l) === actor.userId) return true;
       const emp = r.employee_id ? l.emps.get(r.employee_id) : undefined;
       return canSeeEither(
         actor,

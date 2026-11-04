@@ -263,7 +263,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       // Разбор спора меняет оценку и отменяет нарушение своим путём.
       const rr = await api(ev, "POST", `/api/kpi/disputes/${dr.body.id}/resolve`, { decision: "accepted", comment: "Пересмотрел оценку", items: change });
       expect(rr.status).toBe(200);
-      const rvv = await api(approver, "POST", `/api/kpi/disputes/${dv.body.id}/resolve`, { decision: "accepted", comment: "Нарушение снято" });
+      // Нарушение внёс ev, поэтому спор разбирает он; HR (kpi.approve) разбирать не может.
+      const rvv = await api(ev, "POST", `/api/kpi/disputes/${dv.body.id}/resolve`, { decision: "accepted", comment: "Нарушение снято" });
       expect(rvv.status).toBe(200);
       const [after] = await db.select().from(kpi_reviews).where(eq(kpi_reviews.id, reviewId));
       expect(after.version).toBe(2);

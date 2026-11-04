@@ -55,3 +55,20 @@ it("t: подстановки и заглавная буква только у �
   expect(t("hist_running")).toBe("идёт");
   expect(t("eval_pending", { n: 3, employees: "сотрудников", date: "7 декабря" })).toBe("Нужно оценить 3 сотрудников до 7 декабря");
 });
+
+it("посещаемость: тексты по спеке", () => {
+  expect([DICT.ru.link_attendance, DICT.ru.att_empty, DICT.ru.att_no_mark, DICT.ru.att_absent]).toEqual(["Моя посещаемость", "Данных за месяц нет", "нет отметки", "не вышел"]);
+  expect([DICT.uz.att_empty, DICT.uz.att_no_mark]).toEqual(["Oy uchun maʼlumot yoʻq", "belgi yoʻq"]);
+  setLang("ru");
+  expect(t("att_late", { n: 12 })).toBe("опоздание 12 мин");
+  setLang("uz");
+  expect(t("att_late", { n: 12 })).toBe("12 daqiqa kechikdi");
+  setLang("ru");
+});
+
+it("ключи ev_*: плейсхолдеры {…} в ru и uz совпадают", () => {
+  const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(",");
+  const keys = (Object.keys(DICT.ru) as (keyof typeof DICT.ru)[]).filter((k) => k.startsWith("ev_"));
+  expect(keys.length).toBeGreaterThan(0);
+  for (const k of keys) expect([k, ph(DICT.uz[k])]).toEqual([k, ph(DICT.ru[k])]);
+});

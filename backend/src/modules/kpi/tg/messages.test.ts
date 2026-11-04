@@ -188,10 +188,19 @@ describe("кнопка «Открыть»", () => {
       [{ text: "Открыть", web_app: { url: `${APP}#/review/2025-10` } }],
     ] });
   });
-  it("без срока спора — одна «Открыть»; uz — «Ochish»; у оценщика кнопки нет; без appUrl — как раньше", () => {
+  it("без срока спора — одна «Открыть»; uz — «Ochish»; без appUrl — как раньше", () => {
     expect(M.buildMessage("raise_approved", { raise_id: "x", quarter_start: "2025-10-01", amount: 1 }, { ...uz(null), appUrl: APP }).reply_markup)
       .toEqual({ inline_keyboard: [[{ text: "Ochish", web_app: { url: `${APP}#/history` } }]] });
-    expect(M.buildMessage("remind_evaluate", { period: "2025-10-01", pending: 2, deadline: UNTIL }, { ...ru(), appUrl: APP }).reply_markup).toBeUndefined();
     expect(M.buildMessage("review_submitted", SUB, ru(null)).reply_markup).toBeUndefined();
+  });
+  it("оценщик: dispute_opened ведёт на споры, remind_evaluate — на список месяца; кривой срок и сводка HR — без кнопки", () => {
+    const DISP = { dispute_id: R, subject_type: "review", subject_id: R, employee_id: R, period: "2025-10-01", employee_name: "Тест Повар", reason: "причина" };
+    expect(M.buildMessage("dispute_opened", DISP, { ...ru(), appUrl: APP }).reply_markup)
+      .toEqual({ inline_keyboard: [[{ text: "Открыть", web_app: { url: `${APP}#/ev/disputes` } }]] });
+    expect(M.buildMessage("remind_evaluate", { period: "2025-10-01", pending: 2, deadline: UNTIL }, { ...uz(null), appUrl: APP }).reply_markup)
+      .toEqual({ inline_keyboard: [[{ text: "Ochish", web_app: { url: `${APP}#/ev/2025-10` } }]] });
+    expect(M.buildMessage("remind_evaluate", { period: "2025-13-01", pending: 2, deadline: UNTIL }, { ...ru(), appUrl: APP }).reply_markup).toBeUndefined();
+    expect(M.buildMessage("overdue_summary", { period: "2025-10-01", lagging: [], lagging_total: 0 }, { ...ru(), appUrl: APP }).reply_markup).toBeUndefined();
+    expect(M.buildMessage("dispute_opened", DISP, ru()).reply_markup).toBeUndefined();
   });
 });

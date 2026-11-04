@@ -12,7 +12,7 @@ import type { TgHome, TgLang, TgLangResponse } from "@backend/modules/kpi/tg-app
 import { appApi } from "../api";
 import { DICT, lang, t } from "../i18n";
 import { navigate, rerender, useLang } from "../nav";
-import { parseHash } from "../route";
+import { hashOf, parseHash } from "../route";
 import { haptic, webApp } from "../telegram";
 import { latch } from "../util";
 import type { HomeVM } from "../view/home";
@@ -149,6 +149,7 @@ function evaluatorBlock(v: NonNullable<HomeVM["evaluator"]>, alone: boolean): HT
     { class: "card eval" },
     // Без шапки сотрудника переключатель языка живёт здесь.
     alone ? h("div", { class: "eval-top" }, text, langSwitch()) : text,
+    v.links.length ? h("div", { class: "rows eval-links" }, ...v.links.map((x) => linkRow(x.text, null, x.hash))) : null,
     link,
   );
 }
@@ -252,6 +253,8 @@ function raiseBlock(v: NonNullable<HomeVM["raise"]>): HTMLElement {
 export function renderHome(vm: HomeVM, d: TgHome): HTMLElement {
   // Только оценщик: шапки сотрудника нет, язык переключается в его карточке.
   const evaluatorOnly = d.employee === null;
+  // «Моя посещаемость» — только у сотрудника; строка идёт после ссылок вида.
+  const att = d.employee ? { text: t("link_attendance"), hash: hashOf({ name: "attendance", month: null }) } : null;
   return h(
     "main",
     { class: "screen home" },
@@ -261,6 +264,6 @@ export function renderHome(vm: HomeVM, d: TgHome): HTMLElement {
     vm.month ? monthBlock(vm.month) : null,
     vm.raise ? raiseBlock(vm.raise) : null,
     vm.noCard ? h("p", { class: "card nocard" }, tie(t("no_card"))) : null,
-    vm.links.length ? h("nav", { class: "card rows" }, ...vm.links.map((x) => linkRow(x.text, x.count, x.hash))) : null,
+    vm.links.length > 0 || att ? h("nav", { class: "card rows" }, ...vm.links.map((x) => linkRow(x.text, x.count, x.hash)), att ? linkRow(att.text, null, att.hash) : null) : null,
   );
 }

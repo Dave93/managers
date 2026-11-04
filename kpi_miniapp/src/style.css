@@ -1211,6 +1211,47 @@ svg {
   line-height: 22px;
 }
 
+/* ---------- посещаемость ---------- */
+
+/* Переключатель месяцев: «‹ Месяц» слева, подпись по центру, «Месяц ›» справа. Соседние
+   места одной ширины (у отсутствующего соседа — пустое), поэтому подпись не смещается.
+   Отступы — полями у подписи. Высоту кнопки не ниже --tap даёт .btn; длинное слово
+   переносится, а не вылезает из кнопки. */
+.att-switch {
+  display: flex;
+  align-items: center;
+}
+.att-slot {
+  flex: none;
+  width: 32%;
+}
+.btn.att-slot {
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.att-month {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  font-size: var(--fs-body);
+  line-height: 22px;
+  font-weight: 600;
+  text-align: center;
+}
+/* Приход и уход под днём: цифры табличные, цвет вторичный, размер не меньше 14 px. */
+.att-times {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-body);
+  line-height: 20px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+/* Пара «Приход 08:55» целиком; переносится только строка между парами. */
+.att-pair {
+  white-space: nowrap;
+}
+
 /* ---------- шторка спора ---------- */
 
 /* Шторка снизу над затемнением. Высота — видимая область мини-приложения: SDK Telegram

@@ -13,7 +13,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { callApi, sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
-  const { employees, kpi_disputes, kpi_periods, kpi_raise_decisions, kpi_reviews, kpi_violation_photos, kpi_violations, users } =
+  const { employees, kpi_disputes, kpi_evaluator_scopes, kpi_periods, kpi_raise_decisions, kpi_reviews, kpi_violation_photos, kpi_violations, users } =
     await import("backend/drizzle/schema");
   const { uploadsBase } = await import("../storage");
   const { and, eq, like } = await import("drizzle-orm");
@@ -328,7 +328,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("спор по оценке после перевода сотрудника: оценщик нового филиала (без назначения на старый) видит can_resolve=true и принимает спор — 200", async () => {
+    it("спор по оценке после перевода сотрудника: пока автор покрывает по снимку, оценщик нового филиала не разбирает; после снятия назначения автора — разбирает (200)", async () => {
       const A = randomUUID();
       const B = randomUUID();
       const e = await carded(A);
@@ -347,10 +347,27 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await db.update(employees).set({ terminal_id: B }).where(eq(employees.id, e.id));
       const evB = await evaluator(B);
 
+      // Оценщик нового филиала спор видит (сотрудник теперь у него), но пока автор покрывает запись по снимку, разбирает автор.
       const list = await api(evB, "GET", "/api/kpi/disputes?status=open");
       expect(list.status).toBe(200);
-      const mine = (list.body as DisputeRow[]).find((d) => d.id === disputeId)!;
+      const seenByB = (list.body as DisputeRow[]).find((d) => d.id === disputeId)!;
+      expect(seenByB.can_resolve).toBe(false);
+      const deniedB = await api(evB, "POST", `/api/kpi/disputes/${disputeId}/resolve`, {
+        decision: "accepted",
+        comment: "Оценка пересмотрена",
+        items: [{ item_id: itemId, score: 50 }],
+      });
+      expect(deniedB.status).toBe(403);
+      expect(deniedB.body).toEqual({ error: "out_of_scope" });
+
+      const mine = ((await api(evA, "GET", "/api/kpi/disputes?status=open")).body as DisputeRow[]).find((d) => d.id === disputeId)!;
       expect(mine.can_resolve).toBe(true);
+
+      // Назначение автора снято: спор переходит к тому, чьё назначение покрывает сотрудника сейчас (новый филиал),
+      // хотя запись по снимку принадлежит старому. Без цели по текущему положению сотрудника evB разобрать бы не смог.
+      await db.delete(kpi_evaluator_scopes).where(eq(kpi_evaluator_scopes.user_id, evA.userId));
+      const nowB = ((await api(evB, "GET", "/api/kpi/disputes?status=open")).body as DisputeRow[]).find((d) => d.id === disputeId)!;
+      expect(nowB.can_resolve).toBe(true);
 
       const res = await api(evB, "POST", `/api/kpi/disputes/${disputeId}/resolve`, {
         decision: "accepted",
@@ -366,9 +383,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       // Посторонний оценщик по-прежнему не может ни разобрать спор, ни менять оценку напрямую.
       const stranger = await evaluator(randomUUID());
       const other = await carded(A);
-      const otherReview = await submitted(evA, other.id);
+      // Назначение evA снято выше, автором второго спора становится новый оценщик старого филиала.
+      const evA2 = await evaluator(A);
+      const otherReview = await submitted(evA2, other.id);
       setNow(DISPUTE_AT);
-      const d2 = await api(evA, "POST", "/api/kpi/disputes", { subject_type: "review", subject_id: otherReview, reason: "Не согласен с оценкой" });
+      const d2 = await api(evA2, "POST", "/api/kpi/disputes", { subject_type: "review", subject_id: otherReview, reason: "Не согласен с оценкой" });
       expect(d2.status).toBe(200);
       const denied = await api(stranger, "POST", `/api/kpi/disputes/${d2.body.id}/resolve`, {
         decision: "accepted",

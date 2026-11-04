@@ -133,6 +133,9 @@ export type ItemCreate = {
 };
 export type ItemPatch = Partial<ItemCreate> & { active?: boolean };
 export type ScopeCreate = { user_id: string; card_id: string | null; terminal_id: string | null };
+/** Массовое назначение: пустой массив — «все» карты / филиалы. Тело не смешивает одиночные и массивные поля. */
+export type ScopeCreateMany = { user_id: string; card_ids: string[]; terminal_ids: string[] };
+export type ScopeCreateManyResult = { created: number; skipped: number };
 export type ResolveBody = { decision: "accepted" | "rejected"; comment: string; items?: KpiItemInput[] };
 export type DecideBody = { status: "approved" | "rejected"; amount?: number; comment?: string };
 export type TgTarget = { employee_id: string } | { user_id: string };
@@ -221,6 +224,7 @@ export function createKpiApi(kpi: any, workly: any) {
     evaluators: {
       list: () => call<ScopeRow[]>(kpi.evaluators.get()),
       create: (b: ScopeCreate) => call<unknown>(kpi.evaluators.post(b)),
+      createMany: (b: ScopeCreateMany) => call<ScopeCreateManyResult>(kpi.evaluators.post(b)),
       remove: (id: string) => call<unknown>(kpi.evaluators({ id }).delete()),
     },
     users: (search: string) => call<KpiUserOption[]>(kpi.users.get({ query: { search } })),

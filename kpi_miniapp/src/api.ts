@@ -191,8 +191,8 @@ export function createApi(d: ApiDeps) {
     }
   }
 
-  async function call<T>(path: string, init: RequestInit): Promise<ApiResult<T>> {
-    const out = await authed(path, init);
+  async function call<T>(path: string, init: RequestInit, ms?: number): Promise<ApiResult<T>> {
+    const out = await authed(path, init, ms);
     if ("status" in out) return { kind: "fail", status: out.status };
     const { sent } = out;
     const { res } = sent;
@@ -219,6 +219,14 @@ export function createApi(d: ApiDeps) {
     },
     send<T>(method: "POST" | "PUT", path: string, body: unknown): Promise<ApiResult<T>> {
       return call<T>(path, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    },
+    /**
+     * Форма с файлом (фото нарушения). Content-Type не ставим: браузер сам допишет boundary.
+     * Срок как у файла (blobTimeoutMs): большой снимок по филиальному wifi идёт медленно.
+     * Тело на повторный вход после 401 уходит то же самое.
+     */
+    sendForm<T>(path: string, body: FormData): Promise<ApiResult<T>> {
+      return call<T>(path, { method: "POST", body }, blobTimeoutMs);
     },
     /**
      * Файл с токеном (для <img> заголовок не поставить). Любой сбой — null. Мимо HTTP-кэша

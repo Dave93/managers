@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, makeEmployee, setNow, setup } = await import("./fixtures");
   const { seedCards } = await import("../seed-cards");
-  const { employees, kpi_raise_tiers, kpi_reviews, users } = await import("backend/drizzle/schema");
+  const { employees, kpi_card_items, kpi_cards, kpi_employee_cards, kpi_raise_tiers, kpi_reviews, users } = await import("backend/drizzle/schema");
   const { eq, like } = await import("drizzle-orm");
   type Card = import("../types").Card;
   type EmployeeRow = import("../types").EmployeeRow;
@@ -66,6 +66,29 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         [90, 300000],
         [85, 150000],
       ]);
+    });
+
+    it("карта «Техничка» подхватывается по роли cleaner без ручного назначения", async () => {
+      // seedCards вставляет только отсутствующие карты, а cleanupKpi стартовые карты не трогает:
+      // в общей тестовой базе строка cleaner может остаться от прошлых прогонов с пустым staff_role_codes.
+      // Удаляем её (пункты тоже), чтобы карта была создана сидом из SEED_CARDS.
+      const [old] = await db.select({ id: kpi_cards.id }).from(kpi_cards).where(eq(kpi_cards.code, "cleaner"));
+      if (old) {
+        await db.delete(kpi_card_items).where(eq(kpi_card_items.card_id, old.id));
+        await db.delete(kpi_cards).where(eq(kpi_cards.id, old.id));
+      }
+      await seedCards(db);
+
+      const hr = await withSession({ permissions: ["kpi.manage"] });
+      const cards = (await api(hr, "GET", "/api/kpi/cards")).body as Card[];
+      expect(cards.find((c) => c.code === "cleaner")!.staff_role_codes).toEqual(["cleaner"]);
+
+      const emp = await makeEmployee(db, { role_code: "cleaner" });
+      expect(await db.select().from(kpi_employee_cards).where(eq(kpi_employee_cards.employee_id, emp.id))).toEqual([]);
+      const row = (await list(hr, `&terminal_id=${emp.terminal_id}`)).find((e) => e.id === emp.id);
+      expect(row).toBeDefined();
+      expect(row!.card).toMatchObject({ id: await cardId("cleaner"), code: "cleaner" });
+      expect(row!.card_source).toBe("role");
     });
 
     it("карты: чтение любым kpi.*, запись только manage", async () => {
