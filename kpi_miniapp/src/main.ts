@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -28,6 +28,8 @@ import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
 import { hashOf, parseHash, routeAllowed } from "./route";
 import { closeReasonSheet } from "./reason-sheet";
+import { renderEvDispute } from "./screens/ev-dispute";
+import { renderEvDisputes } from "./screens/ev-disputes";
 import { renderEvList } from "./screens/ev-list";
 import { renderEvReview } from "./screens/ev-review";
 import { renderEvViolation } from "./screens/ev-violation";
@@ -125,9 +127,10 @@ function screenOf(r: Route): Screen {
         render: (d) => renderEvViolations(d as EvViolations),
         title: t("ev_my_violations"),
       };
-    default:
-      // Остальные экраны оценщика подключает задача 11.
-      return screenOf(HOME);
+    case "ev_disputes":
+      return { path: "/ev/disputes", kind: "list", noCache: true, render: (d) => renderEvDisputes(d as EvDisputes), title: t("ev_dsp_title") };
+    case "ev_dispute":
+      return { path: `/ev/disputes/${r.id}`, kind: "list", noCache: true, render: (d) => renderEvDispute(d as EvDisputeDetail), title: t("ev_dsp_title") };
   }
 }
 

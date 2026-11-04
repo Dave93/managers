@@ -134,7 +134,10 @@ export function homeView(d: TgHome, l: Lang, nowMs: number): HomeVM {
               })
             : tIn(l, "eval_done"),
         link: ev.admin_url,
-        links: [{ text: tIn(l, "ev_home_staff"), hash: hashOf({ name: "ev", period: null }) }],
+        links: [
+          { text: tIn(l, "ev_home_staff"), hash: hashOf({ name: "ev", period: null }) },
+          { text: tIn(l, "ev_home_disputes"), hash: hashOf({ name: "ev_disputes" }) },
+        ],
       }
     : null;
 

@@ -165,7 +165,7 @@ it("неоценённый отчётный месяц: до открытия о
 });
 
 it("оценщик: склонение, все оценены, ссылка", () => {
-  expect(homeView(evaluatorOnly(1), "ru", NOW).evaluator).toEqual({ text: "Нужно оценить 1 сотрудника до 7 ноября", link: "http://localhost:6762/ru/kpi/reviews", links: [{ text: "Мои сотрудники", hash: "#/ev" }] });
+  expect(homeView(evaluatorOnly(1), "ru", NOW).evaluator).toEqual({ text: "Нужно оценить 1 сотрудника до 7 ноября", link: "http://localhost:6762/ru/kpi/reviews", links: [{ text: "Мои сотрудники", hash: "#/ev" }, { text: "Споры", hash: "#/ev/disputes" }] });
   expect(homeView(evaluatorOnly(5), "ru", NOW).evaluator!.text).toBe("Нужно оценить 5 сотрудников до 7 ноября");
   expect(homeView(evaluatorOnly(0), "ru", NOW).evaluator!.text).toBe("Все ваши сотрудники оценены");
   expect(homeView(evaluatorOnly(5), "uz", NOW).evaluator!.text).toBe("7-noyabr gacha 5 ta xodimni baholash kerak");
