@@ -50,6 +50,8 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
         const b = body as Record<string, unknown>;
         // Массовое назначение: есть card_ids или terminal_ids; ключа нет — «все» по этому измерению.
         if ("card_ids" in b || "terminal_ids" in b) {
+          // Одиночное поле рядом с массивом молча терялось бы и расширяло охват до «всех»: отказ.
+          if ("card_id" in b || "terminal_id" in b) throw new KpiError(422, "bad_id");
           return assignScopes(drizzle, {
             user_id: b.user_id,
             card_ids: "card_ids" in b ? b.card_ids : [],

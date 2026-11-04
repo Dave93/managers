@@ -211,6 +211,31 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await scopes(all.userId)).toEqual(["-|-"]);
     });
 
+    it("смешанное тело (одиночное поле вместе с массивом) — 422 bad_id и ничего не записано", async () => {
+      const ev = await withSession({ permissions: ["kpi.evaluate"] });
+      const [c1] = await cardIds("cook");
+      const [t1, t2] = [randomUUID(), randomUUID()];
+      const send = async (body: Record<string, unknown>) => {
+        const r = await post(body);
+        return { status: r.status, body: r.body };
+      };
+      const bad = { status: 422, body: { error: "bad_id" } };
+
+      // Без отказа card_id молча терялся бы, а назначение расширялось до «всех карт».
+      expect(await send({ user_id: ev.userId, card_id: c1, terminal_ids: [t1, t2] })).toEqual(bad);
+      expect(await send({ user_id: ev.userId, terminal_id: t1, card_ids: [c1] })).toEqual(bad);
+      // Решает наличие ключа, а не значение: null и пустой массив тоже смешение.
+      expect(await send({ user_id: ev.userId, card_id: null, terminal_ids: [t1] })).toEqual(bad);
+      expect(await send({ user_id: ev.userId, terminal_id: null, card_ids: [] })).toEqual(bad);
+      expect(await send({ user_id: ev.userId, card_id: c1, terminal_id: t1, card_ids: [c1], terminal_ids: [t1] })).toEqual(bad);
+      expect(await scopes(ev.userId)).toEqual([]);
+
+      // Прежний формат и массовый по отдельности работают как раньше.
+      expect((await post({ user_id: ev.userId, card_id: c1, terminal_id: null })).status).toBe(200);
+      expect((await post({ user_id: ev.userId, card_ids: [c1], terminal_ids: [t1, t2] })).body).toEqual({ created: 2, skipped: 0 });
+      expect(await scopes(ev.userId)).toEqual(pairs([c1], [null, t1, t2]));
+    });
+
     it("прежний формат с одиночными card_id/terminal_id работает без изменений", async () => {
       const ev = await withSession({ permissions: ["kpi.evaluate"] });
       const [c1] = await cardIds("cook");
