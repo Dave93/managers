@@ -19,7 +19,7 @@ type Props = {
   onChange: (v: string[]) => void;
   /** Текст при пустом выборе: пустой массив значит «все». */
   allLabel: string;
-  /** Что это за список (карта, филиал): имя кнопки и списка для скринридера. */
+  /** Что выбираем (карта, филиал). К имени кнопки добавляется текущий выбор; тем же текстом названы поле поиска и список. */
   ariaLabel: string;
   disabled?: boolean;
   /** Подсказка строки поиска внутри списка. */
@@ -86,9 +86,10 @@ export function MultiSelect({ options, value, onChange, allLabel, ariaLabel, dis
         className="w-[var(--radix-popover-trigger-width)] min-w-60 max-w-[calc(100vw-2rem)] p-0"
       >
         {/* Фильтр свой, не cmdk: ключ элемента — id, а не текст, и одинаковые названия не склеиваются. */}
+        {/* label у Command cmdk привязывает к полю поиска (aria-labelledby), у списка он свой: иначе там английское «Suggestions». */}
         <Command shouldFilter={false} label={ariaLabel}>
-          <CommandInput value={search} onValueChange={setSearch} placeholder={searchLabel} aria-label={searchLabel ?? ariaLabel} />
-          <CommandList className="max-h-[min(18rem,50vh)]" aria-multiselectable="true">
+          <CommandInput value={search} onValueChange={setSearch} placeholder={searchLabel} />
+          <CommandList label={ariaLabel} className="max-h-[min(18rem,50vh)]" aria-multiselectable="true">
             {visible.length === 0 && emptyLabel && <CommandEmpty>{emptyLabel}</CommandEmpty>}
             <CommandGroup>
               {needle === "" && <MultiSelectItem value={ALL_KEY} checked={empty} label={allLabel} onSelect={() => onChange([])} />}

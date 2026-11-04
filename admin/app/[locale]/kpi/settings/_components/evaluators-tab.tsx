@@ -186,7 +186,10 @@ function AssignForm() {
       qc.invalidateQueries({ queryKey: qk.evaluators });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
       qc.invalidateQueries({ queryKey: qk.me });
-      toast.success(t("settings.evaluators.assignedMany", { created, skipped }));
+      // Ничего не создано (все назначения уже были): это не провал и не успех, поэтому нейтральный тост.
+      const text = t("settings.evaluators.assignedMany", { created, skipped });
+      if (created === 0) toast.info(text);
+      else toast.success(text);
       setUser(null);
       setSearchText("");
       setSearch("");
