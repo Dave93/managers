@@ -1,15 +1,15 @@
 // Чистые правила месяца экрана посещаемости (без импортов и env — тестируются без БД).
 // Месяц везде строкой «YYYY-MM»; такие строки сравниваются лексикографически.
 
-/** Строго «YYYY-MM» с месяцем 01..12; всё остальное — null. */
+/** Строго «YYYY-MM» с месяцем 01..12 и годом не 0000 (Postgres не знает года 0); всё остальное — null. */
 export function monthOf(v: unknown): string | null {
-  return typeof v === "string" && /^\d{4}-(0[1-9]|1[0-2])$/.test(v) ? v : null;
+  return typeof v === "string" && /^(?!0000)\d{4}-(0[1-9]|1[0-2])$/.test(v) ? v : null;
 }
 
 /**
  * Соседи месяца `month` среди месяцев со строками (`withData`) плюс текущий месяц `current` (достижим всегда).
  * prev — наибольший месяц строго меньше `month`, next — наименьший строго больше; null — дальше нет.
- * Порядок и дубликаты в `withData` не важны.
+ * Порядок и дубликаты в `withData` не важны. `month` и `current` должны быть уже проверены `monthOf`.
  */
 export function neighbours(withData: string[], month: string, current: string): { prev: string | null; next: string | null } {
   let prev: string | null = null;

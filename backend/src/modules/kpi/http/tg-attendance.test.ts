@@ -86,6 +86,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
 
     it("не сотрудник и без сессии: 403 not_employee и 401", async () => {
+      setNow("2026-11-10T10:00:00+05:00");
       const u = await makeUser(db);
       const token = await login(await bindTelegram(db, { user_id: u.id }));
       expect(await tgApi(token, "GET", "/api/kpi/tg/attendance")).toEqual({ status: 403, body: { error: "not_employee" } });
@@ -125,9 +126,13 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
     it("кривой месяц: 422 bad_period", async () => {
       const { token } = await sessionOf();
-      for (const bad of ["2026-13", "2026-00", "2026-11-01", "2026-1", "26-11", "", "abc"]) {
+      for (const bad of ["2026-13", "2026-00", "2026-11-01", "2026-1", "26-11", "", "abc", "0000-01"]) {
         expect(await tgApi(token, "GET", `/api/kpi/tg/attendance?month=${bad}`)).toEqual({ status: 422, body: { error: "bad_period" } });
       }
+      // Повтор параметра Elysia сводит к последнему значению (массива в обработчик не приходит): это обычный запрос за месяц.
+      const repeated = await tgApi(token, "GET", "/api/kpi/tg/attendance?month=2026-11&month=2026-10");
+      expect([repeated.status, repeated.body.month]).toEqual([200, "2026-10"]);
+      expect(await tgApi(token, "GET", "/api/kpi/tg/attendance?month=2026-10&month=abc")).toEqual({ status: 422, body: { error: "bad_period" } });
     });
   });
 }
