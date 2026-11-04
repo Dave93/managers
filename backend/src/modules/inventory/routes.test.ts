@@ -15,11 +15,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { drizzleDb } = await import("backend/src/lib/db");
   const schema = await import("backend/drizzle/schema");
   const { and, eq, inArray, sql } = await import("drizzle-orm");
-  const { allowedPeriods, interimDates, lastDayOf } = await import("./rules");
+  const { allowedPeriods, defaultPeriod, interimDates, lastDayOf, monthlyPeriods } = await import("./rules");
 
   type Session = Awaited<ReturnType<typeof withSession>>;
 
-  const PERIOD = allowedPeriods(new Date())[0];
+  // Месяц, который филиал может начать сегодня: прошлый, в последний день месяца — текущий (04.11.2026).
+  const PERIOD = defaultPeriod(new Date());
   const YESTERDAY = interimDates(new Date()).max;
 
   async function api(s: Session | null, method: string, path: string, body?: unknown) {
@@ -168,13 +169,14 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
-    it("periods отдаёт текущий период первым", async () => {
+    it("periods — месяцы для нового месячного, по умолчанию первый", async () => {
       const w = await seedWorld();
       const s = await helper(w);
       try {
         const r = await api(s, "GET", "/api/inventory/periods");
         expect(r.status).toBe(200);
-        expect(r.body.periods[0]).toBe(PERIOD);
+        expect(r.body.periods).toEqual(monthlyPeriods(new Date()));
+        expect(r.body.default).toBe(PERIOD);
       } finally {
         await s.cleanup();
         await w.cleanup();
@@ -253,6 +255,13 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const bad = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, period: "2020-01-31" });
         expect(bad.status).toBe(422);
         expect(bad.body.error).toBe("invalid_period");
+        // Текущий месяц — только в его последний день (04.11.2026).
+        const current = allowedPeriods(new Date())[0];
+        if (!monthlyPeriods(new Date()).includes(current)) {
+          const early = await api(m, "POST", "/api/inventory/counts", { store_id: w.storeId, period: current });
+          expect(early.status).toBe(422);
+          expect(early.body.error).toBe("invalid_period");
+        }
         const foreign = await api(m, "POST", "/api/inventory/counts", tplCount(w, w.otherStoreId));
         expect(foreign.status).toBe(403);
         const noManage = await api(h, "POST", "/api/inventory/counts", tplCount(w));
@@ -1164,7 +1173,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       try {
         const m = await manager(w);
         const r = await api(m, "GET", "/api/inventory/periods");
-        expect(r.body.periods.length).toBe(2);
+        expect(r.body.periods).toContain(allowedPeriods(new Date())[1]);
       } finally {
         await w.cleanup();
       }
@@ -1261,6 +1270,141 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const list = await api(m, "GET", `/api/inventory/counts?store_id=${w.storeId}`);
         expect(list.body.filter((x: any) => x.kind === "interim").length).toBe(2);
       } finally {
+        await w.cleanup();
+      }
+    });
+  });
+
+  // 04.11.2026: в начале ноября филиалы отправили октябрьский пересчёт как ноябрьский — офис переносит месяц.
+  describe("inventory: перенос месяца офисом", () => {
+    const TARGET = allowedPeriods(new Date()).find((p) => p !== PERIOD)!;
+
+    async function monthlyCount(w: World) {
+      const m = await manager(w);
+      const c = await api(m, "POST", "/api/inventory/counts", await monthlyInput(w));
+      return { m, countId: c.body.id as string };
+    }
+    const move = (s: Session, countId: string, period: string) => api(s, "POST", `/api/inventory/counts/${countId}/period`, { period });
+    const dropRecons = (w: World) =>
+      drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.storeId));
+
+    it("отправленный: месяц и дата меняются, книжное сброшено, событие записано; филиалу кнопки нет", async () => {
+      const w = await seedWorld();
+      const { m, countId } = await monthlyCount(w);
+      try {
+        expect((await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true })).status).toBe(200);
+        await drizzleDb.insert(schema.inventory_count_book).values({
+          count_id: countId, product_id: w.p1, book_qty: "1", start_qty: "0", in_invoice: "1", out_sales: "0",
+          transfer_in: "0", transfer_out: "0", out_writeoff: "0", other_net: "0", consistent: true,
+        });
+        await drizzleDb.update(schema.inventory_counts).set({ book_fetched_at: sql`now()` }).where(eq(schema.inventory_counts.id, countId));
+
+        const o = await reconciler(w);
+        expect((await api(o, "GET", `/api/inventory/counts/${countId}`)).body.period_targets).toEqual([TARGET]);
+        expect((await api(m, "GET", `/api/inventory/counts/${countId}`)).body.period_targets).toEqual([]);
+        expect((await move(m, countId, TARGET)).status).toBe(403);
+
+        const r = await move(o, countId, TARGET);
+        expect(r.status).toBe(200);
+        expect(r.body).toEqual({ ok: true, period: TARGET });
+        const d = await api(m, "GET", `/api/inventory/counts/${countId}`);
+        expect(d.body.period).toBe(TARGET);
+        expect(d.body.count_date).toBe(TARGET);
+        expect(d.body.status).toBe("submitted");
+        const book = await drizzleDb.select().from(schema.inventory_count_book).where(eq(schema.inventory_count_book.count_id, countId));
+        expect(book.length).toBe(0);
+        const [row] = await drizzleDb.select().from(schema.inventory_counts).where(eq(schema.inventory_counts.id, countId));
+        expect(row.book_fetched_at).toBeNull();
+        const events = await drizzleDb
+          .select({ type: schema.inventory_count_events.type, payload: schema.inventory_count_events.payload })
+          .from(schema.inventory_count_events)
+          .where(and(eq(schema.inventory_count_events.count_id, countId), eq(schema.inventory_count_events.type, "period_changed")));
+        expect(events.map((e) => e.payload)).toEqual([{ from: PERIOD, to: TARGET }]);
+        // Задача снимка книжного заменена: срабатывает на конец нового месяца, а не по старой задержке.
+        const { bookJobId, bookQueue } = await import("./book/queue");
+        const { bookDelayMs } = await import("./book/pure");
+        const { bookTimestamp } = await import("./book/service");
+        const job = await bookQueue().getJob(bookJobId(countId));
+        expect(job).toBeTruthy();
+        const fireAt = job!.timestamp + (job!.opts.delay ?? 0);
+        const expected = Date.now() + bookDelayMs(bookTimestamp(TARGET), new Date());
+        expect(Math.abs(fireAt - expected)).toBeLessThan(120_000);
+        // В свой же месяц — некуда.
+        const again = await move(o, countId, TARGET);
+        expect(again.status).toBe(422);
+        expect(again.body.error).toBe("invalid_period");
+      } finally {
+        const { bookJobId, bookQueue } = await import("./book/queue");
+        await (await bookQueue().getJob(bookJobId(countId)))?.remove().catch(() => {});
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("занятый месяц — 409, принятая сверка — 409, месяц вне окна — 422, промежуточный — 422, отменённый — 409", async () => {
+      const w = await seedWorld();
+      const { m, countId } = await monthlyCount(w);
+      const o = await reconciler(w);
+      try {
+        const [other] = await drizzleDb
+          .insert(schema.inventory_counts)
+          .values({
+            store_id: w.storeId, template_id: null, template_name: "Все товары филиала",
+            period: TARGET, count_date: TARGET, status: "draft", created_by: m.userId,
+          })
+          .returning({ id: schema.inventory_counts.id });
+        const taken = await move(o, countId, TARGET);
+        expect(taken.status).toBe(409);
+        expect(taken.body).toEqual({ error: "period_taken", count_id: other.id });
+        await drizzleDb.update(schema.inventory_counts).set({ status: "cancelled" }).where(eq(schema.inventory_counts.id, other.id));
+
+        await drizzleDb.insert(schema.inventory_reconciliations).values({ store_id: w.storeId, period: TARGET, status: "accepted" });
+        const closed = await move(o, countId, TARGET);
+        expect(closed.status).toBe(409);
+        expect(closed.body).toEqual({ error: "period_closed", period: TARGET });
+        await dropRecons(w);
+
+        expect((await move(o, countId, "2020-01-31")).status).toBe(422);
+        const interim = await api(m, "POST", "/api/inventory/counts", tplCount(w));
+        const ir = await move(o, interim.body.id, TARGET);
+        expect(ir.status).toBe(422);
+        expect(ir.body.error).toBe("not_monthly");
+
+        await api(m, "POST", `/api/inventory/counts/${countId}/cancel`, {});
+        const cancelled = await move(o, countId, TARGET);
+        expect(cancelled.status).toBe(409);
+        expect(cancelled.body.error).toBe("cancelled");
+        const [row] = await drizzleDb.select().from(schema.inventory_counts).where(eq(schema.inventory_counts.id, countId));
+        expect(row.period).toBe(PERIOD);
+      } finally {
+        await dropRecons(w);
+        await m.cleanup();
+        await w.cleanup();
+      }
+    });
+
+    it("сверка месяца, откуда ушёл пересчёт, и месяца, куда пришёл, пересчитываются сразу", async () => {
+      const w = await seedWorld();
+      const { m, countId } = await monthlyCount(w);
+      try {
+        await api(m, "POST", `/api/inventory/counts/${countId}/submit`, { skip_incomplete: true });
+        const old = "2026-01-01T00:00:00Z";
+        await drizzleDb.insert(schema.inventory_reconciliations).values([
+          { store_id: w.storeId, period: PERIOD, status: "ready", admin_state: "submitted", calculated_at: old },
+          { store_id: w.storeId, period: TARGET, status: "ready", admin_state: "none", calculated_at: old },
+        ]);
+        expect((await move(await reconciler(w), countId, TARGET)).status).toBe(200);
+        const recons = await drizzleDb
+          .select()
+          .from(schema.inventory_reconciliations)
+          .where(eq(schema.inventory_reconciliations.store_id, w.storeId));
+        const by = new Map(recons.map((r) => [r.period, r]));
+        expect(by.get(PERIOD)!.admin_state).toBe("none");
+        expect(by.get(TARGET)!.admin_state).toBe("submitted");
+        for (const r of recons) expect(Date.parse(r.calculated_at!)).toBeGreaterThan(Date.parse(old));
+      } finally {
+        await dropRecons(w);
+        await m.cleanup();
         await w.cleanup();
       }
     });

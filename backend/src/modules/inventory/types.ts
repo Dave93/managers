@@ -64,6 +64,8 @@ export interface InventoryCountDetail extends InventoryCountSummary {
   access: InventoryAccess;
   can_manage: boolean;
   can_reopen: boolean;
+  /** Месяцы, в которые офис может перенести этот месячный пересчёт; пусто — кнопки нет. */
+  period_targets: string[];
   lines: InventoryLine[];
 }
 

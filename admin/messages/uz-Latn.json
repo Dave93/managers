@@ -673,6 +673,18 @@
     "cancelCount": "Inventarizatsiyani bekor qilish",
     "cancelConfirm": "Qoralama bekor qilinsinmi? Yozuvlar tarixda qoladi.",
     "cancelled": "Inventarizatsiya bekor qilindi",
+    "changePeriod": {
+      "button": "Oyni o‘zgartirish",
+      "title": "Inventarizatsiyani boshqa oyga ko‘chirish",
+      "current": "Hozir: {period}",
+      "target": "Yangi oy",
+      "hint": "iiko hisob qoldiqlari yangi oy oxiriga qayta yuklanadi, ikkala oy bo‘yicha iiko bilan solishtirish qayta hisoblanadi.",
+      "cancel": "Qaytish",
+      "submit": "Ko‘chirish",
+      "done": "Inventarizatsiya ko‘chirildi: {period}",
+      "taken": "Filialda bu oy uchun shunday inventarizatsiya allaqachon bor. Avval uni bekor qiling yoki ko‘chiring.",
+      "closed": "{period} bo‘yicha iiko bilan solishtirish allaqachon qabul qilingan — ko‘chirish yopiq."
+    },
     "errors": {
       "invalidQty": "Son kiriting, masalan 2,5 yoki 2,5+3",
       "generic": "Xato: {message}"

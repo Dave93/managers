@@ -9,7 +9,9 @@ import {
   isValidPeriod,
   isValidQty,
   lastDayOfMonth,
+  monthlyPeriods,
   nextStatus,
+  periodTargets,
   previousPeriod,
 } from "./rules";
 
@@ -58,25 +60,70 @@ describe("allowedPeriods (срока ввода нет: текущий и про
   });
 });
 
-describe("defaultPeriod (с 1-го по 7-е — прошлый месяц, 02.11.2026)", () => {
+describe("monthlyPeriods — новый месячный: прошлый месяц, в последний день ещё и текущий (04.11.2026)", () => {
+  it("в середине месяца — только прошлый", () => {
+    expect(monthlyPeriods(new Date("2026-11-04T07:00:00Z"))).toEqual(["2026-10-31"]);
+  });
+  it("предпоследний день 23:59 +05 — только прошлый, последний 00:00 +05 (в UTC ещё 30-е) — текущий и прошлый", () => {
+    expect(monthlyPeriods(new Date("2026-10-30T18:59:00Z"))).toEqual(["2026-09-30"]);
+    expect(monthlyPeriods(new Date("2026-10-30T19:00:00Z"))).toEqual(["2026-10-31", "2026-09-30"]);
+  });
+  it("1-е число 03:00 +05 (в UTC ещё 31-е) — только прошлый", () => {
+    expect(monthlyPeriods(new Date("2026-10-31T22:00:00Z"))).toEqual(["2026-10-31"]);
+  });
+  it("февраль: 28-е в обычный год последний, в високосный — нет", () => {
+    expect(monthlyPeriods(new Date("2027-02-28T07:00:00Z"))).toEqual(["2027-02-28", "2027-01-31"]);
+    expect(monthlyPeriods(new Date("2028-02-28T07:00:00Z"))).toEqual(["2028-01-31"]);
+    expect(monthlyPeriods(new Date("2028-02-29T07:00:00Z"))).toEqual(["2028-02-29", "2028-01-31"]);
+  });
+  it("переход через год: 31 декабря и 1 января", () => {
+    expect(monthlyPeriods(new Date("2026-12-31T07:00:00Z"))).toEqual(["2026-12-31", "2026-11-30"]);
+    expect(monthlyPeriods(new Date("2027-01-01T07:00:00Z"))).toEqual(["2026-12-31"]);
+  });
+  it("всегда внутри allowedPeriods", () => {
+    for (const iso of ["2026-11-04T07:00:00Z", "2026-10-30T19:00:00Z", "2027-01-01T07:00:00Z", "2028-02-29T07:00:00Z"]) {
+      const now = new Date(iso);
+      for (const p of monthlyPeriods(now)) expect(allowedPeriods(now)).toContain(p);
+    }
+  });
+});
+
+describe("defaultPeriod — первый из monthlyPeriods", () => {
   it("1-е число 03:00 +05 (в UTC ещё 31-е) — прошлый месяц", () => {
     expect(defaultPeriod(new Date("2026-10-31T22:00:00Z"))).toBe("2026-10-31");
   });
-  it("7-е 23:59 +05 — ещё прошлый, 8-е 00:00 +05 (в UTC 7-е) — уже текущий", () => {
-    expect(defaultPeriod(new Date("2026-11-07T18:59:00Z"))).toBe("2026-10-31");
-    expect(defaultPeriod(new Date("2026-11-07T19:00:00Z"))).toBe("2026-11-30");
+  it("в середине месяца — прошлый (раньше с 8-го предлагался текущий)", () => {
+    expect(defaultPeriod(new Date("2026-11-07T19:00:00Z"))).toBe("2026-10-31");
+    expect(defaultPeriod(new Date("2026-11-20T07:00:00Z"))).toBe("2026-10-31");
   });
-  it("в конце месяца — текущий", () => {
+  it("в последний день месяца — текущий", () => {
     expect(defaultPeriod(new Date("2026-10-31T07:00:00Z"))).toBe("2026-10-31");
   });
   it("переход через год", () => {
     expect(defaultPeriod(new Date("2027-01-03T07:00:00Z"))).toBe("2026-12-31");
   });
-  it("всегда один из allowedPeriods", () => {
-    for (const iso of ["2026-10-31T22:00:00Z", "2026-11-07T19:00:00Z", "2027-01-03T07:00:00Z"]) {
+  it("всегда один из monthlyPeriods", () => {
+    for (const iso of ["2026-10-31T22:00:00Z", "2026-11-07T19:00:00Z", "2026-10-30T19:00:00Z", "2027-01-03T07:00:00Z"]) {
       const now = new Date(iso);
-      expect(allowedPeriods(now)).toContain(defaultPeriod(now));
+      expect(monthlyPeriods(now)).toContain(defaultPeriod(now));
     }
+  });
+});
+
+describe("periodTargets — куда офис переносит месячный пересчёт", () => {
+  const now = new Date("2026-11-04T07:00:00Z");
+  const office = ["inventory.count", "inventory.reconcile"];
+  it("ноябрьский → октябрь, октябрьский → ноябрь", () => {
+    expect(periodTargets({ kind: "monthly", status: "submitted", period: "2026-11-30" }, office, now)).toEqual(["2026-10-31"]);
+    expect(periodTargets({ kind: "monthly", status: "draft", period: "2026-10-31" }, office, now)).toEqual(["2026-11-30"]);
+  });
+  it("старый месяц — в любой из окна", () => {
+    expect(periodTargets({ kind: "monthly", status: "draft", period: "2026-09-30" }, office, now)).toEqual(["2026-11-30", "2026-10-31"]);
+  });
+  it("без права сверки, промежуточный и отменённый — некуда", () => {
+    expect(periodTargets({ kind: "monthly", status: "submitted", period: "2026-11-30" }, ["inventory.count", "inventory.manage"], now)).toEqual([]);
+    expect(periodTargets({ kind: "interim", status: "submitted", period: "2026-11-30" }, office, now)).toEqual([]);
+    expect(periodTargets({ kind: "monthly", status: "cancelled", period: "2026-11-30" }, office, now)).toEqual([]);
   });
 });
 

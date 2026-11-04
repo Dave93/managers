@@ -362,6 +362,22 @@ export async function refreshIfStale(db: DbLike, reconId: string): Promise<boole
     ) as stale`)
   ).rows as { stale: boolean }[];
   if (!stale) return false;
+  await recalcAdmin(db, row);
+  return true;
+}
+
+/** Сторона админки сверок склада за эти месяцы — сразу, без iiko. Пересчёт перенесли в другой месяц (04.11.2026):
+ * сверку месяца, из которого он ушёл, refreshIfStale не заметит — в нём не осталось изменённого пересчёта. */
+export async function refreshStorePeriods(db: DbLike, storeId: string, periods: string[]): Promise<void> {
+  const rows = await db
+    .select()
+    .from(inventory_reconciliations)
+    .where(and(eq(inventory_reconciliations.store_id, storeId), inArray(inventory_reconciliations.period, periods)));
+  for (const row of rows) if (row.calculated_at) await recalcAdmin(db, row);
+}
+
+async function recalcAdmin(db: DbLike, row: ReconRow): Promise<void> {
+  const reconId = row.id;
   const stored = await db
     .select({
       product_id: inventory_reconciliation_lines.product_id,
@@ -376,7 +392,6 @@ export async function refreshIfStale(db: DbLike, reconId: string): Promise<boole
   const book: BookRow[] = stored.map((b) => ({ product_id: b.product_id, amount: Number(b.amount), sum: Number(b.sum) }));
   const known = new Map(stored.map((b) => [b.product_id, { name: b.name, unit_name: b.unit_name, group_name: b.group_name }]));
   await calcAndWrite(db, row, book, null, known);
-  return true;
 }
 
 export async function storeNames(db: DbLike, ids: string[]): Promise<Map<string, string>> {

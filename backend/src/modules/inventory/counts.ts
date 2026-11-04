@@ -18,7 +18,7 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
-import { allowedPeriods, interimDates, isValidInterimDate, isValidQty, lastDayOf, nextStatus, UUID_RE } from "./rules";
+import { interimDates, isValidInterimDate, isValidQty, lastDayOf, monthlyPeriods, nextStatus, periodTargets, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
   InventoryStartOptions,
@@ -166,14 +166,14 @@ function branchFilter(ids: string[] | null) {
   return sql` and ti.product_id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})`;
 }
 
-function isUniqueViolation(e: any): boolean {
+export function isUniqueViolation(e: any): boolean {
   return e?.code === "23505" || e?.cause?.code === "23505";
 }
 
 export type CountKind = "monthly" | "interim";
 
 // Месячный — один на склад, месяц и шаблон; промежуточный — на склад, дату и шаблон.
-async function findActive(db: DbLike, storeId: string, kind: CountKind, countDate: string, templateId: string | null) {
+export async function findActive(db: DbLike, storeId: string, kind: CountKind, countDate: string, templateId: string | null) {
   const [row] = await db
     .select({ id: inventory_counts.id })
     .from(inventory_counts)
@@ -217,8 +217,9 @@ export async function createCount(
     // Месячный — только «Все товары филиала» (02.11.2026): месячный по шаблону (Kunlik) в сверке с iiko
     // складывался с настоящим месячным. Проверка до findActive — иначе вернули бы старый такой пересчёт.
     if (templateId) throw new InventoryError(422, "monthly_template_forbidden");
-    if (!input.period || !allowedPeriods(now).includes(input.period)) {
-      throw new InventoryError(422, "invalid_period", { allowed: allowedPeriods(now) });
+    // Только прошлый месяц, в последний день — ещё и текущий (04.11.2026, rules.monthlyPeriods).
+    if (!input.period || !monthlyPeriods(now).includes(input.period)) {
+      throw new InventoryError(422, "invalid_period", { allowed: monthlyPeriods(now) });
     }
     period = countDate = input.period;
   }
@@ -425,6 +426,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     access,
     can_manage: manage,
     can_reopen: row.status === "submitted" && (await mayReopen(db, actor, access, row)),
+    period_targets: periodTargets(row, actor.perms, now),
     lines: lines.map(
       (x): InventoryLine => ({
         ...x,
