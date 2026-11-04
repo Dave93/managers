@@ -18,13 +18,14 @@ import type { FailStatus } from "./api";
 import { appApi } from "./api";
 import { appCache } from "./cache";
 import { devRequested } from "./dev/flag";
+import type { Key } from "./i18n";
 import { DICT, lang, monthName, setLang, t } from "./i18n";
 import type { Loaded } from "./load";
 import { loadScreen } from "./load";
 import { provideNav } from "./nav";
 import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
-import { hashOf, parseHash } from "./route";
+import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
@@ -33,6 +34,7 @@ import { closeDisputeSheet } from "./sheet";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
+import { evNoticeKey } from "./view/ev-errors";
 import { historyView } from "./view/history";
 import { homeView } from "./view/home";
 import { reviewView } from "./view/review";
@@ -57,6 +59,8 @@ interface Screen {
   render(data: unknown): HTMLElement;
   // Заголовок экрана над «Запись не найдена» (404): человек видит, какой месяц не нашёлся.
   title?: string;
+  // Экраны оценщика: ответ не сохраняется в кэше телефона и при сбое сети старая копия не показывается.
+  noCache?: boolean;
 }
 
 function screenOf(r: Route): Screen {
@@ -82,6 +86,9 @@ function screenOf(r: Route): Screen {
       };
     case "history":
       return { path: "/history", kind: "list", render: (d) => renderHistory(historyView(d as TgHistory, lang())), title: t("link_history") };
+    default:
+      // Экраны оценщика подключают задачи 7–11.
+      return screenOf(HOME);
   }
 }
 
@@ -110,9 +117,9 @@ function same(a: Route, b: Route): boolean {
   return hashOf(a) === hashOf(b);
 }
 
-/** Решение 18: без роли employee любой маршрут, кроме главного, — главный, хеш — «#/». */
+/** Решение 18: экран сотрудника нужна роль employee, экран оценщика — evaluator; иначе главный, хеш — «#/». */
 function guard(r: Route): Route {
-  if (r.name === "home" || roles.indexOf("employee") >= 0) return r;
+  if (routeAllowed(r, roles)) return r;
   if (location.hash !== "#/") history.replaceState(null, "", "#/");
   return HOME;
 }
@@ -178,9 +185,13 @@ async function showAsync(keep: boolean): Promise<void> {
   setBack(stack.length > 1 ? back : null);
   // Скелетон старта уже на месте: второй не ставим, подсказка старта продолжает отсчёт.
   if (!keep && !showingSkeleton(sc.kind)) mount(skeleton(sc.kind));
-  const res = await loadScreen<unknown>(sc.path, () => {
-    if (my === seq) showSlow();
-  });
+  const res = await loadScreen<unknown>(
+    sc.path,
+    () => {
+      if (my === seq) showSlow();
+    },
+    sc.noCache,
+  );
   if (my !== seq) return;
   // Перерисовка того же экрана остаётся там, где человек читал.
   if (keep) entry.y = window.pageYOffset;
@@ -206,16 +217,22 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
     return;
   }
   if (res.kind === "http") {
-    // Роль сотрудника сняли, пока приложение открыто (решение 18 посреди работы): вместо
-    // «Повторить», который снова получит 403, — главный экран; он же поправит роли.
-    if (res.error === "not_employee") {
+    // Роль сотрудника или оценщика сняли, пока приложение открыто (решение 18 посреди работы):
+    // вместо «Повторить», который снова получит 403, — главный экран; он же поправит роли.
+    if (res.error === "not_employee" || res.error === "not_evaluator") {
       goHome();
+      return;
+    }
+    // Нет права оценивать, сотрудник вне назначений, нет карты: понятный текст вместо общей ошибки.
+    const noticeKey = res.error ? evNoticeKey(res.error) : null;
+    if (noticeKey) {
+      mount(notice(sc, noticeKey));
       return;
     }
     // Черновик, чужое и несуществующее неотличимы (план 6): «Запись не найдена», а назад
     // ведёт BackButton — стек здесь всегда глубже главного.
     if (res.code === 404) {
-      mount(notFound(sc));
+      mount(notice(sc, "err_not_found"));
       return;
     }
     mount(statusScreen("unknown", () => show(false)));
@@ -224,12 +241,13 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
   refuse(res.status);
 }
 
-function notFound(sc: Screen): HTMLElement {
+/** Карточка-заглушка с заголовком экрана над ней: «Запись не найдена» и отказы оценщику. */
+function notice(sc: Screen, key: Key): HTMLElement {
   return h(
     "main",
     { class: "screen" },
     sc.title ? h("h1", { class: "title" }, sc.title) : null,
-    h("p", { class: "card notfound", role: "status" }, t("err_not_found")),
+    h("p", { class: "card notfound", role: "status" }, t(key)),
   );
 }
 

@@ -55,3 +55,10 @@ it("t: подстановки и заглавная буква только у �
   expect(t("hist_running")).toBe("идёт");
   expect(t("eval_pending", { n: 3, employees: "сотрудников", date: "7 декабря" })).toBe("Нужно оценить 3 сотрудников до 7 декабря");
 });
+
+it("ключи ev_*: плейсхолдеры {…} в ru и uz совпадают", () => {
+  const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(",");
+  const keys = (Object.keys(DICT.ru) as (keyof typeof DICT.ru)[]).filter((k) => k.startsWith("ev_"));
+  expect(keys.length).toBeGreaterThan(0);
+  for (const k of keys) expect([k, ph(DICT.uz[k])]).toEqual([k, ph(DICT.ru[k])]);
+});
