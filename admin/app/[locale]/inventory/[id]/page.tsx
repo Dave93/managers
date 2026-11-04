@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/t
 import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
 import { AddProductDialog } from "../_components/add-product-dialog";
 import { BookCompare } from "../_components/book-compare";
+import { ChangePeriodDialog } from "../_components/change-period-dialog";
 import { CountHeader } from "../_components/count-header";
 import { CountTable } from "../_components/count-table";
 import { SubmitDialog } from "../_components/submit-dialog";
@@ -89,18 +90,22 @@ function CountScreen({ id }: { id: string }) {
         <Link href="/inventory" className="text-sm underline">
           ← {t("back")}
         </Link>
-        {editable && detail.can_manage && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-muted-foreground"
-            onClick={() => {
-              if (window.confirm(t("cancelConfirm"))) cancel.mutate();
-            }}
-          >
-            {t("cancelCount")}
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Офис переносит месячный пересчёт в другой месяц. В кэше устройства старой версии поля может не быть. */}
+          {(detail.period_targets?.length ?? 0) > 0 && <ChangePeriodDialog detail={detail} onDone={() => void sync.refetch()} />}
+          {editable && detail.can_manage && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-muted-foreground"
+              onClick={() => {
+                if (window.confirm(t("cancelConfirm"))) cancel.mutate();
+              }}
+            >
+              {t("cancelCount")}
+            </Button>
+          )}
+        </div>
       </div>
       <CountHeader
         detail={detail}

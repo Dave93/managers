@@ -673,6 +673,18 @@
     "cancelCount": "Cancel the stock count",
     "cancelConfirm": "Cancel this draft? Entries stay in the history.",
     "cancelled": "Stock count cancelled",
+    "changePeriod": {
+      "button": "Change month",
+      "title": "Move the stock count to another month",
+      "current": "Now: {period}",
+      "target": "New month",
+      "hint": "iiko book stock will be reloaded for the end of the new month; the iiko reconciliation for both months will be recalculated.",
+      "cancel": "Back",
+      "submit": "Move",
+      "done": "Stock count moved: {period}",
+      "taken": "The branch already has this stock count for that month. Cancel or move it first.",
+      "closed": "The iiko reconciliation for {period} is already accepted — moving is closed."
+    },
     "errors": {
       "invalidQty": "Enter a number, e.g. 2.5 or 2.5+3",
       "generic": "Error: {message}"

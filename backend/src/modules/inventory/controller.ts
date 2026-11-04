@@ -5,6 +5,7 @@ import Elysia, { t } from "elysia";
 import { actorFrom } from "./access";
 import { addLine, availableTemplates, cancelCount, createCount, listCounts, loadCount, productScope, reopenCount, searchProducts, setSkipped, submitCount, syncEntries } from "./counts";
 import { run } from "./errors";
+import { changeCountPeriod } from "./period-change";
 import {
   createTemplate,
   deleteTemplate,
@@ -17,7 +18,7 @@ import {
   suggestions,
   updateTemplate,
 } from "./templates";
-import { allowedPeriods, defaultPeriod, interimDates } from "./rules";
+import { defaultPeriod, interimDates, monthlyPeriods } from "./rules";
 import { enqueueBookSafe } from "./book/queue";
 import { bookRoutes } from "./book/routes";
 import { reconcileRoutes } from "./reconcile/routes";
@@ -51,7 +52,7 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
   )
   .get("/inventory/periods", () => {
     const now = new Date();
-    return { periods: allowedPeriods(now), default: defaultPeriod(now) };
+    return { periods: monthlyPeriods(now), default: defaultPeriod(now) };
   }, {
     permission: "inventory.count",
   })
@@ -166,6 +167,12 @@ const inventoryControllerImpl = new Elysia({ name: "@api/inventory", prefix: "/a
     async ({ params, user, role, drizzle, cacheController, set }) =>
       run(set, async () => reopenCount(drizzle, await actorFrom(cacheController, user, role), params.id, new Date())),
     { permission: "inventory.count", params: t.Object({ id: t.String() }) }
+  )
+  .post(
+    "/inventory/counts/:id/period",
+    async ({ params, body, user, role, drizzle, cacheController, set }) =>
+      run(set, async () => changeCountPeriod(drizzle, await actorFrom(cacheController, user, role), params.id, body.period, new Date())),
+    { permission: "inventory.reconcile", params: t.Object({ id: t.String() }), body: t.Object({ period: t.String() }) }
   )
   .post(
     "/inventory/counts/:id/cancel",

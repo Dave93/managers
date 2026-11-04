@@ -27,12 +27,15 @@ export async function closeBookQueue() {
 
 const RUNNING = new Set(["waiting", "active", "delayed", "prioritized", "waiting-children"]);
 
-/** Ставит загрузку снимка; если по этому пересчёту задача уже стоит — ничего не делает. */
-export async function enqueueBook(q: Queue, countId: string, delayMs = 0): Promise<{ queued: boolean }> {
+/** Ставит загрузку снимка; если по этому пересчёту задача уже стоит — ничего не делает.
+ * replace — у пересчёта сменилась дата (перенос месяца, 04.11.2026): ещё не начатую задачу со старой задержкой
+ * заменяем новой. Иначе отложенная до 30.11 задача держала бы перенесённый в октябрь пересчёт без книжного. */
+export async function enqueueBook(q: Queue, countId: string, delayMs = 0, replace = false): Promise<{ queued: boolean }> {
   const jobId = bookJobId(countId);
   const existing = await q.getJob(jobId);
   if (existing) {
-    if (RUNNING.has(await existing.getState())) return { queued: false };
+    const state = await existing.getState();
+    if (RUNNING.has(state) && (!replace || state === "active")) return { queued: false };
     await existing.remove();
   }
   await q.add("book", { countId } satisfies BookJobData, {
@@ -48,10 +51,10 @@ export async function enqueueBook(q: Queue, countId: string, delayMs = 0): Promi
 }
 
 /** Ставит снимок с задержкой до момента книжного количества даты пересчёта. */
-export async function enqueueBookFor(db: DbLike, countId: string, now = new Date()) {
+export async function enqueueBookFor(db: DbLike, countId: string, now = new Date(), replace = false) {
   const [count] = await db.select({ count_date: inventory_counts.count_date }).from(inventory_counts).where(eq(inventory_counts.id, countId));
   if (!count) return { queued: false };
-  return enqueueBook(bookQueue(), countId, bookDelayMs(bookTimestamp(count.count_date), now));
+  return enqueueBook(bookQueue(), countId, bookDelayMs(bookTimestamp(count.count_date), now), replace);
 }
 
 /** Пересчёты, по которым снимок сейчас в очереди или загружается. Redis недоступен — пусто (не ломаем экран). */

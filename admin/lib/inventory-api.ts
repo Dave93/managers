@@ -42,7 +42,8 @@ export class InventoryApiError extends Error {
 // react-query посчитал бы 409/422 успехом.
 async function call<T>(p: Promise<any>): Promise<T> {
   const res = await p;
-  if (res?.error) throw new InventoryApiError(res.error.status ?? res.status ?? 0, res.error.value ?? res.error);
+  // Тело ошибки тоже: {error: "period_closed", period: "2026-09-30"} Eden отдаёт с Date вместо строки.
+  if (res?.error) throw new InventoryApiError(res.error.status ?? res.status ?? 0, normalizeDates(res.error.value ?? res.error));
   // Eden превращает строки дат в Date — возвращаем их строками (см. normalize.ts).
   return normalizeDates(res?.data) as T;
 }
@@ -51,7 +52,7 @@ const inv = (apiClient.api as any).inventory;
 
 export const inventoryApi = {
   stores: () => call<InventoryStore[]>(inv.stores.get()),
-  /** `default` — месяц, выбранный по умолчанию в «Начать» (с 1-го по 7-е — прошлый). */
+  /** Месяцы для нового месячного: прошлый, в последний день месяца ещё и текущий; `default` — первый из них. */
   periods: () => call<{ periods: string[]; default: string }>(inv.periods.get()),
   availableTemplates: (storeId: string) =>
     call<InventoryStartOptions>(inv.templates.available.get({ query: { store_id: storeId } })),
@@ -84,6 +85,8 @@ export const inventoryApi = {
     call<{ ok: true }>(inv.counts({ id }).submit.post({ skip_incomplete: skipIncomplete })),
   reopen: (id: string) => call<{ ok: true }>(inv.counts({ id }).reopen.post({})),
   cancel: (id: string) => call<{ ok: true }>(inv.counts({ id }).cancel.post({})),
+  /** Офис (право сверки) переносит месячный пересчёт в другой месяц: 409 period_taken / period_closed. */
+  changePeriod: (id: string, period: string) => call<{ ok: true; period: string }>(inv.counts({ id }).period.post({ period })),
   products: (q: string, countId?: string) =>
     call<InventoryProduct[]>(
       inv.products.get({ query: countId ? { q, limit: "20", count_id: countId } : { q, limit: "20" } })

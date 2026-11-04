@@ -52,20 +52,30 @@ export function isValidPeriod(period: string): boolean {
   return lastDayOfMonth(year, month) === period;
 }
 
-/** Периоды, доступные для новой инвентаризации: текущий месяц и прошлый, без срока ввода. */
+/** Окно месяцев: текущий и прошлый. Остатки, ОСВ и перенос месяца офисом; новый месячный — monthlyPeriods. */
 export function allowedPeriods(now: Date): string[] {
   const { y, m } = tashkentParts(now);
   return [lastDayOfMonth(y, m), previousPeriod(now)];
 }
 
-/** До этого числа включительно «Начать» → «Месячный» по умолчанию предлагает прошлый месяц — как cron сверки (1–7). */
-export const MONTHLY_DEFAULT_PREVIOUS_UNTIL_DAY = 7;
-
-/** Месяц по умолчанию для нового месячного пересчёта (02.11.2026): 1 ноября склад отправил «Все товары»
- * за ноябрь вместо октября, потому что по умолчанию стоял текущий месяц. */
-export function defaultPeriod(now: Date): string {
+/** Месяцы для нового месячного пересчёта (04.11.2026): только прошлый, а в последний день месяца — ещё и текущий.
+ * В начале ноября филиалы отправляли октябрьский пересчёт как ноябрьский; считают обычно 31-го вечером или 1-го. */
+export function monthlyPeriods(now: Date): string[] {
   const { y, m, d } = tashkentParts(now);
-  return d <= MONTHLY_DEFAULT_PREVIOUS_UNTIL_DAY ? previousPeriod(now) : lastDayOfMonth(y, m);
+  const current = lastDayOfMonth(y, m);
+  return Number(current.slice(8)) === d ? [current, previousPeriod(now)] : [previousPeriod(now)];
+}
+
+/** Месяц по умолчанию для нового месячного пересчёта: в последний день месяца текущий, иначе прошлый. */
+export function defaultPeriod(now: Date): string {
+  return monthlyPeriods(now)[0];
+}
+
+/** Куда офис (право сверки) может перенести месячный пересчёт: текущий или прошлый месяц, кроме своего (04.11.2026). */
+export function periodTargets(row: { kind: string; status: string; period: string }, perms: string[], now: Date): string[] {
+  if (!perms.includes("inventory.reconcile")) return [];
+  if (row.kind !== "monthly" || row.status === "cancelled") return [];
+  return allowedPeriods(now).filter((p) => p !== row.period);
 }
 
 /** Последний день прошлого месяца по Ташкенту — период, который сверяет cron. */
