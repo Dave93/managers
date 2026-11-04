@@ -29,10 +29,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     tgRaw,
     TG_TEST_BOT_TOKEN,
   } = await import("./fixtures");
-  const { kpi_notifications, kpi_violations } = await import("backend/drizzle/schema");
+  const { kpi_evaluator_scopes, kpi_notifications, kpi_violations } = await import("backend/drizzle/schema");
   const { setTestBotApi } = await import("../tg/bot-api");
   const { seedDispute, seedViolation, TINY_PNG } = await import("../tg-app/dev-data");
-  const { eq } = await import("drizzle-orm");
+  const { MAX_PHOTO_BYTES } = await import("../storage");
+  const { and, eq } = await import("drizzle-orm");
 
   describe("kpi: оценщик в мини-приложении, нарушения", () => {
     let db: Awaited<ReturnType<typeof setup>>["db"];
@@ -86,9 +87,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(vf.body.items).toHaveLength(cookItems.length);
       expect(vf.body.items[0].id).toBe(cookItems[0]);
       expect(await tgApi(token, "GET", `/api/kpi/tg/ev/violation-form?employee_id=${foreign.id}`)).toEqual(OUT);
-      expect((await tgApi(token, "GET", "/api/kpi/tg/ev/violation-form")).status).toBe(404);
-      expect((await tgApi(token, "GET", "/api/kpi/tg/ev/violation-form?employee_id=x")).status).toBe(404);
-      expect((await tgApi(token, "GET", `/api/kpi/tg/ev/violation-form?employee_id=${randomUUID()}`)).status).toBe(404);
+      const NOT_FOUND = { status: 404, body: { error: "not_found" } };
+      expect(await tgApi(token, "GET", "/api/kpi/tg/ev/violation-form")).toEqual(NOT_FOUND);
+      expect(await tgApi(token, "GET", "/api/kpi/tg/ev/violation-form?employee_id=x")).toEqual(NOT_FOUND);
+      expect(await tgApi(token, "GET", `/api/kpi/tg/ev/violation-form?employee_id=${randomUUID()}`)).toEqual(NOT_FOUND);
       const ok = await tgForm(token, "/api/kpi/tg/ev/violations", mp({ employee_id: e.id, card_item_id: cookItems[1], comment: "Грязный пол у кассы" }, [png()]));
       expect(ok.status).toBe(200);
       expect(ok.body).toMatchObject({ employee_id: e.id, card_item_id: cookItems[1], comment: "Грязный пол у кассы", status: "active", period: "2025-10-01", open_dispute: false, can_cancel: true });
@@ -117,6 +119,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await post({ employee_id: e.id, comment: "ab" })).body).toEqual({ error: "comment_required" });
       expect((await post({ employee_id: e.id, comment: "Нет формы" }, [new File(["x"], "a.txt", { type: "text/plain" })])).body).toEqual({ error: "bad_photo_type" });
       expect((await post({ employee_id: e.id, comment: "Нет формы" }, [png(), png(), png(), png()])).body).toEqual({ error: "too_many_photos" });
+      // Ровно на байт больше предела: как у админки, 422 photo_too_large, и в базу ничего не пишется.
+      const big = new File([new Uint8Array(MAX_PHOTO_BYTES + 1)], "big.jpg", { type: "image/jpeg" });
+      expect(await post({ employee_id: e.id, comment: "Нет формы" }, [big])).toEqual({ status: 422, body: { error: "photo_too_large" } });
+      expect(await db.select().from(kpi_violations).where(eq(kpi_violations.employee_id, e.id))).toHaveLength(0);
       expect(await post({ employee_id: foreign.id, comment: "Нет формы" })).toEqual(OUT);
       expect((await post({ comment: "Нет формы" })).body).toEqual({ error: "bad_id" });
       const hr = await withSession({ permissions: ["kpi.manage"] });
@@ -172,6 +178,45 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const [row] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, others.id));
       expect(row.status).toBe("active");
       expect((await cancel(randomUUID(), "Записано по ошибке")).status).toBe(404);
+    });
+
+    it("снятое назначение: фото и список скрывают нарушение, но автор его отменяет (право автора, как в админке)", async () => {
+      setNow("2025-10-26T10:00:00+05:00");
+      const t1 = await makeTerminal(db), t2 = await makeTerminal(db);
+      const ev = await makeEvaluator(db); await makeScope(db, ev.id, { terminal_id: t1.id }); await makeScope(db, ev.id, { terminal_id: t2.id });
+      const e1 = await makeEmployee(db, { role_code: "cook", terminal_id: t1.id });
+      const e2 = await makeEmployee(db, { role_code: "cook", terminal_id: t2.id });
+      const token = await evSession(db, ev.id);
+      const post = (e: { id: string }, comment: string) => tgForm(token, "/api/kpi/tg/ev/violations", mp({ employee_id: e.id, comment }, [png()]));
+      const v1 = await post(e1, "Грязный пол у кассы");
+      const v2 = await post(e2, "Нет перчаток на линии");
+      expect([v1.status, v2.status]).toEqual([200, 200]);
+      const photoUrl = (v: { body: any }) => `/api/kpi/tg/ev/violation-photos/${v.body.photo_ids[0]}/file`;
+      expect((await tgRaw(token, photoUrl(v2))).status).toBe(200);
+      await db.delete(kpi_evaluator_scopes).where(and(eq(kpi_evaluator_scopes.user_id, ev.id), eq(kpi_evaluator_scopes.terminal_id, t2.id)));
+      // Фото и список идут через видимость назначения: нарушение в снятом филиале пропало, в оставшемся на месте.
+      expect(await tgApi(token, "GET", "/api/kpi/tg/ev/violations?period=2025-10-01").then((r) => r.body.items.map((x: any) => x.id))).toEqual([v1.body.id]);
+      expect((await tgRaw(token, photoUrl(v2))).status).toBe(404);
+      expect((await tgRaw(token, photoUrl(v1))).status).toBe(200);
+      // Отмена своего нарушения остаётся у автора, как в админке (cancelViolation); решение контроллера, вынесено владельцу.
+      const c = await tgApi(token, "POST", `/api/kpi/tg/ev/violations/${v2.body.id}/cancel`, { reason: "Записано по ошибке" });
+      expect(c.status).toBe(200);
+      expect(c.body).toMatchObject({ id: v2.body.id, status: "cancelled", cancel_reason: "Записано по ошибке", can_cancel: false });
+      const [row] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, v2.body.id));
+      expect(row.status).toBe("cancelled");
+    });
+
+    it("отмена по id нарушения из чужого филиала, записанного другим оценщиком: 403 forbidden, запись остаётся активной", async () => {
+      setNow("2025-10-26T10:00:00+05:00");
+      const t1 = await makeTerminal(db), t2 = await makeTerminal(db);
+      const ev = await makeEvaluator(db); await makeScope(db, ev.id, { terminal_id: t1.id });
+      const ev2 = await makeEvaluator(db); await makeScope(db, ev2.id, { terminal_id: t2.id });
+      const foreign = await makeEmployee(db, { role_code: "cook", terminal_id: t2.id });
+      const theirs = await seedViolation(db, { employee_id: foreign.id, terminal_id: t2.id, recorded_by: ev2.id, period: "2025-10-01", occurred_at: "2025-10-20T07:00:00.000Z", comment: "Чужое", photo: TINY_PNG });
+      const token = await evSession(db, ev.id);
+      expect(await tgApi(token, "POST", `/api/kpi/tg/ev/violations/${theirs.id}/cancel`, { reason: "Записано по ошибке" })).toEqual({ status: 403, body: { error: "forbidden" } });
+      const [row] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, theirs.id));
+      expect(row.status).toBe("active");
     });
   });
 }
