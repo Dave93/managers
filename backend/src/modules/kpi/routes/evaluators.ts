@@ -4,6 +4,7 @@ import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { terminalNames, userNames } from "../directory";
 import { KpiError, run } from "../errors";
+import { assignScopes } from "../evaluators";
 import { iso } from "../iso";
 import type { KpiUserOption, ScopeRow } from "../types";
 
@@ -47,6 +48,17 @@ export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
     async ({ body, user, drizzle, set }) =>
       run(set, async () => {
         const b = body as Record<string, unknown>;
+        // Массовое назначение: есть card_ids или terminal_ids; ключа нет — «все» по этому измерению.
+        if ("card_ids" in b || "terminal_ids" in b) {
+          // Одиночное поле рядом с массивом молча терялось бы и расширяло охват до «всех»: отказ.
+          if ("card_id" in b || "terminal_id" in b) throw new KpiError(422, "bad_id");
+          return assignScopes(drizzle, {
+            user_id: b.user_id,
+            card_ids: "card_ids" in b ? b.card_ids : [],
+            terminal_ids: "terminal_ids" in b ? b.terminal_ids : [],
+            created_by: user!.id,
+          });
+        }
         if (typeof b.user_id !== "string" || !UUID_RE.test(b.user_id)) throw new KpiError(422, "bad_id");
         const userId = b.user_id;
         const cardId = idOrNull(b.card_id ?? null);

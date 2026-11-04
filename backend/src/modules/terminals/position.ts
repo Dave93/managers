@@ -17,6 +17,8 @@ const GRADE = /([123])\s*(?:разряд|раяряд)/i;
 
 function groupOf(p: string): Group {
   const s = p.toLowerCase();
+  // «Техничка зала» и «техничка (мойка)» не должны уехать в зал и на кухню.
+  if (/техничк/.test(s)) return "other";
   if (/менеджер/.test(s)) return "management";
   if (/повар|кухн|салатчиц|мойк/.test(s)) return "kitchen";
   if (/кассир|зал|раздач/.test(s)) return "front";
@@ -34,6 +36,8 @@ function roleOf(p: string): string {
     if (/кассир/.test(s)) return "Стажёр-кассир";
     return "Стажёр-повар";
   }
+  // Раньше «менеджер», «кассир», «мойк» и «зал»: «Техничка зала» и «техничка (мойка)» — техничка.
+  if (/техничк/.test(s)) return "Техничка";
   if (/универсал/.test(s)) return "Универсал-повар";
   if (/старш/.test(s)) return "Старший повар";
   if (/менеджер/.test(s)) return "Менеджер";

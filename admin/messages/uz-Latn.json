@@ -2908,7 +2908,13 @@
         "anyCard": "Istalgan karta",
         "terminalAria": "Filial",
         "anyTerminal": "Istalgan filial",
-        "assign": "Tayinlash"
+        "assign": "Tayinlash",
+        "assignedMany": "Tayinlashlar yaratildi: {created}, avvaldan bor edi: {skipped}",
+        "allCards": "Barcha kartalar",
+        "allTerminals": "Barcha filiallar",
+        "removeAria": "Tayinlashni olib tashlash: {scope}",
+        "multiSearch": "Qidirish…",
+        "multiEmpty": "Hech narsa topilmadi"
       },
       "invite": {
         "copied": "Havola nusxalandi",

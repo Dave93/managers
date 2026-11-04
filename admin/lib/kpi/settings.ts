@@ -129,6 +129,36 @@ export function scopeLabel(s: Pick<ScopeRow, "card_title" | "terminal_name">, t:
   return t("lib.settings.scope", { card: s.card_title ?? t("lib.settings.anyCard"), terminal: s.terminal_name ?? t("lib.settings.anyBranch") });
 }
 
+/** Один человек и все его назначения (охваты). */
+export type ScopeGroup = { user_id: string; user_name: string; rows: ScopeRow[] };
+
+/**
+ * Назначения → по группе на человека. Группы по имени (ru-локаль, при равенстве по user_id),
+ * строки внутри группы по created_at: при массовом назначении метка у всех строк одна,
+ * поэтому дальше «все» (без названия) первыми, потом по названию филиала, карты и id.
+ */
+export function groupScopes(rows: ScopeRow[]): ScopeGroup[] {
+  const byUser = new Map<string, ScopeGroup>();
+  for (const r of rows) {
+    const g = byUser.get(r.user_id);
+    if (g) g.rows.push(r);
+    else byUser.set(r.user_id, { user_id: r.user_id, user_name: r.user_name, rows: [r] });
+  }
+  const time = (r: ScopeRow) => Date.parse(r.created_at) || 0;
+  const text = (a: string | null, b: string | null) => (a ?? "").localeCompare(b ?? "", "ru");
+  const groups = [...byUser.values()];
+  for (const g of groups) {
+    g.rows.sort(
+      (a, b) =>
+        time(a) - time(b) ||
+        text(a.terminal_name, b.terminal_name) ||
+        text(a.card_title, b.card_title) ||
+        a.id.localeCompare(b.id),
+    );
+  }
+  return groups.sort((a, b) => a.user_name.localeCompare(b.user_name, "ru") || a.user_id.localeCompare(b.user_id));
+}
+
 /** Вес нового пункта: самый частый вес среди включённых пунктов карты (при равенстве — меньший), иначе 1.
  *  Все пункты весят одинаково, и новый не должен перевешивать остальные. */
 export function defaultItemWeight(items: { weight: number; active: boolean }[]): number {

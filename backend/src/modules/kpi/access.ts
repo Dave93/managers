@@ -1,7 +1,7 @@
 import type { DrizzleDB } from "@backend/lib/db";
 import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import { kpi_evaluator_scopes } from "backend/drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { KpiError } from "./errors";
 import type { Scope } from "./rules";
 import { isPeriod, type Period } from "./time";
@@ -46,6 +46,27 @@ export async function loadScopes(db: DbLike, userId: string): Promise<Scope[]> {
     .from(kpi_evaluator_scopes)
     .where(eq(kpi_evaluator_scopes.user_id, userId));
   return rows;
+}
+
+// Назначения нескольких оценщиков одним запросом; у пользователя без назначений ключа в карте нет.
+export async function loadScopesByUser(db: DbLike, userIds: string[]): Promise<Map<string, Scope[]>> {
+  const out = new Map<string, Scope[]>();
+  if (userIds.length === 0) return out;
+  const rows = await db
+    .select({
+      user_id: kpi_evaluator_scopes.user_id,
+      card_id: kpi_evaluator_scopes.card_id,
+      terminal_id: kpi_evaluator_scopes.terminal_id,
+    })
+    .from(kpi_evaluator_scopes)
+    .where(inArray(kpi_evaluator_scopes.user_id, userIds));
+  for (const r of rows) {
+    const scope = { card_id: r.card_id, terminal_id: r.terminal_id };
+    const list = out.get(r.user_id);
+    if (list) list.push(scope);
+    else out.set(r.user_id, [scope]);
+  }
+  return out;
 }
 
 export function parsePeriod(v: unknown): Period {

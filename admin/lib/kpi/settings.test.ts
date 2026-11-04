@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import type { KpiSettings } from "@admin/lib/kpi-api";
+import type { KpiSettings, ScopeRow } from "@admin/lib/kpi-api";
 import {
   ITEM_SOURCE_OPTIONS,
   SETTINGS_FIELDS,
@@ -10,6 +10,7 @@ import {
   defaultItemWeight,
   externalIdIssue,
   externalIdValue,
+  groupScopes,
   parseRoleCodes,
   scopeLabel,
   settingsIssues,
@@ -108,6 +109,43 @@ describe("сроки", () => {
   it("scopeLabel", () => {
     expect(scopeLabel({ card_title: null, terminal_name: null })).toBe("Любая карта · Любой филиал");
     expect(scopeLabel({ card_title: "Повар", terminal_name: "Тест Филиал 1" })).toBe("Повар · Тест Филиал 1");
+  });
+});
+
+describe("groupScopes", () => {
+  const row = (id: string, user_id: string, user_name: string, created_at: string, terminal_name: string | null = null): ScopeRow => ({
+    id, user_id, user_name, card_id: null, card_title: null, terminal_id: terminal_name && `t-${terminal_name}`, terminal_name, created_at,
+  });
+
+  it("три строки двух людей — две группы по алфавиту (ru)", () => {
+    const groups = groupScopes([
+      row("s1", "u-yakov", "Яков Белов", "2026-11-01T10:00:00.000Z"),
+      row("s2", "u-anna", "Анна Орлова", "2026-11-01T11:00:00.000Z", "Чиланзар"),
+      row("s3", "u-anna", "Анна Орлова", "2026-11-01T12:00:00.000Z", "Юнусабад"),
+    ]);
+    expect(groups.map((g) => [g.user_id, g.user_name, g.rows.map((r) => r.id)])).toEqual([
+      ["u-anna", "Анна Орлова", ["s2", "s3"]],
+      ["u-yakov", "Яков Белов", ["s1"]],
+    ]);
+  });
+  it("шесть филиалов одного человека — одна группа из шести строк, по created_at", () => {
+    const names = ["Чиланзар", "Юнусабад", "Мирзо-Улугбек", "Сергели", "Яккасарай", "Шайхантахур"];
+    // Намеренно вразнобой: порядок строк задаёт created_at, а не порядок в ответе.
+    const times = ["06", "02", "05", "01", "04", "03"];
+    const groups = groupScopes(names.map((n, i) => row(`s${i}`, "u-1", "Анна Орлова", `2026-11-01T10:00:${times[i]}.000Z`, n)));
+    expect(groups.length).toBe(1);
+    expect(groups[0].rows.length).toBe(6);
+    expect(groups[0].rows.map((r) => r.terminal_name)).toEqual(["Сергели", "Юнусабад", "Шайхантахур", "Яккасарай", "Мирзо-Улугбек", "Чиланзар"]);
+  });
+  it("одноимённые разные люди не склеиваются, пустой список — пустой результат", () => {
+    const groups = groupScopes([row("s1", "u-1", "Иван", "2026-11-01T10:00:00.000Z"), row("s2", "u-2", "Иван", "2026-11-01T10:00:00.000Z")]);
+    expect(groups.map((g) => g.user_id)).toEqual(["u-1", "u-2"]);
+    expect(groupScopes([])).toEqual([]);
+  });
+  it("одинаковый created_at (массовое назначение): «все филиалы» первой, дальше по названию", () => {
+    const at = "2026-11-01T10:00:00.000Z";
+    const groups = groupScopes([row("s1", "u-1", "Анна", at, "Юнусабад"), row("s2", "u-1", "Анна", at, "Чиланзар"), row("s3", "u-1", "Анна", at)]);
+    expect(groups[0].rows.map((r) => r.id)).toEqual(["s3", "s2", "s1"]);
   });
 });
 

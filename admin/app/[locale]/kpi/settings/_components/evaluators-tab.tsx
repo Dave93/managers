@@ -15,13 +15,12 @@ import {
 } from "@admin/components/ui/alert-dialog";
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { kpiApi, type Card, type KpiUserOption, type ScopeRow } from "@admin/lib/kpi-api";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
-import { ALL } from "@admin/lib/kpi/filters";
 import { formatTashkent } from "@admin/lib/kpi/format";
-import { scopeLabel } from "@admin/lib/kpi/settings";
+import { groupScopes, scopeLabel } from "@admin/lib/kpi/settings";
+import { MultiSelect } from "../../_components/multi-select";
 import { StaleNote } from "../../_components/stale-note";
 import { qk, useKpiTerminals } from "../../_components/use-kpi";
 import { TgCell } from "./tg-cell";
@@ -40,9 +39,10 @@ export function EvaluatorsTab() {
     queryFn: () => kpiApi.evaluators.list(),
     retry: shouldRetry,
   });
-  const rows = useMemo(() => [...(list.data ?? [])].sort((a, b) => a.user_name.localeCompare(b.user_name, "ru")), [list.data]);
+  // Одна строка таблицы на человека: его охваты (карта + филиал) списком в одной ячейке.
+  const groups = useMemo(() => groupScopes(list.data ?? []), [list.data]);
 
-  const tg = useTgBindings("user", rows.map((r) => r.user_id));
+  const tg = useTgBindings("user", groups.map((g) => g.user_id));
   const tgLoad = loadErrors({ error: tg.error, data: tg.data });
 
   const remove = useMutation({
@@ -71,7 +71,7 @@ export function EvaluatorsTab() {
         </p>
       ) : list.isPending ? (
         <p className="text-sm text-muted-foreground">{t("settings.evaluators.loading")}</p>
-      ) : rows.length === 0 ? (
+      ) : groups.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("settings.evaluators.empty")}</p>
       ) : (
         <div className="space-y-2">
@@ -87,24 +87,40 @@ export function EvaluatorsTab() {
               <TableRow>
                 <TableHead>{t("settings.evaluators.colEvaluator")}</TableHead>
                 <TableHead>{t("settings.evaluators.colScope")}</TableHead>
-                <TableHead>{t("settings.evaluators.colAssigned")}</TableHead>
                 <TableHead>{t("settings.evaluators.colTelegram")}</TableHead>
-                <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
-                  <TableCell>{r.user_name}</TableCell>
-                  <TableCell>{scopeLabel(r, t)}</TableCell>
-                  <TableCell>{formatTashkent(r.created_at, false)}</TableCell>
-                  <TableCell>
-                    <TgCell target={{ user_id: r.user_id }} {...tg.lookup(r.user_id)} name={r.user_name} />
+              {groups.map((g) => (
+                <TableRow key={g.user_id}>
+                  {/* Первая строка охватов высотой 44 px (кнопка), поэтому имя и Telegram выровнены под неё. */}
+                  <TableCell className="align-top whitespace-normal break-words">
+                    <div className="flex min-h-11 min-w-32 items-center">{g.user_name}</div>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button type="button" variant="outline" className="h-11" disabled={remove.isPending} onClick={() => setRemoveTarget(r)}>
-                      {t("settings.evaluators.remove")}
-                    </Button>
+                  <TableCell className="align-top whitespace-normal">
+                    <ul className="min-w-64 divide-y">
+                      {g.rows.map((r) => (
+                        <li key={r.id} className="flex items-center justify-between gap-3 py-1 first:pt-0 last:pb-0">
+                          <div className="min-w-0">
+                            <div className="break-words">{scopeLabel(r, t)}</div>
+                            <div className="text-xs text-muted-foreground">{formatTashkent(r.created_at, false)}</div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-11 shrink-0"
+                            aria-label={t("settings.evaluators.removeAria", { scope: `${g.user_name}: ${scopeLabel(r, t)}` })}
+                            disabled={remove.isPending}
+                            onClick={() => setRemoveTarget(r)}
+                          >
+                            {t("settings.evaluators.remove")}
+                          </Button>
+                        </li>
+                      ))}
+                    </ul>
+                  </TableCell>
+                  <TableCell className="align-top">
+                    <TgCell target={{ user_id: g.user_id }} {...tg.lookup(g.user_id)} name={g.user_name} />
                   </TableCell>
                 </TableRow>
               ))}
@@ -139,8 +155,9 @@ function AssignForm() {
   const [searchText, setSearchText] = useState("");
   const [search, setSearch] = useState("");
   const [user, setUser] = useState<KpiUserOption | null>(null);
-  const [card, setCard] = useState(ALL);
-  const [terminal, setTerminal] = useState(ALL);
+  // Пустой выбор — «все карты» / «все филиалы».
+  const [cardIds, setCardIds] = useState<string[]>([]);
+  const [terminalIds, setTerminalIds] = useState<string[]>([]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(searchText.trim()), 300);
@@ -160,23 +177,24 @@ function AssignForm() {
     retry: shouldRetry,
   });
 
+  const cardOptions = useMemo(() => (cards.data ?? []).map((c) => ({ value: c.id, label: c.title_ru })), [cards.data]);
+  const terminalOptions = useMemo(() => (terminals.data ?? []).map((term) => ({ value: term.id, label: term.name })), [terminals.data]);
+
   const create = useMutation({
-    mutationFn: () =>
-      kpiApi.evaluators.create({
-        user_id: (user as KpiUserOption).id,
-        card_id: card === ALL ? null : card,
-        terminal_id: terminal === ALL ? null : terminal,
-      }),
-    onSuccess: () => {
+    mutationFn: () => kpiApi.evaluators.createMany({ user_id: (user as KpiUserOption).id, card_ids: cardIds, terminal_ids: terminalIds }),
+    onSuccess: ({ created, skipped }) => {
       qc.invalidateQueries({ queryKey: qk.evaluators });
       qc.invalidateQueries({ queryKey: qk.employeesAll });
       qc.invalidateQueries({ queryKey: qk.me });
-      toast.success(t("settings.evaluators.assigned"));
+      // Ничего не создано (все назначения уже были): это не провал и не успех, поэтому нейтральный тост.
+      const text = t("settings.evaluators.assignedMany", { created, skipped });
+      if (created === 0) toast.info(text);
+      else toast.success(text);
       setUser(null);
       setSearchText("");
       setSearch("");
-      setCard(ALL);
-      setTerminal(ALL);
+      setCardIds([]);
+      setTerminalIds([]);
     },
     onError: (e) => toast.error(kpiErrorText(e, t)),
   });
@@ -231,32 +249,26 @@ function AssignForm() {
       )}
 
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={card} disabled={busy} onValueChange={setCard}>
-          <SelectTrigger className="h-11 w-full sm:w-60" aria-label={t("settings.evaluators.cardAria")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("settings.evaluators.anyCard")}</SelectItem>
-            {(cards.data ?? []).map((c) => (
-              <SelectItem key={c.id} value={c.id}>
-                {c.title_ru}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={terminal} disabled={busy} onValueChange={setTerminal}>
-          <SelectTrigger className="h-11 w-full sm:w-60" aria-label={t("settings.evaluators.terminalAria")}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("settings.evaluators.anyTerminal")}</SelectItem>
-            {(terminals.data ?? []).map((term) => (
-              <SelectItem key={term.id} value={term.id}>
-                {term.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <MultiSelect
+          options={cardOptions}
+          value={cardIds}
+          onChange={setCardIds}
+          allLabel={t("settings.evaluators.allCards")}
+          ariaLabel={t("settings.evaluators.cardAria")}
+          searchLabel={t("settings.evaluators.multiSearch")}
+          emptyLabel={t("settings.evaluators.multiEmpty")}
+          disabled={busy}
+        />
+        <MultiSelect
+          options={terminalOptions}
+          value={terminalIds}
+          onChange={setTerminalIds}
+          allLabel={t("settings.evaluators.allTerminals")}
+          ariaLabel={t("settings.evaluators.terminalAria")}
+          searchLabel={t("settings.evaluators.multiSearch")}
+          emptyLabel={t("settings.evaluators.multiEmpty")}
+          disabled={busy}
+        />
         <Button type="button" className="h-11" disabled={busy || user === null} onClick={() => !busy && create.mutate()}>
           {t("settings.evaluators.assign")}
         </Button>

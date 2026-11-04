@@ -2908,7 +2908,13 @@
         "anyCard": "Исталган карта",
         "terminalAria": "Филиал",
         "anyTerminal": "Исталган филиал",
-        "assign": "Тайинлаш"
+        "assign": "Тайинлаш",
+        "assignedMany": "Тайинлашлар яратилди: {created}, аввалдан бор эди: {skipped}",
+        "allCards": "Барча карталар",
+        "allTerminals": "Барча филиаллар",
+        "removeAria": "Тайинлашни олиб ташлаш: {scope}",
+        "multiSearch": "Қидириш…",
+        "multiEmpty": "Ҳеч нарса топилмади"
       },
       "invite": {
         "copied": "Ҳавола нусхаланди",

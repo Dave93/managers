@@ -12,9 +12,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
-  const { kpi_disputes, kpi_notifications, kpi_periods, kpi_review_events, kpi_violations } = await import(
-    "backend/drizzle/schema"
-  );
+  const { employees, kpi_disputes, kpi_evaluator_scopes, kpi_notifications, kpi_periods, kpi_review_events, kpi_violations } =
+    await import("backend/drizzle/schema");
   const { openDispute, resolveDispute } = await import("../disputes");
   const { eq } = await import("drizzle-orm");
   type Card = import("../types").Card;
@@ -78,6 +77,29 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     const resetPeriod = async () => {
       await db.delete(kpi_disputes);
       await db.delete(kpi_periods);
+    };
+    type Kind = "review" | "violation";
+    // Открытый спор автора по оценке или нарушению; subjectId нужен для проверки событий оценки.
+    const openBy = async (kind: Kind, author: Session, e: { id: string; terminal_id: string }) => {
+      const subjectId = kind === "review" ? await submitted(author, e.id) : (await makeViolation(author, e)).id;
+      const d = (await dispute(author, kind, subjectId, "Не согласен с записью")).body as DisputeRow;
+      expect(d.status).toBe("open");
+      return { d, subjectId };
+    };
+    const inList = async (s: Session, id: string) =>
+      ((await api(s, "GET", `/api/kpi/disputes?period=${P}`)).body as DisputeRow[]).find((x) => x.id === id);
+    // Отказ в разборе ничего не записал: спор открыт, уведомления сотруднику нет, события разбора у оценки нет.
+    const expectUntouched = async (kind: Kind, d: DisputeRow, subjectId: string) => {
+      const [row] = await db.select().from(kpi_disputes).where(eq(kpi_disputes.id, d.id));
+      expect([row.status, row.resolved_by, row.resolved_at]).toEqual(["open", null, null]);
+      expect(await note(`dispute_resolved:${d.id}`)).toHaveLength(0);
+      if (kind === "review") {
+        const evs = await db.select().from(kpi_review_events).where(eq(kpi_review_events.review_id, subjectId));
+        expect(evs.map((x) => x.kind).sort()).toEqual(["dispute_opened", "submitted"]);
+      } else {
+        const [v] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, subjectId));
+        expect(v.status).toBe("active");
+      }
     };
 
     beforeAll(async () => {
@@ -268,13 +290,17 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(blank.body.error).toBe("comment_required");
       expect((await resolve(ev, d.id, { decision: "maybe", comment: "Какой-то ответ" })).body).toEqual({ error: "bad_decision" });
 
-      // Разбирать может оценщик с назначением или kpi.approve, чужой оценщик не может.
+      // Разбирает автор оценки; оценщик без охвата и HR с kpi.approve не могут.
       const stranger = await evaluator(randomUUID());
       expect((await resolve(stranger, d.id, { decision: "rejected", comment: "Чужой разбор" })).status).toBe(403);
       expect((await resolve(ev, randomUUID(), { decision: "rejected", comment: "Нет такого" })).status).toBe(404);
 
       const hr = await withSession({ permissions: ["kpi.approve"] });
-      const ok = await resolve(hr, d.id, { decision: "rejected", comment: "Оценка верна" });
+      const denied = await resolve(hr, d.id, { decision: "rejected", comment: "Оценка верна" });
+      expect(denied.status).toBe(403);
+      expect(denied.body).toEqual({ error: "out_of_scope" });
+      await expectUntouched("review", d, reviewId);
+      const ok = await resolve(ev, d.id, { decision: "rejected", comment: "Оценка верна" });
       expect(ok.status).toBe(200);
       expect(ok.body.status).toBe("rejected");
       const form = (await api(ev, "GET", `/api/kpi/reviews/form?period=${P}&employee_id=${e.id}`)).body as ReviewForm;
@@ -402,8 +428,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         const ev = await evaluator(e.terminal_id);
         const subjectId = kind === "review" ? await submitted(ev, e.id) : (await makeViolation(ev, e)).id;
         const d = (await dispute(ev, kind, subjectId, "Не согласен с записью")).body as DisputeRow;
-        const hr = await withSession({ permissions: ["kpi.approve"] });
-        const actor = { userId: hr.userId, perms: new Set(["kpi.approve"]), isHq: true, terminals: [] as string[] };
+        // Разбирает автор: у него kpi.evaluate и назначение на филиал сотрудника.
+        const actor = { userId: ev.userId, perms: new Set(["kpi.evaluate"]), isHq: false, terminals: [] as string[] };
 
         let resolved!: () => void;
         const resolvedP = new Promise<void>((r) => (resolved = r));
@@ -504,7 +530,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const hr = await withSession({ permissions: ["kpi.approve"] });
       const all = (await api(hr, "GET", `/api/kpi/disputes?period=${P}`)).body as DisputeRow[];
       expect(all.map((x) => x.id).sort()).toEqual([d.id, d2.id].sort());
-      expect(all.find((x) => x.id === d.id)!.can_resolve).toBe(true);
+      // HR спор видит, но разобрать не может: разбирает автор.
+      expect(all.find((x) => x.id === d.id)!.can_resolve).toBe(false);
       expect(all.find((x) => x.id === d2.id)!.can_resolve).toBe(false);
       const open = (await api(hr, "GET", "/api/kpi/disputes?status=open")).body as DisputeRow[];
       expect(open.map((x) => x.id)).toEqual([d.id]);
@@ -515,6 +542,113 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const plain = await withSession({ permissions: ["kpi.manage"] });
       expect((await api(plain, "GET", "/api/kpi/disputes")).status).toBe(403);
     });
+
+    for (const kind of ["review", "violation"] as const) {
+      const what = kind === "review" ? "оценке" : "нарушению";
+
+      it(`спор по ${what} разбирает автор; другой оценщик с тем же охватом не может, пока автор покрывает`, async () => {
+        await resetPeriod();
+        setNow(NOW);
+        const e = await cook();
+        const author = await evaluator(e.terminal_id);
+        const other = await evaluator(e.terminal_id);
+        const { d, subjectId } = await openBy(kind, author, e);
+
+        // Другой оценщик спор видит (охват тот же), но разобрать не может.
+        expect((await inList(other, d.id))!.can_resolve).toBe(false);
+        const denied = await resolve(other, d.id, { decision: "rejected", comment: "Чужой разбор" });
+        expect(denied.status).toBe(403);
+        expect(denied.body).toEqual({ error: "out_of_scope" });
+        await expectUntouched(kind, d, subjectId);
+
+        expect((await inList(author, d.id))!.can_resolve).toBe(true);
+        const ok = await resolve(author, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(ok.status).toBe(200);
+        expect(ok.body.status).toBe("rejected");
+        const [row] = await db.select().from(kpi_disputes).where(eq(kpi_disputes.id, d.id));
+        expect(row.resolved_by).toBe(author.userId);
+      });
+
+      it(`после снятия назначения автора спор по ${what} уходит текущему оценщику; автор его видит, но разобрать не может`, async () => {
+        await resetPeriod();
+        setNow(NOW);
+        const e = await cook();
+        const author = await evaluator(e.terminal_id);
+        const next = await evaluator(e.terminal_id);
+        const { d, subjectId } = await openBy(kind, author, e);
+        await db.delete(kpi_evaluator_scopes).where(eq(kpi_evaluator_scopes.user_id, author.userId));
+
+        // Автор остаётся в списке как автор, но без назначения разобрать не может.
+        const byAuthor = await inList(author, d.id);
+        expect(byAuthor).toBeDefined();
+        expect(byAuthor!.can_resolve).toBe(false);
+        const denied = await resolve(author, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(denied.status).toBe(403);
+        expect(denied.body).toEqual({ error: "out_of_scope" });
+        await expectUntouched(kind, d, subjectId);
+
+        expect((await inList(next, d.id))!.can_resolve).toBe(true);
+        const ok = await resolve(next, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(ok.status).toBe(200);
+        expect(ok.body.status).toBe("rejected");
+        const [row] = await db.select().from(kpi_disputes).where(eq(kpi_disputes.id, d.id));
+        expect([row.status, row.resolved_by]).toEqual(["rejected", next.userId]);
+        expect(await note(`dispute_resolved:${d.id}`)).toHaveLength(1);
+      });
+
+      it(`HR с kpi.approve спор по ${what} видит, can_resolve === false, разобрать не может`, async () => {
+        await resetPeriod();
+        setNow(NOW);
+        const e = await cook();
+        const author = await evaluator(e.terminal_id);
+        const { d, subjectId } = await openBy(kind, author, e);
+
+        const hr = await withSession({ permissions: ["kpi.approve"] });
+        const seen = await inList(hr, d.id);
+        expect(seen).toBeDefined();
+        expect(seen!.can_resolve).toBe(false);
+        const denied = await resolve(hr, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(denied.status).toBe(403);
+        expect(denied.body).toEqual({ error: "out_of_scope" });
+        await expectUntouched(kind, d, subjectId);
+
+        // kpi.approve вместе с kpi.evaluate, но без назначения, покрывающего сотрудника, тоже не даёт разбор.
+        const hrEval = await withSession({ permissions: ["kpi.approve", "kpi.evaluate"] });
+        expect((await inList(hrEval, d.id))!.can_resolve).toBe(false);
+        const denied2 = await resolve(hrEval, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(denied2.status).toBe(403);
+        expect(denied2.body).toEqual({ error: "out_of_scope" });
+        await expectUntouched(kind, d, subjectId);
+      });
+
+      it(`покрытие по снимку записи (${kind}): сотрудник перешёл в другой филиал, оценщик старого филиала всё ещё разбирает`, async () => {
+        await resetPeriod();
+        setNow(NOW);
+        const e = await cook();
+        const author = await evaluator(e.terminal_id);
+        const { d, subjectId } = await openBy(kind, author, e);
+        const newTerminal = randomUUID();
+        await db.update(employees).set({ terminal_id: newTerminal }).where(eq(employees.id, e.id));
+        const evNew = await evaluator(newTerminal);
+
+        // Автор покрывает запись по снимку (филиал на момент события): спор остаётся у него.
+        const byAuthor = await inList(author, d.id);
+        expect(byAuthor).toBeDefined();
+        expect(byAuthor!.can_resolve).toBe(true);
+        // Оценщик нового филиала спор видит, но пока автор покрывает по снимку, разобрать не может.
+        const byNew = await inList(evNew, d.id);
+        expect(byNew).toBeDefined();
+        expect(byNew!.can_resolve).toBe(false);
+        const denied = await resolve(evNew, d.id, { decision: "rejected", comment: "Чужой разбор" });
+        expect(denied.status).toBe(403);
+        expect(denied.body).toEqual({ error: "out_of_scope" });
+        await expectUntouched(kind, d, subjectId);
+
+        const ok = await resolve(author, d.id, { decision: "rejected", comment: "Оценка верна" });
+        expect(ok.status).toBe(200);
+        expect(ok.body.status).toBe("rejected");
+      });
+    }
 
     it("закрытие: 9 июля — dispute_window_open; 11 июля при споре — open_disputes; после разбора — 200; оценщик — 409 period_closed; HR — hr_adjusted", async () => {
       await resetPeriod();
