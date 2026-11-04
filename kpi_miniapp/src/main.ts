@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvEmployees, EvReviewForm } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvEmployees, EvReviewForm, EvViolationForm } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -29,6 +29,7 @@ import type { Route } from "./route";
 import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderEvList } from "./screens/ev-list";
 import { renderEvReview } from "./screens/ev-review";
+import { renderEvViolation } from "./screens/ev-violation";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
@@ -106,8 +107,16 @@ function screenOf(r: Route): Screen {
         render: (d) => renderEvReview(d as EvReviewForm, Date.now()),
         title: t("ev_home_staff"),
       };
+    case "ev_violation":
+      return {
+        path: `/ev/violation-form?employee_id=${r.employee_id}`,
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvViolation(d as EvViolationForm),
+        title: t("ev_btn_violation"),
+      };
     default:
-      // Остальные экраны оценщика подключают задачи 9–11.
+      // Остальные экраны оценщика подключают задачи 10–11.
       return screenOf(HOME);
   }
 }
