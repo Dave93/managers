@@ -21,15 +21,21 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     makeEvaluator,
     makeScope,
     makeTerminal,
+    makeUser,
     setNow,
     setup,
     tgApi,
     tgLogin,
     TG_TEST_BOT_TOKEN,
   } = await import("./fixtures");
-  const { kpi_evaluator_scopes, kpi_tg_bindings } = await import("backend/drizzle/schema");
+  const { kpi_evaluator_scopes, kpi_tg_bindings, users } = await import("backend/drizzle/schema");
+  const { getCacheControlService } = await import("../../../lib/shared-instances");
+  const { KpiError } = await import("../errors");
   const { setTestBotApi } = await import("../tg/bot-api");
   const { seedReview } = await import("../tg-app/dev-data");
+  const { evaluatorActor } = await import("../tg-app/ev-actor");
+  const { tgAppEvRoutes } = await import("../routes/tg-app-ev");
+  const { Elysia } = await import("elysia");
   const { eq } = await import("drizzle-orm");
 
   describe("kpi: оценщик в мини-приложении, список сотрудников", () => {
@@ -145,6 +151,59 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await tgApi(token, "GET", "/api/kpi/tg/ev/employees")).body.items.map((i: any) => i.id)).toContain(e.id);
       await db.delete(kpi_evaluator_scopes).where(eq(kpi_evaluator_scopes.user_id, ev.id));
       expect((await tgApi(token, "GET", "/api/kpi/tg/ev/employees")).body).toMatchObject({ items: [], terminals: [], cards: [] });
+    });
+
+    it("пользователь без роли: сессия есть, прав нет — 403 forbidden", async () => {
+      const noRole = await makeUser(db); // role_id = null
+      const token = await evSession(db, noRole.id);
+      expect(await tgApi(token, "GET", "/api/kpi/tg/ev/employees")).toEqual({ status: 403, body: { error: "forbidden" } });
+    });
+
+    // Заблокированного пользователя отсекает уже guard: bindingOf не считает привязку неактивного человека.
+    // До evaluatorActor такой запрос не доходит, поэтому его собственную проверку статуса — следующий тест.
+    it("заблокированный пользователь: входа нет (403 inactive), живая сессия после блокировки — 401", async () => {
+      const blocked = await makeEvaluator(db, { status: "blocked" });
+      const b = await bindTelegram(db, { user_id: blocked.id });
+      expect(await tgLogin(b.telegram_id)).toEqual({ status: 403, body: { error: "inactive" } });
+      const ev = await makeEvaluator(db);
+      const token = await evSession(db, ev.id);
+      expect((await tgApi(token, "GET", "/api/kpi/tg/ev/employees")).status).toBe(200);
+      await db.update(users).set({ status: "blocked" }).where(eq(users.id, ev.id));
+      expect(await tgApi(token, "GET", "/api/kpi/tg/ev/employees")).toEqual({ status: 401, body: { error: "unauthorized" } });
+    });
+
+    // Вторая линия: пользователя могли заблокировать между guard и evaluatorActor, поэтому actor сам смотрит статус.
+    it("evaluatorActor: заблокированный с kpi.evaluate — not_evaluator; права сужены до kpi.evaluate", async () => {
+      const perms = getCacheControlService();
+      const principal = (user_id: string | null) => ({ telegram_id: 1, employee_id: null, user_id, lang: "ru" as const });
+      const denied = async (user_id: string | null) => {
+        const err: any = await evaluatorActor(db, perms, principal(user_id)).then(() => null, (e) => e);
+        expect(err).toBeInstanceOf(KpiError);
+        return [err.status, err.code];
+      };
+      // Роль заблокированного лежит в кэше ролей с kpi.evaluate: отказ даёт именно статус, а не отсутствие права.
+      const blocked = await makeEvaluator(db, { status: "blocked" });
+      expect(await denied(blocked.id)).toEqual([403, "not_evaluator"]);
+      expect(await denied(null)).toEqual([403, "not_evaluator"]);
+      expect(await denied(randomUUID())).toEqual([403, "not_evaluator"]);
+      const only = await makeEvaluator(db);
+      const narrow = { userId: only.id, perms: new Set(["kpi.evaluate"]), isHq: false, terminals: [] };
+      expect(await evaluatorActor(db, perms, principal(only.id))).toEqual(narrow);
+      // Роль с сетевыми правами даёт тот же суженный Actor: лишние права в него не попадают.
+      const wide = await makeEvaluator(db, { perms: ["kpi.evaluate", "kpi.approve", "kpi.view", "kpi.manage"] });
+      expect(await evaluatorActor(db, perms, principal(wide.id))).toEqual({ ...narrow, userId: wide.id });
+    });
+
+    // Не зависит от порядка .use() в controller.ts: роут, объявленный после tgAppEvRoutes в чужом экземпляре,
+    // ловит и "global" у kpiTgCtx, и лишний .as(...) у самого плагина.
+    it("канарейка: guard не выходит за пределы tgAppEvRoutes", async () => {
+      // Хост не короче "localhost": Elysia ищет начало пути с фиксированного смещения в URL.
+      const app = new Elysia().use(tgAppEvRoutes).get("/canary", () => "ok");
+      const res = await app.handle(new Request("http://localhost/canary"));
+      expect([res.status, await res.text()]).toEqual([200, "ok"]);
+      // Плагин действительно подключён: его собственный роут без токена закрыт.
+      const list = await app.handle(new Request("http://localhost/kpi/tg/ev/employees"));
+      expect(list.status).toBe(401);
     });
   });
 }

@@ -224,9 +224,9 @@ export async function makeUser(
 // Пользователь-оценщик: права по умолчанию только kpi.evaluate. makeUser заводит роль test_kpi_* в базе,
 // а права роли приложение читает из Redis-кэша ролей (cacheController.getPermissionsByRoleId): ту же роль
 // кладёт туда withSession, иначе evaluatorActor не нашёл бы у неё ни одного права.
-export async function makeEvaluator(db: DrizzleDB, o: { perms?: string[] } = {}): Promise<{ id: string }> {
+export async function makeEvaluator(db: DrizzleDB, o: { perms?: string[]; status?: "active" | "blocked" } = {}): Promise<{ id: string }> {
   const perms = o.perms ?? ["kpi.evaluate"];
-  const u = await makeUser(db, { perms });
+  const u = await makeUser(db, { perms, status: o.status });
   const [row] = await db.select({ role_id: users.role_id }).from(users).where(eq(users.id, u.id)).limit(1);
   if (row?.role_id) await withSession({ permissions: perms, userId: u.id, roleId: row.role_id });
   return u;
