@@ -69,6 +69,7 @@ export const SEED_ROLES: SeedRole[] = [
   { code: "trainee_manager", name_ru: "Стажёр-менеджер", name_uz: "Stajyor menejer", group_key: "management", is_trainee: true, trainee_of_code: "manager", sort: 110, synonyms: ["стажер менеджер"] },
   { code: "trainee_cook", name_ru: "Стажёр-повар", name_uz: "Stajyor oshpaz", group_key: "kitchen", is_trainee: true, trainee_of_code: "cook", sort: 120, synonyms: ["стажер повар"] },
   { code: "trainee_cashier", name_ru: "Стажёр-кассир", name_uz: "Stajyor kassir", group_key: "front", is_trainee: true, trainee_of_code: "cashier", sort: 130, synonyms: ["стажер кассир"] },
+  { code: "cleaner", name_ru: "Техничка", name_uz: "Farrosh", group_key: "other", is_trainee: false, trainee_of_code: null, sort: 140, synonyms: [] },
 ];
 
 /**
@@ -94,6 +95,7 @@ export const PARSE_NAME_BY_CODE: Record<string, string> = {
   trainee_manager: "Стажёр-менеджер",
   trainee_cook: "Стажёр-повар",
   trainee_cashier: "Стажёр-кассир",
+  cleaner: "Техничка",
 };
 
 /** Выход разбора → код роли. Обратная сторона PARSE_NAME_BY_CODE. */
