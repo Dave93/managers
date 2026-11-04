@@ -2908,7 +2908,13 @@
         "anyCard": "Any card",
         "terminalAria": "Branch",
         "anyTerminal": "Any branch",
-        "assign": "Assign"
+        "assign": "Assign",
+        "assignedMany": "Assignments created: {created}, already existed: {skipped}",
+        "allCards": "All cards",
+        "allTerminals": "All branches",
+        "removeAria": "Remove assignment: {scope}",
+        "multiSearch": "Search…",
+        "multiEmpty": "Nothing found"
       },
       "invite": {
         "copied": "Link copied",

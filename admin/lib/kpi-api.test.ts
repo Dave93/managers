@@ -37,6 +37,7 @@ const cases: [string, (a: KpiApi) => Promise<unknown>, string, string, unknown][
   ["cards.addItem", (a) => a.cards.addItem("c1", item), "POST", "/api/kpi/cards/c1/items", item],
   ["cards.updateItem", (a) => a.cards.updateItem("i1", { active: false }), "PUT", "/api/kpi/items/i1", { active: false }],
   ["evaluators.create", (a) => a.evaluators.create({ user_id: "u1", card_id: null, terminal_id: "t1" }), "POST", "/api/kpi/evaluators", { user_id: "u1", card_id: null, terminal_id: "t1" }],
+  ["evaluators.createMany", (a) => a.evaluators.createMany({ user_id: "u1", card_ids: ["c1"], terminal_ids: ["t1", "t2"] }), "POST", "/api/kpi/evaluators", { user_id: "u1", card_ids: ["c1"], terminal_ids: ["t1", "t2"] }],
   ["evaluators.remove", (a) => a.evaluators.remove("s1"), "DELETE", "/api/kpi/evaluators/s1", null],
   ["employees.list без пустых фильтров", (a) => a.employees.list({ period: "2026-10-01", terminal_id: undefined, search: "", status: "draft" }), "GET", "/api/kpi/employees?period=2026-10-01&status=draft", null],
   ["employees.list с сотрудниками без карты", (a) => a.employees.list({ period: "2026-10-01", include_uncarded: true }), "GET", "/api/kpi/employees?period=2026-10-01&include_uncarded=1", null],

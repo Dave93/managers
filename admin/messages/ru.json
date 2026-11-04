@@ -2908,7 +2908,13 @@
         "anyCard": "Любая карта",
         "terminalAria": "Филиал",
         "anyTerminal": "Любой филиал",
-        "assign": "Назначить"
+        "assign": "Назначить",
+        "assignedMany": "Назначений создано: {created}, уже были: {skipped}",
+        "allCards": "Все карты",
+        "allTerminals": "Все филиалы",
+        "removeAria": "Убрать назначение: {scope}",
+        "multiSearch": "Поиск…",
+        "multiEmpty": "Ничего не найдено"
       },
       "invite": {
         "copied": "Ссылка скопирована",
