@@ -63,4 +63,5 @@ it("посещаемость: тексты по спеке", () => {
   expect(t("att_late", { n: 12 })).toBe("опоздание 12 мин");
   setLang("uz");
   expect(t("att_late", { n: 12 })).toBe("12 daqiqa kechikdi");
+  setLang("ru");
 });
