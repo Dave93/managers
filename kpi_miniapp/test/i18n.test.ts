@@ -65,3 +65,10 @@ it("посещаемость: тексты по спеке", () => {
   expect(t("att_late", { n: 12 })).toBe("12 daqiqa kechikdi");
   setLang("ru");
 });
+
+it("ключи ev_*: плейсхолдеры {…} в ru и uz совпадают", () => {
+  const ph = (s: string) => (s.match(/\{\w+\}/g) ?? []).sort().join(",");
+  const keys = (Object.keys(DICT.ru) as (keyof typeof DICT.ru)[]).filter((k) => k.startsWith("ev_"));
+  expect(keys.length).toBeGreaterThan(0);
+  for (const k of keys) expect([k, ph(DICT.uz[k])]).toEqual([k, ph(DICT.ru[k])]);
+});

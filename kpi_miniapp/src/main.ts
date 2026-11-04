@@ -13,28 +13,39 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
+import type { EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgAttendance, TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
 import { appCache } from "./cache";
 import { devRequested } from "./dev/flag";
+import type { Key } from "./i18n";
 import { DICT, lang, monthName, setLang, t } from "./i18n";
 import type { Loaded } from "./load";
 import { loadScreen } from "./load";
 import { provideNav } from "./nav";
 import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
-import { hashOf, parseHash } from "./route";
+import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderAttendance } from "./screens/attendance";
+import { closeReasonSheet } from "./reason-sheet";
+import { renderEvDispute } from "./screens/ev-dispute";
+import { renderEvDisputes } from "./screens/ev-disputes";
+import { renderEvList } from "./screens/ev-list";
+import { renderEvReview } from "./screens/ev-review";
+import { renderEvViolation } from "./screens/ev-violation";
+import { renderEvViolations } from "./screens/ev-violations";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
 import { renderViolations } from "./screens/violations";
 import { closeDisputeSheet } from "./sheet";
+import "./style-ev.css";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
 import { attendanceView } from "./view/attendance";
+import { evNoticeKey } from "./view/ev-errors";
 import { historyView } from "./view/history";
 import { homeView } from "./view/home";
 import { reviewView } from "./view/review";
@@ -59,6 +70,8 @@ interface Screen {
   render(data: unknown): HTMLElement;
   // Заголовок экрана над «Запись не найдена» (404): человек видит, какой месяц не нашёлся.
   title?: string;
+  // Экраны оценщика: ответ не сохраняется в кэше телефона и при сбое сети старая копия не показывается.
+  noCache?: boolean;
 }
 
 function screenOf(r: Route): Screen {
@@ -91,6 +104,42 @@ function screenOf(r: Route): Screen {
         render: (d) => renderAttendance(attendanceView(d as TgAttendance, lang())),
         title: t("link_attendance"),
       };
+    case "ev":
+      return {
+        path: r.period ? `/ev/employees?period=${r.period}` : "/ev/employees",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvList(d as EvEmployees, Date.now()),
+        title: t("ev_home_staff"),
+      };
+    case "ev_review":
+      return {
+        path: `/ev/form?period=${r.period}&employee_id=${r.employee_id}`,
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvReview(d as EvReviewForm, Date.now()),
+        title: t("ev_home_staff"),
+      };
+    case "ev_violation":
+      return {
+        path: `/ev/violation-form?employee_id=${r.employee_id}`,
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvViolation(d as EvViolationForm),
+        title: t("ev_btn_violation"),
+      };
+    case "ev_violations":
+      return {
+        path: r.period ? `/ev/violations?period=${r.period}` : "/ev/violations",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvViolations(d as EvViolations),
+        title: t("ev_my_violations"),
+      };
+    case "ev_disputes":
+      return { path: "/ev/disputes", kind: "list", noCache: true, render: (d) => renderEvDisputes(d as EvDisputes), title: t("ev_dsp_title") };
+    case "ev_dispute":
+      return { path: `/ev/disputes/${r.id}`, kind: "list", noCache: true, render: (d) => renderEvDispute(d as EvDisputeDetail), title: t("ev_dsp_title") };
   }
 }
 
@@ -119,9 +168,9 @@ function same(a: Route, b: Route): boolean {
   return hashOf(a) === hashOf(b);
 }
 
-/** Решение 18: без роли employee любой маршрут, кроме главного, — главный, хеш — «#/». */
+/** Решение 18: экран сотрудника нужна роль employee, экран оценщика — evaluator; иначе главный, хеш — «#/». */
 function guard(r: Route): Route {
-  if (r.name === "home" || roles.indexOf("employee") >= 0) return r;
+  if (routeAllowed(r, roles)) return r;
   if (location.hash !== "#/") history.replaceState(null, "", "#/");
   return HOME;
 }
@@ -186,6 +235,7 @@ async function showAsync(keep: boolean): Promise<void> {
   // Шторка спора живёт вне #app: уход с экрана и перерисовка закрывают её вместе с MainButton
   // и её «назад» — до того, как роутер поставит свой.
   closeDisputeSheet();
+  closeReasonSheet();
   // Просмотр фото тоже ставит свой «назад»: закрыть его до роутера. Уход с экрана освобождает
   // blob-URL фото (решение 13); перерисовка того же экрана их оставляет — превью не мигают.
   closePhoto();
@@ -193,9 +243,13 @@ async function showAsync(keep: boolean): Promise<void> {
   setBack(stack.length > 1 ? back : null);
   // Скелетон старта уже на месте: второй не ставим, подсказка старта продолжает отсчёт.
   if (!keep && !showingSkeleton(sc.kind)) mount(skeleton(sc.kind));
-  const res = await loadScreen<unknown>(sc.path, () => {
-    if (my === seq) showSlow();
-  });
+  const res = await loadScreen<unknown>(
+    sc.path,
+    () => {
+      if (my === seq) showSlow();
+    },
+    sc.noCache,
+  );
   if (my !== seq) return;
   // Перерисовка того же экрана остаётся там, где человек читал.
   if (keep) entry.y = window.pageYOffset;
@@ -207,6 +261,7 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
   // можно успеть открыть шторку спора или фото. Новый экран их закрывает — иначе шторка от
   // старых данных («Оспорить» уже сменилась строкой) отправила бы второй спор и получила 409.
   closeDisputeSheet();
+  closeReasonSheet();
   closePhoto();
   // Вместо экрана — отказ, «не найдено» или главный: фото прежнего экрана больше не нужны.
   if (res.kind !== "fresh" && res.kind !== "stale") revokeAll();
@@ -221,16 +276,22 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
     return;
   }
   if (res.kind === "http") {
-    // Роль сотрудника сняли, пока приложение открыто (решение 18 посреди работы): вместо
-    // «Повторить», который снова получит 403, — главный экран; он же поправит роли.
-    if (res.error === "not_employee") {
+    // Роль сотрудника или оценщика сняли, пока приложение открыто (решение 18 посреди работы):
+    // вместо «Повторить», который снова получит 403, — главный экран; он же поправит роли.
+    if (res.error === "not_employee" || res.error === "not_evaluator") {
       goHome();
+      return;
+    }
+    // Нет права оценивать, сотрудник вне назначений, нет карты: понятный текст вместо общей ошибки.
+    const noticeKey = res.error ? evNoticeKey(res.error) : null;
+    if (noticeKey) {
+      mount(notice(sc, noticeKey));
       return;
     }
     // Черновик, чужое и несуществующее неотличимы (план 6): «Запись не найдена», а назад
     // ведёт BackButton — стек здесь всегда глубже главного.
     if (res.code === 404) {
-      mount(notFound(sc));
+      mount(notice(sc, "err_not_found"));
       return;
     }
     mount(statusScreen("unknown", () => show(false)));
@@ -239,12 +300,13 @@ function present(res: Loaded<unknown>, sc: Screen, entry: Entry): void {
   refuse(res.status);
 }
 
-function notFound(sc: Screen): HTMLElement {
+/** Карточка-заглушка с заголовком экрана над ней: «Запись не найдена» и отказы оценщику. */
+function notice(sc: Screen, key: Key): HTMLElement {
   return h(
     "main",
     { class: "screen" },
     sc.title ? h("h1", { class: "title" }, sc.title) : null,
-    h("p", { class: "card notfound", role: "status" }, t("err_not_found")),
+    h("p", { class: "card notfound", role: "status" }, t(key)),
   );
 }
 

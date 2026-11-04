@@ -84,3 +84,15 @@ it("loadVia: кэш берётся после ответа — вход внут
   expect(createCache(kv, 7, "bbbb").load("/home")).toEqual({ data: { n: "b" }, at: 2 });
   expect(createCache(kv, 7, "aaaa").load("/home")).toEqual({ data: { n: "a" }, at: 1 });
 });
+
+it("loadVia noCache: ответ не сохраняется, offline без stale, not_bound всё равно стирает кэш", async () => {
+  const cache = createCache(memKV(), 7, "w7");
+  cache.save("/ev/employees", { old: 1 }, 1);
+  const fresh = await loadVia({ get: answer({ kind: "ok", data: { n: 2 } }), cache: () => cache, now: () => 9 }, "/ev/employees", () => {}, true);
+  expect(fresh).toEqual({ kind: "fresh", data: { n: 2 } });
+  expect(cache.load("/ev/employees")).toEqual({ data: { old: 1 }, at: 1 });
+  const off = await loadVia({ get: answer<{ n: number }>({ kind: "fail", status: "offline" }), cache: () => cache, now: () => 9 }, "/ev/employees", () => {}, true);
+  expect(off).toEqual({ kind: "fail", status: "offline" });
+  await loadVia({ get: answer({ kind: "fail", status: "not_bound" }), cache: () => cache, now: () => 9 }, "/ev/employees", () => {}, true);
+  expect(cache.load("/ev/employees")).toBeNull();
+});

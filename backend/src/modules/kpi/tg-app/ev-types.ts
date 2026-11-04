@@ -1,0 +1,76 @@
+// Ответы API оценщика в мини-приложении (/api/kpi/tg/ev/*). Файл без импортов:
+// kpi_miniapp берёт его через import type и проверяет своим tsc.
+// Периоды — "YYYY-MM-01", время — ISO 8601 UTC.
+export type EvItemSource = "manual" | "attendance" | "cooking_speed" | "sales_plan" | "food_cost";
+export type EvStatus = "none" | "draft" | "submitted" | "disputed";
+
+export type EvErrorCode =
+  | "not_evaluator" | "forbidden" | "out_of_scope" | "not_found" | "bad_id" | "bad_period" | "bad_status" | "no_card" | "no_items"
+  | "period_closed" | "already_submitted" | "too_early" | "missing_items" | "note_required" | "bad_score" | "unknown_item"
+  | "comment_required" | "photo_required" | "bad_photo_type" | "photo_too_large" | "too_many_photos"
+  | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision";
+export interface EvError { error: EvErrorCode; min?: number; opens_at?: string; item_id?: string; items?: string[] }
+
+// GET /kpi/tg/ev/employees?period=YYYY-MM-01 (без period — отчётный месяц)
+export interface EvEmployee {
+  id: string; first_name: string; last_name: string; terminal_id: string; terminal_name: string | null;
+  position: string | null; card_id: string | null; card_title: string | null;
+  review_status: "none" | "draft" | "submitted";
+  score_pct: number | null;   // только у отправленной
+  late: boolean; open_dispute: boolean; can_evaluate: boolean;
+}
+export interface EvEmployees {
+  period: string; period_status: "open" | "closed"; submit_opens_at: string; review_deadline: string;
+  terminals: { id: string; name: string }[]; cards: { id: string; title: string }[];
+  items: EvEmployee[];
+}
+
+// GET /kpi/tg/ev/form?period&employee_id; PUT /kpi/tg/ev/draft; POST /kpi/tg/ev/reviews/:id/submit
+export interface EvFormViolation { id: string; occurred_at: string; comment: string }
+export interface EvFormItem {
+  item_id: string; title_ru: string; title_uz: string; hint_ru: string | null; weight: number; source: EvItemSource;
+  group_key: "base" | "extra"; score: number | null; note: string | null;
+  suggestion: { score: number; basis: string } | null;
+  violations: EvFormViolation[]; violation_hint: number | null;
+}
+export interface EvReviewForm {
+  period: string; period_status: "open" | "closed";
+  employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
+  card_title: string;
+  review: { id: string; status: "draft" | "submitted"; score_pct: number | null; version: number; submitted_at: string | null; late: boolean } | null;
+  items: EvFormItem[];
+  other_violations: EvFormViolation[];
+  can_edit: boolean;          // false у отправленной оценки: в приложении она только читается
+  open_dispute: boolean; dispute_rejected: boolean;
+  submit_opens_at: string; review_deadline: string;
+}
+
+// GET /kpi/tg/ev/violation-form?employee_id
+export interface EvViolationForm {
+  employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
+  card_title: string | null;
+  items: { id: string; title_ru: string; title_uz: string }[];   // активные пункты карты по sort
+  photo_required: boolean; max_photos: number; max_photo_bytes: number; comment_min: number;
+}
+// POST /kpi/tg/ev/violations (multipart), GET /kpi/tg/ev/violations?period=, POST /kpi/tg/ev/violations/:id/cancel
+export interface EvViolation {
+  id: string; employee_id: string; employee_name: string; terminal_name: string | null;
+  card_item_id: string | null; item_title_ru: string | null; period: string; occurred_at: string; comment: string;
+  status: "active" | "cancelled"; cancel_reason: string | null; photo_ids: string[]; open_dispute: boolean;
+  can_cancel: boolean;
+}
+export interface EvViolations { period: string; period_status: "open" | "closed"; items: EvViolation[] }
+
+// GET /kpi/tg/ev/disputes?status=, GET /kpi/tg/ev/disputes/:id, POST /kpi/tg/ev/disputes/:id/resolve
+export type EvDisputeSubject =
+  | { kind: "review"; score_pct: number | null }
+  | { kind: "violation"; item_title_ru: string | null; comment: string; photo_ids: string[] };
+export interface EvDispute {
+  id: string; subject_type: "review" | "violation"; subject_id: string;
+  employee_id: string | null; employee_name: string | null; terminal_name: string | null; period: string;
+  reason: string; status: "open" | "accepted" | "rejected"; resolution_comment: string | null;
+  resolved_at: string | null; created_at: string; can_resolve: boolean;
+  subject: EvDisputeSubject | null;
+}
+export interface EvDisputes { items: EvDispute[] }
+export interface EvDisputeDetail { dispute: EvDispute; comment_min: number; form: EvReviewForm | null } // form — только у спора по оценке

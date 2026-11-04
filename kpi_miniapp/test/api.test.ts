@@ -174,3 +174,21 @@ it("без AbortController (Chrome 64–65): ответ приходит, зав
     g.AbortController = saved;
   }
 });
+
+it("sendForm: multipart без ручного Content-Type, Bearer, один повторный вход на 401, то же тело", async () => {
+  const seen: { url: string; ct: string | null; auth: string | null; body: unknown }[] = [];
+  const r = [ok({ token: "t1", roles: ["evaluator"], lang: "ru" }), ok({ error: "unauthorized" }, 401), ok({ token: "t2", roles: ["evaluator"], lang: "ru" }), ok({ id: "v1" })];
+  const f = (async (url: string, init: RequestInit = {}) => { const h = new Headers(init.headers); seen.push({ url, ct: h.get("Content-Type"), auth: h.get("Authorization"), body: init.body }); return r.shift()!; }) as any;
+  const fd = new FormData(); fd.append("comment", "Грязный пол");
+  expect(await createApi({ fetch: f, sdk: () => "ok", initData: () => "q" }).sendForm("/ev/violations", fd)).toEqual({ kind: "ok", data: { id: "v1" } });
+  expect(seen.map((s) => [s.url, s.ct, s.auth])).toEqual([["/api/kpi/tg/auth", "application/json", null], ["/api/kpi/tg/ev/violations", null, "Bearer t1"], ["/api/kpi/tg/auth", "application/json", null], ["/api/kpi/tg/ev/violations", null, "Bearer t2"]]);
+  expect([seen[1]!.body, seen[3]!.body]).toEqual([fd, fd]);
+});
+it("sendForm: сеть упала — offline; 409 с телом — http", async () => {
+  const down = (async () => { throw new TypeError("Failed to fetch"); }) as any;
+  expect(await createApi({ fetch: down, sdk: () => "ok", initData: () => "q" }).sendForm("/ev/violations", new FormData())).toEqual({ kind: "fail", status: "offline" });
+  const r = [ok({ token: "t", roles: ["evaluator"], lang: "ru" }), ok({ error: "period_closed" }, 409)];
+  const f = (async () => r.shift()!) as any;
+  expect(await createApi({ fetch: f, sdk: () => "ok", initData: () => "q" }).sendForm("/ev/violations", new FormData()))
+    .toEqual({ kind: "http", code: 409, error: "period_closed", body: { error: "period_closed" } });
+});

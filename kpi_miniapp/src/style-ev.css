@@ -1,0 +1,277 @@
+/* Экраны оценщика. Классы с префиксом ev-; общие .screen, .card, .row, .chip, .btn — из style.css.
+   Без flex gap, inset, :is/:where (старый WebView, Chrome 64). */
+.ev-info {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: var(--fs-label);
+  line-height: 18px;
+}
+.ev-filters > * + * {
+  margin-top: 10px;
+}
+.ev-field {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px; /* меньше — iOS приближает экран при фокусе */
+}
+.ev-chips {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -4px;
+}
+.ev-st {
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 4px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.ev-st[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--rail);
+  font-weight: 600;
+}
+.ev-counter {
+  color: var(--muted);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+}
+.ev-name {
+  display: block;
+  font-weight: 600;
+}
+.ev-sub,
+.ev-late {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-label);
+  line-height: 18px;
+}
+.ev-end {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: flex-end;
+  margin-left: 12px;
+}
+.ev-score {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+}
+.ev-empty {
+  color: var(--muted);
+}
+
+/* ---------- форма оценки ---------- */
+.ev-banner {
+  color: var(--ink);
+  background: var(--notice-bg);
+  color: var(--notice-ink);
+  font-size: 14px;
+  line-height: 20px;
+}
+.ev-banner-soft {
+  background: var(--well);
+  color: var(--muted);
+}
+.ev-total {
+  padding: 0 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.ev-group {
+  padding: 8px 4px 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+.ev-items > * + * {
+  margin-top: var(--gap);
+}
+.ev-item > * + * {
+  margin-top: 8px;
+}
+.ev-item-title {
+  font-size: 16px;
+  line-height: 22px;
+  font-weight: 600;
+}
+.ev-hint {
+  color: var(--muted);
+  font-size: var(--fs-label);
+  line-height: 18px;
+}
+.ev-scores {
+  display: flex;
+}
+.ev-score-btn {
+  box-sizing: border-box;
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  margin-left: 6px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-ctl);
+  background: var(--well);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+.ev-score-btn:first-child {
+  margin-left: 0;
+}
+.ev-score-btn[aria-pressed="true"] {
+  border-color: transparent;
+  background: var(--hue);
+  color: var(--tg-theme-button-text-color, #fff);
+  font-weight: 600;
+}
+.ev-own-row {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -4px;
+}
+.ev-own-row > * {
+  margin: 4px;
+}
+.ev-own {
+  flex: 1 1 120px;
+  width: auto;
+}
+.ev-score-wide {
+  flex: 0 0 auto;
+  padding: 0 12px;
+  margin-left: 4px;
+}
+.ev-note-label {
+  display: block;
+  color: var(--muted);
+  font-size: var(--fs-label);
+}
+.ev-note {
+  min-height: 64px;
+  padding: 10px 12px;
+  resize: vertical;
+}
+.ev-stale,
+.ev-viol {
+  color: var(--warn-ink);
+  font-size: var(--fs-label);
+  line-height: 18px;
+}
+.ev-viol-c {
+  color: var(--muted);
+  font-size: var(--fs-label);
+  line-height: 18px;
+}
+.ev-bad {
+  box-shadow: inset 0 0 0 2px var(--warn-ink);
+}
+.ev-issue {
+  color: var(--warn-ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.ev-msg {
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.ev-actions > .btn + .btn {
+  margin-top: 8px;
+}
+.ev-actions .btn {
+  display: block;
+  width: 100%;
+}
+.ev-ro-list {
+  list-style: none;
+  margin: 0;
+}
+.ev-ro {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+.ev-ro + .ev-ro {
+  border-top: 1px solid var(--line);
+}
+.ev-ro-name {
+  flex: 1;
+  min-width: 0;
+}
+.ev-ro-score {
+  flex: none;
+  margin-left: 12px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+.ev-ro-note {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: var(--fs-label);
+}
+
+/* ---------- запись нарушения ---------- */
+.ev-file {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.ev-previews {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -4px;
+}
+.ev-prev {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  margin: 4px;
+  overflow: hidden;
+  border-radius: var(--r-ctl);
+  background: var(--well);
+}
+.ev-prev img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ev-prev-x {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 22px;
+  line-height: 44px;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.8);
+}
+.ev-link {
+  display: block;
+  padding: 12px 4px;
+  color: var(--hue);
+}

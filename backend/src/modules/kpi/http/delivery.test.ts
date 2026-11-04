@@ -97,6 +97,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
+    it("dispute_opened и remind_evaluate оценщику с KPI_MINIAPP_URL: одна кнопка «Открыть» на экран оценщика", async () => {
+      setNow("2025-11-05T10:00:00+05:00");
+      const saved = process.env.KPI_MINIAPP_URL;
+      process.env.KPI_MINIAPP_URL = "https://x.test/kpi-app/";
+      try {
+        const u = await makeUser(db); await bindTelegram(db, { user_id: u.id });
+        const open = async (kind: string, payload: Record<string, unknown>) => {
+          const f = fakeBotApi();
+          expect(await go(await note({ user_id: u.id, kind, payload }), f.api)).toEqual({ result: "sent" });
+          return (f.sent[0].msg.reply_markup as any).inline_keyboard;
+        };
+        expect(await open("dispute_opened", { dispute_id: RID, subject_type: "review", subject_id: RID, employee_id: RID, period: P10, employee_name: "Тест", reason: "причина" }))
+          .toEqual([[{ text: "Открыть", web_app: { url: "https://x.test/kpi-app/#/ev/disputes" } }]]);
+        expect(await open("remind_evaluate", { period: P10, pending: 2, deadline: "2025-11-07T18:59:59.999Z" }))
+          .toEqual([[{ text: "Открыть", web_app: { url: "https://x.test/kpi-app/#/ev/2025-10" } }]]);
+      } finally {
+        if (saved === undefined) delete process.env.KPI_MINIAPP_URL; else process.env.KPI_MINIAPP_URL = saved;
+      }
+    });
+
     it("после срока споров и в закрытом месяце кнопки нет", async () => {
       const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
       const f = fakeBotApi();

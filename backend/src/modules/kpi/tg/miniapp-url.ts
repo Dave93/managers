@@ -27,7 +27,8 @@ function ym(period: unknown): string | null {
   return m >= 1 && m <= 12 ? r[1] : null;
 }
 
-// Экран мини-приложения для уведомления; null — кнопки нет (оценщику, кривой срок, прочие виды).
+// Экран мини-приложения для уведомления; null — кнопки нет (кривой срок, сводка HR overdue_summary, прочие виды).
+// Сотруднику ведут /review, /violations, /history; оценщику (спор открыт, напоминание об оценке) — /ev/*.
 export function appRoute(kind: string, payload: Record<string, unknown>): string | null {
   const p = typeof payload === "object" && payload !== null ? payload : {};
   switch (kind) {
@@ -49,6 +50,12 @@ export function appRoute(kind: string, payload: Record<string, unknown>): string
     }
     case "raise_approved":
       return "/history";
+    case "dispute_opened":
+      return "/ev/disputes";
+    case "remind_evaluate": {
+      const m = ym(p.period);
+      return m ? `/ev/${m}` : null;
+    }
     default:
       return null;
   }
