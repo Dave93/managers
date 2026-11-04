@@ -85,11 +85,13 @@ export async function evDisputes(db: DbLike, actor: Actor, status: unknown): Pro
 }
 
 // Спор виден, только если он есть среди listDisputes: чужой и несуществующий неотличимы (404 not_found).
-// Форма оценки приходит из evForm под тем же Actor: если сотрудник уже вне назначения, а спор виден по снимку,
-// evForm отвечает своей ошибкой (403 out_of_scope, 404 no_card), и она идёт наружу как есть.
+// Id сверяем в нижнем регистре, как uuid в Postgres: так карточка ведёт себя так же, как /resolve.
+// Форму оценки отдаёт evForm под тем же Actor. Для видимого спора по оценке её видимость совпадает с видимостью
+// спора (снимок той же оценки), поэтому 403 out_of_scope и 422 no_card недостижимы; иная ошибка evForm идёт наружу как есть.
 export async function evDisputeDetail(db: DbLike, actor: Actor, id: string): Promise<EvDisputeDetail> {
   if (!UUID_RE.test(id)) throw new KpiError(404, "not_found");
-  const row = (await listDisputes(db, actor, {})).find((r) => r.id === id);
+  const wanted = id.toLowerCase();
+  const row = (await listDisputes(db, actor, {})).find((r) => r.id === wanted);
   if (!row) throw new KpiError(404, "not_found");
   const subjects = await subjectsOf(db, [row]);
   const settings = await loadSettings(db);

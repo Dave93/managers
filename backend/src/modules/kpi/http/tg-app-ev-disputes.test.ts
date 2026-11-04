@@ -25,11 +25,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     tgApi,
     TG_TEST_BOT_TOKEN,
   } = await import("./fixtures");
-  const { kpi_disputes, kpi_notifications, kpi_periods, kpi_review_events, kpi_reviews, kpi_violations } = await import(
+  const { kpi_disputes, kpi_notifications, kpi_periods, kpi_review_events, kpi_reviews, kpi_violation_photos, kpi_violations } = await import(
     "backend/drizzle/schema"
   );
   const { setTestBotApi } = await import("../tg/bot-api");
-  const { seedDispute, seedReview, seedViolation } = await import("../tg-app/dev-data");
+  const { seedDispute, seedReview, seedViolation, TINY_PNG } = await import("../tg-app/dev-data");
   const { eq } = await import("drizzle-orm");
 
   describe("kpi: оценщик в мини-приложении, споры", () => {
@@ -147,6 +147,46 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const form = (await tgApi(token, "GET", `/api/kpi/tg/ev/disputes/${d4.id}`)).body.form;
       const items = form.items.map((i: any) => ({ item_id: i.item_id, score: 100, note: i.note }));
       expect(await resolve(token, d4.id, { decision: "accepted", comment: "Согласен, пересчитал", items })).toEqual({ status: 409, body: { error: "period_closed" } });
+    });
+
+    it("роль с kpi.evaluate и kpi.approve на другом филиале: спора не видит, карточка 404, разбор 403 out_of_scope; спор остаётся открытым", async () => {
+      const { d } = await setupDispute();
+      const t2 = await makeTerminal(db);
+      const both = await makeEvaluator(db, { perms: ["kpi.evaluate", "kpi.approve"] });
+      await makeScope(db, both.id, { terminal_id: t2.id });
+      const tk = await evSession(db, both.id);
+      expect((await tgApi(tk, "GET", "/api/kpi/tg/ev/disputes")).body.items.map((x: any) => x.id)).not.toContain(d.id);
+      expect(await tgApi(tk, "GET", `/api/kpi/tg/ev/disputes/${d.id}`)).toEqual({ status: 404, body: { error: "not_found" } });
+      expect(await resolve(tk, d.id, { decision: "rejected", comment: "Оценка верна" })).toEqual({ status: 403, body: { error: "out_of_scope" } });
+      expect((await db.select().from(kpi_disputes).where(eq(kpi_disputes.id, d.id)))[0].status).toBe("open");
+    });
+
+    it("карточка спора по нарушению: без формы, фото в порядке created_at; чужой оценщик — 404", async () => {
+      const { t1, ev, token } = await setupDispute();
+      const e = await makeEmployee(db, { role_code: "cook", terminal_id: t1.id });
+      const vio = await seedViolation(db, { employee_id: e.id, terminal_id: t1.id, recorded_by: ev.id, period: "2025-10-01", occurred_at: "2025-10-20T07:00:00.000Z", photo: TINY_PNG });
+      // Второе фото позже первого: сидер кладёт одно, остальное вставляем строкой.
+      const [second] = await db
+        .insert(kpi_violation_photos)
+        .values({ violation_id: vio.id, file_path: `/tmp/kpi_test_uploads/${vio.id}/second.png`, mime: "image/png", size_bytes: TINY_PNG.byteLength, created_at: new Date(Date.now() + 3600_000).toISOString() })
+        .returning({ id: kpi_violation_photos.id });
+      const d = await seedDispute(db, { subject_type: "violation", subject_id: vio.id, employee_id: e.id, period: "2025-10-01" });
+      const detail = await tgApi(token, "GET", `/api/kpi/tg/ev/disputes/${d.id}`);
+      expect(detail.status).toBe(200);
+      expect(detail.body.form).toBeNull();
+      expect(detail.body.dispute).toMatchObject({ id: d.id, subject_type: "violation", can_resolve: true, subject: { kind: "violation", comment: "Тест нарушение", photo_ids: [vio.photo_id, second.id] } });
+      const listed = (await tgApi(token, "GET", "/api/kpi/tg/ev/disputes")).body.items.find((x: any) => x.id === d.id);
+      expect(listed.subject.photo_ids).toEqual([vio.photo_id, second.id]);
+      const t2 = await makeTerminal(db);
+      const ev3 = await makeEvaluator(db); await makeScope(db, ev3.id, { terminal_id: t2.id });
+      expect(await tgApi(await evSession(db, ev3.id), "GET", `/api/kpi/tg/ev/disputes/${d.id}`)).toEqual({ status: 404, body: { error: "not_found" } });
+    });
+
+    it("карточка: id заглавными буквами — тот же спор", async () => {
+      const { d, token } = await setupDispute();
+      const up = await tgApi(token, "GET", `/api/kpi/tg/ev/disputes/${d.id.toUpperCase()}`);
+      expect(up.status).toBe(200);
+      expect(up.body.dispute.id).toBe(d.id);
     });
   });
 }
