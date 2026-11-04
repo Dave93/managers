@@ -13,6 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
+import type { EvEmployees } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -26,11 +27,13 @@ import { provideNav } from "./nav";
 import { closePhoto, revokeAll } from "./photo";
 import type { Route } from "./route";
 import { hashOf, parseHash, routeAllowed } from "./route";
+import { renderEvList } from "./screens/ev-list";
 import { renderHistory } from "./screens/history";
 import { renderHome } from "./screens/home";
 import { renderReview } from "./screens/review";
 import { renderViolations } from "./screens/violations";
 import { closeDisputeSheet } from "./sheet";
+import "./style-ev.css";
 import { applyTheme, sdkState, webApp } from "./telegram";
 import { capFirst } from "./util";
 import { h, mount, setBack, showSlow, showingSkeleton, skeleton, slowHint, staleBanner, statusScreen } from "./ui";
@@ -86,8 +89,16 @@ function screenOf(r: Route): Screen {
       };
     case "history":
       return { path: "/history", kind: "list", render: (d) => renderHistory(historyView(d as TgHistory, lang())), title: t("link_history") };
+    case "ev":
+      return {
+        path: r.period ? `/ev/employees?period=${r.period}` : "/ev/employees",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvList(d as EvEmployees, Date.now()),
+        title: t("ev_home_staff"),
+      };
     default:
-      // Экраны оценщика подключают задачи 7–11.
+      // Остальные экраны оценщика подключают задачи 8–11.
       return screenOf(HOME);
   }
 }

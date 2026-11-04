@@ -16,7 +16,7 @@ const DASH = "—";
 
 export interface HomeVM {
   header: { initials: string; name: string; sub: string } | null; // sub: «должность · филиал», пустые части выпадают
-  evaluator: { text: string; link: string | null } | null;
+  evaluator: { text: string; link: string | null; links: { text: string; hash: string }[] } | null;
   pending: { title: string; when: string; violations: string; hash: string } | null;
   month: {
     title: string;
@@ -134,6 +134,7 @@ export function homeView(d: TgHome, l: Lang, nowMs: number): HomeVM {
               })
             : tIn(l, "eval_done"),
         link: ev.admin_url,
+        links: [{ text: tIn(l, "ev_home_staff"), hash: hashOf({ name: "ev", period: null }) }],
       }
     : null;
 

@@ -149,6 +149,7 @@ function evaluatorBlock(v: NonNullable<HomeVM["evaluator"]>, alone: boolean): HT
     { class: "card eval" },
     // Без шапки сотрудника переключатель языка живёт здесь.
     alone ? h("div", { class: "eval-top" }, text, langSwitch()) : text,
+    v.links.length ? h("div", { class: "rows eval-links" }, ...v.links.map((x) => linkRow(x.text, null, x.hash))) : null,
     link,
   );
 }
