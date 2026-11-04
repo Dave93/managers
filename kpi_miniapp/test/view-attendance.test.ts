@@ -54,10 +54,28 @@ it("ночной уход: 20:30 UTC это 01:30 по Ташкенту, ден�
 it("пустой месяц: «Данных за месяц нет», переключатель остаётся; без соседей ссылок нет", () => {
   const vm = attendanceView(month([], { prev: "2026-08", next: "2026-12" }), "ru");
   expect([vm.empty, vm.rows]).toEqual(["Данных за месяц нет", []]);
-  expect(vm.prev).toEqual({ label: "Август", hash: "#/attendance/2026-08", aria: "Предыдущий месяц" });
-  expect(vm.next).toEqual({ label: "Декабрь", hash: "#/attendance/2026-12", aria: "Следующий месяц" });
+  expect(vm.prev).toEqual({ label: "Август 2026", hash: "#/attendance/2026-08", aria: "Более ранний месяц с данными" });
+  expect(vm.next).toEqual({ label: "Декабрь", hash: "#/attendance/2026-12", aria: "Более поздний месяц с данными" });
   const none = attendanceView(month([day({ day: "2026-11-03" })], { prev: null }), "ru");
   expect([none.empty, none.prev, none.next]).toEqual([null, null, null]);
+});
+
+it("год в подписи соседа: только когда месяц не соседний по календарю или в другом году", () => {
+  const nav = (shown: string, o: Partial<TgAttendance>) => {
+    const vm = attendanceView(month([], { month: shown, prev: null, next: null, ...o }), "ru");
+    return [vm.prev?.label ?? null, vm.next?.label ?? null];
+  };
+  // Соседний и тот же год: без года.
+  expect(nav("2026-11", { prev: "2026-10" })).toEqual(["Октябрь", null]);
+  expect(nav("2026-10", { next: "2026-11" })).toEqual([null, "Ноябрь"]);
+  // Пропуск пустых месяцев: с годом, в обе стороны.
+  expect(nav("2026-11", { prev: "2026-08" })).toEqual(["Август 2026", null]);
+  expect(nav("2026-03", { next: "2026-09" })).toEqual([null, "Сентябрь 2026"]);
+  // Соседний, но через границу года: с годом.
+  expect(nav("2026-01", { prev: "2025-12" })).toEqual(["Декабрь 2025", null]);
+  expect(nav("2026-12", { next: "2027-01" })).toEqual([null, "Январь 2027"]);
+  // Другой год с пропуском.
+  expect(nav("2026-02", { prev: "2025-06" })).toEqual(["Июнь 2025", null]);
 });
 
 it("по-узбекски", () => {
@@ -71,4 +89,11 @@ it("по-узбекски", () => {
   expect([vm.title, vm.month]).toEqual(["Mening davomatim", "Noyabr 2026"]);
   expect(vm.rows.map((r) => [r.day, r.absent, r.late])).toEqual([["4-noyabr", null, "12 daqiqa kechikdi"], ["5-noyabr", "ishga chiqmadi", null]]);
   expect(attendanceView(month([]), "uz").empty).toBe("Oy uchun maʼlumot yoʻq");
+  // Соседи: прошлый год и пропуск — с годом, соседний месяц того же года — без; пояснение нейтральное.
+  const nav = attendanceView(month([], { month: "2026-01", prev: "2025-12", next: "2026-02" }), "uz");
+  expect([nav.prev, nav.next]).toEqual([
+    { label: "Dekabr 2025", hash: "#/attendance/2025-12", aria: "Maʼlumoti bor oldingi oy" },
+    { label: "Fevral", hash: "#/attendance/2026-02", aria: "Maʼlumoti bor keyingi oy" },
+  ]);
+  expect(attendanceView(month([], { prev: "2026-08" }), "uz").prev?.label).toBe("Avgust 2026");
 });

@@ -17,7 +17,7 @@ export function parseHash(hash: string): Route {
 
   if (path === "/history") return { name: "history" };
   if (path === "/attendance") return { name: "attendance", month: null };
-  const a = /^\/attendance\/(\d{4})-(\d{2})$/.exec(path);
+  const a = /^\/attendance\/([1-9]\d{3})-(\d{2})$/.exec(path);
   if (a) {
     const month = Number(a[2]);
     // Месяц «YYYY-MM»; кривой месяц — главный экран.

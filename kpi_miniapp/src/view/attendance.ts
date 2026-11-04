@@ -20,7 +20,7 @@ export interface AttendanceRowVM {
   late: string | null; // «опоздание 12 мин», только при late_minutes > 0 и не absent
 }
 export interface AttendanceNavVM {
-  label: string; // название месяца: «Октябрь»
+  label: string; // «Октябрь»; с годом, если сосед не соседний по календарю или в другом году: «Август 2026»
   hash: string;
   aria: string;
 }
@@ -52,17 +52,29 @@ function rowOf(d: TgAttendanceDay, l: Lang): AttendanceRowVM {
   return { day, absent: null, times: timesOf(d, l), late: d.late_minutes > 0 ? tIn(l, "att_late", { n: d.late_minutes }) : null };
 }
 
-function navOf(m: string | null, aria: "att_prev" | "att_next", l: Lang): AttendanceNavVM | null {
+/** Номер месяца подряд: «2026-11» → год·12 + месяц, чтобы сравнивать соседство через границу года. */
+function monthSeq(m: string): number {
+  return Number(m.slice(0, 4)) * 12 + Number(m.slice(5, 7)) - 1;
+}
+
+/**
+ * Сосед — ближайший месяц с данными, пустые месяцы он перепрыгивает. Год в подписи нужен, когда
+ * сосед не соседний по календарю (между ними пропуск) или лежит в другом году («Декабрь 2025»
+ * рядом с январём): иначе «Август» у ноября читалось бы как соседний месяц.
+ */
+function navOf(shown: string, m: string | null, aria: "att_prev" | "att_next", l: Lang): AttendanceNavVM | null {
   if (m === null) return null;
-  return { label: capFirst(monthName(m, "nom", l)), hash: hashOf({ name: "attendance", month: m }), aria: tIn(l, aria) };
+  const plain = Math.abs(monthSeq(m) - monthSeq(shown)) === 1 && m.slice(0, 4) === shown.slice(0, 4);
+  const name = capFirst(monthName(m, "nom", l));
+  return { label: plain ? name : `${name} ${m.slice(0, 4)}`, hash: hashOf({ name: "attendance", month: m }), aria: tIn(l, aria) };
 }
 
 export function attendanceView(d: TgAttendance, l: Lang): AttendanceVM {
   return {
     title: tIn(l, "link_attendance"),
     month: `${capFirst(monthName(d.month, "nom", l))} ${d.month.slice(0, 4)}`,
-    prev: navOf(d.prev, "att_prev", l),
-    next: navOf(d.next, "att_next", l),
+    prev: navOf(d.month, d.prev, "att_prev", l),
+    next: navOf(d.month, d.next, "att_next", l),
     empty: d.days.length === 0 ? tIn(l, "att_empty") : null,
     rows: d.days.map((x) => rowOf(x, l)),
   };
