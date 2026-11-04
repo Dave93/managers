@@ -117,5 +117,8 @@ it("appRoute по видам уведомлений", () => {
   expect(appRoute("dispute_resolved", { period: "2026-10-01", subject_type: "violation" })).toBe("/violations/2026-10");
   expect(appRoute("dispute_resolved", { period: "2026-10-01", subject_type: "review" })).toBe("/review/2026-10");
   expect(appRoute("raise_approved", { quarter_start: "2026-10-01" })).toBe("/history");
-  expect([appRoute("remind_evaluate", { period: "2026-10-01" }), appRoute("review_submitted", { period: "2026-10" })]).toEqual([null, null]);
+  expect(appRoute("remind_evaluate", { period: "2026-10-01" })).toBe("/ev/2026-10");
+  expect(appRoute("dispute_opened", { period: "2026-10-01" })).toBe("/ev/disputes");
+  expect(appRoute("overdue_summary", { period: "2026-10-01" })).toBeNull();
+  expect([appRoute("remind_evaluate", { period: "2026-13-01" }), appRoute("review_submitted", { period: "2026-10" })]).toEqual([null, null]);
 });
