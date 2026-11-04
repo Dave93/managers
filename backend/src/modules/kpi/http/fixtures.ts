@@ -45,7 +45,7 @@ import {
 } from "backend/drizzle/schema";
 import { eq, inArray, like, sql, type SQL } from "drizzle-orm";
 import * as XLSX from "xlsx";
-import { callApi, ensureApp, type withSession } from "../../../../tests/helpers/http";
+import { callApi, ensureApp, withSession } from "../../../../tests/helpers/http";
 import { kpiQueueName, getKpiQueue } from "../queue";
 import { SEED_BRANCH_INDICATORS } from "../seed-data";
 import { seedBranchIndicators, seedCards } from "../seed-cards";
@@ -221,6 +221,17 @@ export async function makeUser(
   return { id: row.id };
 }
 
+// Пользователь-оценщик: права по умолчанию только kpi.evaluate. makeUser заводит роль test_kpi_* в базе,
+// а права роли приложение читает из Redis-кэша ролей (cacheController.getPermissionsByRoleId): ту же роль
+// кладёт туда withSession, иначе evaluatorActor не нашёл бы у неё ни одного права.
+export async function makeEvaluator(db: DrizzleDB, o: { perms?: string[] } = {}): Promise<{ id: string }> {
+  const perms = o.perms ?? ["kpi.evaluate"];
+  const u = await makeUser(db, { perms });
+  const [row] = await db.select({ role_id: users.role_id }).from(users).where(eq(users.id, u.id)).limit(1);
+  if (row?.role_id) await withSession({ permissions: perms, userId: u.id, roleId: row.role_id });
+  return u;
+}
+
 // Привязка напрямую в таблицу, мимо приглашения.
 export async function bindTelegram(
   db: DrizzleDB,
@@ -275,6 +286,27 @@ export async function tgApi(token: string | null, method: string, path: string, 
 // GET без разбора тела: для файла фото.
 export async function tgRaw(token: string | null, path: string): Promise<Response> {
   return callApi(path, { method: "GET", headers: token ? { authorization: `Bearer ${token}` } : {} });
+}
+
+// Сессия оценщика: привязка Telegram к пользователю и вход; возвращает токен сессии.
+export async function evSession(db: DrizzleDB, userId: string): Promise<string> {
+  const b = await bindTelegram(db, { user_id: userId });
+  const r = await tgLogin(b.telegram_id);
+  expect(r.status).toBe(200);
+  return r.body.token as string;
+}
+
+// POST multipart (нарушение с фото): content-type не задаём, границу ставит сам fetch.
+export async function tgForm(token: string | null, path: string, fd: FormData): Promise<{ status: number; body: any }> {
+  const res = await callApi(path, { method: "POST", headers: token ? { authorization: `Bearer ${token}` } : {}, body: fd });
+  const text = await res.text();
+  let json: any = null;
+  try {
+    json = text ? JSON.parse(text) : null;
+  } catch {
+    json = text;
+  }
+  return { status: res.status, body: json };
 }
 
 // Подмена Bot API: send берёт ответы из results по очереди, потом — { ok: true, message_id: 42 }.
