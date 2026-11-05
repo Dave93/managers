@@ -2,7 +2,7 @@
 // Проверки дублируют серверные (days-off-rules.ts), чтобы кнопка не нажималась зря; сервер остаётся главным.
 import type { DayOffReason, EvDayOffForm } from "@backend/modules/kpi/tg-app/ev-types";
 import type { Key, Lang } from "../i18n";
-import { tIn } from "../i18n";
+import { monthsList, tIn } from "../i18n";
 import { reasonCount } from "../util";
 import { dayLabel } from "./attendance";
 
@@ -53,6 +53,16 @@ export function dayOffIssues(d: DayOffDraft, f: EvDayOffForm, l: Lang): string[]
   if (d.reason === null) out.push(tIn(l, "ev_dayoff_err_reason"));
   else if (d.reason === "other" && reasonCount(d.text) < TEXT_MIN) out.push(tIn(l, "ev_dayoff_err_text", { min: TEXT_MIN }));
   return out;
+}
+
+/**
+ * Предупреждения, не запреты: за месяц, где оценка сотрудника уже отправлена, выходной сохранится, но балл
+ * «Приход и уход» в отправленной оценке не изменится. Месяцы диапазона — по его первому и последнему дню.
+ */
+export function dayOffWarnings(d: DayOffDraft, f: EvDayOffForm, l: Lang): string[] {
+  if (dayOffCount(d) === 0) return [];
+  const months = [...new Set([d.from, d.to].map((day) => `${day.slice(0, 7)}-01`))].filter((m) => f.submitted_months.includes(m));
+  return months.length ? [tIn(l, "ev_dayoff_warn_submitted", { months: monthsList(months, "nom", l) })] : [];
 }
 
 /** Тело POST /ev/days-off: текст уходит только с причиной «другая». */

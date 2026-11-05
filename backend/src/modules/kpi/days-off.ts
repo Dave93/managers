@@ -2,7 +2,7 @@
 // Правила дат и причины — days-off-rules.ts (без БД). Права: назначение оценщика (canEvaluate) по текущим
 // филиалу и карте сотрудника, как у нарушений. Месяц KPI закрыт — выдавать и отменять за его дни нельзя.
 import type { DrizzleDB } from "@backend/lib/db";
-import { employees, kpi_days_off, kpi_periods, terminals } from "backend/drizzle/schema";
+import { employees, kpi_days_off, kpi_periods, kpi_reviews, terminals } from "backend/drizzle/schema";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { loadScopes, type Actor, type DbLike } from "./access";
@@ -126,7 +126,7 @@ export function listGivenDaysOff(db: DbLike, actor: Actor, period: Period): Prom
 }
 
 /**
- * Форма выдачи: сотрудник, причины, окно дат и дни, где выходной уже есть. Нижняя граница окна — позже из
+ * Форма выдачи: сотрудник, причины, окно дат, дни, где выходной уже есть, и месяцы с отправленной оценкой. Нижняя граница окна — позже из
  * «сегодня − 366 дней» и первого дня после последнего закрытого месяца; сервер при записи всё равно проверяет
  * каждый месяц отдельно (закрытые месяцы могли быть открыты заново).
  */
@@ -147,12 +147,26 @@ export async function dayOffForm(db: DbLike, actor: Actor, employeeId: unknown, 
     .from(kpi_days_off)
     .where(and(eq(kpi_days_off.employee_id, emp.id), isNull(kpi_days_off.cancelled_at), gte(kpi_days_off.day, min), lte(kpi_days_off.day, max)))
     .orderBy(asc(kpi_days_off.day));
+  // Отправленная оценка хранит снимок балла «Приход и уход»: выходной, выданный за её месяц, балл не меняет.
+  const submitted = await db
+    .select({ period: kpi_reviews.period })
+    .from(kpi_reviews)
+    .where(
+      and(
+        eq(kpi_reviews.employee_id, emp.id),
+        eq(kpi_reviews.status, "submitted"),
+        gte(kpi_reviews.period, periodOfDay(min)),
+        lte(kpi_reviews.period, periodOfDay(max))
+      )
+    )
+    .orderBy(asc(kpi_reviews.period));
   return {
     employee: { id: emp.id, first_name: emp.first_name, last_name: emp.last_name, terminal_name: emp.terminal_name },
     reasons: [...DAY_OFF_REASONS],
     window: { min, max },
     max_range_days: MAX_RANGE_DAYS,
     existing: existing.map((r) => r.day),
+    submitted_months: submitted.map((r) => r.period),
   };
 }
 

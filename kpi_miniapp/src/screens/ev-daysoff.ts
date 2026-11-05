@@ -9,9 +9,17 @@ import { rerender } from "../nav";
 import { haptic } from "../telegram";
 import { h } from "../ui";
 import { latch } from "../util";
-import { type EvDayOffVM, evDaysOffView } from "../view/ev-daysoff";
+import { type EvDayOffVM, type EvDaysOffNavVM, evDaysOffView } from "../view/ev-daysoff";
+import { inAppLink } from "./ev-common";
 
 const CHIP: Record<EvDayOffVM["status"]["tone"], string> = { active: "chip chip-ink", muted: "chip chip-muted" };
+
+// Соседний месяц: ссылка «‹ Сентябрь» / «Ноябрь ›»; имя для чтения с экрана начинается с видимой надписи (WCAG 2.5.3).
+function slot(n: EvDaysOffNavVM, side: "prev" | "next"): HTMLElement {
+  const a = inAppLink(n.hash, "btn btn-quiet att-slot", side === "prev" ? `‹ ${n.label}` : `${n.label} ›`);
+  a.setAttribute("aria-label", `${n.label}, ${n.aria}`);
+  return a;
+}
 
 export function renderEvDaysOff(d: EvDaysOff): HTMLElement {
   const vm = evDaysOffView(d, lang());
@@ -32,6 +40,7 @@ export function renderEvDaysOff(d: EvDaysOff): HTMLElement {
           r.canCancel ? h("button", { type: "button", class: "btn btn-quiet dayoff-cancel", onclick: () => cancel(r.id) }, t("ev_daysoff_cancel")) : null)));
   return h("main", { class: "screen" },
     h("h1", { class: "title" }, vm.title),
+    h("div", { class: "att-switch" }, slot(vm.prev, "prev"), h("h2", { class: "att-month" }, vm.month), slot(vm.next, "next")),
     vm.closed ? h("p", { class: "ev-info" }, t("ev_daysoff_closed")) : null,
     vm.empty ? h("p", { class: "card ev-empty", role: "status" }, t("ev_daysoff_empty")) : h("section", { class: "card rows" }, ...vm.items.map(row)));
 }

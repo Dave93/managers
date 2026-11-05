@@ -92,6 +92,7 @@ export interface EvDayOffForm {
   window: { min: string; max: string };   // выбираемые дни, включительно; закрытый месяц сервер всё равно отклонит
   max_range_days: number;
   existing: string[];                     // дни сотрудника с активным выходным внутри окна
+  submitted_months: string[];             // месяцы окна «YYYY-MM-01», где оценка сотрудника уже отправлена: её снимок выходной не пересчитает
 }
 export interface EvDaysOffCreated { created: EvDayOff[]; skipped: string[] }   // skipped — дни, где выходной уже был
 export interface EvDaysOff { period: string; period_status: "open" | "closed"; items: EvDayOff[] }

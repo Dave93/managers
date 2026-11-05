@@ -1,7 +1,7 @@
 import { expect, it } from "bun:test";
 import type { EvDayOffForm } from "@backend/modules/kpi/tg-app/ev-types";
 import { DICT } from "../src/i18n";
-import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues } from "../src/view/ev-dayoff";
+import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings } from "../src/view/ev-dayoff";
 
 const F = (o: Partial<EvDayOffForm> = {}): EvDayOffForm => ({
   employee: { id: "e1", first_name: "Ботир", last_name: "Алиев", terminal_name: "Филиал А" },
@@ -9,6 +9,7 @@ const F = (o: Partial<EvDayOffForm> = {}): EvDayOffForm => ({
   window: { min: "2025-10-01", max: "2025-11-26" },
   max_range_days: 31,
   existing: [],
+  submitted_months: [],
   ...o,
 });
 const D = (o: Partial<DayOffDraft> = {}): DayOffDraft => ({ from: "2025-10-27", to: "2025-10-29", reason: "sick", text: "", ...o });
@@ -58,4 +59,18 @@ it("dayOffFormView: заголовок, подписи причин на дву�
   expect(vm.existing).toBe("Уже выдано: 30 октября, 31 октября");
   expect(dayOffFormView(F(), "ru").existing).toBe("");
   expect(dayOffFormView(F(), "uz").reasons.map((r) => r.label)).toEqual(["Kasallik", "Oilaviy sharoitlar", "Otgul", "Taʼtil", "Jadval boʻyicha", "Boshqa sabab"]);
+});
+
+it("dayOffWarnings: предупреждает о месяцах, где оценка уже отправлена, и только о них", () => {
+  const f = F({ submitted_months: ["2025-10-01"] });
+  expect(dayOffWarnings(D(), f, "ru")).toEqual([DICT.ru.ev_dayoff_warn_submitted.replace("{months}", "октябрь")]);
+  // Диапазон через границу: отправлен только октябрь — упоминается один он.
+  expect(dayOffWarnings(D({ from: "2025-10-30", to: "2025-11-02" }), f, "ru")).toEqual([DICT.ru.ev_dayoff_warn_submitted.replace("{months}", "октябрь")]);
+  expect(dayOffWarnings(D({ from: "2025-11-03", to: "2025-11-04" }), f, "ru")).toEqual([]);
+  expect(dayOffWarnings(D(), F(), "ru")).toEqual([]);
+  // Оба месяца диапазона отправлены.
+  expect(dayOffWarnings(D({ from: "2025-10-30", to: "2025-11-02" }), F({ submitted_months: ["2025-10-01", "2025-11-01"] }), "ru")[0]).toContain("октябрь и ноябрь");
+  // Неверные даты предупреждений не дают: о них скажут замечания.
+  expect(dayOffWarnings(D({ from: "", to: "" }), f, "ru")).toEqual([]);
+  expect(dayOffWarnings(D(), f, "uz")[0]).toContain("Oktabr");
 });

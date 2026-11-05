@@ -30,3 +30,15 @@ it("пустой список и закрытый месяц", () => {
   expect(evDaysOffView(D([R({ can_cancel: false })], true), "ru")).toMatchObject({ empty: false, closed: true });
   expect(evDaysOffView(D([R({})]), "uz").items[0]!.day).toBe("27-oktabr");
 });
+
+it("переключатель месяцев: соседние месяцы всегда, через границу года тоже", () => {
+  const vm = evDaysOffView(D([]), "ru");
+  expect(vm.month).toBe("Октябрь 2025");
+  expect(vm.prev).toEqual({ label: "Сентябрь", hash: "#/ev/daysoff/2025-09", aria: "Предыдущий месяц" });
+  expect(vm.next).toEqual({ label: "Ноябрь", hash: "#/ev/daysoff/2025-11", aria: "Следующий месяц" });
+  const jan = evDaysOffView({ period: "2026-01-01", period_status: "open", items: [] }, "ru");
+  expect(jan.prev.hash).toBe("#/ev/daysoff/2025-12");
+  expect(jan.prev.label).toBe("Декабрь 2025");
+  const dec = evDaysOffView({ period: "2025-12-01", period_status: "open", items: [] }, "ru");
+  expect(dec.next).toMatchObject({ hash: "#/ev/daysoff/2026-01", label: "Январь 2026" });
+});

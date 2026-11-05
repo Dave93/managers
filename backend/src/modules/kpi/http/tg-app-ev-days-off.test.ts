@@ -12,7 +12,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
   const { api, cleanupKpi, evSession, makeEmployee, makeEvaluator, makeScope, makeTerminal, setNow, setup, tgApi, TG_TEST_BOT_TOKEN } = await import("./fixtures");
-  const { kpi_days_off, kpi_periods } = await import("backend/drizzle/schema");
+  const { kpi_days_off, kpi_periods, kpi_reviews } = await import("backend/drizzle/schema");
   const { eq } = await import("drizzle-orm");
 
   const URL_GIVE = "/api/kpi/tg/ev/days-off";
@@ -214,6 +214,27 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       // Без period — месяц «сейчас».
       expect((await tgApi(token, "GET", URL_GIVE)).body.period).toBe("2025-10-01");
       expect(await tgApi(token, "GET", `${URL_GIVE}?period=bad`)).toEqual({ status: 422, body: { error: "bad_period" } });
+    });
+
+    it("форма: месяцы окна, где оценка сотрудника уже отправлена (черновик, чужие и месяцы вне окна не в счёт)", async () => {
+      setNow(NOW);
+      const { t, ev, e, token } = await world();
+      const other = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+      const review = (employee_id: string, period: string, status: "draft" | "submitted") => ({
+        employee_id, period, status, terminal_id: t.id, card_id: cookCardId, evaluator_user_id: ev.id,
+        submitted_at: status === "submitted" ? "2025-10-20T10:00:00+05:00" : null,
+      });
+      await db.insert(kpi_reviews).values([
+        review(e.id, "2025-10-01", "submitted"),
+        review(e.id, "2025-08-01", "submitted"),
+        review(e.id, "2025-09-01", "draft"), // черновик: балл ещё считается по живым данным
+        review(e.id, "2024-09-01", "submitted"), // раньше окна (окно с 25.10.2024)
+        review(other.id, "2025-07-01", "submitted"), // чужая оценка
+      ]);
+      const f = await tgApi(token, "GET", `/api/kpi/tg/ev/day-off-form?employee_id=${e.id}`);
+      expect(f.body.submitted_months).toEqual(["2025-08-01", "2025-10-01"]);
+      const none = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+      expect((await tgApi(token, "GET", `/api/kpi/tg/ev/day-off-form?employee_id=${none.id}`)).body.submitted_months).toEqual([]);
     });
 
     it("форма: причины, окно, лимит диапазона, уже выданные дни; права и назначение", async () => {

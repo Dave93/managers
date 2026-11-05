@@ -10,7 +10,7 @@ import { hashOf, parseHash } from "../route";
 import { haptic } from "../telegram";
 import { h } from "../ui";
 import { latch } from "../util";
-import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues } from "../view/ev-dayoff";
+import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings } from "../view/ev-dayoff";
 import { evOutcome } from "../view/ev-errors";
 import { fill, inAppLink } from "./ev-common";
 
@@ -46,6 +46,7 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
     ...vm.reasons.map((r) => h("option", { value: r.code }, r.label)));
   const text = h("textarea", { class: "ev-field ev-note", rows: "3", "aria-label": t("ev_dayoff_other_ph"), placeholder: t("ev_dayoff_other_ph"), oninput: (e: Event) => { touched = true; draft.text = (e.target as HTMLTextAreaElement).value; sync(); } }) as HTMLTextAreaElement;
   const count = h("p", { class: "ev-hint", "aria-live": "polite" });
+  const warn = h("p", { class: "ev-hint", role: "status" });
   const issues = h("div", { class: "ev-notes", role: "status" });
   const message = h("p", { class: "ev-msg", role: "status" });
   const listLink = inAppLink(hashOf({ name: "ev_daysoff", period: null }), "ev-link", t("ev_my_daysoff"));
@@ -57,6 +58,7 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
     const n = dayOffCount(draft);
     const problems = dayOffIssues(draft, f, l);
     count.textContent = n > 0 ? t("ev_dayoff_count", { n }) : "";
+    warn.textContent = dayOffWarnings(draft, f, l).join(" ");
     text.hidden = draft.reason !== "other";
     fill(issues, touched ? problems.map((p) => h("p", { class: "ev-issue" }, p)) : []);
     send.disabled = problems.length > 0 || sending || blocked;
@@ -92,7 +94,7 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
     f.employee.terminal_name ? h("p", { class: "ev-info" }, f.employee.terminal_name) : null,
     h("section", { class: "card ev-item" },
       h("label", { class: "ev-note-label" }, t("ev_dayoff_from")), fromIn,
-      h("label", { class: "ev-note-label" }, t("ev_dayoff_to")), toIn, count,
+      h("label", { class: "ev-note-label" }, t("ev_dayoff_to")), toIn, count, warn,
       vm.existing ? h("p", { class: "ev-hint" }, vm.existing) : null,
       h("label", { class: "ev-note-label" }, t("ev_dayoff_reason")), select, text),
     issues, send, message, listLink);
