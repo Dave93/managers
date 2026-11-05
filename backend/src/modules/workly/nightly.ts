@@ -17,10 +17,11 @@ import { UUID_RE } from "../kpi/employees";
 import { KpiError } from "../kpi/errors";
 import { isPeriodClosed } from "../kpi/periods";
 import { addMonths, periodOf, type Period } from "../kpi/time";
+import { runActivityPoll, WORKLY_ACTIVITY_JOB } from "./activity";
 import { assertAttendanceSyncable } from "./attendance";
-import { WorklyError } from "./client";
 import { CONNECTIONS, credsFromEnv, resolveOrganizationId } from "./config";
 import { WORKLY_RUN_JOB } from "./queue";
+import { jobFailureCode } from "./job-failure";
 import { executeRun, getRun, hasAppliedRun, startRun, syncAuto, type RunRow } from "./runs";
 import type { ConnKey } from "./types";
 
@@ -28,12 +29,7 @@ export const WORKLY_NIGHTLY_JOB = "workly-nightly";
 
 // ---------- коды ошибок ----------
 
-// Короткий код сбоя для лога и failedReason. Только WorklyError.code и KpiError.code;
-// всё прочее (в том числе ошибка базы с параметрами запроса) — общий job_failed.
-export function jobFailureCode(e: unknown): string {
-  if (e instanceof WorklyError || e instanceof KpiError) return e.code;
-  return "job_failed";
-}
+export { jobFailureCode };
 
 // Код из сообщения ошибки, которую воркер уже заменил на new Error(code): нужен слушателю
 // failed, где пришла ошибка BullMQ (например, «job stalled more than allowable limit»).
@@ -52,12 +48,12 @@ export interface WorklyJobLike {
 
 /**
  * Разбор задачи очереди Workly. WORKLY_RUN_JOB вызывает handlers.run(runId), WORKLY_NIGHTLY_JOB —
- * handlers.nightly(). Любой сбой логируется как `workly job failed <имя> <runId|-> <код>` и
+ * handlers.nightly(), WORKLY_ACTIVITY_JOB — handlers.activity(). Любой сбой логируется как `workly job failed <имя> <runId|-> <код>` и
  * пробрасывается новой Error с одним кодом: BullMQ не получает ни исходного сообщения, ни стека.
  */
 export async function handleWorklyJob(
   job: WorklyJobLike,
-  handlers: { run: (runId: string) => Promise<unknown>; nightly: () => Promise<unknown> }
+  handlers: { run: (runId: string) => Promise<unknown>; nightly: () => Promise<unknown>; activity: () => Promise<unknown> }
 ): Promise<unknown> {
   const name = String(job.name).slice(0, 64);
   const rawId = (job.data as { runId?: unknown } | null | undefined)?.runId;
@@ -68,10 +64,12 @@ export async function handleWorklyJob(
     throw new Error(code);
   };
 
-  if (job.name !== WORKLY_RUN_JOB && job.name !== WORKLY_NIGHTLY_JOB) return fail("unknown_job");
+  if (job.name !== WORKLY_RUN_JOB && job.name !== WORKLY_NIGHTLY_JOB && job.name !== WORKLY_ACTIVITY_JOB) return fail("unknown_job");
   if (job.name === WORKLY_RUN_JOB && typeof rawId !== "string") return fail("bad_job");
   try {
-    return job.name === WORKLY_RUN_JOB ? await handlers.run(rawId as string) : await handlers.nightly();
+    if (job.name === WORKLY_RUN_JOB) return await handlers.run(rawId as string);
+    if (job.name === WORKLY_ACTIVITY_JOB) return await handlers.activity();
+    return await handlers.nightly();
   } catch (e) {
     return fail(jobFailureCode(e));
   }
@@ -90,6 +88,12 @@ export function worklyJobProcessor(db: DrizzleDB, redisOf: () => Promise<Redis>)
         const result = await runNightly(db, await redisOf());
         // Ключи и статусы, без текста ошибок.
         console.log("workly nightly", JSON.stringify(result));
+        return result;
+      },
+      activity: async () => {
+        const result = await runActivityPoll(db, await redisOf());
+        // Событий и имён в результате нет: ключ подключения и итоговый статус.
+        console.log("workly activity", JSON.stringify(result));
         return result;
       },
     });

@@ -2,6 +2,7 @@ import { describe, expect, it, spyOn } from "bun:test";
 import { KpiError } from "../kpi/errors";
 import { WorklyError } from "./client";
 import { failedJobCode, handleWorklyJob, jobFailureCode, nightlySteps, WORKLY_NIGHTLY_JOB, worklyJobProcessor } from "./nightly";
+import { WORKLY_ACTIVITY_JOB } from "./activity";
 import { WORKLY_RUN_JOB } from "./queue";
 
 const conn = (key: "LES" | "CHOPAR", hasApplied: boolean, configured: boolean) => ({ key, hasApplied, configured });
@@ -113,9 +114,12 @@ describe("workly: handleWorklyJob", () => {
     }
   }
 
-  const handlers = (o: { run?: (id: string) => Promise<unknown>; nightly?: () => Promise<unknown> } = {}) => ({
+  const handlers = (
+    o: { run?: (id: string) => Promise<unknown>; nightly?: () => Promise<unknown>; activity?: () => Promise<unknown> } = {}
+  ) => ({
     run: o.run ?? (async () => undefined),
     nightly: o.nightly ?? (async () => []),
+    activity: o.activity ?? (async () => []),
   });
 
   it("workly-run вызывает исполнитель прогона с runId, workly-nightly — ночной прогон", async () => {
@@ -143,6 +147,35 @@ describe("workly: handleWorklyJob", () => {
     );
     expect(called).toBe(1);
     expect(out).toEqual(result);
+  });
+
+  it("workly-activity вызывает опрос действий; сбой уходит одним кодом без текста", async () => {
+    let called = 0;
+    const result = [{ key: "LES", status: "idle" }];
+    const out = await handleWorklyJob(
+      { name: WORKLY_ACTIVITY_JOB, data: {} },
+      handlers({
+        activity: async () => {
+          called++;
+          return result;
+        },
+      })
+    );
+    expect(called).toBe(1);
+    expect(out).toEqual(result);
+
+    const r = await quietly(() =>
+      handleWorklyJob(
+        { name: WORKLY_ACTIVITY_JOB, data: {} },
+        handlers({
+          activity: async () => {
+            throw new WorklyError("auth_failed", "Иванов Иван секрет");
+          },
+        })
+      )
+    );
+    expect(r.error!.message).toBe("auth_failed");
+    expect(r.logged).toBe(`workly job failed ${WORKLY_ACTIVITY_JOB} - auth_failed`);
   });
 
   it("сбой с текстом: наружу уходит новая Error с одним кодом, лог — имя, runId и код без текста", async () => {
@@ -228,6 +261,7 @@ describe("workly: handleWorklyJob", () => {
     for (const job of [
       { name: WORKLY_RUN_JOB, data: { runId: RUN_ID } },
       { name: WORKLY_NIGHTLY_JOB, data: {} },
+      { name: WORKLY_ACTIVITY_JOB, data: {} },
     ]) {
       const r = await quietly(() => process(job));
       expect(r.error).toBeInstanceOf(Error);
@@ -237,11 +271,11 @@ describe("workly: handleWorklyJob", () => {
       expect(r.logged).not.toContain("pa55");
       expect(r.logged).toContain("job_failed");
     }
-    expect(asked).toBe(2);
+    expect(asked).toBe(3);
     // Чужая задача отклоняется до обращения к Redis.
     const u = await quietly(() => process({ name: "что-то-чужое", data: {} }));
     expect(u.error!.message).toBe("unknown_job");
-    expect(asked).toBe(2);
+    expect(asked).toBe(3);
   });
 
   it("runId не uuid в лог не попадает: прочерк", async () => {

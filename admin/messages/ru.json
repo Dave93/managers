@@ -3162,7 +3162,8 @@
         },
         "trigger": {
           "manual": "вручную",
-          "schedule": "по расписанию"
+          "schedule": "по расписанию",
+          "activity": "по правке в Workly"
         },
         "status": {
           "running": "Идёт",

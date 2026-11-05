@@ -6,6 +6,7 @@ import type Redis from "ioredis";
 import { companyMatches, credsFromEnv, expectedCompanyOf } from "./config";
 import type {
   AbsenceItem,
+  ActivityItem,
   ConnKey,
   LateInItem,
   T12Item,
@@ -153,6 +154,24 @@ export class WorklyClient {
 
   absence(from: string, to: string): Promise<AbsenceItem[]> {
     return this.crawl<AbsenceItem>("/v1/reports/absence", { start_date: from, end_date: to }, dayKey);
+  }
+
+  // Действия пользователей Workly за дни [from, to). Проверено пробой 2026-11-05: end_date не входит
+  // в окно (end_date = сегодня даёт 0 записей), записи идут от новых к старым, id растёт со временем.
+  // Из записи берутся только id и action_name; id приходит числом или строкой из цифр.
+  async userActivities(from: string, to: string): Promise<ActivityItem[]> {
+    const raw = await this.crawl<Record<string, unknown> | null>(
+      "/v1/user-activities",
+      { start_date: from, end_date: to },
+      (a) => String(a?.id),
+    );
+    return raw.map((a) => {
+      const id = typeof a?.id === "string" && /^\d{1,15}$/.test(a.id) ? Number(a.id) : a?.id;
+      if (typeof id !== "number" || !Number.isSafeInteger(id) || typeof a?.action_name !== "string") {
+        throw new WorklyError("http_error", "Workly вернул действие пользователя в неожиданном формате");
+      }
+      return { id, action_name: a.action_name };
+    });
   }
 
   // Обход страниц. totalCount у Workly раздут JOIN-ом по должностям, а запрос за последней страницей

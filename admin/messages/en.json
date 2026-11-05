@@ -3162,7 +3162,8 @@
         },
         "trigger": {
           "manual": "manually",
-          "schedule": "on schedule"
+          "schedule": "on schedule",
+          "activity": "on a Workly change"
         },
         "status": {
           "running": "Running",
