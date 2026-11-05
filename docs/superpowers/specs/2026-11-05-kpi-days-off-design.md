@@ -57,7 +57,7 @@ HR подтвердил 2026-11-05: выходные сотрудникам вы
 
 ## Единое наложение
 
-Новый модуль `backend/src/modules/kpi/days-off.ts` владеет всей логикой выходных: константы причин и разбор ввода, `giveDaysOff`, `cancelDayOff`, `listGivenDaysOff`, и два читателя для наложения:
+Два новых файла в `backend/src/modules/kpi/` владеют всей логикой выходных (по образцу пары `attendance-parse.ts` / `attendance.ts`): `days-off-rules.ts` без БД (константы причин, разбор дат и причины, окно) и `days-off.ts` (`giveDaysOff`, `cancelDayOff`, `listGivenDaysOff`, `dayOffForm`) с двумя читателями для наложения:
 
 - `activeDaysOff(db, {employeeIds?, terminalIds?, from, to})` → набор пар `(employee_id, day)` с причиной и автором;
 - SQL-фрагмент `absentWithDayOff(attendanceAlias)` для агрегатов: условие «строка прогул и на неё есть активный выходной».
