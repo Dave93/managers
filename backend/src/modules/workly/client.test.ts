@@ -284,6 +284,74 @@ describe("workly/client: отчёты", () => {
   });
 });
 
+describe("workly/client: действия пользователей", () => {
+  const act = (id: number | string, action_name: string) => ({
+    id,
+    action_name,
+    user: { id: 139, full_name: "Имя Фамилия" },
+    object_id: "452374",
+    person_id: 452374,
+    message: "Имя Фамилия изменил(а) профиль сотрудника Тест Тестов",
+    created_at: "2026-11-05 11:53:48",
+  });
+
+  it("userActivities шлёт start_date/end_date, убирает повторы по id и отдаёт только id и action_name", async () => {
+    const pages = [[act(30, "addEmployee"), act(29, "clockInManual")], [act(29, "clockInManual"), act("28", "dismissEmployee")]];
+    const tok = tokenReplier();
+    const { client, srv } = makeClient((c) => tok(c) ?? pageReply(pages, c.query, 2));
+    const res = await client.userActivities("2026-11-04", "2026-11-06");
+    expect(res).toEqual([
+      { id: 30, action_name: "addEmployee" },
+      { id: 29, action_name: "clockInManual" },
+      { id: 28, action_name: "dismissEmployee" },
+    ]);
+    // Ни имён, ни текста сообщений в результате нет.
+    expect(JSON.stringify(res)).not.toContain("Фамилия");
+    const q = srv.apiCalls("/v1/user-activities")[0]!.query;
+    expect(q.get("start_date")).toBe("2026-11-04");
+    expect(q.get("end_date")).toBe("2026-11-06");
+    expect(q.get("page")).toBe("1");
+  });
+
+  it("пустой список — пустой результат", async () => {
+    const tok = tokenReplier();
+    const { client } = makeClient(
+      (c) => tok(c) ?? { body: { items: [], _meta: { totalCount: 0, pageCount: 0, currentPage: 1, perPage: 50 } } },
+    );
+    expect(await client.userActivities("2026-11-04", "2026-11-06")).toEqual([]);
+  });
+
+  it("испорченная запись (id не целое, нет action_name) пропускается, остальные читаются: одно событие не глушит опрос", async () => {
+    const bads = [
+      { ...act(1, "addEmployee"), id: "abc" },
+      { ...act(2, "addEmployee"), id: 1.5 },
+      { ...act(3, "addEmployee"), id: null },
+      { ...act(4, "x"), action_name: 5 },
+      null,
+    ];
+    const tok = tokenReplier();
+    const { client } = makeClient((c) => tok(c) ?? pageReply([[act(30, "addEmployee"), ...bads, act("28", "dismissEmployee")]], c.query, 1));
+    expect(await client.userActivities("2026-11-04", "2026-11-06")).toEqual([
+      { id: 30, action_name: "addEmployee" },
+      { id: 28, action_name: "dismissEmployee" },
+    ]);
+  });
+
+  it("список непустой, но ни одной годной записи — http_error без текста записи (формат ответа изменился)", async () => {
+    const tok = tokenReplier();
+    const { client } = makeClient(
+      (c) => tok(c) ?? pageReply([[{ ...act(1, "addEmployee"), id: "abc" }, { ...act(2, "x"), action_name: 5 }]], c.query, 1),
+    );
+    const err = await client.userActivities("2026-11-04", "2026-11-06").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(WorklyError);
+    expect((err as WorklyError).code).toBe("http_error");
+    expect(String((err as WorklyError).message)).not.toContain("Фамилия");
+  });
+});
+
 describe("workly/client: ключ доступа", () => {
   it("входит по паролю формой x-www-form-urlencoded и кладёт ключ в Redis с TTL expires_in", async () => {
     const tok = tokenReplier();

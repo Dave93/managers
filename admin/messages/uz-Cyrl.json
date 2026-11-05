@@ -3162,7 +3162,8 @@
         },
         "trigger": {
           "manual": "қўлда",
-          "schedule": "жадвал бўйича"
+          "schedule": "жадвал бўйича",
+          "activity": "Workly'даги ўзгариш бўйича"
         },
         "status": {
           "running": "Бажарилмоқда",

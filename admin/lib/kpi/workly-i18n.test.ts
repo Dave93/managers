@@ -66,7 +66,7 @@ function literalKeys(): string[] {
 }
 
 const RUN_KINDS = ["employees", "attendance"] as const;
-const TRIGGERS = ["manual", "schedule"] as const;
+const TRIGGERS = ["manual", "schedule", "activity"] as const;
 const SKIP_REASONS = ["excluded", "stale", "conflict"] as const;
 
 for (const locale of LOCALES) {

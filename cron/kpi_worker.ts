@@ -19,6 +19,7 @@ import { deliverOne, stuckReporter, stuckSendingCount, sweepPending } from "@bac
 import { startScheduling } from "@backend/modules/kpi/worker/boot";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
 import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
+import { WORKLY_ACTIVITY_JOB } from "@backend/modules/workly/activity";
 import { WORKLY_NIGHTLY_JOB, failedJobCode, jobFailureCode, worklyJobProcessor } from "@backend/modules/workly/nightly";
 import { getWorklyQueue, worklyQueueName } from "@backend/modules/workly/queue";
 
@@ -47,6 +48,13 @@ async function registerSchedulers() {
     WORKLY_NIGHTLY_JOB,
     { pattern: "30 3 * * *", tz: "Asia/Tashkent" },
     { name: WORKLY_NIGHTLY_JOB, opts: schedulerJobOptions }
+  );
+  // Опрос действий пользователей Workly: каждые 15 минут, со сдвигом, чтобы не попадать на 03:30
+  // ночного прогона и на круглые минуты. Выключается WORKLY_ACTIVITY_POLL=0 (проверяется в задаче).
+  await worklyQueue.upsertJobScheduler(
+    WORKLY_ACTIVITY_JOB,
+    { pattern: "7,22,37,52 * * * *", tz: "Asia/Tashkent" },
+    { name: WORKLY_ACTIVITY_JOB, opts: schedulerJobOptions }
   );
 }
 

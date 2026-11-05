@@ -3162,7 +3162,8 @@
         },
         "trigger": {
           "manual": "qo'lda",
-          "schedule": "jadval bo'yicha"
+          "schedule": "jadval bo'yicha",
+          "activity": "Workly'dagi o'zgarish bo'yicha"
         },
         "status": {
           "running": "Bajarilmoqda",

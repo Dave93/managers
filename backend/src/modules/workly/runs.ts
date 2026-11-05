@@ -49,7 +49,7 @@ export interface RunRow {
   id: string;
   organization_id: string;
   kind: RunKind;
-  trigger: "manual" | "schedule";
+  trigger: "manual" | "schedule" | "activity";
   status: "running" | "planned" | "applied" | "blocked" | "failed" | "rolled_back";
   block_reason: BlockReason | null;
   counts: Record<string, number | string>;
@@ -127,7 +127,7 @@ export async function startRun(
   db: DrizzleDB,
   org: { id: string; key: ConnKey },
   kind: RunKind,
-  trigger: "manual" | "schedule",
+  trigger: "manual" | "schedule" | "activity",
   userId: string | null,
   period?: Period
 ): Promise<{ run_id: string }> {
@@ -731,9 +731,10 @@ export async function syncAuto(
   db: DrizzleDB,
   redis: Redis,
   org: { id: string; key: ConnKey },
-  clientOf?: (key: ConnKey) => RunClient
+  clientOf?: (key: ConnKey) => RunClient,
+  trigger: "schedule" | "activity" = "schedule"
 ): Promise<RunRow> {
-  const { run_id } = await startRun(db, org, "employees", "schedule", null);
+  const { run_id } = await startRun(db, org, "employees", trigger, null);
   await executeRun(db, redis, run_id, clientOf);
   const run = await getRun(db, run_id);
   if (run.status !== "planned") return run;

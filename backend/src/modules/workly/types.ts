@@ -66,3 +66,10 @@ export interface AbsenceItem {
   employee: { id: number };
   scheduled: { report_date: string; is_work_day?: boolean; timeoff_id: number | null };
 }
+
+// Действие пользователя в Workly (/v1/user-activities). Клиент отдаёт только номер и название:
+// в записи есть имена и текст сообщения, а они нужны не для сверки, а лишь попали бы в логи.
+export interface ActivityItem {
+  id: number;
+  action_name: string;
+}

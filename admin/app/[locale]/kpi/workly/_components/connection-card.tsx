@@ -41,7 +41,7 @@ const STATUS_TONE: Record<RunRow["status"], Tone> = {
   failed: "red",
   rolled_back: "gray",
 };
-const TRIGGERS = ["manual", "schedule"] as const;
+const TRIGGERS = ["manual", "schedule", "activity"] as const;
 
 /** Значение из списка или null: так строка из базы сужается до известного типа. */
 function oneOf<T extends string>(list: readonly T[], value: string): T | null {
