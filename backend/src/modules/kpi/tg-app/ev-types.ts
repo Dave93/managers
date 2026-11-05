@@ -3,12 +3,15 @@
 // Периоды — "YYYY-MM-01", время — ISO 8601 UTC.
 export type EvItemSource = "manual" | "attendance" | "cooking_speed" | "sales_plan" | "food_cost";
 export type EvStatus = "none" | "draft" | "submitted" | "disputed";
+// Причина выходного дня (выдаёт оценщик в мини-приложении).
+export type DayOffReason = "sick" | "family" | "time_off" | "vacation" | "schedule" | "other";
 
 export type EvErrorCode =
   | "not_evaluator" | "forbidden" | "out_of_scope" | "not_found" | "bad_id" | "bad_period" | "bad_status" | "no_card" | "no_items"
   | "period_closed" | "already_submitted" | "too_early" | "missing_items" | "note_required" | "bad_score" | "unknown_item"
   | "comment_required" | "photo_required" | "bad_photo_type" | "photo_too_large" | "too_many_photos"
-  | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision";
+  | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision"
+  | "bad_dates" | "bad_reason" | "reason_text_required";
 export interface EvError { error: EvErrorCode; min?: number; opens_at?: string; item_id?: string; items?: string[] }
 
 // GET /kpi/tg/ev/employees?period=YYYY-MM-01 (без period — отчётный месяц)
