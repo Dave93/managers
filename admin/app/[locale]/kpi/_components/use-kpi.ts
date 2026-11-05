@@ -44,6 +44,8 @@ export const qk = {
   attendanceImports: (period: string) => ["kpi_attendance_imports", period] as const,
   attendanceImportsAll: ["kpi_attendance_imports"] as const,
   attendanceBoard: (period: string) => ["kpi_attendance_board", period] as const,
+  people: (period: string) => ["kpi_people", period] as const,
+  employeeCard: (id: string, period: string) => ["kpi_employee_card", id, period] as const,
   tgBindings: (kind: "employee" | "user", ids: string[]) => ["kpi", "tg_bindings", kind, ids.join(",")] as const,
   /** Все привязки Telegram — сбрасывается по префиксу. */
   tgBindingsAll: ["kpi", "tg_bindings"] as const,

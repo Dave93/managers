@@ -14,7 +14,7 @@ import {
   type Group,
 } from "@admin/lib/kpi/timesheet";
 import { cn } from "@admin/lib/utils";
-import { CELL, EMPTY_DASH, pad2 } from "./day-style";
+import { CELL, EMPTY_DASH, pad2 } from "../../_components/day-style";
 
 // Раскладка: имя 200px (липкое) + N клеток по 22px + два итога по 56px. Клетки 16px внутри ячейки 22px:
 // на 31 день это 682px, вместе с именем и итогами около 1000px, то есть помещается в канву на экране 1440.

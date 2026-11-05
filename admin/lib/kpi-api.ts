@@ -14,6 +14,8 @@ import type {
   AttendanceBoard,
   BoardDay,
   BoardEmployee,
+  EmployeeCard,
+  PeopleRow,
   AttendanceImportRow,
   AttendanceMapping,
   AttendanceParseResponse,
@@ -61,6 +63,8 @@ export type {
   AttendanceBoard,
   BoardDay,
   BoardEmployee,
+  EmployeeCard,
+  PeopleRow,
   AttendanceField,
   AttendanceImportRow,
   AttendanceMapping,
@@ -236,6 +240,7 @@ export function createKpiApi(kpi: any, workly: any) {
     users: (search: string) => call<KpiUserOption[]>(kpi.users.get({ query: { search } })),
     employees: {
       list: (query: EmployeesQuery) => call<EmployeeRow[]>(kpi.employees.get(q(query))),
+      profile: (id: string, period: string) => call<EmployeeCard>(kpi.employees({ id }).profile.get({ query: { period } })),
       setCard: (id: string, cardId: string | null | "auto", comment?: string) =>
         call<unknown>(kpi.employees({ id }).card.put(comment && comment.trim() ? { card_id: cardId, comment } : { card_id: cardId })),
       setExternalId: (id: string, externalId: string | null) =>
@@ -272,6 +277,7 @@ export function createKpiApi(kpi: any, workly: any) {
       compute: (quarter: string) => call<RaiseRow[]>(kpi.raises.compute.post({ quarter })),
       decide: (id: string, b: DecideBody) => call<RaiseRow>(kpi.raises({ id }).decide.post(b)),
     },
+    people: (period: string) => call<PeopleRow[]>(kpi.people.get({ query: { period } })),
     attendance: {
       commit: (b: AttendanceCommitBody) => call<AttendanceImportRow>(kpi.attendance.commit.post(b)),
       imports: (period: string) => call<AttendanceImportRow[]>(kpi.attendance.imports.get({ query: { period } })),

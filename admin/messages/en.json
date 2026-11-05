@@ -999,6 +999,7 @@
       "month": "Month",
       "raises": "Raises",
       "settings": "KPI settings",
+      "people": "KPI staff",
       "timesheet": "Attendance",
       "workly": "Workly sync",
       "attendance": "Workly import",
@@ -3747,7 +3748,8 @@
         "late": "late by {min} min",
         "times": "in {in}, out {out}",
         "absent": "absent",
-        "streak": "Longest run of absences: {n}"
+        "streak": "Longest run of absences: {n}",
+        "openCard": "Open the profile"
       },
       "note": "An absence is recorded when Workly confirmed a missed working day. Days without a record stay empty.",
       "wd": {
@@ -3758,6 +3760,137 @@
         "d4": "Fr",
         "d5": "Sa",
         "d6": "Su"
+      }
+    },
+    "people": {
+      "title": "KPI staff",
+      "search": "Find an employee",
+      "branchLabel": "Branch",
+      "branchAll": "All branches",
+      "tabsLabel": "Which employees are shown",
+      "tabs": {
+        "all": "All",
+        "none": "Awaiting review",
+        "disputed": "In dispute",
+        "violations": "With violations",
+        "absent": "With absences"
+      },
+      "cols": {
+        "employee": "Employee",
+        "branch": "Branch",
+        "score": "Score",
+        "absent": "Absences",
+        "late": "Late",
+        "violations": "Violations"
+      },
+      "summary": "Scored {scored} of {total}. Open disputes: {disputed}. Violations: {violations}, absences: {absent}.",
+      "state": {
+        "noRows": "No employees match these filters.",
+        "noCard": "No card"
+      },
+      "sortBy": "Sort by: {col}"
+    },
+    "employeeCard": {
+      "back": "KPI staff",
+      "notFound": "Employee not found or not available to you.",
+      "inactive": "No longer working",
+      "tab": "tab. no. {n}",
+      "workly": {
+        "on": "Workly: linked",
+        "off": "Workly: not linked"
+      },
+      "telegram": {
+        "on": "Telegram: linked",
+        "off": "Telegram: not linked"
+      },
+      "switch": {
+        "label": "Another employee",
+        "placeholder": "Find an employee",
+        "none": "Nobody found"
+      },
+      "tabsLabel": "Profile sections",
+      "tabs": {
+        "review": "Review",
+        "attendance": "Attendance",
+        "violations": "Violations",
+        "history": "History"
+      },
+      "month": {
+        "title": "Review for {month}",
+        "none": "No review for {month}",
+        "noCard": "No KPI card: this employee is not reviewed.",
+        "lost": "Points lost",
+        "lostNone": "No losses",
+        "status": {
+          "ready": "Review submitted",
+          "dispute_open": "Dispute open",
+          "dispute_resolved": "Dispute resolved",
+          "changed": "Review changed"
+        },
+        "dispute": {
+          "can": "Can be disputed until {date}",
+          "open": "Dispute opened {date}",
+          "rejected": "Dispute rejected",
+          "window_closed": "Dispute window closed",
+          "period_closed": "Month is closed"
+        },
+        "resolved": {
+          "accepted": "Dispute accepted {date}",
+          "rejected": "Dispute rejected {date}"
+        }
+      },
+      "raise": {
+        "title": "Raise for {quarter}",
+        "avg": "Average score",
+        "noAvg": "No reviews yet",
+        "tier": "from {pct} — +{amount}",
+        "reached": "reached",
+        "months": "Months of the quarter",
+        "notRated": "not reviewed",
+        "hint": {
+          "decided0": "HR decided: no raise",
+          "decided": "HR decided: +{amount}",
+          "waiting_hr": "Quarter ended, waiting for HR; by score +{amount}",
+          "none": "No raise for this quarter",
+          "impossible": "No raise this quarter: {scored} reviewed, at least {min} needed",
+          "too_few": "{scored} of {min} months reviewed; by current scores +{amount}",
+          "running": "By current scores +{amount}",
+          "next": "To +{amount}: average score {need} over {n} mo.",
+          "nextNo": "The next tier is out of reach"
+        }
+      },
+      "overview": {
+        "absent": "Absences",
+        "late": "Late",
+        "violations": "Violations"
+      },
+      "review": {
+        "none": "No submitted review for {month}.",
+        "items": "Review items",
+        "item": "Item",
+        "score": "Score",
+        "source": "Source",
+        "note": "Note",
+        "base": "Base",
+        "extra": "Extra",
+        "noData": "no data",
+        "changes": "Review changes",
+        "comment": "Comment: {comment}"
+      },
+      "violations": {
+        "none": "No violations for {month}.",
+        "cancelled": "Cancelled",
+        "cancelReason": "Cancelled because: {reason}",
+        "photos": "Photos"
+      },
+      "history": {
+        "none": "No history yet.",
+        "quarter": "{quarter}",
+        "avg": "Average {pct}",
+        "running": "In progress",
+        "waiting_hr": "Waiting for HR",
+        "decided0": "No raise",
+        "decided": "+{amount}"
       }
     }
   },

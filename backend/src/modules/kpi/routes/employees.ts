@@ -2,12 +2,13 @@ import { ctx } from "@backend/context";
 import { employees, kpi_cards, kpi_employee_cards } from "backend/drizzle/schema";
 import { and, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
-import { actorFrom, has, requireAny } from "../access";
+import { actorFrom, has, parsePeriod, requireAny } from "../access";
 import { now } from "../clock";
 import { loadDirectory } from "../directory";
 import { listEmployeeRows, setExternalId, UUID_RE } from "../employees";
 import { KpiError, run } from "../errors";
-import type { EmployeeRow } from "../types";
+import { loadEmployeeCard, loadPeople } from "../people";
+import type { EmployeeCard, EmployeeRow, PeopleRow } from "../types";
 
 export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
   .use(ctx)
@@ -32,6 +33,28 @@ export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
         include_uncarded: t.Optional(t.String()),
       }),
     }
+  )
+  // Сотрудники KPI: список «Оценок» с итогами посещаемости и нарушений за месяц.
+  .get(
+    "/kpi/people",
+    async ({ query, user, role, terminals, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<PeopleRow[]> => {
+        const actor = await actorFrom({ user, role, terminals, cacheController });
+        requireAny(actor, ["kpi.evaluate", "kpi.view", "kpi.manage", "kpi.approve"]);
+        return loadPeople(drizzle, actor, parsePeriod(query.period));
+      }),
+    { userAuth: true, query: t.Object({ period: t.Optional(t.String()) }) }
+  )
+  // Карточка сотрудника за месяц (то, что он видит в мини-приложении). Путь profile: PUT .../card назначает карту.
+  .get(
+    "/kpi/employees/:id/profile",
+    async ({ params, query, user, role, terminals, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EmployeeCard> => {
+        const actor = await actorFrom({ user, role, terminals, cacheController });
+        requireAny(actor, ["kpi.evaluate", "kpi.view", "kpi.manage", "kpi.approve"]);
+        return loadEmployeeCard(drizzle, actor, params.id, parsePeriod(query.period));
+      }),
+    { userAuth: true, query: t.Object({ period: t.Optional(t.String()) }) }
   )
   .put(
     "/kpi/employees/:id/card",

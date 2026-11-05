@@ -1,3 +1,4 @@
+import type { TgAttendance, TgEmployeeHome, TgHistory, TgReview, TgViolations } from "./tg-app/types";
 import type { ItemSource, KpiSettings } from "./rules";
 
 export type KpiPerm = "kpi_layout" | "kpi.evaluate" | "kpi.view" | "kpi.manage" | "kpi.approve";
@@ -253,6 +254,31 @@ export interface AttendanceImportRow extends AttendanceTotals {
   // Строки найденных сотрудников, не попавшие в учёт (нерабочий день, нет отметок, дата вне месяца, дубль дня)
   rows_skipped: number; skipped: UnmatchedRow[];
   status: "committed" | "replaced"; created_at: string;
+}
+
+// Список «Сотрудники KPI»: строка «Оценок» плюс итоги посещаемости и число нарушений за месяц.
+export interface PeopleRow extends EmployeeRow {
+  attendance: { ontime: number; late: number; absent: number };
+  violations: number;
+}
+
+// Карточка сотрудника: то, что он видит у себя в мини-приложении, но для HR и управляющих.
+export interface EmployeeCard {
+  employee: {
+    id: string; first_name: string; last_name: string; position: string | null;
+    terminal_id: string; terminal_name: string | null; organization_name: string | null;
+    // Табельный номер Workly, а если сотрудник не связан с Workly, прежний внешний номер
+    tab_number: string | null;
+    active: boolean; has_card: boolean; workly_linked: boolean; telegram_bound: boolean;
+  };
+  period: string;
+  // Отчётный месяц, прибавка квартала и «ещё не оценён» — как на главном экране мини-приложения
+  home: TgEmployeeHome;
+  // null, если за выбранный месяц отправленной оценки нет
+  review: TgReview | null;
+  violations: TgViolations;
+  attendance: TgAttendance;
+  history: TgHistory;
 }
 
 // Табель месяца: один день сотрудника. Статус 0 — вовремя, 1 — опоздание, 2 — прогул; время прихода и ухода
