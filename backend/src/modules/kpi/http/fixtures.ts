@@ -15,6 +15,7 @@ import {
   kpi_branch_scores,
   kpi_card_items,
   kpi_cards,
+  kpi_days_off,
   kpi_disputes,
   kpi_employee_cards,
   kpi_evaluator_scopes,
@@ -585,6 +586,7 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
   await db.delete(organization).where(sql`${organization.name} LIKE 'wl\\_test\\_%'`);
   // Организации тестов KPI (по умолчанию и makeOrganization): филиалы удалены выше.
   await db.delete(organization).where(sql`${organization.name} LIKE ${ORG_PREFIX.replace(/_/g, "\\_") + "%"}`);
+  await db.delete(kpi_days_off);
   await db.delete(kpi_attendance);
   await db.delete(kpi_attendance_imports);
   await db.delete(kpi_review_events);

@@ -3141,6 +3141,34 @@ export const kpi_attendance = pgTable(
   ]
 );
 
+// Выходной день сотрудника, выданный управляющим (мини-приложение оценщика). Одна строка на день.
+// Накладывается на kpi_attendance при чтении: синхронизация Workly пересобирает посещаемость, а выходные
+// остаются. terminal_id — филиал сотрудника на момент выдачи. Отмена мягкая (cancelled_at), после неё тот
+// же день можно выдать снова: уникальность только среди неотменённых.
+export const kpi_days_off = pgTable(
+  "kpi_days_off",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    employee_id: uuid("employee_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    terminal_id: uuid("terminal_id").notNull(),
+    // sick | family | time_off | vacation | schedule | other
+    reason_code: varchar("reason_code", { length: 16 }).notNull(),
+    reason_text: text("reason_text"),
+    given_by: uuid("given_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    cancelled_at: timestamp("cancelled_at", { withTimezone: true, mode: "string" }),
+    cancelled_by: uuid("cancelled_by"),
+  },
+  (t) => [
+    uniqueIndex("kpi_days_off_employee_day_uq")
+      .on(t.employee_id, t.day)
+      .where(sql`${t.cancelled_at} is null`),
+    index("kpi_days_off_terminal_day_idx").on(t.terminal_id, t.day),
+    index("kpi_days_off_given_by_idx").on(t.given_by, t.day),
+  ]
+);
+
 // Привязка Telegram-чата к сотруднику или оценщику (ровно одно из employee_id / user_id).
 export const kpi_tg_bindings = pgTable(
   "kpi_tg_bindings",
