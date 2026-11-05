@@ -9,6 +9,11 @@
 //
 // Курсор — наибольший id уже виденного действия по подключению, лежит в Redis. Потеря ключа ничего
 // не стоит: первый опрос без курсора только запоминает текущий максимум и сверку не запускает.
+//
+// Правки HR в Workly идут по шагам (перевод сотрудника: уволить старую запись, затем завести новую),
+// а сверка сразу применяет план: деактивацию и создание. Снимок между шагами дал бы деактивацию без
+// возврата или дубль. Поэтому сверка запускается не на первом опросе, увидевшем нужное событие, а на
+// следующем, если новее его нужных событий не появилось (ожидание, «settling»): задержка 15–30 минут.
 import type { DrizzleDB } from "@backend/lib/db";
 import { workly_sync_runs } from "backend/drizzle/schema";
 import { and, desc, eq, ne, sql } from "drizzle-orm";
@@ -43,13 +48,27 @@ export const RELEVANT_ACTIONS: ReadonlySet<string> = new Set([
   "deletedPosition",
 ]);
 
-// Свежий план HR (planned) или заблокированный прогон (blocked) ждёт человека. Новый прогон той же
-// организации вытеснил бы его (applyRun: run_superseded), и «Применить» вернуло бы 409. Пока такой
-// прогон моложе этого срока, сверка по событиям не запускается, курсор остаётся: она пройдёт позже.
+// Свежий план HR (planned, запущенный вручную) ждёт «Применить». Новый прогон той же организации
+// вытеснил бы его (applyRun: run_superseded), и «Применить» вернуло бы 409. Пока такой план моложе
+// этого срока, сверка по событиям не запускается, курсор остаётся: она пройдёт позже. Заблокированный
+// прогон (blocked) не ждёт «Применить»: applyRun берёт только planned, человек строит новый план.
 const HOLD_HOURS = 6;
 
+// Сбой обхода (failed или crawl_short) повторяется на следующих опросах, а не ждёт ночи: всего три
+// попытки подряд, потом курсор уходит вперёд, чтобы постоянный сбой не писал строку журнала каждые 15 минут.
+const MAX_ATTEMPTS = 3;
+
 export type ActivityClient = RunClient & Pick<WorklyClient, "userActivities">;
-export type ActivityStatus = RunRow["status"] | "init" | "idle" | "busy" | "hold" | "error" | "skipped" | "disabled";
+export type ActivityStatus =
+  | RunRow["status"]
+  | "init"
+  | "idle"
+  | "settling"
+  | "busy"
+  | "hold"
+  | "error"
+  | "skipped"
+  | "disabled";
 export interface ActivityResult {
   key: ConnKey;
   status: ActivityStatus;
@@ -65,6 +84,16 @@ export function activityCursorKey(key: ConnKey): string {
   return `${process.env.PROJECT_PREFIX}workly_activity_cursor:${key}`;
 }
 
+// id самого нового нужного события, которое предыдущий опрос уже видел, но сверку не запустил.
+export function activityPendingKey(key: ConnKey): string {
+  return `${process.env.PROJECT_PREFIX}workly_activity_pending:${key}`;
+}
+
+// Сколько раз подряд сверка по этим событиям закончилась сбоем обхода.
+export function activityFailsKey(key: ConnKey): string {
+  return `${process.env.PROJECT_PREFIX}workly_activity_fails:${key}`;
+}
+
 // Окно запроса: со вчерашнего дня по завтрашний по Ташкенту. end_date в Workly не входит в выборку
 // (проба 2026-11-05: end_date = сегодня даёт 0 записей), поэтому берём завтра; вчера покрывает полночь.
 export function activityWindow(at: Date): { from: string; to: string } {
@@ -72,32 +101,36 @@ export function activityWindow(at: Date): { from: string; to: string } {
   return { from: tashkentDay(new Date(at.getTime() - DAY)), to: tashkentDay(new Date(at.getTime() + DAY)) };
 }
 
-export type Decision = { action: "init" | "idle" | "sync"; cursor: number; relevant: number };
+export type Decision = { action: "init" | "idle" | "sync"; cursor: number; relevant: number; newest: number };
 
 /**
  * Что делать с полученными событиями. Чистая функция.
  * Без курсора: init, курсор встаёт на наибольший id (0, если записей нет), сверки нет.
- * С курсором: новые — записи с id больше курсора; есть среди них нужные — sync, иначе idle.
- * Курсор никогда не уменьшается.
+ * С курсором: новые — записи с id больше курсора; есть среди них нужные — sync, иначе idle;
+ * newest — id самого нового нужного (0, если их нет). Курсор никогда не уменьшается.
  */
 export function decide(events: readonly ActivityItem[], cursor: number | null): Decision {
   const top = events.reduce((m, e) => Math.max(m, e.id), 0);
-  if (cursor === null) return { action: "init", cursor: top, relevant: 0 };
-  const relevant = events.filter((e) => e.id > cursor && RELEVANT_ACTIONS.has(e.action_name)).length;
-  return { action: relevant > 0 ? "sync" : "idle", cursor: Math.max(cursor, top), relevant };
+  if (cursor === null) return { action: "init", cursor: top, relevant: 0, newest: 0 };
+  const fresh = events.filter((e) => e.id > cursor && RELEVANT_ACTIONS.has(e.action_name));
+  const newest = fresh.reduce((m, e) => Math.max(m, e.id), 0);
+  return { action: fresh.length > 0 ? "sync" : "idle", cursor: Math.max(cursor, top), relevant: fresh.length, newest };
 }
 
-const CURSOR_RE = /^\d{1,15}$/;
+const INT_RE = /^\d{1,15}$/;
 
-async function readCursor(redis: Redis, key: ConnKey): Promise<number | null> {
-  const raw = await redis.get(activityCursorKey(key));
-  return raw !== null && CURSOR_RE.test(raw) ? Number(raw) : null;
+// Целое из Redis по ключу; нет ключа или значение не число — null.
+async function readInt(redis: Redis, redisKey: string): Promise<number | null> {
+  const raw = await redis.get(redisKey);
+  return raw !== null && INT_RE.test(raw) ? Number(raw) : null;
 }
 
-// Последний завершённый прогон сотрудников моложе HOLD_HOURS ждёт человека.
+// Последний завершённый прогон сотрудников моложе HOLD_HOURS — план HR, который ещё не применили.
+// Брошенная строка running не в счёт (её закроет startRun), планы автоматических прогонов тоже:
+// человек их не просил и «Применить» по ним не нажимает.
 async function humanRunPending(db: DrizzleDB, organizationId: string): Promise<boolean> {
   const [last] = await db
-    .select({ status: workly_sync_runs.status })
+    .select({ status: workly_sync_runs.status, trigger: workly_sync_runs.trigger })
     .from(workly_sync_runs)
     .where(
       and(
@@ -109,16 +142,16 @@ async function humanRunPending(db: DrizzleDB, organizationId: string): Promise<b
     )
     .orderBy(desc(workly_sync_runs.created_at))
     .limit(1);
-  return last?.status === "planned" || last?.status === "blocked";
+  return last?.status === "planned" && last.trigger === "manual";
 }
 
 /**
  * Один опрос одного подключения. Курсор двигается так:
  * - init и idle — вперёд сразу;
- * - сверка дошла до конца (любой итоговый статус, в том числе failed и blocked) — вперёд: повтор
- *   сбойного обхода каждые 15 минут ничего не даёт, а ночной прогон всё равно подберёт правки;
- * - hold (ждёт человека), busy (идёт другой прогон), error (не прочитали журнал или упал сам
- *   вызов) — на месте: те же события будут разобраны следующим опросом.
+ * - сверка дошла до конца — вперёд, маркер ожидания и счётчик сбоев сбрасываются. Исключение:
+ *   сбой обхода (failed или crawl_short) повторяется, пока не набралось MAX_ATTEMPTS подряд;
+ * - settling (ждём тишины в журнале), hold (ждёт план HR), busy (идёт другой прогон), error (не
+ *   прочитали журнал или упал сам вызов) — на месте: те же события будут разобраны следующим опросом.
  * Курсор читается до сверки, а записывается после неё: событие, пришедшее во время обхода,
  * осталось выше курсора и запустит сверку при следующем опросе.
  */
@@ -131,12 +164,18 @@ export async function pollActivity(
   try {
     const { from, to } = activityWindow(now());
     const events = await clientOf(org.key).userActivities(from, to);
-    const cursor = await readCursor(redis, org.key);
+    const cursor = await readInt(redis, activityCursorKey(org.key));
     const d = decide(events, cursor);
 
     if (d.action !== "sync") {
       if (d.cursor !== cursor) await redis.set(activityCursorKey(org.key), String(d.cursor));
       return d.action;
+    }
+    // Ожидание: сверка идёт, только если новее нужных событий с прошлого опроса не появилось.
+    const pendingKey = activityPendingKey(org.key);
+    if ((await readInt(redis, pendingKey)) !== d.newest) {
+      await redis.set(pendingKey, String(d.newest));
+      return "settling";
     }
     if (await humanRunPending(db, org.id)) return "hold";
 
@@ -147,7 +186,16 @@ export async function pollActivity(
       if (e instanceof KpiError && e.code === "run_in_progress") return "busy";
       throw e;
     }
+    const failsKey = activityFailsKey(org.key);
+    if (run.status === "failed" || (run.status === "blocked" && run.block_reason === "crawl_short")) {
+      const fails = ((await readInt(redis, failsKey)) ?? 0) + 1;
+      if (fails < MAX_ATTEMPTS) {
+        await redis.set(failsKey, String(fails));
+        return run.status;
+      }
+    }
     await redis.set(activityCursorKey(org.key), String(d.cursor));
+    await redis.del(pendingKey, failsKey);
     return run.status;
   } catch (e) {
     console.error(`workly activity ${org.key} - ${jobFailureCode(e)}`);

@@ -321,24 +321,34 @@ describe("workly/client: действия пользователей", () => {
     expect(await client.userActivities("2026-11-04", "2026-11-06")).toEqual([]);
   });
 
-  it("id не целое число или нет action_name — http_error, без текста записи в сообщении", async () => {
+  it("испорченная запись (id не целое, нет action_name) пропускается, остальные читаются: одно событие не глушит опрос", async () => {
     const bads = [
       { ...act(1, "addEmployee"), id: "abc" },
-      { ...act(1, "addEmployee"), id: 1.5 },
-      { ...act(1, "addEmployee"), id: null },
-      { ...act(1, "x"), action_name: 5 },
+      { ...act(2, "addEmployee"), id: 1.5 },
+      { ...act(3, "addEmployee"), id: null },
+      { ...act(4, "x"), action_name: 5 },
+      null,
     ];
-    for (const bad of bads) {
-      const tok = tokenReplier();
-      const { client } = makeClient((c) => tok(c) ?? pageReply([[bad]], c.query, 1));
-      const err = await client.userActivities("2026-11-04", "2026-11-06").then(
-        () => null,
-        (e: unknown) => e,
-      );
-      expect(err).toBeInstanceOf(WorklyError);
-      expect((err as WorklyError).code).toBe("http_error");
-      expect(String((err as WorklyError).message)).not.toContain("Фамилия");
-    }
+    const tok = tokenReplier();
+    const { client } = makeClient((c) => tok(c) ?? pageReply([[act(30, "addEmployee"), ...bads, act("28", "dismissEmployee")]], c.query, 1));
+    expect(await client.userActivities("2026-11-04", "2026-11-06")).toEqual([
+      { id: 30, action_name: "addEmployee" },
+      { id: 28, action_name: "dismissEmployee" },
+    ]);
+  });
+
+  it("список непустой, но ни одной годной записи — http_error без текста записи (формат ответа изменился)", async () => {
+    const tok = tokenReplier();
+    const { client } = makeClient(
+      (c) => tok(c) ?? pageReply([[{ ...act(1, "addEmployee"), id: "abc" }, { ...act(2, "x"), action_name: 5 }]], c.query, 1),
+    );
+    const err = await client.userActivities("2026-11-04", "2026-11-06").then(
+      () => null,
+      (e: unknown) => e,
+    );
+    expect(err).toBeInstanceOf(WorklyError);
+    expect((err as WorklyError).code).toBe("http_error");
+    expect(String((err as WorklyError).message)).not.toContain("Фамилия");
   });
 });
 

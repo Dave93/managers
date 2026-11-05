@@ -21,7 +21,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 
   const { cleanupKpi, makeTerminal, setNow, setup } = await import("../../kpi/http/fixtures");
   const { employees, organization, workly_locations, workly_sync_runs } = await import("backend/drizzle/schema");
-  const { activityCursorKey, pollActivity, runActivityPoll } = await import("../activity");
+  const { activityCursorKey, activityFailsKey, activityPendingKey, pollActivity, runActivityPoll } = await import("../activity");
   const { setClientFactory, WorklyError } = await import("../client");
   const { setExpectedCompanyResolver, setOrganizationResolver } = await import("../config");
   const runs = await import("../runs");
@@ -50,6 +50,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       store.set(k, v);
       return "OK";
     },
+    del: async (...keys: string[]) => keys.filter((k) => store.delete(k)).length,
   } as unknown as Redis;
 
   // ---------- окружение ----------
@@ -101,7 +102,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   type Fake = ActivityClient & { calls: string[]; windows: [string, string][]; events: ActivityItem[] };
 
   // events — то, что отдаёт user-activities; failEvents — сбой запроса действий; failEmployees — сбой обхода сотрудников.
-  function fakeClient(w: World, o: { failEvents?: unknown; failEmployees?: unknown } = {}): Fake {
+  function fakeClient(w: World, o: { failEvents?: unknown; failEmployees?: unknown; extraNew?: number } = {}): Fake {
     const fake = { calls: [] as string[], windows: [] as [string, string][], events: [] as ActivityItem[] } as Fake;
     const wrap =
       <T>(method: string, value: () => T, fail?: unknown) =>
@@ -113,7 +114,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       };
     Object.assign(fake, {
       companyId: wrap("companyId", () => w.company),
-      employees: wrap("employees", () => [wEmp(1, w.pName, 1)], o.failEmployees),
+      employees: wrap(
+        "employees",
+        () => [wEmp(1, w.pName, 1), ...Array.from({ length: o.extraNew ?? 0 }, (_, i) => wEmp(1000 + i, person(), 1))],
+        o.failEmployees
+      ),
       dismissed: wrap("dismissed", () => []),
       locations: wrap("locations", () => [{ id: 1, title: "L1" }]),
       t12: wrap("t12", () => []),
@@ -180,6 +185,10 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       .where(and(eq(workly_sync_runs.organization_id, org), eq(workly_sync_runs.kind, "employees")))
       .orderBy(asc(workly_sync_runs.created_at));
   const cursorOf = (key: ConnKey) => store.get(activityCursorKey(key)) ?? null;
+  const pendingOf = (key: ConnKey) => store.get(activityPendingKey(key)) ?? null;
+  const failsOf = (key: ConnKey) => store.get(activityFailsKey(key)) ?? null;
+  // Нужное событие уже видели прошлым опросом (маркер ожидания), поэтому этот опрос запустит сверку.
+  const settled = (key: ConnKey, id: number) => store.set(activityPendingKey(key), String(id));
 
   async function capture<T>(f: () => Promise<T>): Promise<{ value: T; out: string }> {
     const lines: string[] = [];
@@ -261,52 +270,122 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(clients.LES!.calls).toEqual(["userActivities"]);
     });
 
-    it("нужное новое событие запускает сверку с источником activity; план применяется, курсор на максимальном id", async () => {
+    // ---------- ожидание: правки HR идут в Workly по шагам ----------
+
+    it("первое нужное событие: settling — сверки нет, курсор прежний, маркер на id самого нового нужного (ненужные новее маркер не двигают)", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
+      store.set(activityCursorKey("LES"), "50");
+      clients.LES!.events = [ev(54, "clockInManual"), ev(52, "assignedLocation"), ev(51, "addEmployee")];
+      const { value } = await poll("LES");
+      expect(value).toBe("settling");
+      expect(cursorOf("LES")).toBe("50");
+      expect(pendingOf("LES")).toBe("52");
+      expect((await runsOf(worlds.LES.org)).filter((r) => r.trigger === "activity")).toHaveLength(0);
+      expect(clients.LES!.calls).toEqual(["userActivities"]);
+    });
+
+    it("следующий опрос с теми же событиями запускает сверку; курсор вперёд, маркер снят; ещё один опрос — idle", async () => {
       await insertRun(worlds.LES.org, { status: "applied" });
       store.set(activityCursorKey("LES"), "50");
       clients.LES!.events = [ev(53, "clockInManual"), ev(52, "assignedLocation"), ev(51, "addEmployee")];
-      const { value } = await poll("LES");
-      expect(value).toBe("applied");
-      const rows = await runsOf(worlds.LES.org);
-      const row = rows.find((r) => r.trigger === "activity");
+      expect((await poll("LES")).value).toBe("settling");
+      expect((await poll("LES")).value).toBe("applied");
+      const row = (await runsOf(worlds.LES.org)).find((r) => r.trigger === "activity");
       expect(row).toMatchObject({ trigger: "activity", status: "applied" });
       // Связь по имени, как и ночью, ждёт человека.
       const plan = row!.plan as { applied: string[]; skipped: unknown[] };
       expect(plan.applied).not.toContain(`link:${worlds.LES.eName}`);
       expect(cursorOf("LES")).toBe("53");
+      expect(pendingOf("LES")).toBeNull();
+      expect((await poll("LES")).value).toBe("idle");
+      expect((await runsOf(worlds.LES.org)).filter((r) => r.trigger === "activity")).toHaveLength(1);
     });
 
-    it("сверка заблокирована предохранителем: blocked, курсор уходит вперёд (повторять до ответа человека нечего)", async () => {
-      await insertRun(worlds.LES.org, { status: "applied", active_fetched: 100 });
+    it("между опросами пришло ещё одно нужное событие (вторая половина перевода сотрудника): снова settling, маркер на новом id, сверка только после тишины", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
       store.set(activityCursorKey("LES"), "50");
       clients.LES!.events = [ev(51, "dismissEmployee")];
+      expect((await poll("LES")).value).toBe("settling");
+      clients.LES!.events = [ev(53, "addEmployee"), ev(51, "dismissEmployee")];
+      expect((await poll("LES")).value).toBe("settling");
+      expect(pendingOf("LES")).toBe("53");
+      expect(cursorOf("LES")).toBe("50");
+      expect((await runsOf(worlds.LES.org)).filter((r) => r.trigger === "activity")).toHaveLength(0);
+      expect((await poll("LES")).value).toBe("applied");
+      expect(cursorOf("LES")).toBe("53");
+    });
+
+    // ---------- итоги сверки и курсор ----------
+
+    it("предохранитель too_many_creations: blocked, повторять нечего — курсор вперёд, маркер снят", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
+      clients.LES = fakeClient(worlds.LES, { extraNew: 51 });
+      clients.LES.events = [ev(51, "addEmployee")];
+      store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       const { value } = await poll("LES");
       expect(value).toBe("blocked");
       const row = (await runsOf(worlds.LES.org)).find((r) => r.trigger === "activity");
-      expect(row).toMatchObject({ status: "blocked", block_reason: "crawl_short" });
+      expect(row).toMatchObject({ status: "blocked", block_reason: "too_many_creations" });
       expect(cursorOf("LES")).toBe("51");
+      expect(pendingOf("LES")).toBeNull();
+      expect(failsOf("LES")).toBeNull();
     });
 
-    it("обход сотрудников упал: failed, курсор уходит вперёд (страхует ночной прогон), в логе только код", async () => {
+    it("обход сотрудников упал: курсор стоит и сверка повторяется на следующих опросах; третья неудача подряд — курсор вперёд, в логе только код", async () => {
       await insertRun(worlds.LES.org, { status: "applied" });
       store.set(activityCursorKey("LES"), "50");
       clients.LES = fakeClient(worlds.LES, { failEmployees: new WorklyError("http_error", "секрет внутри") });
       clients.LES.events = [ev(51, "addEmployee")];
-      const { value, out } = await poll("LES");
-      expect(value).toBe("failed");
-      const row = (await runsOf(worlds.LES.org)).find((r) => r.trigger === "activity");
-      expect(row).toMatchObject({ status: "failed", error: "http_error" });
+      settled("LES", 51);
+
+      const a = await poll("LES");
+      expect(a.value).toBe("failed");
+      expect(cursorOf("LES")).toBe("50");
+      expect(failsOf("LES")).toBe("1");
+      expect(pendingOf("LES")).toBe("51");
+      expect((await poll("LES")).value).toBe("failed");
+      expect(cursorOf("LES")).toBe("50");
+      expect(failsOf("LES")).toBe("2");
+
+      const c = await poll("LES");
+      expect(c.value).toBe("failed");
       expect(cursorOf("LES")).toBe("51");
-      expect(out).not.toContain("секрет внутри");
+      expect(failsOf("LES")).toBeNull();
+      expect(pendingOf("LES")).toBeNull();
+
+      const rows = (await runsOf(worlds.LES.org)).filter((r) => r.trigger === "activity");
+      expect(rows).toHaveLength(3);
+      for (const r of rows) expect(r).toMatchObject({ status: "failed", error: "http_error" });
+      for (const o of [a.out, c.out]) expect(o).not.toContain("секрет внутри");
+      // Четвёртого опроса с теми же событиями уже нет: курсор прошёл.
+      expect((await poll("LES")).value).toBe("idle");
     });
 
-    it("запрос действий упал: error, курсор и журнал не тронуты, в логе только код", async () => {
+    it("обход короче прошлого (crawl_short) считается сбоем обхода: повтор, а не остановка; успех сбрасывает счётчик", async () => {
+      await insertRun(worlds.LES.org, { status: "applied", active_fetched: 100 });
+      store.set(activityCursorKey("LES"), "50");
+      clients.LES!.events = [ev(51, "dismissEmployee")];
+      settled("LES", 51);
+      expect((await poll("LES")).value).toBe("blocked");
+      expect(cursorOf("LES")).toBe("50");
+      expect(failsOf("LES")).toBe("1");
+      // Workly отдал полный список: тот же опрос доходит до применения.
+      await db.update(workly_sync_runs).set({ active_fetched: 1 }).where(and(eq(workly_sync_runs.organization_id, worlds.LES.org), eq(workly_sync_runs.status, "applied")));
+      expect((await poll("LES")).value).toBe("applied");
+      expect(cursorOf("LES")).toBe("51");
+      expect(failsOf("LES")).toBeNull();
+    });
+
+    it("запрос действий упал: error, курсор, маркер и журнал не тронуты, в логе только код", async () => {
       await insertRun(worlds.LES.org, { status: "applied" });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES = fakeClient(worlds.LES, { failEvents: new WorklyError("auth_failed", "секрет внутри") });
       const { value, out } = await poll("LES");
       expect(value).toBe("error");
       expect(cursorOf("LES")).toBe("50");
+      expect(pendingOf("LES")).toBe("51");
       expect(await runsOf(worlds.LES.org)).toHaveLength(1);
       expect(out).toContain("auth_failed");
       expect(out).not.toContain("секрет внутри");
@@ -316,20 +395,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await insertRun(worlds.LES.org, { status: "applied" });
       await insertRun(worlds.LES.org, { status: "running", trigger: "manual" });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES!.events = [ev(51, "addEmployee")];
       const { value } = await poll("LES");
       expect(value).toBe("busy");
       expect(cursorOf("LES")).toBe("50");
+      expect(pendingOf("LES")).toBe("51");
       expect((await runsOf(worlds.LES.org)).filter((r) => r.trigger === "activity")).toHaveLength(0);
       expect(clients.LES!.calls).toEqual(["userActivities"]);
     });
 
     // ---------- ручной план HR ----------
 
-    it("у организации есть свежий план HR, ждущий применения (planned): hold, курсор прежний, чужой план не вытесняется", async () => {
+    it("свежий план HR, ждущий применения (planned, manual): hold, курсор прежний, чужой план не вытесняется", async () => {
       await insertRun(worlds.LES.org, { status: "applied", ageHours: 5 });
       const planned = await insertRun(worlds.LES.org, { status: "planned", trigger: "manual", ageHours: 1 });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES!.events = [ev(51, "addEmployee")];
       const { value } = await poll("LES");
       expect(value).toBe("hold");
@@ -339,10 +421,31 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(rows.find((r) => r.id === planned)!.status).toBe("planned");
     });
 
-    it("свежий blocked тоже держит опрос: человек ещё разбирает его", async () => {
+    it("заблокированный прогон не держит опрос: применить blocked нельзя (applyRun берёт только planned), вытеснять там нечего", async () => {
       await insertRun(worlds.LES.org, { status: "applied", ageHours: 5 });
       await insertRun(worlds.LES.org, { status: "blocked", trigger: "schedule", ageHours: 2 });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
+      clients.LES!.events = [ev(51, "addEmployee")];
+      expect((await poll("LES")).value).toBe("applied");
+      expect(cursorOf("LES")).toBe("51");
+    });
+
+    it("брошенный planned автоматического прогона (не план HR) не держит опрос", async () => {
+      await insertRun(worlds.LES.org, { status: "applied", ageHours: 5 });
+      await insertRun(worlds.LES.org, { status: "planned", trigger: "activity", ageHours: 1 });
+      store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
+      clients.LES!.events = [ev(51, "addEmployee")];
+      expect((await poll("LES")).value).toBe("applied");
+    });
+
+    it("брошенная строка running не прячет за собой план HR: опрос смотрит на последний завершённый прогон и ждёт", async () => {
+      await insertRun(worlds.LES.org, { status: "applied", ageHours: 9 });
+      await insertRun(worlds.LES.org, { status: "planned", trigger: "manual", ageHours: 2 });
+      await insertRun(worlds.LES.org, { status: "running", trigger: "manual", ageHours: 1 });
+      store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES!.events = [ev(51, "addEmployee")];
       expect((await poll("LES")).value).toBe("hold");
       expect(cursorOf("LES")).toBe("50");
@@ -361,6 +464,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await insertRun(worlds.LES.org, { status: "applied", ageHours: 30 });
       await insertRun(worlds.LES.org, { status: "planned", trigger: "manual", ageHours: 7 });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES!.events = [ev(51, "addEmployee")];
       expect((await poll("LES")).value).toBe("applied");
       expect(cursorOf("LES")).toBe("51");
@@ -370,6 +474,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await insertRun(worlds.LES.org, { status: "planned", trigger: "manual", ageHours: 3 });
       await insertRun(worlds.LES.org, { status: "applied", trigger: "manual", ageHours: 1 });
       store.set(activityCursorKey("LES"), "50");
+      settled("LES", 51);
       clients.LES!.events = [ev(51, "addEmployee")];
       expect((await poll("LES")).value).toBe("applied");
     });
@@ -422,6 +527,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       for (const k of KEYS) await insertRun(worlds[k].org, { status: "applied" });
       clients.LES = fakeClient(worlds.LES, { failEvents: new WorklyError("http_error", "x") });
       store.set(activityCursorKey("CHOPAR"), "5");
+      settled("CHOPAR", 6);
       clients.CHOPAR!.events = [ev(6, "dismissEmployee")];
       const { value } = await pollAll();
       expect(value).toEqual([

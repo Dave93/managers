@@ -158,20 +158,26 @@ export class WorklyClient {
 
   // Действия пользователей Workly за дни [from, to). Проверено пробой 2026-11-05: end_date не входит
   // в окно (end_date = сегодня даёт 0 записей), записи идут от новых к старым, id растёт со временем.
-  // Из записи берутся только id и action_name; id приходит числом или строкой из цифр.
+  // Из записи берутся только id и action_name; id приходит числом или строкой из цифр. Запись, у которой
+  // их нет, пропускается: одно испорченное событие, остающееся в окне на трое суток, иначе глушило бы
+  // весь опрос. Но непустой список без единой годной записи — другой формат ответа, это http_error.
   async userActivities(from: string, to: string): Promise<ActivityItem[]> {
     const raw = await this.crawl<Record<string, unknown> | null>(
       "/v1/user-activities",
       { start_date: from, end_date: to },
       (a) => String(a?.id),
     );
-    return raw.map((a) => {
+    const out: ActivityItem[] = [];
+    for (const a of raw) {
       const id = typeof a?.id === "string" && /^\d{1,15}$/.test(a.id) ? Number(a.id) : a?.id;
-      if (typeof id !== "number" || !Number.isSafeInteger(id) || typeof a?.action_name !== "string") {
-        throw new WorklyError("http_error", "Workly вернул действие пользователя в неожиданном формате");
+      if (typeof id === "number" && Number.isSafeInteger(id) && typeof a?.action_name === "string") {
+        out.push({ id, action_name: a.action_name });
       }
-      return { id, action_name: a.action_name };
-    });
+    }
+    if (raw.length > 0 && out.length === 0) {
+      throw new WorklyError("http_error", "Workly вернул действия пользователей в неожиданном формате");
+    }
+    return out;
   }
 
   // Обход страниц. totalCount у Workly раздут JOIN-ом по должностям, а запрос за последней страницей

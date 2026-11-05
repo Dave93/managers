@@ -1,5 +1,14 @@
 import { describe, expect, it } from "bun:test";
-import { activityCursorKey, activityPollOn, activityWindow, decide, RELEVANT_ACTIONS, WORKLY_ACTIVITY_JOB } from "./activity";
+import {
+  activityCursorKey,
+  activityFailsKey,
+  activityPendingKey,
+  activityPollOn,
+  activityWindow,
+  decide,
+  RELEVANT_ACTIONS,
+  WORKLY_ACTIVITY_JOB,
+} from "./activity";
 
 const ev = (id: number, action_name: string) => ({ id, action_name });
 
@@ -9,16 +18,16 @@ describe("workly: действия пользователей — decide", () =>
   });
 
   it("нет курсора — init: курсор встаёт на максимальный id, прогона нет, даже если событие нужное", () => {
-    expect(decide([ev(10, "addEmployee"), ev(9, "clockInManual")], null)).toEqual({ action: "init", cursor: 10, relevant: 0 });
+    expect(decide([ev(10, "addEmployee"), ev(9, "clockInManual")], null)).toEqual({ action: "init", cursor: 10, relevant: 0, newest: 0 });
   });
 
   it("нет курсора и нет событий — init с курсором 0: первое же новое событие запустит сверку", () => {
-    expect(decide([], null)).toEqual({ action: "init", cursor: 0, relevant: 0 });
+    expect(decide([], null)).toEqual({ action: "init", cursor: 0, relevant: 0, newest: 0 });
   });
 
   it("новых событий нет — idle, курсор прежний", () => {
-    expect(decide([ev(10, "addEmployee"), ev(9, "dismissEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0 });
-    expect(decide([], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0 });
+    expect(decide([ev(10, "addEmployee"), ev(9, "dismissEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
+    expect(decide([], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
   });
 
   it("новые события только ненужных видов — idle, но курсор уходит вперёд", () => {
@@ -26,19 +35,21 @@ describe("workly: действия пользователей — decide", () =>
       action: "idle",
       cursor: 12,
       relevant: 0,
+      newest: 0,
     });
   });
 
-  it("новое нужное событие — sync, курсор на максимальном id, считается число нужных", () => {
+  it("новое нужное событие — sync, курсор на максимальном id, считается число нужных, newest — id самого нового нужного", () => {
     expect(decide([ev(14, "clockInManual"), ev(13, "dismissEmployee"), ev(12, "assignedLocation"), ev(11, "assignedRole")], 10)).toEqual({
       action: "sync",
       cursor: 14,
       relevant: 2,
+      newest: 13,
     });
   });
 
   it("событие со старым id не запускает сверку, курсор не откатывается", () => {
-    expect(decide([ev(5, "addEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0 });
+    expect(decide([ev(5, "addEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
   });
 
   it("порядок записей не важен", () => {
@@ -98,12 +109,14 @@ describe("workly: действия пользователей — окно и н
     expect(activityPollOn({ WORKLY_ACTIVITY_POLL: "0" })).toBe(false);
   });
 
-  it("ключ курсора в Redis зависит от префикса проекта и подключения", () => {
+  it("ключи курсора, маркера ожидания и счётчика сбоев в Redis зависят от префикса проекта и подключения", () => {
     const saved = process.env.PROJECT_PREFIX;
     process.env.PROJECT_PREFIX = "p_";
     try {
       expect(activityCursorKey("LES")).toBe("p_workly_activity_cursor:LES");
       expect(activityCursorKey("CHOPAR")).toBe("p_workly_activity_cursor:CHOPAR");
+      expect(activityPendingKey("LES")).toBe("p_workly_activity_pending:LES");
+      expect(activityFailsKey("CHOPAR")).toBe("p_workly_activity_fails:CHOPAR");
     } finally {
       if (saved === undefined) delete process.env.PROJECT_PREFIX;
       else process.env.PROJECT_PREFIX = saved;
