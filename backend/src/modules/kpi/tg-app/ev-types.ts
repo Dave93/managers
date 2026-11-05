@@ -77,3 +77,21 @@ export interface EvDispute {
 }
 export interface EvDisputes { items: EvDispute[] }
 export interface EvDisputeDetail { dispute: EvDispute; comment_min: number; form: EvReviewForm | null } // form — только у спора по оценке
+
+// Выходные дни. POST /kpi/tg/ev/days-off, GET /kpi/tg/ev/days-off?period=, POST /kpi/tg/ev/days-off/:id/cancel,
+// GET /kpi/tg/ev/day-off-form?employee_id. Причину сотрудник у себя не видит: эти типы только у оценщика.
+export interface EvDayOff {
+  id: string; employee_id: string; employee_name: string; terminal_name: string | null;
+  day: string;                       // "YYYY-MM-DD"
+  reason_code: DayOffReason; reason_text: string | null;   // текст только у "other"
+  status: "active" | "cancelled"; can_cancel: boolean;
+}
+export interface EvDayOffForm {
+  employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
+  reasons: DayOffReason[];
+  window: { min: string; max: string };   // выбираемые дни, включительно; закрытый месяц сервер всё равно отклонит
+  max_range_days: number;
+  existing: string[];                     // дни сотрудника с активным выходным внутри окна
+}
+export interface EvDaysOffCreated { created: EvDayOff[]; skipped: string[] }   // skipped — дни, где выходной уже был
+export interface EvDaysOff { period: string; period_status: "open" | "closed"; items: EvDayOff[] }

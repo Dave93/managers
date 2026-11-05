@@ -1,14 +1,20 @@
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { now } from "../clock";
+import { dayOffForm } from "../days-off";
 import { run } from "../errors";
 import type { ItemInput } from "../reviews";
 import { kpiTgCtx } from "../tg-app/ctx";
 import { evaluatorActor } from "../tg-app/ev-actor";
 import { evDisputeDetail, evDisputes, evResolve } from "../tg-app/ev-disputes";
 import { evEmployees } from "../tg-app/ev-list";
+import { evCancelDayOff, evDaysOff, evGiveDaysOff } from "../tg-app/ev-days-off";
 import { evForm, evSaveDraft, evSubmit } from "../tg-app/ev-review";
 import type {
+  EvDayOff,
+  EvDayOffForm,
+  EvDaysOff,
+  EvDaysOffCreated,
   EvDispute,
   EvDisputeDetail,
   EvDisputes,
@@ -187,4 +193,51 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
         items: t.Optional(itemsSchema),
       }),
     }
+  )
+  // employee_id проверяет сервис: не uuid (в том числе без параметра) или нет такого сотрудника — 404 not_found.
+  .get(
+    "/kpi/tg/ev/day-off-form",
+    async ({ query, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDayOffForm> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return dayOffForm(drizzle, actor, query.employee_id, now());
+      }),
+    { query: t.Object({ employee_id: t.Optional(t.Any()) }) }
+  )
+  // Поля без схемных проверок: неверное значение — наш код ошибки (bad_id, bad_dates, bad_reason, ...), а не ответ схемы.
+  .post(
+    "/kpi/tg/ev/days-off",
+    async ({ body, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDaysOffCreated> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evGiveDaysOff(drizzle, actor, body, now());
+      }),
+    {
+      body: t.Object({
+        employee_id: t.Optional(t.Any()),
+        from: t.Optional(t.Any()),
+        to: t.Optional(t.Any()),
+        reason_code: t.Optional(t.Any()),
+        reason_text: t.Optional(t.Any()),
+      }),
+    }
+  )
+  // period проверяет сервис: кривой — наш 422 bad_period; без period — месяц момента запроса.
+  .get(
+    "/kpi/tg/ev/days-off",
+    async ({ query, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDaysOff> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evDaysOff(drizzle, actor, query.period, now());
+      }),
+    { query: t.Object({ period: t.Optional(t.Any()) }) }
+  )
+  .post(
+    "/kpi/tg/ev/days-off/:id/cancel",
+    async ({ params, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvDayOff> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evCancelDayOff(drizzle, actor, params.id);
+      }),
+    { params: t.Object({ id: t.String() }) }
   );
