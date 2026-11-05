@@ -1,7 +1,8 @@
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
-import { parsePeriod } from "../access";
+import { actorFrom, parsePeriod, requireAny } from "../access";
 import { commitImport, listImports, parseUpload } from "../attendance";
+import { loadAttendanceBoard } from "../attendance-board";
 import { run } from "../errors";
 
 export const attendanceRoutes = new Elysia({ name: "@api/kpi/attendance" })
@@ -26,4 +27,15 @@ export const attendanceRoutes = new Elysia({ name: "@api/kpi/attendance" })
     "/kpi/attendance/imports",
     async ({ query, drizzle, set }) => run(set, async () => listImports(drizzle, parsePeriod(query.period))),
     { permission: "kpi.manage", query: t.Object({ period: t.Optional(t.String()) }) }
+  )
+  // Табель месяца для просмотра. Права те же, что у экранов «Сеть» и «Филиал»; видимость по филиалам решает loadAttendanceBoard (фильтры по филиалу и имени — на клиенте).
+  .get(
+    "/kpi/attendance/board",
+    async ({ query, user, role, terminals, drizzle, cacheController, set }) =>
+      run(set, async () => {
+        const actor = await actorFrom({ user, role, terminals, cacheController });
+        requireAny(actor, ["kpi.view", "kpi.manage", "kpi.approve"]);
+        return loadAttendanceBoard(drizzle, actor, { period: parsePeriod(query.period) });
+      }),
+    { userAuth: true, query: t.Object({ period: t.Optional(t.String()) }) }
   );

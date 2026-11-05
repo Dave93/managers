@@ -999,6 +999,7 @@
       "month": "Oy",
       "raises": "Oshirishlar",
       "settings": "KPI sozlamalari",
+      "timesheet": "Davomat",
       "workly": "Workly sinxronizatsiyasi",
       "attendance": "Workly yuklash",
       "network": "Tarmoq",
@@ -3687,6 +3688,77 @@
       "newQr": "Yangi QR",
       "qrAria": "{name} uchun QR ni ko'rsatish",
       "newQrAria": "{name} uchun yangi QR"
+    },
+    "timesheet": {
+      "title": "Davomat",
+      "branchLabel": "Filial",
+      "branchAll": "Barcha filiallar",
+      "search": "Xodimni qidirish",
+      "tabsLabel": "Qaysi xodimlar ko'rsatilgan",
+      "tabs": {
+        "all": "Hammasi",
+        "absent": "Qoldirganlar",
+        "late": "Kechikkanlar",
+        "nodata": "Ma'lumot yo'q"
+      },
+      "summary": {
+        "empty": "{month} uchun davomat yozuvlari yo'q. Ularni Workly bilan sinxronlash olib keladi.",
+        "main": "Qoldirilgan kunlar: belgilangan kunlarning {share} ({recorded} kundan {absent} tasi). Kechikishlar: kelgan kunlarning {late}.",
+        "above": "Qoldirish bo'yicha me'yordan yuqori: {branches}. Filiallar bo'yicha mediana — {median}.",
+        "noAbove": "Hech bir filial me'yordan chiqmagan, filiallar bo'yicha mediana — {median}.",
+        "sync": "Sinxronlashni ochish"
+      },
+      "legend": {
+        "ontime": "O'z vaqtida",
+        "late": "Kechikish",
+        "absent": "Qoldirilgan kun",
+        "none": "Yozuv yo'q"
+      },
+      "cols": {
+        "employee": "Xodim",
+        "absent": "Qoldirgan",
+        "late": "Kech."
+      },
+      "group": {
+        "meta": "{n} xodim",
+        "above": "me'yordan yuqori",
+        "share": "qoldirish {share}"
+      },
+      "state": {
+        "noRows": "Bu shartlar bo'yicha xodimlar yo'q."
+      },
+      "tip": {
+        "ontime": "o'z vaqtida",
+        "late": "{min} daqiqa kechikish",
+        "absent": "qoldirilgan kun",
+        "none": "yozuv yo'q"
+      },
+      "sheet": {
+        "summary": {
+          "ontime": "O'z vaqtida",
+          "late": "Kechikish",
+          "absent": "Qoldirilgan",
+          "none": "Yozuv yo'q"
+        },
+        "calendar": "Oy kalendari",
+        "deviations": "Chetga chiqishlar",
+        "noDeviations": "Bu oyda chetga chiqishlar yo'q.",
+        "noRecords": "Bu oy uchun yozuvlar yo'q: Workly xodim bo'yicha ma'lumot yubormagan.",
+        "late": "{min} daqiqa kechikish",
+        "times": "kelish {in}, ketish {out}",
+        "absent": "qoldirilgan kun",
+        "streak": "Ketma-ket qoldirilgan kunlar: {n} gacha"
+      },
+      "note": "Qoldirilgan kun Workly ish kunida kelmaganini tasdiqlaganda qo'yiladi. Yozuvsiz kunlar bo'sh qoladi.",
+      "wd": {
+        "d0": "Du",
+        "d1": "Se",
+        "d2": "Ch",
+        "d3": "Pa",
+        "d4": "Ju",
+        "d5": "Sh",
+        "d6": "Ya"
+      }
     }
   },
   "passportUi": {

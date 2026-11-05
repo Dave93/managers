@@ -44,7 +44,7 @@ export function tashkentDay(d: Date): string {
   return `${s.getUTCFullYear()}-${pad(s.getUTCMonth() + 1)}-${pad(s.getUTCDate())}`;
 }
 
-function daysInMonth(p: Period): number {
+export function daysInMonth(p: Period): number {
   const { y, m } = parts(p);
   return new Date(Date.UTC(y, m, 0)).getUTCDate();
 }

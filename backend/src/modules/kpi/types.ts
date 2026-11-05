@@ -255,6 +255,25 @@ export interface AttendanceImportRow extends AttendanceTotals {
   status: "committed" | "replaced"; created_at: string;
 }
 
+// Табель месяца: один день сотрудника. Статус 0 — вовремя, 1 — опоздание, 2 — прогул; время прихода и ухода
+// (HH:MM по Ташкенту) есть только там, где Workly прислал отметки. Дня без записи нет: он пуст (null).
+export type BoardDay = [status: 0 | 1 | 2, late_minutes: number, check_in: string | null, check_out: string | null];
+export interface BoardEmployee {
+  id: string; first_name: string; last_name: string; role: string | null;
+  terminal_id: string; terminal_name: string | null;
+  // Организация филиала: медиана прогулов считается внутри неё, как в блоке качества на экране «Синхронизация Workly»
+  organization_id: string | null; organization_name: string | null;
+  active: boolean;
+  // Индекс — день месяца минус один; длина равна числу дней месяца
+  days: (BoardDay | null)[];
+}
+export interface AttendanceBoard {
+  period: string; days_in_month: number;
+  // Все активные сотрудники зоны и неактивные с записями за месяц. Без записей все дни пусты:
+  // Workly такого сотрудника не знает или ничего за месяц не прислал.
+  employees: BoardEmployee[];
+}
+
 // Telegram: приглашения и привязки
 export interface KpiInvite { token: string; link: string; expires_at: string }
 export interface TgBindingRow { id: string; employee_id: string | null; user_id: string | null; lang: "ru" | "uz"; active: boolean; created_at: string }
