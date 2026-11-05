@@ -157,7 +157,7 @@ async function raiseCard(db: DbLike, f: Facts): Promise<TgRaiseCard> {
   };
 }
 
-async function employeeHome(db: DbLike, employeeId: string, s: KpiSettings, R: Period, at: Date): Promise<TgEmployeeHome> {
+export async function employeeHome(db: DbLike, employeeId: string, s: KpiSettings, R: Period, at: Date): Promise<TgEmployeeHome> {
   const [dir] = await loadDirectory(db, { employeeIds: [employeeId], includeInactive: true });
   // Строки сотрудника нет — сессия не про него: клиент войдёт заново и получит свой отказ.
   if (!dir) throw new KpiError(401, "unauthorized");

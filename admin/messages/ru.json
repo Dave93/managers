@@ -999,6 +999,7 @@
       "month": "Месяц",
       "raises": "Повышения",
       "settings": "Настройки KPI",
+      "people": "Сотрудники KPI",
       "timesheet": "Посещаемость",
       "workly": "Синхронизация Workly",
       "attendance": "Загрузка Workly",
@@ -3747,7 +3748,8 @@
         "late": "опоздание {min} мин",
         "times": "приход {in}, уход {out}",
         "absent": "прогул",
-        "streak": "Прогулов подряд: до {n}"
+        "streak": "Прогулов подряд: до {n}",
+        "openCard": "Открыть карточку"
       },
       "note": "Прогул ставится, когда Workly подтвердил невыход в рабочий день. Дни без записи остаются пустыми.",
       "wd": {
@@ -3758,6 +3760,137 @@
         "d4": "Пт",
         "d5": "Сб",
         "d6": "Вс"
+      }
+    },
+    "people": {
+      "title": "Сотрудники KPI",
+      "search": "Найти сотрудника",
+      "branchLabel": "Филиал",
+      "branchAll": "Все филиалы",
+      "tabsLabel": "Какие сотрудники показаны",
+      "tabs": {
+        "all": "Все",
+        "none": "Ждут оценки",
+        "disputed": "Со спором",
+        "violations": "С нарушениями",
+        "absent": "С прогулами"
+      },
+      "cols": {
+        "employee": "Сотрудник",
+        "branch": "Филиал",
+        "score": "Оценка",
+        "absent": "Прогулы",
+        "late": "Опозд.",
+        "violations": "Нарушения"
+      },
+      "summary": "Оценено {scored} из {total}. Открытых споров: {disputed}. Нарушений: {violations}, прогулов: {absent}.",
+      "state": {
+        "noRows": "Нет сотрудников по этим условиям.",
+        "noCard": "Без карты"
+      },
+      "sortBy": "Сортировать: {col}"
+    },
+    "employeeCard": {
+      "back": "Сотрудники KPI",
+      "notFound": "Сотрудник не найден или недоступен.",
+      "inactive": "Не работает",
+      "tab": "таб. № {n}",
+      "workly": {
+        "on": "Workly: связан",
+        "off": "Workly: не связан"
+      },
+      "telegram": {
+        "on": "Telegram: привязан",
+        "off": "Telegram: не привязан"
+      },
+      "switch": {
+        "label": "Другой сотрудник",
+        "placeholder": "Найти сотрудника",
+        "none": "Никого не нашли"
+      },
+      "tabsLabel": "Разделы карточки",
+      "tabs": {
+        "review": "Оценка",
+        "attendance": "Посещаемость",
+        "violations": "Нарушения",
+        "history": "История"
+      },
+      "month": {
+        "title": "Оценка за {month}",
+        "none": "Оценки за {month} нет",
+        "noCard": "Карты KPI нет: сотрудника не оценивают.",
+        "lost": "Потеряно баллов",
+        "lostNone": "Потерь нет",
+        "status": {
+          "ready": "Оценка выставлена",
+          "dispute_open": "Спор открыт",
+          "dispute_resolved": "Спор разобран",
+          "changed": "Оценка изменена"
+        },
+        "dispute": {
+          "can": "Оспорить можно до {date}",
+          "open": "Спор открыт {date}",
+          "rejected": "Спор отклонён",
+          "window_closed": "Срок спора истёк",
+          "period_closed": "Месяц закрыт"
+        },
+        "resolved": {
+          "accepted": "Спор принят {date}",
+          "rejected": "Спор отклонён {date}"
+        }
+      },
+      "raise": {
+        "title": "Прибавка за {quarter}",
+        "avg": "Средний балл",
+        "noAvg": "Оценок пока нет",
+        "tier": "от {pct} — +{amount}",
+        "reached": "достигнута",
+        "months": "Месяцы квартала",
+        "notRated": "не оценён",
+        "hint": {
+          "decided0": "HR решил: без прибавки",
+          "decided": "HR решил: +{amount}",
+          "waiting_hr": "Квартал закончен, ждёт решения HR; по баллам +{amount}",
+          "none": "Прибавки за этот квартал нет",
+          "impossible": "Прибавки в этом квартале не будет: оценено {scored}, нужно не меньше {min}",
+          "too_few": "Оценено {scored} из {min} месяцев; по текущим баллам +{amount}",
+          "running": "По текущим баллам +{amount}",
+          "next": "До +{amount}: средний балл {need} за {n} мес.",
+          "nextNo": "Следующая ступень недостижима"
+        }
+      },
+      "overview": {
+        "absent": "Прогулы",
+        "late": "Опоздания",
+        "violations": "Нарушения"
+      },
+      "review": {
+        "none": "За {month} отправленной оценки нет.",
+        "items": "Пункты оценки",
+        "item": "Пункт",
+        "score": "Балл",
+        "source": "Источник",
+        "note": "Заметка",
+        "base": "Основные",
+        "extra": "Дополнительные",
+        "noData": "нет данных",
+        "changes": "Изменения оценки",
+        "comment": "Комментарий: {comment}"
+      },
+      "violations": {
+        "none": "За {month} нарушений нет.",
+        "cancelled": "Отменено",
+        "cancelReason": "Причина отмены: {reason}",
+        "photos": "Фото"
+      },
+      "history": {
+        "none": "Истории пока нет.",
+        "quarter": "{quarter}",
+        "avg": "Средний {pct}",
+        "running": "Идёт",
+        "waiting_hr": "Ждёт решения HR",
+        "decided0": "Без прибавки",
+        "decided": "+{amount}"
       }
     }
   },

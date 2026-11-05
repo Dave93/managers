@@ -28,11 +28,11 @@ import { PeriodSelect } from "../_components/period-select";
 import { ScreenGate } from "../_components/screen-gate";
 import { StaleNote } from "../_components/stale-note";
 import { qk, useKpiMe, useKpiPerms } from "../_components/use-kpi";
-import { CELL } from "./_components/day-style";
+import { CELL } from "../_components/day-style";
 import { EmployeeList } from "./_components/employee-list";
 import { EmployeeSheet } from "./_components/employee-sheet";
 import { MonthMatrix } from "./_components/month-matrix";
-import { useMediaQuery } from "./_components/use-media-query";
+import { useMediaQuery } from "../_components/use-media-query";
 
 const TABS: Tab[] = ["all", "absent", "late", "nodata"];
 
@@ -232,7 +232,7 @@ function Board({
       </p>
 
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b">
-        <div role="tablist" aria-label={t("tabsLabel")} className="-mb-px flex gap-5 overflow-x-auto">
+        <div role="tablist" aria-label={t("tabsLabel")} className="flex gap-5 overflow-x-auto">
           {TABS.map((k) => (
             <button
               key={k}

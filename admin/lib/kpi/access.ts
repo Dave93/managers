@@ -1,6 +1,6 @@
 // Права экранов KPI. Наборы повторяют права GET-роутов backend/src/modules/kpi.
 
-export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance" | "timesheet" | "workly" | "network" | "branch" | "revenue_plans" | "sanitary" | "staff";
+export type KpiScreen = "reviews" | "violations" | "disputes" | "month" | "raises" | "settings" | "attendance" | "timesheet" | "people" | "workly" | "network" | "branch" | "revenue_plans" | "sanitary" | "staff";
 
 export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   // kpi.approve: HR разбирает споры и правит оценки закрытого месяца (hr_adjusted) — нужна форма и журнал.
@@ -13,6 +13,8 @@ export const KPI_SCREEN_PERMS: Record<KpiScreen, readonly string[]> = {
   attendance: ["kpi.manage"],
   // Табель: права GET /kpi/attendance/board; видимость по филиалам решает сервер.
   timesheet: ["kpi.view", "kpi.manage", "kpi.approve"],
+  // Сотрудники KPI и карточка: права GET /kpi/people и /kpi/employees/:id/profile, видимость решает сервер.
+  people: ["kpi.evaluate", "kpi.view", "kpi.manage", "kpi.approve"],
   workly: ["kpi.manage"],
   network: ["kpi.view", "kpi.manage", "kpi.approve"],
   branch: ["kpi.view", "kpi.manage", "kpi.approve"],
@@ -31,6 +33,7 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   settings: "Настройки KPI",
   attendance: "Загрузка Workly",
   timesheet: "Посещаемость",
+  people: "Сотрудники KPI",
   workly: "Синхронизация Workly",
   network: "Сеть",
   branch: "Филиал",

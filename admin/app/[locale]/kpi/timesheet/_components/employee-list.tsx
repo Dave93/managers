@@ -3,7 +3,7 @@ import React from "react";
 import { useTranslations } from "next-intl";
 import { formatShare, isPendingDay, nameOf, statusOf, totalsOf, type BranchStat, type Group } from "@admin/lib/kpi/timesheet";
 import { cn } from "@admin/lib/utils";
-import { CELL } from "./day-style";
+import { CELL } from "../../_components/day-style";
 
 /** Телефон: вместо матрицы — строки с именем, итогами и сжатой полоской месяца. */
 export function EmployeeList({

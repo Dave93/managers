@@ -999,6 +999,7 @@
       "month": "Oy",
       "raises": "Oshirishlar",
       "settings": "KPI sozlamalari",
+      "people": "Xodimlar KPI",
       "timesheet": "Davomat",
       "workly": "Workly sinxronizatsiyasi",
       "attendance": "Workly yuklash",
@@ -3747,7 +3748,8 @@
         "late": "{min} daqiqa kechikish",
         "times": "kelish {in}, ketish {out}",
         "absent": "qoldirilgan kun",
-        "streak": "Ketma-ket qoldirilgan kunlar: {n} gacha"
+        "streak": "Ketma-ket qoldirilgan kunlar: {n} gacha",
+        "openCard": "Kartani ochish"
       },
       "note": "Qoldirilgan kun Workly ish kunida kelmaganini tasdiqlaganda qo'yiladi. Yozuvsiz kunlar bo'sh qoladi.",
       "wd": {
@@ -3758,6 +3760,137 @@
         "d4": "Ju",
         "d5": "Sh",
         "d6": "Ya"
+      }
+    },
+    "people": {
+      "title": "Xodimlar KPI",
+      "search": "Xodimni qidirish",
+      "branchLabel": "Filial",
+      "branchAll": "Barcha filiallar",
+      "tabsLabel": "Qaysi xodimlar ko'rsatilgan",
+      "tabs": {
+        "all": "Hammasi",
+        "none": "Baholanishni kutmoqda",
+        "disputed": "Nizoli",
+        "violations": "Qoidabuzarlikli",
+        "absent": "Qoldirganlar"
+      },
+      "cols": {
+        "employee": "Xodim",
+        "branch": "Filial",
+        "score": "Baho",
+        "absent": "Qoldirgan",
+        "late": "Kech.",
+        "violations": "Qoidabuzarlik"
+      },
+      "summary": "{total} xodimdan {scored} tasi baholangan. Ochiq nizolar: {disputed}. Qoidabuzarliklar: {violations}, qoldirilgan kunlar: {absent}.",
+      "state": {
+        "noRows": "Bu shartlar bo'yicha xodimlar yo'q.",
+        "noCard": "Kartasiz"
+      },
+      "sortBy": "Saralash: {col}"
+    },
+    "employeeCard": {
+      "back": "Xodimlar KPI",
+      "notFound": "Xodim topilmadi yoki unga kirish yo'q.",
+      "inactive": "Ishlamaydi",
+      "tab": "tab. № {n}",
+      "workly": {
+        "on": "Workly: bog'langan",
+        "off": "Workly: bog'lanmagan"
+      },
+      "telegram": {
+        "on": "Telegram: ulangan",
+        "off": "Telegram: ulanmagan"
+      },
+      "switch": {
+        "label": "Boshqa xodim",
+        "placeholder": "Xodimni qidirish",
+        "none": "Hech kim topilmadi"
+      },
+      "tabsLabel": "Karta bo'limlari",
+      "tabs": {
+        "review": "Baho",
+        "attendance": "Davomat",
+        "violations": "Qoidabuzarliklar",
+        "history": "Tarix"
+      },
+      "month": {
+        "title": "{month} uchun baho",
+        "none": "{month} uchun baho yo'q",
+        "noCard": "KPI kartasi yo'q: xodim baholanmaydi.",
+        "lost": "Yo'qotilgan ballar",
+        "lostNone": "Yo'qotishlar yo'q",
+        "status": {
+          "ready": "Baho qo'yilgan",
+          "dispute_open": "Nizo ochiq",
+          "dispute_resolved": "Nizo ko'rib chiqilgan",
+          "changed": "Baho o'zgartirilgan"
+        },
+        "dispute": {
+          "can": "Nizo qilish mumkin: {date} gacha",
+          "open": "Nizo ochilgan: {date}",
+          "rejected": "Nizo rad etilgan",
+          "window_closed": "Nizo muddati tugagan",
+          "period_closed": "Oy yopilgan"
+        },
+        "resolved": {
+          "accepted": "Nizo qabul qilingan: {date}",
+          "rejected": "Nizo rad etilgan: {date}"
+        }
+      },
+      "raise": {
+        "title": "{quarter} uchun ustama",
+        "avg": "O'rtacha ball",
+        "noAvg": "Hozircha baholar yo'q",
+        "tier": "{pct} dan — +{amount}",
+        "reached": "erishilgan",
+        "months": "Chorak oylari",
+        "notRated": "baholanmagan",
+        "hint": {
+          "decided0": "HR qarori: ustamasiz",
+          "decided": "HR qarori: +{amount}",
+          "waiting_hr": "Chorak tugagan, HR qarorini kutmoqda; ball bo'yicha +{amount}",
+          "none": "Bu chorak uchun ustama yo'q",
+          "impossible": "Bu chorakda ustama bo'lmaydi: baholangan {scored}, kamida {min} kerak",
+          "too_few": "{min} oydan {scored} tasi baholangan; joriy ball bo'yicha +{amount}",
+          "running": "Joriy ball bo'yicha +{amount}",
+          "next": "+{amount} gacha: {n} oyda o'rtacha {need} kerak",
+          "nextNo": "Keyingi bosqichga erishib bo'lmaydi"
+        }
+      },
+      "overview": {
+        "absent": "Qoldirilgan",
+        "late": "Kechikishlar",
+        "violations": "Qoidabuzarliklar"
+      },
+      "review": {
+        "none": "{month} uchun yuborilgan baho yo'q.",
+        "items": "Baho bandlari",
+        "item": "Band",
+        "score": "Ball",
+        "source": "Manba",
+        "note": "Izoh",
+        "base": "Asosiy",
+        "extra": "Qo'shimcha",
+        "noData": "ma'lumot yo'q",
+        "changes": "Baho o'zgarishlari",
+        "comment": "Izoh: {comment}"
+      },
+      "violations": {
+        "none": "{month} uchun qoidabuzarliklar yo'q.",
+        "cancelled": "Bekor qilingan",
+        "cancelReason": "Bekor qilish sababi: {reason}",
+        "photos": "Foto"
+      },
+      "history": {
+        "none": "Tarix hozircha yo'q.",
+        "quarter": "{quarter}",
+        "avg": "O'rtacha {pct}",
+        "running": "Davom etmoqda",
+        "waiting_hr": "HR qarorini kutmoqda",
+        "decided0": "Ustamasiz",
+        "decided": "+{amount}"
       }
     }
   },
