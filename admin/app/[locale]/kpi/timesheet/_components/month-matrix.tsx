@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import type { BoardEmployee } from "@admin/lib/kpi-api";
 import {
   formatShare,
+  dayOffReasonText,
   isPendingDay,
   nameOf,
   statusOf,
@@ -68,6 +69,7 @@ export function MonthMatrix({ period, daysInMonth, today, groups, showGroups, st
     () => ({
       ontime: t("tip.ontime"),
       absent: t("tip.absent"),
+      dayoff: t("tip.dayoff"),
       none: t("tip.none"),
     }),
     [t]
@@ -156,7 +158,7 @@ type RowProps = {
   period: string;
   days: number[];
   today: string;
-  tip: { ontime: string; absent: string; none: string };
+  tip: { ontime: string; absent: string; dayoff: string; none: string };
   wd: string[];
   onName: (employeeId: string, day: number | null) => void;
 };
@@ -179,8 +181,11 @@ const Row = memo(function Row({ e, period, days, today, tip, wd, onName }: RowPr
       {days.map((d) => {
         const entry = e.days[d - 1] ?? null;
         const s = statusOf(entry);
+        // У выходного в подсказке ещё и причина (управляющий и HR её видят).
+        const off = s === "dayoff" ? e.off?.[String(d)] : undefined;
+        const reason = off ? ` · ${dayOffReasonText(off, (c) => t(`reason.${c}` as "reason.sick"))}` : "";
         const label = `${pad2(d)}.${period.slice(5, 7)} ${wd[weekdayOf(period, d)]}: ${
-          s === "late" ? t("tip.late", { min: entry![1] }) : s ? tip[s] : tip.none
+          s === "late" ? t("tip.late", { min: entry![1] }) : s ? `${tip[s]}${reason}` : tip.none
         }`;
         const pending = !s && isPendingDay(period, d, today);
         return (

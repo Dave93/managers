@@ -21,7 +21,7 @@ export function attendanceDays(daysInMonth: number, a: Pick<TgAttendance, "days"
   for (const d of a.days) {
     const i = Number(d.day.slice(8, 10)) - 1;
     if (i < 0 || i >= daysInMonth) continue;
-    out[i] = d.absent ? [2, 0, null, null] : [d.late_minutes > 0 ? 1 : 0, d.late_minutes, hhmm(d.check_in), hhmm(d.check_out)];
+    out[i] = d.day_off ? [3, 0, null, null] : d.absent ? [2, 0, null, null] : [d.late_minutes > 0 ? 1 : 0, d.late_minutes, hhmm(d.check_in), hhmm(d.check_out)];
   }
   return out;
 }

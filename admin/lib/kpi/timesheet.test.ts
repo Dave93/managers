@@ -5,6 +5,7 @@ import {
   absentStreak,
   branchStats,
   calendarCells,
+  dayOffReasonText,
   deviations,
   filterBoard,
   formatShare,
@@ -13,6 +14,8 @@ import {
   lateShare,
   matchesQuery,
   medianOf,
+  statusOf,
+  sumTotals,
   tabCounts,
   tashkentToday,
   todayInPeriod,
@@ -23,6 +26,7 @@ import {
 const ON: BoardDay = [0, 0, null, null];
 const LATE: BoardDay = [1, 15, "09:15", "18:00"];
 const ABS: BoardDay = [2, 0, null, null];
+const OFF: BoardDay = [3, 0, null, null];
 
 function emp(id: string, terminal: string, days: (BoardDay | null)[], last = id, org = "org"): BoardEmployee {
   return {
@@ -41,7 +45,7 @@ function emp(id: string, terminal: string, days: (BoardDay | null)[], last = id,
 
 describe("timesheet: счёт дней", () => {
   it("пустые дни не входят в записанные", () => {
-    expect(totalsOf([ON, LATE, ABS, null, null])).toEqual({ ontime: 1, late: 1, absent: 1, recorded: 3 });
+    expect(totalsOf([ON, LATE, ABS, null, null])).toEqual({ ontime: 1, late: 1, absent: 1, off: 0, recorded: 3 });
   });
   it("доля прогулов — среди записанных; доля опозданий — среди присутствовавших", () => {
     const t = totalsOf([ON, ON, LATE, ABS]);
@@ -147,5 +151,39 @@ describe("timesheet: календарь", () => {
     expect(isPendingDay("2026-11-01", 6, today)).toBe(true);
     expect(todayInPeriod("2026-11-01", today)).toBe(5);
     expect(todayInPeriod("2026-10-01", today)).toBeNull();
+  });
+});
+
+describe("timesheet: выходные", () => {
+  it("статус 3 — выходной", () => {
+    expect(statusOf(OFF)).toBe("dayoff");
+  });
+  it("выходной считается отдельно и не входит в записанные дни", () => {
+    expect(totalsOf([ON, OFF, ABS, null])).toEqual({ ontime: 1, late: 0, absent: 1, off: 1, recorded: 2 });
+    expect(totalsOf([OFF, OFF, null])).toEqual({ ontime: 0, late: 0, absent: 0, off: 2, recorded: 0 });
+  });
+  it("доля прогулов без выходных в знаменателе, итоги суммируют выходные", () => {
+    const t = totalsOf([ON, OFF, ABS, null]);
+    expect(absentShare(t)).toBe(50);
+    expect(sumTotals([t, totalsOf([OFF])])).toEqual({ ontime: 1, late: 0, absent: 1, off: 2, recorded: 2 });
+  });
+  it("сотрудник только с выходными — «нет данных», а не с прогулами", () => {
+    expect(tabCounts([emp("a", "t1", [OFF, OFF])])).toEqual({ all: 1, absent: 0, late: 0, nodata: 1 });
+  });
+  it("серия прогулов прерывается выходным; выходной попадает в дни-отклонения", () => {
+    expect(absentStreak([ABS, OFF, ABS])).toBe(1);
+    expect(deviations([ON, OFF, LATE]).map((x) => [x.day, x.entry[0]])).toEqual([[2, 3], [3, 1]]);
+  });
+  it("будущий выходной остаётся выходным, а пустое будущее — ожидающим днём", () => {
+    // Сегодня 5 ноября; 20 ноября — будущее.
+    expect(statusOf([3, 0, null, null])).toBe("dayoff");
+    expect(isPendingDay("2026-11-01", 20, "2026-11-05")).toBe(true);
+    expect(totalsOf([...Array.from({ length: 19 }, () => null), OFF]).recorded).toBe(0);
+  });
+  it("причина: подпись по коду, у «другой» — текст управляющего", () => {
+    const label = (c: string) => `L:${c}`;
+    expect(dayOffReasonText({ reason_code: "sick", reason_text: null }, label)).toBe("L:sick");
+    expect(dayOffReasonText({ reason_code: "other", reason_text: "Свадьба брата" }, label)).toBe("Свадьба брата");
+    expect(dayOffReasonText({ reason_code: "other", reason_text: null }, label)).toBe("L:other");
   });
 });

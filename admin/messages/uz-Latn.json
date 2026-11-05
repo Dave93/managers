@@ -3713,7 +3713,8 @@
         "ontime": "O'z vaqtida",
         "late": "Kechikish",
         "absent": "Qoldirilgan kun",
-        "none": "Yozuv yo'q"
+        "none": "Yozuv yo'q",
+        "dayoff": "Dam olish kuni"
       },
       "cols": {
         "employee": "Xodim",
@@ -3732,14 +3733,16 @@
         "ontime": "o'z vaqtida",
         "late": "{min} daqiqa kechikish",
         "absent": "qoldirilgan kun",
-        "none": "yozuv yo'q"
+        "none": "yozuv yo'q",
+        "dayoff": "dam olish kuni"
       },
       "sheet": {
         "summary": {
           "ontime": "O'z vaqtida",
           "late": "Kechikish",
           "absent": "Qoldirilgan",
-          "none": "Yozuv yo'q"
+          "none": "Yozuv yo'q",
+          "dayoff": "Dam olish kunlari"
         },
         "calendar": "Oy kalendari",
         "deviations": "Chetga chiqishlar",
@@ -3749,7 +3752,9 @@
         "times": "kelish {in}, ketish {out}",
         "absent": "qoldirilgan kun",
         "streak": "Ketma-ket qoldirilgan kunlar: {n} gacha",
-        "openCard": "Kartani ochish"
+        "openCard": "Kartani ochish",
+        "dayoff": "dam olish kuni",
+        "dayoffBy": "bergan: {name}"
       },
       "note": "Qoldirilgan kun Workly ish kunida kelmaganini tasdiqlaganda qo'yiladi. Yozuvsiz kunlar bo'sh qoladi.",
       "wd": {
@@ -3760,6 +3765,14 @@
         "d4": "Ju",
         "d5": "Sh",
         "d6": "Ya"
+      },
+      "reason": {
+        "sick": "Kasallik",
+        "family": "Oilaviy sharoitlar",
+        "time_off": "Otgul",
+        "vacation": "Ta'til",
+        "schedule": "Jadval bo'yicha",
+        "other": "Boshqa sabab"
       }
     },
     "people": {

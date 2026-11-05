@@ -62,3 +62,16 @@ describe("карточка: потери и названия", () => {
     expect(pickTitle("en", null, null)).toBe("");
   });
 });
+
+describe("карточка: выходной в днях посещаемости", () => {
+  it("day_off даёт статус 3 раньше прогула; прогул без выходного остаётся прогулом", () => {
+    const days = attendanceDays(31, {
+      days: [
+        { day: "2026-10-05", check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true },
+        { day: "2026-10-04", check_in: null, check_out: null, late_minutes: 0, absent: true, day_off: false },
+      ],
+    });
+    expect(days[4]).toEqual([3, 0, null, null]);
+    expect(days[3]).toEqual([2, 0, null, null]);
+  });
+});
