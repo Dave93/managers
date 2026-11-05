@@ -48,7 +48,7 @@ function rowOf(r: AttendanceRowVM): HTMLElement {
         h("span", { class: "att-pair" }, `${t("att_out")} ${r.times.out}`),
       )
     : null;
-  const chip = r.absent !== null ? h("span", { class: "chip chip-warn" }, r.absent) : r.late !== null ? h("span", { class: "chip chip-wait" }, r.late) : null;
+  const chip = r.dayOff !== null ? h("span", { class: "chip chip-muted" }, r.dayOff) : r.absent !== null ? h("span", { class: "chip chip-warn" }, r.absent) : r.late !== null ? h("span", { class: "chip chip-wait" }, r.late) : null;
   return h("div", { class: "row is-static" }, h("span", { class: "row-body" }, h("span", { class: "row-text" }, r.day, times), chip ? h("span", { class: "row-end" }, chip) : null));
 }
 

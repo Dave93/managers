@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvDayOffForm, EvDaysOff, EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgAttendance, TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -29,6 +29,8 @@ import type { Route } from "./route";
 import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderAttendance } from "./screens/attendance";
 import { closeReasonSheet } from "./reason-sheet";
+import { renderEvDayOff } from "./screens/ev-dayoff";
+import { renderEvDaysOff } from "./screens/ev-daysoff";
 import { renderEvDispute } from "./screens/ev-dispute";
 import { renderEvDisputes } from "./screens/ev-disputes";
 import { renderEvList } from "./screens/ev-list";
@@ -135,6 +137,22 @@ function screenOf(r: Route): Screen {
         noCache: true,
         render: (d) => renderEvViolations(d as EvViolations),
         title: t("ev_my_violations"),
+      };
+    case "ev_dayoff":
+      return {
+        path: `/ev/day-off-form?employee_id=${r.employee_id}`,
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvDayOff(d as EvDayOffForm),
+        title: t("ev_btn_dayoff"),
+      };
+    case "ev_daysoff":
+      return {
+        path: r.period ? `/ev/days-off?period=${r.period}` : "/ev/days-off",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvDaysOff(d as EvDaysOff),
+        title: t("ev_my_daysoff"),
       };
     case "ev_disputes":
       return { path: "/ev/disputes", kind: "list", noCache: true, render: (d) => renderEvDisputes(d as EvDisputes), title: t("ev_dsp_title") };

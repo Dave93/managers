@@ -69,7 +69,7 @@ export function renderEvList(d: EvEmployees, nowMs: number): HTMLElement {
       counter,
     ),
     list,
-    h("section", { class: "card rows" }, linkRow(t("ev_my_violations"), null, hashOf({ name: "ev_violations", period: null }))),
+    h("section", { class: "card rows" }, linkRow(t("ev_my_violations"), null, hashOf({ name: "ev_violations", period: null })), linkRow(t("ev_my_daysoff"), null, hashOf({ name: "ev_daysoff", period: null }))),
   );
   refresh();
   return view;

@@ -28,9 +28,14 @@ export function renderEvReview(f: EvReviewForm, nowMs: number): HTMLElement {
     ? null
     : h("a", { class: "btn btn-quiet", href: hashOf({ name: "ev_violation", employee_id: f.employee.id }), onclick: (e: Event) => { e.preventDefault(); navigate(parseHash(hashOf({ name: "ev_violation", employee_id: f.employee.id }))); } }, t("ev_btn_violation"));
 
+  // Выходной не зависит от месяца оценки (отчётный месяц может быть закрыт, текущий открыт): прячем только без назначения.
+  const dayOffBtn = vm.banner && vm.banner.key === "ev_readonly_scope"
+    ? null
+    : h("a", { class: "btn btn-quiet", href: hashOf({ name: "ev_dayoff", employee_id: f.employee.id }), onclick: (e: Event) => { e.preventDefault(); navigate(parseHash(hashOf({ name: "ev_dayoff", employee_id: f.employee.id }))); } }, t("ev_btn_dayoff"));
+
   if (vm.mode === "readonly") {
     const rows = f.items.map((i) => h("li", { class: "ev-ro" }, h("span", { class: "ev-ro-name" }, lang() === "uz" && i.title_uz ? i.title_uz : i.title_ru), h("span", { class: "ev-ro-score" }, i.score === null ? "—" : String(i.score)), i.note ? h("span", { class: "ev-ro-note" }, i.note) : null));
-    return h("main", { class: "screen" }, ...head, h("ul", { class: "card ev-ro-list" }, ...rows), violationBtn);
+    return h("main", { class: "screen" }, ...head, h("ul", { class: "card ev-ro-list" }, ...rows), violationBtn, dayOffBtn);
   }
 
   let draft: Draft = drafts.get(key) ?? draftFromItems(f.items, true);
@@ -108,5 +113,5 @@ export function renderEvReview(f: EvReviewForm, nowMs: number): HTMLElement {
 
   paintTotal();
   drawEditors();
-  return h("main", { class: "screen" }, ...head, total, editors, message, h("div", { class: "ev-actions" }, btnDraft, btnSubmit), violationBtn);
+  return h("main", { class: "screen" }, ...head, total, editors, message, h("div", { class: "ev-actions" }, btnDraft, btnSubmit), violationBtn, dayOffBtn);
 }

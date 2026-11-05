@@ -275,3 +275,16 @@
   padding: 12px 4px;
   color: var(--hue);
 }
+/* display: block у .ev-field и .ev-link перебивает атрибут hidden: без этого скрытые поле и ссылка видны. */
+.ev-field[hidden],
+.ev-link[hidden] {
+  display: none;
+}
+
+/* «Отменить» в строке выходного: компактная, не на всю ширину. */
+.dayoff-cancel {
+  width: auto;
+  min-height: 36px;
+  margin-top: 6px;
+  padding: 6px 14px;
+}
