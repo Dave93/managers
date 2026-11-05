@@ -21,6 +21,7 @@ import {
   type FileKind,
 } from "./attendance-parse";
 import { now } from "./clock";
+import { activeDaysOff } from "./days-off";
 import { userNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
@@ -318,17 +319,15 @@ export async function listImports(db: DbLike, period: Period): Promise<Attendanc
   return rows.map((r) => toImportRow(r, names));
 }
 
-// Статистика сотрудника за месяц по действующему импорту; без строк null.
+// Статистика сотрудника за месяц по действующему импорту; без строк null. Прогул Workly, на день которого есть
+// неотменённый выходной, из расчёта выпадает (его число — off); присутствие главнее выходного.
 export async function attendanceStats(db: DbLike, employeeId: string, period: Period): Promise<AttendanceStats | null> {
+  const next = addMonths(period, 1);
   const rows = await db
-    .select({ absent: kpi_attendance.absent, late_minutes: kpi_attendance.late_minutes })
+    .select({ day: kpi_attendance.day, absent: kpi_attendance.absent, late_minutes: kpi_attendance.late_minutes })
     .from(kpi_attendance)
-    .where(
-      and(
-        eq(kpi_attendance.employee_id, employeeId),
-        gte(kpi_attendance.day, period),
-        lt(kpi_attendance.day, addMonths(period, 1))
-      )
-    );
-  return attendanceSuggestion(rows);
+    .where(and(eq(kpi_attendance.employee_id, employeeId), gte(kpi_attendance.day, period), lt(kpi_attendance.day, next)));
+  const off = (await activeDaysOff(db, { employeeIds: [employeeId], from: period, to: next })).get(employeeId);
+  const kept = off ? rows.filter((r) => !(r.absent && off.has(r.day))) : rows;
+  return attendanceSuggestion(kept, rows.length - kept.length);
 }

@@ -295,6 +295,13 @@
       "when": 1793364850851,
       "tag": "0041_workly_sync",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793872313458,
+      "tag": "0042_kpi_days_off",
+      "breakpoints": true
     }
   ]
 }

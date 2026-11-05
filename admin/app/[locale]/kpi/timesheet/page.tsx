@@ -250,7 +250,7 @@ function Board({
           ))}
         </div>
         <ul className="flex flex-wrap items-center gap-x-4 gap-y-1 pb-2 text-xs text-muted-foreground">
-          {(["ontime", "late", "absent"] as const).map((s) => (
+          {(["ontime", "late", "absent", "dayoff"] as const).map((s) => (
             <li key={s} className="flex items-center gap-1.5">
               <span className={cn("size-3 rounded-[3px]", CELL[s])} aria-hidden />
               {t(`legend.${s}`)}

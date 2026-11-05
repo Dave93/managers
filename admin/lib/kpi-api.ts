@@ -13,6 +13,7 @@ import { KpiApiError, toKpiError } from "@admin/lib/kpi/errors";
 import type {
   AttendanceBoard,
   BoardDay,
+  BoardDayOff,
   BoardEmployee,
   EmployeeCard,
   PeopleRow,
@@ -62,6 +63,7 @@ import { applyBody } from "@admin/lib/kpi/workly";
 export type {
   AttendanceBoard,
   BoardDay,
+  BoardDayOff,
   BoardEmployee,
   EmployeeCard,
   PeopleRow,

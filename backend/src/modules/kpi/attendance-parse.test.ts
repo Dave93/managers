@@ -381,4 +381,18 @@ describe("предложение", () => {
     expect(A.attendanceSuggestion(Array.from({ length: 11 }, () => d(false)))!.basis.startsWith("Workly: 11 дней,")).toBe(true);
     expect(A.attendanceSuggestion([d(true)])).toMatchObject({ score: 0 });
   });
+  it("выходные: остаток считается без них, число выходных в итоге и основании", () => {
+    // Строки здесь уже без прогулов, закрытых выходными: их отсекает attendanceStats.
+    expect(A.attendanceSuggestion([d(false), d(false), d(false), d(false, 10)], 2)).toEqual({
+      days: 4, ontime: 3, late: 1, absent: 0, off: 2, score: 75, basis: "Workly: 4 дня, вовремя 3, опозданий 1, прогулов 0, выходных 2",
+    });
+    expect(A.attendanceSuggestion([d(false), d(true)], 1)).toMatchObject({ days: 2, absent: 1, off: 1, score: 50 });
+  });
+  it("все прогульные дни закрыты выходными и других строк нет — предложения нет, а не 0 %", () => {
+    expect(A.attendanceSuggestion([], 2)).toBeNull();
+  });
+  it("без выходных ключа off в результате нет", () => {
+    expect(A.attendanceSuggestion([d(false)])).not.toHaveProperty("off");
+    expect(A.attendanceSuggestion([d(false)], 0)).not.toHaveProperty("off");
+  });
 });

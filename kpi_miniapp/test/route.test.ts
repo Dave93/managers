@@ -51,3 +51,19 @@ it("routeAllowed: сотрудник не заходит на экраны оц�
   expect(routeAllowed({ name: "history" }, ["employee", "evaluator"])).toBe(true);
   expect([isEvRoute({ name: "ev_dispute", id: ID }), isEvRoute({ name: "history" })]).toEqual([true, false]);
 });
+
+it("parseHash и hashOf: выходные оценщика", () => {
+  expect(parseHash(`#/ev/dayoff/${ID}`)).toEqual({ name: "ev_dayoff", employee_id: ID });
+  expect(parseHash(`#/ev/dayoff/${ID}?tgWebAppData=abc&tgWebAppVersion=7.10`)).toEqual({ name: "ev_dayoff", employee_id: ID });
+  expect(parseHash("#/ev/daysoff")).toEqual({ name: "ev_daysoff", period: null });
+  expect(parseHash("#/ev/daysoff/2026-11")).toEqual({ name: "ev_daysoff", period: "2026-11-01" });
+  for (const bad of ["#/ev/dayoff/x", "#/ev/dayoff/", "#/ev/dayoff", "#/ev/daysoff/2026-13", "#/ev/daysoff/2026-11/x", "#/ev/daysoff/abc"]) expect(parseHash(bad)).toEqual({ name: "home" });
+  expect(hashOf({ name: "ev_dayoff", employee_id: ID })).toBe(`#/ev/dayoff/${ID}`);
+  expect([hashOf({ name: "ev_daysoff", period: null }), hashOf({ name: "ev_daysoff", period: "2026-11-01" })]).toEqual(["#/ev/daysoff", "#/ev/daysoff/2026-11"]);
+  for (const r of [{ name: "ev_dayoff", employee_id: ID }, { name: "ev_daysoff", period: null }, { name: "ev_daysoff", period: "2026-11-01" }] as const) {
+    expect(parseHash(hashOf(r))).toEqual(r);
+    expect(isEvRoute(r)).toBe(true);
+    expect(routeAllowed(r, ["evaluator"])).toBe(true);
+    expect(routeAllowed(r, ["employee"])).toBe(false);
+  }
+});

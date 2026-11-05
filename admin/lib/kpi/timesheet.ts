@@ -1,11 +1,11 @@
 // Табель посещаемости: чистые функции над ответом GET /kpi/attendance/board.
 // Статусы дня приходят от Workly через синхронизацию; здесь только счёт и отбор.
-import type { BoardDay, BoardEmployee } from "@admin/lib/kpi-api";
+import type { BoardDay, BoardDayOff, BoardEmployee } from "@admin/lib/kpi-api";
 
-export type DayStatus = "ontime" | "late" | "absent";
+export type DayStatus = "ontime" | "late" | "absent" | "dayoff";
 export type Tab = "all" | "absent" | "late" | "nodata";
 
-const STATUS: Record<BoardDay[0], DayStatus> = { 0: "ontime", 1: "late", 2: "absent" };
+const STATUS: Record<BoardDay[0], DayStatus> = { 0: "ontime", 1: "late", 2: "absent", 3: "dayoff" };
 
 export function statusOf(d: BoardDay | null): DayStatus | null {
   return d ? STATUS[d[0]] : null;
@@ -15,15 +15,21 @@ export interface Totals {
   ontime: number;
   late: number;
   absent: number;
-  /** Дни с записью: вовремя, с опозданием и прогулы. Пустые дни не входят. */
+  /** Выходные, выданные управляющим. Это не записи Workly: в recorded и в доли не входят. */
+  off: number;
+  /** Дни с записью: вовремя, с опозданием и прогулы. Пустые дни и выходные не входят. */
   recorded: number;
 }
 
 export function totalsOf(days: readonly (BoardDay | null)[]): Totals {
-  const t: Totals = { ontime: 0, late: 0, absent: 0, recorded: 0 };
+  const t: Totals = { ontime: 0, late: 0, absent: 0, off: 0, recorded: 0 };
   for (const d of days) {
     const s = statusOf(d);
     if (!s) continue;
+    if (s === "dayoff") {
+      t.off++;
+      continue;
+    }
     t[s]++;
     t.recorded++;
   }
@@ -32,8 +38,8 @@ export function totalsOf(days: readonly (BoardDay | null)[]): Totals {
 
 export function sumTotals(list: readonly Totals[]): Totals {
   return list.reduce(
-    (a, t) => ({ ontime: a.ontime + t.ontime, late: a.late + t.late, absent: a.absent + t.absent, recorded: a.recorded + t.recorded }),
-    { ontime: 0, late: 0, absent: 0, recorded: 0 }
+    (a, t) => ({ ontime: a.ontime + t.ontime, late: a.late + t.late, absent: a.absent + t.absent, off: a.off + t.off, recorded: a.recorded + t.recorded }),
+    { ontime: 0, late: 0, absent: 0, off: 0, recorded: 0 }
   );
 }
 
@@ -231,3 +237,7 @@ export function todayInPeriod(period: string, today: string): number | null {
   return today.slice(0, 7) === period.slice(0, 7) ? Number(today.slice(8, 10)) : null;
 }
 
+/** Причина выходного для показа: у «другой» текст управляющего, иначе подпись по коду. */
+export function dayOffReasonText(o: Pick<BoardDayOff, "reason_code" | "reason_text">, label: (code: string) => string): string {
+  return o.reason_code === "other" && o.reason_text ? o.reason_text : label(o.reason_code);
+}

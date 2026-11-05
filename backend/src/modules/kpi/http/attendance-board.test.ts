@@ -11,8 +11,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { api, cleanupKpi, makeEmployee, makeTerminal, setup } = await import("./fixtures");
-  const { kpi_attendance, kpi_attendance_imports } = await import("backend/drizzle/schema");
+  const { api, cleanupKpi, makeEmployee, makeTerminal, makeUser, setup } = await import("./fixtures");
+  const { kpi_attendance, kpi_attendance_imports, kpi_days_off } = await import("backend/drizzle/schema");
+  const { sql } = await import("drizzle-orm");
 
   const P = "2025-09-01";
   const board = (s: Awaited<ReturnType<typeof withSession>> | null) => api(s, "GET", `/api/kpi/attendance/board?period=${P}`);
@@ -88,6 +89,43 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(typeof e.organization_id).toBe("string");
       expect(typeof e.organization_name).toBe("string");
       expect(byId.has(bEmp.id)).toBe(true);
+    });
+
+    it("выходные: статус 3 на прогуле и пустом дне, присутствие главнее, отменённый не в счёт, причина и автор в off", async () => {
+      const giver = await makeUser(db, { first_name: "Айбек" });
+      const off = (e: { id: string }, terminal_id: string, day: string, o: Record<string, unknown> = {}) => ({
+        employee_id: e.id, terminal_id, day, reason_code: "sick", given_by: giver.id, ...o,
+      });
+      await db.insert(kpi_days_off).values([
+        off(a1, tA, "2025-09-30"), // день прогула
+        off(a1, tA, "2025-09-05", { reason_code: "other", reason_text: "семейные дела" }), // день без записи
+        off(a1, tA, "2025-09-02"), // день присутствия с опозданием: Workly главнее
+        off(a2, tA, "2025-09-15", { cancelled_at: sql`now()` }), // отменён
+        off(a2, tA, "2025-09-16", { cancelled_at: sql`now()` }), // отменён, дня без записи
+        off(idle, tA, "2025-09-20"),
+      ]);
+      try {
+        const hr = await withSession({ permissions: ["kpi.manage"] });
+        const byId = new Map<string, any>((await board(hr)).body.employees.map((x: any) => [x.id, x]));
+        const e = byId.get(a1.id);
+        expect(e.days[29]).toEqual([3, 0, null, null]);
+        expect(e.days[4]).toEqual([3, 0, null, null]);
+        expect(e.days[1]).toEqual([1, 65, "06:05", "14:00"]);
+        expect(Object.keys(e.off).sort()).toEqual(["30", "5"]);
+        expect(e.off["30"]).toMatchObject({ reason_code: "sick", reason_text: null });
+        expect(e.off["30"].by).toContain("Айбек");
+        expect(e.off["5"]).toMatchObject({ reason_code: "other", reason_text: "семейные дела" });
+        expect(byId.get(a2.id).days[14]).toEqual([0, 0, null, null]);
+        expect(byId.get(a2.id).days[15]).toBeNull();
+        expect(byId.get(a2.id).off).toBeUndefined();
+        expect(byId.get(idle.id).days[19]).toEqual([3, 0, null, null]);
+        expect(byId.get(bEmp.id).days[9]).toEqual([2, 0, null, null]); // прогул без выходного остаётся прогулом
+        // Зона kpi.view: чужие филиалы и их выходные не видны.
+        const mgr = await withSession({ permissions: ["kpi.view"], terminals: [tB] });
+        expect((await board(mgr)).body.employees.map((x: any) => x.id)).toEqual([bEmp.id]);
+      } finally {
+        await db.delete(kpi_days_off);
+      }
     });
 
     it("kpi.view видит только свои филиалы; без филиалов список пуст", async () => {

@@ -11,9 +11,9 @@ describe("карточка: посещаемость", () => {
   it("дни: вовремя, опоздание с временем, прогул, пустые", () => {
     const days = attendanceDays(31, {
       days: [
-        { day: "2026-10-30", check_in: null, check_out: null, late_minutes: 0, absent: true },
-        { day: "2026-10-02", check_in: "2026-10-02T01:05:00+00:00", check_out: "2026-10-02T09:00:00+00:00", late_minutes: 65, absent: false },
-        { day: "2026-10-01", check_in: null, check_out: null, late_minutes: 0, absent: false },
+        { day: "2026-10-30", check_in: null, check_out: null, late_minutes: 0, absent: true, day_off: false },
+        { day: "2026-10-02", check_in: "2026-10-02T01:05:00+00:00", check_out: "2026-10-02T09:00:00+00:00", late_minutes: 65, absent: false, day_off: false },
+        { day: "2026-10-01", check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: false },
       ],
     });
     expect(days).toHaveLength(31);
@@ -60,5 +60,18 @@ describe("карточка: потери и названия", () => {
     expect(pickTitle("uz-Latn", "Чистота", "Tozalik")).toBe("Tozalik");
     expect(pickTitle("uz-Cyrl", "Чистота", " ")).toBe("Чистота");
     expect(pickTitle("en", null, null)).toBe("");
+  });
+});
+
+describe("карточка: выходной в днях посещаемости", () => {
+  it("day_off даёт статус 3 раньше прогула; прогул без выходного остаётся прогулом", () => {
+    const days = attendanceDays(31, {
+      days: [
+        { day: "2026-10-05", check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true },
+        { day: "2026-10-04", check_in: null, check_out: null, late_minutes: 0, absent: true, day_off: false },
+      ],
+    });
+    expect(days[4]).toEqual([3, 0, null, null]);
+    expect(days[3]).toEqual([2, 0, null, null]);
   });
 });

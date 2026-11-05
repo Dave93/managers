@@ -3713,7 +3713,8 @@
         "ontime": "On time",
         "late": "Late",
         "absent": "Absent",
-        "none": "No record"
+        "none": "No record",
+        "dayoff": "Day off"
       },
       "cols": {
         "employee": "Employee",
@@ -3732,14 +3733,16 @@
         "ontime": "on time",
         "late": "late by {min} min",
         "absent": "absent",
-        "none": "no record"
+        "none": "no record",
+        "dayoff": "day off"
       },
       "sheet": {
         "summary": {
           "ontime": "On time",
           "late": "Late",
           "absent": "Absent",
-          "none": "No record"
+          "none": "No record",
+          "dayoff": "Days off"
         },
         "calendar": "Month calendar",
         "deviations": "Exceptions",
@@ -3749,7 +3752,9 @@
         "times": "in {in}, out {out}",
         "absent": "absent",
         "streak": "Longest run of absences: {n}",
-        "openCard": "Open the profile"
+        "openCard": "Open the profile",
+        "dayoff": "day off",
+        "dayoffBy": "given by {name}"
       },
       "note": "An absence is recorded when Workly confirmed a missed working day. Days without a record stay empty.",
       "wd": {
@@ -3760,6 +3765,14 @@
         "d4": "Fr",
         "d5": "Sa",
         "d6": "Su"
+      },
+      "reason": {
+        "sick": "Sickness",
+        "family": "Family reasons",
+        "time_off": "Time off in lieu",
+        "vacation": "Vacation",
+        "schedule": "Per schedule",
+        "other": "Other reason"
       }
     },
     "people": {

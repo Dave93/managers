@@ -3,12 +3,15 @@
 // Периоды — "YYYY-MM-01", время — ISO 8601 UTC.
 export type EvItemSource = "manual" | "attendance" | "cooking_speed" | "sales_plan" | "food_cost";
 export type EvStatus = "none" | "draft" | "submitted" | "disputed";
+// Причина выходного дня (выдаёт оценщик в мини-приложении).
+export type DayOffReason = "sick" | "family" | "time_off" | "vacation" | "schedule" | "other";
 
 export type EvErrorCode =
   | "not_evaluator" | "forbidden" | "out_of_scope" | "not_found" | "bad_id" | "bad_period" | "bad_status" | "no_card" | "no_items"
   | "period_closed" | "already_submitted" | "too_early" | "missing_items" | "note_required" | "bad_score" | "unknown_item"
   | "comment_required" | "photo_required" | "bad_photo_type" | "photo_too_large" | "too_many_photos"
-  | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision";
+  | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision"
+  | "bad_dates" | "bad_reason" | "reason_text_required";
 export interface EvError { error: EvErrorCode; min?: number; opens_at?: string; item_id?: string; items?: string[] }
 
 // GET /kpi/tg/ev/employees?period=YYYY-MM-01 (без period — отчётный месяц)
@@ -74,3 +77,22 @@ export interface EvDispute {
 }
 export interface EvDisputes { items: EvDispute[] }
 export interface EvDisputeDetail { dispute: EvDispute; comment_min: number; form: EvReviewForm | null } // form — только у спора по оценке
+
+// Выходные дни. POST /kpi/tg/ev/days-off, GET /kpi/tg/ev/days-off?period=, POST /kpi/tg/ev/days-off/:id/cancel,
+// GET /kpi/tg/ev/day-off-form?employee_id. Причину сотрудник у себя не видит: эти типы только у оценщика.
+export interface EvDayOff {
+  id: string; employee_id: string; employee_name: string; terminal_name: string | null;
+  day: string;                       // "YYYY-MM-DD"
+  reason_code: DayOffReason; reason_text: string | null;   // текст только у "other"
+  status: "active" | "cancelled"; can_cancel: boolean;
+}
+export interface EvDayOffForm {
+  employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
+  reasons: DayOffReason[];
+  window: { min: string; max: string };   // выбираемые дни, включительно; закрытый месяц сервер всё равно отклонит
+  max_range_days: number;
+  existing: string[];                     // дни сотрудника с активным выходным внутри окна
+  submitted_months: string[];             // месяцы окна «YYYY-MM-01», где оценка сотрудника уже отправлена: её снимок выходной не пересчитает
+}
+export interface EvDaysOffCreated { created: EvDayOff[]; skipped: string[] }   // skipped — дни, где выходной уже был
+export interface EvDaysOff { period: string; period_status: "open" | "closed"; items: EvDayOff[] }

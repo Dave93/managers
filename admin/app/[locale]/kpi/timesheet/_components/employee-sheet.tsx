@@ -41,7 +41,7 @@ export function EmployeeSheet({
             </SheetHeader>
 
             <div className="space-y-6 px-4 pb-8">
-              <AttendanceMonth days={e.days} period={period} daysInMonth={daysInMonth} today={today} focusDay={focusDay} />
+              <AttendanceMonth days={e.days} off={e.off} period={period} daysInMonth={daysInMonth} today={today} focusDay={focusDay} />
               <Link
                 href={`/kpi/employee/${e.id}?period=${period}`}
                 className="inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium hover:bg-muted"

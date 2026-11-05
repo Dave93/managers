@@ -101,7 +101,8 @@ export interface TgHistory { quarters: TgHistoryQuarter[]; tiers: TgTier[] } // 
 // Месяц здесь везде «YYYY-MM» (запрос, ответ, хеш клиента), а не «YYYY-MM-01» как у остальных экранов.
 // Без month сервер берёт текущий месяц по Ташкенту. Дни новыми сверху, только дни со строкой в kpi_attendance.
 // prev и next — ближайшие месяцы со строками сотрудника (текущий месяц достижим всегда); null — дальше нет.
-export interface TgAttendanceDay { day: string; check_in: string | null; check_out: string | null; late_minutes: number; absent: boolean } // day "YYYY-MM-DD"
+// day "YYYY-MM-DD"; day_off — выходной от управляющего (прогул Workly или день без строки), причина сотруднику не отдаётся
+export interface TgAttendanceDay { day: string; check_in: string | null; check_out: string | null; late_minutes: number; absent: boolean; day_off: boolean }
 export interface TgAttendance { month: string; prev: string | null; next: string | null; days: TgAttendanceDay[] }
 
 // POST /api/kpi/tg/disputes

@@ -397,7 +397,8 @@ export function splitBad(
 
 // ---------- предложение ----------
 
-export type AttendanceStats = { days: number; ontime: number; late: number; absent: number; score: number; basis: string };
+// off — прогулы Workly, закрытые выходным: в days, ontime, late и absent они не входят (поле есть только при off > 0).
+export type AttendanceStats = { days: number; ontime: number; late: number; absent: number; off?: number; score: number; basis: string };
 
 // Итоги импорта по сопоставленным дням: HR видит, учлись ли прогулы и опоздания
 export function importTotals(rows: { absent: boolean; late_minutes: number }[]): AttendanceTotals {
@@ -423,12 +424,15 @@ function dayWord(n: number): string {
   return "дней";
 }
 
-export function attendanceSuggestion(rows: { absent: boolean; late_minutes: number }[]): AttendanceStats | null {
+// rows — дни без прогулов, закрытых выходным; off — сколько таких дней отброшено до вызова (attendanceStats).
+// Если остались только они (rows пуст), предложения нет: балл по нулю дней не считается.
+export function attendanceSuggestion(rows: { absent: boolean; late_minutes: number }[], off = 0): AttendanceStats | null {
   if (rows.length === 0) return null;
   const days = rows.length;
   const absent = rows.filter((r) => r.absent).length;
   const ontime = rows.filter((r) => !r.absent && r.late_minutes === 0).length;
   const late = rows.filter((r) => !r.absent && r.late_minutes > 0).length;
   const score = Math.round((100 * ontime) / days);
-  return { days, ontime, late, absent, score, basis: `Workly: ${days} ${dayWord(days)}, вовремя ${ontime}, опозданий ${late}, прогулов ${absent}` };
+  const basis = `Workly: ${days} ${dayWord(days)}, вовремя ${ontime}, опозданий ${late}, прогулов ${absent}${off > 0 ? `, выходных ${off}` : ""}`;
+  return { days, ontime, late, absent, ...(off > 0 ? { off } : {}), score, basis };
 }
