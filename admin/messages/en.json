@@ -999,6 +999,7 @@
       "month": "Month",
       "raises": "Raises",
       "settings": "KPI settings",
+      "timesheet": "Attendance",
       "workly": "Workly sync",
       "attendance": "Workly import",
       "network": "Network",
@@ -3687,6 +3688,77 @@
       "newQr": "New QR",
       "qrAria": "Show QR for {name}",
       "newQrAria": "New QR for {name}"
+    },
+    "timesheet": {
+      "title": "Attendance",
+      "branchLabel": "Branch",
+      "branchAll": "All branches",
+      "search": "Find an employee",
+      "tabsLabel": "Which employees are shown",
+      "tabs": {
+        "all": "All",
+        "absent": "With absences",
+        "late": "With late arrivals",
+        "nodata": "No data"
+      },
+      "summary": {
+        "empty": "There are no attendance records for {month}. They come from the Workly sync.",
+        "main": "Absences: {share} of recorded days ({absent} of {recorded}). Late arrivals: {late} of days present.",
+        "above": "Above the norm for absences: {branches}. Median across branches: {median}.",
+        "noAbove": "No branch stands out from the norm; median across branches: {median}.",
+        "sync": "Open the sync"
+      },
+      "legend": {
+        "ontime": "On time",
+        "late": "Late",
+        "absent": "Absent",
+        "none": "No record"
+      },
+      "cols": {
+        "employee": "Employee",
+        "absent": "Absences",
+        "late": "Late"
+      },
+      "group": {
+        "meta": "{n} staff",
+        "above": "above the norm",
+        "share": "absences {share}"
+      },
+      "state": {
+        "noRows": "No employees match these filters."
+      },
+      "tip": {
+        "ontime": "on time",
+        "late": "late by {min} min",
+        "absent": "absent",
+        "none": "no record"
+      },
+      "sheet": {
+        "summary": {
+          "ontime": "On time",
+          "late": "Late",
+          "absent": "Absent",
+          "none": "No record"
+        },
+        "calendar": "Month calendar",
+        "deviations": "Exceptions",
+        "noDeviations": "No exceptions this month.",
+        "noRecords": "No records for this month: Workly sent nothing for this employee.",
+        "late": "late by {min} min",
+        "times": "in {in}, out {out}",
+        "absent": "absent",
+        "streak": "Longest run of absences: {n}"
+      },
+      "note": "An absence is recorded when Workly confirmed a missed working day. Days without a record stay empty.",
+      "wd": {
+        "d0": "Mo",
+        "d1": "Tu",
+        "d2": "We",
+        "d3": "Th",
+        "d4": "Fr",
+        "d5": "Sa",
+        "d6": "Su"
+      }
     }
   },
   "passportUi": {

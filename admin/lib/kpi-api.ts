@@ -11,6 +11,9 @@ import { apiClient } from "@admin/utils/eden";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 import { KpiApiError, toKpiError } from "@admin/lib/kpi/errors";
 import type {
+  AttendanceBoard,
+  BoardDay,
+  BoardEmployee,
   AttendanceImportRow,
   AttendanceMapping,
   AttendanceParseResponse,
@@ -55,6 +58,9 @@ import type {
 import { applyBody } from "@admin/lib/kpi/workly";
 
 export type {
+  AttendanceBoard,
+  BoardDay,
+  BoardEmployee,
   AttendanceField,
   AttendanceImportRow,
   AttendanceMapping,
@@ -269,6 +275,7 @@ export function createKpiApi(kpi: any, workly: any) {
     attendance: {
       commit: (b: AttendanceCommitBody) => call<AttendanceImportRow>(kpi.attendance.commit.post(b)),
       imports: (period: string) => call<AttendanceImportRow[]>(kpi.attendance.imports.get({ query: { period } })),
+      board: (period: string) => call<AttendanceBoard>(kpi.attendance.board.get({ query: { period } })),
     },
     tg: {
       invite: (target: TgTarget) => call<KpiInvite>(kpi.invites.post(target)),
