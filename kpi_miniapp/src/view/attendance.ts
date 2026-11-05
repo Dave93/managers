@@ -15,6 +15,7 @@ const DASH = "—";
 
 export interface AttendanceRowVM {
   day: string; // «3 ноября» / «3-noyabr»
+  dayOff: string | null; // «Выходной», только при day_off = true; тогда absent, times и late равны null
   absent: string | null; // «не вышел», только при absent = true
   times: { in: string; out: string } | null; // «08:55» | «нет отметки» | «—»; у absent null
   late: string | null; // «опоздание 12 мин», только при late_minutes > 0 и не absent
@@ -34,7 +35,7 @@ export interface AttendanceVM {
 }
 
 /** «3 ноября» / «3-noyabr» из «2026-11-03», без Date. */
-function dayLabel(day: string, l: Lang): string {
+export function dayLabel(day: string, l: Lang): string {
   const n = Number(day.slice(8, 10));
   return l === "ru" ? `${n} ${monthName(day, "gen", "ru")}` : `${n}-${monthName(day, "gen", "uz")}`;
 }
@@ -48,8 +49,9 @@ function timesOf(d: TgAttendanceDay, l: Lang): { in: string; out: string } {
 
 function rowOf(d: TgAttendanceDay, l: Lang): AttendanceRowVM {
   const day = dayLabel(d.day, l);
-  if (d.absent) return { day, absent: tIn(l, "att_absent"), times: null, late: null };
-  return { day, absent: null, times: timesOf(d, l), late: d.late_minutes > 0 ? tIn(l, "att_late", { n: d.late_minutes }) : null };
+  if (d.day_off) return { day, dayOff: tIn(l, "att_day_off"), absent: null, times: null, late: null };
+  if (d.absent) return { day, dayOff: null, absent: tIn(l, "att_absent"), times: null, late: null };
+  return { day, dayOff: null, absent: null, times: timesOf(d, l), late: d.late_minutes > 0 ? tIn(l, "att_late", { n: d.late_minutes }) : null };
 }
 
 /** Номер месяца подряд: «2026-11» → год·12 + месяц, чтобы сравнивать соседство через границу года. */

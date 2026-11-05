@@ -17,14 +17,14 @@ it("приход и уход по Ташкенту, опоздание толь�
   expect(vm.month).toBe("Ноябрь 2026");
   expect(vm.empty).toBeNull();
   expect(vm.rows).toEqual([
-    { day: "4 ноября", absent: null, times: { in: "09:07", out: "18:00" }, late: "опоздание 12 мин" },
-    { day: "3 ноября", absent: null, times: { in: "08:55", out: "18:02" }, late: null },
+    { day: "4 ноября", dayOff: null, absent: null, times: { in: "09:07", out: "18:00" }, late: "опоздание 12 мин" },
+    { day: "3 ноября", dayOff: null, absent: null, times: { in: "08:55", out: "18:02" }, late: null },
   ]);
 });
 
 it("«не вышел» только при absent = true: ни времён, ни опоздания, даже если они лежат в данных", () => {
   const vm = attendanceView(month([day({ day: "2026-11-05", absent: true, check_in: "2026-11-05T04:00:00.000Z", late_minutes: 30 })]), "ru");
-  expect(vm.rows).toEqual([{ day: "5 ноября", absent: "не вышел", times: null, late: null }]);
+  expect(vm.rows).toEqual([{ day: "5 ноября", dayOff: null, absent: "не вышел", times: null, late: null }]);
 });
 
 it("приход без ухода — «нет отметки»; уход без прихода так же; отметок нет совсем — прочерки", () => {
@@ -48,7 +48,7 @@ it("ночной уход: 20:30 UTC это 01:30 по Ташкенту, ден�
     month([day({ day: "2026-10-31", check_in: "2026-10-31T10:00:00.000Z", check_out: "2026-10-31T20:30:00.000Z" })], { month: "2026-10" }),
     "ru",
   );
-  expect(vm.rows[0]).toEqual({ day: "31 октября", absent: null, times: { in: "15:00", out: "01:30" }, late: null });
+  expect(vm.rows[0]).toEqual({ day: "31 октября", dayOff: null, absent: null, times: { in: "15:00", out: "01:30" }, late: null });
 });
 
 it("пустой месяц: «Данных за месяц нет», переключатель остаётся; без соседей ссылок нет", () => {
@@ -96,4 +96,13 @@ it("по-узбекски", () => {
     { label: "Fevral", hash: "#/attendance/2026-02", aria: "Maʼlumoti bor keyingi oy" },
   ]);
   expect(attendanceView(month([], { prev: "2026-08" }), "uz").prev?.label).toBe("Avgust 2026");
+});
+
+it("выходной: подпись вместо «не вышел», времён и опоздания нет", () => {
+  const vm = attendanceView(month([day({ day: "2026-11-04", day_off: true }), day({ day: "2026-11-03", absent: true })]), "ru");
+  expect(vm.rows[0]).toEqual({ day: "4 ноября", dayOff: "Выходной", absent: null, times: null, late: null });
+  expect(vm.rows[1]).toMatchObject({ day: "3 ноября", dayOff: null, absent: "не вышел" });
+  expect(attendanceView(month([day({ day: "2026-11-04", day_off: true })]), "uz").rows[0]!.dayOff).toBe("Dam olish kuni");
+  // Обычный день выходной-подписи не имеет.
+  expect(attendanceView(month([day({ day: "2026-11-05", check_in: "2026-11-05T04:00:00.000Z" })]), "ru").rows[0]!.dayOff).toBeNull();
 });

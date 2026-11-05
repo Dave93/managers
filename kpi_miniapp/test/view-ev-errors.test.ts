@@ -24,3 +24,10 @@ it("evOutcome: успех, неизвестный исход, сессия, пе
 it("evNoticeKey: только экраны-заглушки", () => {
   expect([evNoticeKey("forbidden"), evNoticeKey("out_of_scope"), evNoticeKey("no_card"), evNoticeKey("weird")]).toEqual(["ev_err_forbidden", "ev_err_out_of_scope", "ev_err_no_card", null]);
 });
+
+it("evOutcome: ошибки выходных получают свои тексты, закрытый месяц перезагружает экран", () => {
+  expect(evOutcome(http(422, "bad_dates"), "ru")).toEqual({ kind: "error", key: "ev_err_bad_dates" });
+  expect(evOutcome(http(422, "bad_reason"), "ru")).toEqual({ kind: "error", key: "ev_err_bad_reason" });
+  expect(evOutcome(http(422, "reason_text_required"), "ru")).toEqual({ kind: "error", key: "ev_err_reason_text_required" });
+  expect(evOutcome(http(409, "period_closed"), "uz")).toEqual({ kind: "reload", key: "err_period_closed" });
+});
