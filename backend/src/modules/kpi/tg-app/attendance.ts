@@ -3,11 +3,12 @@
 import { kpi_attendance } from "backend/drizzle/schema";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
+import { activeDaysOff } from "../days-off";
 import { KpiError } from "../errors";
 import { iso } from "../iso";
 import { addMonths, periodOf } from "../time";
 import { monthOf, neighbours } from "./attendance-rules";
-import type { TgAttendance } from "./types";
+import type { TgAttendance, TgAttendanceDay } from "./types";
 
 // month — «YYYY-MM» или undefined (текущий по Ташкенту); всё прочее — 422 bad_period.
 // Дни: от первого числа месяца до первого числа следующего, новыми сверху, только дни со строкой.
@@ -35,6 +36,20 @@ export async function attendanceFor(db: DbLike, employeeId: string, monthRaw: un
     .from(kpi_attendance)
     .where(eq(kpi_attendance.employee_id, employeeId));
 
+  // Выходные: прогул Workly и день без строки с выходным приходят как day_off (причина не отдаётся);
+  // присутствие главнее выходного. Дни по убыванию, как и без выходных.
+  const off = (await activeDaysOff(db, { employeeIds: [employeeId], from, to: addMonths(from, 1) })).get(employeeId);
+  const days: TgAttendanceDay[] = rows.map((r) =>
+    r.absent && off?.has(r.day)
+      ? { day: r.day, check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true }
+      : { day: r.day, check_in: iso(r.check_in), check_out: iso(r.check_out), late_minutes: r.late_minutes, absent: r.absent, day_off: false }
+  );
+  if (off) {
+    const have = new Set(rows.map((r) => r.day));
+    for (const day of off.keys()) if (!have.has(day)) days.push({ day, check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true });
+    days.sort((a, b) => (a.day < b.day ? 1 : a.day > b.day ? -1 : 0));
+  }
+
   return {
     month,
     ...neighbours(
@@ -42,12 +57,6 @@ export async function attendanceFor(db: DbLike, employeeId: string, monthRaw: un
       month,
       current
     ),
-    days: rows.map((r) => ({
-      day: r.day,
-      check_in: iso(r.check_in),
-      check_out: iso(r.check_out),
-      late_minutes: r.late_minutes,
-      absent: r.absent,
-    })),
+    days,
   };
 }

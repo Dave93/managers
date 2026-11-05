@@ -281,9 +281,12 @@ export interface EmployeeCard {
   history: TgHistory;
 }
 
-// Табель месяца: один день сотрудника. Статус 0 — вовремя, 1 — опоздание, 2 — прогул; время прихода и ухода
-// (HH:MM по Ташкенту) есть только там, где Workly прислал отметки. Дня без записи нет: он пуст (null).
-export type BoardDay = [status: 0 | 1 | 2, late_minutes: number, check_in: string | null, check_out: string | null];
+// Табель месяца: один день сотрудника. Статус 0 — вовремя, 1 — опоздание, 2 — прогул, 3 — выходной (выдан управляющим,
+// Workly на этот день показывает прогул или ничего); время прихода и ухода (HH:MM по Ташкенту) есть только там, где
+// Workly прислал отметки. Дня без записи и без выходного нет: он пуст (null).
+export type BoardDay = [status: 0 | 1 | 2 | 3, late_minutes: number, check_in: string | null, check_out: string | null];
+// Выходной в клетке со статусом 3: причина (текст только у "other") и кто выдал.
+export interface BoardDayOff { reason_code: string; reason_text: string | null; by: string | null }
 export interface BoardEmployee {
   id: string; first_name: string; last_name: string; role: string | null;
   terminal_id: string; terminal_name: string | null;
@@ -292,6 +295,8 @@ export interface BoardEmployee {
   active: boolean;
   // Индекс — день месяца минус один; длина равна числу дней месяца
   days: (BoardDay | null)[];
+  // Номер дня месяца ("5") → выходной; только дни со статусом 3, ключа нет, если выходных в клетках нет
+  off?: Record<string, BoardDayOff>;
 }
 export interface AttendanceBoard {
   period: string; days_in_month: number;

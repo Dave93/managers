@@ -1,7 +1,9 @@
 import { employees, kpi_attendance, organization, staff_roles, terminals } from "backend/drizzle/schema";
 import { and, between, eq, inArray } from "drizzle-orm";
 import { seesNetwork, type Actor, type DbLike } from "./access";
-import { daysInMonth, type Period } from "./time";
+import { activeDaysOff, type DayOffInfo } from "./days-off";
+import { userNames } from "./directory";
+import { addMonths, daysInMonth, type Period } from "./time";
 import type { AttendanceBoard, BoardDay, BoardEmployee } from "./types";
 
 const clock = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Tashkent", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
@@ -86,6 +88,23 @@ export async function loadAttendanceBoard(db: DbLike, actor: Actor, q: { period:
   };
   for (const r of rows) add(r).days[Number(r.day.slice(8, 10)) - 1] = boardDay(r);
   for (const r of active) add(r);
+
+  // Выходные накладываются на пустые дни и прогулы; присутствие (вовремя, опоздание) главнее выходного.
+  const offs = await activeDaysOff(db, { employeeIds: [...byId.keys()], from: q.period, to: addMonths(q.period, 1) });
+  const shown: { e: BoardEmployee; index: number; info: DayOffInfo }[] = [];
+  for (const [id, byDay] of offs) {
+    const e = byId.get(id)!;
+    for (const [day, info] of byDay) {
+      const index = Number(day.slice(8, 10)) - 1;
+      const cur = e.days[index];
+      if (cur === null || cur[0] === 2) shown.push({ e, index, info });
+    }
+  }
+  const givers = await userNames(db, shown.map((x) => x.info.given_by));
+  for (const { e, index, info } of shown) {
+    e.days[index] = [3, 0, null, null];
+    (e.off ??= {})[String(index + 1)] = { reason_code: info.reason_code, reason_text: info.reason_text, by: givers.get(info.given_by) ?? null };
+  }
 
   const ru = (a: string | null, b: string | null) => (a ?? "").localeCompare(b ?? "", "ru");
   const list = [...byId.values()].sort(

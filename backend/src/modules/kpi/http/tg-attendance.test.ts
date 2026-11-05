@@ -11,7 +11,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
 } else {
   const { sweepTestRoles } = await import("../../../../tests/helpers/http");
   const { bindTelegram, cleanupKpi, fakeBotApi, makeEmployee, makeUser, setNow, setup, tgApi, tgLogin, TG_TEST_BOT_TOKEN } = await import("./fixtures");
-  const { kpi_attendance, kpi_attendance_imports } = await import("backend/drizzle/schema");
+  const { kpi_attendance, kpi_attendance_imports, kpi_days_off } = await import("backend/drizzle/schema");
+  const { randomUUID } = await import("node:crypto");
+  const { sql } = await import("drizzle-orm");
   const { setTestBotApi } = await import("../tg/bot-api");
 
   const login = async (b: { telegram_id: number }) => (await tgLogin(b.telegram_id)).body.token as string;
@@ -55,6 +57,31 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await sweepTestRoles();
     });
 
+    it("выходной: прогул и день без строки приходят как day_off, присутствие главнее, причина не уходит", async () => {
+      setNow("2026-11-10T10:00:00+05:00");
+      const a = await sessionOf();
+      await seed(a.e, [
+        { day: "2026-11-03", check_in: "2026-11-03T03:55:00.000Z", check_out: "2026-11-03T13:02:00.000Z" },
+        { day: "2026-11-04", absent: true },
+        { day: "2026-11-05", check_in: "2026-11-05T04:20:00.000Z", late_minutes: 20 },
+      ]);
+      const off = (day: string, cancelled = false) => ({
+        employee_id: a.e.id, day, terminal_id: a.e.terminal_id, reason_code: "other", reason_text: "семейные дела", given_by: randomUUID(),
+        cancelled_at: cancelled ? sql`now()` : null,
+      });
+      await db.insert(kpi_days_off).values([off("2026-11-04"), off("2026-11-05"), off("2026-11-06"), off("2026-11-07", true)]);
+      const r = await tgApi(a.token, "GET", "/api/kpi/tg/attendance?month=2026-11");
+      expect(r.status).toBe(200);
+      expect(r.body.days).toEqual([
+        { day: "2026-11-06", check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true },
+        { day: "2026-11-05", check_in: "2026-11-05T04:20:00.000Z", check_out: null, late_minutes: 20, absent: false, day_off: false },
+        { day: "2026-11-04", check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: true },
+        { day: "2026-11-03", check_in: "2026-11-03T03:55:00.000Z", check_out: "2026-11-03T13:02:00.000Z", late_minutes: 0, absent: false, day_off: false },
+      ]);
+      // Сотрудник не видит ни причину, ни автора.
+      expect(JSON.stringify(r.body)).not.toMatch(/reason|given_by|семейные|other/);
+    });
+
     it("только свои дни: строки другого сотрудника того же месяца не приходят, чужой employee_id в запросе игнорируется", async () => {
       setNow("2026-11-10T10:00:00+05:00");
       const a = await sessionOf();
@@ -73,15 +100,15 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
         body: {
           month: "2026-11", prev: null, next: null,
           days: [
-            { day: "2026-11-04", check_in: null, check_out: null, late_minutes: 0, absent: true },
-            { day: "2026-11-03", check_in: "2026-11-03T03:55:00.000Z", check_out: "2026-11-03T13:02:00.000Z", late_minutes: 0, absent: false },
+            { day: "2026-11-04", check_in: null, check_out: null, late_minutes: 0, absent: true, day_off: false },
+            { day: "2026-11-03", check_in: "2026-11-03T03:55:00.000Z", check_out: "2026-11-03T13:02:00.000Z", late_minutes: 0, absent: false, day_off: false },
           ],
         },
       });
       const rb = await tgApi(b.token, "GET", "/api/kpi/tg/attendance?month=2026-11");
       expect(rb.body.days).toEqual([
-        { day: "2026-11-05", check_in: "2026-11-05T04:00:00.000Z", check_out: null, late_minutes: 0, absent: false },
-        { day: "2026-11-03", check_in: "2026-11-03T04:40:00.000Z", check_out: "2026-11-03T13:30:00.000Z", late_minutes: 45, absent: false },
+        { day: "2026-11-05", check_in: "2026-11-05T04:00:00.000Z", check_out: null, late_minutes: 0, absent: false, day_off: false },
+        { day: "2026-11-03", check_in: "2026-11-03T04:40:00.000Z", check_out: "2026-11-03T13:30:00.000Z", late_minutes: 45, absent: false, day_off: false },
       ]);
     });
 
@@ -103,11 +130,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       ]);
       expect((await tgApi(token, "GET", "/api/kpi/tg/attendance")).body).toEqual({
         month: "2026-11", prev: "2026-10", next: null,
-        days: [{ day: "2026-11-01", check_in: "2026-11-01T03:00:00.000Z", check_out: null, late_minutes: 0, absent: false }],
+        days: [{ day: "2026-11-01", check_in: "2026-11-01T03:00:00.000Z", check_out: null, late_minutes: 0, absent: false, day_off: false }],
       });
       expect((await tgApi(token, "GET", "/api/kpi/tg/attendance?month=2026-10")).body).toEqual({
         month: "2026-10", prev: "2026-09", next: "2026-11",
-        days: [{ day: "2026-10-31", check_in: "2026-10-31T10:00:00.000Z", check_out: "2026-10-31T20:30:00.000Z", late_minutes: 0, absent: false }],
+        days: [{ day: "2026-10-31", check_in: "2026-10-31T10:00:00.000Z", check_out: "2026-10-31T20:30:00.000Z", late_minutes: 0, absent: false, day_off: false }],
       });
     });
 

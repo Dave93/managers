@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 import type { TgAttendance, TgAttendanceDay } from "@backend/modules/kpi/tg-app/types";
 import { attendanceView } from "../src/view/attendance";
 
-const day = (o: Partial<TgAttendanceDay> & { day: string }): TgAttendanceDay => ({ check_in: null, check_out: null, late_minutes: 0, absent: false, ...o });
+const day = (o: Partial<TgAttendanceDay> & { day: string }): TgAttendanceDay => ({ check_in: null, check_out: null, late_minutes: 0, absent: false, day_off: false, ...o });
 const month = (days: TgAttendanceDay[], o: Partial<TgAttendance> = {}): TgAttendance => ({ month: "2026-11", prev: "2026-10", next: null, days, ...o });
 
 it("приход и уход по Ташкенту, опоздание только когда больше нуля", () => {
