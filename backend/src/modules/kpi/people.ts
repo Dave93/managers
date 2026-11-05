@@ -2,6 +2,7 @@ import { employees, kpi_attendance, kpi_tg_bindings, kpi_violations, organizatio
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
+import { absentDayOff } from "./days-off";
 import { canSeeEmployee, loadDirectory } from "./directory";
 import { listEmployeeRows, UUID_RE } from "./employees";
 import { KpiError } from "./errors";
@@ -25,7 +26,8 @@ export async function loadPeople(db: DbLike, actor: Actor, period: Period): Prom
       employee_id: kpi_attendance.employee_id,
       ontime: sql<number>`count(*) filter (where not ${kpi_attendance.absent} and ${kpi_attendance.late_minutes} = 0)::int`,
       late: sql<number>`count(*) filter (where not ${kpi_attendance.absent} and ${kpi_attendance.late_minutes} > 0)::int`,
-      absent: sql<number>`count(*) filter (where ${kpi_attendance.absent})::int`,
+      // Прогул с выходным в этот день не считается: см. absentDayOff.
+      absent: sql<number>`count(*) filter (where ${kpi_attendance.absent} and not ${absentDayOff(kpi_attendance)})::int`,
     })
     .from(kpi_attendance)
     .where(and(inArray(kpi_attendance.employee_id, ids), gte(kpi_attendance.day, period), lt(kpi_attendance.day, next)))

@@ -4,6 +4,7 @@ import { credentials, inventory_reconciliations, kpi_attendance, kpi_revenue_pla
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { DbLike } from "./access";
 import { monthLastDay } from "./branch-rules";
+import { absentDayOff } from "./days-off";
 import { UUID_RE } from "./employees";
 import { addMonths, type Period } from "./time";
 
@@ -156,10 +157,11 @@ export async function attendanceByTerminal(
   const rows = await db
     .select({
       terminal_id: a.terminal_id,
-      days: sql<number>`count(*)::int`,
+      // Прогул с выходным в этот день не входит ни в дни, ни в прогулы: см. absentDayOff.
+      days: sql<number>`(count(*) filter (where not ${absentDayOff(a)}))::int`,
       on_time: sql<number>`(count(*) filter (where not ${a.absent} and ${a.late_minutes} = 0))::int`,
       late: sql<number>`(count(*) filter (where not ${a.absent} and ${a.late_minutes} > 0))::int`,
-      absent: sql<number>`(count(*) filter (where ${a.absent}))::int`,
+      absent: sql<number>`(count(*) filter (where ${a.absent} and not ${absentDayOff(a)}))::int`,
     })
     .from(a)
     .where(and(gte(a.day, period), lt(a.day, addMonths(period, 1))))

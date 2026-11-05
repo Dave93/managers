@@ -4,6 +4,7 @@
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, kpi_days_off, kpi_periods, terminals } from "backend/drizzle/schema";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
+import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { loadScopes, type Actor, type DbLike } from "./access";
 import { checkReason, addDays, expandRange, MAX_AHEAD_DAYS, MAX_BACK_DAYS, MAX_RANGE_DAYS, periodOfDay, DAY_OFF_REASONS } from "./days-off-rules";
 import { canEvaluate, loadDirectory } from "./directory";
@@ -153,4 +154,40 @@ export async function dayOffForm(db: DbLike, actor: Actor, employeeId: unknown, 
     max_range_days: MAX_RANGE_DAYS,
     existing: existing.map((r) => r.day),
   };
+}
+
+export type DayOffInfo = { reason_code: DayOffReason; reason_text: string | null; given_by: string };
+
+// Неотменённые выходные сотрудников за дни from..to (to не включается): сотрудник → день → причина и автор.
+export async function activeDaysOff(
+  db: DbLike,
+  q: { employeeIds: string[]; from: string; to: string }
+): Promise<Map<string, Map<string, DayOffInfo>>> {
+  const out = new Map<string, Map<string, DayOffInfo>>();
+  if (q.employeeIds.length === 0) return out;
+  const rows = await db
+    .select({
+      employee_id: kpi_days_off.employee_id,
+      day: kpi_days_off.day,
+      reason_code: kpi_days_off.reason_code,
+      reason_text: kpi_days_off.reason_text,
+      given_by: kpi_days_off.given_by,
+    })
+    .from(kpi_days_off)
+    .where(and(inArray(kpi_days_off.employee_id, q.employeeIds), gte(kpi_days_off.day, q.from), lt(kpi_days_off.day, q.to), isNull(kpi_days_off.cancelled_at)));
+  for (const r of rows) {
+    let byDay = out.get(r.employee_id);
+    if (!byDay) out.set(r.employee_id, (byDay = new Map()));
+    byDay.set(r.day, { reason_code: r.reason_code as DayOffReason, reason_text: r.reason_text, given_by: r.given_by });
+  }
+  return out;
+}
+
+/**
+ * Условие для SQL-агрегатов по kpi_attendance: «прогул, а на этот день у сотрудника есть неотменённый выходной».
+ * Такую строку считают как отсутствующую: `not absentDayOff(a)` — берём в дни, `absent and not absentDayOff(a)` — в прогулы.
+ * Присутствие (absent = false) условие не затрагивает: Workly главнее выходного.
+ */
+export function absentDayOff(a: { employee_id: AnyPgColumn; day: AnyPgColumn; absent: AnyPgColumn }): SQL {
+  return sql`(${a.absent} and exists (select 1 from ${kpi_days_off} d where d.employee_id = ${a.employee_id} and d.day = ${a.day} and d.cancelled_at is null))`;
 }
