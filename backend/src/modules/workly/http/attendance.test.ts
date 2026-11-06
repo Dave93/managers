@@ -688,7 +688,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const ids = Array.from({ length: 100 }, (_, i) => i + 1);
       const emps = new Map<number, string>();
       for (const id of ids) emps.set(id, await mkEmp(w.t, { company: w.company, id }));
-      const data = (o: { t12?: number[]; late?: number[]; absent?: number[]; day3?: boolean } = {}): Data => {
+      const data = (o: { t12?: number[]; late?: number[]; absent?: number[]; extra?: string } = {}): Data => {
         const t12Ids = o.t12 ?? ids;
         const worked = (id: number, day: number) => day === 1 || id <= 85;
         const lateIds = new Set(o.late ?? ids);
@@ -699,7 +699,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
             t12(id, [
               tday("2026-10-01", { work_time: "08:00" }),
               tday("2026-10-02", worked(id, 2) ? { work_time: "08:00" } : {}),
-              ...(o.day3 ? [tday("2026-10-03", { work_time: "08:00" })] : []),
+              ...(o.extra ? [tday(o.extra, { work_time: "08:00" })] : []),
             ])
           ),
           lateIn: ids
@@ -707,7 +707,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
             .flatMap((id) => [
               late(id, "2026-10-01"),
               ...(worked(id, 2) ? [late(id, "2026-10-02")] : []),
-              ...(o.day3 ? [late(id, "2026-10-03")] : []),
+              ...(o.extra ? [late(id, o.extra)] : []),
             ]),
           absence: absentIds.map((id) => absent(id, "2026-10-02")),
         };
@@ -776,19 +776,40 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await rowsOfOrg(w.org)).toBe(120);
     });
 
-    it("защита: обычный ночной прогон проходит; новый день на хвосте окна не мешает, прежние дни сравниваются в общем окне", async () => {
+    it("защита: обычный ночной прогон проходит; новый день за концом прежнего окна не мешает, прежние дни сравниваются в общем окне", async () => {
       const w = await world();
       const c = await crowd(w);
       const first = await sync(w.org, fakeClient(w.company, c.data()));
       expect(first.run.counts).toMatchObject({ days: 200 });
 
       try {
-        // Следующая ночь: окно до 20 октября, добавился день 3 (+100 строк, +100 приходов)
+        // Следующая ночь: окно до 20 октября, у прежнего импорта оно было до 19-го; добавился день 20 октября (+100 строк)
         setNow("2026-10-21T07:00:00.000Z");
-        const res = await nightly(w.org, fakeClient(w.company, c.data({ day3: true })));
+        const res = await nightly(w.org, fakeClient(w.company, c.data({ extra: "2026-10-20" })));
         expect(res.run).toMatchObject({ status: "applied", error: null, counts: { days: 300 } });
         expect((await importsOf(w.org, P)).map((i) => i.status)).toEqual(["replaced", "committed"]);
         expect(await rowsOfOrg(w.org)).toBe(300);
+      } finally {
+        setNow(NOW);
+      }
+    });
+
+    it("защита: новый день за концом прежнего окна не прячет потерю — сравнение только в общем окне (до 19 октября), failed/crawl_short", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run.counts).toMatchObject({ days: 200 });
+
+      try {
+        setNow("2026-10-21T07:00:00.000Z");
+        // В T12 дочитаны 85 из 100: по всему новому окну строк 255 (85 × 3 дня) при прежних 200, то есть больше 90%.
+        // В общем окне (до 19 октября) их 170 из 200 = 85%: потеря видна только там.
+        const cut = c.data({ t12: c.ids.slice(0, 85), absent: [], extra: "2026-10-20" });
+        const { value: res, logged } = await quietly(() => nightly(w.org, fakeClient(w.company, cut)));
+        expect(res.run).toMatchObject({ status: "failed", error: "crawl_short" });
+        expect(logged).toContain("защита rows, дней 170/200");
+        expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
+        expect(await rowsOfOrg(w.org)).toBe(200);
       } finally {
         setNow(NOW);
       }
