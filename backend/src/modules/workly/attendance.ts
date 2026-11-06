@@ -215,7 +215,8 @@ async function assertComplete(
     window: { from: string; to: string };
     previous: { day: string; check_in: string | null }[];
     days: AttendanceDayRow[];
-    unknown: number;
+    /** Плановые дни без строки в окне, обрезанном по день to (buildDays с тем же входом). */
+    unknownThrough: (to: string) => number;
   }
 ): Promise<void> {
   const [prevImport] = await tx
@@ -233,12 +234,16 @@ async function assertComplete(
   const to = prevTo !== null && prevTo < i.window.to ? prevTo : i.window.to;
   const previous = prevTo === null ? null : attendanceSnapshot(i.previous, to);
   const next = attendanceSnapshot(i.days, to);
-  const verdict = checkAttendanceGuards({ previous, next, unknown: i.unknown, rowsTotal: i.days.length });
+  // «Неизвестные» тоже только в общем окне: вчерашний день к 03:30 может быть не дописан в absence,
+  // это не потеря прежних данных, и следующая ночь заменит его полным. Иначе в первые дни месяца
+  // один такой день давал бы доли выше 5% и останавливал бы прогон надолго (проба на проде 2026-11-06: 8%).
+  const unknown = i.unknownThrough(to);
+  const verdict = checkAttendanceGuards({ previous, next, unknown });
   if (verdict.ok) return;
   // Только числа: ключ подключения и id прогона пишет executeRun.
   console.error(
     `workly: посещаемость ${i.period}: защита ${verdict.check}, дней ${next.rows}/${previous?.rows}, ` +
-      `с приходом ${next.withCheckIn}/${previous?.withCheckIn}, неизвестных ${i.unknown} из ${i.days.length + i.unknown}`
+      `с приходом ${next.withCheckIn}/${previous?.withCheckIn}, неизвестных ${unknown} из ${next.rows + unknown}`
   );
   throw new KpiError(422, "crawl_short");
 }
@@ -340,7 +345,10 @@ export async function runAttendance(
     const days = [...built.days, ...carried];
     // Писать нечего — значит, отчёты не о нас: прежний импорт не заменяем (откат транзакции).
     if (days.length === 0) throw new KpiError(422, "empty_crawl");
-    if (opts.guard) await assertComplete(tx, { period, orgId: org.id, window, previous, days, unknown: built.unknown });
+    if (opts.guard) {
+      const unknownThrough = (to: string) => buildDays({ ...window, to, people, t12, lateIn, absence }).unknown;
+      await assertComplete(tx, { period, orgId: org.id, window, previous, days, unknownThrough });
+    }
     const imp = await writeAttendanceImport(tx, {
       period,
       organization_id: org.id,

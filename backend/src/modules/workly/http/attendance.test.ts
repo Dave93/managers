@@ -815,6 +815,39 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       }
     });
 
+    it("защита: вчерашний день ещё не дописан в absence — плановые дни без строки за новым концом окна не считаются, прогон проходит", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run.counts).toMatchObject({ days: 200, unknown: 0 });
+
+      try {
+        // Ночь 21 октября, окно до 20-го. День 20 октября: люди плановые, работы и записей absence ещё нет
+        // (отчёты не дописаны), то есть 100 «неизвестных» на 200 + 100 дней: 33% всего окна, но 0% общего окна.
+        setNow("2026-10-21T07:00:00.000Z");
+        const d = c.data();
+        d.t12 = d.t12!.map((i) => ({ ...i, report: { days: [...i.report!.days, tday("2026-10-20")] } }));
+        const res = await nightly(w.org, fakeClient(w.company, d));
+        expect(res.run).toMatchObject({ status: "applied", error: null, counts: { days: 200, unknown: 100 } });
+      } finally {
+        setNow(NOW);
+      }
+    });
+
+    it("защита: плановые дни без строки в общем окне (absence обрезан) по-прежнему останавливают прогон при хвостовом дне", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      await sync(w.org, fakeClient(w.company, c.data()));
+      try {
+        setNow("2026-10-21T07:00:00.000Z");
+        const { value: res, logged } = await quietly(() => nightly(w.org, fakeClient(w.company, c.data({ absent: [], extra: "2026-10-20" }))));
+        expect(res.run).toMatchObject({ status: "failed", error: "crawl_short" });
+        expect(logged).toContain("защита unknown");
+      } finally {
+        setNow(NOW);
+      }
+    });
+
     it("защита: нет прежнего api-импорта — результат записывается без сравнения; файловый импорт и импорт короче 50 строк базой не служат", async () => {
       const w = await world();
       const c = await crowd(w);

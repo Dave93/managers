@@ -76,10 +76,8 @@ export interface AttendanceGuardInput {
   previous: AttendanceSnapshot | null;
   /** Новый результат в том же окне. */
   next: AttendanceSnapshot;
-  /** Плановые дни без строки у нового результата (нет ни работы, ни записи absence), за всё новое окно. */
+  /** Плановые дни без строки (нет ни работы, ни записи absence) в том же общем окне, что и next. */
   unknown: number;
-  /** Все строки нового результата за всё новое окно: знаменатель доли unknown. */
-  rowsTotal: number;
 }
 
 export type AttendanceGuardResult = { ok: true } | { ok: false; check: "rows" | "check_in" | "unknown" };
@@ -99,7 +97,7 @@ export function checkAttendanceGuards(i: AttendanceGuardInput): AttendanceGuardR
   // Обрезанный late-in: люди и дни те же, но отметки пропали.
   if (i.next.withCheckIn < ATTENDANCE_SHORT_RATIO * i.previous.withCheckIn) return { ok: false, check: "check_in" };
   // Обрезанный absence: прогулы пропали, плановые дни ушли в «неизвестно».
-  const total = i.rowsTotal + i.unknown;
+  const total = i.next.rows + i.unknown;
   if (total > 0 && i.unknown > ATTENDANCE_MAX_UNKNOWN_SHARE * total) return { ok: false, check: "unknown" };
   return { ok: true };
 }

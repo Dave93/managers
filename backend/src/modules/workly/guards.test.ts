@@ -159,13 +159,12 @@ describe("checkAttendanceGuards", () => {
     previous: { rows: 1000, withCheckIn: 300 },
     next: { rows: 1000, withCheckIn: 300 },
     unknown: 20,
-    rowsTotal: 1000,
     ...over,
   });
 
   it("спокойный прогон проходит, рост тоже", () => {
     expect(checkAttendanceGuards(base())).toEqual({ ok: true });
-    expect(checkAttendanceGuards(base({ next: { rows: 1200, withCheckIn: 400 }, rowsTotal: 1200 }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ next: { rows: 1200, withCheckIn: 400 } }))).toEqual({ ok: true });
   });
 
   it("нет прошлого api-импорта или в нём меньше 50 строк — сравнивать не с чем, проходит даже обрезанный результат", () => {
@@ -175,8 +174,8 @@ describe("checkAttendanceGuards", () => {
   });
 
   it("строк меньше 90% прежних — rows; ровно 90% проходит (строгое сравнение)", () => {
-    expect(checkAttendanceGuards(base({ next: { rows: 899, withCheckIn: 300 }, rowsTotal: 899 }))).toEqual({ ok: false, check: "rows" });
-    expect(checkAttendanceGuards(base({ next: { rows: 900, withCheckIn: 300 }, rowsTotal: 900 }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ next: { rows: 899, withCheckIn: 300 } }))).toEqual({ ok: false, check: "rows" });
+    expect(checkAttendanceGuards(base({ next: { rows: 900, withCheckIn: 300 } }))).toEqual({ ok: true });
   });
 
   it("приходов меньше 90% прежних — check_in (обрезанный late-in); ровно 90% проходит", () => {
@@ -186,17 +185,17 @@ describe("checkAttendanceGuards", () => {
 
   it("плановых дней без строки больше 5% — unknown (обрезанный absence); ровно 5% проходит", () => {
     // 50 / (950 + 50) = 5%
-    expect(checkAttendanceGuards(base({ unknown: 50, rowsTotal: 950, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: true });
-    expect(checkAttendanceGuards(base({ unknown: 51, rowsTotal: 950, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: false, check: "unknown" });
+    expect(checkAttendanceGuards(base({ unknown: 50, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ unknown: 51, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: false, check: "unknown" });
   });
 
   it("порядок: rows важнее check_in, check_in важнее unknown", () => {
-    expect(checkAttendanceGuards(base({ next: { rows: 500, withCheckIn: 0 }, unknown: 900, rowsTotal: 500 }))).toEqual({ ok: false, check: "rows" });
+    expect(checkAttendanceGuards(base({ next: { rows: 500, withCheckIn: 0 }, unknown: 900 }))).toEqual({ ok: false, check: "rows" });
     expect(checkAttendanceGuards(base({ next: { rows: 1000, withCheckIn: 0 }, unknown: 900 }))).toEqual({ ok: false, check: "check_in" });
   });
 
   it("пустое окно без строк и без плановых дней не делит на ноль", () => {
-    expect(checkAttendanceGuards(base({ previous: null, next: { rows: 0, withCheckIn: 0 }, unknown: 0, rowsTotal: 0 }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ previous: null, next: { rows: 0, withCheckIn: 0 }, unknown: 0 }))).toEqual({ ok: true });
   });
 });
 
