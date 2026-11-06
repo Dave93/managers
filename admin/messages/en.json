@@ -3373,7 +3373,8 @@
           "empty_crawl": "No days to record: Workly has no reports for the organization's linked employees. First apply the employee reconciliation (the \"Connections\" section)",
           "stale": "The previous sync was stuck and has been closed. Start the sync again",
           "period_not_started": "This month has no completed days yet: choose a past month or come back tomorrow",
-          "run_in_progress": "A sync is already running: wait for it to finish"
+          "run_in_progress": "A sync is already running: wait for it to finish",
+          "crawl_short": "Workly returned incomplete reports, or the month's data changed sharply: the nightly update was stopped and the previous data is untouched. If the changes are real, run the sync manually"
         }
       },
       "quality": {

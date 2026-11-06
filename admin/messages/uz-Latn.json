@@ -3373,7 +3373,8 @@
           "empty_crawl": "Yoziladigan kunlar yo'q: tashkilotning bog'langan xodimlari bo'yicha Workly'da hisobotlar yo'q. Avval xodimlarni solishtirishni qo'llang («Ulanishlar» bo'limi)",
           "stale": "Oldingi sinxronlash qotib qolgan va yopilgan. Sinxronlashni qaytadan boshlang",
           "period_not_started": "Bu oyda hali tugagan kunlar yo'q: o'tgan oyni tanlang yoki ertaga qayting",
-          "run_in_progress": "Sinxronlash allaqachon bajarilmoqda: tugashini kuting"
+          "run_in_progress": "Sinxronlash allaqachon bajarilmoqda: tugashini kuting",
+          "crawl_short": "Workly hisobotlarni to'liq bermadi yoki oy ma'lumotlari keskin o'zgardi: tungi yangilash to'xtatildi, avvalgi ma'lumotlar o'zgarmadi. O'zgarishlar haqiqiy bo'lsa, sinxronlashni qo'lda ishga tushiring"
         }
       },
       "quality": {

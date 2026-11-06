@@ -672,5 +672,167 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await importDaysOf(importOf(second.run))).toEqual([eA]);
       expect(await daysOf(eMoved)).toEqual([]);
     });
+
+    // ---------- защита ночного прогона от неполного обхода ----------
+
+    // Ночной прогон: строка журнала с источником schedule, как у attendanceStep.
+    const nightly = async (org: string, client: Fake, period = P) => {
+      const { run_id } = await runs.startRun(db, { id: org, key: "LES" }, "attendance", "schedule", null, period);
+      await runs.executeRun(db, redis, run_id, () => client);
+      return { run_id, run: await runs.getRun(db, run_id) };
+    };
+
+    // 100 связанных сотрудников. День 1: работают все. День 2: работают 85, у 15 прогул в absence.
+    // Итого 200 строк и 185 приходов (late-in есть у всех работавших). Отчёты можно «обрезать» по частям.
+    const crowd = async (w: { company: number; t: string }) => {
+      const ids = Array.from({ length: 100 }, (_, i) => i + 1);
+      const emps = new Map<number, string>();
+      for (const id of ids) emps.set(id, await mkEmp(w.t, { company: w.company, id }));
+      const data = (o: { t12?: number[]; late?: number[]; absent?: number[]; day3?: boolean } = {}): Data => {
+        const t12Ids = o.t12 ?? ids;
+        const worked = (id: number, day: number) => day === 1 || id <= 85;
+        const lateIds = new Set(o.late ?? ids);
+        const absentIds = o.absent ?? ids.filter((id) => id > 85);
+        return {
+          employees: ids.map((id) => wEmp(id)),
+          t12: t12Ids.map((id) =>
+            t12(id, [
+              tday("2026-10-01", { work_time: "08:00" }),
+              tday("2026-10-02", worked(id, 2) ? { work_time: "08:00" } : {}),
+              ...(o.day3 ? [tday("2026-10-03", { work_time: "08:00" })] : []),
+            ])
+          ),
+          lateIn: ids
+            .filter((id) => lateIds.has(id))
+            .flatMap((id) => [
+              late(id, "2026-10-01"),
+              ...(worked(id, 2) ? [late(id, "2026-10-02")] : []),
+              ...(o.day3 ? [late(id, "2026-10-03")] : []),
+            ]),
+          absence: absentIds.map((id) => absent(id, "2026-10-02")),
+        };
+      };
+      return { ids, emps, data };
+    };
+    const rowsOfOrg = async (org: string) => {
+      const [imp] = await db
+        .select()
+        .from(kpi_attendance_imports)
+        .where(and(eq(kpi_attendance_imports.organization_id, org), eq(kpi_attendance_imports.status, "committed")));
+      return imp ? (await db.select().from(kpi_attendance).where(eq(kpi_attendance.import_id, imp.id))).length : 0;
+    };
+
+    it("защита: обрезанный T12 (часть людей Workly знает по списку, но в отчёте их нет) — ночной прогон failed/crawl_short, прежний импорт и дни целы", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run).toMatchObject({ status: "applied", counts: { days: 200, unknown: 0 } });
+
+      // T12 дочитан до 60 сотрудников из 100: людей из списка без элемента T12 не переносят, дни пропали бы
+      const cut = fakeClient(w.company, c.data({ t12: c.ids.slice(0, 60) }));
+      const { value: res, logged } = await quietly(() => nightly(w.org, cut));
+      expect(res.run).toMatchObject({ status: "failed", error: "crawl_short", counts: {}, applied_at: null });
+      expect(logged).toContain("crawl_short");
+      expect(logged).toContain("защита rows");
+      expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
+      expect(await rowsOfOrg(w.org)).toBe(200);
+      expect((await daysOf(c.emps.get(99)!)).map((d) => d.import_id)).toEqual([importOf(first.run), importOf(first.run)]);
+    });
+
+    it("защита: обрезанный late-in — приходов меньше 90% прежних, строк столько же — failed/crawl_short", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run.counts).toMatchObject({ days: 200 });
+
+      // late-in дочитан до 50 человек из 100: строки те же (работа видна в T12), отметок прихода 100 из 185
+      const { value: res, logged } = await quietly(() => nightly(w.org, fakeClient(w.company, c.data({ late: c.ids.slice(0, 50) }))));
+      expect(res.run).toMatchObject({ status: "failed", error: "crawl_short" });
+      expect(logged).toContain("защита check_in");
+      expect((await importsOf(w.org, P)).map((i) => [i.id, i.status])).toEqual([[importOf(first.run), "committed"]]);
+    });
+
+    it("защита: обрезанный absence — 15 прогулов стали «неизвестно», это 7,5% плановых дней — failed/crawl_short; строк 185 из 200 (92,5%) сами по себе проходят", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run.counts).toMatchObject({ days: 200, unknown: 0 });
+
+      const { value: res, logged } = await quietly(() => nightly(w.org, fakeClient(w.company, c.data({ absent: [] }))));
+      expect(res.run).toMatchObject({ status: "failed", error: "crawl_short" });
+      expect(logged).toContain("защита unknown");
+      expect(await rowsOfOrg(w.org)).toBe(200);
+    });
+
+    it("защита: ручная синхронизация с теми же обрезанными данными проходит — человек сам решил", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      await sync(w.org, fakeClient(w.company, c.data()));
+
+      const manual = await sync(w.org, fakeClient(w.company, c.data({ t12: c.ids.slice(0, 60) })));
+      expect(manual.run).toMatchObject({ status: "applied", error: null });
+      // 60 человек из T12 по 2 дня; остальных из списка Workly не переносят
+      expect(manual.run.counts).toMatchObject({ days: 120, carried: 0 });
+      expect(await rowsOfOrg(w.org)).toBe(120);
+    });
+
+    it("защита: обычный ночной прогон проходит; новый день на хвосте окна не мешает, прежние дни сравниваются в общем окне", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      const first = await sync(w.org, fakeClient(w.company, c.data()));
+      expect(first.run.counts).toMatchObject({ days: 200 });
+
+      try {
+        // Следующая ночь: окно до 20 октября, добавился день 3 (+100 строк, +100 приходов)
+        setNow("2026-10-21T07:00:00.000Z");
+        const res = await nightly(w.org, fakeClient(w.company, c.data({ day3: true })));
+        expect(res.run).toMatchObject({ status: "applied", error: null, counts: { days: 300 } });
+        expect((await importsOf(w.org, P)).map((i) => i.status)).toEqual(["replaced", "committed"]);
+        expect(await rowsOfOrg(w.org)).toBe(300);
+      } finally {
+        setNow(NOW);
+      }
+    });
+
+    it("защита: нет прежнего api-импорта — результат записывается без сравнения; файловый импорт и импорт короче 50 строк базой не служат", async () => {
+      const w = await world();
+      const c = await crowd(w);
+      // Месяц ещё не синхронизировался: обрезанный результат записывается (сравнивать не с чем)
+      const cut = c.data({ t12: c.ids.slice(0, 10) });
+      const noBase = await nightly(w.org, fakeClient(w.company, cut));
+      expect(noBase.run).toMatchObject({ status: "applied", counts: { days: 20 } });
+
+      // Прежний api-импорт из 20 строк: меньше 50, снова проходит
+      const small = await nightly(w.org, fakeClient(w.company, c.data({ t12: c.ids.slice(0, 5) })));
+      expect(small.run).toMatchObject({ status: "applied" });
+
+      // Файловый импорт на 60 строк (mapping без source "api"): базой не служит
+      const w2 = await world();
+      const c2 = await crowd(w2);
+      const fileDays = c.ids.slice(0, 60).map((id) => ({
+        employee_id: c2.emps.get(id)!,
+        day: "2026-10-01",
+        terminal_id: w2.t,
+        check_in: null,
+        check_out: null,
+        late_minutes: 0,
+        absent: false,
+      }));
+      await db.transaction((tx) =>
+        writeAttendanceImport(tx, {
+          period: P,
+          organization_id: w2.org,
+          file_name: "workly.xlsx",
+          uploaded_by: null,
+          mapping: { sheet: "Лист1", header_row: 1, mapping: { external_id: 0, date: 1 }, totals: { days_present: 60, days_late: 0, days_absent: 0 } },
+          days: fileDays,
+          rows_total: 60,
+          rows_unmatched: 0,
+          unmatched: [],
+        })
+      );
+      const afterFile = await nightly(w2.org, fakeClient(w2.company, c2.data({ t12: c2.ids.slice(0, 10) })));
+      expect(afterFile.run).toMatchObject({ status: "applied" });
+    });
   });
 }

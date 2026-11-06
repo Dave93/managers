@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { checkGuards } from "./guards";
+import { attendanceSnapshot, checkAttendanceGuards, checkGuards, previousApiWindowEnd } from "./guards";
 
 // Нейтральная база: прошлый применённый прогон есть, обход полный, изменений нет.
 // Каждый тест переопределяет только то, что проверяет.
@@ -147,5 +147,81 @@ describe("checkGuards: too_many_creations (больше 50)", () => {
 
   it("лимит созданий не зависит от orgActive", () => {
     expect(checkGuards(input({ creations: 51, orgActive: 5000 }))).toEqual({ ok: false, reason: "too_many_creations" });
+  });
+});
+
+// ---------- защита ночной посещаемости ----------
+
+describe("checkAttendanceGuards", () => {
+  type A = Parameters<typeof checkAttendanceGuards>[0];
+  // Нейтральная база: прошлый api-импорт 1000 дней, 300 с приходом; новый идентичен, плановых без строки 2%.
+  const base = (over: Partial<A> = {}): A => ({
+    previous: { rows: 1000, withCheckIn: 300 },
+    next: { rows: 1000, withCheckIn: 300 },
+    unknown: 20,
+    rowsTotal: 1000,
+    ...over,
+  });
+
+  it("спокойный прогон проходит, рост тоже", () => {
+    expect(checkAttendanceGuards(base())).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ next: { rows: 1200, withCheckIn: 400 }, rowsTotal: 1200 }))).toEqual({ ok: true });
+  });
+
+  it("нет прошлого api-импорта или в нём меньше 50 строк — сравнивать не с чем, проходит даже обрезанный результат", () => {
+    expect(checkAttendanceGuards(base({ previous: null, next: { rows: 1, withCheckIn: 0 } }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ previous: { rows: 49, withCheckIn: 10 }, next: { rows: 0, withCheckIn: 0 } }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ previous: { rows: 50, withCheckIn: 10 }, next: { rows: 0, withCheckIn: 0 } }))).toEqual({ ok: false, check: "rows" });
+  });
+
+  it("строк меньше 90% прежних — rows; ровно 90% проходит (строгое сравнение)", () => {
+    expect(checkAttendanceGuards(base({ next: { rows: 899, withCheckIn: 300 }, rowsTotal: 899 }))).toEqual({ ok: false, check: "rows" });
+    expect(checkAttendanceGuards(base({ next: { rows: 900, withCheckIn: 300 }, rowsTotal: 900 }))).toEqual({ ok: true });
+  });
+
+  it("приходов меньше 90% прежних — check_in (обрезанный late-in); ровно 90% проходит", () => {
+    expect(checkAttendanceGuards(base({ next: { rows: 1000, withCheckIn: 269 } }))).toEqual({ ok: false, check: "check_in" });
+    expect(checkAttendanceGuards(base({ next: { rows: 1000, withCheckIn: 270 } }))).toEqual({ ok: true });
+  });
+
+  it("плановых дней без строки больше 5% — unknown (обрезанный absence); ровно 5% проходит", () => {
+    // 50 / (950 + 50) = 5%
+    expect(checkAttendanceGuards(base({ unknown: 50, rowsTotal: 950, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: true });
+    expect(checkAttendanceGuards(base({ unknown: 51, rowsTotal: 950, next: { rows: 950, withCheckIn: 300 } }))).toEqual({ ok: false, check: "unknown" });
+  });
+
+  it("порядок: rows важнее check_in, check_in важнее unknown", () => {
+    expect(checkAttendanceGuards(base({ next: { rows: 500, withCheckIn: 0 }, unknown: 900, rowsTotal: 500 }))).toEqual({ ok: false, check: "rows" });
+    expect(checkAttendanceGuards(base({ next: { rows: 1000, withCheckIn: 0 }, unknown: 900 }))).toEqual({ ok: false, check: "check_in" });
+  });
+
+  it("пустое окно без строк и без плановых дней не делит на ноль", () => {
+    expect(checkAttendanceGuards(base({ previous: null, next: { rows: 0, withCheckIn: 0 }, unknown: 0, rowsTotal: 0 }))).toEqual({ ok: true });
+  });
+});
+
+describe("attendanceSnapshot", () => {
+  const rows = [
+    { day: "2026-10-01", check_in: "2026-10-01T04:05:00.000Z" },
+    { day: "2026-10-02", check_in: null },
+    { day: "2026-10-03", check_in: "2026-10-03T04:00:00.000Z" },
+    { day: "2026-10-04", check_in: null },
+  ];
+
+  it("считает строки и приходы только до дня to включительно", () => {
+    expect(attendanceSnapshot(rows, "2026-10-03")).toEqual({ rows: 3, withCheckIn: 2 });
+    expect(attendanceSnapshot(rows, "2026-10-04")).toEqual({ rows: 4, withCheckIn: 2 });
+    expect(attendanceSnapshot(rows, "2026-09-30")).toEqual({ rows: 0, withCheckIn: 0 });
+  });
+});
+
+describe("previousApiWindowEnd", () => {
+  it("берёт окно только у api-импорта с настоящей датой, прочее — null", () => {
+    expect(previousApiWindowEnd({ source: "api", window: { from: "2026-10-01", to: "2026-10-19" } })).toBe("2026-10-19");
+    expect(previousApiWindowEnd({ source: "file", window: { to: "2026-10-19" } })).toBeNull();
+    expect(previousApiWindowEnd({ source: "api", window: { to: "2026-13-40" } })).toBeNull();
+    expect(previousApiWindowEnd({ source: "api" })).toBeNull();
+    expect(previousApiWindowEnd(null)).toBeNull();
+    expect(previousApiWindowEnd("api")).toBeNull();
   });
 });

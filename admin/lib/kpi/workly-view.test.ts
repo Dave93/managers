@@ -791,7 +791,7 @@ describe("attendanceResultLines", () => {
 
 describe("attendanceErrorKey", () => {
   it("коды, у которых в блоке посещаемости свой текст", () => {
-    expect([...ATTENDANCE_ERROR_CODES].sort()).toEqual(["empty_crawl", "period_not_started", "run_in_progress", "stale"]);
+    expect([...ATTENDANCE_ERROR_CODES].sort()).toEqual(["crawl_short", "empty_crawl", "period_not_started", "run_in_progress", "stale"]);
     expect(attendanceErrorKey("empty_crawl")).toBe("attendance.errors.empty_crawl");
     expect(attendanceErrorKey("stale")).toBe("attendance.errors.stale");
     expect(attendanceErrorKey("period_not_started")).toBe("attendance.errors.period_not_started");
@@ -814,6 +814,11 @@ describe("lastRunErrorKey", () => {
     expect(lastRunErrorKey(run("attendance", "empty_crawl"))).toBe("attendance.errors.empty_crawl");
     expect(lastRunErrorKey(run("attendance", "stale"))).toBe("attendance.errors.stale");
     expect(lastRunErrorKey(run("attendance", "period_not_started"))).toBe("attendance.errors.period_not_started");
+  });
+
+  it("crawl_short: у посещаемости свой текст (защита ночного обновления), у сотрудников общий «мало сотрудников»", () => {
+    expect(lastRunErrorKey(run("attendance", "crawl_short"))).toBe("attendance.errors.crawl_short");
+    expect(lastRunErrorKey(run("employees", "crawl_short"))).toBe("errors.crawl_short");
   });
 
   it("код посещаемости без своего текста — общий текст errors.*", () => {

@@ -15,6 +15,7 @@ import { KpiError } from "../kpi/errors";
 import { isPeriodClosed } from "../kpi/periods";
 import { addMonths, isPeriod, tashkentDay, type Period } from "../kpi/time";
 import type { WorklyClient } from "./client";
+import { attendanceSnapshot, checkAttendanceGuards, previousApiWindowEnd } from "./guards";
 import type { AbsenceItem, LateInItem, T12Item } from "./types";
 
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -204,6 +205,44 @@ const startDateOf = (s: unknown): string | null => {
   return isDay(d) ? d : null;
 };
 
+// Защита ночного прогона: сравнение с действующим api-импортом месяца (его дни уже прочитаны как previous).
+// Окно сравнения — общие дни прежнего и нового окон, поэтому новый день на хвосте не мешает.
+async function assertComplete(
+  tx: DbLike,
+  i: {
+    period: Period;
+    orgId: string;
+    window: { from: string; to: string };
+    previous: { day: string; check_in: string | null }[];
+    days: AttendanceDayRow[];
+    unknown: number;
+  }
+): Promise<void> {
+  const [prevImport] = await tx
+    .select({ mapping: kpi_attendance_imports.mapping })
+    .from(kpi_attendance_imports)
+    .where(
+      and(
+        eq(kpi_attendance_imports.period, i.period),
+        eq(kpi_attendance_imports.status, "committed"),
+        eq(kpi_attendance_imports.organization_id, i.orgId)
+      )
+    )
+    .limit(1);
+  const prevTo = previousApiWindowEnd(prevImport?.mapping);
+  const to = prevTo !== null && prevTo < i.window.to ? prevTo : i.window.to;
+  const previous = prevTo === null ? null : attendanceSnapshot(i.previous, to);
+  const next = attendanceSnapshot(i.days, to);
+  const verdict = checkAttendanceGuards({ previous, next, unknown: i.unknown, rowsTotal: i.days.length });
+  if (verdict.ok) return;
+  // Только числа: ключ подключения и id прогона пишет executeRun.
+  console.error(
+    `workly: посещаемость ${i.period}: защита ${verdict.check}, дней ${next.rows}/${previous?.rows}, ` +
+      `с приходом ${next.withCheckIn}/${previous?.withCheckIn}, неизвестных ${i.unknown} из ${i.days.length + i.unknown}`
+  );
+  throw new KpiError(422, "crawl_short");
+}
+
 /**
  * Пересобирает посещаемость месяца организации из отчётов Workly и пишет её импортом
  * (file_name "Workly API", mapping.source "api"), заменяющим прежний импорт этой организации.
@@ -222,6 +261,10 @@ const startDateOf = (s: unknown): string | null => {
  * Пустой обход — сбой, а не «в этом месяце никого»: пустой T12 или ни одного дня к записи
  * (ни свежих, ни перенесённых) дают 422 empty_crawl, и прежний импорт месяца остаётся как был.
  *
+ * Защита от неполного обхода (opts.guard, её включает ночной прогон; ручная синхронизация без неё):
+ * результат сравнивается с действующим api-импортом месяца в общем окне, подозрение даёт 422 crawl_short,
+ * прежний импорт остаётся (checkAttendanceGuards). Файловый импорт и импорт короче 50 строк базой не служат.
+ *
  * Обращения к Workly — до транзакции и строго по одному. В транзакции: блокировка месяца,
  * чтение сотрудников и переносимых дней, запись. Месяц, закрытый во время обхода, даёт 409.
  */
@@ -230,7 +273,8 @@ export async function runAttendance(
   client: Pick<WorklyClient, "companyId" | "employees" | "t12" | "lateIn" | "absence">,
   org: { id: string },
   period: Period,
-  userId: string | null
+  userId: string | null,
+  opts: { guard?: boolean } = {}
 ): Promise<{ import_id: string; days: number; unknown: number; carried: number }> {
   const window = await syncWindow(db, period);
 
@@ -296,6 +340,7 @@ export async function runAttendance(
     const days = [...built.days, ...carried];
     // Писать нечего — значит, отчёты не о нас: прежний импорт не заменяем (откат транзакции).
     if (days.length === 0) throw new KpiError(422, "empty_crawl");
+    if (opts.guard) await assertComplete(tx, { period, orgId: org.id, window, previous, days, unknown: built.unknown });
     const imp = await writeAttendanceImport(tx, {
       period,
       organization_id: org.id,
