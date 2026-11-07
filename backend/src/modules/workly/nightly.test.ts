@@ -3,6 +3,7 @@ import { KpiError } from "../kpi/errors";
 import { WorklyError } from "./client";
 import { failedJobCode, handleWorklyJob, jobFailureCode, nightlySteps, WORKLY_NIGHTLY_JOB, worklyJobProcessor } from "./nightly";
 import { WORKLY_ACTIVITY_JOB } from "./activity";
+import { WORKLY_TWINS_JOB } from "./twins";
 import { WORKLY_RUN_JOB } from "./queue";
 
 const conn = (key: "LES" | "CHOPAR", hasApplied: boolean, configured: boolean) => ({ key, hasApplied, configured });
@@ -115,11 +116,12 @@ describe("workly: handleWorklyJob", () => {
   }
 
   const handlers = (
-    o: { run?: (id: string) => Promise<unknown>; nightly?: () => Promise<unknown>; activity?: () => Promise<unknown> } = {}
+    o: { run?: (id: string) => Promise<unknown>; nightly?: () => Promise<unknown>; activity?: () => Promise<unknown>; twins?: () => Promise<unknown> } = {}
   ) => ({
     run: o.run ?? (async () => undefined),
     nightly: o.nightly ?? (async () => []),
     activity: o.activity ?? (async () => []),
+    ...(o.twins ? { twins: o.twins } : {}),
   });
 
   it("workly-run вызывает исполнитель прогона с runId, workly-nightly — ночной прогон", async () => {
@@ -176,6 +178,40 @@ describe("workly: handleWorklyJob", () => {
     );
     expect(r.error!.message).toBe("auth_failed");
     expect(r.logged).toBe(`workly job failed ${WORKLY_ACTIVITY_JOB} - auth_failed`);
+  });
+
+  it("workly-twins вызывает пересчёт двойников; без обработчика — unknown_job; сбой уходит одним кодом без текста", async () => {
+    expect(WORKLY_TWINS_JOB).toBe("workly-twins");
+    let called = 0;
+    const result = { status: "ok", pairs: 3 };
+    const out = await handleWorklyJob(
+      { name: WORKLY_TWINS_JOB, data: {} },
+      handlers({
+        twins: async () => {
+          called++;
+          return result;
+        },
+      })
+    );
+    expect(called).toBe(1);
+    expect(out).toEqual(result);
+
+    const none = await quietly(() => handleWorklyJob({ name: WORKLY_TWINS_JOB, data: {} }, handlers()));
+    expect(none.error!.message).toBe("unknown_job");
+    expect(none.logged).toBe(`workly job failed ${WORKLY_TWINS_JOB} - unknown_job`);
+
+    const r = await quietly(() =>
+      handleWorklyJob(
+        { name: WORKLY_TWINS_JOB, data: {} },
+        handlers({
+          twins: async () => {
+            throw new WorklyError("http_error", "Иванов Иван секрет");
+          },
+        })
+      )
+    );
+    expect(r.error!.message).toBe("http_error");
+    expect(r.logged).toBe(`workly job failed ${WORKLY_TWINS_JOB} - http_error`);
   });
 
   it("сбой с текстом: наружу уходит новая Error с одним кодом, лог — имя, runId и код без текста", async () => {

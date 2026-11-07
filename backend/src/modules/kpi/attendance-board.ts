@@ -1,4 +1,4 @@
-import { employees, kpi_attendance, organization, staff_roles, terminals } from "backend/drizzle/schema";
+import { employees, kpi_attendance_effective, organization, staff_roles, terminals } from "backend/drizzle/schema";
 import { and, between, eq, inArray } from "drizzle-orm";
 import { seesNetwork, type Actor, type DbLike } from "./access";
 import { activeDaysOff, type DayOffInfo } from "./days-off";
@@ -46,18 +46,18 @@ export async function loadAttendanceBoard(db: DbLike, actor: Actor, q: { period:
   const rows = await db
     .select({
       ...person,
-      day: kpi_attendance.day,
-      absent: kpi_attendance.absent,
-      late_minutes: kpi_attendance.late_minutes,
-      check_in: kpi_attendance.check_in,
-      check_out: kpi_attendance.check_out,
+      day: kpi_attendance_effective.day,
+      absent: kpi_attendance_effective.absent,
+      late_minutes: kpi_attendance_effective.late_minutes,
+      check_in: kpi_attendance_effective.check_in,
+      check_out: kpi_attendance_effective.check_out,
     })
-    .from(kpi_attendance)
-    .innerJoin(employees, eq(employees.id, kpi_attendance.employee_id))
+    .from(kpi_attendance_effective)
+    .innerJoin(employees, eq(employees.id, kpi_attendance_effective.employee_id))
     .leftJoin(terminals, eq(terminals.id, employees.terminal_id))
     .leftJoin(organization, eq(organization.id, terminals.organization_id))
     .leftJoin(staff_roles, eq(staff_roles.id, employees.staff_role_id))
-    .where(and(between(kpi_attendance.day, q.period, lastDay), inZone));
+    .where(and(between(kpi_attendance_effective.day, q.period, lastDay), inZone));
   const active = await db
     .select(person)
     .from(employees)

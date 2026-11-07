@@ -22,6 +22,7 @@ export interface WorklyEmployee {
   patronymic: string;
   tab_number: string;
   start_date: string;
+  birth_date?: string | null;
   positions: { id: number; title: string }[];
   locations: WorklyLocationRef[];
 }

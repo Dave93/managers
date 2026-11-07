@@ -1,6 +1,6 @@
 // Факты филиала из общих таблиц iiko. Ключи из credentials приходят текстом, а orders.restaurant_group_id — uuid:
 // всё, что не прошло UUID_RE, отсеивается в JS до запроса (иначе Postgres бросит 22P02 и ответ станет 500).
-import { credentials, inventory_reconciliations, kpi_attendance, kpi_revenue_plans, kpi_sanitary_checks, orders } from "backend/drizzle/schema";
+import { credentials, inventory_reconciliations, kpi_attendance_effective, kpi_revenue_plans, kpi_sanitary_checks, orders } from "backend/drizzle/schema";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import type { DbLike } from "./access";
 import { monthLastDay } from "./branch-rules";
@@ -153,7 +153,7 @@ export async function attendanceByTerminal(
   db: DbLike,
   period: Period
 ): Promise<Map<string, { days: number; on_time: number; late: number; absent: number }>> {
-  const a = kpi_attendance;
+  const a = kpi_attendance_effective;
   const rows = await db
     .select({
       terminal_id: a.terminal_id,

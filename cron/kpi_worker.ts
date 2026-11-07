@@ -20,6 +20,7 @@ import { startScheduling } from "@backend/modules/kpi/worker/boot";
 import { runDaily } from "@backend/modules/kpi/worker/daily";
 import { dailyIfDue, type DailyRedis } from "@backend/modules/kpi/worker/daily-guard";
 import { WORKLY_ACTIVITY_JOB } from "@backend/modules/workly/activity";
+import { WORKLY_TWINS_JOB } from "@backend/modules/workly/twins";
 import { WORKLY_NIGHTLY_JOB, failedJobCode, jobFailureCode, worklyJobProcessor } from "@backend/modules/workly/nightly";
 import { getWorklyQueue, worklyQueueName } from "@backend/modules/workly/queue";
 
@@ -55,6 +56,13 @@ async function registerSchedulers() {
     WORKLY_ACTIVITY_JOB,
     { pattern: "7,22,37,52 * * * *", tz: "Asia/Tashkent" },
     { name: WORKLY_ACTIVITY_JOB, opts: schedulerJobOptions }
+  );
+  // Двойники между компаниями (один человек в Workly Chopar и Les): раз в сутки после ночного прогона (он занимает
+  // 8–9 минут от 03:30). Выключается WORKLY_TWINS=0 (проверяется в задаче).
+  await worklyQueue.upsertJobScheduler(
+    WORKLY_TWINS_JOB,
+    { pattern: "20 4 * * *", tz: "Asia/Tashkent" },
+    { name: WORKLY_TWINS_JOB, opts: schedulerJobOptions }
   );
 }
 
