@@ -8,8 +8,9 @@
 // табельный номер, пин и QR у каждой компании свои. Работает имя и дата рождения:
 //   name_birth: имя совпало точно (фамилия + имя, порядок не важен) или с опечаткой (≥2 из 3 слов ФИО, до 2 букв
 //               разницы), и дата рождения одинаковая;
-//   name_only:  имя совпало точно, а даты рождения разные или не заполнены; пара берётся, только если в один день обе
-//               записи отмечены присутствием не были (два тёзки работали бы одновременно).
+//   name_only:  имя совпало точно, а даты рождения разные или не заполнены.
+// Любую пару проверяет посещаемость: если в последних двух месяцах обе записи отмечены присутствием в один день
+// чаще, чем допускает OVERLAP_LIMIT (name_only: ни разу, name_birth: не больше двух дней), это два человека.
 // Человек, попавший в несколько кандидатов, пропускается (неоднозначно). Ошибочную пару разрывает человек: blocked.
 import type { DrizzleDB } from "@backend/lib/db";
 import { employee_twins, employees } from "backend/drizzle/schema";
@@ -161,6 +162,12 @@ const EMPTY: TwinsResult = { status: "skipped", pairs: 0, added: 0, updated: 0, 
 
 export const twinsOn = (env: Record<string, string | undefined>): boolean => env.WORKLY_TWINS !== "0";
 
+// Сколько дней в одну пару могут быть отмечены обе записи, чтобы это всё ещё был один человек: name_birth допускает
+// случайные двойные отметки (вход в одной компании, выход в другой), name_only не допускает ни одной. Больше значит
+// двое работают одновременно (близнецы, брат и сестра с одной датой рождения): первая выкладка 2026-11-07 склеила
+// такую пару с 30 общими днями из 34, потому что проверка шла только у name_only.
+export const OVERLAP_LIMIT: Record<TwinRule, number> = { name_birth: 2, name_only: 0 };
+
 // Сколько дней в последних двух месяцах оба сотрудника были отмечены присутствием (по самим данным Workly).
 async function overlapDays(db: DrizzleDB, idA: string, idB: string): Promise<number> {
   const r = await db.execute(sql`
@@ -214,7 +221,7 @@ export async function syncTwins(
       unlinked++;
       continue;
     }
-    if (p.rule === "name_only" && (await overlapDays(db, idA, idB)) > 0) {
+    if ((await overlapDays(db, idA, idB)) > OVERLAP_LIMIT[p.rule]) {
       rejected++;
       continue;
     }

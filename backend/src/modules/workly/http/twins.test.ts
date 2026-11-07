@@ -138,6 +138,32 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await rows()).toHaveLength(0);
     });
 
+    it("name_birth тоже проверяется по посещаемости: близнецы (разные имена, одна дата) с 3 и больше общими днями отказ, с двумя случайными двойными отметками пара остаётся", async () => {
+      const w = await world();
+      const a = await emp(w.oLes, w.cLes, 1);
+      const b = await emp(w.oCho, w.cCho, 11);
+      // Одинаковые фамилия, отчество и дата рождения, имена разные: кандидат name_birth по правилу «≥2 слов ФИО»
+      const ps = fake(w.cLes, [P(1, "Sobirov", "Zafar", "1992-02-02", "Akramovich")]);
+      const pc = fake(w.cCho, [P(11, "Sobirov", "Farhod", "1992-02-02", "Akramovich")]);
+      const today = new Date();
+      const day = (back: number) => new Date(today.getTime() - back * 86_400_000).toISOString().slice(0, 10);
+      const [imp] = await db
+        .insert(kpi_attendance_imports)
+        .values({ period: `${day(0).slice(0, 7)}-01`, file_name: "twins", uploaded_by: randomUUID(), mapping: {}, rows_total: 6, rows_matched: 6 })
+        .returning({ id: kpi_attendance_imports.id });
+      const present = (id: string, back: number) =>
+        db.insert(kpi_attendance).values({ employee_id: id, day: day(back), terminal_id: w.oLes.terminal, late_minutes: 0, absent: false, import_id: imp.id });
+      for (const back of [0, 1]) for (const id of [a, b]) await present(id, back);
+      // Два общих дня: допустимо, пара создаётся
+      expect(await run(ps, pc)).toMatchObject({ pairs: 1, added: 1, rejected_overlap: 0 });
+      expect((await rows())[0]).toMatchObject({ rule: "name_birth", blocked: false });
+      // Третий общий день: это двое, пара убирается
+      for (const id of [a, b]) await present(id, 2);
+      expect(await run(ps, pc)).toMatchObject({ pairs: 0, rejected_overlap: 1, removed: 1 });
+      expect(await rows()).toHaveLength(0);
+      expect(twins.OVERLAP_LIMIT).toEqual({ name_birth: 2, name_only: 0 });
+    });
+
     it("разорванная человеком пара (blocked) не трогается и заново не создаётся", async () => {
       const w = await world();
       const a = await emp(w.oLes, w.cLes, 1);
