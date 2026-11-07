@@ -157,7 +157,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await rowsOf(e.id)).toHaveLength(0);
     });
 
-    it("чужой филиал, неактивный, не uuid, без employee_id, назначение по карте", async () => {
+    it("чужой филиал, неактивный, не uuid, без employee_id; карта в назначении и у сотрудника не важна", async () => {
       setNow(NOW);
       const { t, ev, token } = await world();
       const foreign = await makeEmployee(db, { role_code: "cook", terminal_id: (await makeTerminal(db)).id });
@@ -168,15 +168,62 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(await give(token, randomUUID(), "2025-10-27", "2025-10-27")).toEqual(NOT_FOUND);
       expect((await tgApi(token, "POST", URL_GIVE, { from: "2025-10-27", to: "2025-10-27", reason_code: "sick" })).body).toEqual({ error: "bad_id" });
 
-      // Оценщик только по чужой карте не выдаёт выходные повару своего филиала.
+      // Право по филиалу, а не по карте: оценщик, назначенный на филиал только по чужой карте, выдаёт выходные
+      // повару, и сотруднику без карты тоже. Оценщик другого филиала не выдаёт никому.
       const evCard = await makeEvaluator(db);
       await makeScope(db, evCard.id, { terminal_id: t.id, card_id: otherCardId });
       const cook = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
-      expect(await give(await evSession(db, evCard.id), cook.id, "2025-10-27", "2025-10-27")).toEqual(OUT);
-      const evOwnCard = await makeEvaluator(db);
-      await makeScope(db, evOwnCard.id, { terminal_id: t.id, card_id: cookCardId });
-      expect((await give(await evSession(db, evOwnCard.id), cook.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+      const cardless = await makeEmployee(db, { terminal_id: t.id });
+      const tokenCard = await evSession(db, evCard.id);
+      expect((await give(tokenCard, cook.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+      expect((await give(tokenCard, cardless.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+      expect(await rowsOf(cardless.id)).toHaveLength(1);
+      const evElsewhere = await makeEvaluator(db);
+      await makeScope(db, evElsewhere.id, { terminal_id: (await makeTerminal(db)).id, card_id: cookCardId });
+      expect(await give(await evSession(db, evElsewhere.id), cook.id, "2025-10-28", "2025-10-28")).toEqual(OUT);
+      // Форма выдачи по тому же правилу
+      expect((await tgApi(tokenCard, "GET", `/api/kpi/tg/ev/day-off-form?employee_id=${cardless.id}`)).status).toBe(200);
       expect(ev.id).toBeTruthy();
+    });
+
+    it("список для выдачи: все активные сотрудники филиалов оценщика, с картой и без, по фамилии; чужие и неактивные не видны", async () => {
+      setNow(NOW);
+      const { t, token } = await world();
+      const t2 = await makeTerminal(db);
+      const ev2 = await makeEvaluator(db);
+      await makeScope(db, ev2.id, { terminal_id: t.id, card_id: otherCardId });
+      await makeScope(db, ev2.id, { terminal_id: t2.id });
+      const a = await makeEmployee(db, { role_code: "cook", terminal_id: t.id, first_name: "Тест Борис" });
+      const b = await makeEmployee(db, { terminal_id: t.id, first_name: "Тест Аня" });
+      const c = await makeEmployee(db, { role_code: "cook", terminal_id: t2.id });
+      const off = await makeEmployee(db, { role_code: "cook", terminal_id: t.id, active: false });
+      const foreign = await makeEmployee(db, { role_code: "cook", terminal_id: (await makeTerminal(db)).id });
+
+      const one = await tgApi(token, "GET", "/api/kpi/tg/ev/days-off/employees");
+      expect(one.status).toBe(200);
+      const ids1 = one.body.items.map((x: { id: string }) => x.id);
+      expect(ids1).toEqual(expect.arrayContaining([a.id, b.id]));
+      expect(ids1).not.toContain(off.id);
+      expect(ids1).not.toContain(foreign.id);
+      expect(ids1).not.toContain(c.id);
+      expect(one.body.items.find((x: { id: string }) => x.id === b.id)).toMatchObject({ terminal_id: t.id, position: null });
+      expect(one.body.terminals.map((x: { id: string }) => x.id)).toEqual([t.id]);
+
+      const two = await tgApi(await evSession(db, ev2.id), "GET", "/api/kpi/tg/ev/days-off/employees");
+      const ids2 = two.body.items.map((x: { id: string }) => x.id);
+      expect(ids2).toEqual(expect.arrayContaining([a.id, b.id, c.id]));
+      expect(ids2).not.toContain(foreign.id);
+      expect(two.body.terminals.map((x: { id: string }) => x.id).sort()).toEqual([t.id, t2.id].sort());
+      // Порядок по фамилии, затем имени
+      const keys = two.body.items.map((x: { last_name: string; first_name: string }) => `${x.last_name} ${x.first_name}`);
+      const sorted = two.body.items
+        .slice()
+        .sort((p: { last_name: string; first_name: string }, q: { last_name: string; first_name: string }) => p.last_name.localeCompare(q.last_name, "ru") || p.first_name.localeCompare(q.first_name, "ru"))
+        .map((x: { last_name: string; first_name: string }) => `${x.last_name} ${x.first_name}`);
+      expect(keys).toEqual(sorted);
+      // Оценщик без назначений получает пустой список, а не чужих
+      const none = await makeEvaluator(db);
+      expect((await tgApi(await evSession(db, none.id), "GET", "/api/kpi/tg/ev/days-off/employees")).body).toEqual({ terminals: [], items: [] });
     });
 
     it("отмена: автор, чужой оценщик, повтор, закрытый месяц, мусорный id", async () => {

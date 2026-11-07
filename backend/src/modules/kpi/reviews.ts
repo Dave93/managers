@@ -155,6 +155,16 @@ async function cardInfo(db: DbLike, cardId: string) {
   return c;
 }
 
+// Пункт «Приход и уход» оценщик не заполняет: его балл — предложение системы (Workly + выходные), живое для
+// черновика и снимок для отправленной оценки (loadSuggestions). Предложения нет (нет данных) — балла нет,
+// пункт выпадает из итога. Заметки у такого пункта не бывает.
+export function withAutoAttendance<T extends { item_id: string; source: ItemSource; score: number | null; note: string | null }>(
+  items: T[],
+  suggestions: Map<string, { score: number }>
+): T[] {
+  return items.map((i) => (i.source === "attendance" ? { ...i, score: suggestions.get(i.item_id)?.score ?? null, note: null } : i));
+}
+
 // Проверка ввода и применение к пунктам; возвращает новый список, исходный не меняет.
 function applyInputs(
   base: WorkItem[],
@@ -165,6 +175,9 @@ function applyInputs(
   for (const inp of inputs) {
     const it = byId.get(inp.item_id);
     if (!it) throw new KpiError(422, "unknown_item", { item_id: inp.item_id });
+    // «Приход и уход» считает система (Workly + выходные): ручной ввод игнорируется, а не отклоняется,
+    // чтобы старая версия мини-приложения, которая ещё присылает балл, не ломалась.
+    if (it.source === "attendance") continue;
     const score = inp.score === undefined ? NaN : inp.score;
     if (score !== null && !isScore(score)) throw new KpiError(422, "bad_score", { item_id: inp.item_id });
     it.score = score;
@@ -215,7 +228,7 @@ async function syncDraft(tx: DbLike, review: ReviewRow, emp: DirEmployee, inputs
     base
   );
   // В снимок попадает предложение на момент сохранения (при отправке это и есть снимок отправки).
-  const items = applyInputs(base, inputs, suggestions).map((i) => ({
+  const items = applyInputs(withAutoAttendance(base, suggestions), inputs, suggestions).map((i) => ({
     ...i,
     auto_value: suggestions.get(i.item_id)?.auto_value ?? null,
   }));
@@ -314,6 +327,8 @@ async function buildForm(
     { employee_id: emp.id, terminal_id: emp.terminal_id, period, status: (review?.status as "draft" | "submitted" | undefined) ?? null },
     work
   );
+  // Черновик и новая форма: балл посещаемости живой, он же идёт в итог. Отправленная оценка берёт снимок как есть.
+  if (!fromSnapshot) work = withAutoAttendance(work, suggestions);
   const violations = await violationsFor(db, emp.id, period);
   const itemIds = new Set(work.map((w) => w.item_id));
   const items: ReviewFormItem[] = work.map((w) => {

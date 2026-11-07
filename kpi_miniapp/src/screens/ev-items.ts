@@ -16,7 +16,21 @@ export interface ItemEditorsOpts {
   onChange(itemId: string, v: DraftItem): void;
 }
 
+// «Приход и уход»: балл считает система, у пункта нет ни кнопок, ни заметки.
+function autoItemCard(vm: EvItemVM): HTMLElement {
+  return h(
+    "section",
+    { class: "card ev-item", id: `ev-item-${vm.id}` },
+    h("h3", { class: "ev-item-title" }, vm.title),
+    vm.sourceLabel ? h("span", { class: "chip chip-muted" }, vm.sourceLabel) : null,
+    vm.autoText ? h("p", { class: "ev-hint", role: "status" }, vm.autoText) : null,
+    vm.violationLine ? h("p", { class: "ev-viol" }, vm.violationLine) : null,
+    ...vm.violationComments.map((c) => h("p", { class: "ev-viol-c" }, c)),
+  );
+}
+
 function itemCard(vm: EvItemVM, src: EvFormItem, o: ItemEditorsOpts): HTMLElement {
+  if (src.source === "attendance") return autoItemCard(vm);
   let value: DraftItem = o.draft[vm.id] ?? { score: src.score, note: src.note ?? "" };
   const auto = src.source !== "manual";
   const apply = (next: DraftItem, fromInput = false): void => {

@@ -11,35 +11,49 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { api, cleanupKpi, importAttendance, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
-  const { kpi_review_items } = await import("backend/drizzle/schema");
-  const { and, eq } = await import("drizzle-orm");
+  const { api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
+  const { kpi_attendance, kpi_attendance_imports } = await import("backend/drizzle/schema");
   type Card = import("../types").Card;
   type Session = Awaited<ReturnType<typeof withSession>>;
 
   const P = "2025-11-01";
   const OPEN = "2025-11-25T10:00:00+05:00";
 
-  describe("kpi: предложение «Приход и уход» в форме оценки", () => {
+  describe("kpi: «Приход и уход» считает система (Workly + выходные), оценщик её не заполняет", () => {
     let db: Awaited<ReturnType<typeof setup>>["db"];
-    let cookItems: string[]; // item_id пунктов карты повара: attendance + 6 ручных
+    let cookItems: { id: string; weight: number }[]; // пункты карты повара: attendance + 6 ручных
     let hr: Session;
 
-    const ATT = () => cookItems[0];
-    const manual = (vals: number[]) => vals.map((score, i) => ({ item_id: cookItems[i + 1], score }));
+    const ATT = () => cookItems[0].id;
+    const manual = (vals: number[]) => vals.map((score, i) => ({ item_id: cookItems[i + 1].id, score }));
     const FULL = [100, 100, 100, 100, 100, 100];
     const BASIS = "Workly: 3 дня, вовремя 2, опозданий 1, прогулов 0";
-    const threeDays = (x: string) => [
-      [x, 45962, "09:00", "18:00", 0, ""],
-      [x, 45963, "09:20", "18:00", 20, ""],
-      [x, 45964, "08:50", "18:00", 0, ""],
-    ];
-    async function cookWithWorkly() {
-      const x = "T-" + randomUUID().slice(0, 8);
-      const e = await makeEmployee(db, { role_code: "cook", external_id: x });
+    // Σ(score×weight)/Σweight по пунктам с баллом, как scorePct на сервере.
+    const pct = (att: number | null, vals: number[]) => {
+      const all = [att, ...vals];
+      let sum = 0;
+      let w = 0;
+      all.forEach((v, i) => {
+        if (v === null) return;
+        sum += v * cookItems[i].weight;
+        w += cookItems[i].weight;
+      });
+      return Math.round((sum / w) * 100) / 100;
+    };
+    // Посещаемость напрямую в таблицы: загрузка файла через HTTP в этом окружении недоступна.
+    async function seedDays(employee_id: string, terminal_id: string, days: { day: string; late?: number }[]) {
+      const [imp] = await db
+        .insert(kpi_attendance_imports)
+        .values({ period: P, file_name: "attendance-review", uploaded_by: randomUUID(), mapping: {}, rows_total: days.length, rows_matched: days.length })
+        .returning({ id: kpi_attendance_imports.id });
+      await db.insert(kpi_attendance).values(days.map((d) => ({ employee_id, day: d.day, terminal_id, late_minutes: d.late ?? 0, absent: false, import_id: imp.id })));
+    }
+    const threeDays = [{ day: "2025-11-03" }, { day: "2025-11-04", late: 10 }, { day: "2025-11-05" }];
+    async function cook() {
+      const e = await makeEmployee(db, { role_code: "cook" });
       const ev = await withSession({ permissions: ["kpi.evaluate"] });
       await makeScope(db, ev.userId, { terminal_id: e.terminal_id });
-      return { e, x, ev };
+      return { e, ev };
     }
     const form = (s: Session, id: string) => api(s, "GET", `/api/kpi/reviews/form?period=${P}&employee_id=${id}`);
     const draft = (s: Session, id: string, items: unknown[]) => api(s, "PUT", "/api/kpi/reviews/draft", { period: P, employee_id: id, items });
@@ -47,110 +61,90 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     beforeAll(async () => {
       ({ db } = await setup());
       await cleanupKpi(db);
+      setNow(OPEN);
       hr = await withSession({ permissions: ["kpi.manage"] });
       const cards = (await api(hr, "GET", "/api/kpi/cards")).body as Card[];
-      cookItems = cards.find((c) => c.code === "cook")!.items.map((i) => i.id);
+      cookItems = cards.find((c) => c.code === "cook")!.items.map((i) => ({ id: i.id, weight: i.weight }));
     }, 180000);
 
     afterAll(async () => {
       setNow(null);
       await cleanupKpi(db);
       await sweepTestRoles();
-      // closeTestRedis не зовём: соединение общее для всех файлов прогона.
     });
 
-    it("без строк Workly предложения нет", async () => {
-      const { e, ev } = await cookWithWorkly();
+    it("без данных Workly предложения нет, балла у пункта нет, итог считается только по ручным", async () => {
+      const { e, ev } = await cook();
       const f = (await form(ev, e.id)).body;
-      expect(f.items[0].source).toBe("attendance");
-      expect(f.items[0].suggestion).toBeNull();
+      expect(f.items[0]).toMatchObject({ source: "attendance", suggestion: null, score: null });
+      const d = await draft(ev, e.id, manual(FULL));
+      expect(d.status).toBe(200);
+      expect(d.body.items[0]).toMatchObject({ score: null, note: null });
+      expect(d.body.review.score_pct).toBe(pct(null, FULL));
     });
 
-    it("после импорта форма предлагает балл и основание", async () => {
-      const { e, x, ev } = await cookWithWorkly();
-      expect((await importAttendance(hr, threeDays(x), P)).status).toBe(200);
+    it("форма с данными: балл пункта равен предложению, он же входит в итог ещё до сохранения", async () => {
+      const { e, ev } = await cook();
+      await seedDays(e.id, e.terminal_id, threeDays);
       const f = (await form(ev, e.id)).body;
-      expect(f.items[0].suggestion).toEqual({ score: 67, basis: BASIS });
+      expect(f.items[0]).toMatchObject({ source: "attendance", suggestion: { score: 67, basis: BASIS }, score: 67 });
       expect(f.items.slice(1).every((i: any) => i.suggestion === null)).toBe(true);
     });
 
-    it("свой балл без заметки — 422; с заметкой — 200; принятое предложение — без заметки", async () => {
-      const { e, x, ev } = await cookWithWorkly();
-      await importAttendance(hr, threeDays(x), P);
-      expect((await draft(ev, e.id, [{ item_id: ATT(), score: 50 }])).body).toEqual({ error: "note_required", item_id: ATT() });
-      expect((await draft(ev, e.id, [{ item_id: ATT(), score: 50, note: "болел два дня" }])).status).toBe(200);
-      const ok = await draft(ev, e.id, [{ item_id: ATT(), score: 67, note: null }]);
-      expect(ok.status).toBe(200);
-      expect(ok.body.items[0]).toMatchObject({ score: 67, note: null });
-    });
-
-    it("черновик до импорта: отправка {} после импорта требует заметку", async () => {
-      setNow(OPEN);
-      const { e, x, ev } = await cookWithWorkly();
-      const d = await draft(ev, e.id, [{ item_id: ATT(), score: 100 }, ...manual(FULL)]);
+    it("ручной ввод по посещаемости игнорируется: ни другой балл, ни «нет данных», ни заметка не принимаются и не требуют заметки", async () => {
+      const { e, ev } = await cook();
+      await seedDays(e.id, e.terminal_id, threeDays);
+      const d = await draft(ev, e.id, [{ item_id: ATT(), score: 0, note: "свой взгляд" }, ...manual(FULL)]);
       expect(d.status).toBe(200);
-      await importAttendance(hr, threeDays(x), P);
-      const id = d.body.review.id;
-      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).body).toEqual({ error: "note_required", item_id: ATT() });
-      await draft(ev, e.id, [{ item_id: ATT(), score: 100, note: "Workly не учёл подмену" }]);
-      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
+      expect(d.body.items[0]).toMatchObject({ score: 67, note: null, suggestion: { score: 67, basis: BASIS } });
+      expect(d.body.review.score_pct).toBe(pct(67, FULL));
+      const nd = await draft(ev, e.id, [{ item_id: ATT(), score: null }, ...manual(FULL)]);
+      expect(nd.status).toBe(200);
+      expect(nd.body.items[0]).toMatchObject({ score: 67, note: null });
     });
 
-    it("«Нет данных» при предложении: черновик сохраняется, отправка без заметки — 422, с заметкой — 200", async () => {
-      setNow(OPEN);
-      const { e, x, ev } = await cookWithWorkly();
-      await importAttendance(hr, threeDays(x), P);
-      const d = await draft(ev, e.id, [{ item_id: ATT(), score: null }, ...manual(FULL)]);
-      expect(d.status).toBe(200);
-      expect(d.body.items[0]).toMatchObject({ score: null, note: null, suggestion: { score: 67, basis: BASIS } });
+    it("отправка {} без ввода по посещаемости: 200, балл равен предложению, снимок не меняется от новых данных", async () => {
+      const { e, ev } = await cook();
+      await seedDays(e.id, e.terminal_id, threeDays);
+      const d = await draft(ev, e.id, manual(FULL));
       const id = d.body.review.id;
-      const submit = (body: unknown) => api(ev, "POST", `/api/kpi/reviews/${id}/submit`, body);
-      expect(await submit({})).toEqual({ status: 422, body: { error: "note_required", item_id: ATT() } });
-      expect((await submit({ items: [{ item_id: ATT(), score: null, note: "   " }] })).body).toEqual({ error: "note_required", item_id: ATT() });
-      const ok = await submit({ items: [{ item_id: ATT(), score: null, note: "Workly не работал на филиале" }] });
+      const sub = await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {});
+      expect(sub.status).toBe(200);
+      expect(sub.body.items[0]).toMatchObject({ score: 67, note: null, suggestion: { score: 67, basis: BASIS } });
+      expect(sub.body.review.score_pct).toBe(pct(67, FULL));
+      // Дальше Workly дописывает дни: отправленная оценка остаётся по снимку
+      await seedDays(e.id, e.terminal_id, [{ day: "2025-11-06", late: 30 }]);
+      const again = (await form(ev, e.id)).body;
+      expect(again.items[0]).toMatchObject({ score: 67, suggestion: { score: 67, basis: BASIS } });
+      expect(again.review.score_pct).toBe(pct(67, FULL));
+    });
+
+    it("изменение отправленной: правка ручного пункта проходит, посещаемость остаётся; правка только посещаемости — 422 no_changes", async () => {
+      const { e, ev } = await cook();
+      await seedDays(e.id, e.terminal_id, threeDays);
+      const d = await draft(ev, e.id, manual(FULL));
+      const id = d.body.review.id;
+      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
+      const only = await api(ev, "PUT", `/api/kpi/reviews/${id}`, { items: [{ item_id: ATT(), score: 0, note: null }], comment: "пересмотр посещаемости" });
+      expect(only).toEqual({ status: 422, body: { error: "no_changes" } });
+      const ok = await api(ev, "PUT", `/api/kpi/reviews/${id}`, {
+        items: [{ item_id: ATT(), score: 0, note: null }, { item_id: cookItems[1].id, score: 50, note: null }],
+        comment: "пересмотр чистоты кухни",
+      });
       expect(ok.status).toBe(200);
-      expect(ok.body.review.status).toBe("submitted");
-      expect(ok.body.items[0]).toMatchObject({ score: null, note: "Workly не работал на филиале", suggestion: { score: 67, basis: BASIS } });
+      expect(ok.body.items[0]).toMatchObject({ score: 67 });
+      expect(ok.body.items[1]).toMatchObject({ score: 50 });
+      expect(ok.body.review.score_pct).toBe(pct(67, [50, 100, 100, 100, 100, 100]));
     });
 
-    it("изменение отправленной: «Нет данных» у автопункта без заметки — 422, с заметкой — 200", async () => {
-      setNow(OPEN);
-      const { e, x, ev } = await cookWithWorkly();
-      await importAttendance(hr, threeDays(x), P);
-      const d = await draft(ev, e.id, [{ item_id: ATT(), score: 67 }, ...manual(FULL)]);
-      const id = d.body.review.id;
-      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
-      const items = (note: string | null) => [{ item_id: ATT(), score: null, note }, ...manual(FULL).map((i) => ({ ...i, note: null }))];
-      const change = (note: string | null, comment: string) => api(ev, "PUT", `/api/kpi/reviews/${id}`, { items: items(note), comment });
-      expect(await change(null, "данных Workly нет")).toEqual({ status: 422, body: { error: "note_required", item_id: ATT() } });
-      const ok = await change("терминал не работал", "данных Workly нет");
-      expect(ok.status).toBe(200);
-      expect(ok.body.items[0]).toMatchObject({ score: null, note: "терминал не работал" });
-      // Убрать заметку, оставив «Нет данных», нельзя
-      expect((await change(null, "заметка лишняя")).body).toEqual({ error: "note_required", item_id: ATT() });
-    });
-
-    it("снимок предложения: повторный импорт не меняет отправленную оценку, правка ручного пункта — 200", async () => {
-      setNow(OPEN);
-      const { e, x, ev } = await cookWithWorkly();
-      await importAttendance(hr, threeDays(x), P);
-      const d = await draft(ev, e.id, [{ item_id: ATT(), score: 67 }, ...manual(FULL)]);
-      const id = d.body.review.id;
-      expect((await api(ev, "POST", `/api/kpi/reviews/${id}/submit`, {})).status).toBe(200);
-      const [snap] = await db.select({ v: kpi_review_items.auto_value }).from(kpi_review_items)
-        .where(and(eq(kpi_review_items.review_id, id), eq(kpi_review_items.item_id, ATT())));
-      expect(snap.v).toEqual({ source: "attendance", days: 3, ontime: 2, late: 1, absent: 0, score: 67, basis: BASIS });
-
-      // Новый файл: все дни вовремя, живое предложение стало бы 100.
-      await importAttendance(hr, threeDays(x).map((r) => [r[0], r[1], "08:55", "18:00", 0, ""]), P);
-      const f = (await form(ev, e.id)).body;
-      expect(f.items[0].suggestion).toEqual({ score: 67, basis: BASIS });
-
-      // Админка шлёт все пункты; нетронутый автопункт заметки не требует.
-      const items = [{ item_id: ATT(), score: 67, note: null }, ...manual([75, 100, 100, 100, 100, 100]).map((i) => ({ ...i, note: null }))];
-      const ch = await api(ev, "PUT", `/api/kpi/reviews/${id}`, { items, comment: "пересмотр чистоты кухни" });
-      expect(ch.status).toBe(200);
-      expect(ch.body.items[0].suggestion).toEqual({ score: 67, basis: BASIS });
+    it("черновик до появления данных: после них пункт сам получает балл, отправка без шагов от оценщика", async () => {
+      const { e, ev } = await cook();
+      const d = await draft(ev, e.id, manual(FULL));
+      expect(d.body.items[0].score).toBeNull();
+      await seedDays(e.id, e.terminal_id, threeDays);
+      const sub = await api(ev, "POST", `/api/kpi/reviews/${d.body.review.id}/submit`, {});
+      expect(sub.status).toBe(200);
+      expect(sub.body.items[0]).toMatchObject({ score: 67, note: null });
     });
   });
 }

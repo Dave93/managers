@@ -1,7 +1,7 @@
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { now } from "../clock";
-import { dayOffForm } from "../days-off";
+import { dayOffEmployees, dayOffForm } from "../days-off";
 import { run } from "../errors";
 import type { ItemInput } from "../reviews";
 import { kpiTgCtx } from "../tg-app/ctx";
@@ -12,6 +12,7 @@ import { evCancelDayOff, evDaysOff, evGiveDaysOff } from "../tg-app/ev-days-off"
 import { evForm, evSaveDraft, evSubmit } from "../tg-app/ev-review";
 import type {
   EvDayOff,
+  EvDayOffEmployees,
   EvDayOffForm,
   EvDaysOff,
   EvDaysOffCreated,
@@ -221,6 +222,13 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
         reason_text: t.Optional(t.Any()),
       }),
     }
+  )
+  // Сотрудники филиалов оценщика для выбора, кому выдать выходной: с картой и без.
+  .get("/kpi/tg/ev/days-off/employees", async ({ tg, drizzle, cacheController, set }) =>
+    run(set, async (): Promise<EvDayOffEmployees> => {
+      const actor = await evaluatorActor(drizzle, cacheController, tg);
+      return dayOffEmployees(drizzle, actor);
+    })
   )
   // period проверяет сервис: кривой — наш 422 bad_period; без period — месяц момента запроса.
   .get(

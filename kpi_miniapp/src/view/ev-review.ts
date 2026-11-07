@@ -5,7 +5,7 @@ import type { Key, Lang } from "../i18n";
 import { monthName, tIn } from "../i18n";
 import { capFirst } from "../util";
 
-export interface EvItemVM { id: string; title: string; hint: string | null; sourceLabel: string | null; suggestionText: string | null; violationLine: string | null; violationComments: string[] }
+export interface EvItemVM { id: string; title: string; hint: string | null; sourceLabel: string | null; suggestionText: string | null; autoText: string | null; violationLine: string | null; violationComments: string[] }
 export interface EvReviewVM {
   title: string; sub: string; mode: "edit" | "readonly";
   banner: { key: Key; vars?: Record<string, string | number> } | null;
@@ -22,7 +22,14 @@ function itemVM(i: EvFormItem, l: Lang): EvItemVM {
     title: l === "uz" && i.title_uz.trim() !== "" ? i.title_uz : i.title_ru,
     hint: i.hint_ru,
     sourceLabel: i.source === "manual" ? null : tIn(l, i.source === "attendance" ? "src_attendance" : "src_branch"),
-    suggestionText: i.suggestion ? tIn(l, "ev_suggest", { score: i.suggestion.score, basis: i.suggestion.basis }) : null,
+    // Посещаемость считает система: вместо «Предложение» одна строка «Считает система» с баллом или «данных нет».
+    suggestionText: i.source !== "attendance" && i.suggestion ? tIn(l, "ev_suggest", { score: i.suggestion.score, basis: i.suggestion.basis }) : null,
+    autoText:
+      i.source !== "attendance"
+        ? null
+        : i.score !== null
+          ? tIn(l, "ev_att_auto", { score: i.score, basis: i.suggestion?.basis ?? "Workly" })
+          : tIn(l, "ev_att_none"),
     violationLine: i.violations.length ? tIn(l, "ev_viol_line", { n: i.violations.length, hint: i.violation_hint ?? "—" }) : null,
     violationComments: i.violations.map((v) => violationText(v, l)),
   };

@@ -2820,6 +2820,8 @@
         "scoreAria": "Score: {title}",
         "noData": "No data",
         "suggestion": "Suggestion: {score} — {basis}",
+        "autoAttendance": "Calculated by the system from Workly and days off: {score} · {basis}",
+        "autoAttendanceNone": "No Workly data: the item is not counted in the total.",
         "accept": "Accept",
         "violations": "Violations this month: {count}, hint: {hint}",
         "setHint": "Set {hint}",

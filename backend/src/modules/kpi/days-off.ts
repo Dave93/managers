@@ -1,18 +1,18 @@
 // Выходные дни сотрудников: выдача и отмена управляющим (оценщиком мини-приложения), список выданных, форма.
-// Правила дат и причины — days-off-rules.ts (без БД). Права: назначение оценщика (canEvaluate) по текущим
-// филиалу и карте сотрудника, как у нарушений. Месяц KPI закрыт — выдавать и отменять за его дни нельзя.
+// Правила дат и причины — days-off-rules.ts (без БД). Права: назначение оценщика на филиал сотрудника
+// (карта не важна, см. coversTerminal). Месяц KPI закрыт — выдавать и отменять за его дни нельзя.
 import type { DrizzleDB } from "@backend/lib/db";
 import { employees, kpi_days_off, kpi_periods, kpi_reviews, terminals } from "backend/drizzle/schema";
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
-import { loadScopes, type Actor, type DbLike } from "./access";
+import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { checkReason, addDays, expandRange, DAYS_OFF_MONTH_LIMIT, MAX_AHEAD_DAYS, MAX_BACK_DAYS, MAX_RANGE_DAYS, periodOfDay, DAY_OFF_REASONS } from "./days-off-rules";
-import { canEvaluate, loadDirectory } from "./directory";
+import { loadDirectory } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { lockPeriodShared } from "./periods";
 import { addMonths, tashkentDay, type Period } from "./time";
-import type { DayOffReason, EvDayOffForm } from "./tg-app/ev-types";
+import type { DayOffReason, EvDayOffEmployees, EvDayOffForm } from "./tg-app/ev-types";
 
 const inTx = <T>(db: DbLike, fn: (tx: DbLike) => Promise<T>): Promise<T> => (db as DrizzleDB).transaction((tx) => fn(tx));
 
@@ -59,13 +59,50 @@ async function dayOffRows(db: DbLike, where: SQL | undefined): Promise<DayOffRow
   }));
 }
 
-// Активный сотрудник в пределах назначения актора: нет — 404 not_found, чужой филиал или карта — 403 out_of_scope.
+// Выходные выдаёт управляющий филиала любому сотруднику своего филиала: карта сотрудника не важна, сотрудник без
+// карты тоже подходит. Поэтому право зависит только от филиала из назначения (null в назначении — любой филиал).
+function coversTerminal(scopes: { terminal_id: string | null }[], terminalId: string): boolean {
+  return scopes.some((s) => s.terminal_id === null || s.terminal_id === terminalId);
+}
+
+// Активный сотрудник филиала из назначения актора: нет — 404 not_found, чужой филиал — 403 out_of_scope.
 async function assignedEmployee(db: DbLike, actor: Actor, employeeId: string) {
   const [emp] = await loadDirectory(db, { employeeIds: [employeeId] });
   if (!emp) throw new KpiError(404, "not_found");
   const scopes = await loadScopes(db, actor.userId);
-  if (!canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) throw new KpiError(403, "out_of_scope");
+  if (!has(actor, "kpi.evaluate") || !coversTerminal(scopes, emp.terminal_id)) throw new KpiError(403, "out_of_scope");
   return emp;
+}
+
+/**
+ * Сотрудники для выдачи выходного: все активные сотрудники филиалов из назначений актора, с картой и без,
+ * по фамилии. Список филиалов для фильтра — только те, где есть сотрудники.
+ */
+export async function dayOffEmployees(db: DbLike, actor: Actor): Promise<EvDayOffEmployees> {
+  if (!has(actor, "kpi.evaluate")) throw new KpiError(403, "out_of_scope");
+  const scopes = await loadScopes(db, actor.userId);
+  if (scopes.length === 0) return { terminals: [], items: [] };
+  const all = await loadDirectory(db, {});
+  const mine = all.filter((e) => coversTerminal(scopes, e.terminal_id));
+  const byName = (a: string, b: string) => a.localeCompare(b, "ru");
+  const terminals = new Map<string, string>();
+  const items = mine
+    .map((e) => {
+      if (e.terminal_name !== null) terminals.set(e.terminal_id, e.terminal_name);
+      return {
+        id: e.id,
+        first_name: e.first_name,
+        last_name: e.last_name,
+        terminal_id: e.terminal_id,
+        terminal_name: e.terminal_name,
+        position: e.staff_role_name,
+      };
+    })
+    .sort((a, b) => byName(a.last_name, b.last_name) || byName(a.first_name, b.first_name) || a.id.localeCompare(b.id));
+  return {
+    terminals: [...terminals].map(([id, name]) => ({ id, name })).sort((a, b) => byName(a.name, b.name) || a.id.localeCompare(b.id)),
+    items,
+  };
 }
 
 /**

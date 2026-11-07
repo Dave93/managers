@@ -2820,6 +2820,8 @@
         "scoreAria": "Балл: {title}",
         "noData": "Маълумот йўқ",
         "suggestion": "Таклиф: {score} — {basis}",
+        "autoAttendance": "Workly ва дам олиш кунлари бўйича тизим ҳисоблайди: {score} · {basis}",
+        "autoAttendanceNone": "Workly маълумоти йўқ: банд якуний баллга кирмайди.",
         "accept": "Қабул қилиш",
         "violations": "Ой давомидаги қоидабузарликлар: {count}, маслаҳат: {hint}",
         "setHint": "{hint} қўйиш",

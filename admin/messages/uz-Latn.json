@@ -2820,6 +2820,8 @@
         "scoreAria": "Ball: {title}",
         "noData": "Ma'lumot yo'q",
         "suggestion": "Taklif: {score} — {basis}",
+        "autoAttendance": "Workly va dam olish kunlari boʻyicha tizim hisoblaydi: {score} · {basis}",
+        "autoAttendanceNone": "Workly maʼlumoti yoʻq: band yakuniy ballga kirmaydi.",
         "accept": "Qabul qilish",
         "violations": "Oy davomidagi qoidabuzarliklar: {count}, maslahat: {hint}",
         "setHint": "{hint} qo'yish",

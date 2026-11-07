@@ -95,5 +95,8 @@ export interface EvDayOffForm {
   existing: string[];                     // дни сотрудника с активным выходным внутри окна
   submitted_months: string[];             // месяцы окна «YYYY-MM-01», где оценка сотрудника уже отправлена: её снимок выходной не пересчитает
 }
+// GET /kpi/tg/ev/days-off/employees: сотрудники филиалов оценщика для выдачи выходного (карта не важна)
+export interface EvDayOffEmployee { id: string; first_name: string; last_name: string; terminal_id: string; terminal_name: string | null; position: string | null }
+export interface EvDayOffEmployees { terminals: { id: string; name: string }[]; items: EvDayOffEmployee[] }
 export interface EvDaysOffCreated { created: EvDayOff[]; skipped: string[] }   // skipped — дни, где выходной уже был
 export interface EvDaysOff { period: string; period_status: "open" | "closed"; items: EvDayOff[] }

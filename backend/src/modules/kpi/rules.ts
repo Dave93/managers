@@ -179,7 +179,8 @@ export function noteRequired(
   return (note ?? "").trim() === "";
 }
 
-// «Нет данных» у автопункта, для которого есть предложение, тоже требует заметки.
+// «Нет данных» у автопункта, для которого есть предложение, тоже требует заметки. Посещаемость сюда не входит:
+// её балл всегда равен предложению, ручного «нет данных» у неё нет.
 // Проверяется только при отправке и изменении: черновик можно сохранить без неё.
 export function noDataNoteRequired(
   source: ItemSource,
@@ -187,6 +188,6 @@ export function noDataNoteRequired(
   score: number | null,
   note: string | null | undefined,
 ): boolean {
-  if (source === "manual" || !suggestion || score !== null) return false;
+  if (source === "manual" || source === "attendance" || !suggestion || score !== null) return false;
   return (note ?? "").trim() === "";
 }

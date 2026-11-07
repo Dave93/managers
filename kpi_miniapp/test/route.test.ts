@@ -57,7 +57,7 @@ it("parseHash и hashOf: выходные оценщика", () => {
   expect(parseHash(`#/ev/dayoff/${ID}?tgWebAppData=abc&tgWebAppVersion=7.10`)).toEqual({ name: "ev_dayoff", employee_id: ID });
   expect(parseHash("#/ev/daysoff")).toEqual({ name: "ev_daysoff", period: null });
   expect(parseHash("#/ev/daysoff/2026-11")).toEqual({ name: "ev_daysoff", period: "2026-11-01" });
-  for (const bad of ["#/ev/dayoff/x", "#/ev/dayoff/", "#/ev/dayoff", "#/ev/daysoff/2026-13", "#/ev/daysoff/2026-11/x", "#/ev/daysoff/abc"]) expect(parseHash(bad)).toEqual({ name: "home" });
+  for (const bad of ["#/ev/dayoff/x", "#/ev/dayoff/", "#/ev/daysoff/2026-13", "#/ev/daysoff/2026-11/x", "#/ev/daysoff/abc"]) expect(parseHash(bad)).toEqual({ name: "home" });
   expect(hashOf({ name: "ev_dayoff", employee_id: ID })).toBe(`#/ev/dayoff/${ID}`);
   expect([hashOf({ name: "ev_daysoff", period: null }), hashOf({ name: "ev_daysoff", period: "2026-11-01" })]).toEqual(["#/ev/daysoff", "#/ev/daysoff/2026-11"]);
   for (const r of [{ name: "ev_dayoff", employee_id: ID }, { name: "ev_daysoff", period: null }, { name: "ev_daysoff", period: "2026-11-01" }] as const) {
@@ -66,4 +66,13 @@ it("parseHash и hashOf: выходные оценщика", () => {
     expect(routeAllowed(r, ["evaluator"])).toBe(true);
     expect(routeAllowed(r, ["employee"])).toBe(false);
   }
+});
+
+it("ev_dayoff_pick: экран выбора сотрудника для выходного разбирается и собирается обратно", () => {
+  expect(parseHash("#/ev/dayoff")).toEqual({ name: "ev_dayoff_pick" });
+  expect(hashOf({ name: "ev_dayoff_pick" })).toBe("#/ev/dayoff");
+  expect(parseHash(hashOf({ name: "ev_dayoff_pick" }))).toEqual({ name: "ev_dayoff_pick" });
+  // Роль: экран оценщика, сотруднику недоступен
+  expect(routeAllowed({ name: "ev_dayoff_pick" }, ["evaluator"])).toBe(true);
+  expect(routeAllowed({ name: "ev_dayoff_pick" }, ["employee"])).toBe(false);
 });
