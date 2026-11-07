@@ -6,6 +6,7 @@ import type { EvDaysOff } from "@backend/modules/kpi/tg-app/ev-types";
 import { appApi } from "../api";
 import { lang, t } from "../i18n";
 import { rerender } from "../nav";
+import { hashOf } from "../route";
 import { haptic } from "../telegram";
 import { h } from "../ui";
 import { latch } from "../util";
@@ -40,6 +41,7 @@ export function renderEvDaysOff(d: EvDaysOff): HTMLElement {
           r.canCancel ? h("button", { type: "button", class: "btn btn-quiet dayoff-cancel", onclick: () => cancel(r.id) }, t("ev_daysoff_cancel")) : null)));
   return h("main", { class: "screen" },
     h("h1", { class: "title" }, vm.title),
+    inAppLink(hashOf({ name: "ev_dayoff_pick" }), "btn btn-primary", t("ev_dayoff_give")),
     h("div", { class: "att-switch" }, slot(vm.prev, "prev"), h("h2", { class: "att-month" }, vm.month), slot(vm.next, "next")),
     vm.closed ? h("p", { class: "ev-info" }, t("ev_daysoff_closed")) : null,
     vm.empty ? h("p", { class: "card ev-empty", role: "status" }, t("ev_daysoff_empty")) : h("section", { class: "card rows" }, ...vm.items.map(row)));

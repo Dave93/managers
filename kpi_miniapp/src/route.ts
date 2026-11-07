@@ -16,6 +16,7 @@ export type Route =
   | { name: "ev_dispute"; id: string }
   // Выходные: форма выдачи сотруднику и список выданных (месяц «YYYY-MM-01»; null — месяц по умолчанию решает сервер).
   | { name: "ev_dayoff"; employee_id: string }
+  | { name: "ev_dayoff_pick" }
   | { name: "ev_daysoff"; period: string | null };
 
 const HOME: Route = { name: "home" };
@@ -36,6 +37,7 @@ function parseEv(path: string): Route {
   if (path === "/ev/disputes") return { name: "ev_disputes" };
   if (path === "/ev/violations") return { name: "ev_violations", period: null };
   if (path === "/ev/daysoff") return { name: "ev_daysoff", period: null };
+  if (path === "/ev/dayoff") return { name: "ev_dayoff_pick" };
   const seg = path.split("/").slice(2); // после «/ev/»
   const [kind = "", x = "", y = ""] = seg;
   if (kind === "dispute" && seg.length === 2) return UUID.test(x) ? { name: "ev_dispute", id: x } : { ...HOME };
@@ -108,6 +110,8 @@ export function hashOf(r: Route): string {
       return `#/ev/dispute/${r.id}`;
     case "ev_dayoff":
       return `#/ev/dayoff/${r.employee_id}`;
+    case "ev_dayoff_pick":
+      return "#/ev/dayoff";
     case "ev_daysoff":
       return r.period ? `#/ev/daysoff/${r.period.slice(0, 7)}` : "#/ev/daysoff";
   }

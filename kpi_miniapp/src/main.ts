@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvDayOffForm, EvDaysOff, EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvDayOffEmployees, EvDayOffForm, EvDaysOff, EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgAttendance, TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -30,6 +30,7 @@ import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderAttendance } from "./screens/attendance";
 import { closeReasonSheet } from "./reason-sheet";
 import { renderEvDayOff } from "./screens/ev-dayoff";
+import { renderEvDayOffPick } from "./screens/ev-dayoff-pick";
 import { renderEvDaysOff } from "./screens/ev-daysoff";
 import { renderEvDispute } from "./screens/ev-dispute";
 import { renderEvDisputes } from "./screens/ev-disputes";
@@ -145,6 +146,14 @@ function screenOf(r: Route): Screen {
         noCache: true,
         render: (d) => renderEvDayOff(d as EvDayOffForm),
         title: t("ev_btn_dayoff"),
+      };
+    case "ev_dayoff_pick":
+      return {
+        path: "/ev/days-off/employees",
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvDayOffPick(d as EvDayOffEmployees),
+        title: t("ev_dayoff_give"),
       };
     case "ev_daysoff":
       return {
