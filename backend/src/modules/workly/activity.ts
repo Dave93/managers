@@ -101,28 +101,35 @@ export function activityWindow(at: Date): { from: string; to: string } {
   return { from: tashkentDay(new Date(at.getTime() - DAY)), to: tashkentDay(new Date(at.getTime() + DAY)) };
 }
 
-export type Decision = { action: "init" | "idle" | "sync"; cursor: number; relevant: number; newest: number };
+export type Decision = { action: "init" | "idle" | "sync"; cursor: number; relevant: number; newest: number; reset?: true };
 
 /**
  * Что делать с полученными событиями. Чистая функция.
  * Без курсора: init, курсор встаёт на наибольший id (0, если записей нет), сверки нет.
  * С курсором: новые — записи с id больше курсора; есть среди них нужные — sync, иначе idle;
- * newest — id самого нового нужного (0, если их нет). Курсор никогда не уменьшается.
+ * newest — id самого нового нужного (0, если их нет). Курсор не уменьшается, кроме самовосстановления:
+ * в окне вчера..завтра есть записи, а самая новая из них старее курсора. Так не бывает (записи растут
+ * с id, окно покрывает последние сутки-двое), значит id в Workly сбросились или в курсор попало лишнее число;
+ * курсор встаёт на наибольший id окна (reset), сверки нет, ночной прогон остаётся страховкой.
  */
 export function decide(events: readonly ActivityItem[], cursor: number | null): Decision {
   const top = events.reduce((m, e) => Math.max(m, e.id), 0);
   if (cursor === null) return { action: "init", cursor: top, relevant: 0, newest: 0 };
+  if (top > 0 && top < cursor) return { action: "idle", cursor: top, relevant: 0, newest: 0, reset: true };
   const fresh = events.filter((e) => e.id > cursor && RELEVANT_ACTIONS.has(e.action_name));
   const newest = fresh.reduce((m, e) => Math.max(m, e.id), 0);
   return { action: fresh.length > 0 ? "sync" : "idle", cursor: Math.max(cursor, top), relevant: fresh.length, newest };
 }
 
-const INT_RE = /^\d{1,15}$/;
+// Целое до 16 цифр, но только безопасное для Number: больше Number.MAX_SAFE_INTEGER теряет точность.
+const INT_RE = /^\d{1,16}$/;
 
 // Целое из Redis по ключу; нет ключа или значение не число — null.
 async function readInt(redis: Redis, redisKey: string): Promise<number | null> {
   const raw = await redis.get(redisKey);
-  return raw !== null && INT_RE.test(raw) ? Number(raw) : null;
+  if (raw === null || !INT_RE.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) ? n : null;
 }
 
 // Последний завершённый прогон сотрудников моложе HOLD_HOURS — план HR, который ещё не применили.
@@ -169,6 +176,8 @@ export async function pollActivity(
 
     if (d.action !== "sync") {
       if (d.cursor !== cursor) await redis.set(activityCursorKey(org.key), String(d.cursor));
+      // Тревога: курсор был выше любого id окна. Только ключ и числа, без данных журнала.
+      if (d.reset) console.error(`workly activity ${org.key} cursor_reset ${cursor} -> ${d.cursor}`);
       return d.action;
     }
     // Ожидание: сверка идёт, только если новее нужных событий с прошлого опроса не появилось.
@@ -185,6 +194,10 @@ export async function pollActivity(
     } catch (e) {
       if (e instanceof KpiError && e.code === "run_in_progress") return "busy";
       throw e;
+    }
+    // failed и blocked — тревоги: строка уже в журнале, в лог идут id и код (как у ночной сверки).
+    if (run.status === "failed" || run.status === "blocked") {
+      console.error(`workly activity ${org.key} ${run.id} ${run.error ?? run.block_reason ?? run.status}`);
     }
     const failsKey = activityFailsKey(org.key);
     if (run.status === "failed" || (run.status === "blocked" && run.block_reason === "crawl_short")) {
