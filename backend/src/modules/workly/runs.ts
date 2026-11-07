@@ -73,7 +73,7 @@ class RunFailed extends Error {
 }
 
 // Отказы посещаемости (KpiError из runAttendance), которые журнал хранит своим кодом; прочие KpiError — crawl_failed.
-const ATTENDANCE_CODES: ReadonlySet<string> = new Set(["period_closed", "period_not_started", "empty_crawl"]);
+const ATTENDANCE_CODES: ReadonlySet<string> = new Set(["period_closed", "period_not_started", "empty_crawl", "crawl_short"]);
 
 function errorCode(e: unknown): string {
   if (e instanceof WorklyError || e instanceof RunFailed) return e.code;
@@ -223,7 +223,10 @@ async function syncAttendance(
   companyId: number
 ): Promise<void> {
   if (!isPeriod(run.period)) throw new RunFailed("crawl_failed");
-  const res = await runAttendance(db, client, { id: run.organization_id }, run.period, run.created_by);
+  // Защита от неполного обхода — только у прогонов без человека: ручную синхронизацию он запускает сам.
+  const res = await runAttendance(db, client, { id: run.organization_id }, run.period, run.created_by, {
+    guard: run.trigger !== "manual",
+  });
   await db
     .update(workly_sync_runs)
     .set({

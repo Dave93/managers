@@ -387,9 +387,10 @@ export function replacedImport<T extends ImportRef>(imports: readonly T[] | null
  * `errors.<код>` карточки подключения. empty_crawl у синхронизации чаще всего значит «нечего
  * записать: сотрудники ещё не связаны», а не сбой Workly, и повтор тут не поможет; stale — это
  * закрытая зависшая синхронизация; period_not_started в первый день месяца означает, что
- * завершённых дней ещё нет; run_in_progress — уже идёт синхронизация, а не проверка.
+ * завершённых дней ещё нет; run_in_progress — уже идёт синхронизация, а не проверка; crawl_short —
+ * ночная защита остановила обновление (отчёты неполные или месяц резко изменился), а не «мало сотрудников».
  */
-export const ATTENDANCE_ERROR_CODES = ["empty_crawl", "stale", "period_not_started", "run_in_progress"] as const;
+export const ATTENDANCE_ERROR_CODES = ["empty_crawl", "stale", "period_not_started", "run_in_progress", "crawl_short"] as const;
 
 const ATTENDANCE_OVERRIDES: ReadonlySet<string> = new Set(ATTENDANCE_ERROR_CODES);
 

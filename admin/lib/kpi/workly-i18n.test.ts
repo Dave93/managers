@@ -122,7 +122,7 @@ for (const locale of LOCALES) {
     });
 
     it("свой текст ошибки блока посещаемости для каждого кода из ATTENDANCE_ERROR_CODES", () => {
-      expect(ATTENDANCE_ERROR_CODES.length).toBe(4);
+      expect(ATTENDANCE_ERROR_CODES.length).toBe(5);
       expect(missing(t, ATTENDANCE_ERROR_CODES.map((c) => attendanceErrorKey(c) ?? `attendance.errors.${c}`))).toEqual([]);
       // Свой текст отличается от общего: иначе переопределение не нужно.
       for (const c of ATTENDANCE_ERROR_CODES) {
