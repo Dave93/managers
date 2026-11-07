@@ -270,6 +270,42 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(clients.LES!.calls).toEqual(["userActivities"]);
     });
 
+    it("самовосстановление: наибольший id окна меньше курсора — курсор опускается на него, в логе тревога с числами, сверки нет; после этого новое событие замечается", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
+      store.set(activityCursorKey("LES"), "9000000");
+      clients.LES!.events = [ev(70, "addEmployee"), ev(69, "clockInManual")];
+      const { value, out } = await poll("LES");
+      expect(value).toBe("idle");
+      expect(cursorOf("LES")).toBe("70");
+      expect(out).toContain("workly activity LES cursor_reset 9000000 -> 70");
+      expect(await runsOf(worlds.LES.org)).toHaveLength(1);
+      // дальше обычная жизнь: новое нужное событие выше восстановленного курсора идёт в ожидание
+      clients.LES!.events = [ev(71, "addEmployee"), ev(70, "addEmployee")];
+      expect((await poll("LES")).value).toBe("settling");
+    });
+
+    it("пустое окно курсор не трогает и тревоги не пишет", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
+      store.set(activityCursorKey("LES"), "9000000");
+      clients.LES!.events = [];
+      const { value, out } = await poll("LES");
+      expect(value).toBe("idle");
+      expect(cursorOf("LES")).toBe("9000000");
+      expect(out).not.toContain("cursor_reset");
+    });
+
+    it("16-значный курсор из Redis читается (до MAX_SAFE_INTEGER), больше безопасного числа считается испорченным и опрос начинается заново (init)", async () => {
+      await insertRun(worlds.LES.org, { status: "applied" });
+      store.set(activityCursorKey("LES"), "9007199254740991");
+      clients.LES!.events = [ev(60, "addEmployee")];
+      // 9007199254740991 — безопасное целое, окно ниже него: самовосстановление
+      expect((await poll("LES")).value).toBe("idle");
+      expect(cursorOf("LES")).toBe("60");
+      store.set(activityCursorKey("LES"), "9999999999999999");
+      expect((await poll("LES")).value).toBe("init");
+      expect(cursorOf("LES")).toBe("60");
+    });
+
     // ---------- ожидание: правки HR идут в Workly по шагам ----------
 
     it("первое нужное событие: settling — сверки нет, курсор прежний, маркер на id самого нового нужного (ненужные новее маркер не двигают)", async () => {
@@ -323,10 +359,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       clients.LES.events = [ev(51, "addEmployee")];
       store.set(activityCursorKey("LES"), "50");
       settled("LES", 51);
-      const { value } = await poll("LES");
+      const { value, out } = await poll("LES");
       expect(value).toBe("blocked");
       const row = (await runsOf(worlds.LES.org)).find((r) => r.trigger === "activity");
       expect(row).toMatchObject({ status: "blocked", block_reason: "too_many_creations" });
+      // тревога в stderr: ключ, id прогона и код причины, без данных Workly
+      expect(out).toContain(`workly activity LES ${row!.id} too_many_creations`);
       expect(cursorOf("LES")).toBe("51");
       expect(pendingOf("LES")).toBeNull();
       expect(failsOf("LES")).toBeNull();

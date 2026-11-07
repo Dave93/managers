@@ -169,7 +169,7 @@ export class WorklyClient {
     );
     const out: ActivityItem[] = [];
     for (const a of raw) {
-      const id = typeof a?.id === "string" && /^\d{1,15}$/.test(a.id) ? Number(a.id) : a?.id;
+      const id = typeof a?.id === "string" && /^\d{1,16}$/.test(a.id) ? Number(a.id) : a?.id;
       if (typeof id === "number" && Number.isSafeInteger(id) && typeof a?.action_name === "string") {
         out.push({ id, action_name: a.action_name });
       }

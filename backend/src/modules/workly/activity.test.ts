@@ -48,8 +48,15 @@ describe("workly: действия пользователей — decide", () =>
     });
   });
 
-  it("событие со старым id не запускает сверку, курсор не откатывается", () => {
-    expect(decide([ev(5, "addEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
+  it("событие со старым id не запускает сверку; курсор в пределах окна не откатывается", () => {
+    // самая новая запись окна (10) равна курсору: аномалии нет
+    expect(decide([ev(10, "clockInManual"), ev(5, "addEmployee")], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
+  });
+
+  it("самовосстановление: окно непусто, а его наибольший id меньше курсора (id в Workly сбросились) — курсор на наибольший id, сверки нет", () => {
+    expect(decide([ev(5, "addEmployee"), ev(4, "clockInManual")], 10)).toEqual({ action: "idle", cursor: 5, relevant: 0, newest: 0, reset: true });
+    // пустое окно не аномалия: за сутки-двое записей могло не быть, курсор остаётся
+    expect(decide([], 10)).toEqual({ action: "idle", cursor: 10, relevant: 0, newest: 0 });
   });
 
   it("порядок записей не важен", () => {
