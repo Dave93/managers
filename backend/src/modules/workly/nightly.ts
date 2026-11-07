@@ -18,6 +18,7 @@ import { KpiError } from "../kpi/errors";
 import { isPeriodClosed } from "../kpi/periods";
 import { addMonths, periodOf, type Period } from "../kpi/time";
 import { runActivityPoll, WORKLY_ACTIVITY_JOB } from "./activity";
+import { runTwinsJob, WORKLY_TWINS_JOB } from "./twins";
 import { assertAttendanceSyncable } from "./attendance";
 import { CONNECTIONS, credsFromEnv, resolveOrganizationId } from "./config";
 import { WORKLY_RUN_JOB } from "./queue";
@@ -48,12 +49,12 @@ export interface WorklyJobLike {
 
 /**
  * Разбор задачи очереди Workly. WORKLY_RUN_JOB вызывает handlers.run(runId), WORKLY_NIGHTLY_JOB —
- * handlers.nightly(), WORKLY_ACTIVITY_JOB — handlers.activity(). Любой сбой логируется как `workly job failed <имя> <runId|-> <код>` и
+ * handlers.nightly(), WORKLY_ACTIVITY_JOB — handlers.activity(), WORKLY_TWINS_JOB — handlers.twins(). Любой сбой логируется как `workly job failed <имя> <runId|-> <код>` и
  * пробрасывается новой Error с одним кодом: BullMQ не получает ни исходного сообщения, ни стека.
  */
 export async function handleWorklyJob(
   job: WorklyJobLike,
-  handlers: { run: (runId: string) => Promise<unknown>; nightly: () => Promise<unknown>; activity: () => Promise<unknown> }
+  handlers: { run: (runId: string) => Promise<unknown>; nightly: () => Promise<unknown>; activity: () => Promise<unknown>; twins?: () => Promise<unknown> }
 ): Promise<unknown> {
   const name = String(job.name).slice(0, 64);
   const rawId = (job.data as { runId?: unknown } | null | undefined)?.runId;
@@ -64,11 +65,13 @@ export async function handleWorklyJob(
     throw new Error(code);
   };
 
-  if (job.name !== WORKLY_RUN_JOB && job.name !== WORKLY_NIGHTLY_JOB && job.name !== WORKLY_ACTIVITY_JOB) return fail("unknown_job");
+  if (job.name === WORKLY_TWINS_JOB && !handlers.twins) return fail("unknown_job");
+  if (job.name !== WORKLY_RUN_JOB && job.name !== WORKLY_NIGHTLY_JOB && job.name !== WORKLY_ACTIVITY_JOB && job.name !== WORKLY_TWINS_JOB) return fail("unknown_job");
   if (job.name === WORKLY_RUN_JOB && typeof rawId !== "string") return fail("bad_job");
   try {
     if (job.name === WORKLY_RUN_JOB) return await handlers.run(rawId as string);
     if (job.name === WORKLY_ACTIVITY_JOB) return await handlers.activity();
+    if (job.name === WORKLY_TWINS_JOB) return await handlers.twins!();
     return await handlers.nightly();
   } catch (e) {
     return fail(jobFailureCode(e));
@@ -94,6 +97,12 @@ export function worklyJobProcessor(db: DrizzleDB, redisOf: () => Promise<Redis>)
         const result = await runActivityPoll(db, await redisOf());
         // Событий и имён в результате нет: ключ подключения и итоговый статус.
         console.log("workly activity", JSON.stringify(result));
+        return result;
+      },
+      twins: async () => {
+        const result = await runTwinsJob(db, await redisOf());
+        // Только счётчики: ни имён, ни дат рождения в результате нет.
+        console.log("workly twins", JSON.stringify(result));
         return result;
       },
     });

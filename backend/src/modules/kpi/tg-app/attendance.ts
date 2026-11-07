@@ -1,6 +1,6 @@
-// Экран «Моя посещаемость» мини-приложения: свои дни из kpi_attendance (данные Workly) по месяцам.
+// Экран «Моя посещаемость» мини-приложения: свои дни из kpi_attendance_effective (данные Workly) по месяцам.
 // employeeId — только из сессии. Строки собираются поле за полем: import_id, terminal_id и id наружу не уходят.
-import { kpi_attendance } from "backend/drizzle/schema";
+import { kpi_attendance_effective } from "backend/drizzle/schema";
 import { and, desc, eq, gte, lt, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { activeDaysOff } from "../days-off";
@@ -21,20 +21,20 @@ export async function attendanceFor(db: DbLike, employeeId: string, monthRaw: un
 
   const rows = await db
     .select({
-      day: kpi_attendance.day,
-      check_in: kpi_attendance.check_in,
-      check_out: kpi_attendance.check_out,
-      late_minutes: kpi_attendance.late_minutes,
-      absent: kpi_attendance.absent,
+      day: kpi_attendance_effective.day,
+      check_in: kpi_attendance_effective.check_in,
+      check_out: kpi_attendance_effective.check_out,
+      late_minutes: kpi_attendance_effective.late_minutes,
+      absent: kpi_attendance_effective.absent,
     })
-    .from(kpi_attendance)
-    .where(and(eq(kpi_attendance.employee_id, employeeId), gte(kpi_attendance.day, from), lt(kpi_attendance.day, addMonths(from, 1))))
-    .orderBy(desc(kpi_attendance.day));
+    .from(kpi_attendance_effective)
+    .where(and(eq(kpi_attendance_effective.employee_id, employeeId), gte(kpi_attendance_effective.day, from), lt(kpi_attendance_effective.day, addMonths(from, 1))))
+    .orderBy(desc(kpi_attendance_effective.day));
 
   const withData = await db
-    .selectDistinct({ month: sql<string>`to_char(${kpi_attendance.day}, 'YYYY-MM')`.as("month") })
-    .from(kpi_attendance)
-    .where(eq(kpi_attendance.employee_id, employeeId));
+    .selectDistinct({ month: sql<string>`to_char(${kpi_attendance_effective.day}, 'YYYY-MM')`.as("month") })
+    .from(kpi_attendance_effective)
+    .where(eq(kpi_attendance_effective.employee_id, employeeId));
 
   // Выходные: прогул Workly и день без строки с выходным приходят как day_off (причина не отдаётся);
   // присутствие главнее выходного. Дни по убыванию, как и без выходных.

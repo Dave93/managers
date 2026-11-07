@@ -6,6 +6,7 @@ import { drizzleDb } from "backend/src/lib/db";
 import type { DrizzleDB } from "@backend/lib/db";
 import {
   credentials,
+  employee_twins,
   employees,
   inventory_reconciliations,
   kpi_attendance,
@@ -565,6 +566,8 @@ export async function cleanupKpi(db: DrizzleDB): Promise<void> {
     sql`${workly_sync_runs.organization_id} IN ${testOrgIds}
       OR NOT EXISTS (SELECT 1 FROM organization o WHERE o.id = ${workly_sync_runs.organization_id})`
   );
+  // Двойники между компаниями: только в тестовой базе (проверка выше), строки ссылаются на сотрудников без FK.
+  await db.delete(employee_twins);
   await db.delete(workly_locations).where(
     sql`${workly_locations.organization_id} IN ${testOrgIds}
       OR NOT EXISTS (SELECT 1 FROM organization o WHERE o.id = ${workly_locations.organization_id})`

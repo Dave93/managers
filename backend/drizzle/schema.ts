@@ -3169,6 +3169,47 @@ export const kpi_days_off = pgTable(
   ]
 );
 
+// Один человек, заведённый в Workly обеих компаний (общий зал Chopar и Les в одном здании): отмечается то в одной, то в
+// другой, поэтому у нас ему соответствуют две строки employees. Пара хранится один раз, employee_a < employee_b.
+// rule: name_birth (имя совпало, дата рождения одинаковая) | name_only (имя совпало, даты разные или нет, и в один день
+// обе записи не отмечались). Пары пересчитывает ночная задача workly-twins; blocked ставит человек, чтобы разорвать
+// ошибочную пару (такую строку задача не удаляет и не создаёт заново). Присутствие в одной записи закрывает прогул в
+// другой: см. kpi_attendance_effective.
+export const employee_twins = pgTable(
+  "employee_twins",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    employee_a: uuid("employee_a").notNull(),
+    employee_b: uuid("employee_b").notNull(),
+    rule: varchar("rule", { length: 16 }).notNull(),
+    blocked: boolean("blocked").default(false).notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    updated_at: timestamp("updated_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("employee_twins_pair_uq").on(t.employee_a, t.employee_b),
+    index("employee_twins_b_idx").on(t.employee_b),
+    check("employee_twins_order", sql`${t.employee_a} < ${t.employee_b}`),
+  ]
+);
+
+// Посещаемость с учётом двойников: те же строки kpi_attendance, но прогул одной записи, на день которого вторая запись
+// того же человека (employee_twins, не blocked) отмечена присутствием, становится присутствием с отметками второй.
+// Представление создаёт миграция 0043 (existing: drizzle-kit его не ведёт). Читают его экраны и баллы KPI;
+// синхронизация Workly и проверки данных работают с самой kpi_attendance.
+export const kpi_attendance_effective = pgView("kpi_attendance_effective", {
+  id: uuid("id").notNull(),
+  employee_id: uuid("employee_id").notNull(),
+  day: date("day", { mode: "string" }).notNull(),
+  terminal_id: uuid("terminal_id").notNull(),
+  check_in: timestamp("check_in", { withTimezone: true, mode: "string" }),
+  check_out: timestamp("check_out", { withTimezone: true, mode: "string" }),
+  late_minutes: integer("late_minutes").notNull(),
+  absent: boolean("absent").notNull(),
+  import_id: uuid("import_id").notNull(),
+  created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).notNull(),
+}).existing();
+
 // Привязка Telegram-чата к сотруднику или оценщику (ровно одно из employee_id / user_id).
 export const kpi_tg_bindings = pgTable(
   "kpi_tg_bindings",

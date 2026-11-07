@@ -1,4 +1,4 @@
-import { employees, kpi_attendance, kpi_tg_bindings, kpi_violations, organization, terminals } from "backend/drizzle/schema";
+import { employees, kpi_attendance_effective, kpi_tg_bindings, kpi_violations, organization, terminals } from "backend/drizzle/schema";
 import { and, eq, gte, inArray, lt, sql } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
@@ -23,15 +23,15 @@ export async function loadPeople(db: DbLike, actor: Actor, period: Period): Prom
 
   const att = await db
     .select({
-      employee_id: kpi_attendance.employee_id,
-      ontime: sql<number>`count(*) filter (where not ${kpi_attendance.absent} and ${kpi_attendance.late_minutes} = 0)::int`,
-      late: sql<number>`count(*) filter (where not ${kpi_attendance.absent} and ${kpi_attendance.late_minutes} > 0)::int`,
+      employee_id: kpi_attendance_effective.employee_id,
+      ontime: sql<number>`count(*) filter (where not ${kpi_attendance_effective.absent} and ${kpi_attendance_effective.late_minutes} = 0)::int`,
+      late: sql<number>`count(*) filter (where not ${kpi_attendance_effective.absent} and ${kpi_attendance_effective.late_minutes} > 0)::int`,
       // Прогул с выходным в этот день не считается: см. absentDayOff.
-      absent: sql<number>`count(*) filter (where ${kpi_attendance.absent} and not ${absentDayOff(kpi_attendance)})::int`,
+      absent: sql<number>`count(*) filter (where ${kpi_attendance_effective.absent} and not ${absentDayOff(kpi_attendance_effective)})::int`,
     })
-    .from(kpi_attendance)
-    .where(and(inArray(kpi_attendance.employee_id, ids), gte(kpi_attendance.day, period), lt(kpi_attendance.day, next)))
-    .groupBy(kpi_attendance.employee_id);
+    .from(kpi_attendance_effective)
+    .where(and(inArray(kpi_attendance_effective.employee_id, ids), gte(kpi_attendance_effective.day, period), lt(kpi_attendance_effective.day, next)))
+    .groupBy(kpi_attendance_effective.employee_id);
   const attBy = new Map(att.map((a) => [a.employee_id, { ontime: Number(a.ontime), late: Number(a.late), absent: Number(a.absent) }]));
 
   const vio = await db

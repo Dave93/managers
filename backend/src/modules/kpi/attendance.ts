@@ -1,7 +1,7 @@
 // Импорт посещаемости Workly: файл живёт в Redis 30 минут, commit заменяет импорт месяца той же организации одной транзакцией.
 import { randomUUID } from "node:crypto";
 import type { DrizzleDB } from "@backend/lib/db";
-import { employees, kpi_attendance, kpi_attendance_imports, organization, terminals } from "backend/drizzle/schema";
+import { employees, kpi_attendance, kpi_attendance_effective, kpi_attendance_imports, organization, terminals } from "backend/drizzle/schema";
 import { and, desc, eq, gte, inArray, isNotNull, lt, sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import { parsePeriod, type DbLike } from "./access";
@@ -319,14 +319,14 @@ export async function listImports(db: DbLike, period: Period): Promise<Attendanc
   return rows.map((r) => toImportRow(r, names));
 }
 
-// Статистика сотрудника за месяц по действующему импорту; без строк null. Прогул Workly, на день которого есть
+// Статистика сотрудника за месяц по действующему импорту (с учётом двойников: kpi_attendance_effective); без строк null. Прогул Workly, на день которого есть
 // неотменённый выходной, из расчёта выпадает (его число — off); присутствие главнее выходного.
 export async function attendanceStats(db: DbLike, employeeId: string, period: Period): Promise<AttendanceStats | null> {
   const next = addMonths(period, 1);
   const rows = await db
-    .select({ day: kpi_attendance.day, absent: kpi_attendance.absent, late_minutes: kpi_attendance.late_minutes })
-    .from(kpi_attendance)
-    .where(and(eq(kpi_attendance.employee_id, employeeId), gte(kpi_attendance.day, period), lt(kpi_attendance.day, next)));
+    .select({ day: kpi_attendance_effective.day, absent: kpi_attendance_effective.absent, late_minutes: kpi_attendance_effective.late_minutes })
+    .from(kpi_attendance_effective)
+    .where(and(eq(kpi_attendance_effective.employee_id, employeeId), gte(kpi_attendance_effective.day, period), lt(kpi_attendance_effective.day, next)));
   const off = (await activeDaysOff(db, { employeeIds: [employeeId], from: period, to: next })).get(employeeId);
   const kept = off ? rows.filter((r) => !(r.absent && off.has(r.day))) : rows;
   return attendanceSuggestion(kept, rows.length - kept.length);
