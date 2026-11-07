@@ -1,13 +1,14 @@
 import { expect, it } from "bun:test";
 import type { EvDayOffForm } from "@backend/modules/kpi/tg-app/ev-types";
 import { DICT } from "../src/i18n";
-import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings } from "../src/view/ev-dayoff";
+import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings, overLimitMonths } from "../src/view/ev-dayoff";
 
 const F = (o: Partial<EvDayOffForm> = {}): EvDayOffForm => ({
   employee: { id: "e1", first_name: "Ботир", last_name: "Алиев", terminal_name: "Филиал А" },
   reasons: ["sick", "family", "time_off", "vacation", "schedule", "other"],
   window: { min: "2025-10-01", max: "2025-11-26" },
   max_range_days: 31,
+  month_limit: 4,
   existing: [],
   submitted_months: [],
   ...o,
@@ -73,4 +74,34 @@ it("dayOffWarnings: предупреждает о месяцах, где оце�
   // Неверные даты предупреждений не дают: о них скажут замечания.
   expect(dayOffWarnings(D({ from: "", to: "" }), f, "ru")).toEqual([]);
   expect(dayOffWarnings(D(), f, "uz")[0]).toContain("Oktabr");
+});
+
+it("overLimitMonths: лимит 4 в месяц мягкий, считает уже выданные любым автором и только новые дни диапазона", () => {
+  const f = F({ existing: ["2025-10-01", "2025-10-02", "2025-10-03"] });
+  // 3 уже есть + 1 новый = 4: это ещё не больше лимита
+  expect(overLimitMonths(D({ from: "2025-10-27", to: "2025-10-27" }), f)).toEqual([]);
+  // +2 новых = 5 > 4
+  expect(overLimitMonths(D({ from: "2025-10-27", to: "2025-10-28" }), f)).toEqual([{ period: "2025-10-01", total: 5 }]);
+  // уже выданный день заново не считается: 3 + 1 новый (4-го числа нет, 3-е есть) = 4
+  expect(overLimitMonths(D({ from: "2025-10-03", to: "2025-10-04" }), f)).toEqual([]);
+  // диапазон без новых дней не предупреждает, даже если месяц и так сверх лимита
+  const over = F({ existing: ["2025-10-01", "2025-10-02", "2025-10-03", "2025-10-04", "2025-10-05"] });
+  expect(overLimitMonths(D({ from: "2025-10-05", to: "2025-10-05" }), over)).toEqual([]);
+  // через границу месяца: октябрь в лимите, ноябрь нет
+  const nov = F({ existing: ["2025-11-10", "2025-11-11", "2025-11-12", "2025-11-13"] });
+  expect(overLimitMonths(D({ from: "2025-10-31", to: "2025-11-01" }), nov)).toEqual([{ period: "2025-11-01", total: 5 }]);
+  // неверные даты — пусто
+  expect(overLimitMonths(D({ from: "", to: "" }), f)).toEqual([]);
+});
+
+it("dayOffWarnings: больше лимита в месяце — предупреждение «в октябре … 5, лимит 4», выдача не запрещена", () => {
+  const f = F({ existing: ["2025-10-01", "2025-10-02", "2025-10-03"] });
+  const w = dayOffWarnings(D({ from: "2025-10-27", to: "2025-10-28" }), f, "ru");
+  expect(w).toEqual([DICT.ru.ev_dayoff_warn_limit.replace("{month}", "октябре").replace("{n}", "5").replace("{limit}", "4")]);
+  // это предупреждение, а не замечание: проверка заявки его не возвращает
+  expect(dayOffIssues(D({ from: "2025-10-27", to: "2025-10-28" }), f, "ru")).toEqual([]);
+  // в лимите — тишина; оба предупреждения вместе, если оценка отправлена
+  expect(dayOffWarnings(D({ from: "2025-10-27", to: "2025-10-27" }), f, "ru")).toEqual([]);
+  expect(dayOffWarnings(D({ from: "2025-10-27", to: "2025-10-28" }), F({ ...f, submitted_months: ["2025-10-01"] }), "ru")).toHaveLength(2);
+  expect(dayOffWarnings(D({ from: "2025-10-27", to: "2025-10-28" }), f, "uz")[0]).toContain("Oktabr oyida");
 });
