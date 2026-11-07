@@ -2820,6 +2820,8 @@
         "scoreAria": "Балл: {title}",
         "noData": "Нет данных",
         "suggestion": "Предложение: {score} — {basis}",
+        "autoAttendance": "Считает система по данным Workly и выходным: {score} · {basis}",
+        "autoAttendanceNone": "Данных Workly нет: пункт не входит в итог.",
         "accept": "Принять",
         "violations": "Нарушений за месяц: {count}, подсказка: {hint}",
         "setHint": "Поставить {hint}",

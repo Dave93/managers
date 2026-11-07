@@ -22,8 +22,28 @@ import { PhotoThumbs } from "./photo-thumbs";
 
 const scoreStr = (s: number | null) => (s === null ? "" : String(s));
 
-/** Редактор одного пункта карты. Общий для оценки и разбора спора. */
-export function ItemScoreRow({
+/** «Приход и уход» считает система (Workly + выходные): только чтение, без кнопок, поля и заметки. */
+function AutoAttendanceRow({ item }: { item: ReviewFormItem }) {
+  const t = useTranslations("kpi");
+  return (
+    <div className="space-y-2 rounded-md border p-3">
+      <div className="flex flex-wrap items-center gap-x-2">
+        <span className="font-medium">{item.title_ru}</span>
+        <span className="text-xs text-muted-foreground">{t(SOURCE_LABEL_KEY[item.source])}</span>
+      </div>
+      <p role="status" className="text-sm">
+        {item.score !== null
+          ? t("common.itemScore.autoAttendance", { score: item.score, basis: item.suggestion?.basis ?? "Workly" })
+          : t("common.itemScore.autoAttendanceNone")}
+      </p>
+      {item.violation_hint !== null && (
+        <p className="text-sm">{t("common.itemScore.violations", { count: item.violations.length, hint: item.violation_hint })}</p>
+      )}
+    </div>
+  );
+}
+
+function EditableItemRow({
   item,
   value,
   onChange,
@@ -183,4 +203,15 @@ export function ItemScoreRow({
       )}
     </div>
   );
+}
+
+/** Редактор одного пункта карты. Общий для оценки и разбора спора; посещаемость только показывается. */
+export function ItemScoreRow(props: {
+  item: ReviewFormItem;
+  value: DraftItem;
+  onChange: (v: DraftItem) => void;
+  disabled?: boolean;
+  issue?: IssueCode;
+}) {
+  return props.item.source === "attendance" ? <AutoAttendanceRow item={props.item} /> : <EditableItemRow {...props} />;
 }

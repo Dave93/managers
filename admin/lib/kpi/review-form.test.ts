@@ -7,7 +7,7 @@ import {
 const items: FormItemLite[] = [
   { item_id: "m1", source: "manual", weight: 1, score: 100, note: null, suggestion: null },
   { item_id: "m2", source: "manual", weight: 1, score: 50, note: null, suggestion: null },
-  { item_id: "a1", source: "attendance", weight: 1, score: null, note: null, suggestion: { score: 80, basis: "Workly: 20 из 25 дней вовремя" } },
+  { item_id: "a1", source: "sales_plan", weight: 1, score: null, note: null, suggestion: { score: 80, basis: "Продажи: 98 из 100" } },
 ];
 // Отправленная оценка, где автопункт принял предложение
 const sent: FormItemLite[] = items.map((i) => (i.item_id === "a1" ? { ...i, score: 80 } : i));
@@ -215,9 +215,23 @@ describe("заметка к прежнему баллу", () => {
 
   it("«Удалить заметку» на автопункте с предложением не 100 — проверка «напишите заметку» работает как раньше", () => {
     const auto: FormItemLite[] = [
-      { item_id: "a", source: "attendance", weight: 1, score: 80, note: FARTUK, suggestion: { score: 80, basis: "Workly" } },
+      { item_id: "a", source: "sales_plan", weight: 1, score: 80, note: FARTUK, suggestion: { score: 80, basis: "Продажи" } },
     ];
     expect(reviewIssues(auto, { a: { score: 100, note: FARTUK } }, "submit", "", 5)).toEqual([]);
     expect(reviewIssues(auto, { a: { score: 100, note: "" } }, "submit", "", 5)).toEqual([{ code: "note_required", item_id: "a" }]);
+  });
+});
+
+describe("посещаемость считает система", () => {
+  const att: FormItemLite[] = [
+    { item_id: "m1", source: "manual", weight: 1, score: 100, note: null, suggestion: null },
+    { item_id: "att", source: "attendance", weight: 1, score: 40, note: null, suggestion: { score: 67, basis: "Workly: 3 дня" } },
+  ];
+  it("вне правил ввода: другой балл, «нет данных» и расхождение со снимком не требуют заметки; предложение в пустой пункт не подставляется", () => {
+    const d = draftFromItems(att, "new");
+    expect(d.att).toEqual({ score: 40, note: "" });
+    expect(reviewIssues(att, d, "submit", "", 5)).toEqual([]);
+    expect(reviewIssues(att, { ...d, att: { score: null, note: "" } }, "submit", "", 5)).toEqual([]);
+    expect(draftFromItems([att[0]!, { ...att[1]!, score: null }], "draft").att).toEqual({ score: null, note: "" });
   });
 });

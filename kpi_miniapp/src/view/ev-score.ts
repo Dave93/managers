@@ -25,7 +25,7 @@ export function draftFromItems(items: readonly FormItemLite[], prefill: boolean)
   const d: Draft = {};
   for (const i of items) {
     const note = i.note ?? "";
-    const fill = prefill && i.source !== "manual" && i.score === null && i.suggestion !== null && note.trim() === "";
+    const fill = prefill && i.source !== "manual" && i.source !== "attendance" && i.score === null && i.suggestion !== null && note.trim() === "";
     d[i.item_id] = { score: fill ? (i.suggestion as { score: number }).score : i.score, note };
   }
   return d;
@@ -100,6 +100,8 @@ export function reviewIssues(
     const d = itemDraft(i, draft);
     // Неверный текст блокирует любое действие: иначе ушёл бы последний верный балл («150» → 15).
     // Одна проблема на пункт: экран держит их в Map по item_id.
+    // «Приход и уход» считает система, оценщик её не заполняет: правил ввода у пункта нет.
+    if (i.source === "attendance") continue;
     if (d.invalid) out.push({ code: "bad_score_text", item_id: i.item_id });
     else if (action !== "draft" && i.source === "manual" && d.score === null) out.push({ code: "score_required", item_id: i.item_id });
     else if (i.suggestion && d.score !== null && d.score !== i.suggestion.score && d.note.trim() === "") out.push({ code: "note_required", item_id: i.item_id });

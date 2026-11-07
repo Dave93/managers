@@ -7,7 +7,7 @@ const item = (id: string, group: "base" | "extra", o: Partial<EvReviewForm["item
 const F: EvReviewForm = {
   period: "2026-10-01", period_status: "open", employee: { id: "e1", first_name: "Ботир", last_name: "Алиев", terminal_name: "Филиал А" }, card_title: "Повар (Chopar и Les Ailes)",
   review: null, items: [
-    item("i1", "base", { source: "attendance", suggestion: { score: 80, basis: "Workly: 20 из 25 дней вовремя" }, violations: [{ id: "v1", occurred_at: "2026-10-14T14:40:00.000Z", comment: "Грязный пол" }], violation_hint: 90 }),
+    item("i1", "base", { source: "attendance", score: 80, suggestion: { score: 80, basis: "Workly: 20 из 25 дней вовремя" }, violations: [{ id: "v1", occurred_at: "2026-10-14T14:40:00.000Z", comment: "Грязный пол" }], violation_hint: 90 }),
     item("i2", "base"), item("i3", "extra"),
   ],
   other_violations: [], can_edit: true, open_dispute: false, dispute_rejected: false, submit_opens_at: "2026-10-19T19:00:00.000Z", review_deadline: "2026-11-07T18:59:59.999Z",
@@ -18,7 +18,7 @@ it("шапка, группы, пункты", () => {
   const vm = evReviewView(F, "ru", OPEN);
   expect([vm.title, vm.sub, vm.mode, vm.banner, vm.submitAllowed]).toEqual(["Алиев Ботир", "Филиал А · Повар (Chopar и Les Ailes) · Октябрь", "edit", null, true]);
   expect(vm.groups.map((g) => [g.key, g.title, g.items.length])).toEqual([["base", "Основные пункты", 2], ["extra", "Дополнительные пункты", 1]]);
-  expect(vm.groups[0]!.items[0]).toMatchObject({ sourceLabel: "по данным Workly", suggestionText: "Предложение: 80 · Workly: 20 из 25 дней вовремя", violationLine: "Нарушений за месяц: 1. Подсказка: 90", violationComments: ["14 октября: Грязный пол"] });
+  expect(vm.groups[0]!.items[0]).toMatchObject({ sourceLabel: "по данным Workly", suggestionText: null, autoText: "Считает система по данным Workly и выходным: 80 · Workly: 20 из 25 дней вовремя", violationLine: "Нарушений за месяц: 1. Подсказка: 90", violationComments: ["14 октября: Грязный пол"] });
   expect(vm.groups[0]!.items[1]).toMatchObject({ sourceLabel: null, suggestionText: null, violationLine: null });
 });
 it("баннеры: закрыт, отправлена, спор, вне назначения, отправка ещё не открыта", () => {
@@ -34,4 +34,12 @@ it("баннеры: закрыт, отправлена, спор, вне наз�
 it("узбекское название пункта, русского нет — русское", () => {
   const vm = evReviewView({ ...F, items: [{ ...F.items[0]!, title_uz: "" }, ...F.items.slice(1)] }, "uz", OPEN);
   expect(vm.groups[0]!.items[0]!.title).toBe(F.items[0]!.title_ru);
+});
+
+it("посещаемость без данных: подпись «данных нет»; у остальных пунктов автоподписи нет", () => {
+  const f: EvReviewForm = { ...F, items: [item("i1", "base", { source: "attendance", score: null, suggestion: null }), item("i2", "base", { source: "sales_plan", suggestion: { score: 90, basis: "Продажи: 98 из 100" } })] };
+  const [a, b] = evReviewView(f, "ru", OPEN).groups[0]!.items;
+  expect(a).toMatchObject({ autoText: "Данных Workly нет: пункт не входит в итог.", suggestionText: null });
+  expect(b).toMatchObject({ autoText: null, suggestionText: "Предложение: 90 · Продажи: 98 из 100" });
+  expect(evReviewView(f, "uz", OPEN).groups[0]!.items[0]!.autoText).toContain("Workly");
 });

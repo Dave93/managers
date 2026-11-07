@@ -4,7 +4,7 @@ import { SCORE_BUTTONS, type DraftItem, type FormItemLite, changedItemIds, draft
 const items: FormItemLite[] = [
   { item_id: "m1", source: "manual", weight: 1, score: 100, note: null, suggestion: null },
   { item_id: "m2", source: "manual", weight: 1, score: 50, note: null, suggestion: null },
-  { item_id: "a1", source: "attendance", weight: 1, score: null, note: null, suggestion: { score: 80, basis: "Workly: 20 из 25 дней вовремя" } },
+  { item_id: "a1", source: "sales_plan", weight: 1, score: null, note: null, suggestion: { score: 80, basis: "Продажи: 98 из 100" } },
 ];
 const sent: FormItemLite[] = items.map((i) => (i.item_id === "a1" ? { ...i, score: 80 } : i));
 
@@ -48,4 +48,17 @@ it("evIssueText на двух языках", () => {
   expect(evIssueText({ code: "comment_required" }, 5, "ru")).toBe("Комментарий — не меньше 5 букв или цифр");
   expect(evIssueText({ code: "note_required", item_id: "a1" }, 5, "ru")).toBe("Балл отличается от предложения или не поставлен: напишите заметку");
   expect(evIssueText({ code: "no_changes" }, 5, "uz").length).toBeGreaterThan(0);
+});
+
+it("посещаемость вне правил ввода: другой балл, «нет данных» и расхождение со снимком не требуют заметки, предложение в пустой пункт не подставляется", () => {
+  const att: FormItemLite[] = [
+    { item_id: "m1", source: "manual", weight: 1, score: 100, note: null, suggestion: null },
+    { item_id: "att", source: "attendance", weight: 1, score: 40, note: null, suggestion: { score: 67, basis: "Workly: 3 дня" } },
+  ];
+  const d = draftFromItems(att, true);
+  expect(d.att).toEqual({ score: 40, note: "" });
+  expect(reviewIssues(att, d, "submit", "", 5)).toEqual([]);
+  expect(reviewIssues(att, { ...d, att: { score: null, note: "" } }, "submit", "", 5)).toEqual([]);
+  const empty: FormItemLite[] = [att[0]!, { ...att[1]!, score: null }];
+  expect(draftFromItems(empty, true).att).toEqual({ score: null, note: "" });
 });

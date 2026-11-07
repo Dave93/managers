@@ -134,10 +134,13 @@ describe("настройки", () => {
 
 describe("noDataNoteRequired", () => {
   const S = { score: 80 };
-  it("автопункт с предложением и «нет данных» без заметки — нужна", () => {
-    expect(R.noDataNoteRequired("attendance", S, null, null)).toBe(true);
-    expect(R.noDataNoteRequired("attendance", S, null, "  ")).toBe(true);
+  it("автопункт филиала с предложением и «нет данных» без заметки — нужна", () => {
     expect(R.noDataNoteRequired("cooking_speed", S, null, undefined)).toBe(true);
+    expect(R.noDataNoteRequired("sales_plan", S, null, "  ")).toBe(true);
+  });
+  it("посещаемость заметки не требует: её балл всегда равен предложению системы", () => {
+    expect(R.noDataNoteRequired("attendance", S, null, null)).toBe(false);
+    expect(R.noDataNoteRequired("attendance", S, null, "  ")).toBe(false);
   });
   it("с заметкой, с баллом, без предложения, ручной пункт — не нужна", () => {
     expect(R.noDataNoteRequired("attendance", S, null, "сбой терминала")).toBe(false);
