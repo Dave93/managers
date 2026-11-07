@@ -55,14 +55,46 @@ export function dayOffIssues(d: DayOffDraft, f: EvDayOffForm, l: Lang): string[]
   return out;
 }
 
+/** Дни диапазона включительно «YYYY-MM-DD»; пусто при неверных датах (как dayOffCount). */
+function rangeDays(d: Pick<DayOffDraft, "from" | "to">): string[] {
+  const a = dayMs(d.from);
+  const n = dayOffCount(d);
+  return a === null ? [] : Array.from({ length: n }, (_, i) => new Date(a + i * DAY_MS).toISOString().slice(0, 10));
+}
+
 /**
- * Предупреждения, не запреты: за месяц, где оценка сотрудника уже отправлена, выходной сохранится, но балл
- * «Приход и уход» в отправленной оценке не изменится. Месяцы диапазона — по его первому и последнему дню.
+ * Месяцы диапазона, где у сотрудника выйдет больше выходных, чем мягкий лимит: уже выданные (любым автором)
+ * плюс новые дни диапазона, где выходного ещё нет. Только месяцы, затронутые диапазоном; по возрастанию.
+ */
+export function overLimitMonths(d: DayOffDraft, f: EvDayOffForm): { period: string; total: number }[] {
+  const have = new Set(f.existing);
+  const touched = new Map<string, number>();
+  for (const day of rangeDays(d)) {
+    const p = `${day.slice(0, 7)}-01`;
+    touched.set(p, (touched.get(p) ?? 0) + (have.has(day) ? 0 : 1));
+  }
+  const out: { period: string; total: number }[] = [];
+  for (const [period, added] of [...touched].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const total = f.existing.filter((x) => x.startsWith(period.slice(0, 7))).length + added;
+    if (added > 0 && total > f.month_limit) out.push({ period, total });
+  }
+  return out;
+}
+
+/**
+ * Предупреждения, не запреты. Месяц, где оценка сотрудника уже отправлена: выходной сохранится, но балл
+ * «Приход и уход» в отправленной оценке не изменится (месяцы по первому и последнему дню диапазона).
+ * Месяц, где выходных станет больше лимита: выдача всё равно пройдёт.
  */
 export function dayOffWarnings(d: DayOffDraft, f: EvDayOffForm, l: Lang): string[] {
   if (dayOffCount(d) === 0) return [];
+  const out: string[] = [];
   const months = [...new Set([d.from, d.to].map((day) => `${day.slice(0, 7)}-01`))].filter((m) => f.submitted_months.includes(m));
-  return months.length ? [tIn(l, "ev_dayoff_warn_submitted", { months: monthsList(months, "nom", l) })] : [];
+  if (months.length) out.push(tIn(l, "ev_dayoff_warn_submitted", { months: monthsList(months, "nom", l) }));
+  for (const { period, total } of overLimitMonths(d, f)) {
+    out.push(tIn(l, "ev_dayoff_warn_limit", { month: monthsList([period], "prep", l), n: total, limit: f.month_limit }));
+  }
+  return out;
 }
 
 /** Тело POST /ev/days-off: текст уходит только с причиной «другая». */

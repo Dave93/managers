@@ -91,6 +91,7 @@ export interface EvDayOffForm {
   reasons: DayOffReason[];
   window: { min: string; max: string };   // выбираемые дни, включительно; закрытый месяц сервер всё равно отклонит
   max_range_days: number;
+  month_limit: number;                    // мягкий лимит выходных сотрудника в месяц: превышение только предупреждает
   existing: string[];                     // дни сотрудника с активным выходным внутри окна
   submitted_months: string[];             // месяцы окна «YYYY-MM-01», где оценка сотрудника уже отправлена: её снимок выходной не пересчитает
 }

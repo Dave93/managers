@@ -9,6 +9,9 @@ export const DAY_OFF_REASONS: readonly DayOffReason[] = ["sick", "family", "time
 export const MAX_RANGE_DAYS = 31;
 export const MAX_AHEAD_DAYS = 31;
 export const MAX_BACK_DAYS = 366;
+// Мягкий лимит выходных одного сотрудника в календарном месяце (все причины, все авторы). Не запрет: форма лишь
+// предупреждает, что выдаётся больше, а сервер записывает выходной в любом случае (решение владельца 2026-11-07).
+export const DAYS_OFF_MONTH_LIMIT = 4;
 
 const DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const pad = (n: number) => String(n).padStart(2, "0");

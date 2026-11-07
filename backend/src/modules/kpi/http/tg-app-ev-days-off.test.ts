@@ -79,6 +79,24 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(rows.every((x) => x.terminal_id === t.id && x.given_by === ev.id && x.cancelled_at === null)).toBe(true);
     });
 
+    it("лимит 4 выходных в месяц мягкий: пятый и шестой выдаются, форма отдаёт лимит и все дни месяца от разных авторов", async () => {
+      setNow(NOW);
+      const { t, e, token } = await world();
+      expect((await give(token, e.id, "2025-10-27", "2025-10-30")).body.created).toHaveLength(4);
+      // пятый и шестой день сверх лимита: не запрет, оба записаны
+      const over = await give(token, e.id, "2025-10-31", "2025-11-01");
+      expect(over.status).toBe(200);
+      expect(over.body.created).toHaveLength(2);
+      expect(await rowsOf(e.id)).toHaveLength(6);
+      // другой оценщик тоже выдаёт этому сотруднику: форма видит дни всех авторов, клиент считает по ним
+      const ev2 = await makeEvaluator(db);
+      await makeScope(db, ev2.id, { terminal_id: t.id });
+      expect((await give(await evSession(db, ev2.id), e.id, "2025-11-02", "2025-11-02")).status).toBe(200);
+      const f = await tgApi(token, "GET", `/api/kpi/tg/ev/day-off-form?employee_id=${e.id}`);
+      expect(f.body.month_limit).toBe(4);
+      expect(f.body.existing).toEqual(["2025-10-27", "2025-10-28", "2025-10-29", "2025-10-30", "2025-10-31", "2025-11-01", "2025-11-02"]);
+    });
+
     it("«другая» причина хранит текст, остальные текст не хранят", async () => {
       setNow(NOW);
       const { e, token } = await world();
@@ -250,6 +268,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           reasons: ["sick", "family", "time_off", "vacation", "schedule", "other"],
           window: { min: "2025-10-01", max: "2025-11-26" },
           max_range_days: 31,
+          month_limit: 4,
           existing: ["2025-10-30", "2025-10-31"],
         });
       } finally {

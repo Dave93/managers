@@ -6,7 +6,7 @@ import { employees, kpi_days_off, kpi_periods, kpi_reviews, terminals } from "ba
 import { and, asc, desc, eq, gte, inArray, isNull, lt, lte, sql, type SQL } from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import { loadScopes, type Actor, type DbLike } from "./access";
-import { checkReason, addDays, expandRange, MAX_AHEAD_DAYS, MAX_BACK_DAYS, MAX_RANGE_DAYS, periodOfDay, DAY_OFF_REASONS } from "./days-off-rules";
+import { checkReason, addDays, expandRange, DAYS_OFF_MONTH_LIMIT, MAX_AHEAD_DAYS, MAX_BACK_DAYS, MAX_RANGE_DAYS, periodOfDay, DAY_OFF_REASONS } from "./days-off-rules";
 import { canEvaluate, loadDirectory } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
@@ -165,6 +165,7 @@ export async function dayOffForm(db: DbLike, actor: Actor, employeeId: unknown, 
     reasons: [...DAY_OFF_REASONS],
     window: { min, max },
     max_range_days: MAX_RANGE_DAYS,
+    month_limit: DAYS_OFF_MONTH_LIMIT,
     existing: existing.map((r) => r.day),
     submitted_months: submitted.map((r) => r.period),
   };
