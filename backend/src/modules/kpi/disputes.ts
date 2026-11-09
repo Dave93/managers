@@ -32,7 +32,7 @@ const isUniqueViolation = (e: any): boolean => e?.code === "23505" || e?.cause?.
 // покрывающим сотрудника сейчас или по снимку записи. Разбор — отдельное правило, mayResolve.
 function mayHandle(actor: Actor, scopes: Scope[], emp: DirEmployee | undefined, snapshot: Subject | null): boolean {
   if (has(actor, "kpi.approve")) return true;
-  if (emp && canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) return true;
+  if (emp && canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id })) return true;
   return snapshot !== null && canEvaluate(actor, scopes, snapshot);
 }
 
@@ -112,7 +112,7 @@ function authorOf(d: DRow, l: Loaded): string | null {
 async function toRows(db: DbLike, actor: Actor | null, rows: DRow[], l?: Loaded): Promise<DisputeRow[]> {
   if (rows.length === 0) return [];
   const loaded = l ?? (await loadSubjects(db, rows));
-  const scopes = actor ? await loadScopes(db, actor.userId) : [];
+  const scopes = actor ? await loadScopes(db, actor) : [];
   const authors = rows.map((r) => authorOf(r, loaded));
   // can_resolve считается только для открытых споров и только для пользователя (не для сотрудника из бота).
   const authorScopes = actor
@@ -204,7 +204,7 @@ export async function openDispute(
     }
 
     if (!input.employee_actor) {
-      const scopes = await loadScopes(tx, actor!.userId);
+      const scopes = await loadScopes(tx, actor!);
       const [emp] = await loadDirectory(tx, { employeeIds: [employee_id], includeInactive: true });
       if (!mayHandle(actor!, scopes, emp, snapshot)) throw new KpiError(403, "out_of_scope");
     }
@@ -294,7 +294,7 @@ export async function resolveDispute(
     // коммита и увидит отказ. Порядок: спор → предмет → месяц (changeReviewTx и cancelViolationTx берут те же).
     await lockSubject(tx, d.subject_type, d.subject_id);
     const l = await loadSubjects(tx, [d]);
-    const actorScopes = await loadScopes(tx, actor.userId);
+    const actorScopes = await loadScopes(tx, actor);
     const authorId = authorOf(d, l);
     const authorScopes = authorId ? ((await loadScopesByUser(tx, [authorId])).get(authorId) ?? []) : [];
     const allowed = mayResolve({
@@ -393,7 +393,7 @@ export async function listDisputes(
   const l = await loadSubjects(db, rows);
   let shown = rows;
   if (!seesNetwork(actor)) {
-    const scopes = await loadScopes(db, actor.userId);
+    const scopes = await loadScopes(db, actor);
     shown = rows.filter((r) => {
       // Автор видит свой спор и после снятия назначения: разобрать он тогда не может, но знать должен.
       if (authorOf(r, l) === actor.userId) return true;

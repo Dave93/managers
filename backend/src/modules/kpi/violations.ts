@@ -144,8 +144,8 @@ export async function createViolation(
   const [emp] = await loadDirectory(db, { employeeIds: [input.employee_id], includeInactive: true });
   if (!emp) throw new KpiError(404, "not_found");
   // Назначение проверяется по текущему филиалу и действующей карте; без него не раскрываем ничего о сотруднике.
-  const scopes = await loadScopes(db, actor.userId);
-  if (!canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) {
+  const scopes = await loadScopes(db, actor);
+  if (!canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id })) {
     throw new KpiError(403, "out_of_scope");
   }
 
@@ -316,8 +316,8 @@ function visible(actor: Actor, scopes: Scope[], v: VRow, emp: DirEmployee | unde
   return canSeeEither(
     actor,
     scopes,
-    emp ? { terminal_id: emp.terminal_id, card_id } : null,
-    { terminal_id: v.terminal_id, card_id }
+    emp ? { terminal_id: emp.terminal_id, card_id, employee_id: emp.id } : null,
+    { terminal_id: v.terminal_id, card_id, ...(emp ? { employee_id: emp.id } : {}) }
   );
 }
 
@@ -352,7 +352,7 @@ export async function listViolations(
     .orderBy(desc(kpi_violations.occurred_at), asc(kpi_violations.id));
   let shown = rows;
   if (!seesNetwork(actor)) {
-    const scopes = await loadScopes(db, actor.userId);
+    const scopes = await loadScopes(db, actor);
     const dir = await directoryMap(db, rows.map((r) => r.employee_id));
     shown = rows.filter((r) => visible(actor, scopes, r, dir.get(r.employee_id)));
   }
@@ -366,7 +366,7 @@ export async function photoFile(db: DbLike, actor: Actor, photoId: string): Prom
   const [v] = await db.select().from(kpi_violations).where(eq(kpi_violations.id, p.violation_id)).limit(1);
   if (!v) throw new KpiError(404, "not_found");
   // Чужое и несуществующее неотличимы.
-  const scopes = await loadScopes(db, actor.userId);
+  const scopes = await loadScopes(db, actor);
   const dir = await directoryMap(db, [v.employee_id]);
   if (!visible(actor, scopes, v, dir.get(v.employee_id))) throw new KpiError(404, "not_found");
   // Путь вне каталога загрузок или файла нет — как нет фото.

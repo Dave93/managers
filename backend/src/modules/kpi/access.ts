@@ -3,11 +3,14 @@ import { resolveIsHq } from "@backend/lib/resolve-is-hq";
 import { kpi_evaluator_scopes } from "backend/drizzle/schema";
 import { eq, inArray } from "drizzle-orm";
 import { KpiError } from "./errors";
+import { managerScopes } from "./manager-evaluator";
 import type { Scope } from "./rules";
 import { isPeriod, type Period } from "./time";
 
 export type DbLike = DrizzleDB | Parameters<Parameters<DrizzleDB["transaction"]>[0]>[0];
-export type Actor = { userId: string; perms: Set<string>; isHq: boolean; terminals: string[] };
+// managerEmployeeIds: менеджер филиала без учётной записи (manager-evaluator.ts): его id сотрудника и id пар в другой
+// компании. Тогда userId — тоже id сотрудника: им подписываются оценки, нарушения и выходные, пользователя за ним нет.
+export type Actor = { userId: string; perms: Set<string>; isHq: boolean; terminals: string[]; managerEmployeeIds?: string[] };
 
 export async function actorFrom(a: {
   user: any;
@@ -40,12 +43,16 @@ export function viewsTerminal(actor: Actor, terminalId: string): boolean {
   return seesNetwork(actor) || (has(actor, "kpi.view") && actor.terminals.includes(terminalId));
 }
 
-export async function loadScopes(db: DbLike, userId: string): Promise<Scope[]> {
-  const rows = await db
+// Назначения: строки kpi_evaluator_scopes пользователя плюс филиалы менеджера (если актор — менеджер филиала).
+// Строка вместо актора — только назначения пользователя (чужой оценщик в списках и отчётах).
+export async function loadScopes(db: DbLike, who: string | Actor): Promise<Scope[]> {
+  const userId = typeof who === "string" ? who : who.userId;
+  const rows: Scope[] = await db
     .select({ card_id: kpi_evaluator_scopes.card_id, terminal_id: kpi_evaluator_scopes.terminal_id })
     .from(kpi_evaluator_scopes)
     .where(eq(kpi_evaluator_scopes.user_id, userId));
-  return rows;
+  if (typeof who === "string" || !who.managerEmployeeIds?.length) return rows;
+  return [...rows, ...(await managerScopes(db, who.managerEmployeeIds))];
 }
 
 // Назначения нескольких оценщиков одним запросом; у пользователя без назначений ключа в карте нет.

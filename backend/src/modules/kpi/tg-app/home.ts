@@ -4,6 +4,7 @@ import { employees, kpi_card_items, kpi_raise_decisions, kpi_review_items, kpi_v
 import { and, eq, gte, sql } from "drizzle-orm";
 import type { DbLike } from "../access";
 import { loadDirectory } from "../directory";
+import { listEmployeeRows } from "../employees";
 import { KpiError } from "../errors";
 import { laggingEvaluators } from "../periods";
 import { getTiers } from "../raises";
@@ -11,6 +12,7 @@ import { quarterRow, type KpiSettings } from "../rules";
 import { loadSettings } from "../settings";
 import { addMonths, currentReviewPeriod, quarterMonths, quarterStart, reviewDeadline, submitOpensAt, type Period } from "../time";
 import type { KpiTgPrincipal } from "./ctx";
+import { managerActorOf } from "./ev-actor";
 import { closedPeriods, reviewDispute, submittedReviews, tgTiers, type SubmittedReview } from "./load";
 import { lostItems, monthState, quarterEnded, raiseHint, raiseQuarter } from "./rules";
 import type {
@@ -209,10 +211,20 @@ export async function homeFor(db: DbLike, p: KpiTgPrincipal, at: Date): Promise<
   const R = currentReviewPeriod(at, s.review_deadline_day);
   const roles: TgRole[] = [];
   if (p.employee_id) roles.push("employee");
-  if (p.user_id) roles.push("evaluator");
+  const manager = !p.user_id ? await managerActorOf(db, p.employee_id) : null;
+  if (p.user_id || manager) roles.push("evaluator");
 
   let evaluator: TgEvaluatorCard | null = null;
-  if (p.user_id) {
+  if (manager) {
+    // Менеджер без учётной записи: ждут оценки активные сотрудники его филиалов с картой, кроме него самого.
+    const rows = await listEmployeeRows(db, manager, { period: R });
+    evaluator = {
+      period: R,
+      pending: rows.filter((r) => r.can_evaluate && r.active && r.review?.status !== "submitted").length,
+      review_deadline: reviewDeadline(R, s.review_deadline_day).toISOString(),
+      admin_url: null,
+    };
+  } else if (p.user_id) {
     const userId = p.user_id;
     const lag = (await laggingEvaluators(db, R)).find((l) => l.user_id === userId);
     evaluator = {

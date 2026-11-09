@@ -1,12 +1,13 @@
 import { ctx } from "@backend/context";
-import { kpi_cards, kpi_evaluator_scopes, users } from "backend/drizzle/schema";
+import { kpi_cards, kpi_evaluator_scopes, kpi_tg_bindings, users } from "backend/drizzle/schema";
 import { and, asc, eq, ilike, isNull, or, sql } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { terminalNames, userNames } from "../directory";
 import { KpiError, run } from "../errors";
 import { assignScopes } from "../evaluators";
 import { iso } from "../iso";
-import type { KpiUserOption, ScopeRow } from "../types";
+import { listAutoManagers } from "../manager-evaluator";
+import type { AutoManagerRow, KpiUserOption, ScopeRow } from "../types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -21,6 +22,30 @@ function idOrNull(v: unknown): string | null {
 
 export const evaluatorsRoutes = new Elysia({ name: "@api/kpi/evaluators" })
   .use(ctx)
+  // Менеджеры филиалов: оценивают свой филиал автоматически, учётная запись не нужна. Только для просмотра.
+  .get(
+    "/kpi/evaluators/auto",
+    async ({ drizzle, set }) =>
+      run(set, async (): Promise<AutoManagerRow[]> => {
+        const mgr = await listAutoManagers(drizzle);
+        const tNames = await terminalNames(drizzle, mgr.map((m) => m.terminal_id));
+        const bound = await drizzle
+          .select({ employee_id: kpi_tg_bindings.employee_id })
+          .from(kpi_tg_bindings)
+          .where(eq(kpi_tg_bindings.active, true));
+        const tg = new Set(bound.flatMap((b) => (b.employee_id ? [b.employee_id] : [])));
+        return mgr
+          .map((m) => ({
+            employee_id: m.id,
+            name: `${m.last_name} ${m.first_name}`.trim(),
+            terminal_id: m.terminal_id,
+            terminal_name: tNames.get(m.terminal_id) ?? null,
+            telegram: tg.has(m.id),
+          }))
+          .sort((a, b) => (a.terminal_name ?? "").localeCompare(b.terminal_name ?? "", "ru") || a.name.localeCompare(b.name, "ru"));
+      }),
+    { permission: "kpi.manage" }
+  )
   .get(
     "/kpi/evaluators",
     async ({ drizzle, set }) =>

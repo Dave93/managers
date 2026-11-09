@@ -261,19 +261,19 @@ async function syncDraft(tx: DbLike, review: ReviewRow, emp: DirEmployee, inputs
 }
 
 async function scopesOf(db: DbLike, actor: Actor): Promise<Scope[]> {
-  return loadScopes(db, actor.userId);
+  return loadScopes(db, actor);
 }
 
 // Может ли actor сохранять черновик за сотрудника сейчас (без учёта закрытия месяца).
 function mayDraft(actor: Actor, scopes: Scope[], emp: DirEmployee): boolean {
-  return emp.card_id !== null && canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id });
+  return emp.card_id !== null && canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id });
 }
 
 // Может ли actor менять отправленную оценку: оценщик из назначений в открытом месяце или kpi.approve.
 function mayChange(actor: Actor, scopes: Scope[], review: ReviewRow, closed: boolean): boolean {
   if (has(actor, "kpi.approve")) return true;
   if (closed) return false;
-  return canEvaluate(actor, scopes, { terminal_id: review.terminal_id, card_id: review.card_id });
+  return canEvaluate(actor, scopes, { terminal_id: review.terminal_id, card_id: review.card_id, employee_id: review.employee_id });
 }
 
 async function buildForm(
@@ -401,8 +401,8 @@ export async function getForm(db: DbLike, actor: Actor, period: Period, employee
   const visible = canSeeEither(
     actor,
     scopes,
-    { terminal_id: emp.terminal_id, card_id: emp.card_id },
-    review ? { terminal_id: review.terminal_id, card_id: review.card_id } : null
+    { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id },
+    review ? { terminal_id: review.terminal_id, card_id: review.card_id, employee_id: review.employee_id } : null
   );
   if (!visible) throw new KpiError(403, "out_of_scope");
   if (emp.card_id === null && !review) throw new KpiError(422, "no_card");
@@ -420,7 +420,7 @@ export async function saveDraft(
   return inTx(db, async (tx) => {
     const scopes = await scopesOf(tx, actor);
     // Без назначения не раскрываем даже отсутствие карты.
-    if (!has(actor, "kpi.evaluate") || !canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) {
+    if (!has(actor, "kpi.evaluate") || !canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id })) {
       throw new KpiError(403, "out_of_scope");
     }
     if (emp.card_id === null) throw new KpiError(422, "no_card");
@@ -465,8 +465,8 @@ export async function submitReview(
     const scopes = await scopesOf(tx, actor);
     const target =
       emp.card_id !== null
-        ? { terminal_id: emp.terminal_id, card_id: emp.card_id }
-        : { terminal_id: review.terminal_id, card_id: review.card_id };
+        ? { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id }
+        : { terminal_id: review.terminal_id, card_id: review.card_id, employee_id: review.employee_id };
     if (!canEvaluate(actor, scopes, target)) throw new KpiError(403, "out_of_scope");
     if (await lockPeriodShared(tx, period)) throw new KpiError(409, "period_closed");
     if (review.status === "submitted") throw new KpiError(409, "already_submitted");
@@ -626,8 +626,8 @@ export async function reviewEvents(db: DbLike, actor: Actor, reviewId: string): 
   const visible = canSeeEither(
     actor,
     scopes,
-    emp ? { terminal_id: emp.terminal_id, card_id: emp.card_id } : null,
-    { terminal_id: review.terminal_id, card_id: review.card_id }
+    emp ? { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id } : null,
+    { terminal_id: review.terminal_id, card_id: review.card_id, employee_id: review.employee_id }
   );
   if (!visible) throw new KpiError(403, "out_of_scope");
   const rows = await db

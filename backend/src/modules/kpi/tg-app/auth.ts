@@ -5,6 +5,7 @@ import type Redis from "ioredis";
 import { verifyInitData } from "@backend/modules/passport/tg-auth";
 import type { DbLike } from "../access";
 import { KpiError } from "../errors";
+import { managerPerson } from "../manager-evaluator";
 import { bindingOf, hasAnyActiveBinding, langOf } from "../tg/bindings";
 import { KPI_TG_SESSION_TTL_SEC, kpiTgSessionKey, type KpiTgSession } from "./ctx";
 import { tokenAllowed } from "./init-data";
@@ -38,7 +39,7 @@ export async function authenticate(db: DbLike, redis: Redis, initData: unknown, 
 
   const roles: TgRole[] = [];
   if (session.employee_id) roles.push("employee");
-  if (session.user_id) roles.push("evaluator");
+  if (session.user_id || (session.employee_id !== null && (await managerPerson(db, session.employee_id)))) roles.push("evaluator");
   return { token, roles, lang: session.lang, who: whoOf(session.employee_id, session.user_id) };
 }
 

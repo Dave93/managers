@@ -69,8 +69,8 @@ function coversTerminal(scopes: { terminal_id: string | null }[], terminalId: st
 async function assignedEmployee(db: DbLike, actor: Actor, employeeId: string) {
   const [emp] = await loadDirectory(db, { employeeIds: [employeeId] });
   if (!emp) throw new KpiError(404, "not_found");
-  const scopes = await loadScopes(db, actor.userId);
-  if (!has(actor, "kpi.evaluate") || !coversTerminal(scopes, emp.terminal_id)) throw new KpiError(403, "out_of_scope");
+  const scopes = await loadScopes(db, actor);
+  if (!has(actor, "kpi.evaluate") || actor.managerEmployeeIds?.includes(emp.id) || !coversTerminal(scopes, emp.terminal_id)) throw new KpiError(403, "out_of_scope");
   return emp;
 }
 
@@ -80,10 +80,10 @@ async function assignedEmployee(db: DbLike, actor: Actor, employeeId: string) {
  */
 export async function dayOffEmployees(db: DbLike, actor: Actor): Promise<EvDayOffEmployees> {
   if (!has(actor, "kpi.evaluate")) throw new KpiError(403, "out_of_scope");
-  const scopes = await loadScopes(db, actor.userId);
+  const scopes = await loadScopes(db, actor);
   if (scopes.length === 0) return { terminals: [], items: [] };
   const all = await loadDirectory(db, {});
-  const mine = all.filter((e) => coversTerminal(scopes, e.terminal_id));
+  const mine = all.filter((e) => coversTerminal(scopes, e.terminal_id) && !actor.managerEmployeeIds?.includes(e.id));
   const byName = (a: string, b: string) => a.localeCompare(b, "ru");
   const terminals = new Map<string, string>();
   const items = mine

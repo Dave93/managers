@@ -16,7 +16,7 @@ import {
 import { Button } from "@admin/components/ui/button";
 import { Input } from "@admin/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
-import { kpiApi, type Card, type KpiUserOption, type ScopeRow } from "@admin/lib/kpi-api";
+import { kpiApi, type AutoManagerRow, type Card, type KpiUserOption, type ScopeRow } from "@admin/lib/kpi-api";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatTashkent } from "@admin/lib/kpi/format";
 import { groupScopes, scopeLabel } from "@admin/lib/kpi/settings";
@@ -28,6 +28,52 @@ import { useTgBindings } from "../../_components/use-tg-bindings";
 
 const MIN_SEARCH = 2;
 const MAX_FOUND = 20;
+
+/** Менеджеры филиалов оценивают свой филиал автоматически: учётная запись оценщика не нужна. Только просмотр. */
+function AutoManagers() {
+  const t = useTranslations("kpi");
+  const auto = useQuery<AutoManagerRow[], Error>({
+    queryKey: ["kpi_evaluators_auto"],
+    queryFn: () => kpiApi.evaluators.auto(),
+    retry: shouldRetry,
+  });
+  const rows = auto.data ?? [];
+  const bound = rows.filter((r) => r.telegram).length;
+  return (
+    <details className="rounded-md border p-4">
+      <summary className="cursor-pointer text-base font-semibold">
+        {t("settings.evaluators.autoTitle", { count: rows.length, bound })}
+      </summary>
+      <p className="mt-2 text-sm text-muted-foreground">{t("settings.evaluators.autoHint")}</p>
+      {auto.error ? (
+        <p role="alert" className="mt-2 text-sm text-destructive">
+          {kpiErrorText(auto.error, t)}
+        </p>
+      ) : (
+        <div className="mt-3 overflow-x-auto rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t("settings.evaluators.colEvaluator")}</TableHead>
+                <TableHead>{t("settings.evaluators.autoColTerminal")}</TableHead>
+                <TableHead>{t("settings.evaluators.colTelegram")}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((r) => (
+                <TableRow key={r.employee_id}>
+                  <TableCell className="whitespace-normal break-words">{r.name}</TableCell>
+                  <TableCell className="whitespace-normal">{r.terminal_name ?? "—"}</TableCell>
+                  <TableCell>{r.telegram ? t("settings.evaluators.autoBound") : t("settings.evaluators.autoNotBound")}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </details>
+  );
+}
 
 export function EvaluatorsTab() {
   const t = useTranslations("kpi");
@@ -64,6 +110,8 @@ export function EvaluatorsTab() {
       </p>
 
       <AssignForm />
+
+      <AutoManagers />
 
       {list.error ? (
         <p role="alert" className="rounded-md border border-destructive p-3 text-sm text-destructive">

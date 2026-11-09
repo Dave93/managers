@@ -53,7 +53,7 @@ export async function loadEmployeeCard(db: DbLike, actor: Actor, employeeId: str
   if (!UUID_RE.test(employeeId)) throw new KpiError(404, "not_found");
   const [dir] = await loadDirectory(db, { employeeIds: [employeeId], includeInactive: true });
   if (!dir) throw new KpiError(404, "not_found");
-  const scopes = await loadScopes(db, actor.userId);
+  const scopes = await loadScopes(db, actor);
   if (!canSeeEmployee(actor, scopes, { terminal_id: dir.terminal_id, card_id: dir.card_id })) throw new KpiError(403, "forbidden");
 
   const at = now();

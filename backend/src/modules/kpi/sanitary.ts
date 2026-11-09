@@ -41,7 +41,7 @@ async function toRows(db: DbLike, rows: CheckRow[]): Promise<SanitaryCheckRow[]>
 export async function createCheck(db: DrizzleDB, actor: Actor, body: Record<string, unknown>): Promise<SanitaryCheckRow> {
   const terminalId = body.terminal_id;
   if (typeof terminalId !== "string" || !UUID_RE.test(terminalId)) throw new KpiError(422, "unknown_terminal");
-  const allowed = has(actor, "kpi.manage") || (has(actor, "kpi.evaluate") && coversTerminal(await loadScopes(db, actor.userId), terminalId));
+  const allowed = has(actor, "kpi.manage") || (has(actor, "kpi.evaluate") && coversTerminal(await loadScopes(db, actor), terminalId));
   if (!allowed) throw new KpiError(403, "out_of_scope");
   const [t] = await db.select({ id: terminals.id }).from(terminals).where(eq(terminals.id, terminalId)).limit(1);
   if (!t) throw new KpiError(422, "unknown_terminal");
@@ -105,7 +105,7 @@ export async function listChecks(
 ): Promise<SanitaryCheckRow[]> {
   const period = parsePeriod(q.period);
   if (q.terminal_id !== undefined && !UUID_RE.test(q.terminal_id)) throw new KpiError(422, "bad_id");
-  const scopes = has(actor, "kpi.evaluate") ? await loadScopes(db, actor.userId) : [];
+  const scopes = has(actor, "kpi.evaluate") ? await loadScopes(db, actor) : [];
   const visible = (terminalId: string) => viewsTerminal(actor, terminalId) || (scopes.length > 0 && coversTerminal(scopes, terminalId));
   if (q.terminal_id !== undefined && !visible(q.terminal_id)) throw new KpiError(403, "out_of_scope");
   const rows = await db
