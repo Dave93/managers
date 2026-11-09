@@ -48,6 +48,7 @@ const fetchProductCookingTime = async (
     endDate: string,
     terminals?: string,
     organization?: string,
+    shift?: string,
 ) => {
     if (!startDate || !endDate) {
         throw new Error("Date filter is mandatory");
@@ -58,6 +59,7 @@ const fetchProductCookingTime = async (
         endDate: string;
         terminals?: string | undefined;
         organization?: string | undefined;
+        shift?: string | undefined;
     } = {
         startDate,
         endDate,
@@ -74,6 +76,13 @@ const fetchProductCookingTime = async (
         query = {
             ...query,
             organization,
+        };
+    }
+
+    if (shift) {
+        query = {
+            ...query,
+            shift,
         };
     }
 
@@ -427,12 +436,16 @@ const ProductCookingTime = () => {
     const [perDishHeatmap, setPerDishHeatmap] = useState(true);
     const [filteredDishes, setFilteredDishes] = useState<DishData[]>([]);
 
+    // Смена по кассовым сменам iiko: "" — все, "1" — первая, "2" — вторая и далее.
+    const [shift, setShift] = useState<"" | "1" | "2">("");
+
     const queryParams = React.useMemo(() => ({
         startDate: dayjs(startDate).format('YYYY-MM-DD'),
         endDate: dayjs(endDate).format('YYYY-MM-DD'),
         terminals: terminals?.toString(),
-        organization: organization ?? undefined
-    }), [startDate, endDate, terminals, organization]);
+        organization: organization ?? undefined,
+        shift: shift || undefined,
+    }), [startDate, endDate, terminals, organization, shift]);
 
     const { data } = useSuspenseQuery<CookingTimeResponse>({
         queryKey: ["product-cooking-time", queryParams],
@@ -441,7 +454,8 @@ const ProductCookingTime = () => {
                 queryParams.startDate,
                 queryParams.endDate,
                 queryParams.terminals,
-                queryParams.organization
+                queryParams.organization,
+                queryParams.shift
             );
             return response;
         },
@@ -532,6 +546,21 @@ const ProductCookingTime = () => {
             bodyClassName="flex flex-col overflow-hidden"
         >
                 <p className="mb-2 text-xs text-muted-foreground">{t('charts.ProductCookingTime.note')}</p>
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{t('charts.ProductCookingTime.shift')}:</span>
+                    {(["", "1", "2"] as const).map((value) => (
+                        <Button
+                            key={value || "all"}
+                            variant={shift === value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => React.startTransition(() => setShift(value))}
+                            className="whitespace-nowrap"
+                        >
+                            {value === "" ? t('charts.ProductCookingTime.shiftAll') : value === "1" ? t('charts.ProductCookingTime.shift1') : t('charts.ProductCookingTime.shift2')}
+                        </Button>
+                    ))}
+                    <span className="text-xs text-muted-foreground">{t('charts.ProductCookingTime.shiftHint')}</span>
+                </div>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <SearchInput

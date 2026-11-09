@@ -109,6 +109,11 @@
       "loading": "Taomlar yuklanmoqda...",
       "scrollToLoadMore": "Ko'proq taom yuklash uchun pastga suring",
       "noResults": "So'rovingizga mos taomlar topilmadi",
+      "shift": "Smena",
+      "shiftAll": "Hammasi",
+      "shift1": "1-smena",
+      "shift2": "2-smena",
+      "shiftHint": "iiko kassa smenalari bo'yicha, ma'lumotlar 12.06.2026 dan boshlab mavjud. Nuqtada kuniga bitta smena bo'lsa, u birinchi hisoblanadi.",
       "note": "Vaqt butun buyurtma bo'yicha hisoblanadi: iiko alohida taomning tayyorlanish vaqtini o'lchamaydi. «Zal» joyidagi pozitsiyalar (ichimliklar, gazaklar) hisobga olinmaydi.",
       "sortHint": "Saralash uchun ustun sarlavhalarini bosing"
     },

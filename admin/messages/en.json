@@ -109,6 +109,11 @@
       "loading": "Loading more dishes...",
       "scrollToLoadMore": "Scroll to load more dishes",
       "noResults": "No dishes found matching your search",
+      "shift": "Shift",
+      "shiftAll": "All",
+      "shift1": "Shift 1",
+      "shift2": "Shift 2",
+      "shiftHint": "Based on iiko cash shifts, data available since 12.06.2026. If a point has one shift per day, it counts as the first.",
       "note": "Time is measured per whole order: iiko does not track the cooking time of a single dish. Items from the Hall cooking place (drinks, snacks) are excluded.",
       "sortHint": "Click on column headers to sort"
     },
