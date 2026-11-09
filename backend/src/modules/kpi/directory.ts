@@ -70,9 +70,11 @@ export async function loadDirectory(
   });
 }
 
-type Target = { terminal_id: string; card_id: string | null };
+// employee_id: чей это сотрудник; менеджер филиала (actor.managerEmployeeIds) себя не оценивает и в своём списке себя не видит.
+type Target = { terminal_id: string; card_id: string | null; employee_id?: string };
 
 export function canEvaluate(actor: Actor, scopes: Scope[], e: Target): boolean {
+  if (e.employee_id && actor.managerEmployeeIds?.includes(e.employee_id)) return false;
   return has(actor, "kpi.evaluate") && scopeCovers(scopes, e);
 }
 
@@ -83,9 +85,9 @@ export function canSeeEmployee(actor: Actor, scopes: Scope[], e: Target): boolea
 // Из ids — активные сотрудники с картой KPI, которых actor видит в списке «Оценок».
 export async function visibleCardedIds(db: DbLike, actor: Actor, ids: string[]): Promise<Set<string>> {
   if (ids.length === 0) return new Set();
-  const scopes = await loadScopes(db, actor.userId);
+  const scopes = await loadScopes(db, actor);
   const dir = await loadDirectory(db, { employeeIds: ids });
-  return new Set(dir.filter((e) => e.card_id !== null && canSeeEmployee(actor, scopes, e)).map((e) => e.id));
+  return new Set(dir.filter((e) => e.card_id !== null && canSeeEmployee(actor, scopes, { terminal_id: e.terminal_id, card_id: e.card_id, employee_id: e.id })).map((e) => e.id));
 }
 
 // Видимость по текущему положению сотрудника или по снимку (филиал и карта записи на момент события).
@@ -106,6 +108,12 @@ export async function userNames(db: DbLike, ids: string[]): Promise<Map<string, 
     .from(users)
     .where(inArray(users.id, uniq));
   for (const r of rows) out.set(r.id, [r.first_name, r.last_name].filter(Boolean).join(" ") || r.login);
+  // Оценщик без учётной записи (менеджер филиала, manager-evaluator.ts) подписан id сотрудника.
+  const rest = uniq.filter((id) => !out.has(id));
+  if (rest.length) {
+    const emps = await db.select({ id: employees.id, first_name: employees.first_name, last_name: employees.last_name }).from(employees).where(inArray(employees.id, rest));
+    for (const e of emps) out.set(e.id, `${e.last_name} ${e.first_name}`.trim());
+  }
   return out;
 }
 

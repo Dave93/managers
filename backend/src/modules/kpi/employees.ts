@@ -36,7 +36,7 @@ export async function listEmployeeRows(
   const settings = await loadSettings(db);
   const deadline = reviewDeadline(period, settings.review_deadline_day).getTime();
   const nowMs = now().getTime();
-  const scopes = await loadScopes(db, actor.userId);
+  const scopes = await loadScopes(db, actor);
 
   const dir = await loadDirectory(db, {
     includeInactive: true,
@@ -74,8 +74,8 @@ export async function listEmployeeRows(
     if (!e.active && !rv) continue;
     // Оценка без действующей карты видна и по карте из снимка оценки.
     const visible =
-      canSeeEmployee(actor, scopes, { terminal_id: e.terminal_id, card_id: e.card_id }) ||
-      (rv ? canSeeEmployee(actor, scopes, { terminal_id: e.terminal_id, card_id: rv.card_id }) : false);
+      canSeeEmployee(actor, scopes, { terminal_id: e.terminal_id, card_id: e.card_id, employee_id: e.id }) ||
+      (rv ? canSeeEmployee(actor, scopes, { terminal_id: e.terminal_id, card_id: rv.card_id, employee_id: e.id }) : false);
     if (!visible) continue;
     if (query.card_id && e.card_id !== query.card_id) continue;
     const openDispute = rv ? disputed.has(rv.id) : false;
@@ -106,7 +106,7 @@ export async function listEmployeeRows(
           }
         : null,
       open_dispute: openDispute,
-      can_evaluate: e.card_id !== null && canEvaluate(actor, scopes, { terminal_id: e.terminal_id, card_id: e.card_id }),
+      can_evaluate: e.card_id !== null && canEvaluate(actor, scopes, { terminal_id: e.terminal_id, card_id: e.card_id, employee_id: e.id }),
     });
   }
   const byName = (a: string | null, b: string | null) => (a ?? "").localeCompare(b ?? "", "ru");

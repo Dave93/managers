@@ -339,3 +339,6 @@ export interface BranchNetwork { period: string; version: number | null; compute
 export interface BranchIndicatorResult { code: BranchIndicatorCode; title_ru: string; direction: BranchDirection; weight: number; floor: number; target: number; max: number; fact: number | null; points: number | null; weighted: number | null; data_status: "ok" | "no_data"; reason: NoDataReason | null; details: Record<string, number | null> }
 export interface BranchBreakdown { period: string; terminal_id: string; terminal_name: string | null; version: number | null; computed_at: string | null; preliminary: boolean; inputs_newer: boolean; score: number | null; tier_pct: number | null; next_tier: { tier_pct: number; points_needed: number } | null; indicators: BranchIndicatorResult[]; sanitary_checks: SanitaryCheckRow[] }
 export interface BranchComputeResult { period: string; version: number | null; terminals: number; computed_at: string }
+
+// GET /kpi/evaluators/auto: менеджеры филиалов, которые оценивают автоматически (без учётной записи оценщика).
+export interface AutoManagerRow { employee_id: string; name: string; terminal_id: string; terminal_name: string | null; telegram: boolean }

@@ -43,8 +43,8 @@ export async function evViolationForm(db: DbLike, actor: Actor, employeeId: unkn
   const [emp] = await loadDirectory(db, { employeeIds: [employeeId], includeInactive: true });
   if (!emp) throw new KpiError(404, "not_found");
   // Назначение — по текущему филиалу и действующей карте; без него ни карты, ни пунктов не отдаём.
-  const scopes = await loadScopes(db, actor.userId);
-  if (!canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id })) {
+  const scopes = await loadScopes(db, actor);
+  if (!canEvaluate(actor, scopes, { terminal_id: emp.terminal_id, card_id: emp.card_id, employee_id: emp.id })) {
     throw new KpiError(403, "out_of_scope");
   }
 

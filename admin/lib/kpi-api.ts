@@ -43,6 +43,7 @@ import type {
   SanitaryItem,
   SanitaryTemplate,
   ScopeRow,
+  AutoManagerRow,
   Tier,
   TgBindingRow,
   ViolationRow,
@@ -100,6 +101,7 @@ export type {
   SanitaryCheckRow,
   SanitaryItem,
   ScopeRow,
+  AutoManagerRow,
   Tier,
   UnmatchedReason,
   UnmatchedRow,
@@ -235,6 +237,7 @@ export function createKpiApi(kpi: any, workly: any) {
     },
     evaluators: {
       list: () => call<ScopeRow[]>(kpi.evaluators.get()),
+      auto: () => call<AutoManagerRow[]>(kpi.evaluators.auto.get()),
       create: (b: ScopeCreate) => call<unknown>(kpi.evaluators.post(b)),
       createMany: (b: ScopeCreateMany) => call<ScopeCreateManyResult>(kpi.evaluators.post(b)),
       remove: (id: string) => call<unknown>(kpi.evaluators({ id }).delete()),
