@@ -1009,6 +1009,9 @@ export const chartsController = new Elysia({
                 WHERE
                     guest_wait_time_avg <= 14400  -- Учитываем все блюда до 4 часов
                     AND cooking_finish_time IS NOT NULL  -- Только завершенные блюда
+                    -- iiko не меряет готовку отдельного блюда: время — по заказу целиком, поэтому
+                    -- позиции «зального» места приготовления (напитки, закуски) не учитываем
+                    AND cooking_place !~ '(Зал|зал|[Zz]al)[[:space:]]*$'
                     AND open_date_typed >= ${startDate}::timestamp AND open_date_typed <= ${endDate}::timestamp
                     ${terminalCondition}
                     ${organization ? sql`AND department_id = ${organization}` : sql``}

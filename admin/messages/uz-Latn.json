@@ -96,7 +96,7 @@
       "salesAmount": "Buyurtmalar summasi"
     },
     "ProductCookingTime": {
-      "title": "Tayyorlash vaqti",
+      "title": "Taomlar bo'yicha buyurtma kutish vaqti",
       "dishName": "Taom nomi",
       "searchPlaceholder": "Taomlarni qidirish...",
       "openFullTable": "To'liq jadvalni ochish",
@@ -109,6 +109,7 @@
       "loading": "Taomlar yuklanmoqda...",
       "scrollToLoadMore": "Ko'proq taom yuklash uchun pastga suring",
       "noResults": "So'rovingizga mos taomlar topilmadi",
+      "note": "Vaqt butun buyurtma bo'yicha hisoblanadi: iiko alohida taomning tayyorlanish vaqtini o'lchamaydi. «Zal» joyidagi pozitsiyalar (ichimliklar, gazaklar) hisobga olinmaydi.",
       "sortHint": "Saralash uchun ustun sarlavhalarini bosing"
     },
     "exportPng": "PNG yuklab olish",

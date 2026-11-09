@@ -531,6 +531,7 @@ const ProductCookingTime = () => {
             onOrganizationChange={setOrganization}
             bodyClassName="flex flex-col overflow-hidden"
         >
+                <p className="mb-2 text-xs text-muted-foreground">{t('charts.ProductCookingTime.note')}</p>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <SearchInput
