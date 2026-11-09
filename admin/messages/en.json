@@ -116,6 +116,15 @@
       "shiftHint": "Based on iiko cash shifts, data available since 12.06.2026. If a point has one shift per day, it counts as the first.",
       "exportExcel": "Export Excel",
       "sheetName": "Wait time",
+      "todayWarning": "There is no data for today: it is loaded overnight at 06:00 for the previous day.",
+      "help": {
+        "title": "How to read the table",
+        "columns": "The \"10:00\" column means \"5 to 10 minutes\" (up to 10:00 inclusive). The number is how many portions of the dish were in such orders.",
+        "order": "The time is measured for the whole order (from opening to the whole order being ready), not for one dish: iiko does not measure the cooking of a single dish.",
+        "shifts": "Shifts follow iiko cash shifts, data since 12.06.2026. The evening shift runs until 03:00, and orders after midnight belong to it.",
+        "hall": "Items from the \"Hall\" cooking place (drinks, snacks) are excluded.",
+        "update": "Data is updated once a day overnight; the last day in the table is yesterday."
+      },
       "note": "Time is measured per whole order: iiko does not track the cooking time of a single dish. Items from the Hall cooking place (drinks, snacks) are excluded.",
       "sortHint": "Click on column headers to sort"
     },

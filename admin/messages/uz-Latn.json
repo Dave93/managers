@@ -116,6 +116,15 @@
       "shiftHint": "iiko kassa smenalari bo'yicha, ma'lumotlar 12.06.2026 dan boshlab mavjud. Nuqtada kuniga bitta smena bo'lsa, u birinchi hisoblanadi.",
       "exportExcel": "Excelga eksport",
       "sheetName": "Kutish vaqti",
+      "todayWarning": "Bugun uchun ma'lumot yo'q: u kecha uchun tunda soat 06:00 da yuklanadi.",
+      "help": {
+        "title": "Jadvalni qanday o'qish kerak",
+        "columns": "«10:00» ustuni «5 dan 10 minutgacha» (10:00 gacha, shu jumladan) degani. Katakdagi son shunday buyurtmalardagi taom porsiyalari soni.",
+        "order": "Vaqt butun buyurtma bo'yicha hisoblanadi (ochilishdan butun buyurtma tayyor bo'lguncha), alohida taom bo'yicha emas: iiko alohida taomning tayyorlanishini o'lchamaydi.",
+        "shifts": "Smena iiko kassa smenalari bo'yicha, ma'lumotlar 12.06.2026 dan. Kechki smena 03:00 gacha davom etadi, yarim tundan keyingi buyurtmalar ham shunga kiradi.",
+        "hall": "Tayyorlash joyi «Zal» bo'lgan pozitsiyalar (ichimliklar, gazaklar) hisobga olinmaydi.",
+        "update": "Ma'lumotlar sutkada bir marta tunda yangilanadi, jadvaldagi oxirgi kun — kecha."
+      },
       "note": "Vaqt butun buyurtma bo'yicha hisoblanadi: iiko alohida taomning tayyorlanish vaqtini o'lchamaydi. «Zal» joyidagi pozitsiyalar (ichimliklar, gazaklar) hisobga olinmaydi.",
       "sortHint": "Saralash uchun ustun sarlavhalarini bosing"
     },

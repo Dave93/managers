@@ -14,7 +14,8 @@ import ChartCard from "./_tremor/ChartCard";
 import { organizations } from "@admin/lib/organizations";
 import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
-import { Search, X } from "lucide-react";
+import { Info, Search, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import dayjs from "dayjs";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
@@ -635,7 +636,36 @@ const ProductCookingTime = () => {
             onOrganizationChange={setOrganization}
             bodyClassName="flex flex-col overflow-hidden"
         >
-                <p className="mb-2 text-xs text-muted-foreground">{t('charts.ProductCookingTime.note')}</p>
+                <div className="mb-2 flex items-start gap-2">
+                    <p className="text-xs text-muted-foreground">{t('charts.ProductCookingTime.note')}</p>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                aria-label={t('charts.ProductCookingTime.help.title')}
+                                title={t('charts.ProductCookingTime.help.title')}
+                                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                <Info className="h-4 w-4" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-96 max-w-[90vw] space-y-2 text-sm">
+                            <p className="font-medium">{t('charts.ProductCookingTime.help.title')}</p>
+                            <ul className="list-disc space-y-1.5 pl-4 text-muted-foreground">
+                                <li>{t('charts.ProductCookingTime.help.columns')}</li>
+                                <li>{t('charts.ProductCookingTime.help.order')}</li>
+                                <li>{t('charts.ProductCookingTime.help.shifts')}</li>
+                                <li>{t('charts.ProductCookingTime.help.hall')}</li>
+                                <li>{t('charts.ProductCookingTime.help.update')}</li>
+                            </ul>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                {!dayjs(endDate).isBefore(dayjs(), 'day') && (
+                    <p className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                        {t('charts.ProductCookingTime.todayWarning')}
+                    </p>
+                )}
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                     <span className="text-sm text-muted-foreground">{t('charts.ProductCookingTime.shift')}:</span>
                     {(["", "1", "2"] as const).map((value) => (
