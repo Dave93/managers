@@ -71,6 +71,7 @@
     "elysia": "^1.4.9",
     "eslint": "9.37.0",
     "eslint-config-next": "15.5.4",
+    "exceljs": "^4.4.0",
     "export-to-csv": "1.4.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.22",

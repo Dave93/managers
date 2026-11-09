@@ -519,6 +519,96 @@ const ProductCookingTime = () => {
         }
     }, [data, filteredDishes]);
 
+    // Excel с той же тепловой картой, что на экране: синий с прозрачностью intensity * 0.5 на белом.
+    const exportToExcel = React.useCallback(async () => {
+        if (!data?.data) return;
+        try {
+            const ExcelJS = (await import('exceljs')).default;
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet(t('charts.ProductCookingTime.sheetName'));
+
+            const terminalName = selectedTerminal
+                ? terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name
+                : undefined;
+            const shiftLabel = shift === "1"
+                ? t('charts.ProductCookingTime.shift1')
+                : shift === "2"
+                    ? t('charts.ProductCookingTime.shift2')
+                    : t('charts.ProductCookingTime.shiftAll');
+            const period = `${dayjs(startDate).format('DD.MM.YYYY')} - ${dayjs(endDate).format('DD.MM.YYYY')}`;
+            const columns = data.data.timeRanges.length + 2;
+
+            const info = [
+                t('charts.ProductCookingTime.title'),
+                terminalName ?? '',
+                `${period}, ${t('charts.ProductCookingTime.shift')}: ${shiftLabel}`,
+            ];
+            info.forEach((text, i) => {
+                const row = ws.getRow(i + 1);
+                row.getCell(1).value = text;
+                row.getCell(1).font = i === 0 ? { bold: true, size: 14 } : { color: { argb: 'FF6B7280' } };
+                ws.mergeCells(i + 1, 1, i + 1, columns);
+            });
+
+            const headerRowNumber = info.length + 2;
+            const header = ws.getRow(headerRowNumber);
+            [t('charts.ProductCookingTime.dishName'), ...data.data.timeRanges, t('charts.ProductCookingTime.total')].forEach((text, i) => {
+                const cell = header.getCell(i + 1);
+                cell.value = text;
+                cell.font = { bold: true };
+                cell.alignment = { horizontal: i === 0 ? 'left' : 'center', vertical: 'middle' };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+                cell.border = { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } } };
+            });
+
+            const globalMax = Math.max(0, ...data.data.dishes.flatMap(dish => dish.values));
+            const heat = (value: number, dishMax: number) => {
+                if (!showHeatmap || value === 0) return null;
+                const max = perDishHeatmap ? dishMax || 1 : globalMax || 1;
+                const alpha = Math.min(value / max, 1) * 0.5;
+                const blend = (c: number) => Math.round(255 - (255 - c) * alpha).toString(16).padStart(2, '0');
+                return `FF${blend(59)}${blend(130)}${blend(246)}`.toUpperCase();
+            };
+
+            filteredDishes.forEach((dish, r) => {
+                const total = dish.values.reduce((sum, value) => sum + value, 0);
+                const dishMax = Math.max(0, ...dish.values);
+                const row = ws.getRow(headerRowNumber + 1 + r);
+                row.getCell(1).value = dish.name;
+                dish.values.forEach((value, i) => {
+                    const cell = row.getCell(i + 2);
+                    cell.value = value;
+                    cell.alignment = { horizontal: 'center' };
+                    const color = heat(value, dishMax);
+                    if (color) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+                });
+                const totalCell = row.getCell(dish.values.length + 2);
+                totalCell.value = total;
+                totalCell.font = { bold: true };
+                totalCell.alignment = { horizontal: 'center' };
+            });
+
+            ws.getColumn(1).width = 44;
+            for (let c = 2; c <= columns; c++) ws.getColumn(c).width = 9;
+            ws.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowNumber }];
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const safe = (v: string) => v.replace(/[\\/:*?"<>|]+/g, ' ').trim().replace(/\s+/g, '_');
+            const fileName = [
+                'cooking-time',
+                terminalName ? safe(terminalName) : null,
+                `${dayjs(startDate).format('YYYY-MM-DD')}_${dayjs(endDate).format('YYYY-MM-DD')}`,
+                shift ? `shift${shift}` : null,
+            ].filter(Boolean).join('_') + '.xlsx';
+            saveAs(
+                new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+                fileName
+            );
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+        }
+    }, [data, filteredDishes, showHeatmap, perDishHeatmap, shift, startDate, endDate, selectedTerminal, terminalsData, t]);
+
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
     const [debouncedModalSearchQuery, setDebouncedModalSearchQuery] = useState(modalSearchQuery);
 
@@ -601,6 +691,13 @@ const ProductCookingTime = () => {
                         </Button>
                         <Button
                             variant="outline"
+                            onClick={exportToExcel}
+                            className="whitespace-nowrap"
+                        >
+                            {t('charts.ProductCookingTime.exportExcel')}
+                        </Button>
+                        <Button
+                            variant="outline"
                             onClick={() => setIsModalOpen(true)}
                             className="whitespace-nowrap"
                         >
@@ -667,6 +764,12 @@ const ProductCookingTime = () => {
                                 onClick={exportToCSV}
                             >
                                 {t('charts.ProductCookingTime.exportCSV')}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={exportToExcel}
+                            >
+                                {t('charts.ProductCookingTime.exportExcel')}
                             </Button>
                         </div>
                         <CookingTimeTable
