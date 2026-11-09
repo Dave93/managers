@@ -14,7 +14,8 @@ import ChartCard from "./_tremor/ChartCard";
 import { organizations } from "@admin/lib/organizations";
 import { useTranslations } from "next-intl";
 import { Input } from "@admin/components/ui/input";
-import { Search, X } from "lucide-react";
+import { Info, Search, X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@admin/components/ui/popover";
 import dayjs from "dayjs";
 import { Button } from "@admin/components/ui/buttonOrigin";
 import {
@@ -48,6 +49,7 @@ const fetchProductCookingTime = async (
     endDate: string,
     terminals?: string,
     organization?: string,
+    shift?: string,
 ) => {
     if (!startDate || !endDate) {
         throw new Error("Date filter is mandatory");
@@ -58,6 +60,7 @@ const fetchProductCookingTime = async (
         endDate: string;
         terminals?: string | undefined;
         organization?: string | undefined;
+        shift?: string | undefined;
     } = {
         startDate,
         endDate,
@@ -74,6 +77,13 @@ const fetchProductCookingTime = async (
         query = {
             ...query,
             organization,
+        };
+    }
+
+    if (shift) {
+        query = {
+            ...query,
+            shift,
         };
     }
 
@@ -427,12 +437,16 @@ const ProductCookingTime = () => {
     const [perDishHeatmap, setPerDishHeatmap] = useState(true);
     const [filteredDishes, setFilteredDishes] = useState<DishData[]>([]);
 
+    // Смена по кассовым сменам iiko: "" — все, "1" — первая, "2" — вторая и далее.
+    const [shift, setShift] = useState<"" | "1" | "2">("");
+
     const queryParams = React.useMemo(() => ({
         startDate: dayjs(startDate).format('YYYY-MM-DD'),
         endDate: dayjs(endDate).format('YYYY-MM-DD'),
         terminals: terminals?.toString(),
-        organization: organization ?? undefined
-    }), [startDate, endDate, terminals, organization]);
+        organization: organization ?? undefined,
+        shift: shift || undefined,
+    }), [startDate, endDate, terminals, organization, shift]);
 
     const { data } = useSuspenseQuery<CookingTimeResponse>({
         queryKey: ["product-cooking-time", queryParams],
@@ -441,7 +455,8 @@ const ProductCookingTime = () => {
                 queryParams.startDate,
                 queryParams.endDate,
                 queryParams.terminals,
-                queryParams.organization
+                queryParams.organization,
+                queryParams.shift
             );
             return response;
         },
@@ -505,6 +520,96 @@ const ProductCookingTime = () => {
         }
     }, [data, filteredDishes]);
 
+    // Excel с той же тепловой картой, что на экране: синий с прозрачностью intensity * 0.5 на белом.
+    const exportToExcel = React.useCallback(async () => {
+        if (!data?.data) return;
+        try {
+            const ExcelJS = (await import('exceljs')).default;
+            const wb = new ExcelJS.Workbook();
+            const ws = wb.addWorksheet(t('charts.ProductCookingTime.sheetName'));
+
+            const terminalName = selectedTerminal
+                ? terminalsData?.data.find((terminal: { id: string; name: string }) => terminal.id === selectedTerminal)?.name
+                : undefined;
+            const shiftLabel = shift === "1"
+                ? t('charts.ProductCookingTime.shift1')
+                : shift === "2"
+                    ? t('charts.ProductCookingTime.shift2')
+                    : t('charts.ProductCookingTime.shiftAll');
+            const period = `${dayjs(startDate).format('DD.MM.YYYY')} - ${dayjs(endDate).format('DD.MM.YYYY')}`;
+            const columns = data.data.timeRanges.length + 2;
+
+            const info = [
+                t('charts.ProductCookingTime.title'),
+                terminalName ?? '',
+                `${period}, ${t('charts.ProductCookingTime.shift')}: ${shiftLabel}`,
+            ];
+            info.forEach((text, i) => {
+                const row = ws.getRow(i + 1);
+                row.getCell(1).value = text;
+                row.getCell(1).font = i === 0 ? { bold: true, size: 14 } : { color: { argb: 'FF6B7280' } };
+                ws.mergeCells(i + 1, 1, i + 1, columns);
+            });
+
+            const headerRowNumber = info.length + 2;
+            const header = ws.getRow(headerRowNumber);
+            [t('charts.ProductCookingTime.dishName'), ...data.data.timeRanges, t('charts.ProductCookingTime.total')].forEach((text, i) => {
+                const cell = header.getCell(i + 1);
+                cell.value = text;
+                cell.font = { bold: true };
+                cell.alignment = { horizontal: i === 0 ? 'left' : 'center', vertical: 'middle' };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF3F4F6' } };
+                cell.border = { bottom: { style: 'thin', color: { argb: 'FFD1D5DB' } } };
+            });
+
+            const globalMax = Math.max(0, ...data.data.dishes.flatMap(dish => dish.values));
+            const heat = (value: number, dishMax: number) => {
+                if (!showHeatmap || value === 0) return null;
+                const max = perDishHeatmap ? dishMax || 1 : globalMax || 1;
+                const alpha = Math.min(value / max, 1) * 0.5;
+                const blend = (c: number) => Math.round(255 - (255 - c) * alpha).toString(16).padStart(2, '0');
+                return `FF${blend(59)}${blend(130)}${blend(246)}`.toUpperCase();
+            };
+
+            filteredDishes.forEach((dish, r) => {
+                const total = dish.values.reduce((sum, value) => sum + value, 0);
+                const dishMax = Math.max(0, ...dish.values);
+                const row = ws.getRow(headerRowNumber + 1 + r);
+                row.getCell(1).value = dish.name;
+                dish.values.forEach((value, i) => {
+                    const cell = row.getCell(i + 2);
+                    cell.value = value;
+                    cell.alignment = { horizontal: 'center' };
+                    const color = heat(value, dishMax);
+                    if (color) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: color } };
+                });
+                const totalCell = row.getCell(dish.values.length + 2);
+                totalCell.value = total;
+                totalCell.font = { bold: true };
+                totalCell.alignment = { horizontal: 'center' };
+            });
+
+            ws.getColumn(1).width = 44;
+            for (let c = 2; c <= columns; c++) ws.getColumn(c).width = 9;
+            ws.views = [{ state: 'frozen', xSplit: 1, ySplit: headerRowNumber }];
+
+            const buffer = await wb.xlsx.writeBuffer();
+            const safe = (v: string) => v.replace(/[\\/:*?"<>|]+/g, ' ').trim().replace(/\s+/g, '_');
+            const fileName = [
+                'cooking-time',
+                terminalName ? safe(terminalName) : null,
+                `${dayjs(startDate).format('YYYY-MM-DD')}_${dayjs(endDate).format('YYYY-MM-DD')}`,
+                shift ? `shift${shift}` : null,
+            ].filter(Boolean).join('_') + '.xlsx';
+            saveAs(
+                new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }),
+                fileName
+            );
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+        }
+    }, [data, filteredDishes, showHeatmap, perDishHeatmap, shift, startDate, endDate, selectedTerminal, terminalsData, t]);
+
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState(searchQuery);
     const [debouncedModalSearchQuery, setDebouncedModalSearchQuery] = useState(modalSearchQuery);
 
@@ -531,6 +636,51 @@ const ProductCookingTime = () => {
             onOrganizationChange={setOrganization}
             bodyClassName="flex flex-col overflow-hidden"
         >
+                <div className="mb-2 flex items-start gap-2">
+                    <p className="text-xs text-muted-foreground">{t('charts.ProductCookingTime.note')}</p>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <button
+                                type="button"
+                                aria-label={t('charts.ProductCookingTime.help.title')}
+                                title={t('charts.ProductCookingTime.help.title')}
+                                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+                            >
+                                <Info className="h-4 w-4" />
+                            </button>
+                        </PopoverTrigger>
+                        <PopoverContent align="start" className="w-96 max-w-[90vw] space-y-2 text-sm">
+                            <p className="font-medium">{t('charts.ProductCookingTime.help.title')}</p>
+                            <ul className="list-disc space-y-1.5 pl-4 text-muted-foreground">
+                                <li>{t('charts.ProductCookingTime.help.columns')}</li>
+                                <li>{t('charts.ProductCookingTime.help.order')}</li>
+                                <li>{t('charts.ProductCookingTime.help.shifts')}</li>
+                                <li>{t('charts.ProductCookingTime.help.hall')}</li>
+                                <li>{t('charts.ProductCookingTime.help.update')}</li>
+                            </ul>
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                {!dayjs(endDate).isBefore(dayjs(), 'day') && (
+                    <p className="mb-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                        {t('charts.ProductCookingTime.todayWarning')}
+                    </p>
+                )}
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className="text-sm text-muted-foreground">{t('charts.ProductCookingTime.shift')}:</span>
+                    {(["", "1", "2"] as const).map((value) => (
+                        <Button
+                            key={value || "all"}
+                            variant={shift === value ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => React.startTransition(() => setShift(value))}
+                            className="whitespace-nowrap"
+                        >
+                            {value === "" ? t('charts.ProductCookingTime.shiftAll') : value === "1" ? t('charts.ProductCookingTime.shift1') : t('charts.ProductCookingTime.shift2')}
+                        </Button>
+                    ))}
+                    <span className="text-xs text-muted-foreground">{t('charts.ProductCookingTime.shiftHint')}</span>
+                </div>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <SearchInput
@@ -568,6 +718,13 @@ const ProductCookingTime = () => {
                             className="whitespace-nowrap"
                         >
                             {t('charts.ProductCookingTime.exportCSV')}
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={exportToExcel}
+                            className="whitespace-nowrap"
+                        >
+                            {t('charts.ProductCookingTime.exportExcel')}
                         </Button>
                         <Button
                             variant="outline"
@@ -637,6 +794,12 @@ const ProductCookingTime = () => {
                                 onClick={exportToCSV}
                             >
                                 {t('charts.ProductCookingTime.exportCSV')}
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={exportToExcel}
+                            >
+                                {t('charts.ProductCookingTime.exportExcel')}
                             </Button>
                         </div>
                         <CookingTimeTable

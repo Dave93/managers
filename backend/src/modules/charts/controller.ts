@@ -979,7 +979,8 @@ export const chartsController = new Elysia({
             startDate,
             endDate,
             terminals,
-            organization
+            organization,
+            shift
         },
         user,
         set,
@@ -994,9 +995,37 @@ export const chartsController = new Elysia({
 
         const scope = resolveChartScope(cachedTerminals, terminals, userTerminals, role?.code);
         const terminalCondition = scopeTerminalCondition(scope, sql`restoraunt_group`);
+        // Смена — по кассовым сменам iiko (cash_shifts, есть с 12.06.2026): порядковый номер
+        // смены кассы за бизнес-дату, третья и далее считаются второй. Заказ относится к смене,
+        // в окне которой открыт (время в product_cooking_time — местное, без зоны).
+        const shiftNo = shift === "1" ? 1 : shift === "2" ? 2 : null;
+        const shiftCondition = shiftNo
+            ? sql`AND EXISTS (
+                    SELECT 1 FROM shifts s
+                    WHERE s.grp = restoraunt_group
+                      AND s.ord = ${shiftNo}
+                      AND open_time >= s.o
+                      AND open_time < s.c
+                )`
+            : sql``;
+        const shiftsCte = shiftNo
+            ? sql`shifts AS (
+                SELECT
+                    cs.iiko_group_id::text AS grp,
+                    (cs.open_at AT TIME ZONE 'Asia/Tashkent') AS o,
+                    COALESCE(cs.close_at AT TIME ZONE 'Asia/Tashkent', 'infinity'::timestamp) AS c,
+                    LEAST(ROW_NUMBER() OVER (
+                        PARTITION BY cs.iiko_group_id, cs.business_date, cs.cash_reg_number
+                        ORDER BY cs.open_at
+                    ), 2) AS ord
+                FROM cash_shifts cs
+                WHERE cs.business_date >= (${startDate}::timestamp)::date - 1
+                    AND cs.business_date <= (${endDate}::timestamp)::date + 1
+            ),`
+            : sql``;
         // Создаем временные интервалы по 5 минут до 4 часов
         const sqlQuery = sql`
-            WITH cooking_stats AS (
+            WITH ${shiftsCte} cooking_stats AS (
                 SELECT
                     dish_name,
                     -- Округляем вверх к ближайшему 5-минутному интервалу
@@ -1009,6 +1038,10 @@ export const chartsController = new Elysia({
                 WHERE
                     guest_wait_time_avg <= 14400  -- Учитываем все блюда до 4 часов
                     AND cooking_finish_time IS NOT NULL  -- Только завершенные блюда
+                    -- iiko не меряет готовку отдельного блюда: время — по заказу целиком, поэтому
+                    -- позиции «зального» места приготовления (напитки, закуски) не учитываем
+                    AND cooking_place !~ '(Зал|зал|[Zz]al)[[:space:]]*$'
+                    ${shiftCondition}
                     AND open_date_typed >= ${startDate}::timestamp AND open_date_typed <= ${endDate}::timestamp
                     ${terminalCondition}
                     ${organization ? sql`AND department_id = ${organization}` : sql``}
@@ -1097,6 +1130,7 @@ export const chartsController = new Elysia({
             endDate: t.String(),
             terminals: t.Optional(t.String()),
             organization: t.Optional(t.String()),
+            shift: t.Optional(t.String()),
         }),
     })
     .get('/charts/basket-additional-sales', async ({
