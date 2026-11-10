@@ -57,6 +57,16 @@ export interface StockMovement extends BookBreakdown {
 }
 
 /** Сверка по дням: строка списка промежуточных пересчётов. */
+/** Пересчёт склада, который филиал ещё может менять (черновик или отправленный, который можно вернуть). */
+export interface OpenCount {
+  count_id: string;
+  kind: string;
+  period: string;
+  count_date: string;
+  status: string;
+  template_name: string;
+}
+
 export interface InterimReconRow {
   count_id: string;
   store_id: string;
@@ -76,6 +86,8 @@ export interface InterimReconRow {
   /** Почему скрыты: open_count — у склада есть пересчёт, который он ещё может менять (откроется);
    * month_end — дата пересчёта после 25-го, филиалу не показываем вовсе (19.10.2026). */
   hidden_reason: "open_count" | "month_end" | null;
+  /** При open_count — какие пересчёты склада держат его открытым (филиал переходит к ним); иначе пусто. */
+  open_counts: OpenCount[];
   /** Снимок книжного сейчас в очереди или загружается (кнопка ↻ / «Обновить книжное из iiko»). */
   book_loading: boolean;
 }

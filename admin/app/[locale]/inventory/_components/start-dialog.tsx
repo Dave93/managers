@@ -64,7 +64,7 @@ export function StartDialog({ storeId, onCreated }: { storeId: string; onCreated
       setOpen(false);
       onCreated(r.id);
     },
-    onError: (e: Error) => toast.error(t("errors.generic", { message: e.message })),
+    onError: (e: Error) => toast.error(e.message === "month_accepted" ? t("errors.monthAccepted") : t("errors.generic", { message: e.message })),
   });
 
   return (

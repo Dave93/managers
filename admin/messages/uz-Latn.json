@@ -689,6 +689,7 @@
     "reopened": "Inventarizatsiya yana qoralamada",
     "cancelCount": "Inventarizatsiyani bekor qilish",
     "cancelConfirm": "Qoralama bekor qilinsinmi? Yozuvlar tarixda qoladi.",
+    "entryClosed": "Kiritish muddati o‘tdi: {date} uchun sanoq boshlanmagan, shuning uchun unga raqam kiritib bo‘lmaydi. U ombor solishtirishini ushlab turmaydi.",
     "cancelled": "Inventarizatsiya bekor qilindi",
     "changePeriod": {
       "button": "Oyni o‘zgartirish",
@@ -704,6 +705,7 @@
     },
     "errors": {
       "invalidQty": "Son kiriting, masalan 2,5 yoki 2,5+3",
+      "monthAccepted": "Bu oy bo‘yicha iiko bilan solishtirishni ofis allaqachon qabul qilgan — bu oy uchun oylik sanoq yopiq. Qoralamani bekor qilish mumkin.",
       "generic": "Xato: {message}"
     },
     "templates": {
@@ -865,6 +867,9 @@
         "hiddenMonthEnd": "25-dan keyin — faqat ofis",
         "hiddenDetail": "Sanoq ketmoqda — sanoq yopilgach solishtirish ochiladi",
         "hiddenMonthEndDetail": "25-sanadan keyingi sanoqlarni faqat ofis solishtiradi",
+        "openCounts": "Omborning yopilmagan sanoqlari:",
+        "openDraftHint": "Qoralamani to‘ldirib yuboring yoki bekor qiling. Agar bo‘lmasa — ofisga murojaat qiling.",
+        "openSubmittedHint": "Yuborilgan, lekin uni hali qoralamaga qaytarish mumkin — ofis solishtirgach yopiladi.",
         "checkedByOffice": "Ofis tekshirgan"
       },
       "worker": {

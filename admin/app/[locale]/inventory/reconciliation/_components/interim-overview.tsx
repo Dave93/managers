@@ -13,6 +13,7 @@ import { inventoryApi } from "@admin/lib/inventory-api";
 import { formatDay, periodLabel, recentPeriods } from "@admin/lib/inventory/periods";
 import type { InterimReconRow } from "@backend/modules/inventory/book/types";
 import { WorkerWarning } from "./worker-warning";
+import { OpenCountsList } from "./open-counts";
 
 const ALL = "__all__";
 /** Книжное ещё не пришло: снимок в очереди/загружается или отправленный пересчёт без снимка. */
@@ -117,6 +118,12 @@ export function InterimOverview({ basePath = "/inventory/reconciliation/interim"
     refetchInterval: (q) => pollDelay((q.state.data ?? []).some(bookPending)),
   });
   const refetch = () => void list.refetch();
+  // Склады, где сверку держит закрытой незакрытый пересчёт (только у филиала) — по одному разу на склад.
+  const blocked = useMemo(() => {
+    const by = new Map<string, InterimReconRow>();
+    for (const r of list.data ?? []) if (r.open_counts?.length && !by.has(r.store_id)) by.set(r.store_id, r);
+    return [...by.values()];
+  }, [list.data]);
 
   return (
     <div className="space-y-4">
@@ -135,6 +142,17 @@ export function InterimOverview({ basePath = "/inventory/reconciliation/interim"
       <CanAccess permission="inventory.reconcile">
         <RefreshAll period={period} rows={list.data ?? []} onQueued={refetch} />
       </CanAccess>
+      {blocked.length > 0 && (
+        <div className="space-y-3 rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">
+          <div>{t("hiddenDetail")}</div>
+          {blocked.map((r) => (
+            <div key={r.store_id} className="space-y-1">
+              <div className="font-semibold">{r.store_name}</div>
+              <OpenCountsList counts={r.open_counts} />
+            </div>
+          ))}
+        </div>
+      )}
       {list.data && list.data.length === 0 ? (
         <div className="text-muted-foreground">{t("empty")}</div>
       ) : (

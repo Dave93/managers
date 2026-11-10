@@ -52,12 +52,12 @@ export function CountHeader({
       {rejectedCount > 0 && (
         <div className="rounded border border-destructive/40 bg-destructive/10 p-3 text-sm flex items-start justify-between gap-3">
           <span>
-            {detail.status === "draft" && detail.access === "write"
+            {detail.status === "draft" && detail.access === "write" && detail.entry_closed !== true
               ? t("sync.rejectedDraft", { count: rejectedCount })
               : t("sync.rejected", { count: rejectedCount })}
           </span>
           <div className="flex shrink-0 gap-1">
-            {detail.status === "draft" && detail.access === "write" && (
+            {detail.status === "draft" && detail.access === "write" && detail.entry_closed !== true && (
               <Button size="sm" onClick={onResendRejected}>
                 {t("sync.resend")}
               </Button>

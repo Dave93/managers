@@ -34,7 +34,7 @@ export function CountTable({
   // поле теряет фокус, и onBlur не должен записать то же число второй раз.
   const draftsRef = useRef<Record<string, string>>({});
   const inputs = useRef(new Map<string, HTMLInputElement>());
-  const editable = detail.status === "draft" && detail.access === "write";
+  const editable = detail.status === "draft" && detail.access === "write" && detail.entry_closed !== true;
   // В месячном «не считали» нет (02.11.2026): незаполненное при отправке станет 0. Снять старую пометку можно.
   const skipAllowed = (line: OverlayLine) => detail.kind !== "monthly" || line.skipped;
 

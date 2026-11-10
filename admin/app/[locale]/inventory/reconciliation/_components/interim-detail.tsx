@@ -15,6 +15,7 @@ import { BookBreakdownView } from "@admin/app/[locale]/inventory/_components/boo
 import { ExcelButton } from "@admin/app/[locale]/inventory/_components/excel-button";
 import { InterimRowRefresh, bookPending, usePollDelay } from "./interim-overview";
 import { WorkerWarning } from "./worker-warning";
+import { OpenCountsList } from "./open-counts";
 import type { InterimReconLine } from "@backend/modules/inventory/book/types";
 
 export function InterimDetail({ id, readOnly = false, backHref = "/inventory/reconciliation" }: { id: string; readOnly?: boolean; backHref?: string }) {
@@ -73,7 +74,10 @@ export function InterimDetail({ id, readOnly = false, backHref = "/inventory/rec
           ← {t("back")}
         </Link>
         <h1 className="text-xl font-semibold">{d.store_name}</h1>
-        <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">{ti(d.hidden_reason === "month_end" ? "hiddenMonthEndDetail" : "hiddenDetail")}</div>
+        <div className="space-y-3 rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">
+          <div>{ti(d.hidden_reason === "month_end" ? "hiddenMonthEndDetail" : "hiddenDetail")}</div>
+          <OpenCountsList counts={d.open_counts ?? []} />
+        </div>
       </div>
     );
   }

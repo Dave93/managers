@@ -115,6 +115,19 @@ export function isValidInterimDate(date: string, now: Date): boolean {
   return date >= min && date <= max;
 }
 
+/** Запас после дня ввода — на досылку офлайн-записей с устройства (10.11.2026). */
+export const INTERIM_ENTRY_GRACE_HOURS = 3;
+
+/**
+ * Срок ввода промежуточного (10.11.2026): его вводят на следующий день после даты, плюс INTERIM_ENTRY_GRACE_HOURS.
+ * Черновик без единой записи после срока «забыт»: склад не держит и вносить в него цифры нельзя — иначе филиал,
+ * увидев цифры iiko, вписал бы их задним числом. Только время сервера: время устройства подделывается.
+ */
+export function interimEntryClosed(countDate: string, now: Date): boolean {
+  const [y, m, d] = countDate.split("-").map(Number);
+  return now.getTime() >= Date.UTC(y, m - 1, d + 2, INTERIM_ENTRY_GRACE_HOURS) - TASHKENT_OFFSET_MS;
+}
+
 /** Последний день месяца, за который филиал видит «Сравнение с учётом» промежуточного (19.10.2026). */
 export const INTERIM_BRANCH_BOOK_LAST_DAY = 25;
 
