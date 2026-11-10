@@ -30,6 +30,7 @@ import type {
   TurnoverStoreView,
   TurnoverSummary,
 } from "@backend/modules/inventory/turnover/types";
+import type { DailyGrid } from "@backend/modules/inventory/daily/types";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 
 export class InventoryApiError extends Error {
@@ -75,6 +76,8 @@ export const inventoryApi = {
     refresh: (period: string, storeId?: string) =>
       call<TurnoverFetchStatus>(inv.turnover.refresh.post(storeId ? { period, store_id: storeId } : { period })),
   },
+  /** «Дневные остатки»: склады филиалов × дни месяца (офис). */
+  dailyGrid: (period: string) => call<DailyGrid>(inv["daily-grid"].get({ query: { period } })),
   getCount: (id: string) => call<InventoryCountDetail>(inv.counts({ id }).get()),
   sync: (id: string, ops: InventorySyncOp[]) => call<InventorySyncResult>(inv.counts({ id }).entries.sync.post({ ops })),
   addLine: (id: string, productId: string) =>

@@ -479,13 +479,20 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         expect(list.status).toBe(200);
         expect(list.body.map((x: any) => x.store_id)).toEqual([w.store]);
         expect(list.body[0]).toMatchObject({ hidden: true, mismatch_count: 0, lines_counted: 0 });
+        // Какой пересчёт держит склад открытым — чтобы филиал мог перейти к нему.
+        const blocking = [{ count_id: draft.id, kind: "monthly", period: cur, count_date: cur, status: "draft", template_name: "Все товары филиала" }];
+        expect(list.body[0].open_counts).toEqual(blocking);
         const hidden = await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
         expect(hidden.status).toBe(200);
-        expect(hidden.body).toMatchObject({ hidden: true, lines: [] });
+        expect(hidden.body).toMatchObject({ hidden: true, hidden_reason: "open_count", lines: [] });
+        expect(hidden.body.open_counts).toEqual(blocking);
+        // Офису ничего не скрыто — и список не нужен.
+        expect((await api(await office(), "GET", `/api/inventory/interim-reconciliations/${w.countId}`)).body.open_counts).toEqual([]);
 
         await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, draft.id));
         const open = await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
         expect(open.body.hidden).toBe(false);
+        expect(open.body.open_counts).toEqual([]);
         expect(open.body.lines.find((l: any) => l.product_id === w.p1)).toMatchObject({ admin_qty: "9", iiko_qty: "12", diff_qty: "-3" });
         expect((await api(m, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`)).body[0]).toMatchObject({ hidden: false, mismatch_count: 1 });
 
@@ -509,7 +516,7 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         const list = await api(m, "GET", `/api/inventory/interim-reconciliations?period=${I_PERIOD}`);
         expect(list.body[0]).toMatchObject({ hidden: true, hidden_reason: "month_end", lines_counted: 0 });
         const d = await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
-        expect(d.body).toMatchObject({ hidden: true, hidden_reason: "month_end", lines: [] });
+        expect(d.body).toMatchObject({ hidden: true, hidden_reason: "month_end", lines: [], open_counts: [] });
         const o = await api(await office(), "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
         expect(o.body).toMatchObject({ hidden: false, hidden_reason: null });
         expect(o.body.lines.length).toBeGreaterThan(0);
@@ -517,6 +524,107 @@ if (!dbLooksLikeTest || !prefixLooksLikeTest) {
         await drizzleDb.update(schema.inventory_counts).set({ count_date: "2026-07-25" }).where(eq(schema.inventory_counts.id, w.countId));
         expect((await api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`)).body).toMatchObject({ hidden: false, hidden_reason: null });
       } finally {
+        await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, userId));
+        await w.cleanup();
+      }
+    });
+
+    it("неотправленный месячный черновик за месяц с принятой сверкой: склад не держит, отправить и начать новый филиал не может; возвращённый после принятия — держит", async () => {
+      const w = await seedInterim();
+      const userId = randomUUID();
+      await drizzleDb.insert(schema.users_stores).values({ user_id: userId, corporation_store_id: w.store });
+      const m = await withSession({ permissions: ["inventory.count", "inventory.manage"], userId });
+      // Прошлый месяц (Ташкент) — в окне «открытых» и доступен для нового месячного.
+      const now = new Date(Date.now() + 5 * 3600_000);
+      const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 0)).toISOString().slice(0, 10);
+      const [draft] = await drizzleDb
+        .insert(schema.inventory_counts)
+        .values({ store_id: w.store, template_name: "Все товары филиала", period: prev, count_date: prev, kind: "monthly", status: "draft", created_by: userId })
+        .returning({ id: schema.inventory_counts.id });
+      const detail = () => api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+      try {
+        // Сверка ещё не принята — черновик держит склад.
+        await drizzleDb.insert(schema.inventory_reconciliations).values({ store_id: w.store, period: prev, status: "in_review" });
+        expect((await detail()).body).toMatchObject({ hidden: true, hidden_reason: "open_count" });
+
+        await drizzleDb.update(schema.inventory_reconciliations).set({ status: "accepted" }).where(eq(schema.inventory_reconciliations.store_id, w.store));
+        expect(await storeHasChangeableCount(drizzleDb, w.store)).toBe(false);
+        expect((await detail()).body).toMatchObject({ hidden: false, open_counts: [] });
+        expect((await api(m, "GET", `/api/inventory/counts/${w.countId}/book`)).status).toBe(200);
+
+        // Месяц закрыт: отправить этот черновик и начать новый месячный за него филиал не может.
+        const submit = await api(m, "POST", `/api/inventory/counts/${draft.id}/submit`, { skip_incomplete: true });
+        expect(submit.status).toBe(409);
+        expect(submit.body.error).toBe("month_accepted");
+        const start = await api(m, "POST", "/api/inventory/counts", { store_id: w.store, kind: "monthly", period: prev });
+        expect(start.status).toBe(409);
+        expect(start.body.error).toBe("month_accepted");
+
+        // Пересчёт уже отправляли (офис вернул его после принятия) — филиал правит его, склад снова держится.
+        await drizzleDb.insert(schema.inventory_count_events).values({ count_id: draft.id, type: "submitted", user_id: userId });
+        expect((await detail()).body).toMatchObject({ hidden: true, hidden_reason: "open_count", open_counts: [{ count_id: draft.id }] });
+        // «Начать» за этот месяц ведёт в него, а не отказывает.
+        expect((await api(m, "POST", "/api/inventory/counts", { store_id: w.store, kind: "monthly", period: prev })).body).toMatchObject({ id: draft.id, existing: true });
+      } finally {
+        await drizzleDb.delete(schema.inventory_reconciliations).where(eq(schema.inventory_reconciliations.store_id, w.store));
+        await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, draft.id));
+        await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, userId));
+        await w.cleanup();
+      }
+    });
+
+    it("забытый промежуточный черновик (пустой, срок ввода прошёл) склад не держит и цифры не принимает; свежий пустой и с записями — держат", async () => {
+      const w = await seedInterim();
+      const userId = randomUUID();
+      await drizzleDb.insert(schema.users_stores).values({ user_id: userId, corporation_store_id: w.store });
+      const m = await withSession({ permissions: ["inventory.count", "inventory.manage"], userId });
+      const tashkentDay = (back: number) => {
+        const t = new Date(Date.now() + 5 * 3600_000);
+        return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate() - back)).toISOString().slice(0, 10);
+      };
+      const monthEnd = (d: string) => new Date(Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 0)).toISOString().slice(0, 10);
+      const draftFor = async (day: string) => {
+        const [c] = await drizzleDb
+          .insert(schema.inventory_counts)
+          .values({ store_id: w.store, template_name: "Все товары филиала", period: monthEnd(day), count_date: day, kind: "interim", status: "draft", created_by: userId })
+          .returning({ id: schema.inventory_counts.id });
+        const [line] = await drizzleDb
+          .insert(schema.inventory_count_lines)
+          .values({ count_id: c.id, product_id: w.p1, product_name: `Сыр ${w.tag}`, unit_name: "кг", group_name: "Склад", source: "template" })
+          .returning({ id: schema.inventory_count_lines.id });
+        return { id: c.id, lineId: line.id };
+      };
+      // Три дня назад: срок ввода (следующий день + 3 часа) прошёл. Вчера — ещё идёт.
+      const old = await draftFor(tashkentDay(3));
+      const ids = [old.id];
+      const detail = () => api(m, "GET", `/api/inventory/interim-reconciliations/${w.countId}`);
+      const add = (lineId: string) => ({ op: "add", id: randomUUID(), line_id: lineId, qty: 5, client_created_at: new Date().toISOString() });
+      try {
+        expect((await detail()).body).toMatchObject({ hidden: false, open_counts: [] });
+        expect((await api(m, "GET", `/api/inventory/counts/${old.id}`)).body.entry_closed).toBe(true);
+        const op = add(old.lineId);
+        const sync = await api(m, "POST", `/api/inventory/counts/${old.id}/entries/sync`, { ops: [op] });
+        expect(sync.status).toBe(200);
+        expect(sync.body).toEqual({ applied: [], rejected: [{ id: op.id, reason: "entry_closed" }] });
+
+        // Пустой за вчера — день ввода идёт: держит склад, цифры принимает.
+        const fresh = await draftFor(tashkentDay(1));
+        ids.push(fresh.id);
+        expect((await detail()).body).toMatchObject({ hidden: true, hidden_reason: "open_count", open_counts: [{ count_id: fresh.id }] });
+        expect((await detail()).body.open_counts.length).toBe(1);
+        expect((await api(m, "GET", `/api/inventory/counts/${fresh.id}`)).body.entry_closed).toBe(false);
+        expect((await api(m, "POST", `/api/inventory/counts/${fresh.id}/entries/sync`, { ops: [add(fresh.lineId)] })).body.applied.length).toBe(1);
+        await drizzleDb.delete(schema.inventory_counts).where(eq(schema.inventory_counts.id, fresh.id));
+
+        // В старом уже есть цифры (ввели в срок) — он не забыт: держит склад, дописывать можно.
+        await drizzleDb.insert(schema.inventory_count_entries).values({
+          id: randomUUID(), count_id: old.id, line_id: old.lineId, qty: "1", created_by: userId, client_created_at: new Date().toISOString(),
+        });
+        expect((await detail()).body).toMatchObject({ hidden: true, open_counts: [{ count_id: old.id }] });
+        expect((await api(m, "GET", `/api/inventory/counts/${old.id}`)).body.entry_closed).toBe(false);
+        expect((await api(m, "POST", `/api/inventory/counts/${old.id}/entries/sync`, { ops: [add(old.lineId)] })).body.applied.length).toBe(1);
+      } finally {
+        await drizzleDb.delete(schema.inventory_counts).where(inArray(schema.inventory_counts.id, ids));
         await drizzleDb.delete(schema.users_stores).where(eq(schema.users_stores.user_id, userId));
         await w.cleanup();
       }

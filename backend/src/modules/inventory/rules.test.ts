@@ -4,6 +4,7 @@ import {
   defaultPeriod,
   interimBookHiddenForBranch,
   interimDates,
+  interimEntryClosed,
   isValidInterimDate,
   lastDayOf,
   isValidPeriod,
@@ -194,5 +195,28 @@ describe("interimBookHiddenForBranch — сравнение промежуточ
   });
   it("месячный не затрагивается", () => {
     expect(interimBookHiddenForBranch({ kind: "monthly", count_date: "2026-10-31" })).toBe(false);
+  });
+});
+
+describe("interimEntryClosed — срок ввода промежуточного: следующий день после даты + 3 часа (Ташкент, 10.11.2026)", () => {
+  // Ташкент = UTC+5: 04.11 03:00 по Ташкенту — 03.11 22:00 UTC.
+  const at = (iso: string) => new Date(iso);
+  it("в день ввода и в запасные 3 часа — открыт", () => {
+    expect(interimEntryClosed("2026-11-02", at("2026-11-02T19:00:00Z"))).toBe(false); // 03.11 00:00
+    expect(interimEntryClosed("2026-11-02", at("2026-11-03T18:59:59Z"))).toBe(false); // 03.11 23:59:59
+    expect(interimEntryClosed("2026-11-02", at("2026-11-03T21:59:59Z"))).toBe(false); // 04.11 02:59:59
+  });
+  it("с 03:00 через день после даты — закрыт", () => {
+    expect(interimEntryClosed("2026-11-02", at("2026-11-03T22:00:00Z"))).toBe(true); // 04.11 03:00
+    expect(interimEntryClosed("2026-11-02", at("2026-11-10T07:00:00Z"))).toBe(true);
+  });
+  it("через границу месяца и года", () => {
+    expect(interimEntryClosed("2026-10-31", at("2026-11-01T21:59:59Z"))).toBe(false); // 02.11 02:59:59
+    expect(interimEntryClosed("2026-10-31", at("2026-11-01T22:00:00Z"))).toBe(true);
+    expect(interimEntryClosed("2026-12-31", at("2027-01-01T22:00:00Z"))).toBe(true); // 02.01 03:00
+  });
+  it("вчерашняя дата, допустимая для нового промежуточного, всегда открыта", () => {
+    const now = at("2026-11-10T07:00:00Z");
+    expect(interimEntryClosed(interimDates(now).max, now)).toBe(false);
   });
 });

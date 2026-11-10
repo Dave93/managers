@@ -689,6 +689,7 @@
     "reopened": "The stock count is a draft again",
     "cancelCount": "Cancel the stock count",
     "cancelConfirm": "Cancel this draft? Entries stay in the history.",
+    "entryClosed": "The entry window has passed: the count for {date} was never started, so numbers can no longer be entered. It no longer holds the store's reconciliation.",
     "cancelled": "Stock count cancelled",
     "changePeriod": {
       "button": "Change month",
@@ -704,6 +705,7 @@
     },
     "errors": {
       "invalidQty": "Enter a number, e.g. 2.5 or 2.5+3",
+      "monthAccepted": "The office has already accepted the iiko reconciliation for this month — monthly counts for it are closed. You can cancel the draft.",
       "generic": "Error: {message}"
     },
     "templates": {
@@ -865,6 +867,9 @@
         "hiddenMonthEnd": "after the 25th — office only",
         "hiddenDetail": "A count is in progress — the reconciliation opens once the count is closed",
         "hiddenMonthEndDetail": "Counts dated after the 25th are reconciled by the office only",
+        "openCounts": "Open counts for this store:",
+        "openDraftHint": "Fill in and submit the draft, or cancel it. If you can't, contact the office.",
+        "openSubmittedHint": "Submitted, but it can still be reopened — it closes once the office reconciles the month.",
         "checkedByOffice": "Checked by office"
       },
       "worker": {
@@ -972,6 +977,27 @@
         "other": "Other ±",
         "end": "Closing"
       }
+    },
+    "dailyGrid": {
+      "title": "Daily counts",
+      "hint": "A day's count is entered the next day. Empty means the store entered nothing for that day.",
+      "legend": {
+        "submitted": "submitted",
+        "draft": "started, not submitted",
+        "monthly": "monthly count",
+        "entering": "{date} — being entered today, not included in \"of {n}\""
+      },
+      "col": {
+        "store": "Store",
+        "total": "of {n}"
+      },
+      "totals": "Submitted",
+      "empty": "No past days in this month yet",
+      "noStores": "No branch stores",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1019,7 @@
     "inventory": "Inventory",
     "inventoryList": "Inventory counts",
     "inventoryStock": "Warehouse stock",
+    "inventoryDailyGrid": "Daily counts",
     "inventoryTurnover": "Turnover statement",
     "inventoryTemplates": "Inventory templates",
     "inventoryReconciliation": "Reconciliation with iiko",

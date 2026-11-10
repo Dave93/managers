@@ -10,6 +10,7 @@ import { inventoryApi } from "@admin/lib/inventory-api";
 import { useCountSync } from "@admin/lib/inventory/use-count-sync";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@admin/components/ui/tabs";
 import { useMyPermissions } from "@admin/lib/inventory/use-permissions";
+import { formatDay } from "@admin/lib/inventory/periods";
 import { AddProductDialog } from "../_components/add-product-dialog";
 import { BookCompare } from "../_components/book-compare";
 import { ChangePeriodDialog } from "../_components/change-period-dialog";
@@ -82,7 +83,11 @@ function CountScreen({ id }: { id: string }) {
     );
   }
 
-  const editable = detail.status === "draft" && detail.access === "write";
+  // Забытый промежуточный (пустой, срок ввода прошёл): цифры не принимаются, отменить можно.
+  // В кэше устройства старой версии поля может не быть.
+  const entryClosed = detail.entry_closed === true;
+  const ownDraft = detail.status === "draft" && detail.access === "write";
+  const editable = ownDraft && !entryClosed;
 
   return (
     <div className="p-3 sm:p-4 pb-24 space-y-4">
@@ -93,7 +98,7 @@ function CountScreen({ id }: { id: string }) {
         <div className="flex items-center gap-2">
           {/* Офис переносит месячный пересчёт в другой месяц. В кэше устройства старой версии поля может не быть. */}
           {(detail.period_targets?.length ?? 0) > 0 && <ChangePeriodDialog detail={detail} onDone={() => void sync.refetch()} />}
-          {editable && detail.can_manage && (
+          {ownDraft && detail.can_manage && (
             <Button
               variant="ghost"
               size="sm"
@@ -116,6 +121,9 @@ function CountScreen({ id }: { id: string }) {
         onDismissRejected={sync.dismissRejected}
         onResendRejected={sync.resendRejected}
       />
+      {entryClosed && (
+        <div className="rounded border border-orange-500/40 bg-orange-500/10 p-3 text-sm">{t("entryClosed", { date: formatDay(detail.count_date) })}</div>
+      )}
       {/* Кнопки над списком: внизу фиксированная панель закрывала последние строки. */}
       {(editable || detail.can_reopen) && (
         <div className="flex flex-wrap items-center justify-between gap-2">

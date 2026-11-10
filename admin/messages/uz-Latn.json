@@ -689,6 +689,7 @@
     "reopened": "Inventarizatsiya yana qoralamada",
     "cancelCount": "Inventarizatsiyani bekor qilish",
     "cancelConfirm": "Qoralama bekor qilinsinmi? Yozuvlar tarixda qoladi.",
+    "entryClosed": "Kiritish muddati o‘tdi: {date} uchun sanoq boshlanmagan, shuning uchun unga raqam kiritib bo‘lmaydi. U ombor solishtirishini ushlab turmaydi.",
     "cancelled": "Inventarizatsiya bekor qilindi",
     "changePeriod": {
       "button": "Oyni o‘zgartirish",
@@ -704,6 +705,7 @@
     },
     "errors": {
       "invalidQty": "Son kiriting, masalan 2,5 yoki 2,5+3",
+      "monthAccepted": "Bu oy bo‘yicha iiko bilan solishtirishni ofis allaqachon qabul qilgan — bu oy uchun oylik sanoq yopiq. Qoralamani bekor qilish mumkin.",
       "generic": "Xato: {message}"
     },
     "templates": {
@@ -865,6 +867,9 @@
         "hiddenMonthEnd": "25-dan keyin — faqat ofis",
         "hiddenDetail": "Sanoq ketmoqda — sanoq yopilgach solishtirish ochiladi",
         "hiddenMonthEndDetail": "25-sanadan keyingi sanoqlarni faqat ofis solishtiradi",
+        "openCounts": "Omborning yopilmagan sanoqlari:",
+        "openDraftHint": "Qoralamani to‘ldirib yuboring yoki bekor qiling. Agar bo‘lmasa — ofisga murojaat qiling.",
+        "openSubmittedHint": "Yuborilgan, lekin uni hali qoralamaga qaytarish mumkin — ofis solishtirgach yopiladi.",
         "checkedByOffice": "Ofis tekshirgan"
       },
       "worker": {
@@ -972,6 +977,27 @@
         "other": "Boshqa ±",
         "end": "Yakuniy"
       }
+    },
+    "dailyGrid": {
+      "title": "Kunlik qoldiqlar",
+      "hint": "Kunlik sanoq ertasi kuni kiritiladi. Bo'sh — ombor shu kun uchun hech narsa kiritmagan.",
+      "legend": {
+        "submitted": "yuborilgan",
+        "draft": "boshlangan, yuborilmagan",
+        "monthly": "oylik sanoq",
+        "entering": "{date} — bugun kiritilmoqda, «{n} dan» ga kirmaydi"
+      },
+      "col": {
+        "store": "Ombor",
+        "total": "{n} dan"
+      },
+      "totals": "Yuborganlar",
+      "empty": "Bu oyda hali o'tgan kunlar yo'q",
+      "noStores": "Filial omborlari yo'q",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1019,7 @@
     "inventory": "Inventarizatsiya",
     "inventoryList": "Inventarizatsiyalar",
     "inventoryStock": "Ombor qoldiqlari",
+    "inventoryDailyGrid": "Kunlik qoldiqlar",
     "inventoryTurnover": "Aylanma qaydnoma",
     "inventoryTemplates": "Inventarizatsiya shablonlari",
     "inventoryReconciliation": "iiko bilan solishtirish",

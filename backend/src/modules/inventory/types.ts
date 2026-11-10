@@ -64,6 +64,8 @@ export interface InventoryCountDetail extends InventoryCountSummary {
   access: InventoryAccess;
   can_manage: boolean;
   can_reopen: boolean;
+  /** Забытый промежуточный черновик (пустой, срок ввода прошёл): цифры вносить нельзя, склад он не держит. */
+  entry_closed: boolean;
   /** Месяцы, в которые офис может перенести этот месячный пересчёт; пусто — кнопки нет. */
   period_targets: string[];
   lines: InventoryLine[];
@@ -73,7 +75,7 @@ export type InventorySyncOp =
   | { op: "add"; id: string; line_id: string; qty: number; client_created_at: string }
   | { op: "delete"; id: string };
 
-export type InventorySyncRejectReason = "not_found_line" | "forbidden" | "invalid_qty" | "invalid_id";
+export type InventorySyncRejectReason = "not_found_line" | "forbidden" | "invalid_qty" | "invalid_id" | "entry_closed";
 
 export interface InventorySyncResult {
   applied: string[];

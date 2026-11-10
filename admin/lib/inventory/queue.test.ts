@@ -36,7 +36,7 @@ function detail(): InventoryCountDetail {
     id: "c", store_id: "s", store_name: "Склад", template_id: "t", template_name: "Месячная",
     period: "2026-10-31", kind: "monthly", count_date: "2026-10-31", status: "draft", exord_filtered: false, created_at: "", submitted_at: null, submitted_by_name: null,
     lines_total: 2, lines_done: 1, participants: ["Иван"], viewer_id: "me", access: "write",
-    can_manage: true, can_reopen: false, period_targets: [],
+    can_manage: true, can_reopen: false, entry_closed: false, period_targets: [],
     lines: [
       {
         id: L1, product_id: "p1", product_name: "Говядина", unit_name: "кг", group_id: null, group_name: "Мясо",

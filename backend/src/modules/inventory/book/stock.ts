@@ -4,13 +4,13 @@
 import { corporation_store, inventory_count_book, inventory_count_lines, inventory_counts } from "backend/drizzle/schema";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
-import { assertUuid, branchMayReopen, GROUP_NAME_SQL, normalizeNumeric } from "../counts";
+import { assertUuid, branchMayReopen, countKeepsStoreOpen, GROUP_NAME_SQL, normalizeNumeric } from "../counts";
 import { allowedPeriods, interimBookHiddenForBranch } from "../rules";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
 import { withIikoClient, type IikoClient } from "../reconcile/iiko-client";
 import { buildBook, type BookLine } from "./pure";
-import type { BookLineView, BookView, StockMovement, StockView } from "./types";
+import type { BookLineView, BookView, OpenCount, StockMovement, StockView } from "./types";
 
 // Подменяется в тестах: остатки берутся из iiko прямо при открытии экрана.
 type IikoRunner = <T>(fn: (c: IikoClient) => Promise<T>) => Promise<T>;
@@ -46,13 +46,21 @@ export async function productInfo(db: DbLike, ids: string[]): Promise<Map<string
 }
 
 /**
- * Есть ли у склада пересчёт, который филиал ещё может менять: черновик или отправленный, который можно вернуть.
- * Только текущий и прошлый месяц — те, в которых пересчёты ведутся (иначе старые периоды без сверки
- * скрывали бы остатки навсегда).
+ * Пересчёты склада, которые филиал ещё может менять (countKeepsStoreOpen): черновик или отправленный,
+ * который можно вернуть. Пока они есть, цифры iiko по складу филиалу не показываем. Только текущий и
+ * прошлый месяц — те, в которых пересчёты ведутся (иначе старые периоды без сверки скрывали бы остатки навсегда).
  */
-export async function storeHasChangeableCount(db: DbLike, storeId: string, now = new Date()): Promise<boolean> {
+export async function storeOpenCounts(db: DbLike, storeId: string, now = new Date()): Promise<OpenCount[]> {
   const counts = await db
-    .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period, kind: inventory_counts.kind })
+    .select({
+      id: inventory_counts.id,
+      status: inventory_counts.status,
+      store_id: inventory_counts.store_id,
+      period: inventory_counts.period,
+      kind: inventory_counts.kind,
+      count_date: inventory_counts.count_date,
+      template_name: inventory_counts.template_name,
+    })
     .from(inventory_counts)
     .where(
       and(
@@ -60,10 +68,18 @@ export async function storeHasChangeableCount(db: DbLike, storeId: string, now =
         inArray(inventory_counts.period, allowedPeriods(now)),
         inArray(inventory_counts.status, ["draft", "submitted"])
       )
-    );
-  if (counts.some((c) => c.status === "draft")) return true;
-  for (const c of counts) if (await branchMayReopen(db, c)) return true;
-  return false;
+    )
+    .orderBy(inventory_counts.count_date, inventory_counts.created_at);
+  const out: OpenCount[] = [];
+  for (const c of counts) {
+    if (!(await countKeepsStoreOpen(db, c, now))) continue;
+    out.push({ count_id: c.id, kind: c.kind, period: c.period, count_date: c.count_date, status: c.status, template_name: c.template_name });
+  }
+  return out;
+}
+
+export async function storeHasChangeableCount(db: DbLike, storeId: string, now = new Date()): Promise<boolean> {
+  return (await storeOpenCounts(db, storeId, now)).length > 0;
 }
 
 /** «Сравнение с учётом»: офис (inventory.reconcile) — всегда; филиал — свой склад, пересчёт зафиксирован

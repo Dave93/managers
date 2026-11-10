@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { formatDay, periodLabel, recentPeriods } from "./periods";
+import { dailyGridPeriod, formatDay, periodLabel, recentPeriods } from "./periods";
 
 describe("recentPeriods", () => {
   test("последние n периодов по Ташкенту, текущий первым", () => {
@@ -19,5 +19,16 @@ describe("formatDay", () => {
   test("YYYY-MM-DD → ДД.ММ.ГГГГ", () => {
     expect(formatDay("2026-10-07")).toBe("07.10.2026");
     expect(formatDay("garbage")).toBe("garbage");
+  });
+});
+
+describe("dailyGridPeriod", () => {
+  test("обычный день — текущий месяц", () => {
+    expect(dailyGridPeriod(new Date("2026-11-10T05:00:00Z"))).toBe("2026-11-30");
+  });
+  test("1-е число по Ташкенту — прошлый месяц: в текущем ещё нет прошедших дней", () => {
+    expect(dailyGridPeriod(new Date("2026-11-30T20:00:00Z"))).toBe("2026-11-30");
+    expect(dailyGridPeriod(new Date("2026-12-01T05:00:00Z"))).toBe("2026-11-30");
+    expect(dailyGridPeriod(new Date("2027-01-01T05:00:00Z"))).toBe("2026-12-31");
   });
 });

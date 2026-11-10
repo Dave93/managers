@@ -3,13 +3,13 @@
 import { inventory_count_book_marks, inventory_count_lines } from "backend/drizzle/schema";
 import { and, eq, sql } from "drizzle-orm";
 import { storeAccess, type Actor, type DbLike } from "../access";
-import { storeHasChangeableCount } from "./stock";
+import { storeOpenCounts } from "./stock";
 import { bookLoadingIds, enqueueBookFor } from "./queue";
 import { assertUuid, normalizeNumeric, userNames } from "../counts";
 import { InventoryError } from "../errors";
 import { round4 } from "../reconcile/pure";
 import { interimBookHiddenForBranch, isValidPeriod } from "../rules";
-import type { InterimReconDetail, InterimReconLine, InterimReconRow } from "./types";
+import type { InterimReconDetail, InterimReconLine, InterimReconRow, OpenCount } from "./types";
 
 const EPS = 0.00005;
 const q = (x: number) => normalizeNumeric(String(round4(x)));
@@ -72,8 +72,9 @@ type RawCount = {
 };
 
 type HiddenReason = InterimReconDetail["hidden_reason"];
+type Hidden = { reasons: Map<string, HiddenReason>; open: Map<string, OpenCount[]> };
 
-async function build(db: DbLike, counts: RawCount[], hidden: Map<string, HiddenReason> = new Map()): Promise<InterimReconDetail[]> {
+async function build(db: DbLike, counts: RawCount[], { reasons: hidden, open }: Hidden): Promise<InterimReconDetail[]> {
   if (!counts.length) return [];
   // Скрытым пересчётам строки не нужны: цифры iiko филиалу не показываем.
   const visible = counts.filter((c) => !hidden.has(c.count_id));
@@ -101,6 +102,7 @@ async function build(db: DbLike, counts: RawCount[], hidden: Map<string, HiddenR
       checked_count: mism.filter((l) => l.checked).length,
       hidden: hidden.has(c.count_id),
       hidden_reason: hidden.get(c.count_id) ?? null,
+      open_counts: hidden.get(c.count_id) === "open_count" ? open.get(c.store_id) ?? [] : [],
       book_loading: loading.has(c.count_id),
       lines,
     };
@@ -115,17 +117,20 @@ const COUNTS_SQL = sql`
 const isOffice = (actor: Actor) => actor.perms.includes("inventory.reconcile");
 
 /** Пересчёты, где филиалу цифры iiko скрыты: дата после 25-го (насовсем) или у склада идёт
- * пересчёт (правило слепого пересчёта, spec 2026-10-08 §6). */
-async function hiddenFor(db: DbLike, actor: Actor, counts: RawCount[]): Promise<Map<string, HiddenReason>> {
-  const out = new Map<string, HiddenReason>();
-  if (isOffice(actor)) return out;
-  const changeable = new Set<string>();
-  for (const id of new Set(counts.map((c) => c.store_id))) if (await storeHasChangeableCount(db, id)) changeable.add(id);
-  for (const c of counts) {
-    if (interimBookHiddenForBranch({ kind: "interim", count_date: c.count_date })) out.set(c.count_id, "month_end");
-    else if (changeable.has(c.store_id)) out.set(c.count_id, "open_count");
+ * пересчёт (правило слепого пересчёта, spec 2026-10-08 §6) — тогда и какие пересчёты его держат. */
+async function hiddenFor(db: DbLike, actor: Actor, counts: RawCount[]): Promise<Hidden> {
+  const reasons = new Map<string, HiddenReason>();
+  const open = new Map<string, OpenCount[]>();
+  if (isOffice(actor)) return { reasons, open };
+  for (const id of new Set(counts.map((c) => c.store_id))) {
+    const list = await storeOpenCounts(db, id);
+    if (list.length) open.set(id, list);
   }
-  return out;
+  for (const c of counts) {
+    if (interimBookHiddenForBranch({ kind: "interim", count_date: c.count_date })) reasons.set(c.count_id, "month_end");
+    else if (open.has(c.store_id)) reasons.set(c.count_id, "open_count");
+  }
+  return { reasons, open };
 }
 
 /** Офис — все склады; филиал — только свои (users_stores), только просмотр. */

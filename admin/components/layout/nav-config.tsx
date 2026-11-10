@@ -99,6 +99,7 @@ export function buildNav(locale: string, t: (key: string) => string, tTickets: T
       items: [
         { title: t("inventoryList"), href: p("/inventory"), permission: "inventory.count" },
         { title: t("inventoryStock"), href: p("/inventory/stock"), permission: "inventory.templates" },
+        { title: t("inventoryDailyGrid"), href: p("/inventory/daily-grid"), permission: "inventory.templates" },
         { title: t("inventoryTurnover"), href: p("/inventory/turnover"), permission: "inventory.count" },
         { title: t("inventoryTemplates"), href: p("/inventory/templates"), permission: "inventory.templates" },
         { title: t("inventoryReconciliation"), href: p("/inventory/reconciliation"), permission: "inventory.reconcile" },

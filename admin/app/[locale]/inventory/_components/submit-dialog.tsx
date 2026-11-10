@@ -34,7 +34,8 @@ export function SubmitDialog({
       toast.success(t("done"));
       onDone();
     },
-    onError: (e: Error) => toast.error(tRoot("errors.generic", { message: e.message })),
+    onError: (e: Error) =>
+      toast.error(e.message === "month_accepted" ? tRoot("errors.monthAccepted") : tRoot("errors.generic", { message: e.message })),
   });
 
   return (

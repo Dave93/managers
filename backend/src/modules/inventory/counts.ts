@@ -18,7 +18,7 @@ import type { DrizzleDB } from "@backend/lib/db";
 import { canManage, storeAccess, type Actor, type DbLike } from "./access";
 import { storeProductIds } from "./branch-products";
 import { InventoryError } from "./errors";
-import { interimDates, isValidInterimDate, isValidQty, lastDayOf, monthlyPeriods, nextStatus, periodTargets, UUID_RE } from "./rules";
+import { interimDates, interimEntryClosed, isValidInterimDate, isValidQty, lastDayOf, monthlyPeriods, nextStatus, periodTargets, UUID_RE } from "./rules";
 import type {
   InventoryAvailableTemplate,
   InventoryStartOptions,
@@ -175,7 +175,7 @@ export type CountKind = "monthly" | "interim";
 // Месячный — один на склад, месяц и шаблон; промежуточный — на склад, дату и шаблон.
 export async function findActive(db: DbLike, storeId: string, kind: CountKind, countDate: string, templateId: string | null) {
   const [row] = await db
-    .select({ id: inventory_counts.id })
+    .select({ id: inventory_counts.id, status: inventory_counts.status })
     .from(inventory_counts)
     .where(
       and(
@@ -236,6 +236,12 @@ export async function createCount(
   }
 
   const existing = await findActive(db, input.store_id, kind, countDate, templateId);
+  // Сверку месяца офис уже принял (10.11.2026): новый месячный за него филиал не начинает и в неотправленный
+  // черновик не попадает (isStaleMonthlyDraft); пересчёт, который офис вернул после принятия, открывается как раньше.
+  if (kind === "monthly" && !actor.perms.includes("inventory.reconcile") && (await monthAccepted(db, input.store_id, period))) {
+    const stale = existing && (await isStaleMonthlyDraft(db, { ...existing, kind, store_id: input.store_id, period }));
+    if (!existing || stale) throw new InventoryError(409, "month_accepted", { period });
+  }
   if (existing) return { id: existing.id, existing: true };
   const branch = await storeProductIds(redis, db as DrizzleDB, input.store_id);
   if (!tpl && !branch) throw new InventoryError(422, "no_branch_products");
@@ -426,6 +432,7 @@ export async function loadCount(db: DbLike, actor: Actor, id: string, now: Date)
     access,
     can_manage: manage,
     can_reopen: row.status === "submitted" && (await mayReopen(db, actor, access, row)),
+    entry_closed: !actor.perms.includes("inventory.reconcile") && (await isForgottenInterimDraft(db, row, now)),
     period_targets: periodTargets(row, actor.perms, now),
     lines: lines.map(
       (x): InventoryLine => ({
@@ -459,6 +466,9 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
     // всегда попадает в fact_qty, а пачка после submit получает 409.
     const { row, manage } = await requireWritableDraft(tx, actor, id);
     const countCreatedAt = Date.parse(row.created_at);
+    // Забытый промежуточный (пустой, срок ввода прошёл) склад уже не держит: цифры в него — только офису.
+    // Проверка — по состоянию на начало пачки, под блокировкой пересчёта (FOR UPDATE выше).
+    const entryClosed = !actor.perms.includes("inventory.reconcile") && (await isForgottenInterimDraft(tx, row, new Date()));
     const lineRows = await tx
       .select({ id: inventory_count_lines.id })
       .from(inventory_count_lines)
@@ -478,6 +488,10 @@ export async function syncEntries(db: DbLike, actor: Actor, id: string, ops: Inv
         }
         if (!lineIds.has(op.line_id)) {
           result.rejected.push({ id: op.id, reason: "not_found_line" });
+          continue;
+        }
+        if (entryClosed) {
+          result.rejected.push({ id: op.id, reason: "entry_closed" });
           continue;
         }
         const clientAt = clientTime(op.client_created_at, Date.now(), countCreatedAt);
@@ -623,6 +637,9 @@ export async function submitCount(db: DbLike, actor: Actor, id: string, skipInco
     const row = await requireManagedCount(tx, actor, id);
     const to = nextStatus("submit", row.status);
     if (!to) throw new InventoryError(409, "not_draft", { status: row.status });
+    if (!actor.perms.includes("inventory.reconcile") && (await isStaleMonthlyDraft(tx, row))) {
+      throw new InventoryError(409, "month_accepted", { period: row.period });
+    }
 
     // Месячный (02.11.2026): незаполненное = 0 — в пустую строку пишется запись «0» от отправившего,
     // старая пометка «не считали» снимается. Промежуточный: незаполненное становится «не считали».
@@ -729,6 +746,66 @@ export async function branchMayReopen(db: DbLike, row: { store_id: string; perio
   if (recon.status === "accepted") return false;
   // until_iiko: документ iiko уже загружен в сверку (в т.ч. потом распроведён) — филиал больше не правит.
   return !(rule === "until_iiko" && recon.iiko_doc_state !== null);
+}
+
+async function monthAccepted(db: DbLike, storeId: string, period: string): Promise<boolean> {
+  const [recon] = await db
+    .select({ status: inventory_reconciliations.status })
+    .from(inventory_reconciliations)
+    .where(and(eq(inventory_reconciliations.store_id, storeId), eq(inventory_reconciliations.period, period)));
+  return recon?.status === "accepted";
+}
+
+/**
+ * Месячный черновик, который ни разу не отправляли, за месяц, сверку которого офис уже принял (10.11.2026).
+ * Месяц закрыт: такой черновик не держит склад «открытым» для филиала, а филиал его не отправит
+ * (иначе, увидев цифры iiko, вписал бы их). Возвращённый офисом после принятия — уже отправлялся, держит.
+ */
+export async function isStaleMonthlyDraft(
+  db: DbLike,
+  row: { id: string; status: string; kind: string; store_id: string; period: string }
+): Promise<boolean> {
+  if (row.kind !== "monthly" || row.status !== "draft") return false;
+  if (!(await monthAccepted(db, row.store_id, row.period))) return false;
+  const [sent] = await db
+    .select({ id: inventory_count_events.id })
+    .from(inventory_count_events)
+    .where(and(eq(inventory_count_events.count_id, row.id), eq(inventory_count_events.type, "submitted")))
+    .limit(1);
+  return !sent;
+}
+
+async function hasEntries(db: DbLike, countId: string): Promise<boolean> {
+  const [entry] = await db
+    .select({ id: inventory_count_entries.id })
+    .from(inventory_count_entries)
+    .where(and(eq(inventory_count_entries.count_id, countId), isNull(inventory_count_entries.deleted_at)))
+    .limit(1);
+  return !!entry;
+}
+
+/** Промежуточный черновик без единой записи, срок ввода которого прошёл (rules.interimEntryClosed, 10.11.2026):
+ * забыт — склад не держит, вносить в него цифры филиал уже не может. Не отменяется: отменить можно вручную. */
+export async function isForgottenInterimDraft(
+  db: DbLike,
+  row: { id: string; status: string; kind: string; count_date: string },
+  now: Date
+): Promise<boolean> {
+  if (row.kind !== "interim" || row.status !== "draft") return false;
+  if (!interimEntryClosed(row.count_date, now)) return false;
+  return !(await hasEntries(db, row.id));
+}
+
+/** Держит ли пересчёт склад «открытым» для филиала (слепой пересчёт): черновик или отправленный,
+ * который филиал ещё может вернуть. Цифры iiko по складу филиалу до тех пор не показываем. */
+export async function countKeepsStoreOpen(
+  db: DbLike,
+  row: { id: string; status: string; kind: string; store_id: string; period: string; count_date: string },
+  now = new Date()
+): Promise<boolean> {
+  if (row.status === "draft") return !(await isStaleMonthlyDraft(db, row)) && !(await isForgottenInterimDraft(db, row, now));
+  if (row.status === "submitted") return branchMayReopen(db, row);
+  return false;
 }
 
 export async function reopenCount(db: DbLike, actor: Actor, id: string, now: Date) {

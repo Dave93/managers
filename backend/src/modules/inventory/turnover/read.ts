@@ -5,7 +5,7 @@ import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import type Redis from "ioredis";
 import { storeAccess, type Actor, type DbLike } from "../access";
 import { productInfo } from "../book/stock";
-import { assertUuid, branchMayReopen, normalizeNumeric } from "../counts";
+import { assertUuid, countKeepsStoreOpen, normalizeNumeric } from "../counts";
 import { InventoryError } from "../errors";
 import { allowedPeriods, isValidPeriod, lastDayOfMonth } from "../rules";
 import { aggregate, branchMonthState, visibleColumns, type Cells, type MonthlyState, type TxAgg } from "./pure";
@@ -47,13 +47,21 @@ export async function monthlyStates(db: DbLike, storeId: string): Promise<Map<st
     return cur;
   };
   const counts = await db
-    .select({ status: inventory_counts.status, store_id: inventory_counts.store_id, period: inventory_counts.period, kind: inventory_counts.kind })
+    .select({
+      id: inventory_counts.id,
+      status: inventory_counts.status,
+      store_id: inventory_counts.store_id,
+      period: inventory_counts.period,
+      kind: inventory_counts.kind,
+      count_date: inventory_counts.count_date,
+    })
     .from(inventory_counts)
     .where(and(eq(inventory_counts.store_id, storeId), eq(inventory_counts.kind, "monthly"), ne(inventory_counts.status, "cancelled")));
   for (const c of counts) {
     const cur = at(c.period);
     cur.exists = true;
-    if (!cur.changeable && (c.status === "draft" || (await branchMayReopen(db, c)))) cur.changeable = true;
+    // Неотправленный черновик за месяц с принятой сверкой не держит месяц (countKeepsStoreOpen, 10.11.2026).
+    if (!cur.changeable && (await countKeepsStoreOpen(db, c))) cur.changeable = true;
   }
   const recons = await db
     .select({ period: inventory_reconciliations.period })
