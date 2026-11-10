@@ -24,6 +24,12 @@ export function recentPeriods(now: Date, n: number): string[] {
   return out;
 }
 
+/** Месяц «Дневных остатков» по умолчанию: текущий, а 1-го числа — прошлый (в текущем ещё нет прошедших дней). */
+export function dailyGridPeriod(now: Date): string {
+  const [current, previous] = recentPeriods(now, 2);
+  return new Date(now.getTime() + TASHKENT_OFFSET_MS).getUTCDate() === 1 ? previous : current;
+}
+
 export function periodLabel(period: string, locale: string): string {
   const [y, m] = period.split("-").map(Number);
   const intlLocale = locale === "uz-Latn" ? "uz" : locale === "uz-Cyrl" ? "uz-Cyrl" : locale;

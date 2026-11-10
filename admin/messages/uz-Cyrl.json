@@ -972,6 +972,27 @@
         "other": "Бошқа ±",
         "end": "Якуний"
       }
+    },
+    "dailyGrid": {
+      "title": "Кунлик қолдиқлар",
+      "hint": "Кунлик саноқ эртаси куни киритилади. Бўш — омбор шу кун учун ҳеч нарса киритмаган.",
+      "legend": {
+        "submitted": "юборилган",
+        "draft": "бошланган, юборилмаган",
+        "monthly": "ойлик саноқ",
+        "entering": "{date} — бугун киритилмоқда, «{n} дан» га кирмайди"
+      },
+      "col": {
+        "store": "Омбор",
+        "total": "{n} дан"
+      },
+      "totals": "Юборганлар",
+      "empty": "Бу ойда ҳали ўтган кунлар йўқ",
+      "noStores": "Филиал омборлари йўқ",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1014,7 @@
     "inventory": "Инвентаризация",
     "inventoryList": "Инвентаризациялар",
     "inventoryStock": "Омбор қолдиқлари",
+    "inventoryDailyGrid": "Кунлик қолдиқлар",
     "inventoryTurnover": "Айланма қайднома",
     "inventoryTemplates": "Инвентаризация шаблонлари",
     "inventoryReconciliation": "iiko билан солиштириш",

@@ -972,6 +972,27 @@
         "other": "Boshqa ±",
         "end": "Yakuniy"
       }
+    },
+    "dailyGrid": {
+      "title": "Kunlik qoldiqlar",
+      "hint": "Kunlik sanoq ertasi kuni kiritiladi. Bo'sh — ombor shu kun uchun hech narsa kiritmagan.",
+      "legend": {
+        "submitted": "yuborilgan",
+        "draft": "boshlangan, yuborilmagan",
+        "monthly": "oylik sanoq",
+        "entering": "{date} — bugun kiritilmoqda, «{n} dan» ga kirmaydi"
+      },
+      "col": {
+        "store": "Ombor",
+        "total": "{n} dan"
+      },
+      "totals": "Yuborganlar",
+      "empty": "Bu oyda hali o'tgan kunlar yo'q",
+      "noStores": "Filial omborlari yo'q",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1014,7 @@
     "inventory": "Inventarizatsiya",
     "inventoryList": "Inventarizatsiyalar",
     "inventoryStock": "Ombor qoldiqlari",
+    "inventoryDailyGrid": "Kunlik qoldiqlar",
     "inventoryTurnover": "Aylanma qaydnoma",
     "inventoryTemplates": "Inventarizatsiya shablonlari",
     "inventoryReconciliation": "iiko bilan solishtirish",

@@ -972,6 +972,27 @@
         "other": "Прочее ±",
         "end": "Конец"
       }
+    },
+    "dailyGrid": {
+      "title": "Дневные остатки",
+      "hint": "Пересчёт за день вбивают на следующий день. Пусто — склад за этот день ничего не вбил.",
+      "legend": {
+        "submitted": "отправлен",
+        "draft": "начат, не отправлен",
+        "monthly": "месячный пересчёт",
+        "entering": "{date} — вбивают сегодня, в «из {n}» не входит"
+      },
+      "col": {
+        "store": "Склад",
+        "total": "из {n}"
+      },
+      "totals": "Отправили",
+      "empty": "В этом месяце ещё нет прошедших дней",
+      "noStores": "Нет складов филиалов",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1014,7 @@
     "inventory": "Инвентаризация",
     "inventoryList": "Инвентаризации",
     "inventoryStock": "Остатки склада",
+    "inventoryDailyGrid": "Дневные остатки",
     "inventoryTurnover": "Оборотная ведомость",
     "inventoryTemplates": "Шаблоны инвентаризаций",
     "inventoryReconciliation": "Сверка с iiko",

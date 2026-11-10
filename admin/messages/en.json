@@ -972,6 +972,27 @@
         "other": "Other ±",
         "end": "Closing"
       }
+    },
+    "dailyGrid": {
+      "title": "Daily counts",
+      "hint": "A day's count is entered the next day. Empty means the store entered nothing for that day.",
+      "legend": {
+        "submitted": "submitted",
+        "draft": "started, not submitted",
+        "monthly": "monthly count",
+        "entering": "{date} — being entered today, not included in \"of {n}\""
+      },
+      "col": {
+        "store": "Store",
+        "total": "of {n}"
+      },
+      "totals": "Submitted",
+      "empty": "No past days in this month yet",
+      "noStores": "No branch stores",
+      "brand": {
+        "les": "Les Ailes",
+        "chopar": "Chopar"
+      }
     }
   },
   "nav": {
@@ -993,6 +1014,7 @@
     "inventory": "Inventory",
     "inventoryList": "Inventory counts",
     "inventoryStock": "Warehouse stock",
+    "inventoryDailyGrid": "Daily counts",
     "inventoryTurnover": "Turnover statement",
     "inventoryTemplates": "Inventory templates",
     "inventoryReconciliation": "Reconciliation with iiko",
