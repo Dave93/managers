@@ -100,3 +100,24 @@ export interface EvDayOffEmployee { id: string; first_name: string; last_name: s
 export interface EvDayOffEmployees { terminals: { id: string; name: string }[]; items: EvDayOffEmployee[] }
 export interface EvDaysOffCreated { created: EvDayOff[]; skipped: string[] }   // skipped — дни, где выходной уже был
 export interface EvDaysOff { period: string; period_status: "open" | "closed"; items: EvDayOff[] }
+
+// GET /kpi/tg/ev/employees/:id/card?period=YYYY-MM-01 (без period — текущий месяц по Ташкенту).
+// Справка об одном сотруднике из назначений оценщика: посещаемость, оценка, нарушения, история. Сумм прибавки
+// и служебных признаков (Workly, Telegram) здесь нет: сервер их не отдаёт, а не прячет на экране.
+export type EvCardDayStatus = "ontime" | "late" | "absent" | "dayoff";
+// day "YYYY-MM-DD"; время HH:MM по Ташкенту; у прогула и выходного отметок и опоздания нет
+export interface EvCardDay { day: string; status: EvCardDayStatus; late_minutes: number; check_in: string | null; check_out: string | null }
+export interface EvCardMonth { period: string; state: "scored" | "pending" | "upcoming" | "not_rated"; score_pct: number | null }
+export interface EvCard {
+  employee: { id: string; first_name: string; last_name: string; position: string | null; terminal_name: string | null; tab_number: string | null; active: boolean; has_card: boolean };
+  period: string;
+  // prev и next — ближайшие месяцы «YYYY-MM-01» со строками посещаемости (текущий месяц достижим всегда); null — дальше нет
+  months: { prev: string | null; next: string | null };
+  days: EvCardDay[];
+  review: {
+    score_pct: number | null; status: "ready" | "dispute_open" | "dispute_resolved" | "changed";
+    items: { title_ru: string; title_uz: string; score: number | null; note: string | null }[];
+  } | null;
+  violations: { id: string; item_title_ru: string | null; item_title_uz: string | null; occurred_at: string; comment: string; status: "active" | "cancelled" }[];
+  history: { quarter_start: string; avg_pct: number | null; months: EvCardMonth[] }[];
+}
