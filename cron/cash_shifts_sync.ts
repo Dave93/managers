@@ -112,7 +112,8 @@ const UPDATE_COLS = [
   "sales_cash", "sales_card", "sales_credit", "pay_in", "pay_out", "cash_diff", "synced_at",
 ] as const;
 
-async function saveChunk(rows: ShiftRow[], cashiers: CashierRow[], dishes: DishRow[]): Promise<void> {
+// dishes = null: позиции за окно не получены, прежние строки остаются, смены и кассиры сохраняются как обычно.
+async function saveChunk(rows: ShiftRow[], cashiers: CashierRow[], dishes: DishRow[] | null): Promise<void> {
   if (rows.length === 0) return;
   const set = Object.fromEntries(UPDATE_COLS.map((c) => [c, sql.raw(`excluded.${c}`)]));
   await drizzleDb.transaction(async (tx) => {
@@ -125,11 +126,13 @@ async function saveChunk(rows: ShiftRow[], cashiers: CashierRow[], dishes: DishR
     for (const part of chunk(cashiers, 1000)) {
       await tx.insert(cash_shift_cashiers).values(part);
     }
-    await tx
-      .delete(cash_shift_cashier_dishes)
-      .where(inArray(cash_shift_cashier_dishes.shift_id, rows.map((r) => r.id)));
-    for (const part of chunk(dishes, 1000)) {
-      await tx.insert(cash_shift_cashier_dishes).values(part);
+    if (dishes) {
+      await tx
+        .delete(cash_shift_cashier_dishes)
+        .where(inArray(cash_shift_cashier_dishes.shift_id, rows.map((r) => r.id)));
+      for (const part of chunk(dishes, 1000)) {
+        await tx.insert(cash_shift_cashier_dishes).values(part);
+      }
     }
   });
 }
@@ -159,7 +162,7 @@ async function main(): Promise<number> {
     const terminalByGroup = await loadTerminalByGroup();
     console.log(`[cash_shifts] dictionaries: pos=${pos.size} employees=${names.size} terminals=${terminalByGroup.size}`);
 
-    const totals = { shifts: 0, cashiers: 0, dishes: 0, mismatches: 0, unmapped: 0 };
+    const totals = { shifts: 0, cashiers: 0, dishes: 0, dishSkipped: 0, mismatches: 0, unmapped: 0 };
     for (const part of dateChunks(from, to)) {
       const raw = await fetchShifts(iiko, part.from, part.to);
       const ids = new Set<string>(raw.map((r) => r.id));
@@ -173,10 +176,16 @@ async function main(): Promise<number> {
       if (cashiers.length === 0 && chunkPayOrders > 0) {
         throw new Error(`olap returned no cashier rows for shifts with orders ${part.from}..${part.to}`);
       }
-      // Позиции по кассирам: пустой ответ при непустых заказах стёр бы их у всех смен окна.
-      const dishes = aggregateCashierDishes(await fetchDishOlap(iiko, addDays(part.from, -1), addDays(part.to, 1)), ids);
-      if (dishes.length === 0 && chunkPayOrders > 0) {
-        throw new Error(`olap returned no dish rows for shifts with orders ${part.from}..${part.to}`);
+      // Позиции по кассирам нужны оценщику, а не виджету смен: сбой этого запроса не должен останавливать смены и
+      // кассиров. Пустой ответ при непустых заказах тоже сбой: он стёр бы позиции у всех смен окна.
+      let dishes: DishRow[] | null = null;
+      try {
+        dishes = aggregateCashierDishes(await fetchDishOlap(iiko, addDays(part.from, -1), addDays(part.to, 1)), ids);
+        if (dishes.length === 0 && chunkPayOrders > 0) throw new Error("olap returned no dish rows for shifts with orders");
+      } catch (e) {
+        dishes = null;
+        totals.dishSkipped++;
+        console.warn(`[cash_shifts] WARN dishes skipped ${part.from}..${part.to}: ${(e as Error).message}`);
       }
       await saveChunk(rows, cashiers, dishes);
 
@@ -190,13 +199,13 @@ async function main(): Promise<number> {
       }
       totals.shifts += rows.length;
       totals.cashiers += cashiers.length;
-      totals.dishes += dishes.length;
+      totals.dishes += dishes?.length ?? 0;
       totals.mismatches += mismatches.length;
       totals.unmapped += unmapped.length;
-      console.log(`[cash_shifts] ${part.from}..${part.to}: shifts=${rows.length} cashiers=${cashiers.length} dishes=${dishes.length}`);
+      console.log(`[cash_shifts] ${part.from}..${part.to}: shifts=${rows.length} cashiers=${cashiers.length} dishes=${dishes ? dishes.length : "skipped"}`);
     }
     console.log(
-      `[cash_shifts] done ${from}..${to} shifts=${totals.shifts} cashiers=${totals.cashiers} dishes=${totals.dishes} mismatches=${totals.mismatches} unmapped=${totals.unmapped} in ${Math.round((Date.now() - started) / 1000)}s`
+      `[cash_shifts] done ${from}..${to} shifts=${totals.shifts} cashiers=${totals.cashiers} dishes=${totals.dishes} dishes_skipped=${totals.dishSkipped} mismatches=${totals.mismatches} unmapped=${totals.unmapped} in ${Math.round((Date.now() - started) / 1000)}s`
     );
     return 0;
   } catch (e) {
