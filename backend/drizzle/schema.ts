@@ -3411,3 +3411,64 @@ export const workly_sync_runs = pgTable(
       .where(sql`${t.status} = 'running'`),
   ]
 );
+
+// POS storno: возврат закрытых чеков по команде из админки. Плагин iikoFront (репо storno_plugin) сам ходит на
+// backend по https. Касса = станция iikoFront со своим токеном; токен выдаёт админ, в базе только sha256.
+// Бренды (Les Ailes / Chopar) - разные RMS, номер кассы может совпасть, поэтому всё привязано к organization_id.
+export const pos_storno_terminals = pgTable(
+  "pos_storno_terminals",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    name: varchar("name", { length: 120 }).notNull(),
+    token_hash: varchar("token_hash", { length: 64 }).notNull(),
+    // Заполняется первым claim и дальше не меняется: токен привязан к одной станции iikoFront.
+    iiko_terminal_id: varchar("iiko_terminal_id", { length: 64 }),
+    iiko_terminal_name: text("iiko_terminal_name"),
+    cash_register_numbers: jsonb("cash_register_numbers").$type<number[]>().default(sql`'[]'::jsonb`).notNull(),
+    dry_run: boolean("dry_run").default(true).notNull(),
+    plugin_version: varchar("plugin_version", { length: 32 }),
+    last_seen_at: timestamp("last_seen_at", { withTimezone: true, mode: "string" }),
+    active: boolean("active").default(true).notNull(),
+    created_by: uuid("created_by"),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+  },
+  (t) => [uniqueIndex("pos_storno_terminals_token_uq").on(t.token_hash), index("pos_storno_terminals_org_idx").on(t.organization_id)]
+);
+
+// Команда на возврат. status: pending -> claimed -> done | dry_run_ok | rejected | failed | unknown; pending без забора -> expired;
+// cancelled - админ снял команду (pending, либо failed/unknown после ручной проверки кассы: иначе они навсегда блокируют повтор).
+// finished_by: plugin (итог прислал плагин) | timeout (аренда истекла, итога нет: вслепую не повторяем, смотреть кассу/OLAP).
+// Поздний отчёт плагина после timeout принимается и перезаписывает итог.
+// Уникальность: на заказ одна команда, кроме тех, что ничего не изменили или сняты админом (rejected, expired, dry_run_ok, cancelled).
+export const pos_storno_commands = pgTable(
+  "pos_storno_commands",
+  {
+    id: uuid("id").defaultRandom().primaryKey().notNull(),
+    organization_id: uuid("organization_id").notNull(),
+    order_id: uuid("order_id").notNull(),
+    order_number: integer("order_number"),
+    cash_register_number: integer("cash_register_number").notNull(),
+    payment_type_id: uuid("payment_type_id").notNull(),
+    removal_type_id: uuid("removal_type_id"),
+    amount: numeric("amount"),
+    status: varchar("status", { length: 16 }).default("pending").notNull(),
+    finished_by: varchar("finished_by", { length: 8 }),
+    claimed_by: uuid("claimed_by"),
+    claimed_at: timestamp("claimed_at", { withTimezone: true, mode: "string" }),
+    lease_until: timestamp("lease_until", { withTimezone: true, mode: "string" }),
+    message: text("message"),
+    storno_order_id: uuid("storno_order_id"),
+    plugin_version: varchar("plugin_version", { length: 32 }),
+    created_by: uuid("created_by").notNull(),
+    created_at: timestamp("created_at", { withTimezone: true, mode: "string" }).defaultNow().notNull(),
+    finished_at: timestamp("finished_at", { withTimezone: true, mode: "string" }),
+    cancelled_by: uuid("cancelled_by"),
+  },
+  (t) => [
+    uniqueIndex("pos_storno_commands_order_uq")
+      .on(t.organization_id, t.order_id)
+      .where(sql`${t.status} not in ('rejected', 'expired', 'dry_run_ok', 'cancelled')`),
+    index("pos_storno_commands_claim_idx").on(t.organization_id, t.status, t.created_at),
+  ]
+);

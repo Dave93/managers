@@ -309,6 +309,13 @@
       "when": 1794052279749,
       "tag": "0043_workly_twins",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794383073848,
+      "tag": "0044_pos_storno",
+      "breakpoints": true
     }
   ]
 }
