@@ -120,4 +120,11 @@ export interface EvCard {
   } | null;
   violations: { id: string; item_title_ru: string | null; item_title_uz: string | null; occurred_at: string; comment: string; status: "active" | "cancelled" }[];
   history: { quarter_start: string; avg_pct: number | null; months: EvCardMonth[] }[];
+  sales: EvSales | null;
 }
+
+// Продажи кассира в карточке оценщика (EvCard.sales; null — сотрудник не связан с кассиром iiko). Чеки и средний
+// чек (выручка / чеки, в сумах, округлён) за месяц карточки и за предыдущий; days — только дни со сменами, по возрастанию.
+export interface EvSalesTotals { checks: number; avg_check: number | null; days: number }   // days — дней с чеками
+export interface EvSalesDay { day: string; checks: number; avg_check: number | null }
+export interface EvSales { cashier_name: string | null; month: EvSalesTotals; prev: EvSalesTotals; days: EvSalesDay[] }

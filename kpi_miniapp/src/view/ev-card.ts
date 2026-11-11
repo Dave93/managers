@@ -3,7 +3,7 @@
 // отклонения), оценка, нарушения, история. Сумм прибавки в данных нет (сервер не отдаёт), поэтому
 // и в виде их нет. Время и дата — по Ташкенту; метки дней строятся из «YYYY-MM-DD» без Date.
 import type { EvCard, EvCardDay, EvCardDayStatus, EvCardMonth } from "@backend/modules/kpi/tg-app/ev-types";
-import { dayMonth, pct1 } from "../format";
+import { dayMonth, pct1, sum } from "../format";
 import type { Key, Lang } from "../i18n";
 import { monthName, quarterTitle, tIn } from "../i18n";
 import { hashOf } from "../route";
@@ -13,9 +13,9 @@ const NBSP = " ";
 const DASH = "—";
 const TASHKENT_MS = 5 * 3600 * 1000;
 
-export type CardTab = "attendance" | "review" | "violations" | "history";
-export const CARD_TABS: CardTab[] = ["attendance", "review", "violations", "history"];
-const TAB_KEY: Record<CardTab, Key> = { attendance: "ev_card_tab_att", review: "ev_card_tab_review", violations: "ev_card_tab_viol", history: "ev_card_tab_hist" };
+export type CardTab = "attendance" | "sales" | "review" | "violations" | "history";
+export const CARD_TABS: CardTab[] = ["attendance", "sales", "review", "violations", "history"];
+const TAB_KEY: Record<CardTab, Key> = { attendance: "ev_card_tab_att", sales: "ev_card_tab_sales", review: "ev_card_tab_review", violations: "ev_card_tab_viol", history: "ev_card_tab_hist" };
 
 const WEEKDAYS: Record<Lang, string[]> = { ru: ["пн", "вт", "ср", "чт", "пт", "сб", "вс"], uz: ["du", "se", "chor", "pay", "ju", "sha", "yak"] };
 
@@ -51,6 +51,24 @@ export interface CardReviewVM {
 }
 export interface CardViolationVM { id: string; title: string; date: string; comment: string; cancelled: string | null }
 export interface CardQuarterVM { title: string; months: { label: string; value: string }[]; avg: string | null }
+export interface SalesWeekVM {
+  label: string; // «3–9 ноября»
+  checks: string; // «чеков: 120»
+  avg: string; // «98 400 сум»
+  delta: string | null; // «+4 %» к предыдущей неделе с данными
+  tone: "up" | "down" | null;
+  bar: number; // 4..100: средний чек недели от лучшей недели месяца
+}
+export interface CardSalesVM {
+  // Средний чек по дням со сменами; null — меньше двух дней, рисовать нечего
+  daily: { bars: { h: number; aria: string }[]; from: string; to: string; aria: string } | null;
+  cashier: string | null;
+  empty: string | null;
+  figures: { label: string; value: string }[];
+  delta: { text: string; tone: "up" | "down" | null } | null; // средний чек к прошлому месяцу
+  weeks: SalesWeekVM[];
+  note: string;
+}
 export interface EvCardVM {
   name: string;
   sub: string;
@@ -69,6 +87,7 @@ export interface EvCardVM {
     cells: CalCellVM[];
     deviations: DeviationVM[];
   };
+  sales: CardSalesVM | null; // null — сотрудник не связан с кассиром iiko: вкладки нет
   review: CardReviewVM;
   violations: { empty: string | null; items: CardViolationVM[] };
   history: { empty: string | null; quarters: CardQuarterVM[] };
@@ -155,6 +174,73 @@ function attView(d: EvCard, l: Lang, today: string): EvCardVM["att"] {
   };
 }
 
+/** Изменение в целых процентах: «+4 %», «−3 %», «0 %» (U+2212 для минуса, NBSP перед %). */
+function deltaOf(now: number, before: number): { text: string; tone: "up" | "down" | null } {
+  const p = Math.round(((now - before) / before) * 100);
+  return { text: `${p > 0 ? "+" : p < 0 ? "\u2212" : ""}${Math.abs(p)}${NBSP}%`, tone: p > 0 ? "up" : p < 0 ? "down" : null };
+}
+
+/** Недели месяца с понедельника; средний чек недели — взвешенный по чекам (по дням он уже округлён до сума). */
+function salesView(d: EvCard, l: Lang): CardSalesVM | null {
+  const s = d.sales;
+  if (!s) return null;
+  const lead = weekdayOf(d.period, 1);
+  const total = daysInPeriod(d.period);
+  const byWeek = new Map<number, { checks: number; money: number }>();
+  for (const x of s.days) {
+    if (x.checks <= 0 || x.avg_check === null) continue;
+    const w = Math.floor((Number(x.day.slice(8, 10)) + lead - 1) / 7);
+    const e = byWeek.get(w) ?? { checks: 0, money: 0 };
+    e.checks += x.checks;
+    e.money += x.avg_check * x.checks;
+    byWeek.set(w, e);
+  }
+  const ordered = [...byWeek.entries()].sort((a, b) => a[0] - b[0]).map(([w, e]) => ({ w, checks: e.checks, avg: Math.round(e.money / e.checks) }));
+  const best = Math.max(0, ...ordered.map((x) => x.avg));
+  const mon = monthName(d.period, "gen", l);
+  const sep = l === "ru" ? " " : "-"; // как dayLabel: «3 ноября» / «3-noyabr»
+  const weeks = ordered.map((x, i): SalesWeekVM => {
+    const from = Math.max(1, x.w * 7 - lead + 1);
+    const to = Math.min(total, x.w * 7 - lead + 7);
+    const dl = i === 0 ? null : deltaOf(x.avg, ordered[i - 1]!.avg);
+    return {
+      label: from === to ? `${from}${sep}${mon}` : `${from}\u2013${to}${sep}${mon}`,
+      checks: tIn(l, "ev_card_sales_n", { n: sum(x.checks) }),
+      avg: tIn(l, "ev_card_sales_sum", { n: sum(x.avg) }),
+      delta: dl && dl.tone !== null ? dl.text : null,
+      tone: dl?.tone ?? null,
+      bar: best > 0 ? Math.max(4, Math.round((x.avg / best) * 100)) : 4,
+    };
+  });
+  const money = (v: number | null): string => (v === null ? DASH : sum(v)); // единица в подписи: «сум» в колонке из трёх не помещается
+  const vs = s.month.avg_check !== null && s.prev.avg_check !== null && s.prev.avg_check > 0 ? deltaOf(s.month.avg_check, s.prev.avg_check) : null;
+  const dayPts = s.days.filter((x) => x.checks > 0 && x.avg_check !== null) as { day: string; avg_check: number }[];
+  const top = Math.max(0, ...dayPts.map((x) => x.avg_check));
+  const low = Math.min(...dayPts.map((x) => x.avg_check));
+  const daily: CardSalesVM["daily"] =
+    dayPts.length < 2
+      ? null
+      : {
+          bars: dayPts.map((x) => ({ h: Math.max(6, Math.round((x.avg_check / top) * 100)), aria: `${dayLabel(x.day, l)}: ${sum(x.avg_check)}` })),
+          from: dayLabel(dayPts[0]!.day, l),
+          to: dayLabel(dayPts[dayPts.length - 1]!.day, l),
+          aria: tIn(l, "ev_card_sales_days_aria", { min: sum(low), max: sum(top) }),
+        };
+  return {
+    daily,
+    cashier: s.cashier_name ? tIn(l, "ev_card_sales_cashier", { name: s.cashier_name }) : null,
+    empty: s.month.checks === 0 ? tIn(l, "ev_card_sales_none") : null,
+    figures: [
+      { label: tIn(l, "ev_card_sales_checks"), value: s.month.checks === 0 ? DASH : sum(s.month.checks) },
+      { label: tIn(l, "ev_card_sales_avg"), value: money(s.month.avg_check) },
+      { label: tIn(l, "ev_card_sales_prev"), value: money(s.prev.avg_check) },
+    ],
+    delta: vs ? { text: tIn(l, "ev_card_sales_delta", { p: vs.text }), tone: vs.tone } : null,
+    weeks,
+    note: tIn(l, "ev_card_sales_note"),
+  };
+}
+
 const REVIEW_STATUS: Record<NonNullable<EvCard["review"]>["status"], Key> = { ready: "st_ready", dispute_open: "st_dispute_open", dispute_resolved: "st_dispute_resolved", changed: "st_changed" };
 
 function reviewView(d: EvCard, l: Lang): CardReviewVM {
@@ -194,8 +280,9 @@ export function evCardView(d: EvCard, l: Lang, nowMs: number): EvCardVM {
       { label: tIn(l, "ev_card_fig_late"), value: none ? DASH : String(count("late")), tone: count("late") > 0 ? "warn" : null },
       { label: tIn(l, "ev_card_tab_viol"), value: String(active), tone: null },
     ],
-    tabs: CARD_TABS.map((value) => ({ value, label: tIn(l, TAB_KEY[value]), count: value === "violations" && active > 0 ? active : null })),
+    tabs: CARD_TABS.filter((value) => value !== "sales" || d.sales !== null).map((value) => ({ value, label: tIn(l, TAB_KEY[value]), count: value === "violations" && active > 0 ? active : null })),
     att,
+    sales: salesView(d, l),
     review: reviewView(d, l),
     violations: {
       empty: d.violations.length === 0 ? tIn(l, "ev_card_viol_none") : null,

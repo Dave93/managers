@@ -488,3 +488,75 @@ p.evc-none {
   line-height: 44px;
   font-variant-numeric: tabular-nums;
 }
+
+/* продажи кассира */
+.evc-sum-money {
+  font-size: 18px;
+  line-height: 26px;
+}
+.evc-delta {
+  margin: 12px 0 0;
+  font-size: var(--fs-note);
+  font-weight: 600;
+}
+.evc-up {
+  color: var(--ok-ink);
+}
+.evc-down {
+  color: var(--bad-bg);
+}
+.evc-none-line {
+  margin: 12px 0 0;
+  color: var(--muted);
+  font-size: var(--fs-note);
+}
+.evc-bar {
+  display: block;
+  height: 4px;
+  margin-top: 6px;
+  border-radius: 2px;
+  background: var(--rail);
+}
+.evc-bar > span {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--hue);
+}
+.evc-week-end {
+  text-align: right;
+}
+.evc-week-avg {
+  display: block;
+  font-variant-numeric: tabular-nums;
+}
+.evc-week-delta {
+  display: block;
+  font-size: var(--fs-label);
+  font-variant-numeric: tabular-nums;
+}
+.evc-h-flush {
+  padding-left: 0;
+  padding-right: 0;
+}
+.evc-spark {
+  display: flex;
+  align-items: flex-end;
+  height: 64px;
+  margin-top: 6px;
+}
+.evc-spark-bar {
+  flex: 1;
+  min-width: 2px;
+  max-width: 14px;
+  margin: 0 1px;
+  border-radius: 2px 2px 0 0;
+  background: var(--hue);
+}
+.evc-spark-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: var(--fs-label);
+}

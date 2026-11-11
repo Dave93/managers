@@ -4,6 +4,7 @@ import { and, eq } from "drizzle-orm";
 import Elysia, { t } from "elysia";
 import { actorFrom, has, parsePeriod, requireAny } from "../access";
 import { now } from "../clock";
+import { listCashierCandidates, setCashier, type CashierCandidate } from "../cashier-link";
 import { loadDirectory } from "../directory";
 import { listEmployeeRows, setExternalId, UUID_RE } from "../employees";
 import { KpiError, run } from "../errors";
@@ -100,6 +101,17 @@ export const employeesRoutes = new Elysia({ name: "@api/kpi/employees" })
       params: t.Object({ id: t.String() }),
       body: t.Record(t.String(), t.Any()),
     }
+  )
+  // Кассир iiko сотрудника: кого предложить (филиал сотрудника, последние 60 дней) и связать/снять связь.
+  .get(
+    "/kpi/employees/:id/cashier-candidates",
+    async ({ params, drizzle, set }) => run(set, async (): Promise<CashierCandidate[]> => listCashierCandidates(drizzle, params.id)),
+    { permission: "kpi.manage", params: t.Object({ id: t.String() }) }
+  )
+  .put(
+    "/kpi/employees/:id/cashier",
+    async ({ params, body, drizzle, set }) => run(set, async () => setCashier(drizzle, params.id, (body as Record<string, unknown>).cashier_id)),
+    { permission: "kpi.manage", params: t.Object({ id: t.String() }), body: t.Record(t.String(), t.Any()) }
   )
   .put(
     "/kpi/employees/:id/external-id",

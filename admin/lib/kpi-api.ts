@@ -7,6 +7,7 @@
 // Ошибки: тело `{ error: code }`; роуты за макросом permission отвечают
 // `{ message }` на 401/403, поэтому код для них берётся из статуса (см. kpi/errors.ts).
 
+import type { CashierCandidate } from "@backend/modules/kpi/cashier-link";
 import { apiClient } from "@admin/utils/eden";
 import { normalizeDates } from "@admin/lib/inventory/normalize";
 import { KpiApiError, toKpiError } from "@admin/lib/kpi/errors";
@@ -250,6 +251,9 @@ export function createKpiApi(kpi: any, workly: any) {
         call<unknown>(kpi.employees({ id }).card.put(comment && comment.trim() ? { card_id: cardId, comment } : { card_id: cardId })),
       setExternalId: (id: string, externalId: string | null) =>
         call<{ id: string; external_id: string | null }>(kpi.employees({ id })["external-id"].put({ external_id: externalId })),
+      cashierCandidates: (id: string) => call<CashierCandidate[]>(kpi.employees({ id })["cashier-candidates"].get()),
+      setCashier: (id: string, cashierId: string | null) =>
+        call<{ id: string; cashier_id: string | null }>(kpi.employees({ id }).cashier.put({ cashier_id: cashierId })),
     },
     reviews: {
       form: (period: string, employeeId: string) =>

@@ -13,6 +13,7 @@ function row(id: string, o: Partial<PeopleRow> = {}): PeopleRow {
     staff_role_name: null,
     active: true,
     external_id: null,
+    cashier: null,
     card: { id: "c", code: "cook", title_ru: "Повар" },
     card_source: "role",
     review: null,

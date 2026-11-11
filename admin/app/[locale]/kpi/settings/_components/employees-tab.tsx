@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
 import { Textarea } from "@admin/components/ui/textarea";
 import { kpiApi, type Card, type EmployeeRow, type EmployeesQuery } from "@admin/lib/kpi-api";
+import type { CashierCandidate } from "@backend/modules/kpi/cashier-link";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { ALL, employeeName } from "@admin/lib/kpi/filters";
 import {
@@ -36,6 +37,7 @@ export function EmployeesTab() {
   const [search, setSearch] = useState("");
   const [terminal, setTerminal] = useState(ALL);
   const [target, setTarget] = useState<EmployeeRow | null>(null);
+  const [cashierTarget, setCashierTarget] = useState<EmployeeRow | null>(null);
   // Табельный номер правится в одной строке за раз.
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -126,6 +128,7 @@ export function EmployeesTab() {
                 <TableHead>{t("settings.employees.colRole")}</TableHead>
                 <TableHead>{t("settings.employees.colCard")}</TableHead>
                 <TableHead>{t("settings.employees.colExternalId")}</TableHead>
+                <TableHead>{t("settings.employees.colCashier")}</TableHead>
                 <TableHead>{t("settings.employees.colTelegram")}</TableHead>
                 <TableHead />
               </TableRow>
@@ -146,6 +149,21 @@ export function EmployeesTab() {
                     />
                   </TableCell>
                   <TableCell>
+                    <span className="inline-flex items-center gap-1">
+                      <span className={r.cashier ? "" : "text-muted-foreground"}>{r.cashier ? (r.cashier.name ?? r.cashier.id.slice(0, 8)) : t("settings.employees.cashierNone")}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-11"
+                        aria-label={`${t("settings.employees.cashierAria")}: ${employeeName(r)}`}
+                        onClick={() => setCashierTarget(r)}
+                      >
+                        <Pencil className="size-4" />
+                      </Button>
+                    </span>
+                  </TableCell>
+                  <TableCell>
                     <TgCell target={{ employee_id: r.id }} {...tg.lookup(r.id)} name={employeeName(r)} />
                   </TableCell>
                   <TableCell className="text-right">
@@ -162,6 +180,7 @@ export function EmployeesTab() {
       )}
 
       <AssignDialog row={target} onClose={() => setTarget(null)} />
+      <CashierDialog row={cashierTarget} onClose={() => setCashierTarget(null)} />
     </div>
   );
 }
@@ -350,6 +369,113 @@ function AssignBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: ()
           {t("settings.employees.cancel")}
         </Button>
         <Button type="button" className="h-11" disabled={busy || cards.isPending} onClick={() => !busy && save.mutate()}>
+          {t("settings.employees.save")}
+        </Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+const NO_CASHIER = "none";
+
+function CashierDialog({ row, onClose }: { row: EmployeeRow | null; onClose: () => void }) {
+  const t = useTranslations("kpi");
+  const [pending, setPending] = useState(false);
+  return (
+    <Dialog open={row !== null} onOpenChange={(o) => !o && !pending && onClose()}>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
+        {row ? (
+          <CashierBody key={row.id} row={row} onClose={onClose} onPending={setPending} />
+        ) : (
+          <>
+            <DialogTitle className="sr-only">{t("settings.employees.cashierTitle")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("settings.employees.cashierTitle")}</DialogDescription>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function CashierBody({ row, onClose, onPending }: { row: EmployeeRow; onClose: () => void; onPending: (p: boolean) => void }) {
+  const t = useTranslations("kpi");
+  const qc = useQueryClient();
+  const list = useQuery<CashierCandidate[], Error>({
+    queryKey: ["kpi_cashier_candidates", row.id],
+    queryFn: () => kpiApi.employees.cashierCandidates(row.id),
+    retry: shouldRetry,
+  });
+  const [value, setValue] = useState<string>(row.cashier?.id ?? NO_CASHIER);
+
+  // Подходящие по имени первыми, дальше свежие (порядок сервера). Уже выбранный кассир остаётся в списке,
+  // даже если он давно не работал: иначе Select окажется пустым.
+  const options = useMemo(() => {
+    const items = [...(list.data ?? [])].sort((a, b) => Number(b.suggested) - Number(a.suggested));
+    if (row.cashier && !items.some((c) => c.cashier_id === row.cashier!.id)) {
+      items.unshift({ cashier_id: row.cashier.id, name: row.cashier.name ?? row.cashier.id.slice(0, 8), code: null, checks: 0, last_day: "", suggested: false, taken_by: null });
+    }
+    return items;
+  }, [list.data, row.cashier]);
+
+  const save = useMutation({
+    mutationFn: () => kpiApi.employees.setCashier(row.id, value === NO_CASHIER ? null : value),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.employeesAll });
+      toast.success(t("settings.employees.cashierSaved"));
+      onClose();
+    },
+    onError: (e) => toast.error(kpiErrorText(e, t)),
+  });
+
+  const busy = save.isPending;
+  useEffect(() => {
+    onPending(busy);
+    return () => onPending(false);
+  }, [busy, onPending]);
+
+  const label = (c: CashierCandidate) =>
+    [c.name, c.code, c.suggested ? t("settings.employees.cashierSuggested") : null, c.taken_by ? t("settings.employees.cashierTakenBy", { name: c.taken_by }) : null].filter(Boolean).join(" · ");
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{t("settings.employees.cashierTitle")}</DialogTitle>
+        <DialogDescription>{[employeeName(row), row.terminal_name].filter(Boolean).join(" · ")}</DialogDescription>
+      </DialogHeader>
+
+      <p className="text-sm text-muted-foreground">{t("settings.employees.cashierHint")}</p>
+
+      {list.error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {kpiErrorText(list.error, t)}
+        </p>
+      ) : list.isPending ? (
+        <p className="text-sm text-muted-foreground">{t("settings.employees.cashierLoading")}</p>
+      ) : (
+        <>
+          {options.length === 0 && <p className="text-sm text-muted-foreground">{t("settings.employees.cashierEmpty")}</p>}
+          <Select value={value} disabled={busy} onValueChange={setValue}>
+            <SelectTrigger className="h-11 w-full" aria-label={t("settings.employees.cashierAria")}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NO_CASHIER}>{t("settings.employees.cashierOptionNone")}</SelectItem>
+              {options.map((c) => (
+                <SelectItem key={c.cashier_id} value={c.cashier_id} disabled={c.taken_by !== null}>
+                  <span className="block">{label(c)}</span>
+                  {c.last_day && <span className="block text-xs text-muted-foreground">{t("settings.employees.cashierChecks", { count: c.checks, day: c.last_day })}</span>}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </>
+      )}
+
+      <DialogFooter className="gap-2 sm:gap-2">
+        <Button type="button" variant="outline" className="h-11" disabled={busy} onClick={onClose}>
+          {t("settings.employees.cancel")}
+        </Button>
+        <Button type="button" className="h-11" disabled={busy || list.isPending} onClick={() => !busy && save.mutate()}>
           {t("settings.employees.save")}
         </Button>
       </DialogFooter>

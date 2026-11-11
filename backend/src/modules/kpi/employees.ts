@@ -1,5 +1,5 @@
 import type { DrizzleDB } from "@backend/lib/db";
-import { employees, kpi_cards, kpi_disputes, kpi_reviews } from "backend/drizzle/schema";
+import { cash_shift_cashiers, employees, kpi_cards, kpi_disputes, kpi_reviews } from "backend/drizzle/schema";
 import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { loadScopes, parsePeriod, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
@@ -20,6 +20,19 @@ export type EmployeeQuery = {
   status?: string;
   search?: string;
 };
+
+/** Имена связанных кассиров (по последней записи в iiko) для списка сотрудников. */
+async function cashierNames(db: DbLike, ids: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (ids.length === 0) return out;
+  const rows = await db
+    .select({ id: cash_shift_cashiers.cashier_id, name: sql<string>`max(${cash_shift_cashiers.cashier_name})` })
+    .from(cash_shift_cashiers)
+    .where(inArray(cash_shift_cashiers.cashier_id, ids))
+    .groupBy(cash_shift_cashiers.cashier_id);
+  for (const r of rows) out.set(r.id, r.name);
+  return out;
+}
 
 // Сотрудники периода с оценкой и признаками; onlyWithReview оставляет тех, у кого оценка уже есть.
 export async function listEmployeeRows(
@@ -94,6 +107,7 @@ export async function listEmployeeRows(
       staff_role_name: e.staff_role_name,
       active: e.active,
       external_id: e.external_id,
+      cashier: null,
       card: card ? { id: card.id, code: card.code, title_ru: card.title_ru } : null,
       card_source: e.card_source,
       review: rv
@@ -118,6 +132,19 @@ export async function listEmployeeRows(
       byName(a.first_name, b.first_name) ||
       a.id.localeCompare(b.id)
   );
+  // Связь с кассиром iiko: одним запросом на весь список, имена кассиров — вторым.
+  if (out.length) {
+    const links = await db
+      .select({ id: employees.id, cashier: employees.iiko_cashier_id })
+      .from(employees)
+      .where(and(inArray(employees.id, out.map((r) => r.id)), sql`${employees.iiko_cashier_id} is not null`));
+    const names = await cashierNames(db, links.map((l) => l.cashier as string));
+    const byEmployee = new Map(links.map((l) => [l.id, l.cashier as string]));
+    for (const r of out) {
+      const id = byEmployee.get(r.id);
+      if (id) r.cashier = { id, name: names.get(id) ?? null };
+    }
+  }
   return out;
 }
 
