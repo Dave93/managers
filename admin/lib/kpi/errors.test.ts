@@ -13,7 +13,7 @@ const PLAN1_CODES = [
 ];
 
 const PLAN3_CODES = ["file_required", "bad_file_type", "file_too_large", "bad_file", "empty_file", "upload_expired", "bad_sheet",
-  "bad_header_row", "bad_mapping", "nothing_matched", "external_id_taken", "bad_external_id", "sheet_too_large", "bad_status"];
+  "bad_header_row", "bad_mapping", "nothing_matched", "external_id_taken", "bad_external_id", "cashier_taken", "bad_cashier", "unknown_cashier", "sheet_too_large", "bad_status"];
 
 const PLAN4_CODES = ["bad_target", "bot_not_configured", "too_many_ids", "bad_id"];
 

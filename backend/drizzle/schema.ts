@@ -1597,6 +1597,8 @@ export const employees = pgTable("employees", {
   workly_id: integer("workly_id"),
   /** Табельный номер из Workly. */
   workly_tab_number: varchar("workly_tab_number", { length: 32 }),
+  /** Кассир iiko (cash_shift_cashiers.cashier_id): по нему оценщик видит чеки и средний чек. Задают вручную в админке KPI. */
+  iiko_cashier_id: uuid("iiko_cashier_id"),
   created_at: timestamp("created_at", { withTimezone: true, mode: "string" })
     .defaultNow()
     .notNull(),

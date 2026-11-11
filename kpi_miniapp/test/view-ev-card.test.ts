@@ -12,6 +12,7 @@ const card = (o: Partial<EvCard> = {}): EvCard => ({
   review: null,
   violations: [],
   history: [],
+  sales: null,
   ...o,
 });
 // 10 ноября 2026, 12:00 по Ташкенту
@@ -107,4 +108,59 @@ it("история: кварталы с месяцами и средним, су
   const v = evCardView(card({ history: h }), "ru", NOW).history;
   expect(v.quarters[0]).toEqual({ title: "IV квартал 2026", months: [{ label: "Октябрь", value: "92,0 %" }, { label: "Ноябрь", value: "ещё не оценён" }, { label: "Декабрь", value: "—" }], avg: "92,0 %" });
   expect(JSON.stringify(v)).not.toMatch(/сум/);
+});
+
+it("продажи: без привязки к кассиру вкладки нет; с привязкой — вкладка после посещаемости", () => {
+  expect(evCardView(card(), "ru", NOW).sales).toBeNull();
+  expect(evCardView(card(), "ru", NOW).tabs.map((x) => x.value)).toEqual(["attendance", "review", "violations", "history"]);
+  const sales = { cashier_name: "Baxrom", month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] };
+  expect(evCardView(card({ sales }), "ru", NOW).tabs.map((x) => x.value)).toEqual(["attendance", "sales", "review", "violations", "history"]);
+});
+
+it("продажи: числа, недели с понедельника, взвешенный средний чек и изменение к предыдущей неделе и месяцу", () => {
+  const sales = {
+    cashier_name: "Baxrom",
+    month: { checks: 65, avg_check: 100000, days: 4 },
+    prev: { checks: 50, avg_check: 95000, days: 3 },
+    days: [
+      { day: "2026-11-01", checks: 5, avg_check: 80000 }, // воскресенье: неделя из одного дня
+      { day: "2026-11-02", checks: 10, avg_check: 100000 },
+      { day: "2026-11-03", checks: 30, avg_check: 110000 },
+      { day: "2026-11-09", checks: 20, avg_check: 90000 },
+    ],
+  };
+  const v = evCardView(card({ sales }), "ru", NOW).sales!;
+  expect(v.empty).toBeNull();
+  expect(v.cashier).toBe("Кассир в iiko: Baxrom");
+  expect(v.figures).toEqual([
+    { label: "Чеков", value: "65" },
+    { label: "Средний чек, сум", value: "100\u00a0000" },
+    { label: "Ср. чек в прошлом месяце", value: "95\u00a0000" },
+  ]);
+  expect(v.delta).toEqual({ text: "Средний чек +5\u00a0% к прошлому месяцу", tone: "up" });
+  expect(v.weeks).toEqual([
+    { label: "1 ноября", checks: "чеков: 5", avg: "80\u00a0000 сум", delta: null, tone: null, bar: 74 },
+    { label: "2–8 ноября", checks: "чеков: 40", avg: "107\u00a0500 сум", delta: "+34\u00a0%", tone: "up", bar: 100 },
+    { label: "9–15 ноября", checks: "чеков: 20", avg: "90\u00a0000 сум", delta: "\u221216\u00a0%", tone: "down", bar: 84 },
+  ]);
+  expect(v.daily).toEqual({
+    bars: [{ h: 73, aria: "1 ноября: 80\u00a0000" }, { h: 91, aria: "2 ноября: 100\u00a0000" }, { h: 100, aria: "3 ноября: 110\u00a0000" }, { h: 82, aria: "9 ноября: 90\u00a0000" }],
+    from: "1 ноября",
+    to: "9 ноября",
+    aria: "Средний чек по дням: от 80\u00a0000 до 110\u00a0000 сум",
+  });
+  // узбекские подписи недель в том же виде, что и дни в остальном приложении: «1-noyabr»
+  expect(evCardView(card({ sales }), "uz", NOW).sales!.weeks.map((w) => w.label)).toEqual(["1-noyabr", "2\u20138-noyabr", "9\u201315-noyabr"]);
+  expect(evCardView(card({ sales }), "uz", NOW).sales!.figures[1]).toEqual({ label: "Oʻrtacha chek, soʻm", value: "100\u00a0000" });
+});
+
+it("продажи: смен в месяце нет — пустое сообщение и прочерки, изменения нет", () => {
+  const sales = { cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] };
+  const v = evCardView(card({ sales }), "ru", NOW).sales!;
+  expect(v.empty).toBe("В этом месяце у кассира смен нет");
+  expect(v.cashier).toBeNull();
+  expect(v.figures.map((f) => f.value)).toEqual(["—", "—", "—"]);
+  expect(v.delta).toBeNull();
+  expect(v.weeks).toEqual([]);
+  expect(v.daily).toBeNull();
 });

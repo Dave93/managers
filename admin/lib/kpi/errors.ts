@@ -43,7 +43,7 @@ export function kpiErrorText(e: unknown, t: KpiT = ruT): string {
     const base = codeText(e.code, t);
     if (e.code === "missing_items" && Array.isArray(e.body.items)) return t("lib.errorDetail.missingItems", { base, count: e.body.items.length });
     if (e.code === "open_disputes" && Array.isArray(e.body.ids)) return t("lib.errorDetail.count", { base, count: e.body.ids.length });
-    if (e.code === "external_id_taken" && typeof e.body.employee_name === "string" && e.body.employee_name) return t("lib.errorDetail.name", { base, name: e.body.employee_name });
+    if ((e.code === "external_id_taken" || e.code === "cashier_taken") && typeof e.body.employee_name === "string" && e.body.employee_name) return t("lib.errorDetail.name", { base, name: e.body.employee_name });
     if (e.code === "nothing_matched" && typeof e.body.rows_total === "number") return t("lib.errorDetail.rows", { base, count: e.body.rows_total });
     if (e.code === "weights_sum" && typeof e.body.sum === "number") return t("lib.errorDetail.sum", { base, sum: e.body.sum });
     if (e.code === "bad_thresholds" && typeof e.body.code === "string" && Object.hasOwn(INDICATOR_LABEL, e.body.code)) {

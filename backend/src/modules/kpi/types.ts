@@ -80,6 +80,8 @@ export interface EmployeeRow {
   staff_role_name: string | null;
   active: boolean;
   external_id: string | null;
+  /** Кассир iiko, связанный с сотрудником (employees.iiko_cashier_id); name — по последней записи в iiko. */
+  cashier: { id: string; name: string | null } | null;
   card: { id: string; code: string; title_ru: string } | null;
   card_source: "override" | "role" | null;
   review: {

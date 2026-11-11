@@ -4,7 +4,7 @@ import { ALL, cardOptions, employeeName, filterRows, statusCounts, terminalOptio
 
 const row = (o: Partial<EmployeeRow> & { id: string }): EmployeeRow => ({
   first_name: "Тест", last_name: "Повар", terminal_id: "t1", terminal_name: "Тест Филиал 1", staff_role_code: "cook",
-  staff_role_name: "Повар", active: true, external_id: null, card: { id: "c-cook", code: "cook", title_ru: "Повар" },
+  staff_role_name: "Повар", active: true, external_id: null, cashier: null, card: { id: "c-cook", code: "cook", title_ru: "Повар" },
   card_source: "role", review: null, open_dispute: false, can_evaluate: true, ...o,
 });
 const rows = [

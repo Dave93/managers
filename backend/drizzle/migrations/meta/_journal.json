@@ -309,6 +309,13 @@
       "when": 1794052279749,
       "tag": "0043_workly_twins",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1794414661249,
+      "tag": "0044_kpi_cashier_link",
+      "breakpoints": true
     }
   ]
 }

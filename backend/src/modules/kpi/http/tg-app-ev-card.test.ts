@@ -14,6 +14,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { api, bindTelegram, cleanupKpi, evSession, fakeBotApi, makeEmployee, makeEvaluator, makeScope, makeTerminal, setNow, setup, tgApi, tgLogin, TG_TEST_BOT_TOKEN } = await import("./fixtures");
   const { setTestBotApi } = await import("../tg/bot-api");
   const { seedReview } = await import("../tg-app/dev-data");
+  const { cash_shift_cashiers, cash_shifts, employees } = await import("backend/drizzle/schema");
+  const { eq, inArray } = await import("drizzle-orm");
 
   describe("kpi: оценщик в мини-приложении, карточка сотрудника", () => {
     let db: Awaited<ReturnType<typeof setup>>["db"];
@@ -31,7 +33,16 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       setNow("2025-10-26T10:00:00+05:00");
     });
 
+    const shifts: string[] = [];
+    async function shift(terminal_id: string, day: string, cashier_id: string, orders_count: number, revenue: number): Promise<void> {
+      const id = randomUUID();
+      shifts.push(id);
+      await db.insert(cash_shifts).values({ id, terminal_id, point_of_sale_id: randomUUID(), cash_reg_number: 1, session_number: 1, open_at: `${day}T05:00:00+05:00`, business_date: day, status: "CLOSED" });
+      await db.insert(cash_shift_cashiers).values({ shift_id: id, cashier_id, cashier_name: "Baxrom", orders_count, revenue: String(revenue) });
+    }
+
     afterAll(async () => {
+      if (shifts.length) await db.delete(cash_shifts).where(inArray(cash_shifts.id, shifts));
       setNow(null);
       if (prevToken === undefined) delete process.env.KPI_BOT_TOKEN;
       else process.env.KPI_BOT_TOKEN = prevToken;
@@ -51,8 +62,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const r = await card(token, e.id);
       expect(r.status).toBe(200);
       // без period — текущий месяц по Ташкенту (время подменено на 26.10.2025)
-      expect(r.body).toMatchObject({ period: "2025-10-01", employee: { id: e.id, terminal_name: t1.name, active: true }, review: null, violations: [], days: [] });
-      expect(Object.keys(r.body).sort()).toEqual(["days", "employee", "history", "months", "period", "review", "violations"]);
+      expect(r.body).toMatchObject({ period: "2025-10-01", employee: { id: e.id, terminal_name: t1.name, active: true }, review: null, violations: [], days: [], sales: null });
+      expect(Object.keys(r.body).sort()).toEqual(["days", "employee", "history", "months", "period", "review", "sales", "violations"]);
       const json = JSON.stringify(r.body);
       for (const forbidden of ["raise", "tiers", "amount", "workly_linked", "telegram_bound", "organization_name"]) expect(json).not.toContain(forbidden);
       expect((await card(token, e.id, "?period=2025-09-01")).body.period).toBe("2025-09-01");
@@ -110,6 +121,46 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(r.body.review).toMatchObject({ score_pct: 100, status: "ready" });
       expect(r.body.review.items).toHaveLength(cook.items.length);
       expect(Object.keys(r.body.review.items[0]).sort()).toEqual(["note", "score", "title_ru", "title_uz"]);
+    });
+
+    it("кассир привязан: чеки и средний чек за месяц, прошлый месяц и дни; без привязки — sales null", async () => {
+      const t1 = await makeTerminal(db), t2 = await makeTerminal(db);
+      const ev = await makeEvaluator(db);
+      await makeScope(db, ev.id, { terminal_id: t1.id });
+      const e = await makeEmployee(db, { role_code: "cook", terminal_id: t1.id });
+      const token = await evSession(db, ev.id);
+      const c = randomUUID();
+      // два дня в октябре (в одном — две смены, одна в чужом филиале: кассир один человек), один день в сентябре
+      await shift(t1.id, "2025-10-03", c, 30, 3_000_000);
+      await shift(t1.id, "2025-10-03", c, 10, 1_050_000);
+      await shift(t2.id, "2025-10-04", c, 20, 2_000_001);
+      await shift(t1.id, "2025-09-30", c, 8, 960_000);
+      await shift(t1.id, "2025-11-01", c, 99, 9_999_999); // следующий месяц в ответ не попадает
+      expect((await card(token, e.id)).body.sales).toBeNull();
+      await db.update(employees).set({ iiko_cashier_id: c }).where(eq(employees.id, e.id));
+      const r = await card(token, e.id);
+      expect(r.status).toBe(200);
+      expect(r.body.sales).toEqual({
+        cashier_name: "Baxrom",
+        month: { checks: 60, avg_check: 100_833, days: 2 },
+        prev: { checks: 8, avg_check: 120_000, days: 1 },
+        days: [
+          { day: "2025-10-03", checks: 40, avg_check: 101_250 },
+          { day: "2025-10-04", checks: 20, avg_check: 100_000 },
+        ],
+      });
+    });
+
+    it("кассир есть, но смен в месяце нет: нули, средний чек null", async () => {
+      const t1 = await makeTerminal(db);
+      const ev = await makeEvaluator(db);
+      await makeScope(db, ev.id, { terminal_id: t1.id });
+      const e = await makeEmployee(db, { role_code: "cook", terminal_id: t1.id });
+      const c = randomUUID();
+      await shift(t1.id, "2025-06-10", c, 5, 500_000);
+      await db.update(employees).set({ iiko_cashier_id: c }).where(eq(employees.id, e.id));
+      const r = await card(await evSession(db, ev.id), e.id);
+      expect(r.body.sales).toEqual({ cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] });
     });
   });
 }

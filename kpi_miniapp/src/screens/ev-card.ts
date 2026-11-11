@@ -70,6 +70,70 @@ function attendance(vm: EvCardVM["att"]): HTMLElement {
   );
 }
 
+// Столбики среднего чека по дням: высота от лучшего дня. Подпись целиком у контейнера, отдельные столбики для чтения не нужны.
+function dailyChart(d: NonNullable<NonNullable<EvCardVM["sales"]>["daily"]>): HTMLElement {
+  return h(
+    "section",
+    { class: "card" },
+    h("h2", { class: "evc-h evc-h-flush" }, t("ev_card_sales_days")),
+    h(
+      "div",
+      { class: "evc-spark", role: "img", "aria-label": d.aria },
+      ...d.bars.map((b) => {
+        const bar = h("span", { class: "evc-spark-bar" });
+        bar.style.height = `${b.h}%`;
+        return bar;
+      }),
+    ),
+    h("div", { class: "evc-spark-axis", "aria-hidden": "true" }, h("span", {}, d.from), h("span", {}, d.to)),
+  );
+}
+
+function sales(vm: NonNullable<EvCardVM["sales"]>): HTMLElement {
+  const bar = (n: number): HTMLElement => {
+    const fill = h("span", {});
+    fill.style.width = `${n}%`;
+    return h("span", { class: "evc-bar", "aria-hidden": "true" }, fill);
+  };
+  return h(
+    "div",
+    { class: "evc-stack" },
+    h(
+      "section",
+      { class: "card" },
+      h("dl", { class: "evc-sum" }, ...vm.figures.map((f) => h("div", { class: "evc-sum-item" }, h("dd", { class: "evc-sum-val evc-sum-money" }, f.value), h("dt", { class: "evc-sum-label" }, f.label)))),
+      vm.delta ? h("p", { class: `evc-delta${vm.delta.tone ? ` evc-${vm.delta.tone}` : ""}`, role: "status" }, vm.delta.text) : null,
+      vm.empty ? h("p", { class: "evc-none-line", role: "status" }, vm.empty) : null,
+    ),
+    vm.daily ? dailyChart(vm.daily) : null,
+    vm.weeks.length === 0
+      ? null
+      : h(
+          "section",
+          { class: "card rows" },
+          h("h2", { class: "evc-h" }, t("ev_card_sales_weeks")),
+          h(
+            "div",
+            {},
+            ...vm.weeks.map((w) =>
+              h(
+                "div",
+                { class: "row is-static" },
+                h(
+                  "span",
+                  { class: "row-body" },
+                  h("span", { class: "row-text" }, w.label, h("span", { class: "evc-times" }, w.checks), bar(w.bar)),
+                  h("span", { class: "row-end evc-week-end" }, h("span", { class: "evc-week-avg" }, w.avg), w.delta ? h("span", { class: `evc-week-delta evc-${w.tone}` }, w.delta) : null),
+                ),
+              ),
+            ),
+          ),
+        ),
+    vm.cashier ? h("p", { class: "ev-info" }, vm.cashier) : null,
+    h("p", { class: "ev-info" }, vm.note),
+  );
+}
+
 function review(vm: EvCardVM["review"]): HTMLElement {
   if (vm.empty) return h("p", { class: "card hist-empty", role: "status" }, vm.empty);
   return h(
@@ -143,13 +207,16 @@ export function renderEvCard(d: EvCard, nowMs: number): HTMLElement {
             onclick: () => {
               shown = { ...shown, tab: x.value };
               draw();
+              // Пять вкладок в ряд на узком экране не помещаются: выбранную подводим в видимую часть ряда.
+              const sel = tabs.querySelector('[aria-selected="true"]') as HTMLElement | null;
+              if (sel && typeof sel.scrollIntoView === "function") sel.scrollIntoView({ block: "nearest", inline: "nearest" });
             },
           },
           x.count === null ? x.label : `${x.label} ${x.count}`,
         ),
       ),
     );
-    fill(panel, [shown.tab === "attendance" ? attendance(vm.att) : shown.tab === "review" ? review(vm.review) : shown.tab === "violations" ? violations(vm.violations) : history(vm.history)]);
+    fill(panel, [shown.tab === "attendance" ? attendance(vm.att) : shown.tab === "sales" && vm.sales ? sales(vm.sales) : shown.tab === "review" ? review(vm.review) : shown.tab === "violations" ? violations(vm.violations) : history(vm.history)]);
   };
   draw();
 

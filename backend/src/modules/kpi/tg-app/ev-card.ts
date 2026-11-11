@@ -8,6 +8,9 @@ import { KpiError } from "../errors";
 import { loadEmployeeCard } from "../people";
 import { periodOf } from "../time";
 import type { EmployeeCard } from "../types";
+import { employees } from "backend/drizzle/schema";
+import { eq } from "drizzle-orm";
+import { loadSales } from "./ev-sales";
 import type { EvCard, EvCardDay } from "./ev-types";
 
 const TASHKENT_MS = 5 * 3600_000;
@@ -42,6 +45,7 @@ export function evCardOf(c: EmployeeCard): EvCard {
       avg_pct: q.avg_pct,
       months: q.months.map((m) => ({ period: m.period, state: m.state, score_pct: m.score_pct })),
     })),
+    sales: null,
   };
 }
 
@@ -49,10 +53,15 @@ export function evCardOf(c: EmployeeCard): EvCard {
 // мусор — 422 bad_period. Чужой сотрудник неотличим от несуществующего: 404 not_found, как у остальных экранов оценщика.
 export async function evCard(db: DbLike, actor: Actor, employeeId: string, period: unknown): Promise<EvCard> {
   const p = period === undefined ? periodOf(now()) : parsePeriod(period);
+  let card: EvCard;
   try {
-    return evCardOf(await loadEmployeeCard(db, actor, employeeId, p));
+    card = evCardOf(await loadEmployeeCard(db, actor, employeeId, p));
   } catch (e) {
     if (e instanceof KpiError && e.status === 403) throw new KpiError(404, "not_found");
     throw e;
   }
+  // Доступ к сотруднику уже проверен выше; продажи есть только у связанного с кассиром iiko.
+  const [link] = await db.select({ cashier: employees.iiko_cashier_id }).from(employees).where(eq(employees.id, employeeId)).limit(1);
+  if (link?.cashier) card.sales = await loadSales(db, link.cashier, p);
+  return card;
 }

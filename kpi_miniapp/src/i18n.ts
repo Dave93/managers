@@ -296,6 +296,19 @@ const RU = {
   ev_card_rev_none: "Оценки за этот месяц нет",
   ev_card_rev_nocard: "Сотруднику не назначена карта оценки",
   ev_card_viol_none: "Нарушений за месяц нет",
+  ev_card_tab_sales: "Продажи",
+  ev_card_sales_checks: "Чеков",
+  ev_card_sales_avg: "Средний чек, сум",
+  ev_card_sales_prev: "Ср. чек в прошлом месяце",
+  ev_card_sales_delta: "Средний чек {p} к прошлому месяцу",
+  ev_card_sales_weeks: "По неделям",
+  ev_card_sales_days: "По дням",
+  ev_card_sales_days_aria: "Средний чек по дням: от {min} до {max} сум",
+  ev_card_sales_n: "чеков: {n}",
+  ev_card_sales_sum: "{n} сум",
+  ev_card_sales_cashier: "Кассир в iiko: {name}",
+  ev_card_sales_none: "В этом месяце у кассира смен нет",
+  ev_card_sales_note: "Данные кассы iiko по кассовым сменам. Средний чек — выручка, делённая на число чеков.",
 } as const;
 
 export type Key = keyof typeof RU;
@@ -587,6 +600,19 @@ const UZ: Record<Key, string> = {
   ev_card_rev_none: "Bu oy uchun baho yoʻq",
   ev_card_rev_nocard: "Xodimga baho kartasi biriktirilmagan",
   ev_card_viol_none: "Oy davomida qoidabuzarlik yoʻq",
+  ev_card_tab_sales: "Savdo",
+  ev_card_sales_checks: "Cheklar",
+  ev_card_sales_avg: "Oʻrtacha chek, soʻm",
+  ev_card_sales_prev: "Oʻtgan oyda oʻrtacha chek",
+  ev_card_sales_delta: "Oʻrtacha chek oʻtgan oyga nisbatan {p}",
+  ev_card_sales_weeks: "Haftalar boʻyicha",
+  ev_card_sales_days: "Kunlar boʻyicha",
+  ev_card_sales_days_aria: "Kunlar boʻyicha oʻrtacha chek: {min} dan {max} soʻmgacha",
+  ev_card_sales_n: "cheklar: {n}",
+  ev_card_sales_sum: "{n} soʻm",
+  ev_card_sales_cashier: "iiko kassiri: {name}",
+  ev_card_sales_none: "Bu oyda kassirning smenalari yoʻq",
+  ev_card_sales_note: "iiko kassa maʼlumotlari kassa smenalari boʻyicha. Oʻrtacha chek — tushumni cheklar soniga boʻlish.",
 };
 
 export const DICT: Record<Lang, Record<Key, string>> = { ru: RU, uz: UZ };
