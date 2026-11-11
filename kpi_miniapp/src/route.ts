@@ -10,6 +10,8 @@ export type Route =
   // Экраны оценщика (роль evaluator): период — «YYYY-MM-01»; null — месяц по умолчанию решает сервер.
   | { name: "ev"; period: string | null }
   | { name: "ev_review"; period: string; employee_id: string }
+  // Карточка сотрудника-справка; период — «YYYY-MM-01», null — текущий месяц решает сервер.
+  | { name: "ev_card"; employee_id: string; period: string | null }
   | { name: "ev_violation"; employee_id: string }
   | { name: "ev_violations"; period: string | null }
   | { name: "ev_disputes" }
@@ -43,6 +45,12 @@ function parseEv(path: string): Route {
   if (kind === "dispute" && seg.length === 2) return UUID.test(x) ? { name: "ev_dispute", id: x } : { ...HOME };
   if (kind === "violation" && seg.length === 2) return UUID.test(x) ? { name: "ev_violation", employee_id: x } : { ...HOME };
   if (kind === "dayoff" && seg.length === 2) return UUID.test(x) ? { name: "ev_dayoff", employee_id: x } : { ...HOME };
+  if (kind === "card" && (seg.length === 2 || seg.length === 3) && UUID.test(x)) {
+    if (seg.length === 2) return { name: "ev_card", employee_id: x, period: null };
+    const period = monthStart(y);
+    return period ? { name: "ev_card", employee_id: x, period } : { ...HOME };
+  }
+  if (kind === "card") return { ...HOME };
   if (kind === "daysoff" && seg.length === 2) {
     const period = monthStart(x);
     return period ? { name: "ev_daysoff", period } : { ...HOME };
@@ -100,6 +108,8 @@ export function hashOf(r: Route): string {
       return r.period ? `#/ev/${r.period.slice(0, 7)}` : "#/ev";
     case "ev_review":
       return `#/ev/review/${r.period.slice(0, 7)}/${r.employee_id}`;
+    case "ev_card":
+      return r.period ? `#/ev/card/${r.employee_id}/${r.period.slice(0, 7)}` : `#/ev/card/${r.employee_id}`;
     case "ev_violation":
       return `#/ev/violation/${r.employee_id}`;
     case "ev_violations":

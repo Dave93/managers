@@ -37,6 +37,10 @@
   --ok-ink: #1b6b3f;
   --warn-bg: #fcefd9;
   --warn-ink: #8a4b00;
+  --bad-bg: #d64545; /* прогул в календаре карточки сотрудника */
+  --bad-ink: #ffffff;
+  --info-bg: #cfe6f8; /* выходной */
+  --info-ink: #0b3556;
   --wait-bg: #efede8;
   --wait-ink: #5e5546;
   --notice-bg: #fdf3df;
@@ -80,6 +84,10 @@
   --ok-ink: #7fd6a2;
   --warn-bg: #3a2a10;
   --warn-ink: #f3b65a;
+  --bad-bg: #b53a3a;
+  --bad-ink: #ffffff;
+  --info-bg: #1f4e79;
+  --info-ink: #e6f2fb;
   --wait-bg: #2e2a22;
   --wait-ink: #d8c8a8;
   --notice-bg: #33290f;
@@ -104,6 +112,10 @@
     --ok-ink: #7fd6a2;
     --warn-bg: #3a2a10;
     --warn-ink: #f3b65a;
+    --bad-bg: #b53a3a;
+    --bad-ink: #ffffff;
+    --info-bg: #1f4e79;
+    --info-ink: #e6f2fb;
     --wait-bg: #2e2a22;
     --wait-ink: #d8c8a8;
     --notice-bg: #33290f;

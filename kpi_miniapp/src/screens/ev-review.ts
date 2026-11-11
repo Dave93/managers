@@ -23,7 +23,8 @@ export function renderEvReview(f: EvReviewForm, nowMs: number): HTMLElement {
   const vm = evReviewView(f, lang(), nowMs);
   const key = `${f.period}:${f.employee.id}`;
   const banner = vm.banner ? h("p", { class: `card ev-banner${vm.banner.key === "ev_form_opens" ? " ev-banner-soft" : ""}`, role: "status" }, t(vm.banner.key, vm.banner.vars)) : null;
-  const head = [h("h1", { class: "title" }, vm.title), h("p", { class: "ev-info" }, vm.sub), banner];
+  const cardBtn = vm.banner && vm.banner.key === "ev_readonly_scope" ? null : h("a", { class: "btn btn-quiet", href: hashOf({ name: "ev_card", employee_id: f.employee.id, period: f.period }), onclick: (e: Event) => { e.preventDefault(); navigate(parseHash(hashOf({ name: "ev_card", employee_id: f.employee.id, period: f.period }))); } }, t("ev_card_btn"));
+  const head = [h("h1", { class: "title" }, vm.title), h("p", { class: "ev-info" }, vm.sub), cardBtn, banner];
   const violationBtn = vm.banner && (vm.banner.key === "ev_readonly_scope" || vm.banner.key === "ev_closed")
     ? null
     : h("a", { class: "btn btn-quiet", href: hashOf({ name: "ev_violation", employee_id: f.employee.id }), onclick: (e: Event) => { e.preventDefault(); navigate(parseHash(hashOf({ name: "ev_violation", employee_id: f.employee.id }))); } }, t("ev_btn_violation"));

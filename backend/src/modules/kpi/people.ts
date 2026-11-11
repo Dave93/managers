@@ -48,13 +48,14 @@ export async function loadPeople(db: DbLike, actor: Actor, period: Period): Prom
   }));
 }
 
-// Карточка сотрудника за месяц. Видимость как у списка: viewsTerminal или назначение оценщика.
+// Карточка сотрудника за месяц. Видимость как у списка: viewsTerminal или назначение оценщика; менеджер филиала
+// (managerEmployeeIds) свою карточку не открывает, как не видит себя в списке.
 export async function loadEmployeeCard(db: DbLike, actor: Actor, employeeId: string, periodRaw: Period): Promise<EmployeeCard> {
   if (!UUID_RE.test(employeeId)) throw new KpiError(404, "not_found");
   const [dir] = await loadDirectory(db, { employeeIds: [employeeId], includeInactive: true });
   if (!dir) throw new KpiError(404, "not_found");
   const scopes = await loadScopes(db, actor);
-  if (!canSeeEmployee(actor, scopes, { terminal_id: dir.terminal_id, card_id: dir.card_id })) throw new KpiError(403, "forbidden");
+  if (!canSeeEmployee(actor, scopes, { terminal_id: dir.terminal_id, card_id: dir.card_id, employee_id: dir.id })) throw new KpiError(403, "forbidden");
 
   const at = now();
   const s = await loadSettings(db);

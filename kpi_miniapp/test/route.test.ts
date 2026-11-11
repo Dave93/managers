@@ -76,3 +76,14 @@ it("ev_dayoff_pick: экран выбора сотрудника для выхо
   expect(routeAllowed({ name: "ev_dayoff_pick" }, ["evaluator"])).toBe(true);
   expect(routeAllowed({ name: "ev_dayoff_pick" }, ["employee"])).toBe(false);
 });
+
+it("parseHash и hashOf: карточка сотрудника оценщика", () => {
+  const H = { name: "home" };
+  expect(parseHash(`#/ev/card/${ID}`)).toEqual({ name: "ev_card", employee_id: ID, period: null });
+  expect(parseHash(`#/ev/card/${ID}/2026-10`)).toEqual({ name: "ev_card", employee_id: ID, period: "2026-10-01" });
+  expect(parseHash(`#/ev/card/${ID}/2026-10?tgWebAppData=abc&tgWebAppVersion=7.10`)).toEqual({ name: "ev_card", employee_id: ID, period: "2026-10-01" });
+  for (const h of ["#/ev/card", "#/ev/card/abc", `#/ev/card/${ID}/2026-13`, `#/ev/card/${ID}/2026-10-01`, `#/ev/card/${ID}/2026-10/x`]) expect(parseHash(h)).toEqual(H);
+  for (const period of [null, "2026-10-01"]) expect(parseHash(hashOf({ name: "ev_card", employee_id: ID, period }))).toEqual({ name: "ev_card", employee_id: ID, period });
+  const r = parseHash(`#/ev/card/${ID}`);
+  expect([isEvRoute(r), routeAllowed(r, ["evaluator"]), routeAllowed(r, ["employee"])]).toEqual([true, true, false]);
+});
