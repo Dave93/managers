@@ -194,6 +194,28 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(bind.active).toBe(true);
     });
 
+    it("группа HR: уходит в chat_id из payload по-узбекски без привязок; «chat not found» — failed, привязки не трогаются; без chat_id — skipped", async () => {
+      const GROUP = -1001651101431;
+      const e = await makeEmployee(db);
+      const b = await bindTelegram(db, { employee_id: e.id });
+      const send = async (payload: Record<string, unknown>) =>
+        (await enqueue(db, { recipient_kind: "chat", kind: "replacement_needed", payload, dedupe_key: `t:${randomUUID()}` }))!;
+      const f = fakeBotApi();
+      const id = await send({ chat_id: GROUP, terminal_name: "Тест", days: ["2025-10-27"], no_cover: true });
+      expect(await go(id, f.api)).toEqual({ result: "sent" });
+      expect(f.sent[0].chatId).toBe(GROUP);
+      expect(f.sent[0].msg.text).toContain("Xodim kerak");
+      expect(f.sent[0].msg.reply_markup).toBeUndefined();
+      const error = "Bad Request: chat not found";
+      const id2 = await send({ chat_id: GROUP, days: ["2025-10-27"] });
+      expect(await go(id2, fakeBotApi([{ ok: false, permanent: true, error }]).api)).toEqual({ result: "failed", error });
+      expect((await row(id2)).status).toBe("failed");
+      const [bind] = await db.select().from(kpi_tg_bindings).where(eq(kpi_tg_bindings.id, b.id));
+      expect(bind.active).toBe(true);
+      const id3 = await send({ days: ["2025-10-27"] });
+      expect(await go(id3, fakeBotApi().api)).toEqual({ result: "skipped", reason: "no_binding" });
+    });
+
     it("неизвестный kind — failed unknown_kind", async () => {
       const e = await makeEmployee(db); await bindTelegram(db, { employee_id: e.id });
       const id = await note({ employee_id: e.id, kind: "weird", payload: {} });

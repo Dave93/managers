@@ -10,13 +10,16 @@ import { hashOf, parseHash } from "../route";
 import { haptic } from "../telegram";
 import { h } from "../ui";
 import { latch } from "../util";
-import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings } from "../view/ev-dayoff";
+import { type DayOffDraft, canRequestReplacement, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings } from "../view/ev-dayoff";
 import { evOutcome } from "../view/ev-errors";
 import { fill, inAppLink } from "./ev-common";
 
-// Сегодня по Ташкенту (UTC+5), зажатое в допустимое окно: стартовое значение дат.
+// Сегодня по Ташкенту (UTC+5).
+const tashkentToday = (): string => new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+
+// Сегодня, зажатое в допустимое окно: стартовое значение дат.
 function startDay(min: string, max: string): string {
-  const today = new Date(Date.now() + 5 * 3600_000).toISOString().slice(0, 10);
+  const today = tashkentToday();
   return today < min ? min : today > max ? max : today;
 }
 
@@ -24,7 +27,7 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
   const l = lang();
   const vm = dayOffFormView(f, l);
   const start = startDay(vm.min, vm.max);
-  const draft: DayOffDraft = { from: start, to: start, reason: null, text: "" };
+  const draft: DayOffDraft = { from: start, to: start, reason: null, text: "", replacement: false };
   let touched = false; // замечания показываем после первого действия, а не на пустой форме
   let sending = false;
   let blocked = false; // неизвестный исход отправки: до просмотра списка кнопка закрыта
@@ -45,6 +48,9 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
     h("option", { value: "" }, t("ev_dayoff_reason")),
     ...vm.reasons.map((r) => h("option", { value: r.code }, r.label)));
   const text = h("textarea", { class: "ev-field ev-note", rows: "3", "aria-label": t("ev_dayoff_other_ph"), placeholder: t("ev_dayoff_other_ph"), oninput: (e: Event) => { touched = true; draft.text = (e.target as HTMLTextAreaElement).value; sync(); } }) as HTMLTextAreaElement;
+  const box = h("input", { type: "checkbox", onchange: (e: Event) => { draft.replacement = (e.target as HTMLInputElement).checked; } }) as HTMLInputElement;
+  const replacement = h("label", { class: "ev-check" }, box, h("span", {}, t("ev_dayoff_replacement")));
+  const replacementHint = h("p", { class: "ev-hint" }, t("ev_dayoff_replacement_hint"));
   const count = h("p", { class: "ev-hint", "aria-live": "polite" });
   const warn = h("p", { class: "ev-hint", role: "status" });
   const issues = h("div", { class: "ev-notes", role: "status" });
@@ -60,6 +66,8 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
     count.textContent = n > 0 ? t("ev_dayoff_count", { n }) : "";
     warn.textContent = dayOffWarnings(draft, f, l).join(" ");
     text.hidden = draft.reason !== "other";
+    // Прошедшие дни HR не интересуют: для них галочки нет.
+    replacement.hidden = replacementHint.hidden = !canRequestReplacement(draft, tashkentToday());
     fill(issues, touched ? problems.map((p) => h("p", { class: "ev-issue" }, p)) : []);
     send.disabled = problems.length > 0 || sending || blocked;
   }
@@ -96,7 +104,8 @@ export function renderEvDayOff(f: EvDayOffForm): HTMLElement {
       h("label", { class: "ev-note-label" }, t("ev_dayoff_from")), fromIn,
       h("label", { class: "ev-note-label" }, t("ev_dayoff_to")), toIn, count, warn,
       vm.existing ? h("p", { class: "ev-hint" }, vm.existing) : null,
-      h("label", { class: "ev-note-label" }, t("ev_dayoff_reason")), select, text),
+      h("label", { class: "ev-note-label" }, t("ev_dayoff_reason")), select, text,
+      replacement, replacementHint),
     issues, send, message, listLink);
   sync();
   return view;

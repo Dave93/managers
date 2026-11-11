@@ -1,7 +1,7 @@
 import { expect, it } from "bun:test";
 import type { EvDayOffForm } from "@backend/modules/kpi/tg-app/ev-types";
 import { DICT } from "../src/i18n";
-import { type DayOffDraft, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings, overLimitMonths } from "../src/view/ev-dayoff";
+import { type DayOffDraft, canRequestReplacement, dayOffBody, dayOffCount, dayOffFormView, dayOffIssues, dayOffWarnings, overLimitMonths } from "../src/view/ev-dayoff";
 
 const F = (o: Partial<EvDayOffForm> = {}): EvDayOffForm => ({
   employee: { id: "e1", first_name: "Ботир", last_name: "Алиев", terminal_name: "Филиал А" },
@@ -13,7 +13,7 @@ const F = (o: Partial<EvDayOffForm> = {}): EvDayOffForm => ({
   submitted_months: [],
   ...o,
 });
-const D = (o: Partial<DayOffDraft> = {}): DayOffDraft => ({ from: "2025-10-27", to: "2025-10-29", reason: "sick", text: "", ...o });
+const D = (o: Partial<DayOffDraft> = {}): DayOffDraft => ({ from: "2025-10-27", to: "2025-10-29", reason: "sick", text: "", replacement: false, ...o });
 const msg = (key: keyof typeof DICT.ru, vars: Record<string, string> = {}) => DICT.ru[key].replace(/\{(\w+)\}/g, (_, k: string) => vars[k] ?? "");
 
 it("dayOffCount: дни включительно, неверные и обратные даты — 0, через границу месяца", () => {
@@ -48,6 +48,14 @@ it("dayOffBody: текст только у «другой», пробелы ср
   expect(dayOffBody("e1", D({ reason: "other", text: "  Свадьба брата " }) as DayOffDraft & { reason: "other" })).toEqual({
     employee_id: "e1", from: "2025-10-27", to: "2025-10-29", reason_code: "other", reason_text: "Свадьба брата",
   });
+});
+
+it("dayOffBody: request_replacement только при галочке; canRequestReplacement — пока диапазон не целиком в прошлом", () => {
+  const body = dayOffBody("e1", D({ replacement: true }) as DayOffDraft & { reason: "sick" });
+  expect(body).toEqual({ employee_id: "e1", from: "2025-10-27", to: "2025-10-29", reason_code: "sick", request_replacement: true });
+  expect("request_replacement" in dayOffBody("e1", D() as DayOffDraft & { reason: "sick" })).toBe(false);
+  expect(canRequestReplacement(D({ to: "2025-10-26" }), "2025-10-26")).toBe(true);
+  expect(canRequestReplacement(D({ to: "2025-10-25" }), "2025-10-26")).toBe(false);
 });
 
 it("dayOffFormView: заголовок, подписи причин на двух языках, окно, уже выданные дни", () => {

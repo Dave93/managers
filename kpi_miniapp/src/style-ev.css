@@ -275,9 +275,25 @@
   padding: 12px 4px;
   color: var(--hue);
 }
-/* display: block у .ev-field и .ev-link перебивает атрибут hidden: без этого скрытые поле и ссылка видны. */
+/* Галочка «запросить замену»: крупная область нажатия, подпись переносится. */
+.ev-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 44px;
+  padding: 8px 0;
+}
+.ev-check input {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+}
+/* display: block/flex у .ev-field, .ev-link и .ev-check перебивает атрибут hidden: без этого скрытые элементы видны. */
 .ev-field[hidden],
-.ev-link[hidden] {
+.ev-link[hidden],
+.ev-check[hidden],
+.ev-hint[hidden] {
   display: none;
 }
 

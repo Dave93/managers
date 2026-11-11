@@ -5,7 +5,8 @@ import type { DbLike } from "./access";
 import { KPI_DELIVER_JOB, deliverJobOptions, getKpiQueue } from "./queue";
 
 export type NotifyInput = {
-  recipient_kind: "employee" | "user";
+  // chat: группа Telegram (HR); chat_id лежит в payload, привязок не требуется.
+  recipient_kind: "employee" | "user" | "chat";
   employee_id?: string;
   user_id?: string;
   kind: string;
