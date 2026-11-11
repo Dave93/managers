@@ -3,6 +3,7 @@ import Elysia, { t } from "elysia";
 import { now } from "../clock";
 import { dayOffEmployees, dayOffForm } from "../days-off";
 import { run } from "../errors";
+import { collectDeliveries } from "../notify";
 import type { ItemInput } from "../reviews";
 import { kpiTgCtx } from "../tg-app/ctx";
 import { evaluatorActor } from "../tg-app/ev-actor";
@@ -211,7 +212,7 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
     async ({ body, tg, drizzle, cacheController, set }) =>
       run(set, async (): Promise<EvDaysOffCreated> => {
         const actor = await evaluatorActor(drizzle, cacheController, tg);
-        return evGiveDaysOff(drizzle, actor, body, now());
+        return collectDeliveries(() => evGiveDaysOff(drizzle, actor, body, now()));
       }),
     {
       body: t.Object({
@@ -220,6 +221,7 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
         to: t.Optional(t.Any()),
         reason_code: t.Optional(t.Any()),
         reason_text: t.Optional(t.Any()),
+        request_replacement: t.Optional(t.Any()),
       }),
     }
   )

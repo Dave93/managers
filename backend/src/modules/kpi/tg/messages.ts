@@ -18,6 +18,7 @@ export const KPI_KINDS: readonly string[] = [
   "raise_approved",
   "remind_evaluate",
   "overdue_summary",
+  "replacement_needed",
 ];
 export const DISPUTABLE_KINDS = ["review_submitted", "review_changed", "violation_recorded"] as const;
 
@@ -333,6 +334,46 @@ function overdueSummary(p: P, ctx: MessageCtx): OutMessage {
   return { text: join([head, ru ? "Не отправили оценки:" : "Baho yubormaganlar:", ...rows]) };
 }
 
+// Дни «YYYY-MM-DD» по возрастанию → «27–29-oktabr», «30-oktabr – 2-noyabr»; подряд идущие склеиваются.
+function dayRangesUz(days: unknown): string {
+  const list = (Array.isArray(days) ? days : []).filter((d): d is string => ymOf(d) !== null).sort();
+  const label = (d: string) => `${Number(d.slice(8, 10))}-${MONTHS.uz[Number(d.slice(5, 7)) - 1]}`;
+  const next = (d: string) => new Date(Date.UTC(+d.slice(0, 4), +d.slice(5, 7) - 1, +d.slice(8, 10) + 1)).toISOString().slice(0, 10);
+  const out: string[] = [];
+  for (let i = 0; i < list.length; ) {
+    let j = i;
+    while (j + 1 < list.length && list[j + 1] === next(list[j])) j++;
+    const a = list[i];
+    const b = list[j];
+    if (i === j) out.push(label(a));
+    else if (a.slice(0, 7) === b.slice(0, 7)) out.push(`${Number(a.slice(8, 10))}–${label(b)}`);
+    else out.push(`${label(a)} – ${label(b)}`);
+    i = j + 1;
+  }
+  return out.join(", ");
+}
+
+// Сообщение в группу HR: только по-узбекски. Причина — нет замены на позиции и/или управляющий попросил сам.
+function replacementNeeded(p: P): OutMessage {
+  const position = text(p.position, NAME_MAX);
+  const card = text(p.card, NAME_MAX);
+  const employee = text(p.employee_name, NAME_MAX);
+  const manager = text(p.manager_name, NAME_MAX);
+  return {
+    text: join([
+      "<b>Xodim kerak</b>",
+      `Filial: ${text(p.terminal_name, NAME_MAX) ?? DASH}`,
+      position === null ? null : `Lavozim: ${position}`,
+      card === null ? null : `Karta: ${card}`,
+      `Sana: ${dayRangesUz(p.days)}`,
+      employee === null ? null : `Dam olish kuni olgan xodim: ${employee}`,
+      p.no_cover === true ? "Filialda bu lavozimda uning oʻrniga ishlaydigan boshqa xodim yoʻq." : null,
+      p.manual === true ? "Boshqaruvchi xodim yuborishni soʻradi." : null,
+      manager === null ? null : `Boshqaruvchi: ${manager}`,
+    ]),
+  };
+}
+
 export function buildMessage(kind: string, payload: Record<string, unknown>, ctx: MessageCtx): OutMessage {
   const p: P = typeof payload === "object" && payload !== null ? payload : {};
   let m: OutMessage;
@@ -360,6 +401,9 @@ export function buildMessage(kind: string, payload: Record<string, unknown>, ctx
       break;
     case "overdue_summary":
       m = overdueSummary(p, ctx);
+      break;
+    case "replacement_needed":
+      m = replacementNeeded(p);
       break;
     default:
       throw new UnknownKindError(kind);

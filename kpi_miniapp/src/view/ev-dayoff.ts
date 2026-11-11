@@ -6,7 +6,8 @@ import { monthsList, tIn } from "../i18n";
 import { reasonCount } from "../util";
 import { dayLabel } from "./attendance";
 
-export interface DayOffDraft { from: string; to: string; reason: DayOffReason | null; text: string }
+// replacement — галочка «запросить сотрудника на замену»: HR получит сообщение, даже если на позиции есть другой сотрудник.
+export interface DayOffDraft { from: string; to: string; reason: DayOffReason | null; text: string; replacement: boolean }
 
 // Минимум букв и цифр в тексте «другой» причины (как у сервера).
 const TEXT_MIN = 3;
@@ -97,13 +98,23 @@ export function dayOffWarnings(d: DayOffDraft, f: EvDayOffForm, l: Lang): string
   return out;
 }
 
-/** Тело POST /ev/days-off: текст уходит только с причиной «другая». */
+/** Галочка нужна, пока в диапазоне есть день не раньше сегодняшнего (today — «YYYY-MM-DD» по Ташкенту): на прошедшие дни замену не ищут. */
+export const canRequestReplacement = (d: Pick<DayOffDraft, "to">, today: string): boolean => d.to >= today;
+
+/** Тело POST /ev/days-off: текст уходит только с причиной «другая», флаг замены — только если галочка стоит. */
 export function dayOffBody(
   employeeId: string,
   d: DayOffDraft & { reason: DayOffReason }
-): { employee_id: string; from: string; to: string; reason_code: DayOffReason; reason_text?: string } {
-  const body = { employee_id: employeeId, from: d.from, to: d.to, reason_code: d.reason };
-  return d.reason === "other" ? { ...body, reason_text: d.text.trim() } : body;
+): { employee_id: string; from: string; to: string; reason_code: DayOffReason; reason_text?: string; request_replacement?: true } {
+  const body = {
+    employee_id: employeeId,
+    from: d.from,
+    to: d.to,
+    reason_code: d.reason,
+    ...(d.reason === "other" ? { reason_text: d.text.trim() } : {}),
+    ...(d.replacement ? { request_replacement: true as const } : {}),
+  };
+  return body;
 }
 
 export interface DayOffFormVM {

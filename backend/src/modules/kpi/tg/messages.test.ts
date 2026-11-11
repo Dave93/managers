@@ -94,6 +94,22 @@ describe("оценщику и HR", () => {
   });
 });
 
+describe("replacement_needed: группа HR", () => {
+  const p = { terminal_name: "Chopar <Chilonzor>", position: "Oshpaz", card: "Oshxona", employee_name: "Иванов Иван", manager_name: "Петров", days: ["2025-10-30", "2025-10-31", "2025-11-01", "2025-11-03", "2025-11-04"] };
+  it("узбекский текст: филиал, позиция, карта, сжатые даты, причина; имена экранируются", () => {
+    const t = M.buildMessage("replacement_needed", { ...p, no_cover: true }, ru()).text;
+    expect(t).toBe(
+      "<b>Xodim kerak</b>\nFilial: Chopar &lt;Chilonzor&gt;\nLavozim: Oshpaz\nKarta: Oshxona\nSana: 30-oktabr – 1-noyabr, 3–4-noyabr\nDam olish kuni olgan xodim: Иванов Иван\nFilialda bu lavozimda uning oʻrniga ishlaydigan boshqa xodim yoʻq.\nBoshqaruvchi: Петров"
+    );
+  });
+  it("просьба управляющего: своя строка, без «нет замены»; без кнопки «Открыть»", () => {
+    const m = M.buildMessage("replacement_needed", { ...p, manual: true }, { ...ru(), appUrl: "https://x.test/kpi-app/" });
+    expect(m.text).toContain("Boshqaruvchi xodim yuborishni soʻradi.");
+    expect(m.text).not.toContain("boshqa xodim yoʻq");
+    expect(m.reply_markup).toBeUndefined();
+  });
+});
+
 describe("защита", () => {
   const samples: [string, Record<string, unknown>][] = [
     ["review_submitted", SUB],
@@ -104,8 +120,9 @@ describe("защита", () => {
     ["remind_evaluate", { period: "2025-10-01", pending: 2, deadline: UNTIL }],
     ["dispute_opened", { dispute_id: "d", subject_type: "review", subject_id: R, period: "2025-10-01", employee_name: "Тест", reason: "r" }],
     ["overdue_summary", { period: "2025-10-01", lagging: [{ user_name: "Тест", pending: 1 }], lagging_total: 1 }],
+    ["replacement_needed", { terminal_name: "Тест", days: ["2025-10-27"], no_cover: true, manual: true }],
   ];
-  it("все восемь kind собираются; в узбекском нет ASCII-апострофа", () => {
+  it("все девять kind собираются; в узбекском нет ASCII-апострофа", () => {
     expect(samples.map(([k]) => k).sort()).toEqual([...M.KPI_KINDS].sort());
     for (const [k, p] of samples) {
       expect(M.buildMessage(k, p, ru()).text.length).toBeGreaterThan(0);

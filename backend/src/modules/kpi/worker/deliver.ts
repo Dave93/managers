@@ -27,6 +27,12 @@ type Row = typeof kpi_notifications.$inferSelect;
 // Постоянные ответы Telegram, после которых писать этому чату бессмысленно.
 const USER_GONE_RE = /bot was blocked by the user|user is deactivated|chat not found/i;
 
+// Группа HR: chat_id записан в payload при постановке (replacement.ts), сообщения для группы только узбекские.
+function groupChatOf(payload: unknown): { chat_id: number; lang: "uz" } | null {
+  const id = (payload as { chat_id?: unknown } | null)?.chat_id;
+  return typeof id === "number" && Number.isSafeInteger(id) ? { chat_id: id, lang: "uz" } : null;
+}
+
 const errText = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
 async function settle(
@@ -100,7 +106,7 @@ export async function deliverOne(
   let chat: { chat_id: number; lang: "ru" | "uz" };
   let disputeUntil: string | null;
   try {
-    const rec = await recipientOf(db, row);
+    const rec = row.recipient_kind === "chat" ? groupChatOf(row.payload) : await recipientOf(db, row);
     if (rec === "inactive") {
       await settle(db, id, "skipped", { last_error: "inactive_recipient" });
       return { result: "skipped", reason: "inactive_recipient" };
@@ -135,7 +141,7 @@ export async function deliverOne(
     return { result: "sent" };
   }
   if (res.permanent) {
-    if (USER_GONE_RE.test(res.error)) {
+    if (row.recipient_kind !== "chat" && USER_GONE_RE.test(res.error)) {
       // Человек заблокировал бота или удалил аккаунт: привязку гасим в том же шаге, что и итог строки.
       // Админка тогда покажет «Не привязан», а новые уведомления получат no_binding вместо новой попытки.
       await inTx(db, async (tx) => {

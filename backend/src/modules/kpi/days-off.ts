@@ -11,6 +11,7 @@ import { loadDirectory } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { lockPeriodShared } from "./periods";
+import { requestReplacement } from "./replacement";
 import { addMonths, tashkentDay, type Period } from "./time";
 import type { DayOffReason, EvDayOffEmployees, EvDayOffForm } from "./tg-app/ev-types";
 
@@ -109,11 +110,13 @@ export async function dayOffEmployees(db: DbLike, actor: Actor): Promise<EvDayOf
  * Выдаёт выходные на дни from..to. Ошибки до записи: bad_id / not_found / out_of_scope (сотрудник), bad_dates,
  * bad_reason, reason_text_required. Любой день закрытого месяца — 409 period_closed, и тогда не пишется ничего.
  * День, где уже есть неотменённый выходной, пропускается (повтор запроса безопасен); их список — в skipped.
+ * request_replacement === true — запросить замену у HR, даже если на позиции есть другой сотрудник (replacement.ts).
+ * Вызывать внутри collectDeliveries: сообщение HR ставится в очередь после коммита.
  */
 export async function giveDaysOff(
   db: DbLike,
   actor: Actor,
-  input: { employee_id?: unknown; from?: unknown; to?: unknown; reason_code?: unknown; reason_text?: unknown },
+  input: { employee_id?: unknown; from?: unknown; to?: unknown; reason_code?: unknown; reason_text?: unknown; request_replacement?: unknown },
   at: Date
 ): Promise<{ created: DayOffRow[]; skipped: string[] }> {
   const id = input.employee_id;
@@ -134,6 +137,8 @@ export async function giveDaysOff(
       // Предикат совпадает с частичным уникальным индексом. У DoNothing Drizzle читает where (targetWhere он игнорирует).
       .onConflictDoNothing({ target: [kpi_days_off.employee_id, kpi_days_off.day], where: sql`cancelled_at is null` })
       .returning({ id: kpi_days_off.id, day: kpi_days_off.day });
+    // Новые дни: если на позиции некому заменить (или управляющий попросил сам), HR получит сообщение в группу.
+    await requestReplacement(tx, actor, emp, inserted, { today: tashkentDay(at), manual: input.request_replacement === true });
     const made = new Set(inserted.map((r) => r.day));
     const created = inserted.length ? (await dayOffRows(tx, inArray(kpi_days_off.id, inserted.map((r) => r.id)))).reverse() : [];
     return { created, skipped: days.filter((d) => !made.has(d)) };

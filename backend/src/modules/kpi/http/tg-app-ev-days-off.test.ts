@@ -11,8 +11,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { api, cleanupKpi, evSession, makeEmployee, makeEvaluator, makeScope, makeTerminal, setNow, setup, tgApi, TG_TEST_BOT_TOKEN } = await import("./fixtures");
-  const { kpi_days_off, kpi_periods, kpi_reviews } = await import("backend/drizzle/schema");
+  const { api, cleanupKpi, ensureKpiOrg, evSession, KPI_TEST_ORG_ID, makeEmployee, makeEvaluator, makeScope, makeTerminal, setNow, setup, tgApi, TG_TEST_BOT_TOKEN } = await import("./fixtures");
+  const { kpi_days_off, kpi_notifications, kpi_periods, kpi_reviews, organization } = await import("backend/drizzle/schema");
   const { eq } = await import("drizzle-orm");
 
   const URL_GIVE = "/api/kpi/tg/ev/days-off";
@@ -64,6 +64,153 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     const reopenMonth = async (period: string) => {
       await db.delete(kpi_periods).where(eq(kpi_periods.period, period));
     };
+
+    describe("запрос замены у HR", () => {
+      const CHOPAR_CHAT = -1001651101431;
+      const LES_CHAT = -1001449886367;
+      const hrRows = () => db.select().from(kpi_notifications).where(eq(kpi_notifications.kind, "replacement_needed"));
+      // Строка организации тестов создаётся лениво (ensureKpiOrg), поэтому сначала гарантируем её.
+      const setOrgCode = async (code: string | null) => {
+        await ensureKpiOrg(db);
+        await db.update(organization).set({ code }).where(eq(organization.id, KPI_TEST_ORG_ID));
+      };
+      beforeAll(async () => {
+        await db.delete(kpi_notifications);
+        await setOrgCode("chopar");
+      });
+      afterAll(async () => {
+        await setOrgCode(null);
+      });
+
+      it("на позиции больше никого: одно сообщение в группу организации с филиалом, позицией, днями и именами", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, e, token } = await world();
+        const r = await give(token, e.id, "2025-10-27", "2025-10-29");
+        expect(r.status).toBe(200);
+        const rows = await hrRows();
+        expect(rows).toHaveLength(1);
+        expect(rows[0]).toMatchObject({ recipient_kind: "chat", employee_id: null, user_id: null, status: "pending" });
+        expect(rows[0].payload).toMatchObject({
+          chat_id: CHOPAR_CHAT,
+          terminal_name: t.name,
+          days: ["2025-10-27", "2025-10-28", "2025-10-29"],
+          no_cover: true,
+          manual: false,
+        });
+        expect((rows[0].payload as { employee_name: string }).employee_name).toContain("Тест Повар");
+      });
+
+      it("организация Les: уходит в группу Les", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        await setOrgCode("les");
+        try {
+          const { e, token } = await world();
+          expect((await give(token, e.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+          expect((await hrRows())[0].payload).toMatchObject({ chat_id: LES_CHAT });
+        } finally {
+          await setOrgCode("chopar");
+        }
+      });
+
+      it("организация без группы HR: выходной выдаётся, сообщения нет", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        await setOrgCode(null);
+        try {
+          const { e, token } = await world();
+          expect((await give(token, e.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+          expect(await hrRows()).toHaveLength(0);
+        } finally {
+          await setOrgCode("chopar");
+        }
+      });
+
+      it("есть другой сотрудник той же позиции: сообщения нет; с галочкой — есть, причина «просьба», без «нет замены»", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, e, token } = await world();
+        await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+        expect((await give(token, e.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+        expect(await hrRows()).toHaveLength(0);
+        expect((await give(token, e.id, "2025-10-28", "2025-10-28", { request_replacement: true })).status).toBe(200);
+        const rows = await hrRows();
+        expect(rows).toHaveLength(1);
+        expect(rows[0].payload).toMatchObject({ days: ["2025-10-28"], no_cover: false, manual: true });
+      });
+
+      it("галочка только при === true: строка и 1 не считаются", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, e, token } = await world();
+        await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+        expect((await give(token, e.id, "2025-10-27", "2025-10-27", { request_replacement: "true" })).status).toBe(200);
+        expect((await give(token, e.id, "2025-10-28", "2025-10-28", { request_replacement: 1 })).status).toBe(200);
+        expect(await hrRows()).toHaveLength(0);
+      });
+
+      it("замена сама в выходном в этот день: HR получает сообщение только про этот день", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, e, token } = await world();
+        const other = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
+        expect((await give(token, other.id, "2025-10-28", "2025-10-28")).status).toBe(200);
+        // у other замена e: она работает 28-го, сообщения нет
+        expect(await hrRows()).toHaveLength(0);
+        await db.delete(kpi_notifications);
+        expect((await give(token, e.id, "2025-10-27", "2025-10-28")).status).toBe(200);
+        const rows = await hrRows();
+        expect(rows).toHaveLength(1);
+        expect(rows[0].payload).toMatchObject({ days: ["2025-10-28"], no_cover: true });
+      });
+
+      it("другая позиция не заменяет; стажёр не заменяет; неактивный не заменяет", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, e, token } = await world();
+        await makeEmployee(db, { role_code: "cashier", terminal_id: t.id });
+        await makeEmployee(db, { role_code: "cook", terminal_id: t.id, is_trainee: true });
+        await makeEmployee(db, { role_code: "cook", terminal_id: t.id, active: false });
+        expect((await give(token, e.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+        expect(await hrRows()).toHaveLength(1);
+      });
+
+      it("сотрудник без карты и без роли: автоматически не проверяем, только по галочке", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { t, token } = await world();
+        const bare = await makeEmployee(db, { terminal_id: t.id });
+        expect((await give(token, bare.id, "2025-10-27", "2025-10-27")).status).toBe(200);
+        expect(await hrRows()).toHaveLength(0);
+        expect((await give(token, bare.id, "2025-10-28", "2025-10-28", { request_replacement: true })).status).toBe(200);
+        const rows = await hrRows();
+        expect(rows).toHaveLength(1);
+        // Позиции нет — «нет замены» не утверждаем: уходит только просьба управляющего.
+        expect(rows[0].payload).toMatchObject({ days: ["2025-10-28"], no_cover: false, manual: true, position: null, card: null });
+      });
+
+      it("только прошедшие дни: сообщения нет, даже с галочкой; в смешанном диапазоне уходят дни от сегодня", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { e, token } = await world();
+        expect((await give(token, e.id, "2025-10-20", "2025-10-21", { request_replacement: true })).status).toBe(200);
+        expect(await hrRows()).toHaveLength(0);
+        expect((await give(token, e.id, "2025-10-25", "2025-10-27")).status).toBe(200);
+        const rows = await hrRows();
+        expect(rows).toHaveLength(1);
+        expect(rows[0].payload).toMatchObject({ days: ["2025-10-26", "2025-10-27"] });
+      });
+
+      it("повтор того же запроса (все дни пропущены) второго сообщения не создаёт", async () => {
+        setNow(NOW);
+        await db.delete(kpi_notifications);
+        const { e, token } = await world();
+        expect((await give(token, e.id, "2025-10-27", "2025-10-28", { request_replacement: true })).status).toBe(200);
+        expect((await give(token, e.id, "2025-10-27", "2025-10-28", { request_replacement: true })).body.created).toEqual([]);
+        expect(await hrRows()).toHaveLength(1);
+      });
+    });
 
     it("выдача на 3 дня: ответ и строки в базе (филиал сотрудника, автор, причина)", async () => {
       setNow(NOW);
