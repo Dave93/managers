@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 import type { EvCard, EvCardDay } from "@backend/modules/kpi/tg-app/ev-types";
-import { absentStreak, daysInPeriod, evCardView, tashkentToday, weekdayOf } from "../src/view/ev-card";
+import { PRODUCT_LIMIT, absentStreak, daysInPeriod, evCardView, tashkentToday, weekdayOf } from "../src/view/ev-card";
 
 const ID = "3f2b8c1e-5a4d-4e7f-9b21-0c6d8e9a1b23";
 const day = (d: string, status: EvCardDay["status"], late = 0): EvCardDay => ({ day: d, status, late_minutes: late, check_in: status === "late" || status === "ontime" ? "08:12" : null, check_out: status === "late" || status === "ontime" ? "17:00" : null });
@@ -113,7 +113,7 @@ it("история: кварталы с месяцами и средним, су
 it("продажи: без привязки к кассиру вкладки нет; с привязкой — вкладка после посещаемости", () => {
   expect(evCardView(card(), "ru", NOW).sales).toBeNull();
   expect(evCardView(card(), "ru", NOW).tabs.map((x) => x.value)).toEqual(["attendance", "review", "violations", "history"]);
-  const sales = { cashier_name: "Baxrom", month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] };
+  const sales = { cashier_name: "Baxrom", month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [], products: [] };
   expect(evCardView(card({ sales }), "ru", NOW).tabs.map((x) => x.value)).toEqual(["attendance", "sales", "review", "violations", "history"]);
 });
 
@@ -128,6 +128,7 @@ it("продажи: числа, недели с понедельника, взв
       { day: "2026-11-03", checks: 30, avg_check: 110000 },
       { day: "2026-11-09", checks: 20, avg_check: 90000 },
     ],
+    products: [],
   };
   const v = evCardView(card({ sales }), "ru", NOW).sales!;
   expect(v.empty).toBeNull();
@@ -155,7 +156,7 @@ it("продажи: числа, недели с понедельника, взв
 });
 
 it("продажи: смен в месяце нет — пустое сообщение и прочерки, изменения нет", () => {
-  const sales = { cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] };
+  const sales = { cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [], products: [] };
   const v = evCardView(card({ sales }), "ru", NOW).sales!;
   expect(v.empty).toBe("В этом месяце у кассира смен нет");
   expect(v.cashier).toBeNull();
@@ -163,4 +164,26 @@ it("продажи: смен в месяце нет — пустое сообщ�
   expect(v.delta).toBeNull();
   expect(v.weeks).toEqual([]);
   expect(v.daily).toBeNull();
+});
+
+it("продажи: позиции по штукам, штук на 100 чеков, прошлый месяц; дробные штуки и тысячи; UZ-подписи", () => {
+  const sales = {
+    cashier_name: "Baxrom",
+    month: { checks: 65, avg_check: 100000, days: 4 },
+    prev: { checks: 50, avg_check: 95000, days: 3 },
+    days: [],
+    products: [
+      { name: "Coca-Cola 1 л", qty: 1234, per100: 1898.5, prev_qty: 0 },
+      { name: "Соус сырный", qty: 12.5, per100: 19.2, prev_qty: 7 },
+      { name: "Пицца", qty: 3, per100: null, prev_qty: 3 },
+    ],
+  };
+  const v = evCardView(card({ sales }), "ru", NOW).sales!;
+  expect(v.products).toEqual([
+    { name: "Coca-Cola 1 л", qty: "1\u00a0234 шт.", per100: "1\u00a0898,5 на 100 чеков", prev: "в прошлом месяце: 0" },
+    { name: "Соус сырный", qty: "12,5 шт.", per100: "19,2 на 100 чеков", prev: "в прошлом месяце: 7" },
+    { name: "Пицца", qty: "3 шт.", per100: null, prev: "в прошлом месяце: 3" },
+  ]);
+  expect(evCardView(card({ sales }), "uz", NOW).sales!.products[1]).toEqual({ name: "Соус сырный", qty: "12,5 dona", per100: "100 ta chekka 19,2", prev: "oʻtgan oyda: 7" });
+  expect(PRODUCT_LIMIT).toBeGreaterThanOrEqual(10);
 });

@@ -2190,6 +2190,30 @@ export const cash_shift_cashiers = pgTable(
   }
 );
 
+// Проданные кассиром позиции за смену из OLAP SALES (SessionID × Cashier.Id × DishId × DishType). Строки с
+// нулевой суммой (подарки по акциям) и сторнированные не хранятся. Пересобирается целиком вместе с кассирами
+// смены. Показывается оценщику в карточке кассира (kpi/tg-app/ev-sales.ts).
+export const cash_shift_cashier_dishes = pgTable(
+  "cash_shift_cashier_dishes",
+  {
+    shift_id: uuid("shift_id")
+      .notNull()
+      .references(() => cash_shifts.id, { onDelete: "cascade" }),
+    cashier_id: uuid("cashier_id").notNull(),
+    dish_id: uuid("dish_id").notNull(),
+    dish_type: text("dish_type").notNull(),
+    dish_name: text("dish_name").notNull(),
+    qty: numeric("qty", { precision: 18, scale: 3 }).notNull(),
+    revenue: numeric("revenue", { precision: 18, scale: 2 }).notNull(),
+  },
+  (table) => {
+    return {
+      pk: primaryKey({ name: "cash_shift_cashier_dishes_pk", columns: [table.shift_id, table.cashier_id, table.dish_id, table.dish_type] }),
+      cashier_idx: index("idx_cash_shift_cashier_dishes_cashier").on(table.cashier_id),
+    };
+  }
+);
+
 export const ticket_status = pgEnum("ticket_status", [
   "new",
   "in_progress",

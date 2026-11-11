@@ -59,6 +59,14 @@ export interface SalesWeekVM {
   tone: "up" | "down" | null;
   bar: number; // 4..100: средний чек недели от лучшей недели месяца
 }
+export interface SalesProductVM {
+  name: string;
+  qty: string; // «18 шт.»
+  per100: string | null; // «30 на 100 чеков»; null — чеков в месяце нет
+  prev: string; // «в прошлом месяце: 5»
+}
+/** Сколько позиций видно до «Показать все»: оценщику нужны первые строки, остальное по запросу. */
+export const PRODUCT_LIMIT = 12;
 export interface CardSalesVM {
   // Средний чек по дням со сменами; null — меньше двух дней, рисовать нечего
   daily: { bars: { h: number; aria: string }[]; from: string; to: string; aria: string } | null;
@@ -67,6 +75,7 @@ export interface CardSalesVM {
   figures: { label: string; value: string }[];
   delta: { text: string; tone: "up" | "down" | null } | null; // средний чек к прошлому месяцу
   weeks: SalesWeekVM[];
+  products: SalesProductVM[]; // от самых продаваемых по штукам; пусто — позиций за месяц нет
   note: string;
 }
 export interface EvCardVM {
@@ -180,6 +189,13 @@ function deltaOf(now: number, before: number): { text: string; tone: "up" | "dow
   return { text: `${p > 0 ? "+" : p < 0 ? "\u2212" : ""}${Math.abs(p)}${NBSP}%`, tone: p > 0 ? "up" : p < 0 ? "down" : null };
 }
 
+/** Штуки и «на 100 чеков»: до одной цифры после запятой, «,0» отбрасывается; тысячи через NBSP. */
+function num1(x: number): string {
+  const r = Math.round(x * 10) / 10;
+  const [int = "", frac] = r.toFixed(1).replace(/\.0$/, "").split(".");
+  return `${int.replace(/\B(?=(\d{3})+(?!\d))/g, NBSP)}${frac ? `,${frac}` : ""}`;
+}
+
 /** Недели месяца с понедельника; средний чек недели — взвешенный по чекам (по дням он уже округлён до сума). */
 function salesView(d: EvCard, l: Lang): CardSalesVM | null {
   const s = d.sales;
@@ -237,6 +253,12 @@ function salesView(d: EvCard, l: Lang): CardSalesVM | null {
     ],
     delta: vs ? { text: tIn(l, "ev_card_sales_delta", { p: vs.text }), tone: vs.tone } : null,
     weeks,
+    products: s.products.map((x) => ({
+      name: x.name,
+      qty: tIn(l, "ev_card_prod_qty", { n: num1(x.qty) }),
+      per100: x.per100 === null ? null : tIn(l, "ev_card_prod_per100", { n: num1(x.per100) }),
+      prev: tIn(l, "ev_card_prod_prev", { n: num1(x.prev_qty) }),
+    })),
     note: tIn(l, "ev_card_sales_note"),
   };
 }

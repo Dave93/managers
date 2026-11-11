@@ -14,7 +14,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { api, bindTelegram, cleanupKpi, evSession, fakeBotApi, makeEmployee, makeEvaluator, makeScope, makeTerminal, setNow, setup, tgApi, tgLogin, TG_TEST_BOT_TOKEN } = await import("./fixtures");
   const { setTestBotApi } = await import("../tg/bot-api");
   const { seedReview } = await import("../tg-app/dev-data");
-  const { cash_shift_cashiers, cash_shifts, employees } = await import("backend/drizzle/schema");
+  const { cash_shift_cashier_dishes, cash_shift_cashiers, cash_shifts, employees } = await import("backend/drizzle/schema");
   const { eq, inArray } = await import("drizzle-orm");
 
   describe("kpi: оценщик в мини-приложении, карточка сотрудника", () => {
@@ -34,11 +34,12 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
 
     const shifts: string[] = [];
-    async function shift(terminal_id: string, day: string, cashier_id: string, orders_count: number, revenue: number): Promise<void> {
+    async function shift(terminal_id: string, day: string, cashier_id: string, orders_count: number, revenue: number, dishes: { id: string; name: string; qty: number }[] = []): Promise<void> {
       const id = randomUUID();
       shifts.push(id);
       await db.insert(cash_shifts).values({ id, terminal_id, point_of_sale_id: randomUUID(), cash_reg_number: 1, session_number: 1, open_at: `${day}T05:00:00+05:00`, business_date: day, status: "CLOSED" });
       await db.insert(cash_shift_cashiers).values({ shift_id: id, cashier_id, cashier_name: "Baxrom", orders_count, revenue: String(revenue) });
+      for (const d of dishes) await db.insert(cash_shift_cashier_dishes).values({ shift_id: id, cashier_id, dish_id: d.id, dish_type: "GOODS", dish_name: d.name, qty: String(d.qty), revenue: String(d.qty * 10_000) });
     }
 
     afterAll(async () => {
@@ -148,7 +149,30 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
           { day: "2025-10-03", checks: 40, avg_check: 101_250 },
           { day: "2025-10-04", checks: 20, avg_check: 100_000 },
         ],
+        products: [],
       });
+    });
+
+    it("кассир привязан: проданные позиции за месяц по убыванию штук, штук на 100 чеков, прошлый месяц; чужой кассир не мешает", async () => {
+      const t1 = await makeTerminal(db), t2 = await makeTerminal(db);
+      const ev = await makeEvaluator(db);
+      await makeScope(db, ev.id, { terminal_id: t1.id });
+      const e = await makeEmployee(db, { role_code: "cook", terminal_id: t1.id });
+      const c = randomUUID(), other = randomUUID();
+      const cola = randomUUID(), sous = randomUUID(), pizza = randomUUID(), old = randomUUID();
+      // 40 + 20 чеков в октябре; позиции суммируются по сменам (в том числе чужого филиала), прошлый месяц считается отдельно
+      await shift(t1.id, "2025-10-03", c, 40, 4_000_000, [{ id: cola, name: "Cola 1L", qty: 12 }, { id: sous, name: "Sous", qty: 3 }, { id: pizza, name: "Pizza", qty: 3 }]);
+      await shift(t2.id, "2025-10-04", c, 20, 2_000_000, [{ id: cola, name: "Cola 1L", qty: 6 }]);
+      await shift(t1.id, "2025-09-30", c, 8, 960_000, [{ id: cola, name: "Cola 1L", qty: 5 }, { id: old, name: "Только в сентябре", qty: 9 }]);
+      await shift(t1.id, "2025-10-05", other, 50, 5_000_000, [{ id: sous, name: "Sous", qty: 100 }]);
+      await db.update(employees).set({ iiko_cashier_id: c }).where(eq(employees.id, e.id));
+      const r = await card(await evSession(db, ev.id), e.id);
+      expect(r.status).toBe(200);
+      expect(r.body.sales.products).toEqual([
+        { name: "Cola 1L", qty: 18, per100: 30, prev_qty: 5 },
+        { name: "Pizza", qty: 3, per100: 5, prev_qty: 0 },
+        { name: "Sous", qty: 3, per100: 5, prev_qty: 0 },
+      ]);
     });
 
     it("кассир есть, но смен в месяце нет: нули, средний чек null", async () => {
@@ -160,7 +184,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await shift(t1.id, "2025-06-10", c, 5, 500_000);
       await db.update(employees).set({ iiko_cashier_id: c }).where(eq(employees.id, e.id));
       const r = await card(await evSession(db, ev.id), e.id);
-      expect(r.body.sales).toEqual({ cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [] });
+      expect(r.body.sales).toEqual({ cashier_name: null, month: { checks: 0, avg_check: null, days: 0 }, prev: { checks: 0, avg_check: null, days: 0 }, days: [], products: [] });
     });
   });
 }

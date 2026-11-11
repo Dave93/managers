@@ -6,7 +6,7 @@ import { lang, t } from "../i18n";
 import { navigate } from "../nav";
 import { parseHash } from "../route";
 import { h } from "../ui";
-import { type CalCellVM, type CardTab, type EvCardVM, type SwitchVM, evCardView } from "../view/ev-card";
+import { type CalCellVM, type CardTab, type EvCardVM, PRODUCT_LIMIT, type SwitchVM, evCardView } from "../view/ev-card";
 import { fill } from "./ev-common";
 
 let shown: { employee: string; tab: CardTab } = { employee: "", tab: "attendance" };
@@ -89,6 +89,37 @@ function dailyChart(d: NonNullable<NonNullable<EvCardVM["sales"]>["daily"]>): HT
   );
 }
 
+// Проданные позиции: первые PRODUCT_LIMIT, остальные по кнопке. Допродажа это или обычная продажа, решает оценщик.
+function productsCard(items: NonNullable<EvCardVM["sales"]>["products"]): HTMLElement {
+  let all = false;
+  const list = h("div", {});
+  const more = h("button", { type: "button", class: "btn btn-quiet evc-more" }) as HTMLButtonElement;
+  const draw = (): void => {
+    fill(
+      list,
+      (all ? items : items.slice(0, PRODUCT_LIMIT)).map((p) =>
+        h(
+          "div",
+          { class: "row is-static" },
+          h(
+            "span",
+            { class: "row-body" },
+            h("span", { class: "row-text" }, p.name, p.per100 ? h("span", { class: "evc-times" }, p.per100) : null),
+            h("span", { class: "row-end evc-week-end" }, h("span", { class: "evc-week-avg" }, p.qty), h("span", { class: "evc-week-delta evc-prod-prev" }, p.prev)),
+          ),
+        ),
+      ),
+    );
+    more.textContent = all ? t("ev_card_prod_less") : t("ev_card_prod_all", { n: items.length });
+  };
+  more.onclick = () => {
+    all = !all;
+    draw();
+  };
+  draw();
+  return h("section", { class: "card rows" }, h("h2", { class: "evc-h" }, t("ev_card_prod_title")), list, items.length > PRODUCT_LIMIT ? more : null, h("p", { class: "ev-info evc-prod-note" }, t("ev_card_prod_note")));
+}
+
 function sales(vm: NonNullable<EvCardVM["sales"]>): HTMLElement {
   const bar = (n: number): HTMLElement => {
     const fill = h("span", {});
@@ -129,6 +160,7 @@ function sales(vm: NonNullable<EvCardVM["sales"]>): HTMLElement {
             ),
           ),
         ),
+    vm.products.length === 0 ? null : productsCard(vm.products),
     vm.cashier ? h("p", { class: "ev-info" }, vm.cashier) : null,
     h("p", { class: "ev-info" }, vm.note),
   );
