@@ -535,6 +535,17 @@ p.evc-none {
   font-size: var(--fs-label);
   font-variant-numeric: tabular-nums;
 }
+.evc-prod-prev {
+  color: var(--muted);
+}
+.evc-more {
+  display: block;
+  width: calc(100% - 2 * var(--pad));
+  margin: 8px var(--pad) 0;
+}
+.evc-prod-note {
+  margin-top: 8px;
+}
 .evc-h-flush {
   padding-left: 0;
   padding-right: 0;

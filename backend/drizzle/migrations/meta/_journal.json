@@ -316,6 +316,13 @@
       "when": 1794414661249,
       "tag": "0044_kpi_cashier_link",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1794434548025,
+      "tag": "0045_kpi_cashier_dishes",
+      "breakpoints": true
     }
   ]
 }

@@ -6,6 +6,7 @@ import {
   parseEmployeesXml,
   mapShift,
   aggregateCashiers,
+  aggregateCashierDishes,
   reconcile,
   addDays,
   dateChunks,
@@ -227,6 +228,33 @@ describe("cashiers", () => {
     ] as any;
     expect(reconcile(shifts, cashiers)).toEqual([
       { id: S2, cash_reg_number: 22, pay_orders: 2174000, revenue: 138000 },
+    ]);
+  });
+  test("aggregateCashierDishes keeps paid dish/goods/modifier rows, drops storno, free, services and foreign shifts", () => {
+    const C1 = "461d12fd-5a9a-453a-9eab-fd05ea547b27";
+    const D = (n: number) => `00000000-0000-0000-0000-00000000000${n}`;
+    const row = (o: Record<string, unknown>) => ({ SessionID: S1, "Cashier.Id": C1, DishId: D(1), DishName: "Cola 1L", DishType: "GOODS", Storned: false, DishAmountInt: 1, DishDiscountSumInt: 12000, ...o });
+    const out = aggregateCashierDishes(
+      [
+        row({}),
+        row({ DishAmountInt: 2, DishDiscountSumInt: 24000 }), // тот же ключ: суммируется
+        row({ DishId: D(2), DishName: "Pizza", DishType: "DISH", DishAmountInt: 1, DishDiscountSumInt: 50000 }),
+        row({ DishId: D(3), DishName: "Sous", DishType: "MODIFIER", DishDiscountSumInt: 3000 }),
+        row({ DishId: D(4), DishName: "Gift", DishType: "GOODS", DishDiscountSumInt: 0 }), // подарок
+        row({ DishId: D(5), DishName: "Delivery", DishType: "SERVICE", DishDiscountSumInt: 15000 }),
+        row({ DishId: D(6), DishName: "Storno", Storned: true }),
+        row({ DishId: D(7), DishName: "Storno str", Storned: "true" }),
+        row({ SessionID: "ffffffff-ffff-ffff-ffff-ffffffffffff", DishId: D(8) }), // чужая смена
+        row({ DishId: null, DishName: "No id" }),
+        row({ "Cashier.Id": null, DishId: D(9), DishName: "No cashier", DishType: "DISH" }),
+      ],
+      new Set([S1])
+    );
+    expect(out).toEqual([
+      { shift_id: S1, cashier_id: C1, dish_id: D(1), dish_type: "GOODS", dish_name: "Cola 1L", qty: "3", revenue: "36000" },
+      { shift_id: S1, cashier_id: C1, dish_id: D(2), dish_type: "DISH", dish_name: "Pizza", qty: "1", revenue: "50000" },
+      { shift_id: S1, cashier_id: C1, dish_id: D(3), dish_type: "MODIFIER", dish_name: "Sous", qty: "1", revenue: "3000" },
+      { shift_id: S1, cashier_id: "00000000-0000-0000-0000-000000000000", dish_id: D(9), dish_type: "DISH", dish_name: "No cashier", qty: "1", revenue: "12000" },
     ]);
   });
 });

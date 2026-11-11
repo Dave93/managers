@@ -309,6 +309,13 @@ const RU = {
   ev_card_sales_cashier: "Кассир в iiko: {name}",
   ev_card_sales_none: "В этом месяце у кассира смен нет",
   ev_card_sales_note: "Данные кассы iiko по кассовым сменам. Средний чек — выручка, делённая на число чеков.",
+  ev_card_prod_title: "Продано за месяц",
+  ev_card_prod_qty: "{n} шт.",
+  ev_card_prod_per100: "{n} на 100 чеков",
+  ev_card_prod_prev: "в прошлом месяце: {n}",
+  ev_card_prod_all: "Показать все ({n})",
+  ev_card_prod_less: "Свернуть",
+  ev_card_prod_note: "Все оплаченные позиции кассира, без сторно и подарков по акциям. Что из этого допродажа, решает оценщик.",
 } as const;
 
 export type Key = keyof typeof RU;
@@ -613,6 +620,13 @@ const UZ: Record<Key, string> = {
   ev_card_sales_cashier: "iiko kassiri: {name}",
   ev_card_sales_none: "Bu oyda kassirning smenalari yoʻq",
   ev_card_sales_note: "iiko kassa maʼlumotlari kassa smenalari boʻyicha. Oʻrtacha chek — tushumni cheklar soniga boʻlish.",
+  ev_card_prod_title: "Oy davomida sotilgan",
+  ev_card_prod_qty: "{n} dona",
+  ev_card_prod_per100: "100 ta chekka {n}",
+  ev_card_prod_prev: "oʻtgan oyda: {n}",
+  ev_card_prod_all: "Hammasini koʻrsatish ({n})",
+  ev_card_prod_less: "Yigʻish",
+  ev_card_prod_note: "Kassirning barcha toʻlangan pozitsiyalari, storno va aksiya sovgʻalarisiz. Qaysi biri qoʻshimcha savdo ekanini baholovchi oʻzi hal qiladi.",
 };
 
 export const DICT: Record<Lang, Record<Key, string>> = { ru: RU, uz: UZ };

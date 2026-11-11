@@ -40,6 +40,16 @@ export type CashierRow = {
   revenue: string;
 };
 
+export type DishRow = {
+  shift_id: string;
+  cashier_id: string;
+  dish_id: string;
+  dish_type: string;
+  dish_name: string;
+  qty: string;
+  revenue: string;
+};
+
 export type MapContext = {
   pos: Map<string, PosInfo>;
   terminalByGroup: Map<string, string>;
@@ -204,6 +214,35 @@ export function aggregateCashiers(
     cashiers: [...acc.values()].map((c) => ({ ...c, revenue: String(c.revenue) })),
     registerNames,
   };
+}
+
+// Продажи, которые засчитываются кассиру: блюда, товары (напитки в iiko обычно GOODS) и платные модификаторы.
+// SERVICE (доставка и т.п.) и прочее кассиру в заслугу не идёт.
+const SOLD_DISH_TYPES = new Set(["DISH", "GOODS", "MODIFIER"]);
+
+// OLAP SALES rows grouped by SessionID × Cashier.Id × DishId × DishType × Storned. Сторно, чужие смены, не
+// продажные типы и позиции с нулевой (или отрицательной) суммой отбрасываются: подарок по акции не должен
+// засчитываться кассиру. Позиция, которую продали и платно, и в подарок в одной смене, остаётся целиком:
+// OLAP не отдаёт цену в разрезе, отделить подарочные штуки нечем.
+export function aggregateCashierDishes(rows: any[], shiftIds: Set<string>): DishRow[] {
+  const acc = new Map<string, Omit<DishRow, "qty" | "revenue"> & { qty: number; revenue: number }>();
+  for (const r of rows) {
+    const sid = r["SessionID"];
+    const dishId = r["DishId"];
+    const type = r["DishType"];
+    if (!sid || !shiftIds.has(sid) || !dishId || !SOLD_DISH_TYPES.has(type)) continue;
+    if (r["Storned"] === true || r["Storned"] === "true") continue;
+    const cid = r["Cashier.Id"] || ZERO_UUID;
+    const key = `${sid}|${cid}|${dishId}|${type}`;
+    const cur = acc.get(key) ?? { shift_id: sid, cashier_id: cid, dish_id: dishId, dish_type: type, dish_name: "", qty: 0, revenue: 0 };
+    cur.qty += Number(r["DishAmountInt"]) || 0;
+    cur.revenue += Number(r["DishDiscountSumInt"]) || 0;
+    if (r["DishName"]) cur.dish_name = r["DishName"];
+    acc.set(key, cur);
+  }
+  return [...acc.values()]
+    .filter((d) => d.revenue > 0 && d.qty > 0)
+    .map((d) => ({ ...d, dish_name: d.dish_name || "—", qty: String(d.qty), revenue: String(d.revenue) }));
 }
 
 export function reconcile(
