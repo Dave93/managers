@@ -87,3 +87,14 @@ it("parseHash и hashOf: карточка сотрудника оценщика"
   const r = parseHash(`#/ev/card/${ID}`);
   expect([isEvRoute(r), routeAllowed(r, ["evaluator"]), routeAllowed(r, ["employee"])]).toEqual([true, true, false]);
 });
+
+it("parseHash и hashOf: время приготовления оценщика", () => {
+  const H = { name: "home" };
+  expect(parseHash(`#/ev/cooking/2026-10/${ID}`)).toEqual({ name: "ev_cooking", employee_id: ID, period: "2026-10-01", shift: null });
+  expect(parseHash(`#/ev/cooking/2026-10/${ID}/2`)).toEqual({ name: "ev_cooking", employee_id: ID, period: "2026-10-01", shift: "2" });
+  expect(parseHash(`#/ev/cooking/2026-10/${ID}/1?tgWebAppData=abc`)).toEqual({ name: "ev_cooking", employee_id: ID, period: "2026-10-01", shift: "1" });
+  for (const h of ["#/ev/cooking", `#/ev/cooking/${ID}`, `#/ev/cooking/2026-13/${ID}`, "#/ev/cooking/2026-10/abc", `#/ev/cooking/2026-10/${ID}/3`, `#/ev/cooking/2026-10/${ID}/1/x`]) expect(parseHash(h)).toEqual(H);
+  for (const shift of [null, "1", "2"] as const) expect(parseHash(hashOf({ name: "ev_cooking", employee_id: ID, period: "2026-10-01", shift }))).toEqual({ name: "ev_cooking", employee_id: ID, period: "2026-10-01", shift });
+  const r = parseHash(`#/ev/cooking/2026-10/${ID}`);
+  expect([isEvRoute(r), routeAllowed(r, ["evaluator"]), routeAllowed(r, ["employee"])]).toEqual([true, true, false]);
+});

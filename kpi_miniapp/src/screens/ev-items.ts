@@ -3,8 +3,10 @@
 // Поля создаются один раз; paint() обновляет нажатия и подсказку, не теряя фокус при наборе.
 import type { EvFormItem } from "@backend/modules/kpi/tg-app/ev-types";
 import { lang, t } from "../i18n";
+import { hashOf } from "../route";
 import { h } from "../ui";
 import type { EvItemVM, EvReviewVM } from "../view/ev-review";
+import { inAppLink } from "./ev-common";
 import { type Draft, type DraftItem, type FormIssue, SCORE_BUTTONS, evIssueText, pickScore, scoreTextChange, staleNoteHint } from "../view/ev-score";
 
 export interface ItemEditorsOpts {
@@ -13,6 +15,8 @@ export interface ItemEditorsOpts {
   draft: Draft;
   issues: Map<string, FormIssue>;
   disabled: boolean;
+  // Для пункта «скорость приготовления»: ссылка на экран времени приготовления; без неё (спор) ссылки нет.
+  cooking?: { period: string; employee_id: string };
   onChange(itemId: string, v: DraftItem): void;
 }
 
@@ -68,6 +72,7 @@ function itemCard(vm: EvItemVM, src: EvFormItem, o: ItemEditorsOpts): HTMLElemen
     vm.sourceLabel ? h("span", { class: "chip chip-muted" }, vm.sourceLabel) : null,
     vm.hint ? h("p", { class: "ev-hint" }, vm.hint) : null,
     vm.suggestionText ? h("p", { class: "ev-hint" }, vm.suggestionText) : null,
+    src.source === "cooking_speed" && o.cooking ? inAppLink(hashOf({ name: "ev_cooking", employee_id: o.cooking.employee_id, period: o.cooking.period, shift: null }), "btn btn-quiet", t("ev_cook_btn")) : null,
     h("div", { class: "ev-scores", role: "group", "aria-label": vm.title }, ...btns),
     h("div", { class: "ev-own-row" }, own, ...extra),
     h("label", { class: "ev-note-label" }, t("ev_note_label")),
