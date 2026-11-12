@@ -356,7 +356,8 @@
   font-size: 13px;
   white-space: nowrap;
 }
-.evc-tab[aria-selected="true"] {
+.evc-tab[aria-selected="true"],
+.evc-tab[aria-pressed="true"] {
   border-bottom-color: var(--ink);
   color: var(--ink);
   font-weight: 600;
@@ -570,4 +571,13 @@ p.evc-none {
   margin-top: 6px;
   color: var(--muted);
   font-size: var(--fs-label);
+}
+
+/* время приготовления */
+/* одинаковая правая колонка: полоски дней сравнимы по длине */
+.evc-cook-end {
+  min-width: 96px;
+}
+.evc-cook-slow {
+  margin-left: 8px;
 }

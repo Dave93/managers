@@ -11,7 +11,7 @@ export type EvErrorCode =
   | "period_closed" | "already_submitted" | "too_early" | "missing_items" | "note_required" | "bad_score" | "unknown_item"
   | "comment_required" | "photo_required" | "bad_photo_type" | "photo_too_large" | "too_many_photos"
   | "open_dispute" | "already_cancelled" | "dispute_closed" | "items_required" | "no_changes" | "bad_decision"
-  | "bad_dates" | "bad_reason" | "reason_text_required";
+  | "bad_dates" | "bad_reason" | "reason_text_required" | "bad_shift";
 export interface EvError { error: EvErrorCode; min?: number; opens_at?: string; item_id?: string; items?: string[] }
 
 // GET /kpi/tg/ev/employees?period=YYYY-MM-01 (без period — отчётный месяц)
@@ -132,3 +132,22 @@ export interface EvSalesDay { day: string; checks: number; avg_check: number | n
 // prev_qty — штук той же позиции в прошлом месяце. Допродажа это или обычная продажа, решает оценщик: списка допродаж нет.
 export interface EvSalesProduct { name: string; qty: number; per100: number | null; prev_qty: number }
 export interface EvSales { cashier_name: string | null; month: EvSalesTotals; prev: EvSalesTotals; days: EvSalesDay[]; products: EvSalesProduct[] }
+
+// GET /kpi/tg/ev/employees/:id/cooking?period=YYYY-MM-01&shift=1|2: время приготовления по филиалу сотрудника за месяц
+// (справка к пункту «Время и скорость приготовления заказа»). iiko меряет ожидание гостя по заказу целиком, не по блюду:
+// у блюда avg_wait_sec — среднее ожидание заказов, в которых оно было (по штукам), over_pct — доля штук из заказов дольше норматива.
+// Зальные позиции (напитки, закуски) не входят. shift — «1»/«2» по кассовым сменам iiko; null — весь день.
+// shifts=false: за месяц нет кассовых смен филиала, переключатель смены не нужен.
+export interface EvCookingDay { day: string; orders: number; on_time: number; avg_wait_sec: number }
+export interface EvCookingDish { name: string; qty: number; avg_wait_sec: number; over_pct: number }
+export interface EvCooking {
+  employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
+  period: string;
+  shift: "1" | "2" | null;
+  shifts: boolean;
+  norms: { hall_min: number; delivery_min: number };
+  summary: { orders: number; on_time: number; avg_wait_sec: number } | null;
+  days: EvCookingDay[];
+  dishes: EvCookingDish[];
+  min_qty: number;
+}

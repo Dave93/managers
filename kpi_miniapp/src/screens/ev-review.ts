@@ -53,7 +53,7 @@ export function renderEvReview(f: EvReviewForm, nowMs: number): HTMLElement {
     total.textContent = p === null ? t("ev_form_total_none") : t("ev_form_total", { pct: `${pct1(p)}${NBSP}%` });
   };
   const drawEditors = (): void => {
-    fill(editors, [renderItemEditors({ groups: vm.groups, items: f.items, draft, issues, disabled: false, onChange: (id, v) => { draft = { ...draft, [id]: v }; drafts.set(key, draft); paintTotal(); } })]);
+    fill(editors, [renderItemEditors({ groups: vm.groups, items: f.items, draft, issues, disabled: false, cooking: { period: f.period, employee_id: f.employee.id }, onChange: (id, v) => { draft = { ...draft, [id]: v }; drafts.set(key, draft); paintTotal(); } })]);
   };
 
   async function act(kind: "draft" | "submit"): Promise<void> {

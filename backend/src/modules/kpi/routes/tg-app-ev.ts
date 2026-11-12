@@ -9,11 +9,13 @@ import { kpiTgCtx } from "../tg-app/ctx";
 import { evaluatorActor } from "../tg-app/ev-actor";
 import { evDisputeDetail, evDisputes, evResolve } from "../tg-app/ev-disputes";
 import { evCard } from "../tg-app/ev-card";
+import { evCooking } from "../tg-app/ev-cooking";
 import { evEmployees } from "../tg-app/ev-list";
 import { evCancelDayOff, evDaysOff, evGiveDaysOff } from "../tg-app/ev-days-off";
 import { evForm, evSaveDraft, evSubmit } from "../tg-app/ev-review";
 import type {
   EvCard,
+  EvCooking,
   EvDayOff,
   EvDayOffEmployees,
   EvDayOffForm,
@@ -57,6 +59,16 @@ export const tgAppEvRoutes = new Elysia({ name: "@api/kpi/tg-app-ev" })
         return evCard(drizzle, actor, params.id, query.period);
       }),
     { params: t.Object({ id: t.String() }), query: t.Object({ period: t.Optional(t.Any()) }) }
+  )
+  // Время приготовления по филиалу сотрудника за месяц (справка к пункту оценки). period и shift проверяет сервис.
+  .get(
+    "/kpi/tg/ev/employees/:id/cooking",
+    async ({ params, query, tg, drizzle, cacheController, set }) =>
+      run(set, async (): Promise<EvCooking> => {
+        const actor = await evaluatorActor(drizzle, cacheController, tg);
+        return evCooking(drizzle, actor, params.id, query.period, query.shift);
+      }),
+    { params: t.Object({ id: t.String() }), query: t.Object({ period: t.Optional(t.Any()), shift: t.Optional(t.Any()) }) }
   )
   // period и employee_id проверяет сервис: мусор — наш 422 bad_period / bad_id, а не ответ схемы.
   .get(

@@ -13,7 +13,7 @@
 // navigate, back, rerender и useLang отсюда не экспортируются: экраны берут их из ./nav,
 // куда main.ts отдаёт их через provideNav. Импорт входа из экрана в `vite dev`
 // выполнял main.ts дважды (подробно — в nav.ts). Экраны импортируют только ./nav.
-import type { EvCard, EvDayOffEmployees, EvDayOffForm, EvDaysOff, EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
+import type { EvCard, EvCooking, EvDayOffEmployees, EvDayOffForm, EvDaysOff, EvDisputeDetail, EvDisputes, EvEmployees, EvReviewForm, EvViolationForm, EvViolations } from "@backend/modules/kpi/tg-app/ev-types";
 import type { TgAttendance, TgHistory, TgHome, TgLang, TgReview, TgRole, TgViolations } from "@backend/modules/kpi/tg-app/types";
 import type { FailStatus } from "./api";
 import { appApi } from "./api";
@@ -30,6 +30,7 @@ import { hashOf, parseHash, routeAllowed } from "./route";
 import { renderAttendance } from "./screens/attendance";
 import { closeReasonSheet } from "./reason-sheet";
 import { renderEvCard } from "./screens/ev-card";
+import { renderEvCooking } from "./screens/ev-cooking";
 import { renderEvDayOff } from "./screens/ev-dayoff";
 import { renderEvDayOffPick } from "./screens/ev-dayoff-pick";
 import { renderEvDaysOff } from "./screens/ev-daysoff";
@@ -132,6 +133,14 @@ function screenOf(r: Route): Screen {
         render: (d) => renderEvCard(d as EvCard, Date.now()),
         title: t("ev_card_btn"),
       };
+    case "ev_cooking":
+      return {
+        path: `/ev/employees/${r.employee_id}/cooking?period=${r.period}${r.shift ? `&shift=${r.shift}` : ""}`,
+        kind: "list",
+        noCache: true,
+        render: (d) => renderEvCooking(d as EvCooking),
+        title: t("ev_cook_btn"),
+      };
     case "ev_violation":
       return {
         path: `/ev/violation-form?employee_id=${r.employee_id}`,
@@ -217,7 +226,7 @@ function navigate(r: Route): void {
   if (same(to, top().route)) return;
   // Переключатель месяцев: «назад» ведёт с карточки, а не по пройденным месяцам.
   const cur = top().route;
-  if ((to.name === "attendance" && cur.name === "attendance") || (to.name === "ev_card" && cur.name === "ev_card" && to.employee_id === cur.employee_id)) {
+  if ((to.name === "attendance" && cur.name === "attendance") || (to.name === "ev_card" && cur.name === "ev_card" && to.employee_id === cur.employee_id) || (to.name === "ev_cooking" && cur.name === "ev_cooking" && to.employee_id === cur.employee_id)) {
     stack[stack.length - 1] = { route: to, y: 0 };
     history.replaceState(null, "", hashOf(to));
     show(false);

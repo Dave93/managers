@@ -12,6 +12,8 @@ export type Route =
   | { name: "ev_review"; period: string; employee_id: string }
   // Карточка сотрудника-справка; период — «YYYY-MM-01», null — текущий месяц решает сервер.
   | { name: "ev_card"; employee_id: string; period: string | null }
+  // Время приготовления по филиалу сотрудника за месяц формы; shift — «1»/«2» или null (весь день).
+  | { name: "ev_cooking"; employee_id: string; period: string; shift: "1" | "2" | null }
   | { name: "ev_violation"; employee_id: string }
   | { name: "ev_violations"; period: string | null }
   | { name: "ev_disputes" }
@@ -51,6 +53,13 @@ function parseEv(path: string): Route {
     return period ? { name: "ev_card", employee_id: x, period } : { ...HOME };
   }
   if (kind === "card") return { ...HOME };
+  if (kind === "cooking" && (seg.length === 3 || seg.length === 4)) {
+    const period = monthStart(x);
+    const shift = seg[3];
+    if (!period || !UUID.test(y) || (seg.length === 4 && shift !== "1" && shift !== "2")) return { ...HOME };
+    return { name: "ev_cooking", employee_id: y, period, shift: seg.length === 4 ? (shift as "1" | "2") : null };
+  }
+  if (kind === "cooking") return { ...HOME };
   if (kind === "daysoff" && seg.length === 2) {
     const period = monthStart(x);
     return period ? { name: "ev_daysoff", period } : { ...HOME };
@@ -110,6 +119,8 @@ export function hashOf(r: Route): string {
       return `#/ev/review/${r.period.slice(0, 7)}/${r.employee_id}`;
     case "ev_card":
       return r.period ? `#/ev/card/${r.employee_id}/${r.period.slice(0, 7)}` : `#/ev/card/${r.employee_id}`;
+    case "ev_cooking":
+      return `#/ev/cooking/${r.period.slice(0, 7)}/${r.employee_id}${r.shift ? `/${r.shift}` : ""}`;
     case "ev_violation":
       return `#/ev/violation/${r.employee_id}`;
     case "ev_violations":
