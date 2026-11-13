@@ -58,16 +58,18 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       await sweepTestRoles();
     });
 
-    // Менеджер с привязанным Telegram как сотрудник, повар и сотрудник без карты его филиала, повар чужого филиала.
+    // Менеджер с привязанным Telegram как сотрудник, техничка, повар и сотрудник без карты его филиала, повар чужого филиала.
+    // Менеджер оценивает только карту «Техничка»; повар нужен, чтобы проверить, что остальные карты ему недоступны.
     async function branch(role = "manager") {
       const t = await makeTerminal(db);
       const mgr = await makeEmployee(db, { role_code: role, terminal_id: t.id, first_name: "Тест Менеджер" });
       const b = await bindTelegram(db, { employee_id: mgr.id });
       const login = await tgLogin(b.telegram_id);
+      const cleaner = await makeEmployee(db, { role_code: "cleaner", terminal_id: t.id });
       const cook = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
       const cardless = await makeEmployee(db, { terminal_id: t.id });
-      const foreign = await makeEmployee(db, { role_code: "cook", terminal_id: (await makeTerminal(db)).id });
-      return { t, mgr, b, login, token: login.body?.token as string, cook, cardless, foreign };
+      const foreign = await makeEmployee(db, { role_code: "cleaner", terminal_id: (await makeTerminal(db)).id });
+      return { t, mgr, b, login, token: login.body?.token as string, cleaner, cook, cardless, foreign };
     }
 
     it("менеджер без пользователя входит как оценщик: роль evaluator, карточка на главном без ссылки в админку", async () => {
@@ -97,26 +99,23 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect((await tgApi(off.token, "GET", "/api/kpi/tg/ev/employees")).status).toBe(401);
     });
 
-    it("список: сотрудники своего филиала с картой, без себя, чужого филиала нет", async () => {
+    it("список: только техничка своего филиала; повар, он сам, сотрудник без карты и чужой филиал не попадают", async () => {
       const w = await branch();
       const r = await tgApi(w.token, "GET", "/api/kpi/tg/ev/employees?period=2025-10-01");
       expect(r.status).toBe(200);
       const ids = r.body.items.map((x: { id: string }) => x.id);
-      expect(ids).toContain(w.cook.id);
-      expect(ids).not.toContain(w.mgr.id);
-      expect(ids).not.toContain(w.foreign.id);
-      expect(ids).not.toContain(w.cardless.id); // нет карты: оценивать нечем
-      expect(r.body.items.find((x: { id: string }) => x.id === w.cook.id).can_evaluate).toBe(true);
+      expect(ids).toEqual([w.cleaner.id]);
+      expect(r.body.items.find((x: { id: string }) => x.id === w.cleaner.id).can_evaluate).toBe(true);
     });
 
-    it("форма, черновик и отправка: подпись id сотрудника-менеджера; себя и чужой филиал оценивать нельзя", async () => {
+    it("форма, черновик и отправка: подпись id сотрудника-менеджера; повара, себя и чужой филиал оценивать нельзя", async () => {
       const w = await branch();
       const form = (id: string) => tgApi(w.token, "GET", `/api/kpi/tg/ev/form?period=2025-10-01&employee_id=${id}`);
-      const f = await form(w.cook.id);
+      const f = await form(w.cleaner.id);
       expect(f.status).toBe(200);
       expect(f.body.can_edit).toBe(true);
       const items = f.body.items.map((i: { item_id: string; source: string }) => ({ item_id: i.item_id, score: i.source === "manual" ? 100 : null }));
-      const d = await tgApi(w.token, "PUT", "/api/kpi/tg/ev/draft", { period: "2025-10-01", employee_id: w.cook.id, items });
+      const d = await tgApi(w.token, "PUT", "/api/kpi/tg/ev/draft", { period: "2025-10-01", employee_id: w.cleaner.id, items });
       expect(d.status).toBe(200);
       const [row] = await db.select().from(kpi_reviews).where(eq(kpi_reviews.id, d.body.review.id));
       expect(row.evaluator_user_id).toBe(w.mgr.id);
@@ -124,9 +123,11 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(s.status).toBe(200);
       expect(s.body.review.status).toBe("submitted");
 
+      expect((await form(w.cook.id)).status).toBe(403);
       expect((await form(w.mgr.id)).status).toBe(403);
       expect((await form(w.foreign.id)).status).toBe(403);
       expect((await tgApi(w.token, "PUT", "/api/kpi/tg/ev/draft", { period: "2025-10-01", employee_id: w.mgr.id, items: [] })).status).toBe(403);
+      expect((await tgApi(w.token, "PUT", "/api/kpi/tg/ev/draft", { period: "2025-10-01", employee_id: w.cook.id, items: [] })).status).toBe(403);
     });
 
     it("выходные: любому сотруднику филиала, в том числе без карты; себе и чужому — нет; список для выдачи без него самого", async () => {
@@ -153,17 +154,17 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const w = await branch();
       const tB = await makeTerminal(db);
       const twin = await makeEmployee(db, { role_code: "manager", terminal_id: tB.id });
-      const cookB = await makeEmployee(db, { role_code: "cook", terminal_id: tB.id });
+      const cleanerB = await makeEmployee(db, { role_code: "cleaner", terminal_id: tB.id });
       const [lo, hi] = w.mgr.id < twin.id ? [w.mgr.id, twin.id] : [twin.id, w.mgr.id];
       await db.insert(employee_twins).values({ employee_a: lo, employee_b: hi, rule: "name_birth", blocked: false });
       const ids = async () => (await tgApi(w.token, "GET", "/api/kpi/tg/ev/employees?period=2025-10-01")).body.items.map((x: { id: string }) => x.id);
       const both = await ids();
-      expect(both).toEqual(expect.arrayContaining([w.cook.id, cookB.id]));
+      expect(both).toEqual(expect.arrayContaining([w.cleaner.id, cleanerB.id]));
       expect(both).not.toContain(twin.id);
       await db.update(employee_twins).set({ blocked: true });
       const one = await ids();
-      expect(one).toContain(w.cook.id);
-      expect(one).not.toContain(cookB.id);
+      expect(one).toContain(w.cleaner.id);
+      expect(one).not.toContain(cleanerB.id);
     });
 
     it("менеджер с учётной записью: права пользователя и менеджера складываются", async () => {
@@ -177,7 +178,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(login.status).toBe(200);
       const r = await tgApi(login.body.token, "GET", "/api/kpi/tg/ev/employees?period=2025-10-01");
       const ids = r.body.items.map((x: { id: string }) => x.id);
-      expect(ids).toEqual(expect.arrayContaining([w.cook.id, cookOther.id]));
+      // Назначение пользователя даёт любую карту своего филиала, менеджерское — только «Технички».
+      expect(ids).toEqual(expect.arrayContaining([w.cleaner.id, cookOther.id]));
+      expect(ids).not.toContain(w.cook.id);
       expect(ids).not.toContain(w.mgr.id);
     });
 

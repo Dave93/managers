@@ -2953,7 +2953,7 @@
         "removed": "Assignment removed",
         "hint": "The assignment only works if the user's role has the kpi.evaluate permission. The permission is granted in “Roles”",
         "autoTitle": "Branch managers evaluating automatically: {count} (Telegram linked: {bound})",
-        "autoHint": "A manager with a linked Telegram evaluates employees of their own branch on every card and gives them days off, except themselves. No user account or assignment is needed; trainee managers are not included. View only.",
+        "autoHint": "A manager with a linked Telegram evaluates employees of their own branch on the Cleaner card and gives days off to any employee of the branch, except themselves. Other cards are evaluated by evaluators with a user account. No user account or assignment is needed; trainee managers are not included. View only.",
         "autoColTerminal": "Branch",
         "autoBound": "Linked",
         "autoNotBound": "Not linked",
