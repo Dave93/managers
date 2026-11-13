@@ -39,7 +39,6 @@ import { verifyJwt } from "@backend/lib/bcrypt";
 import Redis from "ioredis";
 import crypto from "crypto";
 import dayjs from "dayjs";
-import WebSocket from "ws";
 import puppeteer from "puppeteer";
 import path from "path";
 
@@ -951,112 +950,18 @@ export class CacheControlService {
     return token;
   }
 
+  // Click WebSocket report (merchant.click.uz:4443) disabled 2026-11-13.
+  // The socket had no "error" listener, so ECONNREFUSED was thrown out of the
+  // EventEmitter and killed both HTTP workers. Callers get 0 for Click until
+  // the integration is restored.
   async getClickData(
-    filterDate: string,
-    clickServiceIds: string,
-    workStartTime: string,
-    workEndTime: string,
-    time?: string
+    _filterDate: string,
+    _clickServiceIds: string,
+    _workStartTime: string,
+    _workEndTime: string,
+    _time?: string
   ): Promise<number> {
-    return await new Promise((resolve, reject) => {
-      let totalSum = 0;
-      const ws = new WebSocket(Bun.env.CLICK_WS_URL!, {
-        maxPayload: 104857600,
-      });
-      let sesskey = "";
-      const serviceIds = clickServiceIds.split(",");
-      ws.on("open", () => {
-        console.log("Connected to server");
-
-        ws.send(
-          JSON.stringify({
-            method: "api.login",
-            parameters: {
-              login: Bun.env.CLICK_LOGIN,
-              auth_pass: Bun.env.CLICK_PASSWORD,
-              auth_ip: Bun.env.CLICK_AUTH_IP,
-            },
-          })
-        );
-      });
-
-      let globalMessage = "";
-      let isMessageFinished = false;
-
-      ws.on("message", (message: string) => {
-        if (Buffer.isBuffer(message)) {
-          message = message.toString();
-        }
-
-        try {
-          if (isMessageFinished) {
-            globalMessage = message;
-          } else {
-            globalMessage += message;
-          }
-          JSON.parse(globalMessage);
-          isMessageFinished = true;
-        } catch (e) {
-          isMessageFinished = false;
-        }
-        if (isMessageFinished) {
-          let data = JSON.parse(globalMessage);
-          globalMessage = "";
-          if (data.method == "api.login") {
-            console.log("data", data);
-            if (data.data[0][0].result == "FAILED") {
-              ws.close();
-              return reject(data.data[0][0].error_note);
-            }
-
-            sesskey = data.data[0][0].seskey;
-
-            for (let serviceId of serviceIds) {
-              ws.send(
-                JSON.stringify({
-                  method: "api.get.user.report",
-                  parameters: {
-                    session_key: sesskey,
-                    report_name: "payments",
-                    service_id: serviceId,
-                    cashbox_id: null,
-                    cntrg_param1: null,
-                    cntrg_param2: null,
-                    click_paydoc_id: null,
-                    date_from:
-                      dayjs(filterDate).format("YYYY-MM-DD") +
-                      ` ${workStartTime}:00:00`,
-                    date_to: time
-                      ? dayjs(filterDate).format("YYYY-MM-DD") + ` ${time}:00`
-                      : dayjs(filterDate).add(1, "day").format("YYYY-MM-DD") +
-                      ` ${workEndTime}:00:00`,
-                    page_size: 50,
-                    page_number: 1,
-                    merchant_id: null,
-                    phone_num: null,
-                    status: "S",
-                  },
-                })
-              );
-            }
-          }
-
-          if (data.method == "api.get.user.report") {
-            const rows = data.data[0];
-            if (rows.length > 0 && !rows[0].error && data.data.length > 1) {
-              totalSum += data.data[1][0].total;
-            }
-
-            ws.close();
-            return resolve(totalSum);
-          }
-        }
-      });
-
-      ws.on("close", () => {
-        console.log("Disconnected from server");
-      });
-    });
+    return 0;
   }
 
   async getPaymeData(
