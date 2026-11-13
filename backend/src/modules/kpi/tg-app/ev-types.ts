@@ -136,18 +136,25 @@ export interface EvSales { cashier_name: string | null; month: EvSalesTotals; pr
 // GET /kpi/tg/ev/employees/:id/cooking?period=YYYY-MM-01&shift=1|2: время приготовления по филиалу сотрудника за месяц
 // (справка к пункту «Время и скорость приготовления заказа»). iiko меряет ожидание гостя по заказу целиком, не по блюду:
 // у блюда avg_wait_sec — среднее ожидание заказов, в которых оно было (по штукам), over_pct — доля штук из заказов дольше норматива.
-// Зальные позиции (напитки, закуски) не входят. shift — «1»/«2» по кассовым сменам iiko; null — весь день.
+// Зальные позиции (напитки, закуски) не входят, если у филиала есть отдельная кухня; без неё в iiko всё идёт через «зал»,
+// и тогда блюда считаются по залу. shift — «1»/«2» по кассовым сменам iiko; null — весь день.
 // shifts=false: за месяц нет кассовых смен филиала, переключатель смены не нужен.
-export interface EvCookingDay { day: string; orders: number; on_time: number; avg_wait_sec: number }
+// median_wait_sec — «обычно ждут»: среднее тянут вверх единичные заказы на несколько часов.
+export interface EvCookingDay { day: string; orders: number; on_time: number; avg_wait_sec: number; median_wait_sec: number }
 export interface EvCookingDish { name: string; qty: number; avg_wait_sec: number; over_pct: number }
+/** Замеры похожи на ошибку: no_kitchen — у филиала в iiko только «зальное» место приготовления; too_slow — обычное ожидание больше двух нормативов. */
+export type EvCookingIssue = "no_kitchen" | "too_slow";
 export interface EvCooking {
   employee: { id: string; first_name: string; last_name: string; terminal_name: string | null };
   period: string;
   shift: "1" | "2" | null;
   shifts: boolean;
   norms: { hall_min: number; delivery_min: number };
-  summary: { orders: number; on_time: number; avg_wait_sec: number } | null;
+  summary: { orders: number; on_time: number; avg_wait_sec: number; median_wait_sec: number } | null;
   days: EvCookingDay[];
   dishes: EvCookingDish[];
   min_qty: number;
+  /** Пороги показателя «Заказы в норматив» балла филиала, в процентах; null — показатель выключен. */
+  scale: { floor: number; target: number } | null;
+  data_issue: EvCookingIssue | null;
 }
