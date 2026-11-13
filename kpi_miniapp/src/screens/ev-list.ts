@@ -16,7 +16,8 @@ function select(label: string, options: { id: string | null; label: string }[], 
   return sel;
 }
 
-export function renderEvList(d: EvEmployees, nowMs: number): HTMLElement {
+/** withPrev — список открыт без месяца в адресе (меню, «Мои сотрудники»): с него можно перейти на прошлый месяц. */
+export function renderEvList(d: EvEmployees, nowMs: number, withPrev = false): HTMLElement {
   // Сохранённый выбор мог устареть: филиал или карту убрали из назначений.
   if (filter.terminal_id && !d.terminals.some((x) => x.id === filter.terminal_id)) filter = { ...filter, terminal_id: null };
   if (filter.card_id && !d.cards.some((x) => x.id === filter.card_id)) filter = { ...filter, card_id: null };
@@ -59,6 +60,7 @@ export function renderEvList(d: EvEmployees, nowMs: number): HTMLElement {
     { class: "screen" },
     h("h1", { class: "title" }, first.title),
     h("p", { class: "ev-info" }, first.info),
+    withPrev ? h("section", { class: "card rows" }, linkRow(first.prev.text, null, first.prev.hash)) : null,
     h(
       "section",
       { class: "card ev-filters" },
