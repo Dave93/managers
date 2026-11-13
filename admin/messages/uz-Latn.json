@@ -2953,7 +2953,7 @@
         "removed": "Tayinlash olib tashlandi",
         "hint": "Tayinlash faqat foydalanuvchi roli kpi.evaluate ruxsatiga ega bo'lgandagina ishlaydi. Ruxsat «Rollar» bo'limida beriladi",
         "autoTitle": "Filial menejerlari avtomatik baholaydi: {count} (Telegram ulangan: {bound})",
-        "autoHint": "Telegrami ulangan menejer oʻz filialidagi xodimlarni barcha kartalar boʻyicha baholaydi va dam olish kunlarini beradi, oʻzidan tashqari. Foydalanuvchi akkaunti va tayinlash shart emas; stajyor menejerlar kirmaydi. Faqat koʻrish uchun.",
+        "autoHint": "Telegrami ulangan menejer oʻz filialidagi xodimlarni «Farrosh» kartasi boʻyicha baholaydi va filialning istalgan xodimiga dam olish kunini beradi, oʻzidan tashqari. Boshqa kartalarni akkauntli baholovchilar baholaydi. Foydalanuvchi akkaunti va tayinlash shart emas; stajyor menejerlar kirmaydi. Faqat koʻrish uchun.",
         "autoColTerminal": "Filial",
         "autoBound": "Ulangan",
         "autoNotBound": "Ulanmagan",
