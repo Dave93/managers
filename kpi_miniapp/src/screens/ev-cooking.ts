@@ -66,7 +66,17 @@ export function renderEvCooking(d: EvCooking): HTMLElement {
       : h(
           "div",
           { class: "evc-stack evc-panel" },
-          h("section", { class: "card" }, h("dl", { class: "evc-sum" }, ...vm.figures.map((f) => h("div", { class: "evc-sum-item" }, h("dd", { class: "evc-sum-val evc-sum-money" }, f.value), h("dt", { class: "evc-sum-label" }, f.label)))), h("p", { class: "evc-none-line" }, vm.norms)),
+          h(
+            "section",
+            { class: "card" },
+            h("dl", { class: "evc-sum" }, ...vm.figures.map((f) => h("div", { class: "evc-sum-item" }, h("dd", { class: `evc-sum-val evc-sum-money${f.bad ? " evc-tone-bad" : ""}` }, f.value), h("dt", { class: "evc-sum-label" }, f.label)))),
+            h("p", { class: "evc-none-line" }, vm.explain),
+            vm.scale ? h("p", { class: "evc-none-line" }, vm.scale) : null,
+          ),
+          vm.issue ? h("p", { class: "card ev-banner", role: "status" }, vm.issue) : null,
+          // Блюда выше дней: по ним видно, что именно готовят долго; дней в месяце до тридцати строк.
+          vm.dishes.length > 0 ? dishesCard(vm.dishes) : null,
+          vm.dishesEmpty ? h("p", { class: "card hist-empty", role: "status" }, vm.dishesEmpty) : null,
           h(
             "section",
             { class: "card rows" },
@@ -78,13 +88,16 @@ export function renderEvCooking(d: EvCooking): HTMLElement {
                 h(
                   "div",
                   { class: "row is-static" },
-                  h("span", { class: "row-body" }, h("span", { class: "row-text" }, x.label, h("span", { class: "evc-times" }, x.orders), bar(x.bar)), h("span", { class: "row-end evc-week-end evc-cook-end" }, h("span", { class: "evc-week-avg" }, x.avg), h("span", { class: "evc-week-delta" }, x.onTime))),
+                  h(
+                    "span",
+                    { class: "row-body" },
+                    h("span", { class: "row-text" }, x.label, h("span", { class: "evc-times" }, x.count), bar(x.bar)),
+                    h("span", { class: "row-end evc-week-end evc-cook-end" }, h("span", { class: "evc-week-avg" }, x.median), h("span", { class: `evc-week-delta${x.bad ? " evc-tone-bad" : ""}` }, x.onTime)),
+                  ),
                 ),
               ),
             ),
           ),
-          vm.dishes.length > 0 ? dishesCard(vm.dishes) : null,
-          vm.dishesEmpty ? h("p", { class: "card hist-empty", role: "status" }, vm.dishesEmpty) : null,
           h("p", { class: "ev-info" }, vm.note),
         ),
   );

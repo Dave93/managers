@@ -15,6 +15,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const { setTestBotApi } = await import("../tg/bot-api");
   const { cash_shifts, productCookingTime } = await import("backend/drizzle/schema");
   const { inArray } = await import("drizzle-orm");
+  const { loadIndicators } = await import("../branch-settings");
 
   describe("kpi: оценщик в мини-приложении, время приготовления", () => {
     let db: Awaited<ReturnType<typeof setup>>["db"];
@@ -77,13 +78,40 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const r = await cooking(token, e.id, "?period=2025-10-01");
       expect(r.status).toBe(200);
       expect(r.body).toMatchObject({ period: "2025-10-01", shift: null, shifts: false, norms: { hall_min: 8, delivery_min: 12 }, min_qty: 5, employee: { id: e.id, terminal_name: t.name } });
-      expect(r.body.summary).toEqual({ orders: 3, on_time: 2, avg_wait_sec: 567 });
+      // Медиана месяца — по всем трём заказам (400, 600, 700), а не из медиан дней
+      expect(r.body.summary).toEqual({ orders: 3, on_time: 2, avg_wait_sec: 567, median_wait_sec: 600 });
       expect(r.body.days).toEqual([
-        { day: "2025-10-10", orders: 2, on_time: 1, avg_wait_sec: 500 },
-        { day: "2025-10-11", orders: 1, on_time: 1, avg_wait_sec: 700 },
+        { day: "2025-10-10", orders: 2, on_time: 1, avg_wait_sec: 500, median_wait_sec: 500 },
+        { day: "2025-10-11", orders: 1, on_time: 1, avg_wait_sec: 700, median_wait_sec: 700 },
       ]);
       // Пицца: (400·4 + 600·3 + 700·2) / 9 = 533, дольше норматива 3 из 9; Паста (2 шт.) и Лимонад (зал) не показаны
       expect(r.body.dishes).toEqual([{ name: "Пицца", qty: 9, avg_wait_sec: 533, over_pct: 33.3 }]);
+      expect(r.body.data_issue).toBeNull();
+      // Пороги показателя «Заказы в норматив» — из настроек балла филиала
+      const service = (await loadIndicators(db)).find((i) => i.code === "service" && i.active);
+      expect(r.body.scale).toEqual(service ? { floor: service.floor, target: service.target } : null);
+    });
+
+    it("филиал без отдельной кухни в iiko: блюда считаются по залу, данные помечены no_kitchen", async () => {
+      const { t, e, token } = await branch();
+      const g = t.iiko_id as string;
+      await order(g, "2025-10-10", "09:00:00", 400, [{ dish: "Пицца", qty: 3, place: "21027 Chopar 40 Зал" }]);
+      await order(g, "2025-10-11", "10:00:00", 450, [{ dish: "Пицца", qty: 2, place: "21027 Chopar 40 Зал" }]);
+      const r = await cooking(token, e.id, "?period=2025-10-01");
+      // (400·3 + 450·2) / 5 = 420, оба заказа в норматив зала 8 мин
+      expect(r.body.dishes).toEqual([{ name: "Пицца", qty: 5, avg_wait_sec: 420, over_pct: 0 }]);
+      expect(r.body.data_issue).toBe("no_kitchen");
+    });
+
+    it("обычное ожидание больше двух нормативов: данные помечены too_slow", async () => {
+      const { t, e, token } = await branch();
+      const g = t.iiko_id as string;
+      await order(g, "2025-10-10", "09:00:00", 3000, [{ dish: "Пицца", qty: 1 }]); // зал: 50 мин при нормативе 8
+      await order(g, "2025-10-10", "12:00:00", 3600, [{ dish: "Пицца", qty: 1 }]);
+      await order(g, "2025-10-11", "12:00:00", 300, [{ dish: "Пицца", qty: 1 }]);
+      const r = await cooking(token, e.id, "?period=2025-10-01");
+      expect(r.body.summary).toMatchObject({ orders: 3, on_time: 1, median_wait_sec: 3000 });
+      expect(r.body.data_issue).toBe("too_slow");
     });
 
     it("смена: 1-я и 2-я по кассовым сменам iiko, без смен переключатель выключен", async () => {
@@ -98,9 +126,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(all.body).toMatchObject({ shifts: true, shift: null });
       expect(all.body.summary.orders).toBe(2);
       const one = await cooking(token, e.id, "?period=2025-10-01&shift=1");
-      expect(one.body).toMatchObject({ shift: "1", shifts: true, summary: { orders: 1, on_time: 1, avg_wait_sec: 400 }, dishes: [{ name: "Пицца", qty: 6, avg_wait_sec: 400, over_pct: 0 }] });
+      expect(one.body).toMatchObject({ shift: "1", shifts: true, summary: { orders: 1, on_time: 1, avg_wait_sec: 400, median_wait_sec: 400 }, dishes: [{ name: "Пицца", qty: 6, avg_wait_sec: 400, over_pct: 0 }] });
       const two = await cooking(token, e.id, "?period=2025-10-01&shift=2");
-      expect(two.body).toMatchObject({ shift: "2", summary: { orders: 1, on_time: 0, avg_wait_sec: 800 }, dishes: [{ name: "Пицца", qty: 7, avg_wait_sec: 800, over_pct: 100 }] });
+      expect(two.body).toMatchObject({ shift: "2", summary: { orders: 1, on_time: 0, avg_wait_sec: 800, median_wait_sec: 800 }, dishes: [{ name: "Пицца", qty: 7, avg_wait_sec: 800, over_pct: 100 }] });
     });
 
     it("филиал без связи с iiko и месяц без заказов: пустой ответ, не ошибка", async () => {
@@ -110,9 +138,9 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const e = await makeEmployee(db, { role_code: "cook", terminal_id: t.id });
       const r = await cooking(await evSession(db, ev.id), e.id, "?period=2025-10-01");
       expect(r.status).toBe(200);
-      expect(r.body).toMatchObject({ summary: null, days: [], dishes: [], shifts: false });
+      expect(r.body).toMatchObject({ summary: null, days: [], dishes: [], shifts: false, data_issue: null });
       const b = await branch();
-      expect((await cooking(b.token, b.e.id, "?period=2025-10-01")).body).toMatchObject({ summary: null, days: [], dishes: [] });
+      expect((await cooking(b.token, b.e.id, "?period=2025-10-01")).body).toMatchObject({ summary: null, days: [], dishes: [], data_issue: null });
     });
 
     it("чужой, несуществующий и не uuid — 404; мусорные месяц и смена — 422; без токена 401; сотрудник — 403", async () => {

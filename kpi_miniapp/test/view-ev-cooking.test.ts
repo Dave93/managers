@@ -10,16 +10,18 @@ const data = (o: Partial<EvCooking> = {}): EvCooking => ({
   shift: null,
   shifts: true,
   norms: { hall_min: 8, delivery_min: 12 },
-  summary: { orders: 4, on_time: 3, avg_wait_sec: 560 },
+  summary: { orders: 4, on_time: 3, avg_wait_sec: 560, median_wait_sec: 540 },
   days: [
-    { day: "2026-10-10", orders: 3, on_time: 2, avg_wait_sec: 500 },
-    { day: "2026-10-11", orders: 1, on_time: 1, avg_wait_sec: 700 },
+    { day: "2026-10-10", orders: 3, on_time: 2, avg_wait_sec: 500, median_wait_sec: 480 },
+    { day: "2026-10-11", orders: 1, on_time: 1, avg_wait_sec: 700, median_wait_sec: 700 },
   ],
   dishes: [
     { name: "Пицца", qty: 9, avg_wait_sec: 533, over_pct: 55.6 },
     { name: "Паста", qty: 6, avg_wait_sec: 400, over_pct: 0 },
   ],
   min_qty: 5,
+  scale: { floor: 80, target: 92 },
+  data_issue: null,
   ...o,
 });
 
@@ -30,24 +32,49 @@ it("ожидание: минуты и секунды на двух языках,
   expect(waitText(30, "ru")).toBe("0 мин 30 с");
 });
 
-it("шапка, три числа, норматив, дни и блюда", () => {
+it("итог: доля в норматив, «3 из 4», обычное ожидание (медиана); пояснение и пороги балла; доля ниже порога выделена", () => {
   const vm = evCookingView(data(), "ru");
   expect(vm.title).toBe("Абдурахманов Шамсиддин");
   expect(vm.sub).toBe("Chopar pizza 40 · Октябрь 2026");
   expect(vm.figures).toEqual([
-    { label: "Заказов", value: "4" },
-    { label: "Среднее ожидание", value: "9 мин 20 с" },
-    { label: "В норматив", value: `75,0${NBSP}%` },
+    { label: "В норматив", value: `75,0${NBSP}%`, bad: true },
+    { label: "Заказов в норматив", value: "3 из 4", bad: false },
+    { label: "Обычно ждут", value: "9 мин", bad: false },
   ]);
-  expect(vm.norms).toBe("Норматив: зал 8 мин, доставка 12 мин");
-  expect(vm.days.map((d) => [d.label, d.avg, d.onTime, d.bar])).toEqual([
-    ["10 октября", "8 мин 20 с", `66,7${NBSP}%`, 67],
-    ["11 октября", "11 мин 40 с", `100,0${NBSP}%`, 100],
-  ]);
-  expect(vm.dishes[0]).toEqual({ name: "Пицца", qty: "9 шт.", avg: "8 мин 53 с", over: "дольше нормы: 55,6 %", slow: "чаще дольше нормы" });
-  expect(vm.dishes[1]?.slow).toBeNull();
+  expect(vm.explain).toBe("Ожидание — время от открытия заказа до его готовности по данным iiko. Норматив: в зале до 8 мин, доставка до 12 мин.");
+  expect(vm.scale).toBe("Подсказка балла: от 80 % заказов в норматив филиал получает баллы, от 92 % — полный балл, ниже 80 % — 0.");
+  expect(vm.issue).toBeNull();
   expect(vm.empty).toBeNull();
   expect(vm.note).toContain("реже 5 раз");
+});
+
+it("дни: «2 из 3 в норматив», обычное ожидание дня, доля и полоска; ниже порога — выделено", () => {
+  expect(evCookingView(data(), "ru").days.map((d) => [d.label, d.count, d.median, d.onTime, d.bar, d.bad])).toEqual([
+    ["10 октября", "2 из 3 в норматив", "обычно 8 мин", `66,7${NBSP}%`, 67, true],
+    ["11 октября", "1 из 1 в норматив", "обычно 11 мин 40 с", `100,0${NBSP}%`, 100, false],
+  ]);
+});
+
+it("блюда: штуки, среднее ожидание заказов с блюдом, доля дольше нормы, пометка привычной долгой готовки", () => {
+  const vm = evCookingView(data(), "ru");
+  expect(vm.dishes[0]).toEqual({ name: "Пицца", qty: "9 шт.", avg: "8 мин 53 с", over: "дольше нормы: 55,6 %", slow: "чаще дольше нормы" });
+  expect(vm.dishes[1]?.slow).toBeNull();
+});
+
+it("порог: доля чуть ниже не округляется до самого порога; без показателя балла нет порогов и выделения", () => {
+  const near = evCookingView(data({ summary: { orders: 2499, on_time: 1998, avg_wait_sec: 600, median_wait_sec: 600 } }), "ru");
+  expect(near.figures[0]).toEqual({ label: "В норматив", value: `79,9${NBSP}%`, bad: true });
+  const off = evCookingView(data({ scale: null }), "ru");
+  expect(off.scale).toBeNull();
+  expect(off.figures[0]?.bad).toBe(false);
+  expect(off.days.every((d) => !d.bad)).toBe(true);
+});
+
+it("предупреждение о данных: нет кухни в iiko и слишком долгие замеры; без итога не показывается", () => {
+  expect(evCookingView(data({ data_issue: "no_kitchen" }), "ru").issue).toContain("нет отдельной кухни");
+  expect(evCookingView(data({ data_issue: "too_slow" }), "ru").issue).toContain("дольше двух нормативов");
+  expect(evCookingView(data({ data_issue: "too_slow" }), "uz").issue).toContain("ikki normadan uzoq");
+  expect(evCookingView(data({ data_issue: "no_kitchen", summary: null, days: [], dishes: [] }), "ru").issue).toBeNull();
 });
 
 it("переключатель смены: три ссылки на тот же экран, выбранная отмечена; без кассовых смен его нет", () => {
@@ -69,9 +96,11 @@ it("нет замеров: пустое состояние, у смены сво
   expect(evCookingView(data({ dishes: [] }), "ru").dishesEmpty).toBe("Блюд с достаточным числом заказов нет.");
 });
 
-it("узбекский: подписи и день с дефисом", () => {
+it("узбекский: подписи, «… tadan … tasi», день с дефисом", () => {
   const vm = evCookingView(data(), "uz");
-  expect(vm.figures[0]?.label).toBe("Buyurtmalar");
+  expect(vm.figures[0]?.label).toBe("Normada");
+  expect(vm.figures[1]?.value).toBe("4 tadan 3");
   expect(vm.days[0]?.label).toBe("10-oktabr");
+  expect(vm.days[0]?.count).toBe("3 tadan 2 tasi normada");
   expect(vm.dishes[0]?.qty).toBe("9 dona");
 });

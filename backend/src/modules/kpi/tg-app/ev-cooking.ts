@@ -2,24 +2,28 @@
 // Итог считается как факт филиала для балла (serviceByGroups): заказ целиком, ожидание — максимум по его строкам,
 // норматив зависит от типа заказа. По блюдам и по дням те же заказы. Видимость сотрудника — как у карточки:
 // чужой и несуществующий неотличимы (404 not_found).
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import type { Actor, DbLike } from "../access";
 import { loadScopes, parsePeriod } from "../access";
-import { loadBranchSettings } from "../branch-settings";
+import { loadBranchSettings, loadIndicators } from "../branch-settings";
 import { terminalLinks } from "../branch-facts";
 import { canSeeEmployee, loadDirectory } from "../directory";
 import { UUID_RE } from "../employees";
 import { KpiError } from "../errors";
 import { addMonths, type Period } from "../time";
-import type { EvCooking, EvCookingDay, EvCookingDish } from "./ev-types";
+import type { EvCooking, EvCookingDay, EvCookingDish, EvCookingIssue } from "./ev-types";
 
 // Блюда, проданные реже, в список не идут: среднее по двум-трём заказам ничего не говорит.
 export const COOKING_MIN_QTY = 5;
 const MAX_WAIT_SEC = 14400;
+// Обычное ожидание больше двух нормативов — замеры похожи на ошибку (заказ закрывают позже готовности), а не на медленную кухню.
+export const SUSPECT_NORM_RATIO = 2;
 // Зальное место приготовления: iiko не меряет готовку отдельного блюда, поэтому напитки и закуски зала не считаем (как на дашборде).
-const NOT_HALL = sql`p.cooking_place !~ '(Зал|зал|[Zz]al)[[:space:]]*$'`;
+// Если у филиала за месяц нет ни одного другого места (кухни нет в iiko), считаем и зал: иначе у блюд было бы пусто.
+const HALL_RE = "(Зал|зал|[Zz]al)[[:space:]]*$";
 
-type DayRow = { day: string; orders: number; on_time: number; avg_wait: number };
+// Строка итога (GROUPING SETS ()) приходит с day = null.
+type DayRow = { day: string | null; orders: number; on_time: number; avg_wait: number; median_wait: number; median_ratio: number | null };
 type DishRow = { name: string; qty: number; avg_wait: number; over: number };
 
 export function shiftOf(v: unknown): "1" | "2" | null {
@@ -28,25 +32,32 @@ export function shiftOf(v: unknown): "1" | "2" | null {
   throw new KpiError(422, "bad_shift");
 }
 
-/** Чистая сборка ответа из строк запросов: итог — сумма дней, среднее взвешено заказами. */
-export function shapeCooking(days: DayRow[], dishes: DishRow[]): Pick<EvCooking, "summary" | "days" | "dishes"> {
-  const outDays: EvCookingDay[] = days.map((d) => ({ day: d.day, orders: Number(d.orders), on_time: Number(d.on_time), avg_wait_sec: Number(d.avg_wait) }));
-  const orders = outDays.reduce((n, d) => n + d.orders, 0);
-  const summary =
-    orders === 0
-      ? null
-      : {
-          orders,
-          on_time: outDays.reduce((n, d) => n + d.on_time, 0),
-          avg_wait_sec: Math.round(outDays.reduce((n, d) => n + d.avg_wait_sec * d.orders, 0) / orders),
-        };
+/**
+ * Чистая сборка ответа из строк запросов. Итог — строка без дня (по всем заказам сразу: медиану месяца из дней не сложить).
+ * noKitchen — у филиала нет отдельной кухни в iiko; иначе подозрительно, если обычное ожидание больше двух нормативов.
+ */
+export function shapeCooking(
+  rows: DayRow[],
+  dishes: DishRow[],
+  noKitchen = false
+): Pick<EvCooking, "summary" | "days" | "dishes" | "data_issue"> {
+  const outDays: EvCookingDay[] = rows
+    .filter((d) => d.day !== null)
+    .map((d) => ({ day: d.day as string, orders: Number(d.orders), on_time: Number(d.on_time), avg_wait_sec: Number(d.avg_wait), median_wait_sec: Number(d.median_wait) }));
+  const total = rows.find((d) => d.day === null && Number(d.orders) > 0);
+  const summary = total
+    ? { orders: Number(total.orders), on_time: Number(total.on_time), avg_wait_sec: Number(total.avg_wait), median_wait_sec: Number(total.median_wait) }
+    : null;
   const outDishes: EvCookingDish[] = dishes
     .map((d) => {
       const qty = Number(d.qty);
       return { name: d.name, qty, avg_wait_sec: Number(d.avg_wait), over_pct: qty > 0 ? Math.round((1000 * Number(d.over)) / qty) / 10 : 0 };
     })
     .sort((a, b) => b.avg_wait_sec - a.avg_wait_sec || b.qty - a.qty || a.name.localeCompare(b.name, "ru"));
-  return { summary, days: outDays, dishes: outDishes };
+  let issue: EvCookingIssue | null = null;
+  if (total && noKitchen) issue = "no_kitchen";
+  else if (total && total.median_ratio !== null && Number(total.median_ratio) > SUSPECT_NORM_RATIO) issue = "too_slow";
+  return { summary, days: outDays, dishes: outDishes, data_issue: issue };
 }
 
 export async function evCooking(db: DbLike, actor: Actor, employeeId: string, periodRaw: unknown, shiftRaw: unknown): Promise<EvCooking> {
@@ -60,10 +71,18 @@ export async function evCooking(db: DbLike, actor: Actor, employeeId: string, pe
 
   const settings = await loadBranchSettings(db);
   const norms = { hall_min: settings.service_norm_hall_min, delivery_min: settings.service_norm_delivery_min };
-  const base = { employee: { id: dir.id, first_name: dir.first_name, last_name: dir.last_name, terminal_name: dir.terminal_name }, period, shift, norms, min_qty: COOKING_MIN_QTY };
+  const service = (await loadIndicators(db)).find((i) => i.code === "service" && i.active);
+  const base = {
+    employee: { id: dir.id, first_name: dir.first_name, last_name: dir.last_name, terminal_name: dir.terminal_name },
+    period,
+    shift,
+    norms,
+    min_qty: COOKING_MIN_QTY,
+    scale: service ? { floor: service.floor, target: service.target } : null,
+  };
 
   const groups = (await terminalLinks(db, [dir.terminal_id])).get(dir.terminal_id.toLowerCase())?.iiko ?? [];
-  if (groups.length === 0) return { ...base, shifts: false, summary: null, days: [], dishes: [] };
+  if (groups.length === 0) return { ...base, shifts: false, summary: null, days: [], dishes: [], data_issue: null };
 
   const from = `${period} 00:00:00`;
   const to = `${addMonths(period, 1)} 00:00:00`;
@@ -85,14 +104,32 @@ export async function evCooking(db: DbLike, actor: Actor, employeeId: string, pe
     await db.execute(sql`SELECT EXISTS (SELECT 1 FROM cash_shifts cs WHERE cs.business_date >= ${period}::date AND cs.business_date < (${to}::timestamp)::date AND lower(cs.iiko_group_id::text) IN (${list})) AS e`)
   ).rows as { e: boolean }[];
   const hasShifts = Boolean(exists?.e);
-  const inShift = (col: ReturnType<typeof sql>): ReturnType<typeof sql> =>
-    shift && hasShifts ? sql`AND EXISTS (SELECT 1 FROM shifts s WHERE s.grp = lower(p.restoraunt_group) AND s.ord = ${Number(shift)} AND ${col} >= s.o AND ${col} < s.c)` : sql``;
-  const withShifts = shift && hasShifts ? sql`WITH ${shiftsCte}` : sql``;
+  const byShift = Boolean(shift && hasShifts);
+  const inShift = (grp: SQL, col: SQL): SQL =>
+    byShift ? sql`AND EXISTS (SELECT 1 FROM shifts s WHERE s.grp = ${grp} AND s.ord = ${Number(shift)} AND ${col} >= s.o AND ${col} < s.c)` : sql``;
+  const withCtes = (...ctes: SQL[]): SQL => {
+    const all = byShift ? [shiftsCte, ...ctes] : ctes;
+    return all.length ? sql`WITH ${sql.join(all, sql`, `)}` : sql``;
+  };
 
-  const daysRes = await db.execute(sql`
-    ${withShifts}
-    SELECT d.day, COUNT(*)::int AS orders, COUNT(*) FILTER (WHERE d.wait_sec <= d.norm_sec)::int AS on_time, ROUND(AVG(d.wait_sec))::int AS avg_wait
-    FROM (
+  // Группы iiko филиала с отдельной кухней за месяц (по всему месяцу, не по смене): у них зал в блюда не идёт.
+  const placesRes = await db.execute(sql`
+    SELECT lower(p.restoraunt_group) AS grp, COALESCE(bool_or(p.cooking_place !~ ${HALL_RE}), false) AS kitchen
+    FROM product_cooking_time p
+    WHERE lower(p.restoraunt_group) IN (${list})
+      AND p.open_date_typed >= ${from}::timestamp AND p.open_date_typed < ${to}::timestamp
+    GROUP BY 1`);
+  const places = placesRes.rows as { grp: string; kitchen: boolean }[];
+  const withKitchen = places.filter((r) => r.kitchen).map((r) => r.grp);
+  const noKitchen = places.length > 0 && withKitchen.length === 0;
+  const notHall =
+    withKitchen.length === 0
+      ? sql``
+      : withKitchen.length === places.length
+        ? sql`AND p.cooking_place !~ ${HALL_RE}`
+        : sql`AND (lower(p.restoraunt_group) NOT IN (${sql.join(withKitchen.map((g) => sql`${g}`), sql`, `)}) OR p.cooking_place !~ ${HALL_RE})`;
+
+  const ordersCte = sql`d AS (
       SELECT w.open_date_typed::date::text AS day, w.wait_sec, ${normSec} AS norm_sec
       FROM (
         SELECT p.uniq_order_id, p.open_date_typed, lower(p.restoraunt_group) AS grp, MIN(p.open_time) AS open_time, MAX(p.guest_wait_time_avg) AS wait_sec
@@ -104,12 +141,20 @@ export async function evCooking(db: DbLike, actor: Actor, employeeId: string, pe
       ) w
       JOIN orders o ON o.id = w.uniq_order_id AND o.open_date_typed = w.open_date_typed
       WHERE o.open_date_typed >= ${from}::timestamp AND o.open_date_typed < ${to}::timestamp
-        ${shift && hasShifts ? sql`AND EXISTS (SELECT 1 FROM shifts s WHERE s.grp = w.grp AND s.ord = ${Number(shift)} AND w.open_time >= s.o AND w.open_time < s.c)` : sql``}
-    ) d
-    GROUP BY d.day ORDER BY d.day`);
+        ${inShift(sql`w.grp`, sql`w.open_time`)})`;
+  // Дни и итог одним запросом: GROUPING SETS даёт строку итога с day = null.
+  const daysRes = await db.execute(sql`
+    ${withCtes(ordersCte)}
+    SELECT d.day, COUNT(*)::int AS orders, COUNT(*) FILTER (WHERE d.wait_sec <= d.norm_sec)::int AS on_time,
+           ROUND(AVG(d.wait_sec))::int AS avg_wait,
+           ROUND(percentile_cont(0.5) WITHIN GROUP (ORDER BY d.wait_sec))::int AS median_wait,
+           percentile_cont(0.5) WITHIN GROUP (ORDER BY d.wait_sec::float8 / d.norm_sec) AS median_ratio
+    FROM d
+    GROUP BY GROUPING SETS ((d.day), ())
+    ORDER BY d.day NULLS LAST`);
 
   const dishesRes = await db.execute(sql`
-    ${withShifts}
+    ${withCtes()}
     SELECT p.dish_name AS name, SUM(p.dish_amount_int)::int AS qty,
            ROUND(SUM(p.guest_wait_time_avg::numeric * p.dish_amount_int) / NULLIF(SUM(p.dish_amount_int), 0))::int AS avg_wait,
            COALESCE(SUM(p.dish_amount_int) FILTER (WHERE p.guest_wait_time_avg > ${normSec}), 0)::int AS over
@@ -120,10 +165,15 @@ export async function evCooking(db: DbLike, actor: Actor, employeeId: string, pe
       AND o.open_date_typed >= ${from}::timestamp AND o.open_date_typed < ${to}::timestamp
       AND p.guest_wait_time_avg > 0 AND p.guest_wait_time_avg <= ${MAX_WAIT_SEC}
       AND p.cooking_finish_time IS NOT NULL AND p.dish_amount_int > 0
-      AND ${NOT_HALL}
-      ${inShift(sql`p.open_time`)}
+      ${notHall}
+      ${inShift(sql`lower(p.restoraunt_group)`, sql`p.open_time`)}
     GROUP BY p.dish_name
     HAVING SUM(p.dish_amount_int) >= ${COOKING_MIN_QTY}`);
 
-  return { ...base, shift: hasShifts ? shift : null, shifts: hasShifts, ...shapeCooking(daysRes.rows as DayRow[], dishesRes.rows as DishRow[]) };
+  return {
+    ...base,
+    shift: hasShifts ? shift : null,
+    shifts: hasShifts,
+    ...shapeCooking(daysRes.rows as DayRow[], dishesRes.rows as DishRow[], noKitchen),
+  };
 }
