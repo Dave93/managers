@@ -15,7 +15,7 @@ export const COOKING_DISH_LIMIT = 10;
 const SLOW_OVER_PCT = 50;
 
 export interface CookingShiftVM { value: "all" | "1" | "2"; label: string; hash: string; selected: boolean }
-/** bad — доля в норматив ниже порога, с которого филиал получает баллы. */
+/** bad — доля в норматив на пороге показателя или ниже: за неё филиал баллов не получает. */
 export interface CookingDayVM { label: string; count: string; median: string; onTime: string; bar: number; bad: boolean }
 export interface CookingDishVM { name: string; qty: string; avg: string; over: string; slow: string | null }
 export interface EvCookingVM {
@@ -54,8 +54,9 @@ export function evCookingView(d: EvCooking, l: Lang): EvCookingVM {
     const label: Key = value === "all" ? "ev_cook_shift_all" : value === "1" ? "ev_cook_shift_1" : "ev_cook_shift_2";
     return { value, label: tIn(l, label), hash: hashOf({ name: "ev_cooking", employee_id: d.employee.id, period: d.period, shift }), selected: (d.shift ?? "all") === value };
   };
-  // Ниже порога показателя филиал не получает баллов: такие доли выделяются. Без порога (показатель выключен) не выделяем.
-  const isBad = (pct: number): boolean => d.scale !== null && pct < d.scale.floor;
+  // На пороге показателя и ниже филиал не получает баллов (indicatorPoints: f <= floor → 0): такие доли выделяются.
+  // Без порога (показатель выключен) не выделяем.
+  const isBad = (pct: number): boolean => d.scale !== null && pct <= d.scale.floor;
   // Доля чуть ниже порога не округляется до самого порога: 79,96 — «79,9 %», а не «80,0 %» рядом с красной подсветкой.
   const guard = d.scale ? [d.scale.floor, d.scale.target] : [];
   const percent = (n: number): string => `${pct1(n, guard)}${NBSP}%`;

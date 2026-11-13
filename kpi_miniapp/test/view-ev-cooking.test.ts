@@ -42,7 +42,7 @@ it("итог: доля в норматив, «3 из 4», обычное ожи�
     { label: "Обычно ждут", value: "9 мин", bad: false },
   ]);
   expect(vm.explain).toBe("Ожидание — время от открытия заказа до его готовности по данным iiko. Норматив: в зале до 8 мин, доставка до 12 мин.");
-  expect(vm.scale).toBe("Подсказка балла: от 80 % заказов в норматив филиал получает баллы, от 92 % — полный балл, ниже 80 % — 0.");
+  expect(vm.scale).toBe("Подсказка балла: если в норматив больше 80 % заказов, филиал получает баллы; от 92 % — полный балл; 80 % и меньше — 0.");
   expect(vm.issue).toBeNull();
   expect(vm.empty).toBeNull();
   expect(vm.note).toContain("реже 5 раз");
@@ -61,7 +61,11 @@ it("блюда: штуки, среднее ожидание заказов с б
   expect(vm.dishes[1]?.slow).toBeNull();
 });
 
-it("порог: доля чуть ниже не округляется до самого порога; без показателя балла нет порогов и выделения", () => {
+it("порог: ровно на пороге баллов нет (выделено); чуть ниже не округляется до порога; без показателя балла нет порогов и выделения", () => {
+  const at = evCookingView(data({ days: [{ day: "2026-10-12", orders: 5, on_time: 4, avg_wait_sec: 400, median_wait_sec: 400 }] }), "ru");
+  expect(at.days[0]).toMatchObject({ onTime: `80,0${NBSP}%`, bad: true });
+  const above = evCookingView(data({ days: [{ day: "2026-10-12", orders: 6, on_time: 5, avg_wait_sec: 400, median_wait_sec: 400 }] }), "ru");
+  expect(above.days[0]?.bad).toBe(false);
   const near = evCookingView(data({ summary: { orders: 2499, on_time: 1998, avg_wait_sec: 600, median_wait_sec: 600 } }), "ru");
   expect(near.figures[0]).toEqual({ label: "В норматив", value: `79,9${NBSP}%`, bad: true });
   const off = evCookingView(data({ scale: null }), "ru");
@@ -99,7 +103,7 @@ it("нет замеров: пустое состояние, у смены сво
 it("узбекский: подписи, «… tadan … tasi», день с дефисом", () => {
   const vm = evCookingView(data(), "uz");
   expect(vm.figures[0]?.label).toBe("Normada");
-  expect(vm.figures[1]?.value).toBe("4 tadan 3");
+  expect(vm.figures[1]?.value).toBe("4 tadan 3 tasi");
   expect(vm.days[0]?.label).toBe("10-oktabr");
   expect(vm.days[0]?.count).toBe("3 tadan 2 tasi normada");
   expect(vm.dishes[0]?.qty).toBe("9 dona");
