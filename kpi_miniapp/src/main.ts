@@ -114,7 +114,7 @@ function screenOf(r: Route): Screen {
         path: r.period ? `/ev/employees?period=${r.period}` : "/ev/employees",
         kind: "list",
         noCache: true,
-        render: (d) => renderEvList(d as EvEmployees, Date.now()),
+        render: (d) => renderEvList(d as EvEmployees, Date.now(), r.period === null),
         title: t("ev_home_staff"),
       };
     case "ev_review":

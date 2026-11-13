@@ -57,3 +57,9 @@ it("info: срок оценок, начало отправки, закрытый
   expect(evListView(D, ALL, "ru", NOW).title).toBe("Мои сотрудники · октябрь");
   expect(evListView(D, ALL, "uz", NOW).title).toContain("oktabr");
 });
+it("prev: ссылка на прошлый месяц, в январе — на декабрь прошлого года, на двух языках", () => {
+  expect(evListView(D, ALL, "ru", NOW).prev).toEqual({ text: "Оценки за прошлый месяц: сентябрь", hash: "#/ev/2026-09" });
+  expect(evListView({ ...D, period: "2026-11-01" }, ALL, "ru", NOW).prev).toEqual({ text: "Оценки за прошлый месяц: октябрь", hash: "#/ev/2026-10" });
+  expect(evListView({ ...D, period: "2027-01-01" }, ALL, "ru", NOW).prev.hash).toBe("#/ev/2026-12");
+  expect(evListView({ ...D, period: "2026-11-01" }, ALL, "uz", NOW).prev.text).toContain("oktabr");
+});

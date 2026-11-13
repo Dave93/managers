@@ -9,6 +9,8 @@ export interface EvFilter { terminal_id: string | null; card_id: string | null; 
 export interface EvRowVM { id: string; name: string; sub: string; chip: { text: string; tone: "ok" | "wait" | "warn" }; late: string | null; score: string | null; hash: string }
 export interface EvListVM {
   title: string; info: string; closed: boolean;
+  /** Ссылка на прошлый месяц: после срока меню ведёт на новый месяц, где отправка ещё закрыта, а поздние оценки прошлого месяца иначе не найти. */
+  prev: { text: string; hash: string };
   branches: { id: string | null; label: string }[]; showBranch: boolean;
   cards: { id: string | null; label: string }[]; showCard: boolean;
   statuses: { value: "all" | EvStatus; label: string; count: number }[];
@@ -27,6 +29,13 @@ function byName(e: EvEmployee, search: string): boolean {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean);
   const hay = `${e.last_name} ${e.first_name}`.toLowerCase();
   return words.every((w) => hay.indexOf(w) >= 0);
+}
+
+/** «YYYY-MM-01» → прошлый месяц тем же видом. Целая арифметика по строке: без Date и сдвига часового пояса. */
+function prevPeriod(p: string): string {
+  const y = Number(p.slice(0, 4));
+  const m = Number(p.slice(5, 7));
+  return m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, "0")}-01`;
 }
 
 export function evListView(d: EvEmployees, f: EvFilter, l: Lang, nowMs: number): EvListVM {
@@ -63,6 +72,10 @@ export function evListView(d: EvEmployees, f: EvFilter, l: Lang, nowMs: number):
     title: tIn(l, "ev_list_title", { month: monthName(d.period, "nom", l) }),
     info,
     closed: d.period_status === "closed",
+    prev: {
+      text: tIn(l, "ev_prev_month", { month: monthName(prevPeriod(d.period), "nom", l) }),
+      hash: hashOf({ name: "ev", period: prevPeriod(d.period) }),
+    },
     branches: [{ id: null, label: tIn(l, "ev_f_all_branches") }, ...d.terminals.map((x) => ({ id: x.id, label: x.name }))],
     showBranch: d.terminals.length > 1,
     cards: [{ id: null, label: tIn(l, "ev_f_all_cards") }, ...d.cards.map((x) => ({ id: x.id, label: x.title }))],
