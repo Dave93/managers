@@ -99,7 +99,16 @@ if (process.env.NODE_ENV === "development") {
     }
 
     cluster.on("exit", (worker, code, signal) => {
-      console.log(`Worker ${worker.process.pid} exited`);
+      console.log(
+        `Worker ${worker.process.pid} exited (code=${code}, signal=${signal})`
+      );
+      // A crashed worker must be replaced: the primary never serves HTTP, so
+      // without a re-fork pm2 shows "online" while nothing listens on PORT
+      // (2026-11-13: both workers died on an unhandled Click ws error and the
+      // API was down for ~8 h).
+      if (!worker.exitedAfterDisconnect) {
+        setTimeout(() => cluster.fork(), 5000);
+      }
     });
 
     startCreditSocket();
