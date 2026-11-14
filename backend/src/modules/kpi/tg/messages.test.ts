@@ -66,9 +66,10 @@ describe("сотруднику", () => {
   });
   it("raise_approved", () => {
     const p = { raise_id: "x", quarter_start: "2025-10-01", amount: 300000 };
-    expect(M.buildMessage("raise_approved", p, ru(null)).text).toBe("<b>Повышение оклада: IV квартал 2025</b>\nРешение HR: +300 000 сум.");
-    expect(M.buildMessage("raise_approved", p, uz(null)).text).toBe("<b>Maosh oshirilishi: 2025-yil IV chorak</b>\nHR qarori: +300 000 soʻm.");
-    expect(M.buildMessage("raise_approved", { ...p, amount: 0 }, ru(null)).text).toBe("<b>Итоги квартала: IV квартал 2025</b>\nРешение HR: без повышения.");
+    expect(M.buildMessage("raise_approved", p, ru(null)).text).toBe("<b>Бонус KPI: IV квартал 2025</b>\nРешение HR: 300 000 сум.");
+    expect(M.buildMessage("raise_approved", p, uz(null)).text).toBe("<b>KPI bonusi: 2025-yil IV chorak</b>\nHR qarori: 300 000 soʻm.");
+    expect(M.buildMessage("raise_approved", { ...p, amount: 0 }, ru(null)).text).toBe("<b>Итоги квартала: IV квартал 2025</b>\nРешение HR: без бонуса.");
+    expect(M.buildMessage("raise_approved", { ...p, amount: 0 }, uz(null)).text).toBe("<b>Chorak yakunlari: 2025-yil IV chorak</b>\nHR qarori: bonussiz.");
   });
 });
 
@@ -141,7 +142,7 @@ describe("защита", () => {
     expect(M.buildMessage("review_submitted", {}, ru()).reply_markup).toBeUndefined();
   });
   it("numeric строкой форматируется как число", () => {
-    expect(M.buildMessage("raise_approved", { raise_id: "x", quarter_start: "2025-10-01", amount: "300000.00" }, ru(null)).text).toBe("<b>Повышение оклада: IV квартал 2025</b>\nРешение HR: +300 000 сум.");
+    expect(M.buildMessage("raise_approved", { raise_id: "x", quarter_start: "2025-10-01", amount: "300000.00" }, ru(null)).text).toBe("<b>Бонус KPI: IV квартал 2025</b>\nРешение HR: 300 000 сум.");
     expect([M.fmtPct("83.33"), M.fmtSum("300000.00")]).toEqual(["83,33 %", "300 000"]);
   });
   it("длинный комментарий и длинные названия: не длиннее 4096, без разорванных сущностей", () => {

@@ -1041,7 +1041,7 @@
       "violations": "Violations",
       "disputes": "Disputes",
       "month": "Month",
-      "raises": "Raises",
+      "raises": "Bonuses",
       "settings": "KPI settings",
       "people": "KPI staff",
       "timesheet": "Attendance",
@@ -1132,7 +1132,7 @@
       "violations": "Violations",
       "disputes": "Disputes",
       "month": "Month",
-      "raises": "Raises",
+      "raises": "Bonuses",
       "branchScore": "Branch score",
       "sanitary": "Sanitation",
       "staff": "Telegram registration"
@@ -2545,7 +2545,7 @@
         "bad_amount": "The amount is outside the allowed range",
         "tier_pct_range": "The tier threshold must be from 0 to 100 %",
         "tier_amount_range": "The tier amount cannot be negative",
-        "tier_amount_over_cap": "The tier amount exceeds the raise cap",
+        "tier_amount_over_cap": "The tier amount exceeds the bonus cap",
         "tier_pct_duplicate": "Tier thresholds must not repeat",
         "stale": "The quarter's reviews changed after the calculation. Click “Recalculate”",
         "open_dispute": "A dispute is open for this record: it can only be changed by resolving the dispute",
@@ -2799,7 +2799,7 @@
         "notEvaluated": "Not evaluated",
         "tierPct": "The tier threshold must be a number from 0 to 100",
         "tierAmount": "The tier amount must be a whole number of UZS, not less than 0",
-        "tierOverCap": "The tier amount exceeds the raise cap ({cap})",
+        "tierOverCap": "The tier amount exceeds the bonus cap ({cap})",
         "tierDuplicate": "Tier thresholds must not repeat",
         "anyCard": "Any card",
         "anyBranch": "Any branch",
@@ -2820,7 +2820,7 @@
             "hint": "Reminders are sent by the Telegram worker (plan 4)"
           },
           "raise_cap": {
-            "label": "Raise cap, UZS",
+            "label": "Bonus cap, UZS",
             "hint": "No tier or decision may exceed this"
           },
           "raise_min_months": {
@@ -3123,13 +3123,13 @@
         "saved": "Scale saved",
         "loading": "Loading…",
         "colMin": "Average from, %",
-        "colRaise": "Raise, UZS",
-        "empty": "No tiers: no one is entitled to a raise",
+        "colRaise": "Bonus, UZS",
+        "empty": "No tiers: no one is entitled to a bonus",
         "minAria": "Tier {n} threshold, %",
         "amountAria": "Tier {n} amount, UZS",
         "remove": "Remove",
         "add": "Add tier",
-        "belowLowest": "Below the lowest tier there is no raise.",
+        "belowLowest": "Below the lowest tier there is no bonus.",
         "cap": "Cap: {sum}",
         "save": "Save scale"
       }
@@ -3138,7 +3138,7 @@
   "kpiScreens": {
     "layout": {
       "noAccessTitle": "The \"Employee KPI\" section is unavailable",
-      "noAccessExplanation": "The section is working, but your role has not been granted access to it. Section access is granted separately from screen permissions: reviews, violations, disputes, raises, settings."
+      "noAccessExplanation": "The section is working, but your role has not been granted access to it. Section access is granted separately from screen permissions: reviews, violations, disputes, bonuses, settings."
     },
     "common": {
       "loading": "Loading…",
@@ -3558,13 +3558,13 @@
     },
     "raises": {
       "recomputed": "Recalculated: {count}",
-      "title": "Raises",
+      "title": "Bonuses",
       "quarter": "Quarter",
       "recompute": "Recalculate",
       "exportCsv": "Export CSV",
       "exportStatement": "Payout sheet (Excel)",
       "emptyApprove": "There is no calculation for the quarter. Click \"Recalculate\".",
-      "emptyNoApprove": "HR has not calculated raises for this quarter yet",
+      "emptyNoApprove": "HR has not calculated bonuses for this quarter yet",
       "colName": "Full name",
       "colBranch": "Branch",
       "colCard": "Card",
@@ -3577,7 +3577,7 @@
       "refused": "Rejected",
       "decideButton": "Decide",
       "decide": {
-        "title": "Raise decision",
+        "title": "Bonus decision",
         "saved": "Decision saved",
         "suggestion": "Suggestion: {amount}",
         "periodsOpen": "Not all months of the quarter are closed — the decision cannot be saved",
@@ -3585,7 +3585,7 @@
         "radioLabel": "Decision",
         "approve": "Approve",
         "reject": "Reject",
-        "amountLabel": "Raise amount, UZS",
+        "amountLabel": "Bonus amount, UZS",
         "badAmount": "The amount must be a whole number from 0 to {max}",
         "commentNeededReason": "A comment is required: {reason}",
         "comment": "Comment",
@@ -3923,7 +3923,7 @@
         }
       },
       "raise": {
-        "title": "Raise for {quarter}",
+        "title": "Bonus for {quarter}",
         "avg": "Average score",
         "noAvg": "No reviews yet",
         "tier": "from {pct} — +{amount}",
@@ -3931,11 +3931,11 @@
         "months": "Months of the quarter",
         "notRated": "not reviewed",
         "hint": {
-          "decided0": "HR decided: no raise",
+          "decided0": "HR decided: no bonus",
           "decided": "HR decided: +{amount}",
           "waiting_hr": "Quarter ended, waiting for HR; by score +{amount}",
-          "none": "No raise for this quarter",
-          "impossible": "No raise this quarter: {scored} reviewed, at least {min} needed",
+          "none": "No bonus for this quarter",
+          "impossible": "No bonus this quarter: {scored} reviewed, at least {min} needed",
           "too_few": "{scored} of {min} months reviewed; by current scores +{amount}",
           "running": "By current scores +{amount}",
           "next": "To +{amount}: average score {need} over {n} mo.",
@@ -3972,7 +3972,7 @@
         "avg": "Average {pct}",
         "running": "In progress",
         "waiting_hr": "Waiting for HR",
-        "decided0": "No raise",
+        "decided0": "No bonus",
         "decided": "+{amount}"
       }
     }

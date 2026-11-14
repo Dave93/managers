@@ -1041,7 +1041,7 @@
       "violations": "Qoidabuzarliklar",
       "disputes": "Nizolar",
       "month": "Oy",
-      "raises": "Oshirishlar",
+      "raises": "Bonuslar",
       "settings": "KPI sozlamalari",
       "people": "Xodimlar KPI",
       "timesheet": "Davomat",
@@ -1132,7 +1132,7 @@
       "violations": "Qoidabuzarliklar",
       "disputes": "Nizolar",
       "month": "Oy",
-      "raises": "Oshirishlar",
+      "raises": "Bonuslar",
       "branchScore": "Filial bali",
       "sanitary": "Sanitariya",
       "staff": "Telegram ulash"
@@ -2545,7 +2545,7 @@
         "bad_amount": "Summa ruxsat etilgan oraliqdan tashqarida",
         "tier_pct_range": "Bosqich chegarasi — 0 dan 100 % gacha",
         "tier_amount_range": "Bosqich summasi manfiy bo'lishi mumkin emas",
-        "tier_amount_over_cap": "Bosqich summasi oshirish chegarasidan katta",
+        "tier_amount_over_cap": "Bosqich summasi bonus chegarasidan katta",
         "tier_pct_duplicate": "Bosqich chegaralari takrorlanmasligi kerak",
         "stale": "Chorak baholari hisoblangandan keyin o'zgargan. «Qayta hisoblash» tugmasini bosing",
         "open_dispute": "Yozuv bo'yicha e'tiroz ochiq: faqat e'tirozni ko'rib chiqish orqali o'zgartirish mumkin",
@@ -2799,7 +2799,7 @@
         "notEvaluated": "Baholanmaydi",
         "tierPct": "Bosqich chegarasi — 0 dan 100 gacha son",
         "tierAmount": "Bosqich summasi — 0 dan kam bo'lmagan butun so'm miqdori",
-        "tierOverCap": "Bosqich summasi oshirish chegarasidan katta ({cap})",
+        "tierOverCap": "Bosqich summasi bonus chegarasidan katta ({cap})",
         "tierDuplicate": "Bosqich chegaralari takrorlanmasligi kerak",
         "anyCard": "Istalgan karta",
         "anyBranch": "Istalgan filial",
@@ -2820,7 +2820,7 @@
             "hint": "Eslatmalarni Telegram-worker yuboradi (4-reja)"
           },
           "raise_cap": {
-            "label": "Oshirish chegarasi, so'm",
+            "label": "Bonus chegarasi, so'm",
             "hint": "Hech bir bosqich va hech bir qaror bundan katta bo'lmaydi"
           },
           "raise_min_months": {
@@ -3123,13 +3123,13 @@
         "saved": "Shkala saqlandi",
         "loading": "Yuklanmoqda…",
         "colMin": "O'rtacha, dan %",
-        "colRaise": "Oshirish, so'm",
-        "empty": "Pog'onalar yo'q: hech kimga oshirish berilmaydi",
+        "colRaise": "Bonus, so'm",
+        "empty": "Pog'onalar yo'q: hech kimga bonus berilmaydi",
         "minAria": "{n}-pog'ona chegarasi, %",
         "amountAria": "{n}-pog'ona summasi, so'm",
         "remove": "Olib tashlash",
         "add": "Pog'ona qo'shish",
-        "belowLowest": "Eng quyi pog'onadan past bo'lsa — oshirishsiz.",
+        "belowLowest": "Eng quyi pog'onadan past bo'lsa — bonussiz.",
         "cap": "Yuqori chegara: {sum}",
         "save": "Shkalani saqlash"
       }
@@ -3138,7 +3138,7 @@
   "kpiScreens": {
     "layout": {
       "noAccessTitle": "«Xodimlar KPI» bo'limi mavjud emas",
-      "noAccessExplanation": "Bo'lim ishlaydi, lekin sizning rolingizga unga ruxsat berilmagan. Bo'limga ruxsat ekranlarga ruxsatlardan alohida beriladi: baholar, qoidabuzarliklar, nizolar, oshirishlar, sozlamalar."
+      "noAccessExplanation": "Bo'lim ishlaydi, lekin sizning rolingizga unga ruxsat berilmagan. Bo'limga ruxsat ekranlarga ruxsatlardan alohida beriladi: baholar, qoidabuzarliklar, nizolar, bonuslar, sozlamalar."
     },
     "common": {
       "loading": "Yuklanmoqda…",
@@ -3558,13 +3558,13 @@
     },
     "raises": {
       "recomputed": "Qayta hisoblandi: {count}",
-      "title": "Oshirishlar",
+      "title": "Bonuslar",
       "quarter": "Chorak",
       "recompute": "Qayta hisoblash",
       "exportCsv": "CSV yuklab olish",
       "exportStatement": "Qaydnoma (Excel)",
       "emptyApprove": "Chorak uchun hisob-kitob yo'q. «Qayta hisoblash» tugmasini bosing.",
-      "emptyNoApprove": "HR bu chorak uchun oshirishlarni hali hisoblamagan",
+      "emptyNoApprove": "HR bu chorak uchun bonuslarni hali hisoblamagan",
       "colName": "F.I.Sh.",
       "colBranch": "Filial",
       "colCard": "Karta",
@@ -3577,7 +3577,7 @@
       "refused": "Rad etilgan",
       "decideButton": "Qaror",
       "decide": {
-        "title": "Oshirish bo'yicha qaror",
+        "title": "Bonus bo'yicha qaror",
         "saved": "Qaror saqlandi",
         "suggestion": "Taklif: {amount}",
         "periodsOpen": "Chorakning barcha oylari yopilmagan — qarorni saqlab bo'lmaydi",
@@ -3585,7 +3585,7 @@
         "radioLabel": "Qaror",
         "approve": "Tasdiqlash",
         "reject": "Rad etish",
-        "amountLabel": "Oshirish summasi, so'm",
+        "amountLabel": "Bonus summasi, so'm",
         "badAmount": "Summa — 0 dan {max} gacha butun son",
         "commentNeededReason": "Izoh kerak: {reason}",
         "comment": "Izoh",
@@ -3923,7 +3923,7 @@
         }
       },
       "raise": {
-        "title": "{quarter} uchun ustama",
+        "title": "{quarter} uchun bonus",
         "avg": "O'rtacha ball",
         "noAvg": "Hozircha baholar yo'q",
         "tier": "{pct} dan — +{amount}",
@@ -3931,11 +3931,11 @@
         "months": "Chorak oylari",
         "notRated": "baholanmagan",
         "hint": {
-          "decided0": "HR qarori: ustamasiz",
+          "decided0": "HR qarori: bonussiz",
           "decided": "HR qarori: +{amount}",
           "waiting_hr": "Chorak tugagan, HR qarorini kutmoqda; ball bo'yicha +{amount}",
-          "none": "Bu chorak uchun ustama yo'q",
-          "impossible": "Bu chorakda ustama bo'lmaydi: baholangan {scored}, kamida {min} kerak",
+          "none": "Bu chorak uchun bonus yo'q",
+          "impossible": "Bu chorakda bonus bo'lmaydi: baholangan {scored}, kamida {min} kerak",
           "too_few": "{min} oydan {scored} tasi baholangan; joriy ball bo'yicha +{amount}",
           "running": "Joriy ball bo'yicha +{amount}",
           "next": "+{amount} gacha: {n} oyda o'rtacha {need} kerak",
@@ -3972,7 +3972,7 @@
         "avg": "O'rtacha {pct}",
         "running": "Davom etmoqda",
         "waiting_hr": "HR qarorini kutmoqda",
-        "decided0": "Ustamasiz",
+        "decided0": "Bonussiz",
         "decided": "+{amount}"
       }
     }

@@ -29,7 +29,7 @@ export const KPI_SCREEN_TITLE: Record<KpiScreen, string> = {
   violations: "Нарушения",
   disputes: "Споры",
   month: "Месяц",
-  raises: "Повышения",
+  raises: "Бонусы",
   settings: "Настройки KPI",
   attendance: "Загрузка Workly",
   timesheet: "Посещаемость",
