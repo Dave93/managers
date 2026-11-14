@@ -78,13 +78,13 @@ it("макет 1: шапка, месяц, прибавка, строки-ссы�
   expect(vm.noCard).toBe(false);
   expect(vm.month).toMatchObject({ title: "Октябрь", chip: { text: "Оценка готова", tone: "ok" }, score: "90,3",
     disputeLine: "Оспорить можно до 10 ноября.", lost: [{ title: "Гигиена сотрудника", score: "75" }, { title: "Соблюдение техкарты", score: "75" }], lostNone: false, hash: "#/review/2026-10" });
-  expect(vm.raise!.title).toBe("Прибавка за IV квартал");
+  expect(vm.raise!.title).toBe("Бонус за IV квартал");
   expect(vm.raise!.badge).toEqual({ text: "предварительно", tone: "prelim" });
   expect(vm.raise!.ticks.map((x) => [x.pct, x.amount, x.at])).toEqual([[`85${nb}%`, `150${nb}тыс`, 0.25], [`90${nb}%`, `300${nb}тыс`, 0.5], [`95${nb}%`, `500${nb}тыс`, 0.75]]);
   expect(vm.raise!.marker!.label).toBe(`90,3${nb}%`);
   expect(vm.raise!.marker!.at).toBeCloseTo(0.5165, 6);
   expect(vm.raise!.months).toEqual([{ label: "Октябрь", value: "90,3", current: true }, { label: "Ноябрь", value: "с 20.11", current: false }, { label: "Декабрь", value: "—", current: false }]);
-  expect(vm.raise!.lines).toEqual(["Оценён 1 месяц из 3, а прибавку считают от 2.",
+  expect(vm.raise!.lines).toEqual(["Оценён 1 месяц из 3, а бонус считают от 2.",
     `Держите уровень октября — выйдет 300${nb}000${nb}сум.`, `Для 500${nb}000${nb}сум — в среднем 97,4${nb}% за ноябрь и декабрь.`]);
   expect(vm.links).toEqual([{ text: "Нарушения в октябре", count: "1", hash: "#/violations/2026-10" }, { text: "История", count: null, hash: "#/history" }]);
 });
@@ -214,7 +214,7 @@ it("макет 1 по-узбекски", () => {
   expect(vm.header!.sub).toBe("Oshpaz · Тест Филиал 1");
   expect(vm.links[0]!.text).toBe("Oktabrdagi qoidabuzarliklar");
   expect(vm.raise!.marker!.label).toBe(`90,3${nb}%`);
-  expect(vm.raise!.title).toBe("IV chorak: maosh oshirilishi");
+  expect(vm.raise!.title).toBe("IV chorak: KPI bonusi");
   expect(vm.raise!.ticks[0]!.amount).toBe(`150${nb}ming`);
   expect(vm.raise!.months[1]!.value).toBe(`20.11 dan`);
 });
