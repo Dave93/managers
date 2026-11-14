@@ -240,11 +240,12 @@ describe("renderStatementXlsx", () => {
     expect(a.getCell(8).value).toBe(87);
     expect(a.getCell(8).numFmt).toBe("0.00");
     expect(a.getCell(9).value).toBe(300000);
-    expect(a.getCell(9).numFmt).toBe("# ##0");
+    expect(a.getCell(9).numFmt).toBe("#,##0");
     expect(a.getCell(10).value ?? null).toBeNull();
     expect(ws.getRow(findRow(ws, "Борис")).getCell(10).value).toBe("отказ");
     const total = ws.getRow(findRow(ws, "Итого: 2 чел."));
     expect(total.getCell(9).value).toBe(600000);
+    expect(total.getCell(9).numFmt).toBe("#,##0");
   });
 
   it("заголовок таблицы с месяцами квартала и повтором при печати", async () => {

@@ -128,7 +128,8 @@ const MONTHS_FULL = ["январь", "февраль", "март", "апрель
 const MONTHS_SHORT = ["Янв", "Фев", "Мар", "Апр", "Май", "Июн", "Июл", "Авг", "Сен", "Окт", "Ноя", "Дек"];
 const monthIdx = (p: Period) => Number(p.slice(5, 7)) - 1;
 const COLS = 10;
-const SUM_FMT = "# ##0";
+// Разделитель тысяч Excel подставляет по языку системы: в русской — пробел.
+const SUM_FMT = "#,##0";
 const PCT_FMT = "0.00";
 const THIN = { style: "thin" as const };
 const BOX = { top: THIN, left: THIN, bottom: THIN, right: THIN };
@@ -219,6 +220,12 @@ function drawSheet(ws: Worksheet, s: StatementSheet, tiers: Tier[], quarter: Per
   r++;
   text(r, 1, "Подготовил: HR ____________ / ____________ /");
   text(r, 7, "Утвердил: CEO ____________ / ____________ /");
+  useArial(ws);
+}
+
+// Один шрифт на весь лист: иначе латиница и цифры уходят в шрифт по умолчанию и печать пёстрая.
+function useArial(ws: Worksheet): void {
+  ws.eachRow((row) => row.eachCell((c) => (c.font = { ...c.font, name: "Arial" })));
 }
 
 // Книга .xlsx: лист на компанию, A4 альбомная, по ширине в одну страницу, заголовок таблицы повторяется.
@@ -240,6 +247,7 @@ export async function renderStatementXlsx(sheets: StatementSheet[], tiers: Tier[
     const ws = wb.addWorksheet("Ведомость");
     setup(ws);
     ws.getCell("A1").value = EMPTY_TEXT;
+    useArial(ws);
   }
   for (const s of sheets) {
     const ws = wb.addWorksheet(s.sheet_name);
