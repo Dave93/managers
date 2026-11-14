@@ -3562,6 +3562,7 @@
       "quarter": "Chorak",
       "recompute": "Qayta hisoblash",
       "exportCsv": "CSV yuklab olish",
+      "exportStatement": "Qaydnoma (Excel)",
       "emptyApprove": "Chorak uchun hisob-kitob yo'q. «Qayta hisoblash» tugmasini bosing.",
       "emptyNoApprove": "HR bu chorak uchun oshirishlarni hali hisoblamagan",
       "colName": "F.I.Sh.",

@@ -3562,6 +3562,7 @@
       "quarter": "Квартал",
       "recompute": "Пересчитать",
       "exportCsv": "Выгрузить CSV",
+      "exportStatement": "Ведомость (Excel)",
       "emptyApprove": "За квартал нет расчёта. Нажмите «Пересчитать».",
       "emptyNoApprove": "HR ещё не считал повышения за этот квартал",
       "colName": "ФИО",

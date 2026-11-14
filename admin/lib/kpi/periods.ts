@@ -77,6 +77,11 @@ export function raisesCsvFilename(q: string): string {
   return `kpi-raises-${y}-Q${Math.floor((m - 1) / 3) + 1}.csv`;
 }
 
+export function bonusStatementFilename(q: string): string {
+  const [y, m] = parts(q);
+  return `kpi-bonuses-${y}-Q${Math.floor((m - 1) / 3) + 1}.xlsx`;
+}
+
 export function submitOpen(now: Date, d: { submit_opens_at: string }): boolean {
   return now.getTime() >= new Date(d.submit_opens_at).getTime();
 }

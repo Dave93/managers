@@ -3562,6 +3562,7 @@
       "quarter": "Quarter",
       "recompute": "Recalculate",
       "exportCsv": "Export CSV",
+      "exportStatement": "Payout sheet (Excel)",
       "emptyApprove": "There is no calculation for the quarter. Click \"Recalculate\".",
       "emptyNoApprove": "HR has not calculated raises for this quarter yet",
       "colName": "Full name",

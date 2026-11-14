@@ -6,10 +6,10 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@admin/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@admin/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@admin/components/ui/table";
-import { downloadRaisesCsv, kpiApi, type RaiseRow } from "@admin/lib/kpi-api";
+import { downloadBonusStatement, downloadRaisesCsv, kpiApi, type RaiseRow } from "@admin/lib/kpi-api";
 import { kpiErrorText, loadErrors, shouldRetry } from "@admin/lib/kpi/errors";
 import { formatPct, formatSum } from "@admin/lib/kpi/format";
-import { defaultQuarter, monthLabel, quarterLabel, quarterMonths, quarterOptions, raisesCsvFilename } from "@admin/lib/kpi/periods";
+import { bonusStatementFilename, defaultQuarter, monthLabel, quarterLabel, quarterMonths, quarterOptions, raisesCsvFilename } from "@admin/lib/kpi/periods";
 import { RAISE_STATUS } from "@admin/lib/kpi/status";
 import { KpiBadge } from "../_components/kpi-badge";
 import { ScreenGate } from "../_components/screen-gate";
@@ -38,7 +38,8 @@ function RaisesScreen() {
   const cap = me.data?.settings.raise_cap;
   const options = useMemo(() => quarterOptions(now, 6), [now]);
   const [quarter, setQuarter] = useState(() => defaultQuarter(now));
-  const [csvBusy, setCsvBusy] = useState(false);
+  // Какой файл сейчас скачивается: вторая кнопка ждёт, пока закончится первая.
+  const [download, setDownload] = useState<"csv" | "statement" | null>(null);
   // Храним id: после решения строка в списке обновляется, и диалог берёт свежую.
   const [decideId, setDecideId] = useState<string | null>(null);
 
@@ -60,15 +61,15 @@ function RaisesScreen() {
     onError: (e) => toast.error(kpiErrorText(e, tk)),
   });
 
-  const exportCsv = async () => {
-    if (csvBusy) return;
-    setCsvBusy(true);
+  const save = async (kind: "csv" | "statement") => {
+    if (download) return;
+    setDownload(kind);
     try {
-      const blob = await downloadRaisesCsv(quarter);
+      const blob = kind === "csv" ? await downloadRaisesCsv(quarter) : await downloadBonusStatement(quarter);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = raisesCsvFilename(quarter);
+      a.download = kind === "csv" ? raisesCsvFilename(quarter) : bonusStatementFilename(quarter);
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -76,7 +77,7 @@ function RaisesScreen() {
     } catch (e) {
       toast.error(kpiErrorText(e, tk));
     } finally {
-      setCsvBusy(false);
+      setDownload(null);
     }
   };
 
@@ -107,7 +108,10 @@ function RaisesScreen() {
             <Button type="button" className="h-11" disabled={compute.isPending} onClick={() => compute.mutate()}>
               {t("recompute")}
             </Button>
-            <Button type="button" variant="outline" className="h-11" disabled={csvBusy} onClick={exportCsv}>
+            <Button type="button" variant="outline" className="h-11" disabled={download !== null} onClick={() => save("statement")}>
+              {t("exportStatement")}
+            </Button>
+            <Button type="button" variant="outline" className="h-11" disabled={download !== null} onClick={() => save("csv")}>
               {t("exportCsv")}
             </Button>
           </>

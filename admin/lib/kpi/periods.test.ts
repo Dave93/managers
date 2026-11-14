@@ -51,5 +51,8 @@ describe("кварталы", () => {
     expect(["2026-01-01", "2026-04-01", "2026-07-01", "2026-10-01"].map(P.raisesCsvFilename)).toEqual([
       "kpi-raises-2026-Q1.csv", "kpi-raises-2026-Q2.csv", "kpi-raises-2026-Q3.csv", "kpi-raises-2026-Q4.csv",
     ]);
+    expect(["2026-01-01", "2026-04-01", "2026-07-01", "2026-10-01"].map(P.bonusStatementFilename)).toEqual([
+      "kpi-bonuses-2026-Q1.xlsx", "kpi-bonuses-2026-Q2.xlsx", "kpi-bonuses-2026-Q3.xlsx", "kpi-bonuses-2026-Q4.xlsx",
+    ]);
   });
 });
