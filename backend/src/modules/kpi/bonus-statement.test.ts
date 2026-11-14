@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { buildStatement } from "./bonus-statement";
+import { buildStatement, renderStatementXlsx } from "./bonus-statement";
 import type { RaiseRow, Tier } from "./types";
 
 const TIERS: Tier[] = [
@@ -186,5 +186,103 @@ describe("buildStatement", () => {
 
   it("пустой вход → []", () => {
     expect(buildStatement([], TIERS, MIN)).toEqual([]);
+  });
+});
+
+describe("renderStatementXlsx", () => {
+  const load = async (buf: Buffer) => {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(buf as unknown as ArrayBuffer);
+    return wb;
+  };
+  const findRow = (ws: import("exceljs").Worksheet, text: string) => {
+    let found = 0;
+    ws.eachRow((r, i) => {
+      if (!found && r.getCell(2).value === text) found = i;
+    });
+    return found;
+  };
+  const Q = "2026-07-01";
+
+  it("листы и имена совпадают со sheet_name", async () => {
+    const sheets = buildStatement([row(LES), row(CHOPAR)], TIERS, MIN);
+    const wb = await load(await renderStatementXlsx(sheets, TIERS, Q));
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["ChoparPizza", "Les Ailes"]);
+  });
+
+  it("шапка: компания, заголовок, квартал с месяцами, шкала по возрастанию", async () => {
+    const wb = await load(await renderStatementXlsx(buildStatement([row(LES)], TIERS, MIN), TIERS, Q));
+    const ws = wb.worksheets[0];
+    expect(ws.getCell("A1").value).toBe("Les Ailes");
+    expect(ws.getCell("A2").value).toBe("ВЕДОМОСТЬ НА ВЫДАЧУ БОНУСОВ KPI");
+    expect(ws.getCell("A3").value).toBe("III квартал 2026 (июль – сентябрь)");
+    expect(ws.getCell("A4").value).toBe("Шкала: от 75 % — 200 000 · от 85 % — 300 000 · от 95 % — 500 000 сум");
+    expect(ws.getCell("H1").value).toBe("Утверждаю: ____________ CEO");
+  });
+
+  it("строка сотрудника: числа с форматами, пустой месяц «—», колонка CEO", async () => {
+    const sheets = buildStatement(
+      [
+        row({ employee_name: "Анна", months: [{ period: Q, score_pct: 86 }, { period: "2026-08-01", score_pct: null }, { period: "2026-09-01", score_pct: 88 }] }),
+        row({ employee_name: "Борис", status: "rejected" }),
+      ],
+      TIERS,
+      MIN,
+    );
+    const ws = (await load(await renderStatementXlsx(sheets, TIERS, Q))).worksheets[0];
+    const a = ws.getRow(findRow(ws, "Анна"));
+    expect(a.getCell(1).value).toBe("1");
+    expect(a.getCell(3).value).toBe("Филиал");
+    expect(a.getCell(4).value).toBe("Кассир");
+    expect(a.getCell(5).value).toBe(86);
+    expect(a.getCell(6).value).toBe("—");
+    expect(a.getCell(8).value).toBe(87);
+    expect(a.getCell(8).numFmt).toBe("0.00");
+    expect(a.getCell(9).value).toBe(300000);
+    expect(a.getCell(9).numFmt).toBe("# ##0");
+    expect(a.getCell(10).value ?? null).toBeNull();
+    expect(ws.getRow(findRow(ws, "Борис")).getCell(10).value).toBe("отказ");
+    const total = ws.getRow(findRow(ws, "Итого: 2 чел."));
+    expect(total.getCell(9).value).toBe(600000);
+  });
+
+  it("заголовок таблицы с месяцами квартала и повтором при печати", async () => {
+    const ws = (await load(await renderStatementXlsx(buildStatement([row()], TIERS, MIN), TIERS, Q))).worksheets[0];
+    const h = findRow(ws, "ФИО");
+    expect(h).toBeGreaterThan(4);
+    expect([1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((c) => ws.getRow(h).getCell(c).value)).toEqual([
+      "№", "ФИО", "Филиал", "Карта KPI", "Июл", "Авг", "Сен", "Средний %", "По шкале, сум", "К выдаче (CEO), сум",
+    ]);
+    expect(ws.pageSetup.orientation).toBe("landscape");
+    expect(ws.pageSetup.paperSize).toBe(9);
+    expect(ws.pageSetup.fitToPage).toBe(true);
+    expect(ws.pageSetup.fitToWidth).toBe(1);
+    expect(ws.pageSetup.fitToHeight).toBe(0);
+    expect(ws.pageSetup.printTitlesRow).toBe(`${h}:${h}`);
+  });
+
+  it("предупреждения, блок «для сведения» и подписи", async () => {
+    const sheets = buildStatement([row({ stale: true }), fewMonths({ employee_name: "Дина" })], TIERS, MIN);
+    const ws = (await load(await renderStatementXlsx(sheets, TIERS, Q))).worksheets[0];
+    const texts: string[] = [];
+    ws.eachRow((r) => r.eachCell((c) => typeof c.value === "string" && texts.push(c.value)));
+    expect(texts).toContain("Оценки менялись после расчёта. Нажмите «Пересчитать» и выгрузите заново");
+    expect(texts).toContain("Не получают бонус в этом квартале (для сведения)");
+    expect(texts).toContain("мало оценок: 1 из 2 нужных");
+    expect(texts).toContain("Подготовил: HR ____________ / ____________ /");
+    expect(texts).toContain("Утвердил: CEO ____________ / ____________ /");
+    expect(findRow(ws, "Дина")).toBeGreaterThan(findRow(ws, "Итого: 1 чел."));
+  });
+
+  it("без шкалы — «Шкала: не задана»", async () => {
+    const ws = (await load(await renderStatementXlsx(buildStatement([below()], [], MIN), [], Q))).worksheets[0];
+    expect(ws.getCell("A4").value).toBe("Шкала: не задана");
+  });
+
+  it("пустой вход → один лист «Ведомость» с подсказкой", async () => {
+    const wb = await load(await renderStatementXlsx([], TIERS, Q));
+    expect(wb.worksheets.map((w) => w.name)).toEqual(["Ведомость"]);
+    expect(wb.worksheets[0].getCell("A1").value).toBe("За квартал нет расчёта. Нажмите «Пересчитать».");
   });
 });
