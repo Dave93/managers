@@ -149,8 +149,8 @@ export const SEED_CARDS: SeedCard[] = [
 // Шкала повышения: от какого среднего процента какая сумма.
 export const SEED_TIERS: { min_pct: number; amount: number }[] = [
   { min_pct: 95, amount: 500000 },
-  { min_pct: 90, amount: 300000 },
-  { min_pct: 85, amount: 150000 },
+  { min_pct: 85, amount: 300000 },
+  { min_pct: 75, amount: 200000 },
 ];
 
 // Показатели балла филиала (спека 7.7). Для lower_better порог floor — худшая граница (больше), max — лучшая.

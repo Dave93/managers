@@ -25,8 +25,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const CLOSE_NOW = "2025-10-11T12:00:00+05:00"; // окно споров сентября закрылось 10 октября
   const DEFAULT_TIERS: Tier[] = [
     { min_pct: 95, amount: 500000 },
-    { min_pct: 90, amount: 300000 },
-    { min_pct: 85, amount: 150000 },
+    { min_pct: 85, amount: 300000 },
+    { min_pct: 75, amount: 200000 },
   ];
 
   describe("kpi: квартальные повышения", () => {

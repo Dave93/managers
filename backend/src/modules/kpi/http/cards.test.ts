@@ -63,8 +63,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       const tiers = await db.select().from(kpi_raise_tiers);
       expect(tiers.map((t) => [Number(t.min_pct), Number(t.amount)]).sort((a, b) => b[0] - a[0])).toEqual([
         [95, 500000],
-        [90, 300000],
-        [85, 150000],
+        [85, 300000],
+        [75, 200000],
       ]);
     });
 
