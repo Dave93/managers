@@ -42,6 +42,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
     });
 
     it("seedCards идемпотентна: 6 карт, у старшего повара 9 пунктов, у технички 3", async () => {
+      // Шкалу сид пишет только в пустую таблицу, а соседние файлы оставляют свою: проверяем на пустой.
+      await db.delete(kpi_raise_tiers);
       await seedCards(db);
       await seedCards(db);
       const hr = await withSession({ permissions: ["kpi.manage"] });
