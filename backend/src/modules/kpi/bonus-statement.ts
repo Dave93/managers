@@ -70,9 +70,14 @@ function byBranchThenName(a: RaiseRow, b: RaiseRow): number {
 
 function reason(r: RaiseRow, tiers: Tier[], minMonths: number): string {
   let base: string;
-  if (r.months_scored < minMonths) base = `мало оценок: ${r.months_scored} из ${minMonths} нужных`;
-  else if (tiers.length === 0) base = "шкала не задана";
-  else base = `ниже порога ${Math.min(...tiers.map((t) => t.min_pct))} %`;
+  // Посчитано по старой шкале: «ниже порога» противоречило бы среднему в той же строке.
+  if (tiersChanged(r, tiers, minMonths)) base = `по текущей шкале — ${groupDigits(raiseFor(r.avg_pct!, tiers))} сум, нужен пересчёт`;
+  else {
+    if (r.months_scored < minMonths) base = `мало оценок: ${r.months_scored} из ${minMonths} нужных`;
+    else if (tiers.length === 0) base = "шкала не задана";
+    else base = `ниже порога ${Math.min(...tiers.map((t) => t.min_pct))} %`;
+    if (r.stale) base += ", оценки менялись — нужен пересчёт";
+  }
   if (!isDecided(r)) return base;
   return refused(r) ? `${base}, решение HR: отказ` : `${base}, решение HR: ${groupDigits(Number(r.approved_amount))} сум`;
 }
@@ -117,9 +122,18 @@ export function buildStatement(rows: RaiseRow[], tiers: Tier[], minMonths: numbe
     g.rows.push(r);
     groups.set(key, g);
   }
-  return [...groups.entries()]
+  const sheets = [...groups.entries()]
     .sort(([ka, a], [kb, b]) => (ka === null ? 1 : kb === null ? -1 : a.company.localeCompare(b.company, "ru")))
     .map(([, g]) => sheetOf(g.company, g.rows, tiers, minMonths));
+  // Excel не допускает два листа с одним именем (без учёта регистра): второму — « (2)» и т. д.
+  const used = new Set<string>();
+  for (const s of sheets) {
+    let name = s.sheet_name;
+    for (let k = 2; used.has(name.toLowerCase()); k++) name = `${s.sheet_name.slice(0, 31 - ` (${k})`.length)} (${k})`;
+    used.add(name.toLowerCase());
+    s.sheet_name = name;
+  }
+  return sheets;
 }
 
 // ---------- Excel ----------

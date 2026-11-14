@@ -157,6 +157,34 @@ describe("buildStatement", () => {
     expect(s.warnings).toEqual([]);
   });
 
+  it("для сведения: строка, посчитанная по старой шкале, — причина «по текущей шкале … нужен пересчёт», не «ниже порога»", () => {
+    const [s] = buildStatement([row({ employee_name: "А", avg_pct: 80, suggested_amount: 0 })], TIERS, MIN);
+    expect(s.lines).toEqual([]);
+    expect(s.info[0].reason).toBe("по текущей шкале — 200 000 сум, нужен пересчёт");
+    expect(s.warnings).toEqual(["Шкала бонусов менялась после расчёта. Нажмите «Пересчитать» и выгрузите заново"]);
+  });
+
+  it("для сведения: stale-строка ниже порога — причина с пометкой о пересчёте", () => {
+    const [s] = buildStatement([below({ stale: true })], TIERS, MIN);
+    expect(s.info[0].reason).toBe("ниже порога 75 %, оценки менялись — нужен пересчёт");
+  });
+
+  it("одинаковые имена листов (без учёта регистра и после очистки) получают суффикс", () => {
+    const sheets = buildStatement(
+      [
+        row({ organization_id: "a", organization_name: "Org" }),
+        row({ organization_id: "b", organization_name: "org" }),
+        row({ organization_id: "c", organization_name: "/:*" }),
+        row({ organization_id: null, organization_name: null }),
+      ],
+      TIERS,
+      MIN,
+    );
+    const names = sheets.map((s) => s.sheet_name.toLowerCase());
+    expect(new Set(names).size).toBe(4);
+    expect(sheets.map((s) => s.sheet_name).every((n) => n.length <= 31)).toBe(true);
+  });
+
   it("stale → «*» и предупреждение; periods_closed false → «Предварительно…» первым", () => {
     const [s] = buildStatement([row({ stale: true }), row({ periods_closed: false })], TIERS, MIN);
     expect(s.lines.map((l) => l.no)).toEqual(["1*", "2"]);
@@ -279,6 +307,12 @@ describe("renderStatementXlsx", () => {
   it("без шкалы — «Шкала: не задана»", async () => {
     const ws = (await load(await renderStatementXlsx(buildStatement([below()], [], MIN), [], Q))).worksheets[0];
     expect(ws.getCell("A4").value).toBe("Шкала: не задана");
+  });
+
+  it("книга с совпадающими именами компаний собирается без ошибки", async () => {
+    const sheets = buildStatement([row({ organization_id: "a", organization_name: "Org" }), row({ organization_id: "b", organization_name: "org" })], TIERS, MIN);
+    const wb = await load(await renderStatementXlsx(sheets, TIERS, Q));
+    expect(wb.worksheets).toHaveLength(2);
   });
 
   it("пустой вход → один лист «Ведомость» с подсказкой", async () => {
