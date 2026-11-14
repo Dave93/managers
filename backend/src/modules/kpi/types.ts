@@ -209,6 +209,9 @@ export interface RaiseRow {
   employee_id: string;
   employee_name: string;
   terminal_name: string | null;
+  // Компания филиала из снимка (terminals.organization_id); null — филиала нет в справочнике.
+  organization_id: string | null;
+  organization_name: string | null;
   card_title: string | null;
   months: { period: string; score_pct: number | null }[];
   months_scored: number;

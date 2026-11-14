@@ -11,7 +11,7 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   });
 } else {
   const { callApi, sweepTestRoles, withSession } = await import("../../../../tests/helpers/http");
-  const { api, cleanupKpi, makeEmployee, makeScope, setNow, setup } = await import("./fixtures");
+  const { KPI_TEST_ORG_ID, api, cleanupKpi, makeEmployee, makeScope, makeTerminal, setNow, setup } = await import("./fixtures");
   const { kpi_notifications, kpi_raise_decisions, kpi_reviews } = await import("backend/drizzle/schema");
   const { and, eq } = await import("drizzle-orm");
   type RaiseRow = import("../types").RaiseRow;
@@ -25,8 +25,8 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
   const CLOSE_NOW = "2025-10-11T12:00:00+05:00"; // окно споров сентября закрылось 10 октября
   const DEFAULT_TIERS: Tier[] = [
     { min_pct: 95, amount: 500000 },
-    { min_pct: 90, amount: 300000 },
-    { min_pct: 85, amount: 150000 },
+    { min_pct: 85, amount: 300000 },
+    { min_pct: 75, amount: 200000 },
   ];
 
   describe("kpi: квартальные повышения", () => {
@@ -307,6 +307,26 @@ if (!dbLooksLikeTest && !prefixLooksLikeTest) {
       expect(line).toBe(`${a.employee_name};;Тест повышение;92,00;96,00;94,00;94,00;300000;утверждено;300000;Подтверждаю повторно`);
       const q4 = await callApi(`/api/kpi/raises/export?quarter=2025-10-01`, { headers: { ...approver.headers } });
       expect(q4.headers.get("content-disposition")).toBe('attachment; filename="kpi-raises-2025-Q4.csv"');
+    });
+
+    it("компания строки: по филиалу из снимка; филиала нет в terminals → null", async () => {
+      const a = await rowOf(A);
+      expect(a.organization_id).toBeNull();
+      expect(a.organization_name).toBeNull();
+      const t2 = await makeTerminal(db, { iiko_id: null, store_id: null });
+      await makeScope(db, evaluator.userId, { terminal_id: t2.id });
+      const e = await makeEmployee(db, { terminal_id: t2.id });
+      expect((await api(hr, "PUT", `/api/kpi/employees/${e.id}/card`, { card_id: await dbCardId() })).status).toBe(200);
+      // Другой квартал (IV 2025): строки III квартала, на которые опираются счётчики выше, не меняются.
+      setNow("2025-10-25T10:00:00+05:00");
+      const d = await api(evaluator, "PUT", "/api/kpi/reviews/draft", { period: "2025-10-01", employee_id: e.id, items: [{ item_id: itemId, score: 80 }] });
+      expect(d.status).toBe(200);
+      expect((await api(evaluator, "POST", `/api/kpi/reviews/${d.body.review.id}/submit`, {})).status).toBe(200);
+      expect((await compute(approver, "2025-10-01")).status).toBe(200);
+      const q4 = (await api(approver, "GET", "/api/kpi/raises?quarter=2025-10-01")).body as RaiseRow[];
+      const row = q4.find((r) => r.employee_id === e.id)!;
+      expect(row.organization_id).toBe(KPI_TEST_ORG_ID);
+      expect(row.organization_name).toBe("kpi_test_org");
     });
 
     async function dbCardId(): Promise<string> {

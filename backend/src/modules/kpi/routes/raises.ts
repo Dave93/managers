@@ -1,8 +1,10 @@
 import { ctx } from "@backend/context";
 import Elysia, { t } from "elysia";
 import { actorFrom, requireAny } from "../access";
+import { buildStatement, renderStatementXlsx } from "../bonus-statement";
 import { run } from "../errors";
 import { computeQuarter, decideRaise, getTiers, listRaises, parseQuarter, raisesCsv, saveTiers } from "../raises";
+import { loadSettings } from "../settings";
 
 const quarterQuery = t.Object({ quarter: t.Optional(t.String()) });
 
@@ -77,6 +79,28 @@ export const raisesRoutes = new Elysia({ name: "@api/kpi/raises" })
           headers: {
             "content-type": "text/csv; charset=utf-8",
             "content-disposition": `attachment; filename="kpi-raises-${quarter.slice(0, 4)}-Q${q}.csv"`,
+          },
+        });
+      }),
+    { userAuth: true, query: quarterQuery }
+  )
+  // Ведомость на выдачу бонусов для подписи CEO: .xlsx, лист на компанию.
+  .get(
+    "/kpi/raises/statement",
+    async ({ query, user, role, terminals, drizzle, cacheController, set }) =>
+      run(set, async () => {
+        const actor = await actorFrom({ user, role, terminals, cacheController });
+        requireAny(actor, ["kpi.approve"]);
+        const quarter = parseQuarter(query.quarter);
+        const rows = await listRaises(drizzle, actor, quarter);
+        const tiers = await getTiers(drizzle);
+        const { raise_min_months } = await loadSettings(drizzle);
+        const buf = await renderStatementXlsx(buildStatement(rows, tiers, raise_min_months), tiers, quarter);
+        const q = Math.floor((Number(quarter.slice(5, 7)) - 1) / 3) + 1;
+        return new Response(new Uint8Array(buf), {
+          headers: {
+            "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "content-disposition": `attachment; filename="kpi-bonuses-${quarter.slice(0, 4)}-Q${q}.xlsx"`,
           },
         });
       }),

@@ -1,4 +1,4 @@
-import { employees, kpi_cards, kpi_employee_cards, staff_roles, terminals, users } from "backend/drizzle/schema";
+import { employees, kpi_cards, kpi_employee_cards, organization, staff_roles, terminals, users } from "backend/drizzle/schema";
 import { and, eq, inArray } from "drizzle-orm";
 import { has, loadScopes, type Actor, type DbLike, viewsTerminal } from "./access";
 import { matchesName, searchWords } from "./name-search";
@@ -123,5 +123,19 @@ export async function terminalNames(db: DbLike, ids: string[]): Promise<Map<stri
   if (uniq.length === 0) return out;
   const rows = await db.select({ id: terminals.id, name: terminals.name }).from(terminals).where(inArray(terminals.id, uniq));
   for (const r of rows) out.set(r.id, r.name);
+  return out;
+}
+
+// Компания филиала: terminal_id → организация. Филиала нет в terminals или организации нет — ключа нет.
+export async function terminalOrganizations(db: DbLike, ids: string[]): Promise<Map<string, { id: string; name: string }>> {
+  const out = new Map<string, { id: string; name: string }>();
+  const uniq = [...new Set(ids)];
+  if (uniq.length === 0) return out;
+  const rows = await db
+    .select({ terminal_id: terminals.id, id: organization.id, name: organization.name })
+    .from(terminals)
+    .innerJoin(organization, eq(organization.id, terminals.organization_id))
+    .where(inArray(terminals.id, uniq));
+  for (const r of rows) out.set(r.terminal_id, { id: r.id, name: r.name });
   return out;
 }

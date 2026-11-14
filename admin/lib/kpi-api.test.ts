@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { treaty } from "@elysiajs/eden";
-import { createKpiApi, downloadRaisesCsv, photoUrl, postAttendanceFile, postViolation, type KpiApi } from "./kpi-api";
+import { createKpiApi, downloadBonusStatement, downloadRaisesCsv, photoUrl, postAttendanceFile, postViolation, type KpiApi } from "./kpi-api";
 import { KpiApiError } from "./kpi/errors";
 
 type Call = { method: string; path: string; body: unknown; credentials?: RequestCredentials };
@@ -237,6 +237,22 @@ describe("downloadRaisesCsv", () => {
   });
   it("403 — forbidden", async () => {
     const e = await downloadRaisesCsv("2026-10-01", fakeFetch(403, { error: "forbidden" }, [])).catch((x) => x);
+    expect(e.code).toBe("forbidden");
+  });
+});
+
+describe("downloadBonusStatement", () => {
+  it("скачивает ведомость квартала", async () => {
+    const calls: Call[] = [];
+    const xlsx = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const blob = await downloadBonusStatement("2026-10-01", fakeFetch(200, "PK", calls, xlsx));
+    expect(await blob.text()).toBe("PK");
+    expect(calls[0]).toMatchObject({ method: "GET", path: "/api/kpi/raises/statement?quarter=2026-10-01", credentials: "include" });
+  });
+  it("обрыв сети — network, 403 — forbidden", async () => {
+    const boom = (async () => { throw new TypeError("Failed to fetch"); }) as unknown as typeof fetch;
+    expect((await downloadBonusStatement("2026-10-01", boom).catch((x) => x)).code).toBe("network");
+    const e = await downloadBonusStatement("2026-10-01", fakeFetch(403, { error: "forbidden" }, [])).catch((x) => x);
     expect(e.code).toBe("forbidden");
   });
 });

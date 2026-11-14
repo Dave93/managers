@@ -8,7 +8,7 @@ const SLUGS: { slug: string; description: string }[] = [
   { slug: "kpi.evaluate", description: "KPI: оценки и нарушения по назначениям" },
   { slug: "kpi.view", description: "KPI: просмотр оценок, нарушений, споров" },
   { slug: "kpi.manage", description: "KPI: карты, оценщики, настройки, импорт" },
-  { slug: "kpi.approve", description: "KPI: закрытие месяца, споры, повышения" },
+  { slug: "kpi.approve", description: "KPI: закрытие месяца, споры, бонусы" },
 ];
 
 async function main() {

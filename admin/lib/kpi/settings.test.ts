@@ -76,7 +76,7 @@ describe("шкала", () => {
     expect(tiersFromDraft([], 500000)).toEqual({ tiers: [] });
     expect(tiersFromDraft([{ min_pct: "101", amount: "1" }], 500000)).toEqual({ error: "Порог ступени — число от 0 до 100" });
     expect(tiersFromDraft([{ min_pct: "90", amount: "-1" }], 500000)).toEqual({ error: "Сумма ступени — целое число сум, не меньше 0" });
-    expect(tiersFromDraft([{ min_pct: "95", amount: "600000" }], 500000)).toEqual({ error: "Сумма ступени больше потолка повышения (500\u00a0000\u00a0сум)" });
+    expect(tiersFromDraft([{ min_pct: "95", amount: "600000" }], 500000)).toEqual({ error: "Сумма ступени больше потолка бонуса (500\u00a0000\u00a0сум)" });
     expect(tiersFromDraft([{ min_pct: "90", amount: "1" }, { min_pct: "90,00", amount: "2" }], 500000)).toEqual({ error: "Пороги ступеней не должны повторяться" });
   });
 });

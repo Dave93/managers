@@ -8,7 +8,7 @@ import {
 import { and, desc, eq, gt, gte, inArray, sql } from "drizzle-orm";
 import { has, seesNetwork, type Actor, type DbLike } from "./access";
 import { now } from "./clock";
-import { loadDirectory, terminalNames, userNames } from "./directory";
+import { loadDirectory, terminalNames, terminalOrganizations, userNames } from "./directory";
 import { UUID_RE } from "./employees";
 import { KpiError } from "./errors";
 import { iso } from "./iso";
@@ -85,7 +85,9 @@ async function toRaiseRows(db: DbLike, rows: DecisionRow[]): Promise<RaiseRow[]>
   const stale = await staleIds(db, rows.map((r) => r.id));
   const dir = await loadDirectory(db, { employeeIds: rows.map((r) => r.employee_id), includeInactive: true });
   const emp = new Map(dir.map((d) => [d.id, d]));
-  const tNames = await terminalNames(db, rows.flatMap((r) => (r.terminal_id ? [r.terminal_id] : [])));
+  const tIds = rows.flatMap((r) => (r.terminal_id ? [r.terminal_id] : []));
+  const tNames = await terminalNames(db, tIds);
+  const tOrgs = await terminalOrganizations(db, tIds);
   const cardIds = [...new Set(rows.flatMap((r) => (r.card_id ? [r.card_id] : [])))];
   const cardTitles = new Map<string, string>();
   if (cardIds.length) {
@@ -109,6 +111,8 @@ async function toRaiseRows(db: DbLike, rows: DecisionRow[]): Promise<RaiseRow[]>
       employee_id: r.employee_id,
       employee_name: e ? `${e.first_name} ${e.last_name}`.trim() : r.employee_id,
       terminal_name: r.terminal_id ? (tNames.get(r.terminal_id) ?? null) : null,
+      organization_id: r.terminal_id ? (tOrgs.get(r.terminal_id)?.id ?? null) : null,
+      organization_name: r.terminal_id ? (tOrgs.get(r.terminal_id)?.name ?? null) : null,
       card_title: r.card_id ? (cardTitles.get(r.card_id) ?? null) : null,
       months: r.months as RaiseRow["months"],
       months_scored: r.months_scored,

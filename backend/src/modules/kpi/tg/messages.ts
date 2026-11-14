@@ -268,11 +268,11 @@ function raiseApproved(p: P, ctx: MessageCtx): OutMessage {
     const sum = fmtSum(amount);
     return {
       text: ru
-        ? `<b>Повышение оклада: ${q}</b>\nРешение HR: +${sum} сум.`
-        : `<b>Maosh oshirilishi: ${q}</b>\nHR qarori: +${sum} soʻm.`,
+        ? `<b>Бонус KPI: ${q}</b>\nРешение HR: ${sum} сум.`
+        : `<b>KPI bonusi: ${q}</b>\nHR qarori: ${sum} soʻm.`,
     };
   }
-  const line = amount === null ? `${DASH}.` : ru ? "без повышения." : "oshirishsiz.";
+  const line = amount === null ? `${DASH}.` : ru ? "без бонуса." : "bonussiz.";
   return {
     text: ru ? `<b>Итоги квартала: ${q}</b>\nРешение HR: ${line}` : `<b>Chorak yakunlari: ${q}</b>\nHR qarori: ${line}`,
   };

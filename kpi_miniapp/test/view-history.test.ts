@@ -49,7 +49,7 @@ it("макет: кварталы, итоги, месяцы, средний, сс
   expect(vm.quarters.map((q) => q.result)).toEqual([
     { text: "идёт", tone: "wait" },
     { text: `Утверждено +500${nb}000${nb}сум`, tone: "ok" },
-    { text: "Без прибавки", tone: "muted" },
+    { text: "Без бонуса", tone: "muted" },
   ]);
   expect(vm.quarters[0]!.months).toEqual([
     { label: "Октябрь", value: `90,3${nb}%`, hash: "#/review/2026-10" },
@@ -97,7 +97,7 @@ it("месяц ждёт оценки — «ещё не оценён»; ждём 
 it("узбекский", () => {
   const vm = historyView(ex(), "uz");
   expect(vm.quarters.map((q) => q.title)).toEqual(["2026-yil IV chorak", "2026-yil III chorak", "2026-yil II chorak"]);
-  expect(vm.quarters.map((q) => q.result.text)).toEqual(["davom etmoqda", `Tasdiqlandi +500${nb}000${nb}soʻm`, "Oshirishsiz"]);
+  expect(vm.quarters.map((q) => q.result.text)).toEqual(["davom etmoqda", `Tasdiqlandi +500${nb}000${nb}soʻm`, "Bonussiz"]);
   expect(vm.quarters[0]!.months.map((m) => [m.label, m.value])).toEqual([
     ["Oktabr", `90,3${nb}%`],
     ["Noyabr", "20-noyabrdan"],

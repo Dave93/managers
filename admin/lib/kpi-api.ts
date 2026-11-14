@@ -379,10 +379,10 @@ export function postAttendanceFile(file: File, fetcher: typeof fetch = fetch): P
   return postForm<AttendanceParseResponse>("/api/kpi/attendance/parse", fd, fetcher, ATTENDANCE_TIMEOUT_MS);
 }
 
-export async function downloadRaisesCsv(quarter: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+async function downloadFile(path: string, fetcher: typeof fetch): Promise<Blob> {
   let res: Response;
   try {
-    res = await fetcher(`/api/kpi/raises/export?quarter=${encodeURIComponent(quarter)}`, { method: "GET", credentials: "include" });
+    res = await fetcher(path, { method: "GET", credentials: "include" });
   } catch {
     throw new KpiApiError(0, "network", {});
   }
@@ -392,4 +392,13 @@ export async function downloadRaisesCsv(quarter: string, fetcher: typeof fetch =
   } catch {
     throw new KpiApiError(0, "network", {});
   }
+}
+
+export function downloadRaisesCsv(quarter: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+  return downloadFile(`/api/kpi/raises/export?quarter=${encodeURIComponent(quarter)}`, fetcher);
+}
+
+/** Ведомость на выдачу бонусов (.xlsx, лист на компанию) для подписи CEO. */
+export function downloadBonusStatement(quarter: string, fetcher: typeof fetch = fetch): Promise<Blob> {
+  return downloadFile(`/api/kpi/raises/statement?quarter=${encodeURIComponent(quarter)}`, fetcher);
 }
