@@ -8,6 +8,8 @@ const row = (o: Partial<RaiseRow> = {}): RaiseRow => ({
   employee_id: "e1",
   employee_name: "Тест Повар",
   terminal_name: "Филиал",
+  organization_id: null,
+  organization_name: null,
   card_title: "Повар",
   months: [
     { period: "2025-07-01", score_pct: 92 },
